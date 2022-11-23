@@ -43,8 +43,8 @@ import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createReso
 import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.trino.tests.product.TestGroups.HIVE_PARTITIONING;
-import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.Math.min;
 import static java.lang.String.format;

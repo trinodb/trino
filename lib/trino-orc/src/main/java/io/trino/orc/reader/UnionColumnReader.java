@@ -56,13 +56,14 @@ import static io.trino.orc.reader.ColumnReaders.createColumnReader;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 // Use row blocks to represent union objects when reading
 public class UnionColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(UnionColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(UnionColumnReader.class).instanceSize());
 
     private final OrcColumn column;
     private final OrcBlockFactory blockFactory;
@@ -259,7 +260,7 @@ public class UnionColumnReader
                 blocks[i + 1] = new LazyBlock(positionCount, new UnpackLazyBlockLoader(rawBlock, fieldType, valueIsNonNull[i]));
             }
             else {
-                blocks[i + 1] = new RunLengthEncodedBlock(
+                blocks[i + 1] = RunLengthEncodedBlock.create(
                         fieldType.createBlockBuilder(null, 1).appendNull().build(),
                         positionCount);
             }

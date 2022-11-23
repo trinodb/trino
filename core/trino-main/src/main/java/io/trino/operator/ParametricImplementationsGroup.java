@@ -15,8 +15,8 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Signature;
+import io.trino.spi.function.FunctionNullability;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.TypeSignature;
 
 import java.util.List;

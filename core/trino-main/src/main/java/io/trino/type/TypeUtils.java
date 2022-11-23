@@ -113,9 +113,7 @@ public final class TypeUtils
                     if (field.getName().isPresent()) {
                         return field.getName().get() + ' ' + typeDisplayName;
                     }
-                    else {
-                        return typeDisplayName;
-                    }
+                    return typeDisplayName;
                 })
                 .collect(toImmutableList());
 

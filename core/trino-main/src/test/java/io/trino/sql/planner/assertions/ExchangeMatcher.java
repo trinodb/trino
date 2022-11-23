@@ -17,6 +17,7 @@ import com.google.common.base.MoreObjects.ToStringHelper;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
+import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern.Ordering;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -38,14 +39,22 @@ final class ExchangeMatcher
 {
     private final ExchangeNode.Scope scope;
     private final Optional<ExchangeNode.Type> type;
+    private final Optional<PartitioningHandle> partitioningHandle;
     private final List<Ordering> orderBy;
     private final Set<String> partitionedBy;
     private final Optional<List<List<String>>> inputs;
 
-    public ExchangeMatcher(ExchangeNode.Scope scope, Optional<ExchangeNode.Type> type, List<Ordering> orderBy, Set<String> partitionedBy, Optional<List<List<String>>> inputs)
+    public ExchangeMatcher(
+            ExchangeNode.Scope scope,
+            Optional<ExchangeNode.Type> type,
+            Optional<PartitioningHandle> partitioningHandle,
+            List<Ordering> orderBy,
+            Set<String> partitionedBy,
+            Optional<List<List<String>>> inputs)
     {
         this.scope = requireNonNull(scope, "scope is null");
         this.type = requireNonNull(type, "type is null");
+        this.partitioningHandle = requireNonNull(partitioningHandle, "partitioningHandle is null");
         this.orderBy = requireNonNull(orderBy, "orderBy is null");
         this.partitionedBy = requireNonNull(partitionedBy, "partitionedBy is null");
         this.inputs = requireNonNull(inputs, "inputs is null");
@@ -59,7 +68,9 @@ final class ExchangeMatcher
         }
 
         ExchangeNode exchangeNode = (ExchangeNode) node;
-        return exchangeNode.getScope() == scope && type.map(requiredType -> requiredType == exchangeNode.getType()).orElse(true);
+        return exchangeNode.getScope() == scope
+                && type.map(requiredType -> requiredType == exchangeNode.getType()).orElse(true)
+                && partitioningHandle.map(handle -> handle.equals(exchangeNode.getPartitioningScheme().getPartitioning().getHandle())).orElse(true);
     }
 
     @Override
@@ -112,6 +123,7 @@ final class ExchangeMatcher
         ToStringHelper string = toStringHelper(this)
                 .add("scope", scope)
                 .add("type", type)
+                .add("partitionHandle", partitioningHandle)
                 .add("orderBy", orderBy)
                 .add("partitionedBy", partitionedBy);
         inputs.ifPresent(inputs -> string.add("inputs", inputs));

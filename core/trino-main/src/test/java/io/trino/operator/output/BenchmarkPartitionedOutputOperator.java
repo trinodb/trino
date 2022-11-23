@@ -19,9 +19,10 @@ import io.airlift.units.DataSize;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.OutputBufferStateMachine;
-import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.PartitionedOutputBuffer;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.jmh.Benchmarks;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
@@ -86,11 +87,10 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.chooseNullPositions;
 import static io.trino.block.BlockAssertions.createLongDictionaryBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
-import static io.trino.block.BlockAssertions.createRLEBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.block.BlockAssertions.createRandomLongsBlock;
-import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
-import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.output.BenchmarkPartitionedOutputOperator.BenchmarkData.TestType;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -264,14 +264,14 @@ public class BenchmarkPartitionedOutputOperator
                         positionCount,
                         types.size(),
                         () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                        createRLEBlock(42, positionCount));
+                        createRepeatedValuesBlock(42, positionCount));
             }),
             BIGINT_PARTITION_CHANNEL_RLE_NULL(BigintType.BIGINT, 20, (types, positionCount, nullRate) -> {
                 return page(
                         positionCount,
                         types.size(),
                         () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                        new RunLengthEncodedBlock(createLongsBlock((Long) null), positionCount));
+                        RunLengthEncodedBlock.create(createLongsBlock((Long) null), positionCount));
             }),
             LONG_DECIMAL(createDecimalType(MAX_SHORT_PRECISION + 1), 5000),
             DICTIONARY_LONG_DECIMAL(createDecimalType(MAX_SHORT_PRECISION + 1), 5000, PageTestUtils::createRandomDictionaryPage),
@@ -313,7 +313,7 @@ public class BenchmarkPartitionedOutputOperator
                                             positionCount,
                                             Optional.ofNullable(isNull),
                                             new Block[] {
-                                                    new RunLengthEncodedBlock(createLongsBlock(-65128734213L), notNullPositionsCount),
+                                                    RunLengthEncodedBlock.create(createLongsBlock(-65128734213L), notNullPositionsCount),
                                                     createRandomLongsBlock(notNullPositionsCount, nullRate)});
                                 })
                                 .collect(toImmutableList()));
@@ -437,9 +437,9 @@ public class BenchmarkPartitionedOutputOperator
 
         private PartitionedOutputBuffer createPartitionedOutputBuffer()
         {
-            OutputBuffers buffers = createInitialEmptyOutputBuffers(PARTITIONED);
+            PipelinedOutputBuffers buffers = PipelinedOutputBuffers.createInitial(PARTITIONED);
             for (int partition = 0; partition < partitionCount; partition++) {
-                buffers = buffers.withBuffer(new OutputBuffers.OutputBufferId(partition), partition);
+                buffers = buffers.withBuffer(new OutputBufferId(partition), partition);
             }
 
             return createPartitionedBuffer(
@@ -478,7 +478,7 @@ public class BenchmarkPartitionedOutputOperator
                     .addDriverContext();
         }
 
-        private TestingPartitionedOutputBuffer createPartitionedBuffer(OutputBuffers buffers, DataSize dataSize)
+        private TestingPartitionedOutputBuffer createPartitionedBuffer(PipelinedOutputBuffers buffers, DataSize dataSize)
         {
             return new TestingPartitionedOutputBuffer(
                     "task-instance-id",
@@ -498,7 +498,7 @@ public class BenchmarkPartitionedOutputOperator
             public TestingPartitionedOutputBuffer(
                     String taskInstanceId,
                     OutputBufferStateMachine stateMachine,
-                    OutputBuffers outputBuffers,
+                    PipelinedOutputBuffers outputBuffers,
                     DataSize maxBufferSize,
                     Supplier<LocalMemoryContext> memoryContextSupplier,
                     Executor notificationExecutor,

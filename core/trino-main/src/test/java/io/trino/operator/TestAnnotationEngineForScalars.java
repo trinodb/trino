@@ -17,25 +17,25 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionManager;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
+import io.trino.metadata.InternalFunctionDependencies;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.operator.annotations.LiteralImplementationDependency;
 import io.trino.operator.annotations.TypeImplementationDependency;
-import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
+import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
 import io.trino.operator.scalar.ParametricScalar;
 import io.trino.operator.scalar.annotations.ParametricScalarImplementation.ParametricScalarImplementationChoice;
 import io.trino.operator.scalar.annotations.ScalarFromAnnotationsParser;
 import io.trino.spi.block.Block;
+import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.IsNull;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
@@ -98,9 +98,9 @@ public class TestAnnotationEngineForScalars
         assertImplementationCount(scalar, 1, 0, 0);
 
         BoundSignature boundSignature = new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE));
-        ChoicesScalarFunctionImplementation specialized = (ChoicesScalarFunctionImplementation) scalar.specialize(
+        ChoicesSpecializedSqlScalarFunction specialized = (ChoicesSpecializedSqlScalarFunction) scalar.specialize(
                 boundSignature,
-                new FunctionDependencies(FUNCTION_MANAGER::getScalarFunctionInvoker, ImmutableMap.of(), ImmutableSet.of()));
+                new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
         assertFalse(specialized.getChoices().get(0).getInstanceFactory().isPresent());
     }
 
@@ -187,9 +187,9 @@ public class TestAnnotationEngineForScalars
         assertTrue(functionMetadata.getFunctionNullability().isArgumentNullable(1));
 
         BoundSignature boundSignature = new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE, DOUBLE));
-        ChoicesScalarFunctionImplementation specialized = (ChoicesScalarFunctionImplementation) scalar.specialize(
+        ChoicesSpecializedSqlScalarFunction specialized = (ChoicesSpecializedSqlScalarFunction) scalar.specialize(
                 boundSignature,
-                new FunctionDependencies(FUNCTION_MANAGER::getScalarFunctionInvoker, ImmutableMap.of(), ImmutableSet.of()));
+                new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
         assertFalse(specialized.getChoices().get(0).getInstanceFactory().isPresent());
     }
 
@@ -229,9 +229,9 @@ public class TestAnnotationEngineForScalars
         assertTrue(functionMetadata.getFunctionNullability().isArgumentNullable(1));
 
         BoundSignature boundSignature = new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE, DOUBLE));
-        ChoicesScalarFunctionImplementation specialized = (ChoicesScalarFunctionImplementation) scalar.specialize(
+        ChoicesSpecializedSqlScalarFunction specialized = (ChoicesSpecializedSqlScalarFunction) scalar.specialize(
                 boundSignature,
-                new FunctionDependencies(FUNCTION_MANAGER::getScalarFunctionInvoker, ImmutableMap.of(), ImmutableSet.of()));
+                new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
         assertFalse(specialized.getChoices().get(0).getInstanceFactory().isPresent());
     }
 

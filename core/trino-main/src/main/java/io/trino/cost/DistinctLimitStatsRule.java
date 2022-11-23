@@ -42,7 +42,7 @@ public class DistinctLimitStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(DistinctLimitNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(DistinctLimitNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
         if (node.isPartial()) {
             return Optional.empty();

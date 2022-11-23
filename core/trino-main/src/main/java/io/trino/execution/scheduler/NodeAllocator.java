@@ -14,6 +14,7 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.trino.execution.TaskId;
 import io.trino.metadata.InternalNode;
 
@@ -28,7 +29,7 @@ public interface NodeAllocator
      *
      * It is obligatory for the calling party to release all the leases they obtained via {@link NodeLease#release()}.
      */
-    NodeLease acquire(NodeRequirements requirements);
+    NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement);
 
     @Override
     void close();

@@ -21,6 +21,7 @@ import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import org.openjdk.jol.info.ClassLayout;
 
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -30,7 +31,7 @@ public class GroupedHistogramState
         extends AbstractGroupedAccumulatorState
         implements HistogramState
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedHistogramState.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedHistogramState.class).instanceSize());
     private final Type type;
     private final BlockPositionEqual equalOperator;
     private final BlockPositionHashCode hashCodeOperator;

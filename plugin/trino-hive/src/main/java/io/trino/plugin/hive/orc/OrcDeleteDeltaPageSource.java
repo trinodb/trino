@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.NameBasedFieldMapper;
 import io.trino.orc.OrcColumn;
@@ -25,7 +26,6 @@ import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;

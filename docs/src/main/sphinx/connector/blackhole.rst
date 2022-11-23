@@ -107,6 +107,9 @@ The connector provides :ref:`globally available <sql-globally-available>`,
 additional features:
 
 * :doc:`/sql/insert`
+* :doc:`/sql/update`
+* :doc:`/sql/delete`
+* :doc:`/sql/merge`
 * :doc:`/sql/create-table`
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`

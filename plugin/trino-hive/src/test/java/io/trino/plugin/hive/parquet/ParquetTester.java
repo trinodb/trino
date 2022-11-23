@@ -22,9 +22,12 @@ import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
+import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveSessionProperties;
 import io.trino.plugin.hive.HiveStorageFormat;
@@ -38,6 +41,7 @@ import io.trino.plugin.hive.parquet.write.SingleLevelArraySchemaConverter;
 import io.trino.plugin.hive.parquet.write.TestMapredParquetOutputFormat;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -59,6 +63,7 @@ import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.TestingConnectorSession;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
@@ -101,9 +106,11 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
+import static io.trino.parquet.ParquetWriteValidation.ParquetWriteValidationBuilder;
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING;
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING;
 import static io.trino.plugin.hive.AbstractTestHiveFileFormats.getFieldFromCursor;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
@@ -751,7 +758,8 @@ public class ParquetTester
                         .build(),
                 compressionCodecName,
                 "test-version",
-                Optional.of(DateTimeZone.getDefault()));
+                Optional.of(DateTimeZone.getDefault()),
+                Optional.of(new ParquetWriteValidationBuilder(types, columnNames)));
 
         PageBuilder pageBuilder = new PageBuilder(types);
         for (int i = 0; i < types.size(); ++i) {
@@ -768,6 +776,19 @@ public class ParquetTester
         pageBuilder.declarePositions(size);
         writer.write(pageBuilder.build());
         writer.close();
+        Path path = new Path(outputFile.getPath());
+        FileSystem fileSystem = HDFS_ENVIRONMENT.getFileSystem(SESSION.getIdentity(), path, newEmptyConfiguration());
+        try {
+            writer.validate(new HdfsParquetDataSource(
+                    new ParquetDataSourceId(path.toString()),
+                    fileSystem.getFileStatus(path).getLen(),
+                    fileSystem.open(path),
+                    new FileFormatDataSourceStats(),
+                    new ParquetReaderOptions()));
+        }
+        catch (IOException e) {
+            throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);
+        }
     }
 
     private static void writeValue(Type type, BlockBuilder blockBuilder, Object value)
@@ -782,11 +803,11 @@ public class ParquetTester
             else if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type) || BIGINT.equals(type)) {
                 type.writeLong(blockBuilder, ((Number) value).longValue());
             }
-            else if (Decimals.isShortDecimal(type)) {
-                type.writeLong(blockBuilder, ((SqlDecimal) value).getUnscaledValue().longValue());
-            }
-            else if (Decimals.isLongDecimal(type)) {
-                if (Decimals.overflows(((SqlDecimal) value).getUnscaledValue(), MAX_PRECISION_INT64)) {
+            else if (type instanceof DecimalType decimalType) {
+                if (decimalType.isShort()) {
+                    type.writeLong(blockBuilder, ((SqlDecimal) value).getUnscaledValue().longValue());
+                }
+                else if (Decimals.overflows(((SqlDecimal) value).getUnscaledValue(), MAX_PRECISION_INT64)) {
                     type.writeObject(blockBuilder, Int128.valueOf(((SqlDecimal) value).toBigDecimal().unscaledValue()));
                 }
                 else {

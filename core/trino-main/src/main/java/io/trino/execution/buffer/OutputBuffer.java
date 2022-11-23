@@ -17,7 +17,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine.StateChangeListener;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 
 import java.util.List;
 import java.util.Optional;
@@ -41,9 +40,9 @@ public interface OutputBuffer
     double getUtilization();
 
     /**
-     * Check if the buffer is blocking producers.
+     * Get buffer status
      */
-    boolean isOverutilized();
+    OutputBufferStatus getStatus();
 
     /**
      * Add a listener which fires anytime the buffer state changes.
@@ -65,17 +64,17 @@ public interface OutputBuffer
      * If the buffer result is marked as complete, the client must call abort to acknowledge
      * receipt of the final state.
      */
-    ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize);
+    ListenableFuture<BufferResult> get(PipelinedOutputBuffers.OutputBufferId bufferId, long token, DataSize maxSize);
 
     /**
      * Acknowledges the previously received pages from the output buffer.
      */
-    void acknowledge(OutputBufferId bufferId, long token);
+    void acknowledge(PipelinedOutputBuffers.OutputBufferId bufferId, long token);
 
     /**
      * Destroys the specified output buffer, discarding all pages.
      */
-    void destroy(OutputBufferId bufferId);
+    void destroy(PipelinedOutputBuffers.OutputBufferId bufferId);
 
     /**
      * Get a future that will be completed when the buffer is not full.

@@ -55,6 +55,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
@@ -63,7 +64,7 @@ public class SortingFileWriter
 {
     private static final Logger log = Logger.get(SortingFileWriter.class);
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SortingFileWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SortingFileWriter.class).instanceSize());
 
     private final FileSystem fileSystem;
     private final Path tempFilePrefix;

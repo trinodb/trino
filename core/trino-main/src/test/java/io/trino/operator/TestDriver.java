@@ -19,7 +19,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.units.Duration;
-import io.trino.connector.CatalogName;
 import io.trino.execution.ScheduledSplit;
 import io.trino.execution.SplitAssignment;
 import io.trino.memory.context.LocalMemoryContext;
@@ -49,6 +48,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -57,6 +57,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -193,7 +194,6 @@ public class TestDriver
 
     @Test
     public void testBrokenOperatorCloseWhileProcessing()
-            throws Exception
     {
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), false);
         Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
@@ -256,8 +256,31 @@ public class TestDriver
     }
 
     @Test
+    public void testUnblocksOnFinish()
+    {
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        TableScanOperator source = new AlwaysBlockedTableScanOperator(
+                driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
+                new PlanNodeId("source"),
+                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
+                        .addSequencePage(10, 20, 30, 40)
+                        .build()),
+                TEST_TABLE_HANDLE,
+                ImmutableList.of());
+
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(driverContext.getSession(), types);
+        BlockedSinkOperator sink = new BlockedSinkOperator(driverContext.addOperatorContext(1, new PlanNodeId("test"), "sink"), resultBuilder::page, Function.identity());
+        Driver driver = Driver.createDriver(driverContext, source, sink);
+
+        ListenableFuture<Void> blocked = driver.processForDuration(new Duration(100, TimeUnit.MILLISECONDS));
+        assertFalse(blocked.isDone());
+
+        sink.setFinished();
+        assertTrue(blocked.isDone());
+    }
+
+    @Test
     public void testBrokenOperatorAddSource()
-            throws Exception
     {
         PlanNodeId sourceId = new PlanNodeId("source");
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
@@ -301,7 +324,7 @@ public class TestDriver
 
     private static Split newMockSplit()
     {
-        return new Split(new CatalogName("test"), new MockSplit());
+        return new Split(TEST_CATALOG_HANDLE, new MockSplit());
     }
 
     private PageConsumerOperator createSinkOperator(List<Type> types)
@@ -417,6 +440,52 @@ public class TestDriver
             if (lockForClose) {
                 waitForUnlock();
             }
+        }
+    }
+
+    private static class BlockedSinkOperator
+            extends PageConsumerOperator
+    {
+        private final SettableFuture<Void> finished = SettableFuture.create();
+
+        public BlockedSinkOperator(
+                OperatorContext operatorContext,
+                Consumer<Page> pageConsumer,
+                Function<Page, Page> pagePreprocessor)
+        {
+            super(operatorContext, pageConsumer, pagePreprocessor);
+            operatorContext.setFinishedFuture(finished);
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return finished.isDone();
+        }
+
+        void setFinished()
+        {
+            finished.set(null);
+        }
+    }
+
+    private static class AlwaysBlockedTableScanOperator
+            extends TableScanOperator
+    {
+        public AlwaysBlockedTableScanOperator(
+                OperatorContext operatorContext,
+                PlanNodeId planNodeId,
+                PageSourceProvider pageSourceProvider,
+                TableHandle table,
+                Iterable<ColumnHandle> columns)
+        {
+            super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
+        }
+
+        @Override
+        public ListenableFuture<Void> isBlocked()
+        {
+            return SettableFuture.create();
         }
     }
 

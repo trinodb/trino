@@ -1,0 +1,27 @@
+{
+    "schemaName": "region",
+    "dimensionFieldSpecs": [
+        {
+            "name": "regionkey",
+            "dataType": "LONG"
+        },
+        {
+            "name": "name",
+            "dataType": "STRING"
+        },
+        {
+            "name": "comment",
+            "dataType": "STRING"
+        }
+    ],
+    "dateTimeFieldSpecs": [
+        {
+            "name": "updated_at_seconds",
+            "dataType": "LONG",
+            "defaultNullValue": 0,
+            "format": "1:SECONDS:EPOCH",
+            "transformFunction": "toEpochSeconds(updated_at)",
+            "granularity": "1:SECONDS"
+        }
+    ]
+}

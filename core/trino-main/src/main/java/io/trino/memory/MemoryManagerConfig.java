@@ -26,7 +26,6 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
@@ -41,6 +40,7 @@ public class MemoryManagerConfig
     private DataSize maxQueryMemory = DataSize.of(20, GIGABYTE);
     // enforced against user + system memory allocations (default is maxQueryMemory * 2)
     private DataSize maxQueryTotalMemory;
+    private DataSize faultTolerantExecutionCoordinatorTaskMemory = DataSize.of(2, GIGABYTE);
     private DataSize faultTolerantExecutionTaskMemory = DataSize.of(5, GIGABYTE);
     private double faultTolerantExecutionTaskMemoryGrowthFactor = 3.0;
     private double faultTolerantExecutionTaskMemoryEstimationQuantile = 0.9;
@@ -117,13 +117,27 @@ public class MemoryManagerConfig
     }
 
     @NotNull
+    public DataSize getFaultTolerantExecutionCoordinatorTaskMemory()
+    {
+        return faultTolerantExecutionCoordinatorTaskMemory;
+    }
+
+    @Config("fault-tolerant-execution-coordinator-task-memory")
+    @ConfigDescription("Estimated amount of memory a single coordinator task will use when task level retries are used; value is used when allocating nodes for tasks execution")
+    public MemoryManagerConfig setFaultTolerantExecutionCoordinatorTaskMemory(DataSize faultTolerantExecutionCoordinatorTaskMemory)
+    {
+        this.faultTolerantExecutionCoordinatorTaskMemory = faultTolerantExecutionCoordinatorTaskMemory;
+        return this;
+    }
+
+    @NotNull
     public DataSize getFaultTolerantExecutionTaskMemory()
     {
         return faultTolerantExecutionTaskMemory;
     }
 
     @Config(FAULT_TOLERANT_TASK_MEMORY_CONFIG)
-    @ConfigDescription("Estimated amount of memory a single task will use when task level retries are used; value is used allocating nodes for tasks execution")
+    @ConfigDescription("Estimated amount of memory a single task will use when task level retries are used; value is used when allocating nodes for tasks execution")
     public MemoryManagerConfig setFaultTolerantExecutionTaskMemory(DataSize faultTolerantExecutionTaskMemory)
     {
         this.faultTolerantExecutionTaskMemory = faultTolerantExecutionTaskMemory;
@@ -184,7 +198,7 @@ public class MemoryManagerConfig
 
         public static LowMemoryQueryKillerPolicy fromString(String value)
         {
-            switch (requireNonNull(value, "value is null").toLowerCase(ENGLISH)) {
+            switch (value.toLowerCase(ENGLISH)) {
                 case "none":
                     return NONE;
                 case "total-reservation":
@@ -206,7 +220,7 @@ public class MemoryManagerConfig
 
         public static LowMemoryTaskKillerPolicy fromString(String value)
         {
-            switch (requireNonNull(value, "value is null").toLowerCase(ENGLISH)) {
+            switch (value.toLowerCase(ENGLISH)) {
                 case "none":
                     return NONE;
                 case "total-reservation-on-blocked-nodes":

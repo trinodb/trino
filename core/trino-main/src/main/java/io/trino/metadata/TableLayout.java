@@ -15,7 +15,7 @@ package io.trino.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.sql.planner.PartitioningHandle;
@@ -29,25 +29,25 @@ import static java.util.Objects.requireNonNull;
 
 public class TableLayout
 {
-    private final CatalogName catalogName;
+    private final CatalogHandle catalogHandle;
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorTableLayout layout;
 
     @JsonCreator
     public TableLayout(
-            @JsonProperty("catalogName") CatalogName catalogName,
+            @JsonProperty("catalogHandle") CatalogHandle catalogHandle,
             @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
             @JsonProperty("layout") ConnectorTableLayout layout)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         this.layout = requireNonNull(layout, "layout is null");
     }
 
     @JsonProperty
-    public CatalogName getCatalogName()
+    public CatalogHandle getCatalogName()
     {
-        return catalogName;
+        return catalogHandle;
     }
 
     @JsonProperty
@@ -59,7 +59,7 @@ public class TableLayout
     public Optional<PartitioningHandle> getPartitioning()
     {
         return layout.getPartitioning()
-                .map(partitioning -> new PartitioningHandle(Optional.of(catalogName), Optional.of(transactionHandle), partitioning));
+                .map(partitioning -> new PartitioningHandle(Optional.of(catalogHandle), Optional.of(transactionHandle), partitioning));
     }
 
     public List<String> getPartitionColumns()
@@ -78,7 +78,7 @@ public class TableLayout
         }
 
         TableLayout that = (TableLayout) o;
-        return Objects.equals(catalogName, that.catalogName) &&
+        return Objects.equals(catalogHandle, that.catalogHandle) &&
                 Objects.equals(transactionHandle, that.transactionHandle) &&
                 Objects.equals(layout, that.layout);
     }
@@ -86,14 +86,14 @@ public class TableLayout
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogName, transactionHandle, layout);
+        return Objects.hash(catalogHandle, transactionHandle, layout);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("catalogName", catalogName)
+                .add("catalogHandle", catalogHandle)
                 .add("transactionHandle", transactionHandle)
                 .add("layout", layout)
                 .toString();

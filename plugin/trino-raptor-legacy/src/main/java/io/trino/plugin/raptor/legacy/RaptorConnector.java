@@ -102,8 +102,8 @@ public class RaptorConnector
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
-        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null").getSessionProperties();
-        this.tableProperties = requireNonNull(tableProperties, "tableProperties is null").getTableProperties();
+        this.sessionProperties = sessionProperties.getSessionProperties();
+        this.tableProperties = tableProperties.getTableProperties();
         this.systemTables = requireNonNull(systemTables, "systemTables is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.dao = onDemandDao(dbi, MetadataDao.class);

@@ -133,7 +133,7 @@ either:
 Using JWTs with clients
 -----------------------
 
-When using the Trino :doc:`CLI </installation/cli>`, specify a JWT as described
+When using the Trino :doc:`CLI </client/cli>`, specify a JWT as described
 in :ref:`cli-jwt-auth`.
 
 When using the Trino JDBC driver, specify a JWT with the ``accessToken``

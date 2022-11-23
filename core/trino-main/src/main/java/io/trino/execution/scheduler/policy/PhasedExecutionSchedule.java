@@ -307,7 +307,7 @@ public class PhasedExecutionSchedule
         public Visitor(QueryId queryId, Collection<PlanFragment> fragments)
         {
             this.queryId = queryId;
-            this.fragments = requireNonNull(fragments, "fragments is null").stream()
+            this.fragments = fragments.stream()
                     .collect(toImmutableMap(PlanFragment::getId, identity()));
         }
 

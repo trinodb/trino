@@ -14,7 +14,7 @@
 package io.trino.parquet.reader;
 
 import io.airlift.slice.Slice;
-import io.trino.parquet.RichColumnDescriptor;
+import io.trino.parquet.PrimitiveField;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
@@ -29,9 +29,9 @@ import static io.trino.spi.type.Varchars.truncateToLength;
 public class BinaryColumnReader
         extends PrimitiveColumnReader
 {
-    public BinaryColumnReader(RichColumnDescriptor descriptor)
+    public BinaryColumnReader(PrimitiveField field)
     {
-        super(descriptor);
+        super(field);
     }
 
     @Override

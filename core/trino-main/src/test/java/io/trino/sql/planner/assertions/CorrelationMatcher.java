@@ -72,12 +72,10 @@ public class CorrelationMatcher
         if (node instanceof ApplyNode) {
             return ((ApplyNode) node).getCorrelation();
         }
-        else if (node instanceof CorrelatedJoinNode) {
+        if (node instanceof CorrelatedJoinNode) {
             return ((CorrelatedJoinNode) node).getCorrelation();
         }
-        else {
-            throw new IllegalStateException("Unexpected plan node: " + node);
-        }
+        throw new IllegalStateException("Unexpected plan node: " + node);
     }
 
     @Override

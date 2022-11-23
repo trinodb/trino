@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.testing.BaseConnectorTest;
@@ -23,11 +22,14 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
+import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Strings.nullToEmpty;
@@ -37,9 +39,9 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertFalse;
 
 public class TestBigQueryConnectorTest
         extends BaseConnectorTest
@@ -61,25 +63,33 @@ public class TestBigQueryConnectorTest
                 ImmutableMap.of());
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
             case SUPPORTS_TOPN_PUSHDOWN:
-            case SUPPORTS_RENAME_SCHEMA:
-            case SUPPORTS_RENAME_TABLE:
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
-            case SUPPORTS_CREATE_TABLE_WITH_DATA:
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-            case SUPPORTS_DELETE:
-            case SUPPORTS_INSERT:
-            case SUPPORTS_ADD_COLUMN:
-            case SUPPORTS_DROP_COLUMN:
-            case SUPPORTS_RENAME_COLUMN:
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
+
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
+            case SUPPORTS_RENAME_TABLE:
+                return false;
+
+            case SUPPORTS_ADD_COLUMN:
+            case SUPPORTS_RENAME_COLUMN:
+                return false;
+
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
+
+            case SUPPORTS_TRUNCATE:
+                return true;
+
+            case SUPPORTS_NEGATIVE_DATE:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -150,8 +160,6 @@ public class TestBigQueryConnectorTest
                 {"time with time zone", "time(6)"},
                 {"timestamp(6)", "timestamp(6)"},
                 {"timestamp(6) with time zone", "timestamp(6) with time zone"},
-                {"char", "varchar"},
-                {"char(65535)", "varchar"},
                 {"varchar", "varchar"},
                 {"varchar(65535)", "varchar"},
                 {"varbinary", "varbinary"},
@@ -206,88 +214,34 @@ public class TestBigQueryConnectorTest
         }
     }
 
-    @Test
     @Override
-    public void testCreateTableAsSelect()
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        assertThatThrownBy(super::testCreateTableAsSelect)
-                .hasStackTraceContaining("This connector does not support creating tables with data");
-    }
-
-    @Test
-    @Override
-    public void testCreateTableAsSelectWithUnicode()
-    {
-        assertThatThrownBy(super::testCreateTableAsSelectWithUnicode)
-                .hasStackTraceContaining("This connector does not support creating tables with data");
-    }
-
-    @Test
-    @Override
-    public void testRenameTable()
-    {
-        // Use CREATE TABLE instead of CREATE TABLE AS statement
-        String tableName = "test_rename_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (x int)");
-
-        String renamedTable = "test_rename_new_" + randomTableSuffix();
-        assertQueryFails("ALTER TABLE " + tableName + " RENAME TO " + renamedTable, "This connector does not support renaming tables");
-    }
-
-    @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
-    @Override
-    public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
-    {
-        assertThatThrownBy(() -> super.testDataMappingSmokeTest(dataMappingTestSetup))
-                .hasMessageContaining("This connector does not support creating tables with data");
-    }
-
-    @Test(dataProvider = "testCaseSensitiveDataMappingProvider")
-    @Override
-    public void testCaseSensitiveDataMapping(DataMappingTestSetup dataMappingTestSetup)
-    {
-        assertThatThrownBy(() -> super.testCaseSensitiveDataMapping(dataMappingTestSetup))
-                .hasMessageContaining("This connector does not support creating tables with data");
+        switch (dataMappingTestSetup.getTrinoTypeName()) {
+            case "real":
+            case "char(3)":
+            case "decimal(5,3)":
+            case "decimal(15,3)":
+            case "time":
+            case "time(3)":
+            case "time(6)":
+            case "timestamp":
+            case "timestamp(3)":
+            case "timestamp(3) with time zone":
+            case "timestamp(6) with time zone":
+                return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+        return Optional.of(dataMappingTestSetup);
     }
 
     @Override
-    protected void testColumnName(String columnName, boolean delimited)
+    protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        // Override because BigQuery connector doesn't support INSERT statement
-        String nameInSql = columnName;
-        if (delimited) {
-            nameInSql = "\"" + columnName.replace("\"", "\"\"") + "\"";
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("char(1)")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
         }
-        String tableName = "test.tcn_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "") + randomTableSuffix();
-
-        try {
-            // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
-            assertUpdate("CREATE TABLE " + tableName + "(key varchar(50), " + nameInSql + " varchar(50))");
-        }
-        catch (RuntimeException e) {
-            if (isColumnNameRejected(e, columnName, delimited)) {
-                // It is OK if give column name is not allowed and is clearly rejected by the connector.
-                return;
-            }
-            throw e;
-        }
-        try {
-            // Execute INSERT statement in BigQuery
-            onBigQuery("INSERT INTO " + tableName + " VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')");
-
-            // SELECT *
-            assertQuery("SELECT * FROM " + tableName, "VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')");
-
-            // projection
-            assertQuery("SELECT " + nameInSql + " FROM " + tableName, "VALUES (NULL), ('abc'), ('xyz')");
-
-            // predicate
-            assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " IS NULL", "VALUES ('null value')");
-            assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " = 'abc'", "VALUES ('sample value')");
-        }
-        finally {
-            assertUpdate("DROP TABLE " + tableName);
-        }
+        return Optional.of(dataMappingTestSetup);
     }
 
     @Override
@@ -509,44 +463,11 @@ public class TestBigQueryConnectorTest
                         ")");
     }
 
-    @Test
     @Override
-    public void testCharVarcharComparison()
+    public void testReadMetadataWithRelationsConcurrentModifications()
     {
-        // BigQuery doesn't have char type
-        assertThatThrownBy(super::testCharVarcharComparison)
-                .hasMessage("This connector does not support creating tables with data");
-    }
-
-    @Test
-    @Override
-    public void testVarcharCharComparison()
-    {
-        // Use BigQuery SQL executor because the connector doesn't support INSERT statement
-        try (TestTable table = new TestTable(
-                bigQuerySqlExecutor,
-                "test.test_varchar_char",
-                "(k int, v string(3))",
-                ImmutableList.of(
-                        "-1, NULL",
-                        "0, ''",
-                        "1, ' '",
-                        "2, '  '",
-                        "3, '   '",
-                        "4, 'x'",
-                        "5, 'x '",
-                        "6, 'x  '"))) {
-            assertQuery(
-                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS char(2))",
-                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
-                    "VALUES (0, ''), (1, ' '), (2, '  '), (3, '   ')");
-
-            // value that's not all-spaces
-            assertQuery(
-                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS char(2))",
-                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
-                    "VALUES (4, 'x'), (5, 'x '), (6, 'x  ')");
-        }
+        // TODO: Enable this test after fixing "Task did not completed before timeout" (https://github.com/trinodb/trino/issues/14230)
+        throw new SkipException("Test fails with a timeout sometimes and is flaky");
     }
 
     @Test
@@ -574,17 +495,6 @@ public class TestBigQueryConnectorTest
         assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
         assertThatThrownBy(() -> query("SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'"))
                 .hasMessageMatching(".*Row filter for .* is invalid\\. Filter is '\\(`orderdate` = '-1996-09-14'\\)'");
-    }
-
-    @Test
-    @Override
-    public void testSymbolAliasing()
-    {
-        // Create table in BigQuery because the connector doesn't support CREATE TABLE AS SELECT statement
-        String tableName = "test.test_symbol_aliasing" + randomTableSuffix();
-        onBigQuery("CREATE TABLE " + tableName + " AS SELECT 1 foo_1, 2 foo_2_4");
-        assertQuery("SELECT foo_1, foo_2_4 FROM " + tableName, "SELECT 1, 2");
-        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -622,6 +532,27 @@ public class TestBigQueryConnectorTest
         }
         finally {
             onBigQuery("DROP SNAPSHOT TABLE IF EXISTS test." + snapshotTable);
+        }
+    }
+
+    @Test
+    @Parameters("testing.gcp-storage-bucket")
+    public void testBigQueryExternalTable(String gcpStorageBucket)
+    {
+        // Prerequisite: upload region.csv in resources directory to gs://{testing.gcp-storage-bucket}/tpch/tiny/region.csv
+        String externalTable = "test_external" + randomTableSuffix();
+        try {
+            onBigQuery("CREATE EXTERNAL TABLE test." + externalTable + " OPTIONS (format = 'CSV', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
+            assertQuery("SELECT table_type FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + externalTable + "'", "VALUES 'BASE TABLE'");
+
+            assertThat(query("DESCRIBE test." + externalTable)).matches("DESCRIBE tpch.region");
+            assertThat(query("SELECT * FROM test." + externalTable)).matches("SELECT * FROM tpch.region");
+
+            assertUpdate("DROP TABLE test." + externalTable);
+            assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + externalTable + "'");
+        }
+        finally {
+            onBigQuery("DROP EXTERNAL TABLE IF EXISTS test." + externalTable);
         }
     }
 
@@ -670,7 +601,7 @@ public class TestBigQueryConnectorTest
 
             // Unsupported operations
             assertQueryFails("DROP TABLE test.\"" + wildcardTable + "\"", "This connector does not support dropping wildcard tables");
-            assertQueryFails("INSERT INTO test.\"" + wildcardTable + "\" VALUES (1)", "This connector does not support inserts");
+            assertQueryFails("INSERT INTO test.\"" + wildcardTable + "\" VALUES (1)", "This connector does not support inserting into wildcard tables");
             assertQueryFails("ALTER TABLE test.\"" + wildcardTable + "\" ADD COLUMN new_column INT", "This connector does not support adding columns");
             assertQueryFails("ALTER TABLE test.\"" + wildcardTable + "\" RENAME TO test.new_wildcard_table", "This connector does not support renaming tables");
         }
@@ -710,6 +641,18 @@ public class TestBigQueryConnectorTest
     }
 
     @Override
+    protected OptionalInt maxSchemaNameLength()
+    {
+        return OptionalInt.of(1024);
+    }
+
+    @Override
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Invalid dataset ID");
+    }
+
+    @Override
     protected OptionalInt maxTableNameLength()
     {
         return OptionalInt.of(1024);
@@ -719,6 +662,148 @@ public class TestBigQueryConnectorTest
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageContaining("Invalid table ID");
+    }
+
+    // test polymorphic table function
+
+    @Test
+    public void testNativeQuerySimple()
+    {
+        assertQuery(
+                "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT 1'))",
+                "VALUES 1");
+    }
+
+    @Test
+    public void testNativeQuerySelectFromNation()
+    {
+        assertQuery(
+                "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT name FROM tpch.nation WHERE nationkey = 0'))",
+                "VALUES 'ALGERIA'");
+        assertQuery(
+                "SELECT name FROM TABLE(bigquery.system.query(query => 'SELECT * FROM tpch.nation')) WHERE nationkey = 0",
+                "VALUES 'ALGERIA'");
+    }
+
+    @Test
+    public void testNativeQuerySelectFromTestTable()
+    {
+        String tableName = "test.test_select" + randomTableSuffix();
+        try {
+            onBigQuery("CREATE TABLE " + tableName + "(col BIGINT)");
+            onBigQuery("INSERT INTO " + tableName + " VALUES (1), (2)");
+            assertQuery(
+                    "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM " + tableName + "'))",
+                    "VALUES 1, 2");
+        }
+        finally {
+            onBigQuery("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testNativeQuerySelectUnsupportedType()
+    {
+        String tableName = "test_unsupported" + randomTableSuffix();
+        try {
+            onBigQuery("CREATE TABLE test." + tableName + "(one BIGINT, two BIGNUMERIC(40,2), three STRING)");
+            // Check that column 'two' is not supported.
+            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = 'test' AND table_name = '" + tableName + "'", "VALUES 'one', 'three'");
+            assertThatThrownBy(() -> query("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM test." + tableName + "'))"))
+                    .hasMessageContaining("Unsupported type");
+        }
+        finally {
+            onBigQuery("DROP TABLE IF EXISTS test." + tableName);
+        }
+    }
+
+    @Test
+    public void testNativeQueryCreateStatement()
+    {
+        String tableName = "test_create" + randomTableSuffix();
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(bigquery.system.query(query => 'CREATE TABLE test." + tableName + "(n INTEGER)'))"))
+                .hasMessage("Unsupported statement type: CREATE_TABLE");
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
+    public void testNativeQueryInsertStatementTableDoesNotExist()
+    {
+        String tableName = "test_insert" + randomTableSuffix();
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(bigquery.system.query(query => 'INSERT INTO test." + tableName + " VALUES (1)'))"))
+                .hasMessageContaining("Failed to get schema for query")
+                .hasStackTraceContaining("%s was not found", tableName);
+    }
+
+    @Test
+    public void testNativeQueryInsertStatementTableExists()
+    {
+        String tableName = "test_insert" + randomTableSuffix();
+        try {
+            onBigQuery("CREATE TABLE test." + tableName + "(col BIGINT)");
+            assertThatThrownBy(() -> query("SELECT * FROM TABLE(bigquery.system.query(query => 'INSERT INTO test." + tableName + " VALUES (3)'))"))
+                    .hasMessage("Unsupported statement type: INSERT");
+        }
+        finally {
+            onBigQuery("DROP TABLE IF EXISTS test." + tableName);
+        }
+    }
+
+    @Test
+    public void testNativeQueryIncorrectSyntax()
+    {
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .hasMessageContaining("Failed to get schema for query");
+    }
+
+    @Override
+    public void testInsertArray()
+    {
+        // Override because the connector disallows writing a NULL in ARRAY
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_array_", "(a ARRAY<DOUBLE>, b ARRAY<BIGINT>)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (ARRAY[1.23E1], ARRAY[1.23E1])", 1);
+            assertQuery("SELECT a[1], b[1] FROM " + table.getName(), "VALUES (12.3, 12)");
+        }
+    }
+
+    @Override
+    protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
+    {
+        return format(".*Invalid date: '%s'.*", date);
+    }
+
+    @Override
+    protected String errorMessageForInsertNegativeDate(String date)
+    {
+        return format(".*Invalid date: '%s'.*", date);
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("BigQuery connector does not support column default values");
+    }
+
+    @Override
+    public void testCharVarcharComparison()
+    {
+        assertThatThrownBy(super::testCharVarcharComparison)
+                .hasMessage("Unsupported column type: char(3)");
+    }
+
+    @Override
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(300);
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e)
+                .hasMessageContaining("Fields must contain only letters, numbers, and underscores, start with a letter or underscore, and be at most 300 characters long.");
     }
 
     private void onBigQuery(@Language("SQL") String sql)

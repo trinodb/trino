@@ -24,7 +24,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 
-// This methods are statically bound by the compiler
+// These methods are statically bound by the compiler
 @SuppressWarnings("UnusedDeclaration")
 public final class CompilerOperations
 {

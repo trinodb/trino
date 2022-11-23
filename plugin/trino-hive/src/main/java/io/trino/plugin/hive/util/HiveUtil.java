@@ -17,7 +17,9 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.lzo.LzopCodec;
 import io.airlift.slice.Slice;
@@ -36,6 +38,7 @@ import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -96,14 +99,18 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.hdfs.ConfigurationUtils.copy;
+import static io.trino.hdfs.ConfigurationUtils.toJobConf;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.bucketColumnHandle;
@@ -133,8 +140,6 @@ import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.trino.plugin.hive.HiveType.toHiveTypes;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
-import static io.trino.plugin.hive.util.ConfigurationUtils.copy;
-import static io.trino.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -144,8 +149,6 @@ import static io.trino.spi.type.Chars.trimTrailingSpaces;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -358,7 +361,7 @@ public final class HiveUtil
     private static Class<? extends InputFormat<?, ?>> getInputFormatClass(JobConf conf, String inputFormatName)
             throws ClassNotFoundException
     {
-        // CDH uses different names for Parquet
+        // legacy names for Parquet
         if ("parquet.hive.DeprecatedParquetInputFormat".equals(inputFormatName) ||
                 "parquet.hive.MapredParquetInputFormat".equals(inputFormatName)) {
             return MapredParquetInputFormat.class;
@@ -462,7 +465,7 @@ public final class HiveUtil
 
     private static Class<? extends Deserializer> getDeserializerClass(String name)
     {
-        // CDH uses different names for Parquet
+        // legacy name for Parquet
         if ("parquet.hive.serde.ParquetHiveSerDe".equals(name)) {
             return ParquetHiveSerDe.class;
         }
@@ -556,12 +559,10 @@ public final class HiveUtil
                 }
                 return NullableValue.of(decimalType, shortDecimalPartitionKey(value, decimalType, partitionName));
             }
-            else {
-                if (value.isEmpty()) {
-                    return NullableValue.of(decimalType, Int128.ZERO);
-                }
-                return NullableValue.of(decimalType, longDecimalPartitionKey(value, decimalType, partitionName));
+            if (value.isEmpty()) {
+                return NullableValue.of(decimalType, Int128.ZERO);
             }
+            return NullableValue.of(decimalType, longDecimalPartitionKey(value, decimalType, partitionName));
         }
 
         if (BOOLEAN.equals(type)) {
@@ -685,9 +686,7 @@ public final class HiveUtil
             int scale = parseInt(matcher.group(DECIMAL_SCALE_GROUP));
             return Optional.of(createDecimalType(precision, scale));
         }
-        else {
-            return Optional.empty();
-        }
+        return Optional.empty();
     }
 
     public static boolean isArrayType(Type type)
@@ -988,50 +987,50 @@ public final class HiveUtil
         if (isHiveNull(bytes)) {
             return NullableValue.asNull(type);
         }
-        else if (type.equals(BOOLEAN)) {
+        if (type.equals(BOOLEAN)) {
             return NullableValue.of(type, booleanPartitionKey(columnValue, name));
         }
-        else if (type.equals(BIGINT)) {
+        if (type.equals(BIGINT)) {
             return NullableValue.of(type, bigintPartitionKey(columnValue, name));
         }
-        else if (type.equals(INTEGER)) {
+        if (type.equals(INTEGER)) {
             return NullableValue.of(type, integerPartitionKey(columnValue, name));
         }
-        else if (type.equals(SMALLINT)) {
+        if (type.equals(SMALLINT)) {
             return NullableValue.of(type, smallintPartitionKey(columnValue, name));
         }
-        else if (type.equals(TINYINT)) {
+        if (type.equals(TINYINT)) {
             return NullableValue.of(type, tinyintPartitionKey(columnValue, name));
         }
-        else if (type.equals(REAL)) {
+        if (type.equals(REAL)) {
             return NullableValue.of(type, floatPartitionKey(columnValue, name));
         }
-        else if (type.equals(DOUBLE)) {
+        if (type.equals(DOUBLE)) {
             return NullableValue.of(type, doublePartitionKey(columnValue, name));
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return NullableValue.of(type, varcharPartitionKey(columnValue, name, type));
         }
-        else if (type instanceof CharType) {
+        if (type instanceof CharType) {
             return NullableValue.of(type, charPartitionKey(columnValue, name, type));
         }
-        else if (type.equals(DATE)) {
+        if (type.equals(DATE)) {
             return NullableValue.of(type, datePartitionKey(columnValue, name));
         }
-        else if (type.equals(TIMESTAMP_MILLIS)) {
+        if (type.equals(TIMESTAMP_MILLIS)) {
             return NullableValue.of(type, timestampPartitionKey(columnValue, name));
         }
-        else if (type.equals(TIMESTAMP_TZ_MILLIS)) {
+        if (type.equals(TIMESTAMP_TZ_MILLIS)) {
             // used for $file_modified_time
             return NullableValue.of(type, packDateTimeWithZone(floorDiv(timestampPartitionKey(columnValue, name), MICROSECONDS_PER_MILLISECOND), DateTimeZone.getDefault().getID()));
         }
-        else if (isShortDecimal(type)) {
-            return NullableValue.of(type, shortDecimalPartitionKey(columnValue, (DecimalType) type, name));
+        if (type instanceof DecimalType decimalType) {
+            if (decimalType.isShort()) {
+                return NullableValue.of(type, shortDecimalPartitionKey(columnValue, decimalType, name));
+            }
+            return NullableValue.of(type, longDecimalPartitionKey(columnValue, decimalType, name));
         }
-        else if (isLongDecimal(type)) {
-            return NullableValue.of(type, longDecimalPartitionKey(columnValue, (DecimalType) type, name));
-        }
-        else if (type.equals(VarbinaryType.VARBINARY)) {
+        if (type.equals(VarbinaryType.VARBINARY)) {
             return NullableValue.of(type, utf8Slice(columnValue));
         }
 
@@ -1158,5 +1157,38 @@ public final class HiveUtil
     {
         return table.getParameters().containsKey(SPARK_TABLE_PROVIDER_KEY)
                 && table.getParameters().containsKey(SPARK_TABLE_BUCKET_NUMBER_KEY);
+    }
+
+    public static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table)
+    {
+        ImmutableList.Builder<String> columnNames = ImmutableList.builder();
+        table.getPartitionColumns().stream().map(Column::getName).forEach(columnNames::add);
+        table.getDataColumns().stream().map(Column::getName).forEach(columnNames::add);
+        List<String> allColumnNames = columnNames.build();
+        if (allColumnNames.size() > Sets.newHashSet(allColumnNames).size()) {
+            throw new TrinoException(HIVE_INVALID_METADATA,
+                    format("Hive metadata for table %s is invalid: Table descriptor contains duplicate columns", table.getTableName()));
+        }
+
+        List<Column> tableColumns = table.getDataColumns();
+        ImmutableMap.Builder<String, Optional<String>> builder = ImmutableMap.builder();
+        for (Column field : concat(tableColumns, table.getPartitionColumns())) {
+            if (field.getComment().isPresent() && !field.getComment().get().equals("from deserializer")) {
+                builder.put(field.getName(), field.getComment());
+            }
+            else {
+                builder.put(field.getName(), Optional.empty());
+            }
+        }
+
+        Map<String, Optional<String>> columnComment = builder.buildOrThrow();
+
+        return handle -> ColumnMetadata.builder()
+                .setName(handle.getName())
+                .setType(handle.getType())
+                .setComment(handle.isHidden() ? Optional.empty() : columnComment.get(handle.getName()))
+                .setExtraInfo(Optional.ofNullable(columnExtraInfo(handle.isPartitionKey())))
+                .setHidden(handle.isHidden())
+                .build();
     }
 }

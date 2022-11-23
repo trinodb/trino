@@ -20,12 +20,12 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Objects;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveTypeName
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveTypeName.class).instanceSize() +
-            ClassLayout.parseClass(String.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(HiveTypeName.class).instanceSize() + ClassLayout.parseClass(String.class).instanceSize());
 
     private final String value;
 

@@ -16,7 +16,7 @@ anymore.
 USE CATALOG and USE SCHEMA
 --------------------------
 
-The :doc:`/installation/cli` now supports ``USE CATALOG`` and
+The :doc:`/client/cli` now supports ``USE CATALOG`` and
 ``USE SCHEMA``.
 
 

@@ -34,9 +34,9 @@ public class BigQueryViewCreateAndInsertDataSetup
     }
 
     @Override
-    public TestTable setupTestTable(List<ColumnSetup> inputs)
+    public TestTable setupTemporaryRelation(List<ColumnSetup> inputs)
     {
-        TestTable table = super.setupTestTable(inputs);
+        TestTable table = super.setupTemporaryRelation(inputs);
         BigQueryTestView view = new BigQueryTestView(sqlExecutor, table);
         view.createView();
         return view;

@@ -107,7 +107,6 @@ public class NimbusOAuth2Client
     @Inject
     public NimbusOAuth2Client(OAuth2Config oauthConfig, OAuth2ServerConfigProvider serverConfigurationProvider, NimbusHttpClient httpClient)
     {
-        requireNonNull(oauthConfig, "oauthConfig is null");
         issuer = new Issuer(oauthConfig.getIssuer());
         clientId = new ClientID(oauthConfig.getClientId());
         clientAuth = new ClientSecretBasic(clientId, new Secret(oauthConfig.getClientSecret()));

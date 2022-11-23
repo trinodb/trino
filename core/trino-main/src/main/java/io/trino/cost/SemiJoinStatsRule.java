@@ -36,7 +36,7 @@ public class SemiJoinStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> calculate(SemiJoinNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types)
+    public Optional<PlanNodeStatsEstimate> calculate(SemiJoinNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
         PlanNodeStatsEstimate sourceStats = statsProvider.getStats(node.getSource());
 

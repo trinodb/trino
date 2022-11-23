@@ -45,4 +45,10 @@ class TestingEventListener
     {
         eventsCollector.addSplitCompleted(splitCompletedEvent);
     }
+
+    @Override
+    public boolean requiresAnonymizedPlan()
+    {
+        return eventsCollector.requiresAnonymizedPlan();
+    }
 }

@@ -16,22 +16,25 @@ package io.trino.plugin.iceberg;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.RetryMode;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergWritableTableHandle
         implements ConnectorInsertTableHandle, ConnectorOutputTableHandle
 {
-    private final String schemaName;
-    private final String tableName;
+    private final SchemaTableName name;
     private final String schemaAsJson;
-    private final String partitionSpecAsJson;
+    private final Map<Integer, String> partitionsSpecsAsJson;
+    private final int partitionSpecId;
     private final List<IcebergColumnHandle> inputColumns;
     private final String outputPath;
     private final IcebergFileFormat fileFormat;
@@ -40,37 +43,32 @@ public class IcebergWritableTableHandle
 
     @JsonCreator
     public IcebergWritableTableHandle(
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
+            @JsonProperty("name") SchemaTableName name,
             @JsonProperty("schemaAsJson") String schemaAsJson,
-            @JsonProperty("partitionSpecAsJson") String partitionSpecAsJson,
+            @JsonProperty("partitionSpecsAsJson") Map<Integer, String> partitionsSpecsAsJson,
+            @JsonProperty("partitionSpecId") int partitionSpecId,
             @JsonProperty("inputColumns") List<IcebergColumnHandle> inputColumns,
             @JsonProperty("outputPath") String outputPath,
             @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
             @JsonProperty("properties") Map<String, String> storageProperties,
             @JsonProperty("retryMode") RetryMode retryMode)
     {
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.name = requireNonNull(name, "name is null");
         this.schemaAsJson = requireNonNull(schemaAsJson, "schemaAsJson is null");
-        this.partitionSpecAsJson = requireNonNull(partitionSpecAsJson, "partitionSpecAsJson is null");
+        this.partitionsSpecsAsJson = ImmutableMap.copyOf(requireNonNull(partitionsSpecsAsJson, "partitionsSpecsAsJson is null"));
+        this.partitionSpecId = partitionSpecId;
         this.inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
         this.outputPath = requireNonNull(outputPath, "outputPath is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
-        this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
+        this.storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
         this.retryMode = requireNonNull(retryMode, "retryMode is null");
+        checkArgument(partitionsSpecsAsJson.containsKey(partitionSpecId), "partitionSpecId missing from partitionSpecs");
     }
 
     @JsonProperty
-    public String getSchemaName()
+    public SchemaTableName getName()
     {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
+        return name;
     }
 
     @JsonProperty
@@ -80,9 +78,15 @@ public class IcebergWritableTableHandle
     }
 
     @JsonProperty
-    public String getPartitionSpecAsJson()
+    public Map<Integer, String> getPartitionsSpecsAsJson()
     {
-        return partitionSpecAsJson;
+        return partitionsSpecsAsJson;
+    }
+
+    @JsonProperty
+    public int getPartitionSpecId()
+    {
+        return partitionSpecId;
     }
 
     @JsonProperty
@@ -118,6 +122,6 @@ public class IcebergWritableTableHandle
     @Override
     public String toString()
     {
-        return schemaName + "." + tableName;
+        return name.toString();
     }
 }

@@ -28,7 +28,7 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 
 public class TestTable
-        implements AutoCloseable
+        implements TemporaryRelation
 {
     private static final SecureRandom random = new SecureRandom();
     // The suffix needs to be long enough to "prevent" collisions in practice. The length of 5 was proven not to be long enough
@@ -67,6 +67,7 @@ public class TestTable
         }
     }
 
+    @Override
     public String getName()
     {
         return name;

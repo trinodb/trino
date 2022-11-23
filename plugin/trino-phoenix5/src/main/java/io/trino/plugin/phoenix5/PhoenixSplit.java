@@ -28,12 +28,13 @@ import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class PhoenixSplit
         extends JdbcSplit
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PhoenixSplit.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PhoenixSplit.class).instanceSize());
 
     private final List<HostAddress> addresses;
     private final SerializedPhoenixInputSplit serializedPhoenixInputSplit;

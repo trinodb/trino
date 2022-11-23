@@ -135,9 +135,7 @@ public final class Chars
         if (left.length() < right.length()) {
             return compareCharsShorterToLonger(left, right);
         }
-        else {
-            return -compareCharsShorterToLonger(right, left);
-        }
+        return -compareCharsShorterToLonger(right, left);
     }
 
     private static int compareCharsShorterToLonger(Slice shorter, Slice longer)

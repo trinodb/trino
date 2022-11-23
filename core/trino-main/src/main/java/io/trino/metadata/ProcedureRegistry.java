@@ -13,7 +13,7 @@
  */
 package io.trino.metadata;
 
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
@@ -34,8 +34,8 @@ public class ProcedureRegistry
         this.proceduresProvider = requireNonNull(proceduresProvider, "proceduresProvider is null");
     }
 
-    public Procedure resolve(CatalogName catalogName, SchemaTableName name)
+    public Procedure resolve(CatalogHandle catalogHandle, SchemaTableName name)
     {
-        return proceduresProvider.getService(catalogName).getProcedure(name);
+        return proceduresProvider.getService(catalogHandle).getProcedure(name);
     }
 }

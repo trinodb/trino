@@ -57,12 +57,10 @@ public class ElasticsearchSplitManager
         if (tableHandle.getType().equals(QUERY)) {
             return new FixedSplitSource(ImmutableList.of(new ElasticsearchSplit(tableHandle.getIndex(), 0, Optional.empty())));
         }
-        else {
-            List<ElasticsearchSplit> splits = client.getSearchShards(tableHandle.getIndex()).stream()
-                    .map(shard -> new ElasticsearchSplit(shard.getIndex(), shard.getId(), shard.getAddress()))
-                    .collect(toImmutableList());
+        List<ElasticsearchSplit> splits = client.getSearchShards(tableHandle.getIndex()).stream()
+                .map(shard -> new ElasticsearchSplit(shard.getIndex(), shard.getId(), shard.getAddress()))
+                .collect(toImmutableList());
 
-            return new FixedSplitSource(splits);
-        }
+        return new FixedSplitSource(splits);
     }
 }

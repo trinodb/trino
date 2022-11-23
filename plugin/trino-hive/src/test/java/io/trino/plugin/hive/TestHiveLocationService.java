@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.TestBackgroundHiveSplitLoader.TestingHdfsEnvironment;
 import io.trino.spi.TrinoException;

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.rubix;
 
-import io.trino.plugin.hive.ConfigurationInitializer;
+import io.trino.hdfs.ConfigurationInitializer;
 
 public interface RubixHdfsInitializer
         extends ConfigurationInitializer

@@ -21,17 +21,24 @@ import java.util.Optional;
 public class DictionaryDescriptor
 {
     private final ColumnDescriptor columnDescriptor;
+    private final boolean nullAllowed;
     private final Optional<DictionaryPage> dictionaryPage;
 
-    public DictionaryDescriptor(ColumnDescriptor columnDescriptor, Optional<DictionaryPage> dictionaryPage)
+    public DictionaryDescriptor(ColumnDescriptor columnDescriptor, boolean nullAllowed, Optional<DictionaryPage> dictionaryPage)
     {
         this.columnDescriptor = columnDescriptor;
+        this.nullAllowed = nullAllowed;
         this.dictionaryPage = dictionaryPage;
     }
 
     public ColumnDescriptor getColumnDescriptor()
     {
         return columnDescriptor;
+    }
+
+    public boolean isNullAllowed()
+    {
+        return nullAllowed;
     }
 
     public Optional<DictionaryPage> getDictionaryPage()

@@ -21,7 +21,6 @@ import io.airlift.slice.Slices;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
-import io.trino.parquet.RichColumnDescriptor;
 import io.trino.parquet.dictionary.Dictionary;
 import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.spi.predicate.Domain;
@@ -81,10 +80,10 @@ public class TupleDomainParquetPredicate
         implements Predicate
 {
     private final TupleDomain<ColumnDescriptor> effectivePredicate;
-    private final List<RichColumnDescriptor> columns;
+    private final List<ColumnDescriptor> columns;
     private final DateTimeZone timeZone;
 
-    public TupleDomainParquetPredicate(TupleDomain<ColumnDescriptor> effectivePredicate, List<RichColumnDescriptor> columns, DateTimeZone timeZone)
+    public TupleDomainParquetPredicate(TupleDomain<ColumnDescriptor> effectivePredicate, List<ColumnDescriptor> columns, DateTimeZone timeZone)
     {
         this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
@@ -92,19 +91,20 @@ public class TupleDomainParquetPredicate
     }
 
     @Override
-    public boolean matches(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id)
+    public Optional<List<ColumnDescriptor>> getIndexLookupCandidates(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id)
             throws ParquetCorruptionException
     {
         if (numberOfRows == 0) {
-            return false;
+            return Optional.empty();
         }
         if (effectivePredicate.isNone()) {
-            return false;
+            return Optional.empty();
         }
         Map<ColumnDescriptor, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
                 .orElseThrow(() -> new IllegalStateException("Effective predicate other than none should have domains"));
 
-        for (RichColumnDescriptor column : columns) {
+        ImmutableList.Builder<ColumnDescriptor> candidateColumns = ImmutableList.builder();
+        for (ColumnDescriptor column : columns) {
             Domain effectivePredicateDomain = effectivePredicateDomains.get(column);
             if (effectivePredicateDomain == null) {
                 continue;
@@ -113,6 +113,7 @@ public class TupleDomainParquetPredicate
             Statistics<?> columnStatistics = statistics.get(column);
             if (columnStatistics == null || columnStatistics.isEmpty()) {
                 // no stats for column
+                candidateColumns.add(column);
                 continue;
             }
 
@@ -124,10 +125,15 @@ public class TupleDomainParquetPredicate
                     id,
                     timeZone);
             if (!effectivePredicateDomain.overlaps(domain)) {
-                return false;
+                return Optional.empty();
+            }
+            // If the predicate domain on a column includes the entire domain from column row-group statistics,
+            // then more granular statistics from page stats or dictionary for this column will not help to eliminate the row-group.
+            if (!effectivePredicateDomain.contains(domain)) {
+                candidateColumns.add(column);
             }
         }
-        return true;
+        return Optional.of(candidateColumns.build());
     }
 
     @Override
@@ -162,7 +168,7 @@ public class TupleDomainParquetPredicate
         Map<ColumnDescriptor, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
                 .orElseThrow(() -> new IllegalStateException("Effective predicate other than none should have domains"));
 
-        for (RichColumnDescriptor column : columns) {
+        for (ColumnDescriptor column : columns) {
             Domain effectivePredicateDomain = effectivePredicateDomains.get(column);
             if (effectivePredicateDomain == null) {
                 continue;
@@ -262,7 +268,7 @@ public class TupleDomainParquetPredicate
         }
 
         if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DATE) || type.equals(SMALLINT) || type.equals(TINYINT)) {
-            List<Range> ranges = new ArrayList<>();
+            List<Range> ranges = new ArrayList<>(minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
                 long min = asLong(minimums.get(i));
                 long max = asLong(maximums.get(i));
@@ -278,7 +284,7 @@ public class TupleDomainParquetPredicate
 
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
-            List<Range> ranges = new ArrayList<>();
+            List<Range> ranges = new ArrayList<>(minimums.size());
             if (decimalType.isShort()) {
                 for (int i = 0; i < minimums.size(); i++) {
                     Object min = minimums.get(i);
@@ -307,7 +313,7 @@ public class TupleDomainParquetPredicate
         }
 
         if (type.equals(REAL)) {
-            List<Range> ranges = new ArrayList<>();
+            List<Range> ranges = new ArrayList<>(minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
                 Float min = (Float) minimums.get(i);
                 Float max = (Float) maximums.get(i);
@@ -322,7 +328,7 @@ public class TupleDomainParquetPredicate
         }
 
         if (type.equals(DOUBLE)) {
-            List<Range> ranges = new ArrayList<>();
+            List<Range> ranges = new ArrayList<>(minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
                 Double min = (Double) minimums.get(i);
                 Double max = (Double) maximums.get(i);
@@ -337,7 +343,7 @@ public class TupleDomainParquetPredicate
         }
 
         if (type instanceof VarcharType) {
-            List<Range> ranges = new ArrayList<>();
+            List<Range> ranges = new ArrayList<>(minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
                 Slice min = Slices.wrappedBuffer(((Binary) minimums.get(i)).toByteBuffer());
                 Slice max = Slices.wrappedBuffer(((Binary) maximums.get(i)).toByteBuffer());
@@ -349,7 +355,7 @@ public class TupleDomainParquetPredicate
         if (type instanceof TimestampType) {
             if (column.getPrimitiveType().getPrimitiveTypeName().equals(INT96)) {
                 TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder((TimestampType) type, timeZone);
-                List<Object> values = new ArrayList<>();
+                List<Object> values = new ArrayList<>(minimums.size());
                 for (int i = 0; i < minimums.size(); i++) {
                     Object min = minimums.get(i);
                     Object max = maximums.get(i);
@@ -380,7 +386,7 @@ public class TupleDomainParquetPredicate
                 }
                 TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder((TimestampType) type, DateTimeZone.UTC);
 
-                List<Range> ranges = new ArrayList<>();
+                List<Range> ranges = new ArrayList<>(minimums.size());
                 for (int i = 0; i < minimums.size(); i++) {
                     long min = (long) minimums.get(i);
                     long max = (long) maximums.get(i);
@@ -405,7 +411,7 @@ public class TupleDomainParquetPredicate
             long rowCount,
             ColumnIndex columnIndex,
             ParquetDataSourceId id,
-            RichColumnDescriptor descriptor,
+            ColumnDescriptor descriptor,
             DateTimeZone timeZone)
             throws ParquetCorruptionException
     {
@@ -439,8 +445,8 @@ public class TupleDomainParquetPredicate
             int pageCount = minValues.size();
             ColumnIndexValueConverter converter = new ColumnIndexValueConverter();
             Function<ByteBuffer, Object> converterFunction = converter.getConverter(descriptor.getPrimitiveType());
-            List<Object> min = new ArrayList<>();
-            List<Object> max = new ArrayList<>();
+            List<Object> min = new ArrayList<>(pageCount);
+            List<Object> max = new ArrayList<>(pageCount);
             for (int i = 0; i < pageCount; i++) {
                 if (nullPages.get(i)) {
                     continue;
@@ -485,15 +491,23 @@ public class TupleDomainParquetPredicate
         }
 
         int dictionarySize = dictionaryPage.get().getDictionarySize();
+
+        if (dictionarySize == 0) {
+            if (dictionaryDescriptor.isNullAllowed()) {
+                return Domain.onlyNull(type);
+            }
+            return Domain.none(type);
+        }
+
         DictionaryValueConverter converter = new DictionaryValueConverter(dictionary);
         Function<Integer, Object> convertFunction = converter.getConverter(columnDescriptor.getPrimitiveType());
-        List<Object> values = new ArrayList<>();
+        List<Object> values = new ArrayList<>(dictionarySize);
         for (int i = 0; i < dictionarySize; i++) {
             values.add(convertFunction.apply(i));
         }
 
         // TODO: when min == max (i.e., singleton ranges, the construction of Domains can be done more efficiently
-        return getDomain(columnDescriptor, type, values, values, true, timeZone);
+        return getDomain(columnDescriptor, type, values, values, dictionaryDescriptor.isNullAllowed(), timeZone);
     }
 
     private static ParquetCorruptionException corruptionException(String column, ParquetDataSourceId id, Statistics<?> statistics, Exception cause)
@@ -534,7 +548,7 @@ public class TupleDomainParquetPredicate
     {
         FilterPredicate filter = null;
 
-        for (RichColumnDescriptor column : columns) {
+        for (ColumnDescriptor column : columns) {
             Domain domain = effectivePredicate.getDomains().get().get(column);
             if (domain == null || domain.isNone()) {
                 continue;

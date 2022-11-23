@@ -84,7 +84,7 @@ public final class OptionsPrinter
             if ((boolean) value) {
                 return annotation.names()[0].replaceFirst("--no-", "--");
             }
-            else if (annotation.negatable()) {
+            if (annotation.negatable()) {
                 return annotation.names()[0];
             }
 
@@ -103,9 +103,7 @@ public final class OptionsPrinter
             if (((Optional<?>) value).isPresent()) {
                 return formatOption(((Optional<?>) value).get(), annotation);
             }
-            else {
-                return null;
-            }
+            return null;
         }
 
         if (value instanceof Map) {

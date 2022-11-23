@@ -13,14 +13,9 @@
  */
 package io.trino.type;
 
-import io.airlift.jcodings.specific.NonStrictUTF8Encoding;
-import io.airlift.joni.Matcher;
-import io.airlift.joni.Option;
-import io.airlift.joni.Regex;
-import io.airlift.joni.Syntax;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import io.trino.likematcher.LikeMatcher;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
@@ -30,40 +25,22 @@ import io.trino.spi.type.StandardTypes;
 
 import java.util.Optional;
 
-import static io.airlift.joni.constants.MetaChar.INEFFECTIVE_META_CHAR;
-import static io.airlift.joni.constants.SyntaxProperties.OP_ASTERISK_ZERO_INF;
-import static io.airlift.joni.constants.SyntaxProperties.OP_DOT_ANYCHAR;
-import static io.airlift.joni.constants.SyntaxProperties.OP_LINE_ANCHOR;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
-import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.util.Failures.checkCondition;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class LikeFunctions
 {
     public static final String LIKE_PATTERN_FUNCTION_NAME = "$like_pattern";
-    private static final Syntax SYNTAX = new Syntax(
-            OP_DOT_ANYCHAR | OP_ASTERISK_ZERO_INF | OP_LINE_ANCHOR,
-            0,
-            0,
-            Option.NONE,
-            new Syntax.MetaCharTable(
-                    '\\',                           /* esc */
-                    INEFFECTIVE_META_CHAR,          /* anychar '.' */
-                    INEFFECTIVE_META_CHAR,          /* anytime '*' */
-                    INEFFECTIVE_META_CHAR,          /* zero or one time '?' */
-                    INEFFECTIVE_META_CHAR,          /* one or more time '+' */
-                    INEFFECTIVE_META_CHAR));        /* anychar anytime */
 
     private LikeFunctions() {}
 
     @ScalarFunction(value = "like", hidden = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean likeChar(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice value, @SqlType(LikePatternType.NAME) JoniRegexp pattern)
+    public static boolean likeChar(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice value, @SqlType(LikePatternType.NAME) LikeMatcher pattern)
     {
         return likeVarchar(padSpaces(value, x.intValue()), pattern);
     }
@@ -72,42 +49,33 @@ public final class LikeFunctions
     @ScalarFunction(value = "like", hidden = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean likeVarchar(@SqlType("varchar(x)") Slice value, @SqlType(LikePatternType.NAME) JoniRegexp pattern)
+    public static boolean likeVarchar(@SqlType("varchar(x)") Slice value, @SqlType(LikePatternType.NAME) LikeMatcher matcher)
     {
-        // Joni can infinite loop with UTF8Encoding when invalid UTF-8 is encountered.
-        // NonStrictUTF8Encoding must be used to avoid this issue.
-        Matcher matcher;
-        int offset;
         if (value.hasByteArray()) {
-            offset = value.byteArrayOffset();
-            matcher = pattern.regex().matcher(value.byteArray(), offset, offset + value.length());
+            return matcher.match(value.byteArray(), value.byteArrayOffset(), value.length());
         }
-        else {
-            offset = 0;
-            matcher = pattern.matcher(value.getBytes());
-        }
-        return getMatchingOffset(matcher, offset, offset + value.length()) != -1;
+        return matcher.match(value.getBytes(), 0, value.length());
     }
 
     @ScalarFunction(value = LIKE_PATTERN_FUNCTION_NAME, hidden = true)
     @LiteralParameters("x")
     @SqlType(LikePatternType.NAME)
-    public static JoniRegexp likePattern(@SqlType("varchar(x)") Slice pattern)
+    public static LikeMatcher likePattern(@SqlType("varchar(x)") Slice pattern)
     {
-        return compileLikePattern(pattern);
-    }
-
-    public static JoniRegexp compileLikePattern(Slice pattern)
-    {
-        return likePattern(pattern.toStringUtf8(), '0', false);
+        return LikeMatcher.compile(pattern.toStringUtf8(), Optional.empty());
     }
 
     @ScalarFunction(value = LIKE_PATTERN_FUNCTION_NAME, hidden = true)
     @LiteralParameters({"x", "y"})
     @SqlType(LikePatternType.NAME)
-    public static JoniRegexp likePattern(@SqlType("varchar(x)") Slice pattern, @SqlType("varchar(y)") Slice escape)
+    public static LikeMatcher likePattern(@SqlType("varchar(x)") Slice pattern, @SqlType("varchar(y)") Slice escape)
     {
-        return likePattern(pattern.toStringUtf8(), getEscapeChar(escape), true);
+        try {
+            return LikeMatcher.compile(pattern.toStringUtf8(), getEscapeCharacter(Optional.of(escape)));
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
     }
 
     public static boolean isLikePattern(Slice pattern, Optional<Slice> escape)
@@ -176,90 +144,18 @@ public final class LikeFunctions
         if (escape.isEmpty()) {
             return Optional.empty();
         }
-        String stringEscape = escape.get().toStringUtf8();
-        // non-BMP escape is not supported
-        checkCondition(stringEscape.length() == 1, INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
-        return Optional.of(stringEscape.charAt(0));
+
+        String escapeString = escape.get().toStringUtf8();
+        if (escapeString.length() != 1) {
+            // non-BMP escape is not supported
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
+        }
+
+        return Optional.of(escapeString.charAt(0));
     }
 
     private static void checkEscape(boolean condition)
     {
         checkCondition(condition, INVALID_FUNCTION_ARGUMENT, "Escape character must be followed by '%%', '_' or the escape character itself");
-    }
-
-    @SuppressWarnings("NestedSwitchStatement")
-    private static JoniRegexp likePattern(String patternString, char escapeChar, boolean shouldEscape)
-    {
-        StringBuilder regex = new StringBuilder(patternString.length() * 2);
-
-        regex.append('^');
-        boolean escaped = false;
-        for (char currentChar : patternString.toCharArray()) {
-            checkEscape(!escaped || currentChar == '%' || currentChar == '_' || currentChar == escapeChar);
-            if (shouldEscape && !escaped && (currentChar == escapeChar)) {
-                escaped = true;
-            }
-            else {
-                switch (currentChar) {
-                    case '%':
-                        regex.append(escaped ? "%" : ".*");
-                        escaped = false;
-                        break;
-                    case '_':
-                        regex.append(escaped ? "_" : ".");
-                        escaped = false;
-                        break;
-                    default:
-                        // escape special regex characters
-                        switch (currentChar) {
-                            case '\\':
-                            case '^':
-                            case '$':
-                            case '.':
-                            case '*':
-                                regex.append('\\');
-                        }
-
-                        regex.append(currentChar);
-                        escaped = false;
-                }
-            }
-        }
-        checkEscape(!escaped);
-        regex.append('$');
-
-        byte[] bytes = regex.toString().getBytes(UTF_8);
-        Regex joniRegex = new Regex(bytes, 0, bytes.length, Option.MULTILINE, NonStrictUTF8Encoding.INSTANCE, SYNTAX);
-        return new JoniRegexp(Slices.wrappedBuffer(bytes), joniRegex);
-    }
-
-    @SuppressWarnings("NumericCastThatLosesPrecision")
-    private static char getEscapeChar(Slice escape)
-    {
-        String escapeString = escape.toStringUtf8();
-        if (escapeString.isEmpty()) {
-            // escaping disabled
-            return (char) -1; // invalid character
-        }
-        if (escapeString.length() == 1) {
-            return escapeString.charAt(0);
-        }
-        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
-    }
-
-    private static int getMatchingOffset(Matcher matcher, int at, int range)
-    {
-        try {
-            return matcher.matchInterruptible(at, range, Option.NONE);
-        }
-        catch (InterruptedException interruptedException) {
-            // The JONI library is compliant with the InterruptedException contract. They reset the interrupted flag before throwing an exception.
-            // Since the InterruptedException is being caught the interrupt flag must either be recovered or the thread must be terminated.
-            // Since we are simply throwing a different exception, the interrupt flag must be recovered to propagate the interrupted status to the upper level code.
-            Thread.currentThread().interrupt();
-            throw new TrinoException(GENERIC_USER_ERROR, "" +
-                    "Regular expression matching was interrupted, likely because it took too long. " +
-                    "Regular expression in the worst case can have a catastrophic amount of backtracking and having exponential time complexity");
-        }
     }
 }

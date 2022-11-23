@@ -32,8 +32,7 @@ public class RemoveEmptyGlobalAggregation
                     .matching(node ->
                             // no aggregate functions
                             node.getAggregations().isEmpty() &&
-                                    // global aggregation
-                                    node.hasEmptyGroupingSet() && node.getGroupingSetCount() == 1);
+                                    node.hasSingleGlobalAggregation());
 
     @Override
     public Pattern<AggregationNode> getPattern()

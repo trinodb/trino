@@ -18,6 +18,7 @@ import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.PlannerContext;
@@ -131,9 +132,9 @@ public class TestingFunctionResolution
         return inTransaction(session -> metadata.resolveFunction(session, name, parameterTypes));
     }
 
-    public FunctionInvoker getScalarFunctionInvoker(QualifiedName name, List<TypeSignatureProvider> parameterTypes, InvocationConvention invocationConvention)
+    public ScalarFunctionImplementation getScalarFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes, InvocationConvention invocationConvention)
     {
-        return inTransaction(session -> plannerContext.getFunctionManager().getScalarFunctionInvoker(metadata.resolveFunction(session, name, parameterTypes), invocationConvention));
+        return inTransaction(session -> plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveFunction(session, name, parameterTypes), invocationConvention));
     }
 
     public TestingAggregationFunction getAggregateFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
@@ -143,7 +144,7 @@ public class TestingFunctionResolution
             return new TestingAggregationFunction(
                     resolvedFunction.getSignature(),
                     resolvedFunction.getFunctionNullability(),
-                    plannerContext.getFunctionManager().getAggregateFunctionImplementation(resolvedFunction));
+                    plannerContext.getFunctionManager().getAggregationImplementation(resolvedFunction));
         });
     }
 

@@ -317,6 +317,7 @@ public class TestFileBasedAccessControl
         accessControl.checkCanRenameMaterializedView(ALICE, new SchemaTableName("aliceschema", "alicevaterializediew"), new SchemaTableName("aliceschema", "newaliceaterializedview"));
         accessControl.checkCanSetMaterializedViewProperties(ADMIN, new SchemaTableName("bobschema", "bobmaterializedview"), ImmutableMap.of());
         accessControl.checkCanSetMaterializedViewProperties(ALICE, new SchemaTableName("aliceschema", "alicevaterializediew"), ImmutableMap.of());
+        accessControl.checkCanSetViewComment(ALICE, new SchemaTableName("aliceschema", "aliceview"));
 
         accessControl.checkCanSetTableProperties(ADMIN, bobTable, ImmutableMap.of());
         accessControl.checkCanSetTableProperties(ALICE, aliceTable, ImmutableMap.of());
@@ -325,6 +326,7 @@ public class TestFileBasedAccessControl
         assertDenied(() -> accessControl.checkCanDropTable(BOB, bobTable));
         assertDenied(() -> accessControl.checkCanRenameTable(BOB, bobTable, new SchemaTableName("bobschema", "newbobtable")));
         assertDenied(() -> accessControl.checkCanRenameTable(ALICE, aliceTable, new SchemaTableName("bobschema", "newalicetable")));
+        assertDenied(() -> accessControl.checkCanSetViewComment(ALICE, new SchemaTableName("bobschema", "newalicetable")));
         assertDenied(() -> accessControl.checkCanSetTableProperties(BOB, bobTable, ImmutableMap.of()));
         assertDenied(() -> accessControl.checkCanInsertIntoTable(BOB, testTable));
         assertDenied(() -> accessControl.checkCanSelectFromColumns(ADMIN, new SchemaTableName("secret", "secret"), ImmutableSet.of()));

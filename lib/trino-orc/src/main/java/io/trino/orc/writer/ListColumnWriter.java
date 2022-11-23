@@ -45,12 +45,13 @@ import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.orc.stream.LongOutputStream.createLengthOutputStream;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ListColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ListColumnWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ListColumnWriter.class).instanceSize());
     private final OrcColumnId columnId;
     private final boolean compressed;
     private final ColumnEncoding columnEncoding;

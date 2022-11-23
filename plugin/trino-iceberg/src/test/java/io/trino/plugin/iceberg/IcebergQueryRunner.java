@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
@@ -28,6 +29,8 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_ACCESS_KEY;
+import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_SECRET_KEY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
@@ -134,23 +137,86 @@ public final class IcebergQueryRunner
         }
     }
 
-    public static void main(String[] args)
-            throws Exception
+    public static final class IcebergGlueQueryRunnerMain
     {
-        DistributedQueryRunner queryRunner = null;
-        try {
-            queryRunner = IcebergQueryRunner.builder()
+        private IcebergGlueQueryRunnerMain() {}
+
+        public static void main(String[] args)
+                throws Exception
+        {
+            // Requires AWS credentials, which can be provided any way supported by the DefaultProviderChain
+            // See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
+            DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
                     .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
-                    .setInitialTables(TpchTable.getTables())
+                    .setIcebergProperties(ImmutableMap.of("iceberg.catalog.type", "glue"))
                     .build();
+
+            Logger log = Logger.get(IcebergQueryRunner.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
-        catch (Throwable t) {
-            log.error(t);
-            System.exit(1);
+    }
+
+    public static final class IcebergMinIoHiveMetastoreQueryRunnerMain
+    {
+        private IcebergMinIoHiveMetastoreQueryRunnerMain() {}
+
+        public static void main(String[] args)
+                throws Exception
+        {
+            String bucketName = "test-bucket";
+            @SuppressWarnings("resource")
+            HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(bucketName);
+            hiveMinioDataLake.start();
+
+            DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
+                    .setCoordinatorProperties(Map.of(
+                            "http-server.http.port", "8080"))
+                    .setIcebergProperties(Map.of(
+                            "iceberg.catalog.type", "HIVE_METASTORE",
+                            "hive.metastore.uri", "thrift://" + hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint(),
+                            "hive.s3.aws-access-key", MINIO_ACCESS_KEY,
+                            "hive.s3.aws-secret-key", MINIO_SECRET_KEY,
+                            "hive.s3.endpoint", "http://" + hiveMinioDataLake.getMinio().getMinioApiEndpoint(),
+                            "hive.s3.path-style-access", "true",
+                            "hive.s3.streaming.part-size", "5MB"))
+                    .setSchemaInitializer(
+                            SchemaInitializer.builder()
+                                    .withSchemaName("tpch")
+                                    .withClonedTpchTables(TpchTable.getTables())
+                                    .withSchemaProperties(Map.of("location", "'s3://" + bucketName + "/tpch'"))
+                                    .build())
+                    .build();
+
+            Thread.sleep(10);
+            Logger log = Logger.get(IcebergQueryRunner.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
-        Thread.sleep(10);
-        Logger log = Logger.get(IcebergQueryRunner.class);
-        log.info("======== SERVER STARTED ========");
-        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+    }
+
+    public static final class DefaultIcebergQueryRunnerMain
+    {
+        private DefaultIcebergQueryRunnerMain() {}
+
+        public static void main(String[] args)
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = null;
+            try {
+                queryRunner = IcebergQueryRunner.builder()
+                        .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                        .setInitialTables(TpchTable.getTables())
+                        .build();
+            }
+            catch (Throwable t) {
+                log.error(t);
+                System.exit(1);
+            }
+            Thread.sleep(10);
+            Logger log = Logger.get(IcebergQueryRunner.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
     }
 }

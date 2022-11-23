@@ -50,7 +50,6 @@ public class KinesisMetadata
             Supplier<Map<SchemaTableName, KinesisStreamDescription>> tableDescriptionSupplier,
             Set<KinesisInternalFieldDescription> internalFieldDescriptions)
     {
-        requireNonNull(kinesisConfig, "kinesisConfig is null");
         isHideInternalColumns = kinesisConfig.isHideInternalColumns();
         this.tableDescriptionSupplier = requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null");
         this.internalFieldDescriptions = requireNonNull(internalFieldDescriptions, "internalFieldDescriptions is null");

@@ -51,7 +51,7 @@ public class AccumuloRecordSetProvider
             AccumuloConfig config)
     {
         this.connector = requireNonNull(connector, "connector is null");
-        this.username = requireNonNull(config, "config is null").getUsername();
+        this.username = config.getUsername();
     }
 
     @Override

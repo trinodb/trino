@@ -37,7 +37,7 @@ import static java.lang.Math.toIntExact;
 public class DecimalOutputStream
         implements ValueOutputStream<DecimalStreamCheckpoint>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DecimalOutputStream.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DecimalOutputStream.class).instanceSize());
     private final OrcOutputBuffer buffer;
     private final List<DecimalStreamCheckpoint> checkpoints = new ArrayList<>();
 
@@ -72,10 +72,8 @@ public class DecimalOutputStream
                     buffer.write((byte) lowBits);
                     return;
                 }
-                else {
-                    buffer.write((byte) (0x80 | (lowBits & 0x7f)));
-                    lowBits >>>= 7;
-                }
+                buffer.write((byte) (0x80 | (lowBits & 0x7f)));
+                lowBits >>>= 7;
             }
             value = value.shiftRight(63);
         }

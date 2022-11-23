@@ -25,19 +25,19 @@ import io.trino.json.PathEvaluationError;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.SqlJsonLiteralConverter.JsonLiteralConversionError;
 import io.trino.json.ir.TypedValue;
-import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionManager;
-import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
-import io.trino.operator.scalar.ScalarFunctionImplementation;
+import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
+import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
@@ -112,7 +112,7 @@ public class JsonValueFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         Type parametersRowType = boundSignature.getArgumentType(2);
         Type returnType = boundSignature.getReturnType();
@@ -140,7 +140,7 @@ public class JsonValueFunction
                 .bindTo(parametersRowType)
                 .bindTo(returnType);
         MethodHandle instanceFactory = constructorMethodHandle(JsonPathInvocationContext.class);
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(BOXED_NULLABLE, BOXED_NULLABLE, BOXED_NULLABLE, NEVER_NULL, BOXED_NULLABLE, NEVER_NULL, BOXED_NULLABLE),

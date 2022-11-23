@@ -166,8 +166,7 @@ public class TableScanWorkProcessorOperator
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
-            this.memoryContext = requireNonNull(aggregatedMemoryContext, "aggregatedMemoryContext is null")
-                    .newLocalMemoryContext(TableScanWorkProcessorOperator.class.getSimpleName());
+            this.memoryContext = aggregatedMemoryContext.newLocalMemoryContext(TableScanWorkProcessorOperator.class.getSimpleName());
         }
 
         @Override
@@ -291,9 +290,7 @@ public class TableScanWorkProcessorOperator
                 if (pageSource.isFinished()) {
                     return ProcessState.finished();
                 }
-                else {
-                    return ProcessState.yielded();
-                }
+                return ProcessState.yielded();
             }
 
             return ProcessState.ofResult(page);

@@ -109,21 +109,19 @@ public final class TrinoThriftValueSet
                     null,
                     null);
         }
-        else if (valueSet.getClass() == EquatableValueSet.class) {
+        if (valueSet.getClass() == EquatableValueSet.class) {
             return new TrinoThriftValueSet(
                     null,
                     fromEquatableValueSet((EquatableValueSet) valueSet),
                     null);
         }
-        else if (valueSet.getClass() == SortedRangeSet.class) {
+        if (valueSet.getClass() == SortedRangeSet.class) {
             return new TrinoThriftValueSet(
                     null,
                     null,
                     fromSortedRangeSet((SortedRangeSet) valueSet));
         }
-        else {
-            throw new IllegalArgumentException("Unknown implementation of a value set: " + valueSet.getClass());
-        }
+        throw new IllegalArgumentException("Unknown implementation of a value set: " + valueSet.getClass());
     }
 
     private static boolean isExactlyOneNonNull(Object a, Object b, Object c)

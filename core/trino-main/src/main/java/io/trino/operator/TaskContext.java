@@ -102,7 +102,7 @@ public class TaskContext
     private final DynamicFiltersCollector dynamicFiltersCollector;
 
     // The collector is shared for dynamic filters collected from coordinator
-    // as well as from local build-side of replicated joins. It is also shared with
+    // as well as from local build-side of replicated joins. It is also shared
     // with multiple table scans (e.g. co-located joins).
     private final LocalDynamicFiltersCollector localDynamicFiltersCollector;
 
@@ -251,6 +251,13 @@ public class TaskContext
         return DataSize.ofBytes(taskMemoryContext.getUserMemory());
     }
 
+    public DataSize getPeakMemoryReservation()
+    {
+        long userMemory = taskMemoryContext.getUserMemory();
+        currentPeakUserMemoryReservation.updateAndGet(oldValue -> max(oldValue, userMemory));
+        return DataSize.ofBytes(currentPeakUserMemoryReservation.get());
+    }
+
     public DataSize getRevocableMemoryReservation()
     {
         return DataSize.ofBytes(taskMemoryContext.getRevocableMemory());
@@ -332,6 +339,16 @@ public class TaskContext
         return stat;
     }
 
+    public long getPhysicalWrittenDataSize()
+    {
+        // Avoid using stream api for performance reasons
+        long physicalWrittenBytes = 0;
+        for (PipelineContext context : pipelineContexts) {
+            physicalWrittenBytes += context.getPhysicalWrittenDataSize();
+        }
+        return physicalWrittenBytes;
+    }
+
     public Duration getFullGcTime()
     {
         long startFullGcTimeNanos = this.startFullGcTimeNanos.get();
@@ -373,6 +390,11 @@ public class TaskContext
     public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersCurrentVersion)
     {
         return dynamicFiltersCollector.acknowledgeAndGetNewDomains(callersCurrentVersion);
+    }
+
+    public VersionedDynamicFilterDomains getCurrentDynamicFilterDomains()
+    {
+        return dynamicFiltersCollector.getCurrentDynamicFilterDomains();
     }
 
     public TaskStats getTaskStats()
@@ -495,7 +517,6 @@ public class TaskContext
         Duration fullGcTime = getFullGcTime();
 
         long userMemory = taskMemoryContext.getUserMemory();
-        currentPeakUserMemoryReservation.updateAndGet(oldValue -> max(oldValue, userMemory));
 
         synchronized (cumulativeMemoryLock) {
             long currentTimeNanos = System.nanoTime();
@@ -528,7 +549,7 @@ public class TaskContext
                 completedDrivers,
                 cumulativeUserMemory.get(),
                 succinctBytes(userMemory),
-                succinctBytes(currentPeakUserMemoryReservation.get()),
+                getPeakMemoryReservation().succinct(),
                 succinctBytes(taskMemoryContext.getRevocableMemory()),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),

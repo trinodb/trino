@@ -33,7 +33,6 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.spi.block.BlockUtil.MAX_ARRAY_SIZE;
 import static io.trino.spi.block.BlockUtil.calculateBlockResetBytes;
-import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidPositions;
@@ -42,12 +41,13 @@ import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static io.trino.spi.block.BlockUtil.compactSlice;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 
 public class VariableWidthBlockBuilder
         extends AbstractVariableWidthBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlockBuilder.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(VariableWidthBlockBuilder.class).instanceSize());
     private static final Block NULL_VALUE_BLOCK = new VariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new boolean[] {true});
 
     private final BlockBuilderStatus blockBuilderStatus;
@@ -156,7 +156,7 @@ public class VariableWidthBlockBuilder
         consumer.accept(sliceOutput, sliceOutput.getRetainedSize());
         consumer.accept(offsets, sizeOf(offsets));
         consumer.accept(valueIsNull, sizeOf(valueIsNull));
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -165,7 +165,7 @@ public class VariableWidthBlockBuilder
         checkArrayRange(positions, offset, length);
 
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
         }
 
         int finalLength = 0;
@@ -330,7 +330,7 @@ public class VariableWidthBlockBuilder
         checkValidRegion(positionCount, positionOffset, length);
 
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
         }
 
         return new VariableWidthBlock(positionOffset, length, sliceOutput.slice(), offsets, hasNullValue ? valueIsNull : null);
@@ -342,7 +342,7 @@ public class VariableWidthBlockBuilder
         int positionCount = getPositionCount();
         checkValidRegion(positionCount, positionOffset, length);
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
         }
 
         int[] newOffsets = compactOffsets(offsets, positionOffset, length);
@@ -362,16 +362,16 @@ public class VariableWidthBlockBuilder
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positions);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positions);
         }
         return new VariableWidthBlock(0, positions, sliceOutput.slice(), offsets, hasNullValue ? valueIsNull : null);
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
     {
         int currentSizeInBytes = positions == 0 ? positions : (getOffset(positions) - getOffset(0));
-        return new VariableWidthBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positions), calculateBlockResetBytes(currentSizeInBytes));
+        return new VariableWidthBlockBuilder(blockBuilderStatus, expectedEntries, calculateBlockResetBytes(currentSizeInBytes));
     }
 
     private int getOffset(int position)

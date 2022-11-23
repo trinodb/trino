@@ -14,8 +14,8 @@
 package io.trino.operator;
 
 import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.FunctionDependencies;
 import io.trino.operator.annotations.ImplementationDependency;
+import io.trino.spi.function.FunctionDependencies;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;

@@ -76,6 +76,7 @@ public class EnvSinglenodeCompatibility
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/presto/etc/jvm.config")), containerConfigDir + "jvm.config")
                 .withCopyFileToContainer(forHostPath(configDir.getPath(getConfigFileFor(dockerImage))), containerConfigDir + "config.properties")
                 .withCopyFileToContainer(forHostPath(configDir.getPath("hive.properties")), containerConfigDir + "catalog/hive.properties")
+                .withCopyFileToContainer(forHostPath(configDir.getPath("iceberg.properties")), containerConfigDir + "catalog/iceberg.properties")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingForAll(forLogMessage(".*======== SERVER STARTED ========.*", 1), forHealthcheck())

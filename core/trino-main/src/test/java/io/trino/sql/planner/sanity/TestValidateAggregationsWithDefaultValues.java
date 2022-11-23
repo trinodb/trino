@@ -16,7 +16,7 @@ package io.trino.sql.planner.sanity;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
@@ -58,9 +58,9 @@ public class TestValidateAggregationsWithDefaultValues
     {
         plannerContext = getQueryRunner().getPlannerContext();
         builder = new PlanBuilder(new PlanNodeIdAllocator(), plannerContext.getMetadata(), TEST_SESSION);
-        CatalogName catalogName = getCurrentConnectorId();
+        CatalogHandle catalogHandle = getCurrentCatalogHandle();
         TableHandle nationTableHandle = new TableHandle(
-                catalogName,
+                catalogHandle,
                 new TpchTableHandle("sf1", "nation", 1.0),
                 TestingTransactionHandle.create());
         TpchColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);

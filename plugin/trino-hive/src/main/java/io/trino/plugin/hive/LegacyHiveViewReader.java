@@ -20,6 +20,7 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.type.TypeId;
 
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -45,11 +46,11 @@ public class LegacyHiveViewReader
                 translateHiveViewToTrino(viewText),
                 Optional.of(catalogName.toString()),
                 Optional.ofNullable(table.getDatabaseName()),
-                table.getDataColumns().stream()
+                Stream.concat(table.getDataColumns().stream(), table.getPartitionColumns().stream())
                         .map(column -> new ConnectorViewDefinition.ViewColumn(column.getName(), TypeId.of(column.getType().getTypeSignature().toString())))
                         .collect(toImmutableList()),
                 Optional.ofNullable(table.getParameters().get(TABLE_COMMENT)),
-                table.getOwner(),
+                Optional.empty(), // will be filled in later by HiveMetadata
                 hiveViewsRunAsInvoker);
     }
 }

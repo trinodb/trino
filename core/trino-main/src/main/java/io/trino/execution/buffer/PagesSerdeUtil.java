@@ -130,7 +130,7 @@ public final class PagesSerdeUtil
                     context.close(); // Release context buffers
                     return endOfData();
                 }
-                else if (read != headerBuffer.length) {
+                if (read != headerBuffer.length) {
                     throw new EOFException();
                 }
 
@@ -167,7 +167,7 @@ public final class PagesSerdeUtil
                 if (read <= 0) {
                     return endOfData();
                 }
-                else if (read != headerBuffer.length) {
+                if (read != headerBuffer.length) {
                     throw new EOFException();
                 }
 

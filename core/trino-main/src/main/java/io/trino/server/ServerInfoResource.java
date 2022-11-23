@@ -56,8 +56,8 @@ public class ServerInfoResource
     public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, GracefulShutdownHandler shutdownHandler, StartupStatus startupStatus)
     {
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
-        this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
-        this.coordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
+        this.environment = nodeInfo.getEnvironment();
+        this.coordinator = serverConfig.isCoordinator();
         this.shutdownHandler = requireNonNull(shutdownHandler, "shutdownHandler is null");
         this.startupStatus = requireNonNull(startupStatus, "startupStatus is null");
     }
@@ -108,9 +108,7 @@ public class ServerInfoResource
         if (shutdownHandler.isShutdownRequested()) {
             return SHUTTING_DOWN;
         }
-        else {
-            return ACTIVE;
-        }
+        return ACTIVE;
     }
 
     @ResourceSecurity(PUBLIC)

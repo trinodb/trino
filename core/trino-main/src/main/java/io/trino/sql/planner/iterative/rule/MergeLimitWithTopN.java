@@ -72,9 +72,7 @@ public class MergeLimitWithTopN
             if (parent.getCount() < child.getCount()) {
                 return Result.empty();
             }
-            else {
-                return Result.ofPlanNode(child);
-            }
+            return Result.ofPlanNode(child);
         }
 
         return Result.ofPlanNode(

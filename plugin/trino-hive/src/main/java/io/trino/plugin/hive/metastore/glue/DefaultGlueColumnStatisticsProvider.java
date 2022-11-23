@@ -34,13 +34,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.trino.plugin.hive.HiveBasicStatistics;
+import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.trino.spi.TrinoException;
-import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
@@ -91,7 +91,7 @@ public class DefaultGlueColumnStatisticsProvider
     }
 
     @Override
-    public Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
+    public Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type)
     {
         return ThriftMetastoreUtil.getSupportedColumnStatistics(type);
     }
@@ -200,15 +200,15 @@ public class DefaultGlueColumnStatisticsProvider
             DateColumnStatisticsData data = statisticsData.getDateColumnStatisticsData();
             return data.getMaximumValue() != null && data.getMinimumValue() != null;
         }
-        else if (columnType.equals(ColumnStatisticsType.DECIMAL.toString())) {
+        if (columnType.equals(ColumnStatisticsType.DECIMAL.toString())) {
             DecimalColumnStatisticsData data = statisticsData.getDecimalColumnStatisticsData();
             return data.getMaximumValue() != null && data.getMinimumValue() != null;
         }
-        else if (columnType.equals(ColumnStatisticsType.DOUBLE.toString())) {
+        if (columnType.equals(ColumnStatisticsType.DOUBLE.toString())) {
             DoubleColumnStatisticsData data = statisticsData.getDoubleColumnStatisticsData();
             return data.getMaximumValue() != null && data.getMinimumValue() != null;
         }
-        else if (columnType.equals(ColumnStatisticsType.LONG.toString())) {
+        if (columnType.equals(ColumnStatisticsType.LONG.toString())) {
             LongColumnStatisticsData data = statisticsData.getLongColumnStatisticsData();
             return data.getMaximumValue() != null && data.getMinimumValue() != null;
         }

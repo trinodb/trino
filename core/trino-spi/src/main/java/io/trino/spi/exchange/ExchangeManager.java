@@ -14,10 +14,9 @@
 package io.trino.spi.exchange;
 
 import io.airlift.slice.Slice;
+import io.trino.spi.Experimental;
 
 import javax.annotation.concurrent.ThreadSafe;
-
-import java.util.List;
 
 /**
  * Service provider interface for an external exchange
@@ -39,6 +38,7 @@ import java.util.List;
  * data written by other instances must be safely discarded
  */
 @ThreadSafe
+@Experimental(eta = "2023-01-01")
 public interface ExchangeManager
 {
     /**
@@ -48,9 +48,14 @@ public interface ExchangeManager
      * @param outputPartitionCount number of distinct partitions to be created (grouped) by the exchange.
      * Values of the <code>partitionId</code> parameter of the {@link ExchangeSink#add(int, Slice)} method
      * will be in the <code>[0..outputPartitionCount)</code> range
+     * @param preserveOrderWithinPartition preserve order of records within a single partition written by a single writer.
+     * This property does not impose any specific order on the sub partitions of a single output partition written by multiple independent writers.
+     * The order is preserved only for the records written by a single writer. The reader will read sub partitions written by different writers in no specific order.
+     * This setting is useful when collecting ordered output from a single task that produces a single partition (for example a task that performs a global "order by" operation).
+     * May impact performance as it makes certain optimizations not possible.
      * @return {@link Exchange} object to be used by the coordinator to interact with the external exchange
      */
-    Exchange createExchange(ExchangeContext context, int outputPartitionCount);
+    Exchange createExchange(ExchangeContext context, int outputPartitionCount, boolean preserveOrderWithinPartition);
 
     /**
      * Called by a worker to create an {@link ExchangeSink} for a specific sink instance.
@@ -58,30 +63,14 @@ public interface ExchangeManager
      * A new sink instance is created by the coordinator for every task attempt (see {@link Exchange#instantiateSink(ExchangeSinkHandle, int)})
      *
      * @param handle returned by {@link Exchange#instantiateSink(ExchangeSinkHandle, int)}
-     * @param preserveRecordsOrder preserve order of records within a partition. May impact performance as it makes certain optimizations not possible.
      * @return {@link ExchangeSink} used by the engine to write data to an exchange
      */
-    ExchangeSink createSink(ExchangeSinkInstanceHandle handle, boolean preserveRecordsOrder);
+    ExchangeSink createSink(ExchangeSinkInstanceHandle handle);
 
     /**
-     * Called by a worker to create an {@link ExchangeSource} to read data corresponding to
-     * a given list of exchange source handles.
-     * <p>
-     * Usually a single {@link ExchangeSourceHandle} corresponds to a single output partition
-     * (see {@link ExchangeSink#add(int, Slice)}) unless a partition got split by calling
-     * {@link Exchange#split(ExchangeSourceHandle, long)}.
-     * <p>
-     * Based on the partition statistic (such as partition size) coordinator may also decide
-     * to process several partitions by the same task. In such scenarios the <code>handles</code>
-     * list may contain more than a single element.
+     * Called by a worker to create an {@link ExchangeSource} to read exchange data.
      *
-     * @param handles list of {@link ExchangeSourceHandle}'s describing what exchange data to
-     * read. The full list of handles is returned by {@link Exchange#getSourceHandles}.
-     * The coordinator decides what items from that list should be handled by what task and creates
-     * sub-lists that are further getting sent to a worker to be read.
-     * The <code>handles</code> list may contain {@link ExchangeSourceHandle}'s created by more than
-     * a single {@link Exchange}.
      * @return {@link ExchangeSource} used by the engine to read data from an exchange
      */
-    ExchangeSource createSource(List<ExchangeSourceHandle> handles);
+    ExchangeSource createSource();
 }

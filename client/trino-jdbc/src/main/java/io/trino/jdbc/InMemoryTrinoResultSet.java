@@ -20,8 +20,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static java.util.Objects.requireNonNull;
-
 class InMemoryTrinoResultSet
         extends AbstractTrinoResultSet
 {
@@ -29,7 +27,7 @@ class InMemoryTrinoResultSet
 
     public InMemoryTrinoResultSet(List<Column> columns, List<List<Object>> results)
     {
-        super(Optional.empty(), columns, requireNonNull(results, "results is null").iterator());
+        super(Optional.empty(), columns, results.iterator());
     }
 
     @Override

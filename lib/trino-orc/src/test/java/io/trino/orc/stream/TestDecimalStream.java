@@ -263,10 +263,8 @@ public class TestDecimalStream
                     output.write((byte) lowBits);
                     return;
                 }
-                else {
-                    output.write((byte) (0x80 | (lowBits & 0x7f)));
-                    lowBits >>>= 7;
-                }
+                output.write((byte) (0x80 | (lowBits & 0x7f)));
+                lowBits >>>= 7;
             }
             value = value.shiftRight(63);
         }

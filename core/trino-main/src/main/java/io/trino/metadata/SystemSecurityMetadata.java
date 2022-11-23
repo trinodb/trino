@@ -23,7 +23,6 @@ import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 
 public interface SystemSecurityMetadata
@@ -49,12 +48,6 @@ public interface SystemSecurityMetadata
      * List available roles.
      */
     Set<String> listRoles(Session session);
-
-    /**
-     * List all role grants,
-     * optionally filtered by passed role, grantee, and limit predicates.
-     */
-    Set<RoleGrant> listAllRoleGrants(Session session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit);
 
     /**
      * List roles grants for a given principal, not recursively.

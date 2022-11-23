@@ -24,10 +24,10 @@ import java.util.List;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.RowBlock.createRowBlockInternal;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -35,7 +35,7 @@ public class RowBlockBuilder
         extends AbstractRowBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RowBlockBuilder.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RowBlockBuilder.class).instanceSize());
 
     @Nullable
     private final BlockBuilderStatus blockBuilderStatus;
@@ -151,7 +151,7 @@ public class RowBlockBuilder
         }
         consumer.accept(fieldBlockOffsets, sizeOf(fieldBlockOffsets));
         consumer.accept(rowIsNull, sizeOf(rowIsNull));
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -241,14 +241,13 @@ public class RowBlockBuilder
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
     {
-        int newSize = calculateBlockResetSize(getPositionCount());
         BlockBuilder[] newBlockBuilders = new BlockBuilder[numFields];
         for (int i = 0; i < numFields; i++) {
             newBlockBuilders[i] = fieldBlockBuilders[i].newBlockBuilderLike(blockBuilderStatus);
         }
-        return new RowBlockBuilder(blockBuilderStatus, newBlockBuilders, new int[newSize + 1], new boolean[newSize]);
+        return new RowBlockBuilder(blockBuilderStatus, newBlockBuilders, new int[expectedEntries + 1], new boolean[expectedEntries]);
     }
 
     @Override
@@ -286,7 +285,7 @@ public class RowBlockBuilder
         return super.copyRegion(position, length);
     }
 
-    private RunLengthEncodedBlock nullRle(int length)
+    private Block nullRle(int length)
     {
         Block[] fieldBlocks = new Block[numFields];
         for (int i = 0; i < numFields; i++) {
@@ -294,6 +293,6 @@ public class RowBlockBuilder
         }
 
         RowBlock nullRowBlock = createRowBlockInternal(0, 1, new boolean[] {true}, new int[] {0, 0}, fieldBlocks);
-        return new RunLengthEncodedBlock(nullRowBlock, length);
+        return RunLengthEncodedBlock.create(nullRowBlock, length);
     }
 }

@@ -119,7 +119,7 @@ public class GroupedTopNRankAccumulator
             heapInsert(groupId, newPeerGroupIndex, 1);
             return true;
         }
-        else if (rowReference.compareTo(strategy, peekRootRowId(groupId)) < 0) {
+        if (rowReference.compareTo(strategy, peekRootRowId(groupId)) < 0) {
             // Given that total number of values >= topN, we can only consider values that are less than the root (otherwise topN would be violated)
             long newPeerGroupIndex = peerGroupBuffer.allocateNewNode(rowReference.allocateRowId(), UNKNOWN_INDEX);
             // Rank will increase by +1 after insertion, so only need to pop if root rank is already == topN.
@@ -131,10 +131,8 @@ public class GroupedTopNRankAccumulator
             }
             return true;
         }
-        else {
-            // Row cannot be accepted because the total number of values >= topN, and the row is greater than the root (meaning it's rank would be at least topN+1).
-            return false;
-        }
+        // Row cannot be accepted because the total number of values >= topN, and the row is greater than the root (meaning it's rank would be at least topN+1).
+        return false;
     }
 
     /**

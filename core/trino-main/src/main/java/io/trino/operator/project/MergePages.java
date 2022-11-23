@@ -229,7 +229,7 @@ public final class MergePages
 
         private static boolean isLoaded(Page page)
         {
-            // TODO: provide better heuristics there, e.g check if last produced page was materialized
+            // TODO: provide better heuristics there, e.g. check if last produced page was materialized
             for (int channel = 0; channel < page.getChannelCount(); ++channel) {
                 Block block = page.getBlock(channel);
                 if (!block.isLoaded()) {

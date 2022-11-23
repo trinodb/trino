@@ -46,14 +46,12 @@ import static io.trino.sql.planner.TestTableScanNodePartitioning.CONNECTOR_UNPAR
 import static io.trino.sql.planner.TestTableScanNodePartitioning.DISABLE_PLAN_WITH_TABLE_NODE_PARTITIONING;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.ENABLE_PLAN_WITH_TABLE_NODE_PARTITIONING;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.FIXED_PARTITIONED_TABLE_HANDLE;
-import static io.trino.sql.planner.TestTableScanNodePartitioning.MOCK_CATALOG;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.PARTITIONED_TABLE_HANDLE;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.SINGLE_BUCKET_TABLE_HANDLE;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.UNPARTITIONED_TABLE_HANDLE;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.createMockFactory;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 
 public class TestDetermineTableScanNodePartitioning
 {
@@ -62,8 +60,9 @@ public class TestDetermineTableScanNodePartitioning
     @BeforeClass
     public void setUp()
     {
-        tester = defaultRuleTester();
-        tester.getQueryRunner().createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
+        tester = RuleTester.builder()
+                .withDefaultCatalogConnectorFactory(createMockFactory())
+                .build();
     }
 
     @AfterClass(alwaysRun = true)

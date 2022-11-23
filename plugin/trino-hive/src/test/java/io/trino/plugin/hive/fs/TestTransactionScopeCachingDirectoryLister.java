@@ -23,9 +23,7 @@ import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
-import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.testng.annotations.Test;
@@ -39,7 +37,6 @@ import java.util.OptionalLong;
 
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.fs.permission.FsPermission.getFileDefault;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -87,9 +84,9 @@ public class TestTransactionScopeCachingDirectoryLister
     public void testConcurrentDirectoryListing()
             throws IOException
     {
-        LocatedFileStatus firstFile = new LocatedFileStatus(1, false, 1, 1, 1, 1, getFileDefault(), "x", "x", new org.apache.hadoop.fs.Path("x"), new org.apache.hadoop.fs.Path("x"), false, false, false, new BlockLocation[] {});
-        LocatedFileStatus secondFile = new LocatedFileStatus(1, false, 1, 1, 1, 1, getFileDefault(), "y", "y", new org.apache.hadoop.fs.Path("y"), new org.apache.hadoop.fs.Path("y"), false, false, false, new BlockLocation[] {});
-        LocatedFileStatus thirdFile = new LocatedFileStatus(1, false, 1, 1, 1, 1, getFileDefault(), "z", "z", new org.apache.hadoop.fs.Path("z"), new org.apache.hadoop.fs.Path("z"), false, false, false, new BlockLocation[] {});
+        TrinoFileStatus firstFile = new TrinoFileStatus(ImmutableList.of(), new org.apache.hadoop.fs.Path("x"), false, 1, 1);
+        TrinoFileStatus secondFile = new TrinoFileStatus(ImmutableList.of(), new org.apache.hadoop.fs.Path("y"), false, 1, 1);
+        TrinoFileStatus thirdFile = new TrinoFileStatus(ImmutableList.of(), new org.apache.hadoop.fs.Path("z"), false, 1, 1);
 
         org.apache.hadoop.fs.Path path1 = new org.apache.hadoop.fs.Path("x");
         org.apache.hadoop.fs.Path path2 = new org.apache.hadoop.fs.Path("y");
@@ -110,8 +107,8 @@ public class TestTransactionScopeCachingDirectoryLister
         assertThat(countingLister.getListCount()).isEqualTo(1);
 
         // start listing path1 concurrently
-        RemoteIterator<LocatedFileStatus> path1FilesA = cachingLister.list(null, TABLE, path1);
-        RemoteIterator<LocatedFileStatus> path1FilesB = cachingLister.list(null, TABLE, path1);
+        RemoteIterator<TrinoFileStatus> path1FilesA = cachingLister.list(null, TABLE, path1);
+        RemoteIterator<TrinoFileStatus> path1FilesB = cachingLister.list(null, TABLE, path1);
         assertThat(countingLister.getListCount()).isEqualTo(2);
 
         // list path1 files using both iterators concurrently
@@ -133,7 +130,7 @@ public class TestTransactionScopeCachingDirectoryLister
     public void testConcurrentDirectoryListingException()
             throws IOException
     {
-        LocatedFileStatus file = new LocatedFileStatus(1, false, 1, 1, 1, 1, getFileDefault(), "x", "x", new org.apache.hadoop.fs.Path("x"), new org.apache.hadoop.fs.Path("x"), false, false, false, new BlockLocation[] {});
+        TrinoFileStatus file = new TrinoFileStatus(ImmutableList.of(), new org.apache.hadoop.fs.Path("x"), false, 1, 1);
         org.apache.hadoop.fs.Path path = new org.apache.hadoop.fs.Path("x");
 
         CountingDirectoryLister countingLister = new CountingDirectoryLister(ImmutableMap.of(path, ImmutableList.of(file)));
@@ -141,8 +138,8 @@ public class TestTransactionScopeCachingDirectoryLister
 
         // start listing path concurrently
         countingLister.setThrowException(true);
-        RemoteIterator<LocatedFileStatus> filesA = cachingLister.list(null, TABLE, path);
-        RemoteIterator<LocatedFileStatus> filesB = cachingLister.list(null, TABLE, path);
+        RemoteIterator<TrinoFileStatus> filesA = cachingLister.list(null, TABLE, path);
+        RemoteIterator<TrinoFileStatus> filesB = cachingLister.list(null, TABLE, path);
         assertThat(countingLister.getListCount()).isEqualTo(1);
 
         // listing should throw an exception
@@ -157,10 +154,10 @@ public class TestTransactionScopeCachingDirectoryLister
         assertThatThrownBy(filesB::hasNext).isInstanceOf(IOException.class);
     }
 
-    private void assertFiles(RemoteIterator<LocatedFileStatus> iterator, List<LocatedFileStatus> expectedFiles)
+    private void assertFiles(RemoteIterator<TrinoFileStatus> iterator, List<TrinoFileStatus> expectedFiles)
             throws IOException
     {
-        ImmutableList.Builder<LocatedFileStatus> actualFiles = ImmutableList.builder();
+        ImmutableList.Builder<TrinoFileStatus> actualFiles = ImmutableList.builder();
         while (iterator.hasNext()) {
             actualFiles.add(iterator.next());
         }
@@ -170,17 +167,17 @@ public class TestTransactionScopeCachingDirectoryLister
     private static class CountingDirectoryLister
             implements DirectoryLister
     {
-        private final Map<org.apache.hadoop.fs.Path, List<LocatedFileStatus>> fileStatuses;
+        private final Map<org.apache.hadoop.fs.Path, List<TrinoFileStatus>> fileStatuses;
         private int listCount;
         private boolean throwException;
 
-        public CountingDirectoryLister(Map<org.apache.hadoop.fs.Path, List<LocatedFileStatus>> fileStatuses)
+        public CountingDirectoryLister(Map<org.apache.hadoop.fs.Path, List<TrinoFileStatus>> fileStatuses)
         {
             this.fileStatuses = requireNonNull(fileStatuses, "fileStatuses is null");
         }
 
         @Override
-        public RemoteIterator<LocatedFileStatus> list(FileSystem fs, Table table, org.apache.hadoop.fs.Path path)
+        public RemoteIterator<TrinoFileStatus> list(FileSystem fs, Table table, org.apache.hadoop.fs.Path path)
                 throws IOException
         {
             listCount++;
@@ -188,7 +185,7 @@ public class TestTransactionScopeCachingDirectoryLister
         }
 
         @Override
-        public RemoteIterator<LocatedFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
+        public RemoteIterator<TrinoFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
                 throws IOException
         {
             // No specific recursive files-only listing implementation
@@ -216,11 +213,11 @@ public class TestTransactionScopeCachingDirectoryLister
         }
     }
 
-    static RemoteIterator<LocatedFileStatus> throwingRemoteIterator(List<LocatedFileStatus> files, boolean throwException)
+    static RemoteIterator<TrinoFileStatus> throwingRemoteIterator(List<TrinoFileStatus> files, boolean throwException)
     {
         return new RemoteIterator<>()
         {
-            private final Iterator<LocatedFileStatus> iterator = ImmutableList.copyOf(files).iterator();
+            private final Iterator<TrinoFileStatus> iterator = ImmutableList.copyOf(files).iterator();
 
             @Override
             public boolean hasNext()
@@ -233,7 +230,7 @@ public class TestTransactionScopeCachingDirectoryLister
             }
 
             @Override
-            public LocatedFileStatus next()
+            public TrinoFileStatus next()
             {
                 return iterator.next();
             }

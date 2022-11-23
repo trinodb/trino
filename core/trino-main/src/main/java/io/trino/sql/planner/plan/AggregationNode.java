@@ -20,9 +20,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.Session;
-import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.Expression;
@@ -117,6 +117,15 @@ public class AggregationNode
     public GroupingSetDescriptor getGroupingSets()
     {
         return groupingSets;
+    }
+
+    /**
+     * @return true if the aggregation collapses all rows into a single global group (e.g., as a result of a GROUP BY () query).
+     * Otherwise, false.
+     */
+    public boolean hasSingleGlobalAggregation()
+    {
+        return hasEmptyGroupingSet() && getGroupingSetCount() == 1;
     }
 
     /**

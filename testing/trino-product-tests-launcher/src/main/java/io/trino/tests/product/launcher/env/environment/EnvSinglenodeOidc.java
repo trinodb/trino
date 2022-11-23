@@ -27,7 +27,7 @@ import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_CONFIG_PROPERTIES;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -56,7 +56,7 @@ public class EnvSinglenodeOidc
             dockerContainer
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("config.properties")),
-                            CONTAINER_PRESTO_CONFIG_PROPERTIES);
+                            CONTAINER_TRINO_CONFIG_PROPERTIES);
 
             binder.exposePort(dockerContainer, 7778);
         });

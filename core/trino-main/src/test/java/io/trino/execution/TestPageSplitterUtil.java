@@ -83,7 +83,7 @@ public class TestPageSplitterUtil
         Slice expectedValue = wrappedBuffer("test".getBytes(UTF_8));
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1, expectedValue.length());
         blockBuilder.writeBytes(expectedValue, 0, expectedValue.length()).closeEntry();
-        Block rleBlock = new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
+        Block rleBlock = RunLengthEncodedBlock.create(blockBuilder.build(), positionCount);
         Page initialPage = new Page(rleBlock);
         List<Page> pages = splitPage(initialPage, maxPageSizeInBytes);
 

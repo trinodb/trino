@@ -14,8 +14,10 @@
 package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
-import org.apache.hadoop.fs.FileSystem;
+import io.trino.plugin.deltalake.transactionlog.MissingTransactionLogException;
 import org.apache.hadoop.fs.Path;
 
 import java.io.BufferedReader;
@@ -45,7 +47,7 @@ public class TransactionLogTail
     }
 
     public static TransactionLogTail loadNewTail(
-            FileSystem fileSystem,
+            TrinoFileSystem fileSystem,
             Path tableLocation,
             Optional<Long> startVersion)
             throws IOException
@@ -55,7 +57,7 @@ public class TransactionLogTail
 
     // Load a section of the Transaction Log JSON entries. Optionally from a given start version (exclusive) through an end version (inclusive)
     public static TransactionLogTail loadNewTail(
-            FileSystem fileSystem,
+            TrinoFileSystem fileSystem,
             Path tableLocation,
             Optional<Long> startVersion,
             Optional<Long> endVersion)
@@ -71,13 +73,17 @@ public class TransactionLogTail
 
         boolean endOfTail = false;
         while (!endOfTail) {
-            results = getEntriesFromJson(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber), fileSystem);
+            Path path = getTransactionLogJsonEntryPath(transactionLogDir, entryNumber);
+            results = getEntriesFromJson(path, fileSystem);
             if (results.isPresent()) {
                 entriesBuilder.addAll(results.get());
                 version = entryNumber;
                 entryNumber++;
             }
             else {
+                if (endVersion.isPresent()) {
+                    throw new MissingTransactionLogException(path);
+                }
                 endOfTail = true;
             }
 
@@ -89,7 +95,7 @@ public class TransactionLogTail
         return new TransactionLogTail(entriesBuilder.build(), version);
     }
 
-    public Optional<TransactionLogTail> getUpdatedTail(FileSystem fileSystem, Path tableLocation)
+    public Optional<TransactionLogTail> getUpdatedTail(TrinoFileSystem fileSystem, Path tableLocation)
             throws IOException
     {
         ImmutableList.Builder<DeltaLakeTransactionLogEntry> entriesBuilder = ImmutableList.builder();
@@ -120,11 +126,12 @@ public class TransactionLogTail
         return Optional.of(new TransactionLogTail(entriesBuilder.build(), newVersion));
     }
 
-    public static Optional<List<DeltaLakeTransactionLogEntry>> getEntriesFromJson(Path transactionLogFilePath, FileSystem fileSystem)
+    public static Optional<List<DeltaLakeTransactionLogEntry>> getEntriesFromJson(Path transactionLogFilePath, TrinoFileSystem fileSystem)
             throws IOException
     {
+        TrinoInputFile inputFile = fileSystem.newInputFile(transactionLogFilePath.toString());
         try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(fileSystem.open(transactionLogFilePath), UTF_8),
+                new InputStreamReader(inputFile.newInput().inputStream(), UTF_8),
                 JSON_LOG_ENTRY_READ_BUFFER_SIZE)) {
             ImmutableList.Builder<DeltaLakeTransactionLogEntry> resultsBuilder = ImmutableList.builder();
             String line = reader.readLine();
@@ -148,12 +155,10 @@ public class TransactionLogTail
         if (e instanceof FileNotFoundException) {
             return true;
         }
-        else if (e.getMessage().contains("The specified key does not exist")) {
+        if (e.getMessage().contains("The specified key does not exist")) {
             return true;
         }
-        else {
-            return false;
-        }
+        return false;
     }
 
     public List<DeltaLakeTransactionLogEntry> getFileEntries()

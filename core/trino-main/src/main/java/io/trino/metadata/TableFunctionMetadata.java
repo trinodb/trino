@@ -13,25 +13,25 @@
  */
 package io.trino.metadata;
 
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.ptf.ConnectorTableFunction;
 
 import static java.util.Objects.requireNonNull;
 
 public class TableFunctionMetadata
 {
-    private final CatalogName catalogName;
+    private final CatalogHandle catalogHandle;
     private final ConnectorTableFunction function;
 
-    public TableFunctionMetadata(CatalogName catalogName, ConnectorTableFunction function)
+    public TableFunctionMetadata(CatalogHandle catalogHandle, ConnectorTableFunction function)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.function = requireNonNull(function, "function is null");
     }
 
-    public CatalogName getCatalogName()
+    public CatalogHandle getCatalogHandle()
     {
-        return catalogName;
+        return catalogHandle;
     }
 
     public ConnectorTableFunction getFunction()

@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.TaskStatus;
+import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.metadata.InternalNode;
 
 import java.util.Collection;
@@ -45,6 +46,7 @@ public class ScaledWriterScheduler
     private final NodeSelector nodeSelector;
     private final ScheduledExecutorService executor;
     private final long writerMinSizeBytes;
+    private final int maxTaskWriterCount;
     private final Set<InternalNode> scheduledNodes = new HashSet<>();
     private final AtomicBoolean done = new AtomicBoolean();
     private volatile SettableFuture<Void> future = SettableFuture.create();
@@ -55,14 +57,16 @@ public class ScaledWriterScheduler
             Supplier<Collection<TaskStatus>> writerTasksProvider,
             NodeSelector nodeSelector,
             ScheduledExecutorService executor,
-            DataSize writerMinSize)
+            DataSize writerMinSize,
+            int maxTaskWriterCount)
     {
         this.stage = requireNonNull(stage, "stage is null");
         this.sourceTasksProvider = requireNonNull(sourceTasksProvider, "sourceTasksProvider is null");
         this.writerTasksProvider = requireNonNull(writerTasksProvider, "writerTasksProvider is null");
         this.nodeSelector = requireNonNull(nodeSelector, "nodeSelector is null");
         this.executor = requireNonNull(executor, "executor is null");
-        this.writerMinSizeBytes = requireNonNull(writerMinSize, "writerMinSize is null").toBytes();
+        this.writerMinSizeBytes = writerMinSize.toBytes();
+        this.maxTaskWriterCount = maxTaskWriterCount;
     }
 
     public void finish()
@@ -91,7 +95,8 @@ public class ScaledWriterScheduler
 
         double fullTasks = sourceTasksProvider.get().stream()
                 .filter(task -> !task.getState().isDone())
-                .map(TaskStatus::isOutputBufferOverutilized)
+                .map(TaskStatus::getOutputBufferStatus)
+                .map(OutputBufferStatus::isOverutilized)
                 .mapToDouble(full -> full ? 1.0 : 0.0)
                 .average().orElse(0.0);
 
@@ -100,7 +105,7 @@ public class ScaledWriterScheduler
                 .mapToLong(DataSize::toBytes)
                 .sum();
 
-        if ((fullTasks >= 0.5) && (writtenBytes >= (writerMinSizeBytes * scheduledNodes.size()))) {
+        if ((fullTasks >= 0.5) && (writtenBytes >= (writerMinSizeBytes * maxTaskWriterCount * scheduledNodes.size()))) {
             return 1;
         }
 

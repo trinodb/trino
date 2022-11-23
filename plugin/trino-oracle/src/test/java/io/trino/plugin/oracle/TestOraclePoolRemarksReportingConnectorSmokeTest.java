@@ -15,8 +15,11 @@ package io.trino.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.Closeables;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -24,7 +27,10 @@ import java.io.IOException;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 
 public class TestOraclePoolRemarksReportingConnectorSmokeTest
         extends BaseOracleConnectorSmokeTest
@@ -71,5 +77,46 @@ public class TestOraclePoolRemarksReportingConnectorSmokeTest
         assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).contains("COMMENT 'new comment'");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "testCommentDataProvider")
+    public void testCommentColumnSpecialCharacter(String comment)
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_column_", "(a integer)")) {
+            assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS " + varcharLiteral(comment));
+            assertEquals(getColumnComment(table.getName(), "a"), comment);
+        }
+    }
+
+    @DataProvider
+    public Object[][] testCommentDataProvider()
+    {
+        return new Object[][] {
+                {"a;semicolon"},
+                {"an@at"},
+                {"a\"quote"},
+                {"an'apostrophe"},
+                {"a`backtick`"},
+                {"a/slash`"},
+                {"a\\backslash`"},
+                {"a?question"},
+                {"[square bracket]"},
+        };
+    }
+
+    private static String varcharLiteral(String value)
+    {
+        requireNonNull(value, "value is null");
+        return "'" + value.replace("'", "''") + "'";
+    }
+
+    protected String getColumnComment(String tableName, String columnName)
+    {
+        MaterializedResult materializedResult = computeActual(format(
+                "SELECT comment FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s' AND column_name = '%s'",
+                getSession().getSchema().orElseThrow(),
+                tableName,
+                columnName));
+        return (String) materializedResult.getOnlyValue();
     }
 }

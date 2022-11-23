@@ -13,30 +13,72 @@
  */
 package io.trino.operator.scalar;
 
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
-import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestArrayContainsSequence
-        extends AbstractTestFunctions
 {
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     @Test
     public void testBasic()
     {
-        assertFunction("contains_sequence(ARRAY [1,2,3,4,5,6], ARRAY[1,2])", BOOLEAN, true);
-        assertFunction("contains_sequence(ARRAY [1,2,3,4,5,6], ARRAY[3,4])", BOOLEAN, true);
-        assertFunction("contains_sequence(ARRAY [1,2,3,4,5,6], ARRAY[5,6])", BOOLEAN, true);
-        assertFunction("contains_sequence(ARRAY [1,2,3,4,5,6], ARRAY[1,2,4])", BOOLEAN, false);
-        assertFunction("contains_sequence(ARRAY [1,2,3,NULL,4,5,6], ARRAY[3,NULL,4])", BOOLEAN, true);
-        assertFunction("contains_sequence(ARRAY [1,2,3,4,5,6], ARRAY[1,2,3,4,5,6])", BOOLEAN, true);
-        assertFunction("contains_sequence(ARRAY [1,2,3,4,5,6], ARRAY[])", BOOLEAN, true);
-        assertFunction("contains_sequence(ARRAY ['1','2','3'], ARRAY['1','2'])", BOOLEAN, true);
-        assertFunction("contains_sequence(ARRAY [1.1,2.2,3.3], ARRAY[1.1,2.2])", BOOLEAN, true);
-        assertFunction("contains_sequence(ARRAY [ARRAY[1,2],ARRAY[3],ARRAY[4,5]], ARRAY[ARRAY[1,2],ARRAY[3]])", BOOLEAN, true);
-        assertFunction("contains_sequence(ARRAY [ARRAY[1,2],ARRAY[3],ARRAY[4,5]], ARRAY[ARRAY[1,2],ARRAY[4]])", BOOLEAN, false);
+        assertThat(assertions.function("contains_sequence", "ARRAY[1, 2, 3, 4, 5, 6]", "ARRAY[1, 2]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("contains_sequence", "ARRAY[1, 2, 3, 4, 5, 6]", "ARRAY[3, 4]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("contains_sequence", "ARRAY[1, 2, 3, 4, 5, 6]", "ARRAY[5, 6]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("contains_sequence", "ARRAY[1, 2, 3, 4, 5, 6]", "ARRAY[1, 2, 4]"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("contains_sequence", "ARRAY[1, 2, 3, NULL, 4, 5, 6]", "ARRAY[3, NULL, 4]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("contains_sequence", "ARRAY[1, 2, 3, 4, 5, 6]", "ARRAY[1, 2, 3, 4, 5, 6]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("contains_sequence", "ARRAY[1, 2, 3, 4, 5, 6]", "ARRAY[]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("contains_sequence", "ARRAY['1', '2', '3']", "ARRAY['1', '2']"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("contains_sequence", "ARRAY[1.1, 2.2, 3.3]", "ARRAY[1.1, 2.2]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("contains_sequence", "ARRAY[ARRAY[1,2], ARRAY[3], ARRAY[4,5]]", "ARRAY[ARRAY[1,2], ARRAY[3]]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("contains_sequence", "ARRAY[ARRAY[1,2], ARRAY[3], ARRAY[4,5]]", "ARRAY[ARRAY[1,2], ARRAY[4]]"))
+                .isEqualTo(false);
 
         for (int i = 1; i <= 6; i++) {
-            assertFunction("contains_sequence(ARRAY [1,2,3,4,5,6], ARRAY[" + i + "])", BOOLEAN, true);
+            assertThat(assertions.function("contains_sequence", "ARRAY[1, 2, 3, 4, 5, 6]", "ARRAY[%d]".formatted(i)))
+                    .isEqualTo(true);
         }
     }
 }

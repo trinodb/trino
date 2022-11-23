@@ -14,7 +14,6 @@
 package io.trino.tests.product.cli;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Files;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.tempto.AfterTestWithContext;
@@ -26,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Arrays;
 
 import static io.trino.tempto.Requirements.compose;
@@ -52,7 +52,6 @@ import static io.trino.tests.product.TestGroups.LDAP_CLI;
 import static io.trino.tests.product.TestGroups.LDAP_MULTIPLE_BINDS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -96,10 +95,10 @@ public class TestTrinoLdapCli
 
     @AfterTestWithContext
     @Override
-    public void stopPresto()
+    public void stopCli()
             throws InterruptedException
     {
-        super.stopPresto();
+        super.stopCli();
     }
 
     @Override
@@ -137,7 +136,7 @@ public class TestTrinoLdapCli
     {
         File temporayFile = File.createTempFile("test-sql", null);
         temporayFile.deleteOnExit();
-        Files.write(SELECT_FROM_NATION + "\n", temporayFile, UTF_8);
+        Files.writeString(temporayFile.toPath(), SELECT_FROM_NATION + "\n");
 
         launchTrinoCliWithServerArgument("--file", temporayFile.getAbsolutePath());
         assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);

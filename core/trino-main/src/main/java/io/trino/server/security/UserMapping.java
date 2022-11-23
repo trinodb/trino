@@ -132,10 +132,11 @@ public final class UserMapping
                 @JsonProperty("allow") Optional<Boolean> allow,
                 @JsonProperty("case") Optional<Case> userCase)
         {
-            this(pattern,
-                    requireNonNull(user, "user is null").orElse("$1"),
-                    requireNonNull(allow, "allow is null").orElse(TRUE),
-                    requireNonNull(userCase, "userCase is null").orElse(KEEP));
+            this(
+                    pattern,
+                    user.orElse("$1"),
+                    allow.orElse(TRUE),
+                    userCase.orElse(KEEP));
         }
 
         public Rule(String pattern, String user, boolean allow, Case userCase)

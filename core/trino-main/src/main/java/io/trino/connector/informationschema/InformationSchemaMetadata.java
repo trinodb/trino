@@ -60,7 +60,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.connector.informationschema.InformationSchemaTable.COLUMNS;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
-import static io.trino.connector.informationschema.InformationSchemaTable.ROLE_AUTHORIZATION_DESCRIPTORS;
 import static io.trino.connector.informationschema.InformationSchemaTable.TABLES;
 import static io.trino.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
 import static io.trino.connector.informationschema.InformationSchemaTable.VIEWS;
@@ -81,7 +80,6 @@ public class InformationSchemaMetadata
     private static final InformationSchemaColumnHandle ROLE_NAME_COLUMN_HANDLE = new InformationSchemaColumnHandle("role_name");
     private static final InformationSchemaColumnHandle GRANTEE_COLUMN_HANDLE = new InformationSchemaColumnHandle("grantee");
     private static final int MAX_PREFIXES_COUNT = 100;
-    private static final int MAX_ROLE_COUNT = 100;
 
     private final String catalogName;
     private final Metadata metadata;
@@ -102,7 +100,7 @@ public class InformationSchemaMetadata
     public ConnectorTableHandle getTableHandle(ConnectorSession connectorSession, SchemaTableName tableName)
     {
         return InformationSchemaTable.of(tableName)
-                .map(table -> new InformationSchemaTableHandle(catalogName, table, defaultPrefixes(catalogName), Optional.empty(), Optional.empty(), OptionalLong.empty()))
+                .map(table -> new InformationSchemaTableHandle(catalogName, table, defaultPrefixes(catalogName), OptionalLong.empty()))
                 .orElse(null);
     }
 
@@ -180,7 +178,7 @@ public class InformationSchemaMetadata
         }
 
         return Optional.of(new LimitApplicationResult<>(
-                new InformationSchemaTableHandle(table.getCatalogName(), table.getTable(), table.getPrefixes(), table.getRoles(), table.getGrantees(), OptionalLong.of(limit)),
+                new InformationSchemaTableHandle(table.getCatalogName(), table.getTable(), table.getPrefixes(), OptionalLong.of(limit)),
                 true,
                 false));
     }
@@ -190,23 +188,16 @@ public class InformationSchemaMetadata
     {
         InformationSchemaTableHandle table = (InformationSchemaTableHandle) handle;
 
-        Optional<Set<String>> roles = table.getRoles();
-        Optional<Set<String>> grantees = table.getGrantees();
-        if (ROLE_AUTHORIZATION_DESCRIPTORS.equals(table.getTable()) && table.getRoles().isEmpty() && table.getGrantees().isEmpty()) {
-            roles = calculateRoles(session, constraint.getSummary(), constraint.predicate());
-            grantees = calculateGrantees(constraint.getSummary(), constraint.predicate());
-        }
-
         Set<QualifiedTablePrefix> prefixes = table.getPrefixes();
         if (isTablesEnumeratingTable(table.getTable()) && table.getPrefixes().equals(defaultPrefixes(catalogName))) {
             prefixes = getPrefixes(session, table, constraint);
         }
 
-        if (roles.equals(table.getRoles()) && grantees.equals(table.getGrantees()) && prefixes.equals(table.getPrefixes())) {
+        if (prefixes.equals(table.getPrefixes())) {
             return Optional.empty();
         }
 
-        table = new InformationSchemaTableHandle(table.getCatalogName(), table.getTable(), prefixes, roles, grantees, table.getLimit());
+        table = new InformationSchemaTableHandle(table.getCatalogName(), table.getTable(), prefixes, table.getLimit());
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), false));
     }
 
@@ -244,66 +235,6 @@ public class InformationSchemaMetadata
     public static boolean isTablesEnumeratingTable(InformationSchemaTable table)
     {
         return ImmutableSet.of(COLUMNS, VIEWS, TABLES, TABLE_PRIVILEGES).contains(table);
-    }
-
-    private Optional<Set<String>> calculateRoles(
-            ConnectorSession connectorSession,
-            TupleDomain<ColumnHandle> constraint,
-            Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
-    {
-        if (constraint.isNone()) {
-            return Optional.empty();
-        }
-
-        Optional<Set<String>> roles = filterString(constraint, ROLE_NAME_COLUMN_HANDLE);
-        if (roles.isPresent()) {
-            Set<String> result = roles.get().stream()
-                    .filter(this::isLowerCase)
-                    .filter(role -> predicate.isEmpty() || predicate.get().test(roleAsFixedValues(role)))
-                    .collect(toImmutableSet());
-
-            if (result.isEmpty()) {
-                return Optional.empty();
-            }
-            if (result.size() <= MAX_ROLE_COUNT) {
-                return Optional.of(result);
-            }
-        }
-
-        if (predicate.isEmpty()) {
-            return Optional.empty();
-        }
-
-        Session session = ((FullConnectorSession) connectorSession).getSession();
-        return Optional.of(metadata.listRoles(session, Optional.of(catalogName))
-                .stream()
-                .filter(role -> predicate.get().test(roleAsFixedValues(role)))
-                .collect(toImmutableSet()));
-    }
-
-    private Optional<Set<String>> calculateGrantees(
-            TupleDomain<ColumnHandle> constraint,
-            Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
-    {
-        if (constraint.isNone()) {
-            return Optional.empty();
-        }
-
-        Optional<Set<String>> grantees = filterString(constraint, GRANTEE_COLUMN_HANDLE);
-        if (grantees.isEmpty()) {
-            return Optional.empty();
-        }
-
-        Set<String> result = grantees.get().stream()
-                .filter(this::isLowerCase)
-                .filter(role -> predicate.isEmpty() || predicate.get().test(granteeAsFixedValues(role)))
-                .collect(toImmutableSet());
-
-        if (!result.isEmpty() && result.size() <= MAX_ROLE_COUNT) {
-            return Optional.of(result);
-        }
-
-        return Optional.empty();
     }
 
     private Set<QualifiedTablePrefix> calculatePrefixesWithSchemaName(

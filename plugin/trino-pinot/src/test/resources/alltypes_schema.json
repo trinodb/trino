@@ -43,6 +43,10 @@
             "name": "long_array_col",
             "dataType": "LONG",
             "singleValueField": false
+        },
+        {
+            "name": "timestamp_col",
+            "dataType": "TIMESTAMP"
         }
     ],
     "metricFieldSpecs": [
@@ -79,6 +83,12 @@
             "format": "1:SECONDS:EPOCH",
             "transformFunction": "toEpochSecondsRounded(updated_at, 3600)",
             "granularity" : "1:SECONDS"
+        },
+        {
+            "name": "ts",
+            "dataType": "TIMESTAMP",
+            "format": "1:MILLISECONDS:TIMESTAMP",
+            "granularity": "1:SECONDS"
         }
     ]
 }

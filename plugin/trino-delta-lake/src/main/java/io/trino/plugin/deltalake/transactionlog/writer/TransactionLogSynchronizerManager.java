@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.transactionlog.writer;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
@@ -21,6 +22,7 @@ import javax.inject.Inject;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -45,7 +47,7 @@ public class TransactionLogSynchronizerManager
         checkArgument(uriScheme != null, "URI scheme undefined for " + tableLocation);
         TransactionLogSynchronizer synchronizer = synchronizers.get(uriScheme.toLowerCase(ENGLISH));
         if (synchronizer == null) {
-            throw new IllegalArgumentException(format("Cannot write to table in %s; %s not supported", tableLocation, uriScheme));
+            throw new TrinoException(NOT_SUPPORTED, format("Cannot write to table in %s; %s not supported", tableLocation, uriScheme));
         }
         return synchronizer;
     }

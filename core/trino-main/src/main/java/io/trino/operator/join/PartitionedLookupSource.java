@@ -69,16 +69,14 @@ public class PartitionedLookupSource
                 }
             };
         }
-        else {
-            return TrackingLookupSourceSupplier.nonTracking(
-                    () -> new PartitionedLookupSource(
-                            partitions.stream()
-                                    .map(Supplier::get)
-                                    .collect(toImmutableList()),
-                            hashChannelTypes,
-                            Optional.empty(),
-                            blockTypeOperators));
-        }
+        return TrackingLookupSourceSupplier.nonTracking(
+                () -> new PartitionedLookupSource(
+                        partitions.stream()
+                                .map(Supplier::get)
+                                .collect(toImmutableList()),
+                        hashChannelTypes,
+                        Optional.empty(),
+                        blockTypeOperators));
     }
 
     private final LookupSource[] lookupSources;

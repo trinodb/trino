@@ -88,7 +88,7 @@ public class TestingExchangeHttpClientHandler
             output.writeBytes(serializedPage);
             return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
         }
-        else if (taskBuffer.isFinished()) {
+        if (taskBuffer.isFinished()) {
             headers.put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
             headers.put(TRINO_BUFFER_COMPLETE, String.valueOf(true));
             DynamicSliceOutput output = new DynamicSliceOutput(8);
@@ -97,10 +97,8 @@ public class TestingExchangeHttpClientHandler
             output.writeInt(0);
             return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
         }
-        else {
-            headers.put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
-            headers.put(TRINO_BUFFER_COMPLETE, String.valueOf(false));
-            return new TestingResponse(HttpStatus.NO_CONTENT, headers.build(), new byte[0]);
-        }
+        headers.put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
+        headers.put(TRINO_BUFFER_COMPLETE, String.valueOf(false));
+        return new TestingResponse(HttpStatus.NO_CONTENT, headers.build(), new byte[0]);
     }
 }

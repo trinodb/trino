@@ -13,17 +13,16 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionInvoker;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
 import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -50,12 +49,14 @@ public class GenericDistinctFromOperator
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         Type type = boundSignature.getArgumentType(0);
         return invocationConvention -> {
             MethodHandle methodHandle = typeOperators.getDistinctFromOperator(type, invocationConvention);
-            return new FunctionInvoker(methodHandle, Optional.empty());
+            return ScalarFunctionImplementation.builder()
+                    .methodHandle(methodHandle)
+                    .build();
         };
     }
 }

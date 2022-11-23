@@ -17,9 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.Session;
+import io.trino.connector.CatalogProperties;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.CatalogInfo;
+import io.trino.metadata.CatalogManager;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
@@ -31,6 +34,8 @@ import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
+import io.trino.sql.planner.plan.MergeProcessorNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
@@ -45,6 +50,7 @@ import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.transaction.TransactionManager;
 
 import javax.inject.Inject;
 
@@ -84,22 +90,32 @@ public class PlanFragmenter
 
     private final Metadata metadata;
     private final FunctionManager functionManager;
-    private final QueryManagerConfig config;
+    private final TransactionManager transactionManager;
+    private final CatalogManager catalogManager;
+    private final int stageCountWarningThreshold;
 
     @Inject
     public PlanFragmenter(
             Metadata metadata,
             FunctionManager functionManager,
+            TransactionManager transactionManager,
+            CatalogManager catalogManager,
             QueryManagerConfig queryManagerConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
-        this.config = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
+        this.stageCountWarningThreshold = requireNonNull(queryManagerConfig, "queryManagerConfig is null").getStageCountWarningThreshold();
     }
 
     public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, WarningCollector warningCollector)
     {
-        Fragmenter fragmenter = new Fragmenter(session, metadata, functionManager, plan.getTypes(), plan.getStatsAndCosts());
+        List<CatalogProperties> activeCatalogs = transactionManager.getActiveCatalogs(session.getTransactionId().orElseThrow()).stream()
+                .map(CatalogInfo::getCatalogHandle)
+                .flatMap(catalogHandle -> catalogManager.getCatalogProperties(catalogHandle).stream())
+                .collect(toImmutableList());
+        Fragmenter fragmenter = new Fragmenter(session, metadata, functionManager, plan.getTypes(), plan.getStatsAndCosts(), activeCatalogs);
 
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()));
         if (forceSingleNode || isForceSingleNodeOutput(session)) {
@@ -113,7 +129,7 @@ public class PlanFragmenter
         checkState(!isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
 
         // TODO: Remove query_max_stage_count session property and use queryManagerConfig.getMaxStageCount() here
-        sanityCheckFragmentedPlan(subPlan, warningCollector, getQueryMaxStageCount(session), config.getStageCountWarningThreshold());
+        sanityCheckFragmentedPlan(subPlan, warningCollector, getQueryMaxStageCount(session), stageCountWarningThreshold);
 
         return subPlan;
     }
@@ -155,7 +171,7 @@ public class PlanFragmenter
         }
         PartitioningScheme outputPartitioningScheme = fragment.getPartitioningScheme();
         Partitioning newOutputPartitioning = outputPartitioningScheme.getPartitioning();
-        if (outputPartitioningScheme.getPartitioning().getHandle().getConnectorId().isPresent()) {
+        if (outputPartitioningScheme.getPartitioning().getHandle().getCatalogHandle().isPresent()) {
             // Do not replace the handle if the source's output handle is a system one, e.g. broadcast.
             newOutputPartitioning = newOutputPartitioning.withAlternativePartitioningHandle(newOutputPartitioningHandle);
         }
@@ -172,6 +188,7 @@ public class PlanFragmenter
                         outputPartitioningScheme.isReplicateNullsAndAny(),
                         outputPartitioningScheme.getBucketToPartition()),
                 fragment.getStatsAndCosts(),
+                fragment.getActiveCatalogs(),
                 fragment.getJsonRepresentation());
 
         ImmutableList.Builder<SubPlan> childrenBuilder = ImmutableList.builder();
@@ -191,15 +208,17 @@ public class PlanFragmenter
         private final FunctionManager functionManager;
         private final TypeProvider types;
         private final StatsAndCosts statsAndCosts;
+        private final List<CatalogProperties> activeCatalogs;
         private int nextFragmentId = ROOT_FRAGMENT_ID + 1;
 
-        public Fragmenter(Session session, Metadata metadata, FunctionManager functionManager, TypeProvider types, StatsAndCosts statsAndCosts)
+        public Fragmenter(Session session, Metadata metadata, FunctionManager functionManager, TypeProvider types, StatsAndCosts statsAndCosts, List<CatalogProperties> activeCatalogs)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.functionManager = requireNonNull(functionManager, "functionManager is null");
             this.types = requireNonNull(types, "types is null");
             this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
+            this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
         }
 
         public SubPlan buildRootFragment(PlanNode root, FragmentProperties properties)
@@ -230,6 +249,7 @@ public class PlanFragmenter
                     schedulingOrder,
                     properties.getPartitioningScheme(),
                     statsAndCosts.getForSubplan(root),
+                    activeCatalogs,
                     Optional.of(jsonFragmentPlan(root, symbols, metadata, functionManager, session)));
 
             return new SubPlan(fragment, properties.getChildren());
@@ -306,6 +326,21 @@ public class PlanFragmenter
             if (node.getPartitioningScheme().isPresent()) {
                 context.get().setDistribution(node.getPartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
             }
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitMergeWriter(MergeWriterNode node, RewriteContext<FragmentProperties> context)
+        {
+            if (node.getPartitioningScheme().isPresent()) {
+                context.get().setDistribution(node.getPartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
+            }
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitMergeProcessor(MergeProcessorNode node, RewriteContext<FragmentProperties> context)
+        {
             return context.defaultRewrite(node, context.get());
         }
 

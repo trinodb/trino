@@ -15,7 +15,6 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
@@ -53,8 +52,7 @@ public class TestSetPathTask
 
     public TestSetPathTask()
     {
-        CatalogManager catalogManager = new CatalogManager();
-        transactionManager = createTestTransactionManager(catalogManager);
+        transactionManager = createTestTransactionManager();
         accessControl = new AllowAllAccessControl();
 
         metadata = testMetadataManagerBuilder()

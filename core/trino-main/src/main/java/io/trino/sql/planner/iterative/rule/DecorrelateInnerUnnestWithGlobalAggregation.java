@@ -219,8 +219,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
         }
 
         AggregationNode aggregationNode = (AggregationNode) node;
-        return aggregationNode.hasEmptyGroupingSet() &&
-                aggregationNode.getGroupingSetCount() == 1 &&
+        return aggregationNode.hasSingleGlobalAggregation() &&
                 aggregationNode.getStep() == SINGLE;
     }
 

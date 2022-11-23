@@ -16,7 +16,7 @@ package io.trino.execution;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SchemaPropertyManager;
@@ -99,10 +99,12 @@ public class CreateSchemaTask
             return immediateVoidFuture();
         }
 
-        CatalogName catalogName = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, schema.getCatalogName());
+        String catalogName = schema.getCatalogName();
+        CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, catalogName);
 
         Map<String, Object> properties = schemaPropertyManager.getProperties(
                 catalogName,
+                catalogHandle,
                 statement.getProperties(),
                 session,
                 plannerContext,
@@ -110,7 +112,7 @@ public class CreateSchemaTask
                 parameterExtractor(statement, parameters),
                 true);
 
-        TrinoPrincipal principal = getCreatePrincipal(statement, session, plannerContext.getMetadata(), catalogName.getCatalogName());
+        TrinoPrincipal principal = getCreatePrincipal(statement, session, plannerContext.getMetadata(), catalogName);
         try {
             plannerContext.getMetadata().createSchema(session, schema, properties, principal);
         }

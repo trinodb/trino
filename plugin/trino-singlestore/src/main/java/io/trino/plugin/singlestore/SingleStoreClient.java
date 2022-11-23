@@ -27,6 +27,7 @@ import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
@@ -315,40 +316,35 @@ public class SingleStoreClient
         return metadata.getTables(
                 schemaName.orElse(null),
                 null,
-                escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
+                escapeObjectNameForMetadataQuery(tableName, metadata.getSearchStringEscape()).orElse(null),
                 getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
     }
 
     @Override
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
-        verify(handle.getSchemaName() == null);
-        String catalogName = handle.getCatalogName();
+        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
+        verify(remoteTableName.getSchemaName().isEmpty());
+        String catalogName = remoteTableName.getCatalogName().orElse(null);
         if (catalogName != null && !catalogName.equalsIgnoreCase(newTableName.getSchemaName())) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
         // SingleStore doesn't support specifying the catalog name in a rename. By setting the
         // catalogName parameter to null, it will be omitted in the ALTER TABLE statement.
-        renameTable(session, null, handle.getCatalogName(), handle.getTableName(), newTableName);
+        renameTable(session, null, catalogName, remoteTableName.getTableName(), newTableName);
     }
 
     @Override
-    public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    protected void renameColumn(ConnectorSession session, Connection connection, RemoteTableName remoteTableName, String remoteColumnName, String newRemoteColumnName)
+            throws SQLException
     {
-        try (Connection connection = connectionFactory.openConnection(session)) {
-            String newRemoteColumnName = getIdentifierMapping().toRemoteColumnName(connection, newColumnName);
-            // SingleStore versions earlier than 5.7 do not support the CHANGE syntax
-            String sql = format(
-                    "ALTER TABLE %s CHANGE %s %s",
-                    quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
-                    quoted(jdbcColumn.getColumnName()),
-                    quoted(newRemoteColumnName));
-            execute(connection, sql);
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
+        // SingleStore versions earlier than 5.7 do not support the CHANGE syntax
+        execute(connection, format(
+                "ALTER TABLE %s CHANGE %s %s",
+                quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
+                quoted(remoteColumnName),
+                quoted(newRemoteColumnName)));
     }
 
     @Override
@@ -383,8 +379,7 @@ public class SingleStoreClient
         if (type == BIGINT) {
             return WriteMapping.longMapping("bigint", bigintWriteFunction());
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
@@ -397,11 +392,10 @@ public class SingleStoreClient
         if (type == DOUBLE) {
             return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
         }
-        if (type instanceof CharType) {
-            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
+        if (type instanceof CharType charType) {
+            return WriteMapping.sliceMapping("char(" + charType.getLength() + ")", charWriteFunction());
         }
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             String dataType;
             if (varcharType.isUnbounded()) {
                 dataType = "longtext";
@@ -426,8 +420,7 @@ public class SingleStoreClient
         if (type == DATE) {
             return WriteMapping.longMapping("date", dateWriteFunction());
         }
-        if (type instanceof TimeType) {
-            TimeType timeType = (TimeType) type;
+        if (type instanceof TimeType timeType) {
             checkArgument(timeType.getPrecision() <= SINGLESTORE_DATE_TIME_MAX_PRECISION, "The max time precision in SingleStore is 6");
             if (timeType.getPrecision() == 0) {
                 return WriteMapping.longMapping("time", timeWriteFunction(0));
@@ -435,8 +428,7 @@ public class SingleStoreClient
             return WriteMapping.longMapping("time(6)", timeWriteFunction(6));
         }
         // TODO implement TIME type
-        if (type instanceof TimestampType) {
-            TimestampType timestampType = (TimestampType) type;
+        if (type instanceof TimestampType timestampType) {
             checkArgument(timestampType.getPrecision() <= SINGLESTORE_DATE_TIME_MAX_PRECISION, "The max timestamp precision in SingleStore is 6");
             if (timestampType.getPrecision() == 0) {
                 return WriteMapping.longMapping("datetime", timestampWriteFunction(timestampType));

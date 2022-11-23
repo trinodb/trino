@@ -44,12 +44,13 @@ import static io.trino.orc.reader.ReaderUtils.minNonNullValueSize;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static io.trino.spi.type.RealType.REAL;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class FloatColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FloatColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(FloatColumnReader.class).instanceSize());
 
     private final OrcColumn column;
 

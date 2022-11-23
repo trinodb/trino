@@ -20,11 +20,12 @@ import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Math.toIntExact;
 
 public class SingleListaggAggregationState
         implements ListaggAggregationState
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleListaggAggregationState.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleListaggAggregationState.class).instanceSize());
     private BlockBuilder blockBuilder;
     private Slice separator;
     private boolean overflowError;

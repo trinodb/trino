@@ -25,12 +25,12 @@ import org.testng.annotations.Test;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verifyNotNull;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.block.DictionaryBlock.createProjectedDictionaryBlock;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -85,20 +85,20 @@ public class TestPage
         // first dictionary contains "varbinary" values
         Slice[] dictionaryValues1 = createExpectedValues(50);
         Block dictionary1 = createSlicesBlock(dictionaryValues1);
-        DictionaryBlock commonSourceIdBlock1 = new DictionaryBlock(positionCount, dictionary1, commonDictionaryIds, commonSourceId);
+        Block commonSourceIdBlock1 = createProjectedDictionaryBlock(positionCount, dictionary1, commonDictionaryIds, commonSourceId);
 
         // second dictionary block is "length(firstColumn)"
         BlockBuilder dictionary2 = BIGINT.createBlockBuilder(null, dictionary1.getPositionCount());
         for (Slice expectedValue : dictionaryValues1) {
             BIGINT.writeLong(dictionary2, expectedValue.length());
         }
-        DictionaryBlock commonSourceIdBlock2 = new DictionaryBlock(positionCount, dictionary2.build(), commonDictionaryIds, commonSourceId);
+        Block commonSourceIdBlock2 = createProjectedDictionaryBlock(positionCount, dictionary2.build(), commonDictionaryIds, commonSourceId);
 
         // Create block with a different source id, dictionary size, used
         int otherDictionaryUsedPositions = 30;
         int[] otherDictionaryIds = getDictionaryIds(positionCount, otherDictionaryUsedPositions);
         Block dictionary3 = createSlicesBlock(createExpectedValues(70));
-        DictionaryBlock randomSourceIdBlock = new DictionaryBlock(dictionary3, otherDictionaryIds);
+        Block randomSourceIdBlock = DictionaryBlock.create(otherDictionaryIds.length, dictionary3, otherDictionaryIds);
 
         Page page = new Page(commonSourceIdBlock1, randomSourceIdBlock, commonSourceIdBlock2);
         page.compact();
@@ -114,20 +114,6 @@ public class TestPage
         // Blocks that had the same source id before compacting page should have the same source id after compacting page
         assertNotEquals(((DictionaryBlock) page.getBlock(0)).getDictionarySourceId(), ((DictionaryBlock) page.getBlock(1)).getDictionarySourceId());
         assertEquals(((DictionaryBlock) page.getBlock(0)).getDictionarySourceId(), ((DictionaryBlock) page.getBlock(2)).getDictionarySourceId());
-    }
-
-    @Test
-    public void testCompactNestedDictionary()
-    {
-        Slice[] expectedValues = createExpectedValues(10);
-        Block valuesBlock = createSlicesBlock(expectedValues);
-        DictionaryBlock nestedDictionary = new DictionaryBlock(valuesBlock, new int[] {0, 1, 2, 2, 4, 5});
-        DictionaryBlock dictionary = new DictionaryBlock(nestedDictionary, new int[] {2, 3, 2, 0});
-
-        Page page = new Page(dictionary);
-        page.compact();
-        // Page#compact does not unnest nested dictionaries
-        assertFalse(((DictionaryBlock) page.getBlock(0)).isCompact());
     }
 
     @Test

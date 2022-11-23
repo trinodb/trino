@@ -126,6 +126,9 @@ public class TestQueryStateMachine
         assertState(stateMachine, RUNNING);
 
         assertTrue(stateMachine.transitionToFinishing());
+        assertState(stateMachine, FINISHING);
+
+        stateMachine.resultsConsumed();
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
     }
@@ -152,6 +155,7 @@ public class TestQueryStateMachine
         assertState(stateMachine, RUNNING);
 
         assertTrue(stateMachine.transitionToFinishing());
+        stateMachine.resultsConsumed();
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
     }
@@ -168,6 +172,7 @@ public class TestQueryStateMachine
         assertAllTimeSpentInQueueing(RUNNING, QueryStateMachine::transitionToRunning);
 
         assertAllTimeSpentInQueueing(FINISHED, stateMachine -> {
+            stateMachine.resultsConsumed();
             stateMachine.transitionToFinishing();
             tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         });
@@ -217,6 +222,7 @@ public class TestQueryStateMachine
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToPlanning();
         assertTrue(stateMachine.transitionToFinishing());
+        stateMachine.resultsConsumed();
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
 
@@ -247,6 +253,7 @@ public class TestQueryStateMachine
 
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToStarting();
+        stateMachine.resultsConsumed();
         assertTrue(stateMachine.transitionToFinishing());
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
@@ -276,6 +283,7 @@ public class TestQueryStateMachine
         assertFalse(stateMachine.transitionToRunning());
         assertState(stateMachine, RUNNING);
 
+        stateMachine.resultsConsumed();
         assertTrue(stateMachine.transitionToFinishing());
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
@@ -291,6 +299,8 @@ public class TestQueryStateMachine
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertTrue(stateMachine.transitionToFinishing());
+        assertState(stateMachine, FINISHING);
+        stateMachine.resultsConsumed();
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertFinalState(stateMachine, FINISHED);
     }
@@ -340,6 +350,7 @@ public class TestQueryStateMachine
 
         mockTicker.increment(400, MILLISECONDS);
         assertTrue(stateMachine.transitionToFinishing());
+        stateMachine.resultsConsumed();
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
 

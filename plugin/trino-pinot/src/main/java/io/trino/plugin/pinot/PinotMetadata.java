@@ -54,6 +54,7 @@ import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.Type;
 import org.apache.pinot.spi.data.Schema;
 
 import javax.inject.Inject;
@@ -76,7 +77,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.pinot.PinotColumnHandle.fromColumnMetadata;
-import static io.trino.plugin.pinot.PinotColumnHandle.getTrinoTypeFromPinotType;
 import static io.trino.plugin.pinot.PinotSessionProperties.isAggregationPushdownEnabled;
 import static io.trino.plugin.pinot.query.AggregateExpression.replaceIdentifier;
 import static java.util.Locale.ENGLISH;
@@ -94,16 +94,18 @@ public class PinotMetadata
     private final AggregateFunctionRewriter<AggregateExpression, Void> aggregateFunctionRewriter;
     private final ImplementCountDistinct implementCountDistinct;
     private final PinotClient pinotClient;
+    private final PinotTypeConverter typeConverter;
 
     @Inject
     public PinotMetadata(
             PinotClient pinotClient,
             PinotConfig pinotConfig,
-            @ForPinot ExecutorService executor)
+            @ForPinot ExecutorService executor,
+            PinotTypeConverter typeConverter)
     {
-        requireNonNull(pinotConfig, "pinot config");
         this.pinotClient = requireNonNull(pinotClient, "pinotClient is null");
         long metadataCacheExpiryMillis = pinotConfig.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS);
+        this.typeConverter = requireNonNull(typeConverter, "typeConverter is null");
         this.pinotTableColumnCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
                         .refreshAfterWrite(metadataCacheExpiryMillis, TimeUnit.MILLISECONDS),
@@ -143,7 +145,7 @@ public class PinotMetadata
     public PinotTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         if (tableName.getTableName().trim().startsWith("select ")) {
-            DynamicTable dynamicTable = DynamicTableBuilder.buildFromPql(this, tableName, pinotClient);
+            DynamicTable dynamicTable = DynamicTableBuilder.buildFromPql(this, tableName, pinotClient, typeConverter);
             return new PinotTableHandle(tableName.getSchemaName(), dynamicTable.getTableName(), TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));
         }
         String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableNameIfExists(tableName.getTableName());
@@ -255,6 +257,7 @@ public class PinotMetadata
                     dynamicTable.get().getFilter(),
                     dynamicTable.get().getGroupingColumns(),
                     dynamicTable.get().getAggregateColumns(),
+                    dynamicTable.get().getHavingExpression(),
                     dynamicTable.get().getOrderBy(),
                     OptionalLong.of(limit),
                     dynamicTable.get().getOffset(),
@@ -288,8 +291,13 @@ public class PinotMetadata
             Map<ColumnHandle, Domain> supported = new HashMap<>();
             Map<ColumnHandle, Domain> unsupported = new HashMap<>();
             for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
-                // Pinot does not support array literals
-                if (((PinotColumnHandle) entry.getKey()).getDataType() instanceof ArrayType) {
+                Type columnType = ((PinotColumnHandle) entry.getKey()).getDataType();
+                if (columnType instanceof ArrayType) {
+                    // Pinot does not support array literals
+                    unsupported.put(entry.getKey(), entry.getValue());
+                }
+                else if (typeConverter.isJsonType(columnType)) {
+                    // Pinot does not support filtering on json values
                     unsupported.put(entry.getKey(), entry.getValue());
                 }
                 else {
@@ -406,6 +414,7 @@ public class PinotMetadata
                 tableHandle.getQuery().flatMap(DynamicTable::getFilter),
                 groupingColumns,
                 aggregationColumns,
+                Optional.empty(),
                 ImmutableList.of(),
                 limitForDynamicTable,
                 OptionalLong.empty(),
@@ -517,7 +526,7 @@ public class PinotMetadata
                 .filter(columnName -> !columnName.startsWith("$")) // Hidden columns starts with "$", ignore them as we can't use them in PQL
                 .map(columnName -> ColumnMetadata.builder()
                         .setName(columnName)
-                        .setType(getTrinoTypeFromPinotType(pinotTableSchema.getFieldSpecFor(columnName)))
+                        .setType(typeConverter.toTrinoType(pinotTableSchema.getFieldSpecFor(columnName)))
                         .setProperties(ImmutableMap.<String, Object>builder()
                                 .put(PINOT_COLUMN_NAME_PROPERTY, columnName)
                                 .buildOrThrow())

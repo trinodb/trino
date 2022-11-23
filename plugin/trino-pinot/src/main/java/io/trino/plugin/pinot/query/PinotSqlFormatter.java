@@ -69,13 +69,13 @@ import static io.trino.plugin.pinot.query.PinotPatterns.predicateValuesList;
 import static io.trino.plugin.pinot.query.PinotPatterns.secondArgument;
 import static io.trino.plugin.pinot.query.PinotPatterns.singleInput;
 import static io.trino.plugin.pinot.query.PinotPatterns.transformFunction;
+import static io.trino.plugin.pinot.query.PinotPatterns.transformFunctionName;
 import static io.trino.plugin.pinot.query.PinotPatterns.transformFunctionType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.pinot.common.function.TransformFunctionType.CASE;
 import static org.apache.pinot.common.function.TransformFunctionType.CAST;
-import static org.apache.pinot.common.function.TransformFunctionType.MINUS;
 import static org.apache.pinot.common.request.context.ExpressionContext.Type.IDENTIFIER;
 import static org.apache.pinot.common.request.context.predicate.RangePredicate.UNBOUNDED;
 import static org.apache.pinot.segment.spi.AggregationFunctionType.COUNT;
@@ -83,6 +83,8 @@ import static org.apache.pinot.segment.spi.AggregationFunctionType.getAggregatio
 
 public class PinotSqlFormatter
 {
+    private static final String MINUS = "minus";
+
     private static final List<Rule<FilterContext>> FILTER_RULES = ImmutableList.<Rule<FilterContext>>builder()
             .add(new AndOrFilterRule())
             .add(new PredicateFilterRule())
@@ -91,6 +93,10 @@ public class PinotSqlFormatter
     private static final List<Rule<Predicate>> GLOBAL_PREDICATE_RULES = ImmutableList.<Rule<Predicate>>builder()
             .add(new MinusZeroPredicateRule())
             .add(new BinaryOperatorPredicateRule())
+            .build();
+
+    private static final List<Rule<FunctionContext>> GLOBAL_FUNCTION_RULES = ImmutableList.<Rule<FunctionContext>>builder()
+            .add(new MinusFunctionRule())
             .build();
 
     private static final Map<Predicate.Type, Rule<Predicate>> PREDICATE_RULE_MAP;
@@ -113,7 +119,6 @@ public class PinotSqlFormatter
         Map<TransformFunctionType, Rule<FunctionContext>> functionMap = new HashMap<>();
         functionMap.put(CASE, new CaseFunctionRule());
         functionMap.put(CAST, new CastFunctionRule());
-        functionMap.put(MINUS, new MinusFunctionRule());
         FUNCTION_RULE_MAP = immutableEnumMap(functionMap);
 
         Map<AggregationFunctionType, Rule<FunctionContext>> aggregationFunctionMap = new HashMap<>();
@@ -215,6 +220,9 @@ public class PinotSqlFormatter
 
             if (rule != null) {
                 result = applyRule(rule, functionContext, context);
+            }
+            else {
+                result = applyRules(GLOBAL_FUNCTION_RULES, functionContext, context);
             }
         }
         else {
@@ -364,7 +372,7 @@ public class PinotSqlFormatter
                         .with(functionContext().matching(binaryFunction()
                                 .with(firstArgument().capturedAs(FIRST_ARGUMENT))
                                 .with(secondArgument().capturedAs(SECOND_ARGUMENT))
-                                .with(transformFunctionType().equalTo(MINUS))))));
+                                .with(transformFunctionName().matching(MINUS::equalsIgnoreCase))))));
 
         @Override
         public Pattern<Predicate> getPattern()
@@ -549,7 +557,7 @@ public class PinotSqlFormatter
         private static final Capture<ExpressionContext> FIRST_ARGUMENT = newCapture();
         private static final Capture<ExpressionContext> SECOND_ARGUMENT = newCapture();
         private static final Pattern<FunctionContext> PATTERN = binaryFunction()
-                .with(transformFunctionType().equalTo(MINUS))
+                .with(transformFunctionName().matching(MINUS::equalsIgnoreCase))
                 .with(firstArgument().capturedAs(FIRST_ARGUMENT))
                 .with(secondArgument().capturedAs(SECOND_ARGUMENT));
 

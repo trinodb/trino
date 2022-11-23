@@ -18,7 +18,6 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Objects.requireNonNull;
 
 public class CompositeRedirectHandler
         implements RedirectHandler
@@ -27,7 +26,7 @@ public class CompositeRedirectHandler
 
     public CompositeRedirectHandler(List<ExternalRedirectStrategy> strategies)
     {
-        this.handlers = requireNonNull(strategies, "strategies is null")
+        this.handlers = strategies
                 .stream()
                 .map(ExternalRedirectStrategy::getHandler)
                 .collect(toImmutableList());

@@ -14,6 +14,7 @@
 package io.trino.testing;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.eventlistener.EventListenerConfig;
@@ -57,10 +58,10 @@ public class TestingEventListenerManager
     }
 
     @Override
-    public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
+    public void queryCompleted(Function<Boolean, QueryCompletedEvent> queryCompletedEventProvider)
     {
         for (EventListener listener : configuredEventListeners) {
-            listener.queryCompleted(queryCompletedEvent);
+            listener.queryCompleted(queryCompletedEventProvider.apply(listener.requiresAnonymizedPlan()));
         }
     }
 

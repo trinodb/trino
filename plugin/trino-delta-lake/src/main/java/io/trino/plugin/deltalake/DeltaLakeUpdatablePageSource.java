@@ -17,9 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.RecordFileWriter;
@@ -27,6 +29,7 @@ import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -57,6 +60,7 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.hdfs.ConfigurationUtils.toJobConf;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.ROW_ID_COLUMN_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
@@ -72,9 +76,9 @@ import static io.trino.plugin.hive.HiveCompressionCodec.SNAPPY;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.util.CompressionConfigUtil.configureCompression;
-import static io.trino.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
@@ -97,8 +101,9 @@ public class DeltaLakeUpdatablePageSource
     private final long fileSize;
     private final ConnectorSession session;
     private final ExecutorService executorService;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final HdfsEnvironment hdfsEnvironment;
-    private final HdfsEnvironment.HdfsContext hdfsContext;
+    private final HdfsContext hdfsContext;
     private final DateTimeZone parquetDateTimeZone;
     private final ParquetReaderOptions parquetReaderOptions;
     private final TypeManager typeManager;
@@ -127,8 +132,9 @@ public class DeltaLakeUpdatablePageSource
             long fileModifiedTime,
             ConnectorSession session,
             ExecutorService executorService,
+            TrinoFileSystemFactory fileSystemFactory,
             HdfsEnvironment hdfsEnvironment,
-            HdfsEnvironment.HdfsContext hdfsContext,
+            HdfsContext hdfsContext,
             DateTimeZone parquetDateTimeZone,
             ParquetReaderOptions parquetReaderOptions,
             TupleDomain<HiveColumnHandle> parquetPredicate,
@@ -142,6 +148,7 @@ public class DeltaLakeUpdatablePageSource
         this.fileSize = fileSize;
         this.session = requireNonNull(session, "session is null");
         this.executorService = requireNonNull(executorService, "executorService is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
         this.parquetDateTimeZone = requireNonNull(parquetDateTimeZone, "parquetDateTimeZone is null");
@@ -151,7 +158,7 @@ public class DeltaLakeUpdatablePageSource
 
         List<DeltaLakeColumnMetadata> columnMetadata = extractSchema(tableHandle.getMetadataEntry(), typeManager);
         List<DeltaLakeColumnHandle> allColumns = columnMetadata.stream()
-                .map(metadata -> new DeltaLakeColumnHandle(metadata.getName(), metadata.getType(), metadata.getPhysicalName(), metadata.getPhysicalColumnType(), partitionKeys.containsKey(metadata.getName()) ? PARTITION_KEY : REGULAR))
+                .map(metadata -> new DeltaLakeColumnHandle(metadata.getName(), metadata.getType(), metadata.getFieldId(), metadata.getPhysicalName(), metadata.getPhysicalColumnType(), partitionKeys.containsKey(metadata.getName()) ? PARTITION_KEY : REGULAR))
                 .collect(toImmutableList());
         this.allDataColumns = allColumns.stream()
                 .filter(columnHandle -> columnHandle.getColumnType() == REGULAR)
@@ -217,7 +224,9 @@ public class DeltaLakeUpdatablePageSource
 
         this.pageSourceDelegate = new DeltaLakePageSource(
                 delegatedColumns,
+                ImmutableSet.of(),
                 partitionKeys,
+                ImmutableList.of(),
                 parquetPageSource.get(),
                 path,
                 fileSize,
@@ -319,7 +328,7 @@ public class DeltaLakeUpdatablePageSource
      */
     private static DeltaLakeColumnHandle rowIndexColumn()
     {
-        return new DeltaLakeColumnHandle("$delta$dummy_row_index", BIGINT, "$delta$dummy_row_index", BIGINT, DeltaLakeColumnType.SYNTHESIZED)
+        return new DeltaLakeColumnHandle("$delta$dummy_row_index", BIGINT, OptionalInt.empty(), "$delta$dummy_row_index", BIGINT, DeltaLakeColumnType.SYNTHESIZED)
         {
             @Override
             public HiveColumnHandle toHiveColumnHandle()
@@ -393,6 +402,8 @@ public class DeltaLakeUpdatablePageSource
         int unmodifiedColumnIndex = 0;
         int updatedColumnIndex = 0;
         Block[] fullPage = new Block[allDataColumns.size()];
+        ColumnarRow columnarRow = toColumnarRow(rowIdBlock);
+        ColumnarRow unmodifiedColumnsColumnarRow = null;
 
         for (int targetChannel = 0; targetChannel < allDataColumns.size(); targetChannel++) {
             if (updatedColumns.contains(allDataColumns.get(targetChannel))) {
@@ -400,8 +411,11 @@ public class DeltaLakeUpdatablePageSource
                 updatedColumnIndex++;
             }
             else {
-                Block unmodifiedColumns = rowIdBlock.getChildren().get(1);
-                fullPage[targetChannel] = unmodifiedColumns.getChildren().get(unmodifiedColumnIndex);
+                Block unmodifiedColumns = columnarRow.getField(1);
+                if (unmodifiedColumnsColumnarRow == null) {
+                    unmodifiedColumnsColumnarRow = toColumnarRow(unmodifiedColumns);
+                }
+                fullPage[targetChannel] = unmodifiedColumnsColumnarRow.getField(unmodifiedColumnIndex);
                 unmodifiedColumnIndex++;
             }
         }
@@ -556,26 +570,23 @@ public class DeltaLakeUpdatablePageSource
     private ReaderPageSource createParquetPageSource(TupleDomain<HiveColumnHandle> parquetPredicate, List<HiveColumnHandle> columns)
     {
         return ParquetPageSourceFactory.createPageSource(
-                new Path(path),
+                fileSystemFactory.create(session).newInputFile(path, fileSize),
                 0,
-                fileSize,
                 fileSize,
                 columns,
                 parquetPredicate,
                 true,
-                hdfsEnvironment,
-                hdfsEnvironment.getConfiguration(hdfsContext, new Path(path)),
-                this.session.getIdentity(),
                 parquetDateTimeZone,
                 new FileFormatDataSourceStats(),
                 parquetReaderOptions.withMaxReadBlockSize(getParquetMaxReadBlockSize(this.session))
-                        .withUseColumnIndex(isParquetUseColumnIndex(this.session)));
+                        .withUseColumnIndex(isParquetUseColumnIndex(this.session)),
+                Optional.empty());
     }
 
     private DeltaLakeWriter createWriter(Path targetFile, List<DeltaLakeColumnMetadata> allColumns, List<DeltaLakeColumnHandle> dataColumns)
             throws IOException
     {
-        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsEnvironment.HdfsContext(session), targetFile);
+        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session), targetFile);
         configureCompression(conf, SNAPPY);
 
         Properties schema = buildHiveSchema(
@@ -618,7 +629,7 @@ public class DeltaLakeUpdatablePageSource
             partitionValues[i] = nativeValueToBlock(
                     columnMetadata.getType(),
                     deserializePartitionValue(
-                            new DeltaLakeColumnHandle(columnMetadata.getName(), columnMetadata.getType(), columnMetadata.getPhysicalName(), columnMetadata.getPhysicalColumnType(), PARTITION_KEY),
+                            new DeltaLakeColumnHandle(columnMetadata.getName(), columnMetadata.getType(), OptionalInt.empty(), columnMetadata.getPhysicalName(), columnMetadata.getPhysicalColumnType(), PARTITION_KEY),
                             partitionKeys.get(columnMetadata.getName())));
         }
         return createPartitionValues(

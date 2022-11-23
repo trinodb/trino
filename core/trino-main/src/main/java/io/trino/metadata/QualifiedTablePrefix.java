@@ -100,12 +100,10 @@ public class QualifiedTablePrefix
         if (schemaName.isEmpty()) {
             return new SchemaTablePrefix();
         }
-        else if (tableName.isEmpty()) {
+        if (tableName.isEmpty()) {
             return new SchemaTablePrefix(schemaName.get());
         }
-        else {
-            return new SchemaTablePrefix(schemaName.get(), tableName.get());
-        }
+        return new SchemaTablePrefix(schemaName.get(), tableName.get());
     }
 
     public Optional<QualifiedObjectName> asQualifiedObjectName()

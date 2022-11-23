@@ -37,6 +37,7 @@ import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergUtil.isIcebergTable;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
@@ -98,10 +99,10 @@ public abstract class AbstractMetastoreTableOperations
                 .setTableType(TableType.EXTERNAL_TABLE.name())
                 .setDataColumns(toHiveColumns(metadata.schema().columns()))
                 .withStorage(storage -> storage.setLocation(metadata.location()))
-                .withStorage(storage -> storage.setStorageFormat(STORAGE_FORMAT))
+                .withStorage(storage -> storage.setStorageFormat(ICEBERG_METASTORE_STORAGE_FORMAT))
                 // This is a must-have property for the EXTERNAL_TABLE table type
                 .setParameter("EXTERNAL", "TRUE")
-                .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE)
+                .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
                 .setParameter(METADATA_LOCATION_PROP, newMetadataLocation);
         String tableComment = metadata.properties().get(TABLE_COMMENT);
         if (tableComment != null) {

@@ -56,6 +56,7 @@ public final class MemoryQueryRunner
             extends DistributedQueryRunner.Builder<Builder>
     {
         private List<TpchTable<?>> initialTables = ImmutableList.of();
+        private ImmutableMap.Builder<String, String> memoryProperties = ImmutableMap.builder();
 
         protected Builder()
         {
@@ -68,6 +69,19 @@ public final class MemoryQueryRunner
             return self();
         }
 
+        public Builder setMemoryProperties(Map<String, String> memoryProperties)
+        {
+            this.memoryProperties = ImmutableMap.<String, String>builder()
+                    .putAll(requireNonNull(memoryProperties, "memoryProperties is null"));
+            return self();
+        }
+
+        public Builder addMemoryProperty(String key, String value)
+        {
+            this.memoryProperties.put(key, value);
+            return self();
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
@@ -76,7 +90,7 @@ public final class MemoryQueryRunner
 
             try {
                 queryRunner.installPlugin(new MemoryPlugin());
-                queryRunner.createCatalog(CATALOG, "memory", ImmutableMap.of());
+                queryRunner.createCatalog(CATALOG, "memory", memoryProperties.buildOrThrow());
 
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());

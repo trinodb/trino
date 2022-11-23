@@ -556,7 +556,7 @@ public class BenchmarkGroupByHashOnSimulatedData
                     }
                 }
 
-                blocks[i] = new DictionaryBlock(dictionary, indexes);
+                blocks[i] = DictionaryBlock.create(indexes.length, dictionary, indexes);
             }
         }
 

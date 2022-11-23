@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>389</version>
+        <version>400</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -120,7 +120,7 @@
         <dependency>
             <groupId>eu.rekawek.toxiproxy</groupId>
             <artifactId>toxiproxy-java</artifactId>
-            <version>2.1.5</version>
+            <version>2.1.7</version>
             <scope>test</scope>
         </dependency>
 

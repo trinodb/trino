@@ -28,6 +28,8 @@ public class GlueHiveMetastoreConfig
 {
     private Optional<String> glueRegion = Optional.empty();
     private Optional<String> glueEndpointUrl = Optional.empty();
+    private Optional<String> glueStsRegion = Optional.empty();
+    private Optional<String> glueStsEndpointUrl = Optional.empty();
     private boolean pinGlueClientToCurrentRegion;
     private int maxGlueErrorRetries = 10;
     private int maxGlueConnections = 30;
@@ -67,6 +69,32 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setGlueEndpointUrl(String glueEndpointUrl)
     {
         this.glueEndpointUrl = Optional.ofNullable(glueEndpointUrl);
+        return this;
+    }
+
+    public Optional<String> getGlueStsRegion()
+    {
+        return glueStsRegion;
+    }
+
+    @Config("hive.metastore.glue.sts.region")
+    @ConfigDescription("AWS STS signing region for Glue authentication")
+    public GlueHiveMetastoreConfig setGlueStsRegion(String glueStsRegion)
+    {
+        this.glueStsRegion = Optional.ofNullable(glueStsRegion);
+        return this;
+    }
+
+    public Optional<String> getGlueStsEndpointUrl()
+    {
+        return glueStsEndpointUrl;
+    }
+
+    @Config("hive.metastore.glue.sts.endpoint")
+    @ConfigDescription("AWS STS endpoint for Glue authentication")
+    public GlueHiveMetastoreConfig setGlueStsEndpointUrl(String glueStsEndpointUrl)
+    {
+        this.glueStsEndpointUrl = Optional.ofNullable(glueStsEndpointUrl);
         return this;
     }
 

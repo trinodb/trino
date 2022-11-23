@@ -21,12 +21,12 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class HivePartitionKey
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(HivePartitionKey.class).instanceSize() +
-            ClassLayout.parseClass(String.class).instanceSize() * 2;
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(HivePartitionKey.class).instanceSize() + ClassLayout.parseClass(String.class).instanceSize() * 2);
 
     public static final String HIVE_DEFAULT_DYNAMIC_PARTITION = "__HIVE_DEFAULT_PARTITION__";
     private final String name;

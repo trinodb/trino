@@ -52,17 +52,11 @@ public class SpatialJoinNode
 
         public static Type fromJoinNodeType(JoinNode.Type joinNodeType)
         {
-            switch (joinNodeType) {
-                case INNER:
-                    return Type.INNER;
-                case LEFT:
-                    return Type.LEFT;
-                case RIGHT:
-                case FULL:
-                    // unsupported
-                    break;
-            }
-            throw new IllegalArgumentException("Unsupported spatial join type: " + joinNodeType);
+            return switch (joinNodeType) {
+                case INNER -> Type.INNER;
+                case LEFT -> Type.LEFT;
+                default -> throw new IllegalArgumentException("Unsupported spatial join type: " + joinNodeType);
+            };
         }
     }
 

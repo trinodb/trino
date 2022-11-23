@@ -100,13 +100,12 @@ public final class ElasticsearchQueryBuilder
             queryBuilder.filter(getOnlyElement(shouldClauses));
             return;
         }
-        else if (shouldClauses.size() > 1) {
+        if (shouldClauses.size() > 1) {
             BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
             shouldClauses.forEach(boolQueryBuilder::should);
             queryBuilder.filter(boolQueryBuilder);
             return;
         }
-        return;
     }
 
     private static List<QueryBuilder> getShouldClauses(String columnName, Domain domain, Type type)

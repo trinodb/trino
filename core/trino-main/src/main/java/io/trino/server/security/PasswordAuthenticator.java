@@ -41,7 +41,6 @@ public class PasswordAuthenticator
     @Inject
     public PasswordAuthenticator(PasswordAuthenticatorManager authenticatorManager, PasswordAuthenticatorConfig config, ProtocolConfig protocolConfig)
     {
-        requireNonNull(config, "config is null");
         this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
 
         this.authenticatorManager = requireNonNull(authenticatorManager, "authenticatorManager is null");

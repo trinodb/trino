@@ -106,7 +106,7 @@ public class CheckpointSchemaManager
         return metadataEntryType;
     }
 
-    public RowType getAddEntryType(MetadataEntry metadataEntry)
+    public RowType getAddEntryType(MetadataEntry metadataEntry, boolean requireWriteStatsAsJson, boolean requireWriteStatsAsStruct)
     {
         List<DeltaLakeColumnMetadata> allColumns = extractSchema(metadataEntry, typeManager);
         List<DeltaLakeColumnMetadata> minMaxColumns = columnsWithStats(metadataEntry, typeManager);
@@ -137,17 +137,21 @@ public class CheckpointSchemaManager
                 RowType.from(allColumns.stream().map(column -> buildNullCountType(Optional.of(column.getPhysicalName()), column.getPhysicalColumnType())).collect(toImmutableList()))));
 
         MapType stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VarcharType.VARCHAR.getTypeSignature(), VarcharType.VARCHAR.getTypeSignature()));
-        List<RowType.Field> addFields = ImmutableList.of(
-                RowType.field("path", VarcharType.createUnboundedVarcharType()),
-                RowType.field("partitionValues", stringMap),
-                RowType.field("size", BigintType.BIGINT),
-                RowType.field("modificationTime", BigintType.BIGINT),
-                RowType.field("dataChange", BooleanType.BOOLEAN),
-                RowType.field("stats", VarcharType.createUnboundedVarcharType()),
-                RowType.field("stats_parsed", RowType.from(statsColumns.build())),
-                RowType.field("tags", stringMap));
+        ImmutableList.Builder<RowType.Field> addFields = ImmutableList.builder();
+        addFields.add(RowType.field("path", VarcharType.createUnboundedVarcharType()));
+        addFields.add(RowType.field("partitionValues", stringMap));
+        addFields.add(RowType.field("size", BigintType.BIGINT));
+        addFields.add(RowType.field("modificationTime", BigintType.BIGINT));
+        addFields.add(RowType.field("dataChange", BooleanType.BOOLEAN));
+        if (requireWriteStatsAsJson) {
+            addFields.add(RowType.field("stats", VarcharType.createUnboundedVarcharType()));
+        }
+        if (requireWriteStatsAsStruct) {
+            addFields.add(RowType.field("stats_parsed", RowType.from(statsColumns.build())));
+        }
+        addFields.add(RowType.field("tags", stringMap));
 
-        return RowType.from(addFields);
+        return RowType.from(addFields.build());
     }
 
     private static RowType.Field buildNullCountType(Optional<String> columnName, Type columnType)

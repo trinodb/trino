@@ -21,6 +21,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -75,8 +76,8 @@ public class TestBlackHoleSmoke
         assertEquals(queryRunner.execute("SHOW SCHEMAS FROM blackhole").getRowCount(), 3);
         assertThatQueryReturnsValue("CREATE TABLE test.test_schema as SELECT * FROM tpch.tiny.region", 5L);
 
-        assertThatQueryReturnsValue("DROP TABLE test_schema", true);
-        assertThatQueryReturnsValue("DROP TABLE test.test_schema", true);
+        assertThatQueryDoesNotReturnValues("DROP TABLE test_schema");
+        assertThatQueryDoesNotReturnValues("DROP TABLE test.test_schema");
     }
 
     @Test
@@ -87,7 +88,7 @@ public class TestBlackHoleSmoke
         assertThatThrownBy(() -> queryRunner.execute(createTableSql))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("line 1:1: Destination table 'blackhole.default.nation' already exists");
-        assertThatQueryReturnsValue("DROP TABLE nation", true);
+        assertThatQueryDoesNotReturnValues("DROP TABLE nation");
     }
 
     @Test
@@ -105,7 +106,7 @@ public class TestBlackHoleSmoke
 
         assertThatQueryReturnsValue("SELECT count(*) FROM nation", 0L);
 
-        assertThatQueryReturnsValue("DROP TABLE nation", true);
+        assertThatQueryDoesNotReturnValues("DROP TABLE nation");
     }
 
     @Test
@@ -125,7 +126,7 @@ public class TestBlackHoleSmoke
         assertThatQueryReturnsValue(
                 "CREATE TABLE distributed_test WITH ( distributed_on = array['orderkey'] ) AS SELECT * FROM tpch.tiny.orders",
                 15000L);
-        assertThatQueryReturnsValue("DROP TABLE distributed_test", true);
+        assertThatQueryDoesNotReturnValues("DROP TABLE distributed_test");
     }
 
     @Test
@@ -170,7 +171,7 @@ public class TestBlackHoleSmoke
         assertEquals(row.getField(2), 0L);
         assertEquals(row.getField(3), "****************");
 
-        assertThatQueryReturnsValue("DROP TABLE nation", true);
+        assertThatQueryDoesNotReturnValues("DROP TABLE nation");
     }
 
     @Test
@@ -201,7 +202,7 @@ public class TestBlackHoleSmoke
         assertEquals(row.getField(3), "********");
         assertEquals(row.getField(4), "***"); // this one is shorter due to column type being VARCHAR(3)
 
-        assertThatQueryReturnsValue("DROP TABLE nation", true);
+        assertThatQueryDoesNotReturnValues("DROP TABLE nation");
     }
 
     @Test
@@ -261,7 +262,7 @@ public class TestBlackHoleSmoke
 
     private void createBlackholeAllTypesTable()
     {
-        assertThatQueryReturnsValue(
+        assertThatQueryDoesNotReturnValues(
                 format("CREATE TABLE blackhole_all_types (" +
                                 "  _varchar VARCHAR(10)" +
                                 ", _bigint BIGINT" +
@@ -279,13 +280,12 @@ public class TestBlackHoleSmoke
                                 ") WITH ( %s = 1, %s = 1, %s = 1 ) ",
                         ROWS_PER_PAGE_PROPERTY,
                         PAGES_PER_SPLIT_PROPERTY,
-                        SPLIT_COUNT_PROPERTY),
-                true);
+                        SPLIT_COUNT_PROPERTY));
     }
 
     private void dropBlackholeAllTypesTable()
     {
-        assertThatQueryReturnsValue("DROP TABLE IF EXISTS blackhole_all_types", true);
+        assertThatQueryDoesNotReturnValues("DROP TABLE IF EXISTS blackhole_all_types");
     }
 
     @Test
@@ -318,7 +318,7 @@ public class TestBlackHoleSmoke
         stopwatch.stop();
         assertGreaterThan(stopwatch.elapsed(MILLISECONDS), pageProcessingDelay.toMillis());
 
-        assertThatQueryReturnsValue("DROP TABLE nation", true);
+        assertThatQueryDoesNotReturnValues("DROP TABLE nation");
     }
 
     private void assertThatNoBlackHoleTableIsCreated()
@@ -345,5 +345,16 @@ public class TestBlackHoleSmoke
         Object value = materializedRow.getField(0);
         assertEquals(value, expected);
         assertEquals(Iterables.getOnlyElement(rows).getFieldCount(), 1);
+    }
+
+    private void assertThatQueryDoesNotReturnValues(String sql)
+    {
+        assertThatQueryDoesNotReturnValues(queryRunner.getDefaultSession(), sql);
+    }
+
+    private void assertThatQueryDoesNotReturnValues(Session session, @Language("SQL") String sql)
+    {
+        MaterializedResult rows = session == null ? queryRunner.execute(sql) : queryRunner.execute(session, sql);
+        assertEquals(rows.getRowCount(), 0);
     }
 }

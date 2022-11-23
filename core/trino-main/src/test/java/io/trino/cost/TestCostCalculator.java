@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.TableHandle;
@@ -77,6 +76,8 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.replicatedExchange;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
@@ -103,14 +104,16 @@ public class TestCostCalculator
         costCalculatorUsingExchanges = new CostCalculatorUsingExchanges(taskCountEstimator);
         costCalculatorWithEstimatedExchanges = new CostCalculatorWithEstimatedExchanges(costCalculatorUsingExchanges, taskCountEstimator);
 
-        session = testSessionBuilder().setCatalog("tpch").build();
+        session = testSessionBuilder().setCatalog(TEST_CATALOG_NAME).build();
 
         localQueryRunner = LocalQueryRunner.create(session);
-        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(), ImmutableMap.of());
+        localQueryRunner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(), ImmutableMap.of());
 
         planFragmenter = new PlanFragmenter(
                 localQueryRunner.getMetadata(),
                 localQueryRunner.getFunctionManager(),
+                localQueryRunner.getTransactionManager(),
+                localQueryRunner.getCatalogManager(),
                 new QueryManagerConfig());
     }
 
@@ -582,7 +585,7 @@ public class TestCostCalculator
     {
         TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
                 .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator(stats), session, typeProvider);
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator(stats), session, typeProvider, new CachingTableStatsProvider(localQueryRunner.getMetadata(), session));
         CostProvider costProvider = new TestingCostProvider(costs, costCalculatorUsingExchanges, statsProvider, session, typeProvider);
         SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
         return new CostAssertionBuilder(subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown()));
@@ -681,7 +684,7 @@ public class TestCostCalculator
 
     private StatsCalculator statsCalculator(Map<String, PlanNodeStatsEstimate> stats)
     {
-        return (node, sourceStats, lookup, session, types) ->
+        return (node, sourceStats, lookup, session, types, tableStatsProvider) ->
                 requireNonNull(stats.get(node.getId().toString()), "no stats for node");
     }
 
@@ -705,7 +708,7 @@ public class TestCostCalculator
     {
         TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
                 .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider);
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider, new CachingTableStatsProvider(localQueryRunner.getMetadata(), session));
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, typeProvider);
         return costProvider.getCost(node);
     }
@@ -714,7 +717,7 @@ public class TestCostCalculator
     {
         TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
                 .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider);
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider, new CachingTableStatsProvider(localQueryRunner.getMetadata(), session));
         CostProvider costProvider = new CachingCostProvider(costCalculatorUsingExchanges, statsProvider, Optional.empty(), session, typeProvider);
         SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
         return subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown());
@@ -797,7 +800,7 @@ public class TestCostCalculator
         TpchTableHandle tableHandle = new TpchTableHandle("sf1", "orders", 1.0);
         return new TableScanNode(
                 new PlanNodeId(id),
-                new TableHandle(new CatalogName("tpch"), tableHandle, INSTANCE),
+                new TableHandle(TEST_CATALOG_HANDLE, tableHandle, INSTANCE),
                 symbolsList,
                 assignments.buildOrThrow(),
                 TupleDomain.all(),

@@ -47,10 +47,10 @@ final class CoalescingCounter
     CoalescingCounter(Clock clock, Duration coalescingDuration)
     {
         this.clock = requireNonNull(clock, "clock is null");
-        coalescingDurationMillis = requireNonNull(coalescingDuration, "coalescingDuration is null").toMillis();
+        coalescingDurationMillis = coalescingDuration.toMillis();
     }
 
-    public synchronized void increment()
+    private synchronized void increment()
     {
         long now = clock.instant().toEpochMilli();
         if (lastUpdateTime + coalescingDurationMillis >= now) {

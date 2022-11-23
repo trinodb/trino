@@ -189,9 +189,7 @@ public class BenchmarkPageProcessor2
         if (dictionary) {
             return SequencePageBuilder.createSequencePageWithDictionaryBlocks(types, POSITIONS);
         }
-        else {
-            return SequencePageBuilder.createSequencePage(types, POSITIONS);
-        }
+        return SequencePageBuilder.createSequencePage(types, POSITIONS);
     }
 
     public static void main(String[] args)

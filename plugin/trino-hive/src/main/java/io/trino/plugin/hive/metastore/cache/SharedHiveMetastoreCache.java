@@ -71,7 +71,6 @@ public class SharedHiveMetastoreCache
             ImpersonationCachingConfig impersonationCachingConfig)
     {
         requireNonNull(nodeManager, "nodeManager is null");
-        requireNonNull(config, "config is null");
         requireNonNull(catalogName, "catalogName is null");
 
         this.catalogName = catalogName;

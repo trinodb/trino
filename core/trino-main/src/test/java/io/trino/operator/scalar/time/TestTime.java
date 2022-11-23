@@ -104,20 +104,20 @@ public class TestTime
                 .hasType(createTimeType(12))
                 .isEqualTo(time(12, 12, 34, 56, 123_456_789_123L));
 
-        assertThatThrownBy(() -> assertions.expression("TIME '12:34:56.1234567891234'"))
-                .hasMessage("line 1:8: TIME precision must be in range [0, 12]: 13");
+        assertThatThrownBy(() -> assertions.expression("TIME '12:34:56.1234567891234'").evaluate())
+                .hasMessage("line 1:12: TIME precision must be in range [0, 12]: 13");
 
-        assertThatThrownBy(() -> assertions.expression("TIME '25:00:00'"))
-                .hasMessage("line 1:8: '25:00:00' is not a valid time literal");
+        assertThatThrownBy(() -> assertions.expression("TIME '25:00:00'").evaluate())
+                .hasMessage("line 1:12: '25:00:00' is not a valid time literal");
 
-        assertThatThrownBy(() -> assertions.expression("TIME '12:65:00'"))
-                .hasMessage("line 1:8: '12:65:00' is not a valid time literal");
+        assertThatThrownBy(() -> assertions.expression("TIME '12:65:00'").evaluate())
+                .hasMessage("line 1:12: '12:65:00' is not a valid time literal");
 
-        assertThatThrownBy(() -> assertions.expression("TIME '12:00:65'"))
-                .hasMessage("line 1:8: '12:00:65' is not a valid time literal");
+        assertThatThrownBy(() -> assertions.expression("TIME '12:00:65'").evaluate())
+                .hasMessage("line 1:12: '12:00:65' is not a valid time literal");
 
-        assertThatThrownBy(() -> assertions.expression("TIME 'xxx'"))
-                .hasMessage("line 1:8: 'xxx' is not a valid time literal");
+        assertThatThrownBy(() -> assertions.expression("TIME 'xxx'").evaluate())
+                .hasMessage("line 1:12: 'xxx' is not a valid time literal");
     }
 
     @Test
@@ -1461,31 +1461,31 @@ public class TestTime
         assertThat(assertions.expression("CAST('23:59:59.999999999999' AS TIME(11))")).matches("TIME '00:00:00.00000000000'");
 
         // > 12 digits of precision
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(0))"))
+        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(0))").evaluate())
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(1))"))
+        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(1))").evaluate())
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(2))"))
+        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(2))").evaluate())
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(3))"))
+        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(3))").evaluate())
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(4))"))
+        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(4))").evaluate())
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(5))"))
+        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(5))").evaluate())
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(6))"))
+        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(6))").evaluate())
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(7))"))
+        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(7))").evaluate())
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(8))"))
+        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(8))").evaluate())
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(9))"))
+        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(9))").evaluate())
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(10))"))
+        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(10))").evaluate())
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(11))"))
+        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(11))").evaluate())
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(12))"))
+        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(12))").evaluate())
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
     }
 

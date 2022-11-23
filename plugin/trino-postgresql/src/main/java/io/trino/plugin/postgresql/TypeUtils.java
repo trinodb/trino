@@ -208,13 +208,11 @@ final class TypeUtils
                 long millisUtc = unpackMillisUtc((long) trinoNative);
                 return new Timestamp(millisUtc);
             }
-            else {
-                LongTimestampWithTimeZone value = (LongTimestampWithTimeZone) trinoNative;
-                long epochSeconds = floorDiv(value.getEpochMillis(), MILLISECONDS_PER_SECOND);
-                long nanosOfSecond = floorMod(value.getEpochMillis(), MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND
-                        + value.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
-                return OffsetDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds, nanosOfSecond), UTC_KEY.getZoneId());
-            }
+            LongTimestampWithTimeZone value = (LongTimestampWithTimeZone) trinoNative;
+            long epochSeconds = floorDiv(value.getEpochMillis(), MILLISECONDS_PER_SECOND);
+            long nanosOfSecond = floorMod(value.getEpochMillis(), MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND
+                    + value.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
+            return OffsetDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds, nanosOfSecond), UTC_KEY.getZoneId());
         }
 
         if (trinoType instanceof VarcharType || trinoType instanceof CharType) {

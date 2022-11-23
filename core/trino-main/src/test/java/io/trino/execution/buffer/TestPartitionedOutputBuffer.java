@@ -18,7 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
@@ -53,8 +53,7 @@ import static io.trino.execution.buffer.BufferTestUtils.getBufferResult;
 import static io.trino.execution.buffer.BufferTestUtils.getFuture;
 import static io.trino.execution.buffer.BufferTestUtils.serializePage;
 import static io.trino.execution.buffer.BufferTestUtils.sizeOfPages;
-import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
-import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -91,10 +90,10 @@ public class TestPartitionedOutputBuffer
     @Test
     public void testInvalidConstructorArg()
     {
-        assertThatThrownBy(() -> createPartitionedBuffer(createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(FIRST, 0).withNoMoreBufferIds(), DataSize.ofBytes(0)))
+        assertThatThrownBy(() -> createPartitionedBuffer(PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(FIRST, 0).withNoMoreBufferIds(), DataSize.ofBytes(0)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("maxBufferedBytes must be > 0");
-        assertThatThrownBy(() -> createPartitionedBuffer(createInitialEmptyOutputBuffers(PARTITIONED), DataSize.ofBytes(0)))
+        assertThatThrownBy(() -> createPartitionedBuffer(PipelinedOutputBuffers.createInitial(PARTITIONED), DataSize.ofBytes(0)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Expected a final output buffer descriptor");
     }
@@ -105,7 +104,7 @@ public class TestPartitionedOutputBuffer
         int firstPartition = 0;
         int secondPartition = 1;
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, firstPartition)
                         .withBuffer(SECOND, secondPartition)
                         .withNoMoreBufferIds(),
@@ -239,7 +238,7 @@ public class TestPartitionedOutputBuffer
     {
         int partitionId = 0;
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, partitionId)
                         .withNoMoreBufferIds(),
                 sizeOfPages(20));
@@ -284,7 +283,7 @@ public class TestPartitionedOutputBuffer
     public void testDuplicateRequests()
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(10));
@@ -320,14 +319,14 @@ public class TestPartitionedOutputBuffer
     public void testAddQueueAfterCreation()
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(10));
 
         assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
-        assertThatThrownBy(() -> buffer.setOutputBuffers(createInitialEmptyOutputBuffers(PARTITIONED)
+        assertThatThrownBy(() -> buffer.setOutputBuffers(PipelinedOutputBuffers.createInitial(PARTITIONED)
                 .withBuffer(FIRST, 0)
                 .withBuffer(SECOND, 0)
                 .withNoMoreBufferIds()))
@@ -339,7 +338,7 @@ public class TestPartitionedOutputBuffer
     public void testAddAfterFinish()
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(10));
@@ -353,7 +352,7 @@ public class TestPartitionedOutputBuffer
     public void testAddAfterDestroy()
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(10));
@@ -369,7 +368,7 @@ public class TestPartitionedOutputBuffer
         int firstPartition = 0;
         int secondPartition = 1;
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, firstPartition)
                         .withBuffer(SECOND, secondPartition)
                         .withNoMoreBufferIds(),
@@ -389,7 +388,7 @@ public class TestPartitionedOutputBuffer
         int firstPartition = 0;
         int secondPartition = 1;
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, firstPartition)
                         .withBuffer(SECOND, secondPartition)
                         .withNoMoreBufferIds(),
@@ -420,7 +419,7 @@ public class TestPartitionedOutputBuffer
     public void testAbort()
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, 0)
                         .withBuffer(SECOND, 1)
                         .withNoMoreBufferIds(),
@@ -449,7 +448,7 @@ public class TestPartitionedOutputBuffer
     public void testFinishClosesEmptyQueues()
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, 0)
                         .withBuffer(SECOND, 1)
                         .withNoMoreBufferIds(),
@@ -472,7 +471,7 @@ public class TestPartitionedOutputBuffer
     public void testAbortFreesReader()
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
@@ -510,7 +509,7 @@ public class TestPartitionedOutputBuffer
     public void testFinishFreesReader()
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
@@ -544,7 +543,7 @@ public class TestPartitionedOutputBuffer
     public void testFinishFreesWriter()
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
@@ -590,7 +589,7 @@ public class TestPartitionedOutputBuffer
     public void testDestroyFreesReader()
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
@@ -624,7 +623,7 @@ public class TestPartitionedOutputBuffer
     public void testDestroyFreesWriter()
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
@@ -660,7 +659,7 @@ public class TestPartitionedOutputBuffer
     public void testFailDoesNotFreeReader()
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
@@ -697,7 +696,7 @@ public class TestPartitionedOutputBuffer
     public void testFailFreesWriter()
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
@@ -733,7 +732,7 @@ public class TestPartitionedOutputBuffer
     public void testBufferCompletion()
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
@@ -767,7 +766,7 @@ public class TestPartitionedOutputBuffer
     public void testBufferFinishesWhenClientBuffersDestroyed()
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, 0)
                         .withBuffer(SECOND, 1)
                         .withBuffer(THIRD, 2)
@@ -795,7 +794,7 @@ public class TestPartitionedOutputBuffer
     public void testBufferPeakMemoryUsage()
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
@@ -811,7 +810,7 @@ public class TestPartitionedOutputBuffer
     public void testForceFreeMemory()
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(10));
@@ -827,7 +826,7 @@ public class TestPartitionedOutputBuffer
         assertEquals(memoryManager.getBufferedBytes(), 0);
     }
 
-    private PartitionedOutputBuffer createPartitionedBuffer(OutputBuffers buffers, DataSize dataSize)
+    private PartitionedOutputBuffer createPartitionedBuffer(PipelinedOutputBuffers buffers, DataSize dataSize)
     {
         return new PartitionedOutputBuffer(
                 TASK_INSTANCE_ID,

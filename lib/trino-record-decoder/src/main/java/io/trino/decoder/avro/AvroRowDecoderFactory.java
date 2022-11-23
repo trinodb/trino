@@ -61,10 +61,8 @@ public class AvroRowDecoderFactory
             AvroDeserializer<GenericRecord> dataDecoder = avroDeserializerFactory.create(avroReaderSupplier);
             return new GenericRecordRowDecoder(dataDecoder, columns);
         }
-        else {
-            AvroReaderSupplier<Object> avroReaderSupplier = avroReaderSupplierFactory.create(parsedSchema);
-            AvroDeserializer<Object> dataDecoder = avroDeserializerFactory.create(avroReaderSupplier);
-            return new SingleValueRowDecoder(dataDecoder, getOnlyElement(columns));
-        }
+        AvroReaderSupplier<Object> avroReaderSupplier = avroReaderSupplierFactory.create(parsedSchema);
+        AvroDeserializer<Object> dataDecoder = avroDeserializerFactory.create(avroReaderSupplier);
+        return new SingleValueRowDecoder(dataDecoder, getOnlyElement(columns));
     }
 }

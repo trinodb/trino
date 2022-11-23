@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient;
-import io.trino.tempto.assertions.QueryAssert;
+import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
+import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
@@ -65,6 +65,8 @@ import static io.trino.tests.product.hive.TransactionalTableType.ACID;
 import static io.trino.tests.product.hive.TransactionalTableType.INSERT_ONLY;
 import static io.trino.tests.product.hive.util.TableLocationUtils.getTablePath;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -80,7 +82,7 @@ public class TestHiveTransactionalTable
 {
     private static final Logger log = Logger.get(TestHiveTransactionalTable.class);
 
-    private static final int TEST_TIMEOUT = 15 * 60 * 1000;
+    public static final int TEST_TIMEOUT = 15 * 60 * 1000;
 
     // Hive original file path end looks like /000000_0
     // New Trino original file path end looks like /000000_132574635756428963553891918669625313402
@@ -569,7 +571,7 @@ public class TestHiveTransactionalTable
             String insertQuery = format("INSERT INTO %s VALUES (11, 100), (12, 200), (13, 300)", tableName);
 
             // ensure that we treat ACID tables as implicitly bucketed on INSERT
-            String explainOutput = (String) onTrino().executeQuery("EXPLAIN " + insertQuery).row(0).get(0);
+            String explainOutput = (String) onTrino().executeQuery("EXPLAIN " + insertQuery).getOnlyValue();
             Assertions.assertThat(explainOutput).contains("Output partitioning: hive:HivePartitioningHandle{buckets=1");
 
             onTrino().executeQuery(insertQuery);
@@ -1769,7 +1771,7 @@ public class TestHiveTransactionalTable
     private void verifyOriginalFiles(String tableName, String whereClause)
     {
         QueryResult result = onTrino().executeQuery(format("SELECT DISTINCT \"$path\" FROM %s %s", tableName, whereClause));
-        String path = (String) result.row(0).get(0);
+        String path = (String) result.getOnlyValue();
         checkArgument(ORIGINAL_FILE_MATCHER.matcher(path).matches(), "Path should be original file path, but isn't, path: %s", path);
     }
 
@@ -1824,7 +1826,7 @@ public class TestHiveTransactionalTable
                 "STORED AS ORC " +
                 "TBLPROPERTIES ('transactional'='true')");
 
-        ThriftHiveMetastoreClient client = testHiveMetastoreClientFactory.createMetastoreClient();
+        ThriftMetastoreClient client = testHiveMetastoreClientFactory.createMetastoreClient();
         try {
             String selectFromOnePartitionsSql = "SELECT col FROM " + tableName + " ORDER BY COL";
 
@@ -1898,6 +1900,7 @@ public class TestHiveTransactionalTable
             // these 3 properties are necessary to make sure there is more than 1 original file created
             onTrino().executeQuery("SET SESSION scale_writers = true");
             onTrino().executeQuery("SET SESSION writer_min_size = '4kB'");
+            onTrino().executeQuery("SET SESSION task_scale_writers_enabled = false");
             onTrino().executeQuery("SET SESSION task_writer_count = 2");
             onTrino().executeQuery(format(
                     "CREATE TABLE %s WITH (transactional = true) AS SELECT * FROM tpch.sf1000.orders LIMIT 100000", tableName));
@@ -1918,6 +1921,7 @@ public class TestHiveTransactionalTable
             // these 3 properties are necessary to make sure there is more than 1 original file created
             onTrino().executeQuery("SET SESSION scale_writers = true");
             onTrino().executeQuery("SET SESSION writer_min_size = '4kB'");
+            onTrino().executeQuery("SET SESSION task_scale_writers_enabled = false");
             onTrino().executeQuery("SET SESSION task_writer_count = 2");
             onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true) AS SELECT * FROM tpch.sf1000.orders LIMIT 100000", tableName));
 
@@ -1983,6 +1987,7 @@ public class TestHiveTransactionalTable
                             "FROM tpch.sf1000.orders LIMIT 0", tableName, isPartitioned ? ", partitioned_by = ARRAY['orderpriority']" : ""));
             onTrino().executeQuery("SET SESSION scale_writers = true");
             onTrino().executeQuery("SET SESSION writer_min_size = '4kB'");
+            onTrino().executeQuery("SET SESSION task_scale_writers_enabled = false");
             onTrino().executeQuery("SET SESSION task_writer_count = 4");
             onTrino().executeQuery("SET SESSION hive.target_max_file_size = '1MB'");
 
@@ -2172,7 +2177,7 @@ public class TestHiveTransactionalTable
         return rows.build().stream();
     }
 
-    private static String tableName(String testName, boolean isPartitioned, BucketingType bucketingType)
+    public static String tableName(String testName, boolean isPartitioned, BucketingType bucketingType)
     {
         return format("test_%s_%b_%s_%s", testName, isPartitioned, bucketingType.name(), randomTableSuffix());
     }
@@ -2210,13 +2215,13 @@ public class TestHiveTransactionalTable
         }
     }
 
-    private static void verifySelectForTrinoAndHive(String select, String whereClause, QueryAssert.Row... rows)
+    public static void verifySelectForTrinoAndHive(String select, String whereClause, Row... rows)
     {
         verifySelect("onTrino", onTrino(), select, whereClause, rows);
         verifySelect("onHive", onHive(), select, whereClause, rows);
     }
 
-    private static void verifySelect(String name, QueryExecutor executor, String select, String whereClause, QueryAssert.Row... rows)
+    public static void verifySelect(String name, QueryExecutor executor, String select, String whereClause, Row... rows)
     {
         String fullQuery = format("%s WHERE %s", select, whereClause);
 

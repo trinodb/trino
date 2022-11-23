@@ -38,6 +38,7 @@ import java.util.OptionalInt;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.phoenix5.PhoenixQueryRunner.createPhoenixQueryRunner;
@@ -82,6 +83,7 @@ public class TestPhoenixConnectorTest
         TestingPhoenixServer.shutDown();
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -91,21 +93,25 @@ public class TestPhoenixConnectorTest
             case SUPPORTS_AGGREGATION_PUSHDOWN:
                 return false;
 
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
-                return false;
-
-            case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
-            case SUPPORTS_TRUNCATE:
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
+            case SUPPORTS_RENAME_TABLE:
+                return false;
+
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
+                return false;
+
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
             case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
+
+            case SUPPORTS_TRUNCATE:
                 return false;
 
             case SUPPORTS_ROW_TYPE:
@@ -136,6 +142,46 @@ public class TestPhoenixConnectorTest
                 // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
                 .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
         throw new SkipException("Rename column is not yet supported by Phoenix connector");
+    }
+
+    @Override
+    public void testAlterTableRenameColumnToLongName()
+    {
+        assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
+                // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
+                .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
+        throw new SkipException("Rename column is not yet supported by Phoenix connector");
+    }
+
+    @Override
+    public void testRenameColumnName(String columnName)
+    {
+        // The column name is rejected when creating a table
+        if (columnName.equals("a\"quote")) {
+            super.testRenameColumnName(columnName);
+            return;
+        }
+        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
+                // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
+                .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
+        throw new SkipException("Rename column is not yet supported by Phoenix connector");
+    }
+
+    @Override
+    public void testAddAndDropColumnName(String columnName)
+    {
+        // TODO: Investigate why these two case fail
+        if (columnName.equals("an'apostrophe")) {
+            assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
+                    .hasMessageContaining("Syntax error. Mismatched input");
+            throw new SkipException("TODO");
+        }
+        if (columnName.equals("a\\backslash`")) {
+            assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
+                    .hasMessageContaining("Undefined column");
+            throw new SkipException("TODO");
+        }
+        super.testAddAndDropColumnName(columnName);
     }
 
     @Override
@@ -665,12 +711,43 @@ public class TestPhoenixConnectorTest
     }
 
     @Override
+    public void testCreateSchemaWithLongName()
+    {
+        // TODO: Find the maximum table schema length in Phoenix and enable this test.
+        throw new SkipException("TODO");
+    }
+
+    @Override
     public void testCreateTableWithLongTableName()
     {
         // TODO: Find the maximum table name length in Phoenix and enable this test.
         // Table name length with 65536 chars throws "startRow's length must be less than or equal to 32767 to meet the criteria for a row key."
         // 32767 chars still causes the same error and shorter names (e.g. 10000) causes timeout.
         throw new SkipException("TODO");
+    }
+
+    @Override
+    public void testCreateTableWithLongColumnName()
+    {
+        // TODO: Find the maximum column name length in Phoenix and enable this test.
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    public void testAlterTableAddLongColumnName()
+    {
+        // TODO: Find the maximum column name length in Phoenix and enable this test.
+        throw new SkipException("TODO");
+    }
+
+    @Test
+    public void testLargeDefaultDomainCompactionThreshold()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String propertyName = catalogName + "." + DOMAIN_COMPACTION_THRESHOLD;
+        assertQuery(
+                "SHOW SESSION LIKE '" + propertyName + "'",
+                "VALUES('" + propertyName + "','5000', '5000', 'integer', 'Maximum ranges to allow in a tuple domain without simplifying it')");
     }
 
     @Override

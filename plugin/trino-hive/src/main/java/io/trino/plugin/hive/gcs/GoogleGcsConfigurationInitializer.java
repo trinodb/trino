@@ -14,15 +14,16 @@
 package io.trino.plugin.hive.gcs;
 
 import com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem;
-import io.trino.plugin.hive.ConfigurationInitializer;
+import com.google.cloud.hadoop.util.AccessTokenProvider;
+import io.trino.hdfs.ConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
 
-import static com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystemBase.AUTHENTICATION_PREFIX;
-import static com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystemConfiguration.AUTH_SERVICE_ACCOUNT_ENABLE;
-import static com.google.cloud.hadoop.util.AccessTokenProviderClassFromConfigFactory.ACCESS_TOKEN_PROVIDER_IMPL_SUFFIX;
-import static com.google.cloud.hadoop.util.EntriesCredentialConfiguration.JSON_KEYFILE_SUFFIX;
+import static com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystemConfiguration.GCS_CONFIG_PREFIX;
+import static com.google.cloud.hadoop.fs.gcs.HadoopCredentialConfiguration.ACCESS_TOKEN_PROVIDER_IMPL_SUFFIX;
+import static com.google.cloud.hadoop.fs.gcs.HadoopCredentialConfiguration.ENABLE_SERVICE_ACCOUNTS_SUFFIX;
+import static com.google.cloud.hadoop.fs.gcs.HadoopCredentialConfiguration.SERVICE_ACCOUNT_JSON_KEYFILE_SUFFIX;
 
 public class GoogleGcsConfigurationInitializer
         implements ConfigurationInitializer
@@ -44,13 +45,13 @@ public class GoogleGcsConfigurationInitializer
 
         if (useGcsAccessToken) {
             // use oauth token to authenticate with Google Cloud Storage
-            config.set(AUTH_SERVICE_ACCOUNT_ENABLE.getKey(), "false");
-            config.set(AUTHENTICATION_PREFIX + ACCESS_TOKEN_PROVIDER_IMPL_SUFFIX, GcsAccessTokenProvider.class.getName());
+            config.setBoolean(GCS_CONFIG_PREFIX + ENABLE_SERVICE_ACCOUNTS_SUFFIX.getKey(), false);
+            config.setClass(GCS_CONFIG_PREFIX + ACCESS_TOKEN_PROVIDER_IMPL_SUFFIX.getKey(), GcsAccessTokenProvider.class, AccessTokenProvider.class);
         }
         else if (jsonKeyFilePath != null) {
             // use service account key file
-            config.set(AUTH_SERVICE_ACCOUNT_ENABLE.getKey(), "true");
-            config.set(AUTHENTICATION_PREFIX + JSON_KEYFILE_SUFFIX, jsonKeyFilePath);
+            config.setBoolean(GCS_CONFIG_PREFIX + ENABLE_SERVICE_ACCOUNTS_SUFFIX.getKey(), true);
+            config.set(GCS_CONFIG_PREFIX + SERVICE_ACCOUNT_JSON_KEYFILE_SUFFIX.getKey(), jsonKeyFilePath);
         }
     }
 }

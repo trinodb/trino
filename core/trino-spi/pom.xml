@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>389</version>
+        <version>400</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -129,60 +129,72 @@
 
         <plugins>
             <plugin>
-                <groupId>org.codehaus.gmaven</groupId>
-                <artifactId>groovy-maven-plugin</artifactId>
+                <groupId>org.revapi</groupId>
+                <artifactId>revapi-maven-plugin</artifactId>
+                <version>0.14.7</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.revapi</groupId>
+                        <artifactId>revapi-java</artifactId>
+                        <version>0.27.0</version>
+                    </dependency>
+                </dependencies>
                 <executions>
                     <execution>
-                        <id>released-version</id>
-                        <phase>generate-test-resources</phase>
                         <goals>
-                            <goal>execute</goal>
+                            <goal>check</goal>
                         </goals>
-                        <configuration>
-                            <source>
-                                def match = project.version =~ /(\d+)(?:-SNAPSHOT)?/
-                                if (!match.matches()) {
-                                    throw new RuntimeException("Invalid version: " + project.version)
-                                }
-                                int version = (match.group(1) as int) - 1
-                                project.properties.setProperty('releasedVersion', version as String)
-                            </source>
-                        </configuration>
                     </execution>
                 </executions>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>copy</id>
-                        <phase>generate-test-resources</phase>
-                        <goals>
-                            <goal>copy</goal>
-                        </goals>
-                        <configuration>
-                            <skip>false</skip>
-                            <artifactItems>
-                                <artifactItem>
-                                    <groupId>io.trino</groupId>
-                                    <artifactId>trino-spi</artifactId>
-                                    <version>${releasedVersion}</version>
-                                    <type>jar</type>
-                                    <outputDirectory>${released-artifacts.dir}</outputDirectory>
-                                </artifactItem>
-                                <artifactItem>
-                                    <!-- slice is needed when loading trino-spi classes for backward compatibility tests -->
-                                    <groupId>io.airlift</groupId>
-                                    <artifactId>slice</artifactId>
-                                    <type>jar</type>
-                                    <outputDirectory>${released-artifacts.dir}</outputDirectory>
-                                </artifactItem>
-                            </artifactItems>
-                        </configuration>
-                    </execution>
-                </executions>
+                <configuration>
+                    <ignoreSuggestionsFormat>xml</ignoreSuggestionsFormat>
+                    <analysisConfiguration>
+                        <revapi.filter>
+                            <elements>
+                                <exclude>
+                                    <item>
+                                        <matcher>java</matcher>
+                                        <match>@io.trino.spi.Experimental(*) ^*;</match>
+                                    </item>
+                                </exclude>
+                            </elements>
+                        </revapi.filter>
+                        <revapi.differences>
+                            <ignore>true</ignore>
+                            <differences>
+                                <!-- Allow adding new annotations (such as @Nullable) -->
+                                <item>
+                                    <code>java.annotation.added</code>
+                                </item>
+                                <!-- Allow changing enum constant order (e.g., StandardErrorCode) -->
+                                <item>
+                                    <code>java.field.enumConstantOrderChanged</code>
+                                </item>
+                                <!-- Allow removing things that were previously deprecated -->
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java\.(class|method|field)\.removed</code>
+                                    <old>
+                                        <matcher>java</matcher>
+                                        <match>@java.lang.Deprecated(*) ^*;</match>
+                                    </old>
+                                </item>
+                                <!-- Backwards incompatible changes since the previous release -->
+                                <!-- Any exclusions below can be deleted after each release -->
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;java.util.Optional&lt;io.trino.spi.metrics.Distribution&lt;?&gt;&gt;&gt;, java.util.List&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;)</old>
+                                    <new>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.List&lt;java.util.Optional&lt;io.trino.spi.metrics.Distribution&lt;?&gt;&gt;&gt; io.trino.spi.eventlistener.QueryStatistics::getStageOutputBufferUtilizationDistribution()</old>
+                                </item>
+                            </differences>
+                        </revapi.differences>
+                    </analysisConfiguration>
+                </configuration>
             </plugin>
         </plugins>
     </build>

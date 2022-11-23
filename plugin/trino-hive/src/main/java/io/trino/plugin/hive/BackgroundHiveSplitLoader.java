@@ -24,15 +24,17 @@ import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
-import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.HiveFileIterator;
+import io.trino.plugin.hive.fs.TrinoFileStatus;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.s3select.S3SelectPushdown;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.trino.plugin.hive.util.InternalHiveSplitFactory;
@@ -81,7 +83,9 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
@@ -98,7 +102,9 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.trino.hdfs.ConfigurationUtils.toJobConf;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -112,8 +118,6 @@ import static io.trino.plugin.hive.fs.HiveFileIterator.NestedDirectoryPolicy.IGN
 import static io.trino.plugin.hive.fs.HiveFileIterator.NestedDirectoryPolicy.RECURSE;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getPartitionLocation;
-import static io.trino.plugin.hive.s3select.S3SelectPushdown.shouldEnablePushdownForTable;
-import static io.trino.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static io.trino.plugin.hive.util.HiveUtil.getFooterCount;
 import static io.trino.plugin.hive.util.HiveUtil.getHeaderCount;
@@ -147,7 +151,6 @@ public class BackgroundHiveSplitLoader
     private static final ListenableFuture<Void> COMPLETED_FUTURE = immediateVoidFuture();
 
     private final Table table;
-    private final AcidTransaction transaction;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
     private final DynamicFilter dynamicFilter;
     private final long dynamicFilteringWaitTimeoutMillis;
@@ -167,6 +170,7 @@ public class BackgroundHiveSplitLoader
     private final Deque<Iterator<InternalHiveSplit>> fileIterators = new ConcurrentLinkedDeque<>();
     private final Optional<ValidWriteIdList> validWriteIds;
     private final Optional<Long> maxSplitFileSize;
+    private final int maxPartitions;
 
     // Purpose of this lock:
     // * Write lock: when you need a consistent view across partitions, fileIterators, and hiveSplitSource.
@@ -188,11 +192,12 @@ public class BackgroundHiveSplitLoader
     private HiveSplitSource hiveSplitSource;
     private Stopwatch stopwatch;
     private volatile boolean stopped;
+    private final AtomicInteger activeLoaderCount = new AtomicInteger();
+    private final AtomicInteger partitionCount = new AtomicInteger();
 
     public BackgroundHiveSplitLoader(
             Table table,
-            AcidTransaction transaction,
-            Iterable<HivePartitionMetadata> partitions,
+            Iterator<HivePartitionMetadata> partitions,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
             DynamicFilter dynamicFilter,
             Duration dynamicFilteringWaitTimeout,
@@ -208,10 +213,10 @@ public class BackgroundHiveSplitLoader
             boolean ignoreAbsentPartitions,
             boolean optimizeSymlinkListing,
             Optional<ValidWriteIdList> validWriteIds,
-            Optional<Long> maxSplitFileSize)
+            Optional<Long> maxSplitFileSize,
+            int maxPartitions)
     {
         this.table = table;
-        this.transaction = requireNonNull(transaction, "transaction is null");
         this.compactEffectivePredicate = compactEffectivePredicate;
         this.dynamicFilter = dynamicFilter;
         this.dynamicFilteringWaitTimeoutMillis = dynamicFilteringWaitTimeout.toMillis();
@@ -226,11 +231,15 @@ public class BackgroundHiveSplitLoader
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
         this.ignoreAbsentPartitions = ignoreAbsentPartitions;
         this.optimizeSymlinkListing = optimizeSymlinkListing;
+        requireNonNull(executor, "executor is null");
+        // direct executor is not supported in this implementation due to locking specifics
+        checkExecutorIsNotDirectExecutor(executor);
         this.executor = executor;
         this.partitions = new ConcurrentLazyQueue<>(partitions);
         this.hdfsContext = new HdfsContext(session);
         this.validWriteIds = requireNonNull(validWriteIds, "validWriteIds is null");
         this.maxSplitFileSize = requireNonNull(maxSplitFileSize, "maxSplitFileSize is null");
+        this.maxPartitions = maxPartitions;
     }
 
     @Override
@@ -238,10 +247,21 @@ public class BackgroundHiveSplitLoader
     {
         this.hiveSplitSource = splitSource;
         this.stopwatch = Stopwatch.createStarted();
-        for (int i = 0; i < loaderConcurrency; i++) {
-            ListenableFuture<Void> future = ResumableTasks.submit(executor, new HiveSplitLoaderTask());
-            addExceptionCallback(future, hiveSplitSource::fail); // best effort; hiveSplitSource could be already completed
+        addLoaderIfNecessary();
+    }
+
+    private void addLoaderIfNecessary()
+    {
+        // opportunistic check to avoid incrementing indefinitely
+        if (activeLoaderCount.get() >= loaderConcurrency) {
+            return;
         }
+        if (activeLoaderCount.incrementAndGet() > loaderConcurrency) {
+            return;
+        }
+        ListenableFuture<Void> future = ResumableTasks.submit(executor, new HiveSplitLoaderTask());
+        // best effort; hiveSplitSource could be already completed
+        addExceptionCallback(future, hiveSplitSource::fail);
     }
 
     @Override
@@ -350,7 +370,22 @@ public class BackgroundHiveSplitLoader
             if (partition == null) {
                 return COMPLETED_FUTURE;
             }
+            if (partitionCount.incrementAndGet() > maxPartitions) {
+                throw new TrinoException(HIVE_EXCEEDED_PARTITION_LIMIT, format(
+                        "Query over table '%s' can potentially read more than %s partitions",
+                        partition.getHivePartition().getTableName(),
+                        maxPartitions));
+            }
+            // this is racy and sometimes more loaders can be added than necessary, but this is fine
+            if (!partitions.isEmpty()) {
+                addLoaderIfNecessary();
+            }
             return loadPartition(partition);
+        }
+
+        // this is racy and sometimes more loaders can be added than necessary, but this is fine
+        if (!fileIterators.isEmpty()) {
+            addLoaderIfNecessary();
         }
 
         while (splits.hasNext() && !stopped) {
@@ -384,12 +419,12 @@ public class BackgroundHiveSplitLoader
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, false);
         FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path);
-        boolean s3SelectPushdownEnabled = shouldEnablePushdownForTable(session, table, path.toString(), partition.getPartition());
-
-        // S3 Select pushdown works at the granularity of individual S3 objects,
-        // therefore we must not split files when it is enabled.
+        boolean s3SelectPushdownEnabled = S3SelectPushdown.shouldEnablePushdownForTable(session, table, path.toString(), partition.getPartition());
+        // S3 Select pushdown works at the granularity of individual S3 objects for compressed files
+        // and finer granularity for uncompressed files using scan range feature.
+        boolean shouldEnableSplits = S3SelectPushdown.isSplittable(s3SelectPushdownEnabled, schema, inputFormat, path);
         // Skip header / footer lines are not splittable except for a special case when skip.header.line.count=1
-        boolean splittable = !s3SelectPushdownEnabled && getFooterCount(schema) == 0 && getHeaderCount(schema) <= 1;
+        boolean splittable = shouldEnableSplits && getFooterCount(schema) == 0 && getHeaderCount(schema) <= 1;
 
         if (inputFormat instanceof SymlinkTextInputFormat) {
             if (tableBucketInfo.isPresent()) {
@@ -472,7 +507,6 @@ public class BackgroundHiveSplitLoader
                 getMaxInitialSplitSize(session),
                 isForceLocalScheduling(session),
                 s3SelectPushdownEnabled,
-                transaction,
                 maxSplitFileSize);
 
         // To support custom input formats, we want to call getSplits()
@@ -566,7 +600,7 @@ public class BackgroundHiveSplitLoader
             }
         }
         else {
-            // TODO https://github.com/trinodb/trino/issues/7603 - we should not referece acidInfoBuilder at allwhen we are not reading from non-ACID table
+            // TODO https://github.com/trinodb/trino/issues/7603 - we should not reference acidInfoBuilder at all when we are not reading from non-ACID table
             acidInfoBuilder.setOrcAcidVersionValidated(true); // no ACID; no further validation needed
             readPaths = ImmutableList.of(path);
         }
@@ -575,7 +609,7 @@ public class BackgroundHiveSplitLoader
             ListenableFuture<Void> lastResult = immediateVoidFuture(); // TODO document in addToQueue() that it is sufficient to hold on to last returned future
             for (Path readPath : readPaths) {
                 // list all files in the partition
-                List<LocatedFileStatus> files = new ArrayList<>();
+                List<TrinoFileStatus> files = new ArrayList<>();
                 try {
                     Iterators.addAll(files, new HiveFileIterator(table, readPath, fs, directoryLister, namenodeStats, FAIL, ignoreAbsentPartitions));
                 }
@@ -593,11 +627,11 @@ public class BackgroundHiveSplitLoader
             }
 
             for (HdfsFileStatusWithId hdfsFileStatusWithId : fileStatusOriginalFiles) {
-                List<LocatedFileStatus> locatedFileStatuses = ImmutableList.of((LocatedFileStatus) hdfsFileStatusWithId.getFileStatus());
+                List<TrinoFileStatus> fileStatuses = ImmutableList.of(new TrinoFileStatus((LocatedFileStatus) hdfsFileStatusWithId.getFileStatus()));
                 Optional<AcidInfo> acidInfo = isFullAcid
                         ? Optional.of(acidInfoBuilder.buildWithRequiredOriginalFiles(getRequiredBucketNumber(hdfsFileStatusWithId.getFileStatus().getPath())))
                         : Optional.empty();
-                lastResult = hiveSplitSource.addToQueue(getBucketedSplits(locatedFileStatuses, splitFactory, tableBucketInfo.get(), bucketConversion, splittable, acidInfo));
+                lastResult = hiveSplitSource.addToQueue(getBucketedSplits(fileStatuses, splitFactory, tableBucketInfo.get(), bucketConversion, splittable, acidInfo));
             }
 
             return lastResult;
@@ -661,7 +695,6 @@ public class BackgroundHiveSplitLoader
                     getMaxInitialSplitSize(session),
                     isForceLocalScheduling(session),
                     s3SelectPushdownEnabled,
-                    transaction,
                     maxSplitFileSize);
             lastResult = addSplitsToSource(targetSplits, splitFactory);
             if (stopped) {
@@ -688,13 +721,13 @@ public class BackgroundHiveSplitLoader
     {
         FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, parent);
 
-        Map<Path, LocatedFileStatus> fileStatuses = new HashMap<>();
+        Map<Path, TrinoFileStatus> fileStatuses = new HashMap<>();
         HiveFileIterator fileStatusIterator = new HiveFileIterator(table, parent, targetFilesystem, directoryLister, namenodeStats, IGNORED, false);
         fileStatusIterator.forEachRemaining(status -> fileStatuses.put(getPathWithoutSchemeAndAuthority(status.getPath()), status));
 
-        List<LocatedFileStatus> locatedFileStatuses = new ArrayList<>();
+        List<TrinoFileStatus> locatedFileStatuses = new ArrayList<>();
         for (Path path : paths) {
-            LocatedFileStatus status = fileStatuses.get(getPathWithoutSchemeAndAuthority(path));
+            TrinoFileStatus status = fileStatuses.get(getPathWithoutSchemeAndAuthority(path));
             // This check will catch all directories in the manifest since HiveFileIterator will not return any directories.
             // Some files may not be listed by HiveFileIterator - if those are included in the manifest this check will fail as well.
             if (status == null) {
@@ -718,7 +751,6 @@ public class BackgroundHiveSplitLoader
                 getMaxInitialSplitSize(session),
                 isForceLocalScheduling(session),
                 s3SelectPushdownEnabled,
-                transaction,
                 maxSplitFileSize);
         return Optional.of(locatedFileStatuses.stream()
                 .map(locatedFileStatus -> splitFactory.createInternalHiveSplit(locatedFileStatus, OptionalInt.empty(), OptionalInt.empty(), splittable, Optional.empty()))
@@ -741,7 +773,7 @@ public class BackgroundHiveSplitLoader
                             ? Optional.of(acidInfoBuilder.buildWithRequiredOriginalFiles(getRequiredBucketNumber(fileStatus.getPath())))
                             : Optional.empty();
                     return splitFactory.createInternalHiveSplit(
-                            (LocatedFileStatus) fileStatus,
+                            new TrinoFileStatus((LocatedFileStatus) fileStatus),
                             OptionalInt.empty(),
                             OptionalInt.empty(),
                             splittable,
@@ -786,7 +818,7 @@ public class BackgroundHiveSplitLoader
     }
 
     private List<InternalHiveSplit> getBucketedSplits(
-            List<LocatedFileStatus> files,
+            List<TrinoFileStatus> files,
             InternalHiveSplitFactory splitFactory,
             BucketSplitInfo bucketSplitInfo,
             Optional<BucketConversion> bucketConversion,
@@ -801,8 +833,8 @@ public class BackgroundHiveSplitLoader
         checkState(readBucketCount <= tableBucketCount, "readBucketCount(%s) should be less than or equal to tableBucketCount(%s)", readBucketCount, tableBucketCount);
 
         // build mapping of file name to bucket
-        ListMultimap<Integer, LocatedFileStatus> bucketFiles = ArrayListMultimap.create();
-        for (LocatedFileStatus file : files) {
+        ListMultimap<Integer, TrinoFileStatus> bucketFiles = ArrayListMultimap.create();
+        for (TrinoFileStatus file : files) {
             String fileName = file.getPath().getName();
             OptionalInt bucket = getBucketNumber(fileName);
             if (bucket.isPresent()) {
@@ -866,7 +898,7 @@ public class BackgroundHiveSplitLoader
                                 "partition bucket count: " + partitionBucketCount + ", effective reading bucket count: " + readBucketCount + ")");
             }
             if (!eligibleTableBucketNumbers.isEmpty()) {
-                for (LocatedFileStatus file : bucketFiles.get(partitionBucketNumber)) {
+                for (TrinoFileStatus file : bucketFiles.get(partitionBucketNumber)) {
                     // OrcDeletedRows will load only delete delta files matching current bucket id,
                     // so we can pass all delete delta locations here, without filtering.
                     eligibleTableBucketNumbers.stream()
@@ -879,7 +911,7 @@ public class BackgroundHiveSplitLoader
     }
 
     @VisibleForTesting
-    static void validateFileBuckets(ListMultimap<Integer, LocatedFileStatus> bucketFiles, int partitionBucketCount, String tableName, String partitionName)
+    static void validateFileBuckets(ListMultimap<Integer, TrinoFileStatus> bucketFiles, int partitionBucketCount, String tableName, String partitionName)
     {
         if (bucketFiles.isEmpty()) {
             return;
@@ -1043,6 +1075,18 @@ public class BackgroundHiveSplitLoader
         public boolean isTableBucketEnabled(int tableBucketNumber)
         {
             return bucketFilter.test(tableBucketNumber);
+        }
+    }
+
+    private static void checkExecutorIsNotDirectExecutor(Executor executor)
+    {
+        ReentrantLock lock = new ReentrantLock();
+        lock.lock();
+        try {
+            executor.execute(() -> checkState(!lock.isHeldByCurrentThread(), "executor is a direct executor"));
+        }
+        finally {
+            lock.unlock();
         }
     }
 }

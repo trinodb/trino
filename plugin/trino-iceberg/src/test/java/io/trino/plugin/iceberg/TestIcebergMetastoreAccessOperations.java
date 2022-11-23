@@ -18,19 +18,21 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
 import io.trino.Session;
-import io.trino.plugin.hive.HdfsConfig;
-import io.trino.plugin.hive.HdfsConfiguration;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
+import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -77,7 +79,7 @@ public class TestIcebergMetastoreAccessOperations
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
         HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         HiveMetastore hiveMetastore = new FileHiveMetastore(
                 new NodeVersion("testversion"),
@@ -87,11 +89,26 @@ public class TestIcebergMetastoreAccessOperations
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));
         metastore = new CountingAccessHiveMetastore(hiveMetastore);
-        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(metastore), Optional.empty(), EMPTY_MODULE));
+        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)), Optional.empty(), EMPTY_MODULE));
         queryRunner.createCatalog("iceberg", "iceberg");
 
         queryRunner.execute("CREATE SCHEMA test_schema");
         return queryRunner;
+    }
+
+    @Test
+    public void testUse()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalog(Optional.empty())
+                .setSchema(Optional.empty())
+                .build();
+        assertMetastoreInvocations(session, "USE %s.%s".formatted(catalog, schema),
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .build());
     }
 
     @Test
@@ -194,8 +211,8 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("REFRESH MATERIALIZED VIEW test_refresh_mview_view",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 9)
-                        .addCopies(REPLACE_TABLE, 2)
+                        .addCopies(GET_TABLE, 6)
+                        .addCopies(REPLACE_TABLE, 1)
                         .build());
     }
 
@@ -301,10 +318,15 @@ public class TestIcebergMetastoreAccessOperations
                 .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES);
     }
 
-    private void assertMetastoreInvocations(String query, Multiset<?> expectedInvocations)
+    private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<?> expectedInvocations)
+    {
+        assertMetastoreInvocations(getSession(), query, expectedInvocations);
+    }
+
+    private void assertMetastoreInvocations(Session session, @Language("SQL") String query, Multiset<?> expectedInvocations)
     {
         metastore.resetCounters();
-        getQueryRunner().execute(query);
+        getQueryRunner().execute(session, query);
         Multiset<CountingAccessHiveMetastore.Methods> actualInvocations = metastore.getMethodInvocations();
 
         if (expectedInvocations.equals(actualInvocations)) {

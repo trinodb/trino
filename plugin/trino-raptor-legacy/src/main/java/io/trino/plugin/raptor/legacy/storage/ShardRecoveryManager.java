@@ -115,7 +115,7 @@ public class ShardRecoveryManager
     {
         this.storageService = requireNonNull(storageService, "storageService is null");
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
-        this.nodeIdentifier = requireNonNull(nodeManager, "nodeManager is null").getCurrentNode().getNodeIdentifier();
+        this.nodeIdentifier = nodeManager.getCurrentNode().getNodeIdentifier();
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.missingShardDiscoveryInterval = requireNonNull(missingShardDiscoveryInterval, "missingShardDiscoveryInterval is null");
         this.shardQueue = new MissingShardsQueue(new PrioritizedFifoExecutor<>(executorService, recoveryThreads, new MissingShardComparator()));

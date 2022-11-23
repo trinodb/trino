@@ -25,7 +25,7 @@ public final class CatalogSchemaRoutineName
 
     public CatalogSchemaRoutineName(String catalogName, SchemaRoutineName schemaRoutineName)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null").toLowerCase(ENGLISH);
+        this.catalogName = catalogName.toLowerCase(ENGLISH);
         this.schemaRoutineName = requireNonNull(schemaRoutineName, "schemaRoutineName is null");
     }
 

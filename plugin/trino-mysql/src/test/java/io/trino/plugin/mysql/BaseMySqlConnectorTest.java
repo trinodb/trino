@@ -45,6 +45,7 @@ public abstract class BaseMySqlConnectorTest
 {
     protected TestingMySqlServer mySqlServer;
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -59,24 +60,25 @@ public abstract class BaseMySqlConnectorTest
 
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;
-
             case SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN:
             case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
                 return false;
 
-            case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
+                return false;
+
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
+                return false;
+
+            case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
-                return false;
-
             case SUPPORTS_NEGATIVE_DATE:
-                return false;
-
-            case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
             default:
@@ -384,6 +386,18 @@ public abstract class BaseMySqlConnectorTest
     }
 
     @Override
+    protected OptionalInt maxSchemaNameLength()
+    {
+        return OptionalInt.of(64);
+    }
+
+    @Override
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("Identifier name .* is too long");
+    }
+
+    @Override
     protected OptionalInt maxTableNameLength()
     {
         return OptionalInt.of(64);
@@ -393,6 +407,12 @@ public abstract class BaseMySqlConnectorTest
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching("Identifier name .* is too long");
+    }
+
+    @Override
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(64);
     }
 
     @Override

@@ -36,7 +36,7 @@ public class TrinoArray
     {
         this.elementTypeName = requireNonNull(elementTypeName, "elementTypeName is null");
         this.elementType = elementType;
-        this.array = requireNonNull(array, "array is null").toArray();
+        this.array = array.toArray();
     }
 
     @Override

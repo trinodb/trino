@@ -59,7 +59,7 @@ public class KafkaConnector
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
-        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null").stream()
+        this.sessionProperties = sessionProperties.stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
                 .collect(toImmutableList());
     }

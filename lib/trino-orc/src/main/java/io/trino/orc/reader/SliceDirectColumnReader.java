@@ -57,7 +57,7 @@ import static java.util.Objects.requireNonNull;
 public class SliceDirectColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SliceDirectColumnReader.class).instanceSize());
     private static final int ONE_GIGABYTE = toIntExact(DataSize.of(1, GIGABYTE).toBytes());
 
     private final int maxCodePointCount;
@@ -230,9 +230,9 @@ public class SliceDirectColumnReader
         return new VariableWidthBlock(currentBatchSize, slice, offsetVector, Optional.ofNullable(isNullVector));
     }
 
-    private RunLengthEncodedBlock readAllNullsBlock()
+    private Block readAllNullsBlock()
     {
-        return new RunLengthEncodedBlock(new VariableWidthBlock(1, EMPTY_SLICE, new int[2], Optional.of(new boolean[] {true})), nextBatchSize);
+        return RunLengthEncodedBlock.create(new VariableWidthBlock(1, EMPTY_SLICE, new int[2], Optional.of(new boolean[] {true})), nextBatchSize);
     }
 
     private void openRowGroup()

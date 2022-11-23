@@ -88,13 +88,11 @@ public class GroupedTopNRowNumberAccumulator
             heapInsert(groupId, rowReference.allocateRowId());
             return true;
         }
-        else if (rowReference.compareTo(strategy, heapNodeBuffer.getRowId(heapRootNodeIndex)) < 0) {
+        if (rowReference.compareTo(strategy, heapNodeBuffer.getRowId(heapRootNodeIndex)) < 0) {
             heapPopAndInsert(groupId, rowReference.allocateRowId(), rowIdEvictionListener);
             return true;
         }
-        else {
-            return false;
-        }
+        return false;
     }
 
     /**

@@ -22,6 +22,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -31,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 public class RleAwarePositionsAppender
         implements PositionsAppender
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RleAwarePositionsAppender.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RleAwarePositionsAppender.class).instanceSize());
     private static final int NO_RLE = -1;
 
     private final BlockPositionEqual equalOperator;
@@ -60,31 +61,32 @@ public class RleAwarePositionsAppender
     }
 
     @Override
-    public void appendRle(RunLengthEncodedBlock source)
+    public void appendRle(Block value, int positionCount)
     {
-        if (source.getPositionCount() == 0) {
+        if (positionCount == 0) {
             return;
         }
+        checkArgument(value.getPositionCount() == 1, "Expected value to contain a single position but has %d positions".formatted(value.getPositionCount()));
 
         if (rlePositionCount == 0) {
             // initial empty state, switch to RLE state
-            rleValue = source.getValue();
-            rlePositionCount = source.getPositionCount();
+            rleValue = value;
+            rlePositionCount = positionCount;
         }
         else if (rleValue != null) {
             // we are in the RLE state
-            if (equalOperator.equalNullSafe(rleValue, 0, source.getValue(), 0)) {
+            if (equalOperator.equalNullSafe(rleValue, 0, value, 0)) {
                 // the values match. we can just add positions.
-                this.rlePositionCount += source.getPositionCount();
+                this.rlePositionCount += positionCount;
                 return;
             }
             // RLE values do not match. switch to flat state
             switchToFlat();
-            delegate.appendRle(source);
+            delegate.appendRle(value, positionCount);
         }
         else {
             // flat state
-            delegate.appendRle(source);
+            delegate.appendRle(value, positionCount);
         }
     }
 
@@ -93,7 +95,7 @@ public class RleAwarePositionsAppender
     {
         Block result;
         if (rleValue != null) {
-            result = new RunLengthEncodedBlock(rleValue, rlePositionCount);
+            result = RunLengthEncodedBlock.create(rleValue, rlePositionCount);
         }
         else {
             result = delegate.build();
@@ -127,7 +129,7 @@ public class RleAwarePositionsAppender
     {
         if (rleValue != null) {
             // we are in the RLE state, flatten all RLE blocks
-            delegate.appendRle(new RunLengthEncodedBlock(rleValue, rlePositionCount));
+            delegate.appendRle(rleValue, rlePositionCount);
             rleValue = null;
         }
         rlePositionCount = NO_RLE;

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -27,10 +28,13 @@ import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBufferInfo;
+import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.execution.buffer.OutputBuffers;
+import io.trino.execution.buffer.SpoolingOutputStats;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.operator.TaskStats;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -146,7 +150,9 @@ public class TestingRemoteTaskFactory
                             0,
                             0,
                             0,
-                            ImmutableList.of()),
+                            Optional.empty(),
+                            Optional.of(new TDigestHistogram(new TDigest())),
+                            Optional.empty()),
                     ImmutableSet.copyOf(noMoreSplits),
                     new TaskStats(DateTime.now(), null),
                     Optional.empty(),
@@ -171,7 +177,7 @@ public class TestingRemoteTaskFactory
                     failures,
                     0,
                     0,
-                    false,
+                    OutputBufferStatus.initial(),
                     DataSize.of(0, BYTE),
                     DataSize.of(0, BYTE),
                     DataSize.of(0, BYTE),
@@ -297,6 +303,12 @@ public class TestingRemoteTaskFactory
         public int getUnacknowledgedPartitionedSplitCount()
         {
             return 0;
+        }
+
+        @Override
+        public SpoolingOutputStats.Snapshot retrieveAndDropSpoolingOutputStats()
+        {
+            throw new UnsupportedOperationException();
         }
     }
 }

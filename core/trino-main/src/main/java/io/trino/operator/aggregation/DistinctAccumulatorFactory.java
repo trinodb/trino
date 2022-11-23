@@ -233,7 +233,7 @@ public class DistinctAccumulatorFactory
                 columnIndexes[i] = i + 1;
             }
             Page filtered = filteredWithGroup.getColumns(columnIndexes);
-
+            // NOTE: the accumulator must be called even if the filtered page is empty to inform the accumulator about the group count
             accumulator.addInput(groupIds, filtered, Optional.of(distinctMask));
         }
 
@@ -267,9 +267,7 @@ public class DistinctAccumulatorFactory
             if (!mask.isNull(0) && BOOLEAN.getBoolean(mask, 0)) {
                 return page;
             }
-            else {
-                return page.getPositions(new int[0], 0, 0);
-            }
+            return page.getPositions(new int[0], 0, 0);
         }
         boolean mayHaveNull = mask.mayHaveNull();
         int[] ids = new int[positions];

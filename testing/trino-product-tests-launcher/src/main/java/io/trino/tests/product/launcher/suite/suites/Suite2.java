@@ -19,6 +19,7 @@ import io.trino.tests.product.launcher.env.environment.EnvSinglenode;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeHdfsImpersonation;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHdfsImpersonation;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHdfsNoImpersonation;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHiveNoImpersonationWithCredentialCache;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
@@ -37,6 +38,9 @@ public class Suite2
                         .withGroups("configured_features", "hdfs_no_impersonation", "storage_formats_detailed", "hive_compression", "hive_with_external_writes")
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsNoImpersonation.class)
+                        .withGroups("configured_features", "storage_formats", "hdfs_no_impersonation")
+                        .build(),
+                testOnEnvironment(EnvSinglenodeKerberosHiveNoImpersonationWithCredentialCache.class)
                         .withGroups("configured_features", "storage_formats", "hdfs_no_impersonation")
                         .build(),
                 testOnEnvironment(EnvSinglenodeHdfsImpersonation.class)

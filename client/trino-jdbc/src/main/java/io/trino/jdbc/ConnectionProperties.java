@@ -29,12 +29,12 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.StreamSupport;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.immutableEntry;
+import static com.google.common.collect.Streams.stream;
 import static io.trino.client.ClientSelectedRole.Type.ALL;
 import static io.trino.client.ClientSelectedRole.Type.NONE;
 import static io.trino.jdbc.AbstractConnectionProperty.checkedPredicate;
@@ -288,6 +288,9 @@ final class ConnectionProperties
         }
     }
 
+    /**
+     * @deprecated use {@link AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients}
+     */
     private static class AssumeLiteralNamesInMetadataCallsForNonConformingClients
             extends AbstractConnectionProperty<Boolean>
     {
@@ -536,7 +539,7 @@ final class ConnectionProperties
 
         public static List<ExternalRedirectStrategy> parse(String value)
         {
-            return StreamSupport.stream(ENUM_SPLITTER.split(value).spliterator(), false)
+            return stream(ENUM_SPLITTER.split(value))
                     .map(ExternalRedirectStrategy::valueOf)
                     .collect(toImmutableList());
         }

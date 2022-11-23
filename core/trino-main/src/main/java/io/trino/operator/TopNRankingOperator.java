@@ -246,19 +246,17 @@ public class TopNRankingOperator
         if (partitionChannels.isEmpty()) {
             return Suppliers.ofInstance(new NoChannelGroupByHash());
         }
-        else {
-            checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
-            int[] channels = Ints.toArray(partitionChannels);
-            return () -> createGroupByHash(
-                    session,
-                    partitionTypes,
-                    channels,
-                    hashChannel,
-                    expectedPositions,
-                    joinCompiler,
-                    blockTypeOperators,
-                    updateMemory);
-        }
+        checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
+        int[] channels = Ints.toArray(partitionChannels);
+        return () -> createGroupByHash(
+                session,
+                partitionTypes,
+                channels,
+                hashChannel,
+                expectedPositions,
+                joinCompiler,
+                blockTypeOperators,
+                updateMemory);
     }
 
     private static Supplier<GroupedTopNBuilder> getGroupedTopNBuilderSupplier(
@@ -281,7 +279,7 @@ public class TopNRankingOperator
                     generateRanking,
                     groupByHashSupplier.get());
         }
-        else if (rankingType == RankingType.RANK) {
+        if (rankingType == RankingType.RANK) {
             PageWithPositionComparator comparator = new SimplePageWithPositionComparator(sourceTypes, sortChannels, sortOrders, typeOperators);
             PageWithPositionEqualsAndHash equalsAndHash = new SimplePageWithPositionEqualsAndHash(ImmutableList.copyOf(sourceTypes), sortChannels, blockTypeOperators);
             return () -> new GroupedTopNRankBuilder(
@@ -292,12 +290,10 @@ public class TopNRankingOperator
                     generateRanking,
                     groupByHashSupplier.get());
         }
-        else if (rankingType == RankingType.DENSE_RANK) {
+        if (rankingType == RankingType.DENSE_RANK) {
             throw new UnsupportedOperationException();
         }
-        else {
-            throw new AssertionError("Unknown ranking type: " + rankingType);
-        }
+        throw new AssertionError("Unknown ranking type: " + rankingType);
     }
 
     @Override

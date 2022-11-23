@@ -28,7 +28,6 @@ import io.trino.spi.type.VarcharType;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
-import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type.Repetition;
 import org.apache.parquet.schema.Types;
@@ -101,15 +100,13 @@ public class ParquetSchemaConverter
         if (ROW.equals(type.getTypeSignature().getBase())) {
             return getRowType((RowType) type, name, parent, repetition);
         }
-        else if (MAP.equals(type.getTypeSignature().getBase())) {
+        if (MAP.equals(type.getTypeSignature().getBase())) {
             return getMapType((MapType) type, name, parent, repetition);
         }
-        else if (ARRAY.equals(type.getTypeSignature().getBase())) {
+        if (ARRAY.equals(type.getTypeSignature().getBase())) {
             return getArrayType((ArrayType) type, name, parent, repetition);
         }
-        else {
-            return getPrimitiveType(type, name, parent, repetition);
-        }
+        return getPrimitiveType(type, name, parent, repetition);
     }
 
     private org.apache.parquet.schema.Type getPrimitiveType(Type type, String name, List<String> parent, Repetition repetition)
@@ -143,7 +140,7 @@ public class ParquetSchemaConverter
                     .named(name);
         }
         if (DATE.equals(type)) {
-            return Types.primitive(PrimitiveType.PrimitiveTypeName.INT32, repetition).as(OriginalType.DATE).named(name);
+            return Types.primitive(PrimitiveType.PrimitiveTypeName.INT32, repetition).as(LogicalTypeAnnotation.dateType()).named(name);
         }
         if (BIGINT.equals(type)) {
             return Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, repetition).named(name);
@@ -187,7 +184,7 @@ public class ParquetSchemaConverter
     {
         Type elementType = type.getElementType();
         return Types.list(repetition)
-                .element(convert(elementType, "array", ImmutableList.<String>builder().addAll(parent).add(name).add("list").build(), OPTIONAL))
+                .element(convert(elementType, "element", ImmutableList.<String>builder().addAll(parent).add(name).add("list").build(), OPTIONAL))
                 .named(name);
     }
 

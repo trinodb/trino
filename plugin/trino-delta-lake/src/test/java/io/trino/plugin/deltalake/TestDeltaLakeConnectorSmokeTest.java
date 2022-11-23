@@ -59,8 +59,8 @@ public class TestDeltaLakeConnectorSmokeTest
                         .put("delta.enable-non-concurrent-writes", "true")
                         .put("hive.s3.max-connections", "2")
                         .buildOrThrow(),
-                dockerizedMinioDataLake.getMinioAddress(),
-                dockerizedMinioDataLake.getTestingHadoop());
+                hiveMinioDataLake.getMinioAddress(),
+                hiveMinioDataLake.getHiveHadoop());
     }
 
     @Test(dataProvider = "writesLockedQueryProvider")
@@ -160,6 +160,36 @@ public class TestDeltaLakeConnectorSmokeTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testReadingTableWithDeltaColumnInvariant()
+    {
+        assertThat(getQueryRunner().execute("SELECT * FROM invariants").getRowCount()).isEqualTo(1);
+        assertThatThrownBy(() -> query("INSERT INTO invariants VALUES(2)"))
+                .hasMessageContaining("Inserts are not supported for tables with delta invariants");
+        assertThatThrownBy(() -> query("UPDATE invariants SET dummy = 3 WHERE dummy = 1"))
+                .hasMessageContaining("Updates are not supported for tables with delta invariants");
+    }
+
+    @Test
+    public void testSchemaEvolutionOnTableWithColumnInvariant()
+    {
+        String tableName = "test_schema_evolution_on_table_with_column_invariant_" + randomTableSuffix();
+        hiveMinioDataLake.copyResources("databricks/invariants", tableName);
+        getQueryRunner().execute(format("CREATE TABLE %s (ignored int) WITH (location = '%s')",
+                tableName,
+                getLocationForTable(bucketName, tableName)));
+
+        assertThatThrownBy(() -> query("INSERT INTO invariants VALUES(2)"))
+                .hasMessageContaining("Inserts are not supported for tables with delta invariants");
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c INT");
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".c IS 'example column comment'");
+        assertUpdate("COMMENT ON TABLE " + tableName + " IS 'example table comment'");
+
+        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(2, 2)"))
+                .hasMessageContaining("Inserts are not supported for tables with delta invariants");
+    }
+
     @DataProvider
     public static Object[][] writesLockInvalidContentsValuesProvider()
     {
@@ -176,7 +206,7 @@ public class TestDeltaLakeConnectorSmokeTest
         String lockFilePath = format("%s/00000000000000000001.json.sb-lock_blah", getLockFileDirectory(tableName));
         String lockFileContents = OBJECT_MAPPER.writeValueAsString(
                 new S3TransactionLogSynchronizer.LockFileContents("some_cluster", "some_query", Instant.now().plus(lockDuration).toEpochMilli()));
-        dockerizedMinioDataLake.writeFile(lockFileContents.getBytes(UTF_8), lockFilePath);
+        hiveMinioDataLake.writeFile(lockFileContents.getBytes(UTF_8), lockFilePath);
         String lockUri = format("s3://%s/%s", bucketName, lockFilePath);
         assertThat(listLocks(tableName)).containsExactly(lockUri); // sanity check
         return lockUri;
@@ -186,7 +216,7 @@ public class TestDeltaLakeConnectorSmokeTest
     {
         String lockFilePath = format("%s/00000000000000000001.json.sb-lock_blah", getLockFileDirectory(tableName));
         String invalidLockFileContents = "some very wrong json contents";
-        dockerizedMinioDataLake.writeFile(invalidLockFileContents.getBytes(UTF_8), lockFilePath);
+        hiveMinioDataLake.writeFile(invalidLockFileContents.getBytes(UTF_8), lockFilePath);
         String lockUri = format("s3://%s/%s", bucketName, lockFilePath);
         assertThat(listLocks(tableName)).containsExactly(lockUri); // sanity check
         return lockUri;
@@ -194,7 +224,7 @@ public class TestDeltaLakeConnectorSmokeTest
 
     private List<String> listLocks(String tableName)
     {
-        List<String> paths = dockerizedMinioDataLake.listFiles(getLockFileDirectory(tableName));
+        List<String> paths = hiveMinioDataLake.listFiles(getLockFileDirectory(tableName));
         return paths.stream()
                 .filter(path -> path.contains(".sb-lock_"))
                 .map(path -> format("s3://%s/%s", bucketName, path))

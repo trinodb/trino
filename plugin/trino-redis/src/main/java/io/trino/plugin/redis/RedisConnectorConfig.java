@@ -29,9 +29,9 @@ import javax.validation.constraints.Size;
 
 import java.io.File;
 import java.util.Set;
-import java.util.stream.StreamSupport;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Streams.stream;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -250,7 +250,7 @@ public class RedisConnectorConfig
     {
         Splitter splitter = Splitter.on(',').omitEmptyStrings().trimResults();
 
-        return StreamSupport.stream(splitter.split(nodes).spliterator(), false)
+        return stream(splitter.split(nodes))
                 .map(RedisConnectorConfig::toHostAddress)
                 .collect(toImmutableSet());
     }

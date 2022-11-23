@@ -15,6 +15,8 @@ package io.trino.plugin.hive.benchmark;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.OutputStreamSliceOutput;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcWriter;
 import io.trino.orc.OrcWriterOptions;
@@ -25,7 +27,6 @@ import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
@@ -173,7 +174,11 @@ public final class StandardFileFormats
         @Override
         public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new ParquetPageSourceFactory(hdfsEnvironment, new FileFormatDataSourceStats(), new ParquetReaderConfig(), new HiveConfig()));
+            return Optional.of(new ParquetPageSourceFactory(
+                    new HdfsFileSystemFactory(hdfsEnvironment),
+                    new FileFormatDataSourceStats(),
+                    new ParquetReaderConfig(),
+                    new HiveConfig()));
         }
 
         @Override
@@ -314,7 +319,8 @@ public final class StandardFileFormats
                     ParquetWriterOptions.builder().build(),
                     compressionCodec.getParquetCompressionCodec(),
                     "test-version",
-                    Optional.of(DateTimeZone.getDefault()));
+                    Optional.of(DateTimeZone.getDefault()),
+                    Optional.empty());
         }
 
         @Override

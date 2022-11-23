@@ -804,7 +804,7 @@ public class TestTrinoDatabaseMetaData
                 assertColumnSpec(rs, Types.VARCHAR, (long) Integer.MAX_VALUE, null, null, (long) Integer.MAX_VALUE, createUnboundedVarcharType());
                 assertColumnSpec(rs, Types.CHAR, 345L, null, null, 345L, createCharType(345));
                 assertColumnSpec(rs, Types.VARBINARY, (long) Integer.MAX_VALUE, null, null, (long) Integer.MAX_VALUE, VarbinaryType.VARBINARY);
-                assertColumnSpec(rs, Types.TIME, 12L, null, 3L, null, TimeType.TIME);
+                assertColumnSpec(rs, Types.TIME, 12L, null, 3L, null, TimeType.TIME_MILLIS);
                 assertColumnSpec(rs, Types.TIME, 8L, null, 0L, null, createTimeType(0));
                 assertColumnSpec(rs, Types.TIME, 12L, null, 3L, null, createTimeType(3));
                 assertColumnSpec(rs, Types.TIME, 15L, null, 6L, null, createTimeType(6));
@@ -816,13 +816,13 @@ public class TestTrinoDatabaseMetaData
                 assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 21L, null, 6L, null, createTimeWithTimeZoneType(6));
                 assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 24L, null, 9L, null, createTimeWithTimeZoneType(9));
                 assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 27L, null, 12L, null, createTimeWithTimeZoneType(12));
-                assertColumnSpec(rs, Types.TIMESTAMP, 25L, null, 3L, null, TimestampType.TIMESTAMP);
+                assertColumnSpec(rs, Types.TIMESTAMP, 25L, null, 3L, null, TimestampType.TIMESTAMP_MILLIS);
                 assertColumnSpec(rs, Types.TIMESTAMP, 21L, null, 0L, null, createTimestampType(0));
                 assertColumnSpec(rs, Types.TIMESTAMP, 25L, null, 3L, null, createTimestampType(3));
                 assertColumnSpec(rs, Types.TIMESTAMP, 28L, null, 6L, null, createTimestampType(6));
                 assertColumnSpec(rs, Types.TIMESTAMP, 31L, null, 9L, null, createTimestampType(9));
                 assertColumnSpec(rs, Types.TIMESTAMP, 34L, null, 12L, null, createTimestampType(12));
-                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 59L, null, 3L, null, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
+                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 59L, null, 3L, null, TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS);
                 assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 55L, null, 0L, null, createTimestampWithTimeZoneType(0));
                 assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 59L, null, 3L, null, createTimestampWithTimeZoneType(3));
                 assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 62L, null, 6L, null, createTimestampWithTimeZoneType(6));

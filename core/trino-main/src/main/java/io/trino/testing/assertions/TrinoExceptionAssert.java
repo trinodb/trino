@@ -19,6 +19,9 @@ import org.assertj.core.api.AbstractThrowableAssert;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.assertj.core.util.CheckReturnValue;
 
+import java.util.stream.Stream;
+
+import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
@@ -42,10 +45,13 @@ public final class TrinoExceptionAssert
         super(actual, TrinoExceptionAssert.class);
     }
 
-    public TrinoExceptionAssert hasErrorCode(ErrorCodeSupplier errorCodeSupplier)
+    public TrinoExceptionAssert hasErrorCode(ErrorCodeSupplier... errorCodeSupplier)
     {
         try {
-            assertThat(actual.getErrorCode()).isEqualTo(errorCodeSupplier.toErrorCode());
+            assertThat(actual.getErrorCode()).isIn(
+                    Stream.of(errorCodeSupplier)
+                            .map(ErrorCodeSupplier::toErrorCode)
+                            .collect(toSet()));
         }
         catch (AssertionError e) {
             e.addSuppressed(actual);

@@ -62,11 +62,6 @@ public final class VarcharType
         return new VarcharType(length);
     }
 
-    public static TypeSignature getParametrizedVarcharSignature(String param)
-    {
-        return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.typeVariable(param));
-    }
-
     private final int length;
 
     private VarcharType(int length)
@@ -74,7 +69,7 @@ public final class VarcharType
         super(
                 new TypeSignature(
                         StandardTypes.VARCHAR,
-                        singletonList(TypeSignatureParameter.numericParameter((long) length))),
+                        singletonList(TypeSignatureParameter.numericParameter(length))),
                 Slice.class);
 
         if (length < 0) {

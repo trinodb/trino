@@ -15,8 +15,8 @@ package io.trino.sql.planner.iterative.rule;
 
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.BoundSignature;
 import io.trino.metadata.Metadata;
+import io.trino.spi.function.BoundSignature;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.WindowNode;

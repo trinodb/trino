@@ -26,15 +26,16 @@ import org.testng.annotations.Test;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
@@ -53,7 +54,7 @@ public class TestDatabricksWithGlueMetastoreCleanUp
         List<String> schemas = onTrino().executeQuery("SELECT DISTINCT(table_schema) FROM information_schema.tables")
                 .rows().stream()
                 .map(row -> (String) row.get(0))
-                .filter(schema -> schema.toLowerCase(Locale.ROOT).startsWith("test") || schema.equals("default"))
+                .filter(schema -> schema.toLowerCase(ENGLISH).startsWith("test") || schema.equals("default"))
                 .collect(toUnmodifiableList());
 
         // this is needed to make deletion of some views possible
@@ -63,9 +64,12 @@ public class TestDatabricksWithGlueMetastoreCleanUp
 
     private void cleanSchema(String schema, long startTime, AWSGlueAsync glueClient)
     {
-        Set<String> allTableNames = findAllTestTablesInSchema(schema);
+        Set<String> allTestTableNames = findAllTablesInSchema(schema).stream()
+                .filter(name -> name.toLowerCase(ENGLISH).startsWith("test"))
+                .collect(toImmutableSet());
+        log.info("Found %d tables to drop in schema %s", allTestTableNames.size(), schema);
         int droppedTablesCount = 0;
-        for (String tableName : allTableNames) {
+        for (String tableName : allTestTableNames) {
             try {
                 Table table = glueClient.getTable(new GetTableRequest().withDatabaseName(schema).withName(tableName)).getTable();
                 Instant createTime = table.getCreateTime().toInstant();
@@ -89,7 +93,7 @@ public class TestDatabricksWithGlueMetastoreCleanUp
             }
         }
         log.info("Dropped %d tables in schema %s", droppedTablesCount, schema);
-        if (!schema.equals("default") && onTrino().executeQuery(format("SHOW TABLES IN %s", schema)).getRowsCount() == 0) {
+        if (!schema.equals("default") && findAllTablesInSchema(schema).isEmpty()) {
             try {
                 onTrino().executeQuery("DROP SCHEMA IF EXISTS " + schema);
                 log.info("Dropped schema %s", schema);
@@ -100,14 +104,12 @@ public class TestDatabricksWithGlueMetastoreCleanUp
         }
     }
 
-    private Set<String> findAllTestTablesInSchema(String schema)
+    private Set<String> findAllTablesInSchema(String schema)
     {
         try {
-            QueryResult allTables = onTrino().executeQuery(format("SHOW TABLES IN %s", schema));
-            log.info("Found %d potential tables to drop in schema %s", allTables.rows().size(), schema);
+            QueryResult allTables = onTrino().executeQuery(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", schema));
             return allTables.rows().stream()
                     .map(row -> (String) row.get(0))
-                    .filter(name -> name.toLowerCase(Locale.ROOT).startsWith("test"))
                     .collect(Collectors.toUnmodifiableSet());
         }
         catch (Exception e) {

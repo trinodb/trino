@@ -300,12 +300,12 @@ public abstract class AbstractTestHiveViews
 
         QueryResult actualResult = onTrino().executeQuery(format(showCreateViewSql, "hive"));
         assertThat(actualResult).hasRowsCount(1);
-        assertEquals((String) actualResult.row(0).get(0), format(expectedResult, "hive"));
+        assertEquals((String) actualResult.getOnlyValue(), format(expectedResult, "hive"));
 
         // Verify the translated view sql for a catalog other than "hive", which is configured to the same metastore
         actualResult = onTrino().executeQuery(format(showCreateViewSql, "hive_with_external_writes"));
         assertThat(actualResult).hasRowsCount(1);
-        assertEquals((String) actualResult.row(0).get(0), format(expectedResult, "hive_with_external_writes"));
+        assertEquals((String) actualResult.getOnlyValue(), format(expectedResult, "hive_with_external_writes"));
     }
 
     /**
@@ -490,8 +490,6 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
-    // Test is currently flaky on CDH5 environment
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/9074", match = "Error while processing statement: FAILED: Execution Error, return code 2 from org.apache.hadoop.hive.ql.exec.mr.MapRedTask")
     public void testNestedGroupBy()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS test_nested_group_by_view");
@@ -575,6 +573,21 @@ public abstract class AbstractTestHiveViews
                     assertion -> assertion.as("View with %s", operator)
                             .containsOnly(row(0), row(1), row(2), row(3), row(4)));
         }
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testHivePartitionViews()
+    {
+        onHive().executeQuery("DROP VIEW IF EXISTS test_view_partitioned_column");
+        onHive().executeQuery("DROP TABLE IF EXISTS test_table_partitioned_column");
+        onTrino().executeQuery("CREATE TABLE test_table_partitioned_column(some_id VARCHAR(25), ds VARCHAR(25)) WITH (partitioned_by=array['ds'])");
+        onTrino().executeQuery("INSERT INTO test_table_partitioned_column VALUES ('1', '2022-09-17')");
+        onHive().executeQuery("CREATE VIEW test_view_partitioned_column PARTITIONED ON (ds) AS SELECT some_id, ds FROM test_table_partitioned_column");
+
+        String testQuery = "SELECT some_id, ds FROM test_view_partitioned_column";
+        assertThat(onTrino().executeQuery(testQuery)).containsOnly(row("1", "2022-09-17"));
+        onHive().executeQuery("DROP VIEW test_view_partitioned_column");
+        onHive().executeQuery("DROP TABLE test_table_partitioned_column");
     }
 
     /**
@@ -688,6 +701,26 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP TABLE test_hive_namesake_column_name_a");
         onHive().executeQuery("DROP TABLE test_hive_namesake_column_name_b");
         onHive().executeQuery("DROP VIEW test_namesake_column_names_view");
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testRunAsInvoker()
+    {
+        onTrino().executeQuery("DROP TABLE IF EXISTS run_as_invoker");
+        onTrino().executeQuery("DROP VIEW IF EXISTS run_as_invoker_view");
+
+        onTrino().executeQuery("CREATE TABLE run_as_invoker (a INTEGER)");
+        onHive().executeQuery("CREATE VIEW run_as_invoker_view AS SELECT * FROM run_as_invoker");
+        onTrino().executeQuery("GRANT SELECT ON hive_with_run_view_as_invoker.default.run_as_invoker_view TO hive");
+
+        String definerQuery = "SELECT * FROM hive.default.run_as_invoker_view";
+        String invokerQuery = "SELECT * FROM hive_with_run_view_as_invoker.default.run_as_invoker_view";
+        assertThat(connectToTrino("alice@presto").executeQuery(definerQuery)).hasNoRows(); // Allowed
+        assertThatThrownBy(() -> connectToTrino("alice@presto").executeQuery(invokerQuery))
+                .hasMessageContaining("Access Denied");
+
+        onHive().executeQuery("DROP VIEW run_as_invoker_view");
+        onTrino().executeQuery("DROP TABLE run_as_invoker");
     }
 
     protected static void assertViewQuery(String query, Consumer<QueryAssert> assertion)

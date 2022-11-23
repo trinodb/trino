@@ -35,6 +35,7 @@ import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
+import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
@@ -45,6 +46,8 @@ import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeProcessorNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -200,16 +203,14 @@ public final class StreamPropertyDerivations
             StreamProperties leftProperties = inputProperties.get(0);
             boolean unordered = spillPossible(session, node);
 
-            switch (node.getType()) {
-                case INNER:
-                    return leftProperties
-                            .translate(column -> PropertyDerivations.filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column))
-                            .unordered(unordered);
-                case LEFT:
-                    return leftProperties
-                            .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column))
-                            .unordered(unordered);
-                case RIGHT:
+            return switch (node.getType()) {
+                case INNER -> leftProperties
+                        .translate(column -> PropertyDerivations.filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column))
+                        .unordered(unordered);
+                case LEFT -> leftProperties
+                        .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column))
+                        .unordered(unordered);
+                case RIGHT ->
                     // since this is a right join, none of the matched output rows will contain nulls
                     // in the left partitioning columns, and all of the unmatched rows will have
                     // null for all left columns.  therefore, the output is still partitioned on the
@@ -219,14 +220,13 @@ public final class StreamPropertyDerivations
                     // we can't say that the output is partitioned on empty set, but we can say that
                     // it is partitioned on the left join symbols
                     // todo do something smarter after https://github.com/prestodb/presto/pull/5877 is merged
-                    return new StreamProperties(MULTIPLE, Optional.empty(), false);
-                case FULL:
+                        new StreamProperties(MULTIPLE, Optional.empty(), false);
+                case FULL ->
                     // the left can contain nulls in any stream so we can't say anything about the
                     // partitioning, and nulls from the right are produced from a extra new stream
                     // so we will always have multiple streams.
-                    return new StreamProperties(MULTIPLE, Optional.empty(), false);
-            }
-            throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+                        new StreamProperties(MULTIPLE, Optional.empty(), false);
+            };
         }
 
         private static boolean spillPossible(Session session, JoinNode node)
@@ -239,12 +239,9 @@ public final class StreamPropertyDerivations
         {
             StreamProperties leftProperties = inputProperties.get(0);
 
-            switch (node.getType()) {
-                case INNER:
-                case LEFT:
-                    return leftProperties.translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column));
-            }
-            throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
+            return switch (node.getType()) {
+                case INNER, LEFT -> leftProperties.translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column));
+            };
         }
 
         @Override
@@ -252,15 +249,19 @@ public final class StreamPropertyDerivations
         {
             StreamProperties probeProperties = inputProperties.get(0);
 
-            switch (node.getType()) {
-                case INNER:
-                    return probeProperties;
-                case SOURCE_OUTER:
+            return switch (node.getType()) {
+                case INNER -> probeProperties;
+                case SOURCE_OUTER ->
                     // the probe can contain nulls in any stream so we can't say anything about the
                     // partitioning but the other properties of the probe will be maintained.
-                    return probeProperties.withUnspecifiedPartitioning();
-            }
-            throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+                        probeProperties.withUnspecifiedPartitioning();
+            };
+        }
+
+        @Override
+        public StreamProperties visitDynamicFilterSource(DynamicFilterSourceNode node, List<StreamProperties> inputProperties)
+        {
+            return Iterables.getOnlyElement(inputProperties);
         }
 
         //
@@ -332,23 +333,17 @@ public final class StreamPropertyDerivations
                 return StreamProperties.fixedStreams();
             }
 
-            switch (node.getType()) {
-                case GATHER:
-                    return StreamProperties.singleStream();
-                case REPARTITION:
-                    if (node.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION)) {
-                        return new StreamProperties(FIXED, Optional.empty(), false);
-                    }
-                    return new StreamProperties(
-                            FIXED,
-                            Optional.of(node.getPartitioningScheme().getPartitioning().getArguments().stream()
-                                    .map(ArgumentBinding::getColumn)
-                                    .collect(toImmutableList())), false);
-                case REPLICATE:
-                    return new StreamProperties(MULTIPLE, Optional.empty(), false);
-            }
-
-            throw new UnsupportedOperationException("not yet implemented");
+            return switch (node.getType()) {
+                case GATHER -> StreamProperties.singleStream();
+                case REPARTITION -> node.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION) ?
+                        new StreamProperties(FIXED, Optional.empty(), false) :
+                        new StreamProperties(
+                                FIXED,
+                                Optional.of(node.getPartitioningScheme().getPartitioning().getArguments().stream()
+                                        .map(ArgumentBinding::getColumn)
+                                        .collect(toImmutableList())), false);
+                case REPLICATE -> new StreamProperties(MULTIPLE, Optional.empty(), false);
+            };
         }
 
         //
@@ -465,6 +460,20 @@ public final class StreamPropertyDerivations
         }
 
         @Override
+        public StreamProperties visitMergeWriter(MergeWriterNode node, List<StreamProperties> inputProperties)
+        {
+            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            return properties.withUnspecifiedPartitioning();
+        }
+
+        @Override
+        public StreamProperties visitMergeProcessor(MergeProcessorNode node, List<StreamProperties> inputProperties)
+        {
+            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            return properties.withUnspecifiedPartitioning();
+        }
+
+        @Override
         public StreamProperties visitTableWriter(TableWriterNode node, List<StreamProperties> inputProperties)
         {
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
@@ -486,15 +495,10 @@ public final class StreamPropertyDerivations
                 return Optional.empty();
             });
 
-            switch (node.getJoinType()) {
-                case INNER:
-                case LEFT:
-                    return translatedProperties;
-                case RIGHT:
-                case FULL:
-                    return translatedProperties.unordered(true);
-            }
-            throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
+            return switch (node.getJoinType()) {
+                case INNER, LEFT -> translatedProperties;
+                case RIGHT, FULL -> translatedProperties.unordered(true);
+            };
         }
 
         @Override
@@ -693,8 +697,7 @@ public final class StreamPropertyDerivations
         {
             this.distribution = requireNonNull(distribution, "distribution is null");
 
-            this.partitioningColumns = requireNonNull(partitioningColumns, "partitioningColumns is null")
-                    .map(ImmutableList::copyOf);
+            this.partitioningColumns = partitioningColumns.map(ImmutableList::copyOf);
 
             checkArgument(distribution != SINGLE || this.partitioningColumns.equals(Optional.of(ImmutableList.of())),
                     "Single stream must be partitioned on empty set");

@@ -112,15 +112,13 @@ public abstract class AbstractResourceConfigurationManager
         StringBuilder fullyQualifiedGroupName = new StringBuilder();
         for (ResourceGroupNameTemplate groupName : spec.getGroup().getSegments()) {
             fullyQualifiedGroupName.append(groupName);
-            Optional<ResourceGroupSpec> match = groups
+            ResourceGroupSpec match = groups
                     .stream()
                     .filter(groupSpec -> groupSpec.getName().equals(groupName))
-                    .findFirst();
-            if (match.isEmpty()) {
-                throw new IllegalArgumentException(format("Selector refers to nonexistent group: %s", fullyQualifiedGroupName));
-            }
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException(format("Selector refers to nonexistent group: %s", fullyQualifiedGroupName)));
             fullyQualifiedGroupName.append(".");
-            groups = match.get().getSubGroups();
+            groups = match.getSubGroups();
         }
     }
 

@@ -66,7 +66,7 @@ public class GracefulShutdownHandler
         this.sqlTaskManager = requireNonNull(sqlTaskManager, "sqlTaskManager is null");
         this.shutdownAction = requireNonNull(shutdownAction, "shutdownAction is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
-        this.isCoordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
+        this.isCoordinator = serverConfig.isCoordinator();
         this.gracePeriod = serverConfig.getGracePeriod();
     }
 

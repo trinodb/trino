@@ -185,6 +185,7 @@ G
 - :func:`geometric_mean`
 - :func:`geometry_from_hadoop_shape`
 - :func:`geometry_invalid_reason`
+- :func:`geometry_nearest_points`
 - :func:`geometry_to_bing_tiles`
 - :func:`geometry_union`
 - :func:`geometry_union_agg`
@@ -259,6 +260,7 @@ L
 - :func:`levenshtein_distance`
 - :func:`line_interpolate_point`
 - :func:`line_interpolate_points`
+- :func:`line_locate_point`
 - :func:`listagg`
 - :func:`ln`
 - :data:`localtime`

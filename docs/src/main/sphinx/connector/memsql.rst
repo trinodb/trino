@@ -78,6 +78,9 @@ will create a catalog named ``sales`` using the configured connector.
 
 .. include:: jdbc-common-configurations.fragment
 
+.. |default_domain_compaction_threshold| replace:: ``32``
+.. include:: jdbc-domain-compaction-threshold.fragment
+
 .. include:: jdbc-procedures.fragment
 
 .. include:: jdbc-case-insensitive-matching.fragment
@@ -114,6 +117,198 @@ that catalog name instead of ``singlestore`` in the above examples.
 
 Type mapping
 ------------
+
+Because Trino and Singlestore each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
+
+Singlestore to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Singlestore types to the corresponding Trino types following
+this table:
+
+.. list-table:: Singlestore to Trino type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - Singlestore type
+    - Trino type
+    - Notes
+  * - ``BIT``
+    - ``BOOLEAN``
+    -
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``TINYINT``
+    - ``TINYINT``
+    -
+  * - ``TINYINT UNSIGNED``
+    - ``SMALLINT``
+    -
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``SMALLINT UNSIGNED``
+    - ``INTEGER``
+    -
+  * - ``INTEGER``
+    - ``INTEGER``
+    -
+  * - ``INTEGER UNSIGNED``
+    - ``BIGINT``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``BIGINT UNSIGNED``
+    - ``DECIMAL(20, 0)``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``REAL``
+    - ``DOUBLE``
+    -
+  * - ``DECIMAL(p, s)``
+    - ``DECIMAL(p, s)``
+    - See :ref:`Singlestore DECIMAL type handling <singlestore-decimal-handling>`
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+    -
+  * - ``TINYTEXT``
+    - ``VARCHAR(255)``
+    -
+  * - ``TEXT``
+    - ``VARCHAR(65535)``
+    -
+  * - ``MEDIUMTEXT``
+    - ``VARCHAR(16777215)``
+    -
+  * - ``LONGTEXT``
+    - ``VARCHAR``
+    -
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+    -
+  * - ``LONGBLOB``
+    - ``VARBINARY``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME``
+    - ``TIME(0)``
+    -
+  * - ``TIME(6)``
+    - ``TIME(6)``
+    -
+  * - ``DATETIME``
+    - ``TIMESTAMP(0)``
+    -
+  * - ``DATETIME(6)``
+    - ``TIMESTAMP(6)``
+    -
+  * - ``JSON``
+    - ``JSON``
+    -
+
+No other types are supported.
+
+Trino to Singlestore type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Trino types to the corresponding Singlestore types following
+this table:
+
+.. list-table:: Trino to Singlestore type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - Trino type
+    - Singlestore type
+    - Notes
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``TINYINT``
+    - ``TINYINT``
+    -
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``INTEGER``
+    - ``INTEGER``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``REAL``
+    - ``FLOAT``
+    -
+  * - ``DECIMAL(p, s)``
+    - ``DECIMAL(p, s)``
+    - See :ref:`Singlestore DECIMAL type handling <singlestore-decimal-handling>`
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+    -
+  * - ``VARCHAR(65535)``
+    - ``TEXT``
+    -
+  * - ``VARCHAR(16777215)``
+    - ``MEDIUMTEXT``
+    -
+  * - ``VARCHAR``
+    - ``LONGTEXT``
+    -
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+    -
+  * - ``VARBINARY``
+    - ``LONGBLOB``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME(0)``
+    - ``TIME``
+    -
+  * - ``TIME(6)``
+    - ``TIME(6)``
+    -
+  * - ``TIMESTAMP(0)``
+    - ``DATETIME``
+    -
+  * - ``TIMESTAMP(6)``
+    - ``DATETIME(6)``
+    -
+  * - ``JSON``
+    - ``JSON``
+    -
+
+No other types are supported.
+
+.. _singlestore-decimal-handling:
+
+Decimal type handling
+^^^^^^^^^^^^^^^^^^^^^
+
+``DECIMAL`` types with precision larger than 38 can be mapped to a Trino ``DECIMAL``
+by setting the ``decimal-mapping`` configuration property or the ``decimal_mapping`` session property to
+``allow_overflow``. The scale of the resulting type is controlled via the ``decimal-default-scale``
+configuration property or the ``decimal-rounding-mode`` session property. The precision is always 38.
+
+By default, values that require rounding or truncation to fit will cause a failure at runtime. This behavior
+is controlled via the ``decimal-rounding-mode`` configuration property or the ``decimal_rounding_mode`` session
+property, which can be set to ``UNNECESSARY`` (the default),
+``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
+(see `RoundingMode <https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
 
 .. include:: jdbc-type-mapping.fragment
 

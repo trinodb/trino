@@ -73,7 +73,7 @@ public class EnvironmentDescribe
 
     public EnvironmentDescribe(Extensions extensions)
     {
-        this.additionalEnvironments = requireNonNull(extensions, "extensions is null").getAdditionalEnvironments();
+        this.additionalEnvironments = extensions.getAdditionalEnvironments();
     }
 
     @Override
@@ -120,7 +120,7 @@ public class EnvironmentDescribe
         @Inject
         public Execution(DockerFiles dockerFiles, EnvironmentFactory environmentFactory, EnvironmentConfig environmentConfig, EnvironmentOptions environmentOptions, EnvironmentUpOptions environmentUpOptions)
         {
-            this.dockerFilesBasePath = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostPath();
+            this.dockerFilesBasePath = dockerFiles.getDockerFilesHostPath();
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.environmentConfig = requireNonNull(environmentConfig, "environmentConfig is null");
             this.environmentOptions = requireNonNull(environmentOptions, "environmentOptions is null");

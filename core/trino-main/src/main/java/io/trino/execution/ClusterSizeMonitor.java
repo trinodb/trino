@@ -64,7 +64,7 @@ public class ClusterSizeMonitor
     {
         this(
                 nodeManager,
-                requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator());
+                nodeSchedulerConfig.isIncludeCoordinator());
     }
 
     public ClusterSizeMonitor(

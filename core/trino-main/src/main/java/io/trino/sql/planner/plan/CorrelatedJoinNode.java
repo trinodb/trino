@@ -60,19 +60,12 @@ public class CorrelatedJoinNode
 
         public static Type typeConvert(Join.Type joinType)
         {
-            switch (joinType) {
-                case CROSS:
-                case IMPLICIT:
-                case INNER:
-                    return Type.INNER;
-                case LEFT:
-                    return Type.LEFT;
-                case RIGHT:
-                    return Type.RIGHT;
-                case FULL:
-                    return Type.FULL;
-            }
-            throw new UnsupportedOperationException("Unsupported join type: " + joinType);
+            return switch (joinType) {
+                case CROSS, IMPLICIT, INNER -> Type.INNER;
+                case LEFT -> Type.LEFT;
+                case RIGHT -> Type.RIGHT;
+                case FULL -> Type.FULL;
+            };
         }
     }
 

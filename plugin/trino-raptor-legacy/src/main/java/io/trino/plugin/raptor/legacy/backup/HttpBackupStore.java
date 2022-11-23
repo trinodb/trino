@@ -68,7 +68,7 @@ public class HttpBackupStore
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.baseUriSupplier = requireNonNull(baseUriSupplier, "baseUriSupplier is null");
-        this.environment = requireNonNull(nodeManager, "nodeManager is null").getEnvironment();
+        this.environment = nodeManager.getEnvironment();
     }
 
     @Override

@@ -69,7 +69,7 @@ public class TableAccessControlRule
             @JsonProperty("table") Optional<Pattern> tableRegex)
     {
         this.privileges = ImmutableSet.copyOf(requireNonNull(privileges, "privileges is null"));
-        this.columnConstraints = Maps.uniqueIndex(requireNonNull(columns, "columns is null").orElse(ImmutableList.of()), ColumnConstraint::getName);
+        this.columnConstraints = Maps.uniqueIndex(columns.orElse(ImmutableList.of()), ColumnConstraint::getName);
         this.restrictedColumns = columnConstraints.values().stream()
                 .filter(constraint -> !constraint.isAllowed())
                 .map(ColumnConstraint::getName)

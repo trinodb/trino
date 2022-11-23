@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>389</version>
+        <version>400</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -13,82 +13,36 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <air.check.fail-dependency>false</air.check.fail-dependency>
         <air.check.fail-duplicate-finder>false</air.check.fail-duplicate-finder>
     </properties>
 
     <dependencies>
         <dependency>
-            <groupId>io.trino.benchto</groupId>
-            <artifactId>benchto-driver</artifactId>
+            <!-- benchmark queries referenced from benchmark definition files -->
+            <groupId>io.trino</groupId>
+            <artifactId>trino-benchmark-queries</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
+            <!-- for connecting to Trino when running benchmarks -->
             <groupId>io.trino</groupId>
             <artifactId>trino-jdbc</artifactId>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-hive</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
+            <!-- provides the main class -->
+            <groupId>io.trino.benchto</groupId>
+            <artifactId>benchto-driver</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-hive</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-hive-hadoop2</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-main</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-main</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-spi</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-spi</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-testing</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>testing</artifactId>
-            <scope>test</scope>
+            <!-- TODO document why we have explicit dependency on Guava -->
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>

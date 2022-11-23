@@ -80,7 +80,7 @@ public class ConstantPopulatingPageSource
         for (int targetChannel = 0; targetChannel < size; targetChannel++) {
             Block constantValue = constantColumns[targetChannel];
             if (constantValue != null) {
-                blocks[targetChannel] = new RunLengthEncodedBlock(constantValue, delegatePage.getPositionCount());
+                blocks[targetChannel] = RunLengthEncodedBlock.create(constantValue, delegatePage.getPositionCount());
             }
             else {
                 blocks[targetChannel] = delegatePage.getBlock(targetChannelToSourceChannel[targetChannel]);

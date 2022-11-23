@@ -36,7 +36,7 @@ public class Join
         this(Optional.of(location), type, left, right, criteria);
     }
 
-    private Join(Optional<NodeLocation> location, Type type, Relation left, Relation right, Optional<JoinCriteria> criteria)
+    public Join(Optional<NodeLocation> location, Type type, Relation left, Relation right, Optional<JoinCriteria> criteria)
     {
         super(location);
         requireNonNull(left, "left is null");

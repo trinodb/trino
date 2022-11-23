@@ -47,7 +47,6 @@ import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.kafka.util.TestUtils.loadTpchTopicDescription;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -179,11 +178,6 @@ public final class KafkaQueryRunner
                 message);
     }
 
-    private static String kafkaTopicName(TpchTable<?> table)
-    {
-        return TPCH_SCHEMA + "." + table.getTableName().toLowerCase(ENGLISH);
-    }
-
     private static Map<SchemaTableName, KafkaTopicDescription> createTpchTopicDescriptions(TypeManager typeManager, Iterable<TpchTable<?>> tables)
             throws Exception
     {
@@ -205,6 +199,7 @@ public final class KafkaQueryRunner
         Logging.initialize();
         DistributedQueryRunner queryRunner = builder(TestingKafka.create())
                 .setTables(TpchTable.getTables())
+                .setCoordinatorProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .build();
         Logger log = Logger.get(KafkaQueryRunner.class);
         log.info("======== SERVER STARTED ========");

@@ -91,17 +91,17 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
-    public List<String> getTableNamesByFilter(String databaseName, String filter)
+    public List<String> getAllViews(String databaseName)
             throws TException
     {
-        return runWithHandle(() -> delegate.getTableNamesByFilter(databaseName, filter));
+        return runWithHandle(() -> delegate.getAllViews(databaseName));
     }
 
     @Override
-    public List<String> getTableNamesByType(String databaseName, String tableType)
+    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
             throws TException
     {
-        return runWithHandle(() -> delegate.getTableNamesByType(databaseName, tableType));
+        return runWithHandle(() -> delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue));
     }
 
     @Override
@@ -151,13 +151,6 @@ public class FailureAwareThriftMetastoreClient
             throws TException
     {
         return runWithHandle(() -> delegate.getTable(databaseName, tableName));
-    }
-
-    @Override
-    public Table getTableWithCapabilities(String databaseName, String tableName)
-            throws TException
-    {
-        return runWithHandle(() -> delegate.getTableWithCapabilities(databaseName, tableName));
     }
 
     @Override

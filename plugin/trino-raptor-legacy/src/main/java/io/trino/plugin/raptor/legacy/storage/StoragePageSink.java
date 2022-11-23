@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.raptor.legacy.storage;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.raptor.legacy.metadata.ShardInfo;
 import io.trino.spi.Page;
 
@@ -21,11 +22,14 @@ import java.util.concurrent.CompletableFuture;
 
 public interface StoragePageSink
 {
+    default void appendPage(Page page)
+    {
+        appendPages(ImmutableList.of(page));
+    }
+
     void appendPages(List<Page> pages);
 
     void appendPages(List<Page> pages, int[] pageIndexes, int[] positionIndexes);
-
-    void appendRow(Row row);
 
     boolean isFull();
 

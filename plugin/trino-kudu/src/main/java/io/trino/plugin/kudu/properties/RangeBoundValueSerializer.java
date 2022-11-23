@@ -51,7 +51,7 @@ public class RangeBoundValueSerializer
         if (obj == null) {
             throw new IllegalStateException("Unexpected null value");
         }
-        else if (obj instanceof String) {
+        if (obj instanceof String) {
             gen.writeString((String) obj);
         }
         else if (Number.class.isAssignableFrom(obj.getClass())) {

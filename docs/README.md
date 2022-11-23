@@ -4,7 +4,7 @@ The `docs` module contains the reference documentation for Trino.
 
 - [Writing and contributing](#writing-and-contributing)
 - [Tools](#tools)
-- [Faster build for authoring](#faster-build-for-authoring)
+- [Fast doc build option](#fast-doc-build-option)
 - [Default build](#default-build)
 - [Viewing documentation](#viewing-documentation)
 - [Versioning](#versioning)

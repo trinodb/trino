@@ -47,7 +47,7 @@ public class TestLdapAuthenticatorWithTimeouts
         Network network = Network.newNetwork();
         closer.register(network::close);
 
-        ToxiproxyContainer proxyServer = new ToxiproxyContainer("shopify/toxiproxy:2.1.0")
+        ToxiproxyContainer proxyServer = new ToxiproxyContainer("ghcr.io/shopify/toxiproxy:2.4.0")
                 .withNetwork(network);
         closer.register(proxyServer::close);
         proxyServer.start();

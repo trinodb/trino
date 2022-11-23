@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.NameBasedFieldMapper;
 import io.trino.orc.OrcColumn;
@@ -30,7 +31,6 @@ import io.trino.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
 import io.trino.orc.metadata.OrcType.OrcTypeKind;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
 import io.trino.plugin.hive.HiveConfig;
@@ -99,6 +99,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.getOrcTinyStripeThresho
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
+import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.mergedRowColumns;
 import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.updatedRowColumns;
 import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.updatedRowColumnsWithOriginalFiles;
 import static io.trino.plugin.hive.orc.OrcPageSource.handleException;
@@ -133,8 +134,8 @@ public class OrcPageSourceFactory
                 config.toOrcReaderOptions(),
                 hdfsEnvironment,
                 stats,
-                requireNonNull(hiveConfig, "hiveConfig is null").getOrcLegacyDateTimeZone(),
-                requireNonNull(hiveConfig, "hiveConfig is null").getDomainCompactionThreshold());
+                hiveConfig.getOrcLegacyDateTimeZone(),
+                hiveConfig.getDomainCompactionThreshold());
     }
 
     public OrcPageSourceFactory(
@@ -438,6 +439,16 @@ public class OrcPageSourceFactory
                 }
                 else {
                     columnAdaptations.add(updatedRowColumns(updateProcessor, dependencyColumns));
+                }
+            }
+            else if (transaction.isMerge()) {
+                if (originalFile) {
+                    int bucket = bucketNumber.orElse(0);
+                    long startingRowId = originalFileRowId.orElse(0L);
+                    columnAdaptations.add(OrcPageSource.ColumnAdaptation.mergedRowColumnsWithOriginalFiles(startingRowId, bucket));
+                }
+                else {
+                    columnAdaptations.add(mergedRowColumns());
                 }
             }
 

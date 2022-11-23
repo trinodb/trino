@@ -55,17 +55,17 @@ public class PageTestUtils
 
     public static Page createRandomPage(List<Type> types, int positionCount, float nullRate)
     {
-        return createRandomPage(types, positionCount, Optional.of(ImmutableList.of(0)), nullRate, Optional.empty());
+        return createRandomPage(types, positionCount, Optional.of(ImmutableList.of(0)), nullRate, ImmutableList.of());
     }
 
     public static Page createRandomDictionaryPage(List<Type> types, int positionCount, float nullRate)
     {
-        return createRandomPage(types, positionCount, Optional.of(ImmutableList.of(0)), nullRate, Optional.of(DICTIONARY));
+        return createRandomPage(types, positionCount, Optional.of(ImmutableList.of(0)), nullRate, ImmutableList.of(DICTIONARY));
     }
 
     public static Page createRandomRlePage(List<Type> types, int positionCount, float nullRate)
     {
-        return createRandomPage(types, positionCount, Optional.of(ImmutableList.of(0)), nullRate, Optional.of(RUN_LENGTH));
+        return createRandomPage(types, positionCount, Optional.of(ImmutableList.of(0)), nullRate, ImmutableList.of(RUN_LENGTH));
     }
 
     public static Page createRandomPage(
@@ -73,12 +73,15 @@ public class PageTestUtils
             int positionCount,
             Optional<List<Integer>> hashChannels,
             float nullRate,
-            Optional<Wrapping> wrapping)
+            List<Wrapping> wrappings)
     {
         List<Block> blocks = types.stream()
                 .map(type -> {
                     Block block = createRandomBlockForType(type, positionCount, nullRate);
-                    return wrapping.map(w -> w.wrap(block, positionCount)).orElse(block);
+                    for (Wrapping wrapping : wrappings) {
+                        block = wrapping.wrap(block, positionCount);
+                    }
+                    return block;
                 })
                 .collect(toImmutableList());
 

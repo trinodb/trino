@@ -34,7 +34,7 @@ public final class TypeDeserializer
     @Inject
     public TypeDeserializer(TypeManager typeManager)
     {
-        this(requireNonNull(typeManager, "typeManager is null")::getType);
+        this(typeManager::getType);
     }
 
     public TypeDeserializer(Function<TypeId, Type> typeLoader)

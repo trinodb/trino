@@ -80,7 +80,7 @@ public class Constraint
         this.expression = requireNonNull(expression, "expression is null");
         this.assignments = Map.copyOf(requireNonNull(assignments, "assignments is null"));
         this.predicate = requireNonNull(predicate, "predicate is null");
-        this.predicateColumns = requireNonNull(predicateColumns, "predicateColumns is null").map(Set::copyOf);
+        this.predicateColumns = predicateColumns.map(Set::copyOf);
 
         if (predicateColumns.isPresent() && predicate.isEmpty()) {
             throw new IllegalArgumentException("predicateColumns cannot be present when predicate is not present");

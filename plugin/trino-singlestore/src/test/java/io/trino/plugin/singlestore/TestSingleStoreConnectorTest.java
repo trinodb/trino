@@ -62,6 +62,7 @@ public class TestSingleStoreConnectorTest
         singleStoreServer.close();
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -75,24 +76,27 @@ public class TestSingleStoreConnectorTest
 
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;
-
             case SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN:
             case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
                 return false;
 
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
+            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
+                return false;
+
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
+                return false;
+
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
                 return false;
 
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
-                return false;
-
-            case SUPPORTS_RENAME_SCHEMA:
-            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
             default:
@@ -221,6 +225,31 @@ public class TestSingleStoreConnectorTest
         assertEquals(row.getField(0), (byte) 127);
 
         assertUpdate("DROP TABLE mysql_test_tinyint1");
+    }
+
+    // Overridden because the method from BaseConnectorTest fails on one of the assertions, see TODO below
+    @Override
+    public void testInsertIntoNotNullColumn()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
+            assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
+            assertQueryFails(format("INSERT INTO %s (nullable_col) VALUES (1)", table.getName()), errorMessageForInsertIntoNotNullColumn("not_null_col"));
+            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (TRY(5/0), 4)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+            assertQueryFails(format("INSERT INTO %s (not_null_col) VALUES (TRY(6/0))", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+            assertQueryFails(format("INSERT INTO %s (nullable_col) SELECT nationkey FROM nation", table.getName()), errorMessageForInsertIntoNotNullColumn("not_null_col"));
+            // TODO (https://github.com/trinodb/trino/issues/13551) This doesn't fail for other connectors so
+            //  probably shouldn't fail for SingleStore either. Once fixed, remove test override.
+            assertQueryFails(format("INSERT INTO %s (nullable_col) SELECT nationkey FROM nation WHERE regionkey < 0", table.getName()), ".*Field 'not_null_col' doesn't have a default value.*");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "commuted_not_null", "(nullable_col BIGINT, not_null_col BIGINT NOT NULL)")) {
+            assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
+            // This is enforced by the engine and not the connector
+            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+        }
     }
 
     @Override
@@ -361,6 +390,19 @@ public class TestSingleStoreConnectorTest
     }
 
     @Override
+    protected OptionalInt maxSchemaNameLength()
+    {
+        return OptionalInt.of(62);
+    }
+
+    @Override
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        // The error message says 60 char, but the actual limitation is 62
+        assertThat(e).hasMessageContaining("Distributed MemSQL requires the length of the database name to be at most 60 characters");
+    }
+
+    @Override
     protected OptionalInt maxTableNameLength()
     {
         return OptionalInt.of(64);
@@ -370,6 +412,18 @@ public class TestSingleStoreConnectorTest
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageContaining("Incorrect table name");
+    }
+
+    @Override
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(64);
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching(".*Identifier name '.*' is too long");
     }
 
     @Override

@@ -32,11 +32,9 @@ public final class Optionals
         if (left.isPresent() && right.isPresent()) {
             return Optional.of(combiner.apply(left.get(), right.get()));
         }
-        else if (left.isPresent()) {
+        if (left.isPresent()) {
             return left;
         }
-        else {
-            return right;
-        }
+        return right;
     }
 }

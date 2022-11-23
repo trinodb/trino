@@ -62,14 +62,14 @@ public class S3SecurityMapping
             @JsonProperty("useClusterDefault") Optional<Boolean> useClusterDefault,
             @JsonProperty("endpoint") Optional<String> endpoint)
     {
-        this.user = requireNonNull(user, "user is null")
+        this.user = user
                 .map(S3SecurityMapping::toPredicate)
                 .orElse(x -> true);
-        this.group = requireNonNull(group, "group is null")
+        this.group = group
                 .map(S3SecurityMapping::toPredicate)
                 .map(S3SecurityMapping::anyMatch)
                 .orElse(x -> true);
-        this.prefix = requireNonNull(prefix, "prefix is null")
+        this.prefix = prefix
                 .map(S3SecurityMapping::prefixPredicate)
                 .orElse(x -> true);
 
@@ -77,21 +77,18 @@ public class S3SecurityMapping
         this.roleSessionName = requireNonNull(roleSessionName, "roleSessionName is null");
         checkArgument(!(iamRole.isEmpty() && roleSessionName.isPresent()), "iamRole must be provided when roleSessionName is provided");
 
-        this.allowedIamRoles = ImmutableSet.copyOf(requireNonNull(allowedIamRoles, "allowedIamRoles is null")
-                .orElse(ImmutableList.of()));
+        this.allowedIamRoles = ImmutableSet.copyOf(allowedIamRoles.orElse(ImmutableList.of()));
 
         this.kmsKeyId = requireNonNull(kmsKeyId, "kmsKeyId is null");
 
-        this.allowedKmsKeyIds = ImmutableSet.copyOf(
-                requireNonNull(allowedKmsKeyIds, "allowedKmsKeyIds is null").orElse(ImmutableList.of()));
+        this.allowedKmsKeyIds = ImmutableSet.copyOf(allowedKmsKeyIds.orElse(ImmutableList.of()));
 
         requireNonNull(accessKey, "accessKey is null");
         requireNonNull(secretKey, "secretKey is null");
         checkArgument(accessKey.isPresent() == secretKey.isPresent(), "accessKey and secretKey must be provided together");
         this.credentials = accessKey.map(access -> new BasicAWSCredentials(access, secretKey.get()));
 
-        this.useClusterDefault = requireNonNull(useClusterDefault, "useClusterDefault is null")
-                .orElse(false);
+        this.useClusterDefault = useClusterDefault.orElse(false);
         boolean roleOrCredentialsArePresent = !this.allowedIamRoles.isEmpty() || iamRole.isPresent() || credentials.isPresent();
         checkArgument(this.useClusterDefault ^ roleOrCredentialsArePresent, "must either allow useClusterDefault role or provide role and/or credentials");
 

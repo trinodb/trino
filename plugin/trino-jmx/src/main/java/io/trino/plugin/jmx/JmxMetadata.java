@@ -204,7 +204,7 @@ public class JmxMetadata
             if (JMX_SCHEMA_NAME.equals(schema)) {
                 return listJmxTables();
             }
-            else if (HISTORY_SCHEMA_NAME.equals(schema)) {
+            if (HISTORY_SCHEMA_NAME.equals(schema)) {
                 return jmxHistoricalData.getTables().stream()
                         .map(tableName -> new SchemaTableName(JmxMetadata.HISTORY_SCHEMA_NAME, tableName))
                         .collect(toList());

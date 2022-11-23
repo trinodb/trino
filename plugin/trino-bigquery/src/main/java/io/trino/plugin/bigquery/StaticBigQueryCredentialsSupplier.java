@@ -28,8 +28,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Optional;
 
-import static java.util.Objects.requireNonNull;
-
 public class StaticBigQueryCredentialsSupplier
         implements BigQueryCredentialsSupplier
 {
@@ -38,7 +36,6 @@ public class StaticBigQueryCredentialsSupplier
     @Inject
     public StaticBigQueryCredentialsSupplier(StaticCredentialsConfig config)
     {
-        requireNonNull(config, "config is null");
         // lazy creation, cache once it's created
         Optional<Credentials> credentialsKey = config.getCredentialsKey()
                 .map(StaticBigQueryCredentialsSupplier::createCredentialsFromKey);

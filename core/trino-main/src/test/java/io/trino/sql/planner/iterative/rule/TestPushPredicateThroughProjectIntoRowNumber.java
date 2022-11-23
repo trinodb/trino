@@ -62,7 +62,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            PlanBuilder.expression("a = 1"),
+                            PlanBuilder.expression("a = BIGINT '1'"),
                             p.project(
                                     Assignments.identity(a, rowNumber),
                                     p.rowNumber(
@@ -82,7 +82,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            PlanBuilder.expression("a = 1 AND row_number < -10"),
+                            PlanBuilder.expression("a = BIGINT '1' AND row_number < BIGINT '-10'"),
                             p.project(
                                     Assignments.identity(a, rowNumber),
                                     p.rowNumber(
@@ -102,7 +102,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            PlanBuilder.expression("row_number > 2 AND row_number < 5"),
+                            PlanBuilder.expression("row_number > BIGINT '2' AND row_number < BIGINT '5'"),
                             p.project(
                                     Assignments.identity(rowNumber),
                                     p.rowNumber(
@@ -112,7 +112,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                             p.values(a))));
                 })
                 .matches(filter(
-                        "row_number > 2 AND row_number < 5",
+                        "row_number > BIGINT '2' AND row_number < BIGINT '5'",
                         project(
                                 ImmutableMap.of("row_number", expression("row_number")),
                                 rowNumber(
@@ -130,7 +130,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            PlanBuilder.expression("row_number > 2 AND row_number < 5"),
+                            PlanBuilder.expression("row_number > BIGINT '2' AND row_number < BIGINT '5'"),
                             p.project(
                                     Assignments.identity(rowNumber),
                                     p.rowNumber(
@@ -150,7 +150,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            PlanBuilder.expression("row_number < 5"),
+                            PlanBuilder.expression("row_number < BIGINT '5'"),
                             p.project(
                                     Assignments.identity(rowNumber),
                                     p.rowNumber(
@@ -172,7 +172,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            PlanBuilder.expression("row_number < 3"),
+                            PlanBuilder.expression("row_number < BIGINT '3'"),
                             p.project(
                                     Assignments.identity(rowNumber),
                                     p.rowNumber(
@@ -198,7 +198,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            PlanBuilder.expression("row_number < 5 AND a > 0"),
+                            PlanBuilder.expression("row_number < BIGINT '5' AND a > BIGINT '0'"),
                             p.project(
                                     Assignments.identity(rowNumber, a),
                                     p.rowNumber(
@@ -208,7 +208,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                             p.values(a))));
                 })
                 .matches(filter(
-                        "a > 0",
+                        "a > BIGINT '0'",
                         project(
                                 ImmutableMap.of("row_number", expression("row_number"), "a", expression("a")),
                                 rowNumber(
@@ -222,7 +222,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            PlanBuilder.expression("row_number < 5 AND row_number % 2 = 0"),
+                            PlanBuilder.expression("row_number < BIGINT '5' AND row_number % 2 = BIGINT '0'"),
                             p.project(
                                     Assignments.identity(rowNumber),
                                     p.rowNumber(
@@ -232,7 +232,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                             p.values(a))));
                 })
                 .matches(filter(
-                        "row_number % 2 = 0",
+                        "row_number % 2 = BIGINT '0'",
                         project(
                                 ImmutableMap.of("row_number", expression("row_number")),
                                 rowNumber(

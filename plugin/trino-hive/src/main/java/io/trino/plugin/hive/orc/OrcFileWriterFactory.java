@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hive.orc.OrcConf;
 import io.trino.orc.OrcDataSink;
 import io.trino.orc.OrcDataSource;
@@ -25,8 +26,8 @@ import io.trino.orc.OutputStreamOrcDataSink;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.FileWriter;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveFileWriterFactory;
+import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.acid.AcidTransaction;
@@ -66,6 +67,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterVa
 import static io.trino.plugin.hive.HiveSessionProperties.getOrcStringStatisticsLimit;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcOptimizedWriterValidate;
+import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_NAMES;
 import static io.trino.plugin.hive.acid.AcidSchema.createAcidColumnPrestoTypes;
 import static io.trino.plugin.hive.acid.AcidSchema.createRowType;
@@ -99,7 +101,7 @@ public class OrcFileWriterFactory
                 typeManager,
                 nodeVersion,
                 readStats,
-                requireNonNull(config, "config is null").toOrcWriterOptions());
+                config.toOrcWriterOptions());
     }
 
     public OrcFileWriterFactory(
@@ -222,6 +224,17 @@ public class OrcFileWriterFactory
         catch (IOException e) {
             throw new TrinoException(HIVE_WRITER_OPEN_ERROR, "Error creating ORC file", e);
         }
+    }
+
+    public static HiveType createHiveRowType(Properties schema, TypeManager typeManager, ConnectorSession session)
+    {
+        List<String> dataColumnNames = getColumnNames(schema);
+        List<Type> dataColumnTypes = getColumnTypes(schema).stream()
+                .map(hiveType -> hiveType.getType(typeManager, getTimestampPrecision(session)))
+                .collect(toList());
+        Type dataRowType = createRowType(dataColumnNames, dataColumnTypes);
+        Type acidRowType = createRowType(ACID_COLUMN_NAMES, createAcidColumnPrestoTypes(dataRowType));
+        return toHiveType(acidRowType);
     }
 
     public static OrcDataSink createOrcDataSink(FileSystem fileSystem, Path path)

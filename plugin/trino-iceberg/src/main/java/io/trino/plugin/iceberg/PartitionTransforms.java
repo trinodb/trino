@@ -48,8 +48,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.Decimals.encodeShortScaledValue;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.Decimals.readBigDecimal;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
@@ -145,13 +143,11 @@ public final class PartitionTransforms
             if (sourceType.equals(BIGINT)) {
                 return truncateBigint(width);
             }
-            if (isShortDecimal(sourceType)) {
-                DecimalType decimal = (DecimalType) sourceType;
-                return truncateShortDecimal(sourceType, width, decimal);
-            }
-            if (isLongDecimal(sourceType)) {
-                DecimalType decimal = (DecimalType) sourceType;
-                return truncateLongDecimal(sourceType, width, decimal);
+            if (sourceType instanceof DecimalType decimalType) {
+                if (decimalType.isShort()) {
+                    return truncateShortDecimal(sourceType, width, decimalType);
+                }
+                return truncateLongDecimal(sourceType, width, decimalType);
             }
             if (sourceType instanceof VarcharType) {
                 return truncateVarchar(width);
@@ -197,11 +193,11 @@ public final class PartitionTransforms
         if (type.equals(BIGINT)) {
             return PartitionTransforms::hashBigint;
         }
-        if (isShortDecimal(type)) {
-            return hashShortDecimal((DecimalType) type);
-        }
-        if (isLongDecimal(type)) {
-            return hashLongDecimal((DecimalType) type);
+        if (type instanceof DecimalType decimalType) {
+            if (decimalType.isShort()) {
+                return hashShortDecimal(decimalType);
+            }
+            return hashLongDecimal(decimalType);
         }
         if (type.equals(DATE)) {
             return PartitionTransforms::hashDate;
@@ -689,7 +685,7 @@ public final class PartitionTransforms
                 type,
                 true,
                 true,
-                block -> new RunLengthEncodedBlock(nullBlock, block.getPositionCount()),
+                block -> RunLengthEncodedBlock.create(nullBlock, block.getPositionCount()),
                 (block, position) -> null);
     }
 
@@ -710,7 +706,7 @@ public final class PartitionTransforms
     @VisibleForTesting
     static long epochYear(long epochMilli)
     {
-        return YEAR_FIELD.get(epochMilli) - 1970;
+        return YEAR_FIELD.get(epochMilli) - 1970L;
     }
 
     @VisibleForTesting

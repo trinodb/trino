@@ -19,8 +19,38 @@ the needs of the query.
 * **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``true``
 
-Enable writer scaling. This can be specified on a per-query basis
-using the ``scale_writers`` session property.
+Enable writer scaling by dynamically increasing the number of writer tasks on
+the cluster. This can be specified on a per-query basis using the ``scale_writers``
+session property.
+
+.. _prop-task-scale-writers:
+
+``task.scale-writers.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-boolean`
+* **Default value:** ``true``
+
+Enable scaling the number of concurrent writers within a task. The maximum writer
+count per task for scaling is ``task.scale-writers.max-writer-count``. Additional
+writers are added only when the average amount of physical data written per writer
+is above the minimum threshold of ``writer-min-size`` and query is bottlenecked on
+writing. This can be specified on a per-query basis using the ``task_scale_writers_enabled``
+session property.
+
+.. _prop-task-scale-writers-max-writer-count:
+
+``task.scale-writers.max-writer-count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-integer`
+* **Restrictions:** Must be a power of two
+* **Default value:** ``8``
+
+Maximum number of concurrent writers per task upto which the task can be scaled when
+``task.scale-writers.enabled`` is set. Increasing this value may improve the
+performance of writes when the query is bottlenecked on writing. Setting this too high
+may cause the cluster to become overloaded due to excessive resource utilization.
 
 ``writer-min-size``
 ^^^^^^^^^^^^^^^^^^^

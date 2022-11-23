@@ -15,18 +15,28 @@ package io.trino.tests.product.deltalake.util;
 
 import io.trino.tempto.query.QueryResult;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public final class DeltaLakeTestUtils
 {
+    public static final String DATABRICKS_104_RUNTIME_VERSION = "10.4";
+    public static final String DATABRICKS_91_RUNTIME_VERSION = "9.1";
+
     private DeltaLakeTestUtils() {}
+
+    public static String getDatabricksRuntimeVersion()
+    {
+        return firstNonNull((String) onDelta().executeQuery("SELECT java_method('java.lang.System', 'getenv', 'DATABRICKS_RUNTIME_VERSION')").getOnlyValue(), "unknown");
+    }
 
     public static String getColumnCommentOnTrino(String schemaName, String tableName, String columnName)
     {
-        QueryResult result = onTrino().executeQuery("SELECT comment FROM information_schema.columns WHERE table_schema = '" + schemaName + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");
-        return (String) result.row(0).get(0);
+        return (String) onTrino()
+                .executeQuery("SELECT comment FROM information_schema.columns WHERE table_schema = '" + schemaName + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'")
+                .getOnlyValue();
     }
 
     public static String getColumnCommentOnDelta(String schemaName, String tableName, String columnName)

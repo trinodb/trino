@@ -74,7 +74,6 @@ public class ResourceSecurityDynamicFeature
         this.internalAuthenticationManager = requireNonNull(internalAuthenticationManager, "internalAuthenticationManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
-        requireNonNull(securityConfig, "securityConfig is null");
         this.fixedManagementUser = securityConfig.getFixedManagementUser();
         this.fixedManagementUserForHttps = securityConfig.isFixedManagementUserForHttps();
         this.alternateHeaderName = protocolConfig.getAlternateHeaderName();

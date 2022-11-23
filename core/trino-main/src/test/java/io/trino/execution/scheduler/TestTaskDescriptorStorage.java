@@ -13,22 +13,27 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
+import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.StageId;
+import io.trino.metadata.Split;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.exchange.ExchangeSourceHandle;
+import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY;
+import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -46,7 +51,7 @@ public class TestTaskDescriptorStorage
     @Test
     public void testHappyPath()
     {
-        TaskDescriptorStorage manager = new TaskDescriptorStorage(DataSize.of(10, KILOBYTE));
+        TaskDescriptorStorage manager = new TaskDescriptorStorage(DataSize.of(15, KILOBYTE));
         manager.initialize(QUERY_1);
         manager.initialize(QUERY_2);
 
@@ -58,8 +63,8 @@ public class TestTaskDescriptorStorage
         manager.put(QUERY_2_STAGE_2, createTaskDescriptor(1, DataSize.of(2, KILOBYTE), "catalog6"));
 
         assertThat(manager.getReservedBytes())
-                .isGreaterThanOrEqualTo(toBytes(8, KILOBYTE))
-                .isLessThanOrEqualTo(toBytes(10, KILOBYTE));
+                .isGreaterThanOrEqualTo(toBytes(10, KILOBYTE))
+                .isLessThanOrEqualTo(toBytes(15, KILOBYTE));
 
         assertThat(manager.get(QUERY_1_STAGE_1, 0))
                 .flatMap(TestTaskDescriptorStorage::getCatalogName)
@@ -186,23 +191,24 @@ public class TestTaskDescriptorStorage
 
     private static TaskDescriptor createTaskDescriptor(int partitionId, DataSize retainedSize, String catalogName)
     {
-        return createTaskDescriptor(partitionId, retainedSize, Optional.of(new CatalogName(catalogName)));
+        return createTaskDescriptor(partitionId, retainedSize, Optional.of(createTestCatalogHandle(catalogName)));
     }
 
-    private static TaskDescriptor createTaskDescriptor(int partitionId, DataSize retainedSize, Optional<CatalogName> catalog)
+    private static TaskDescriptor createTaskDescriptor(int partitionId, DataSize retainedSize, Optional<CatalogHandle> catalog)
     {
         return new TaskDescriptor(
                 partitionId,
-                ImmutableListMultimap.of(),
-                ImmutableListMultimap.of(new PlanNodeId("1"), new TestingExchangeSourceHandle(retainedSize.toBytes())),
-                new NodeRequirements(catalog, ImmutableSet.of(), DataSize.of(4, GIGABYTE)));
+                ImmutableListMultimap.of(
+                        new PlanNodeId("1"),
+                        new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.of(new TestingExchangeSourceHandle(retainedSize.toBytes())), Optional.empty())))),
+                new NodeRequirements(catalog, ImmutableSet.of()));
     }
 
     private static Optional<String> getCatalogName(TaskDescriptor descriptor)
     {
         return descriptor.getNodeRequirements()
-                .getCatalogName()
-                .map(CatalogName::getCatalogName);
+                .getCatalogHandle()
+                .map(CatalogHandle::getCatalogName);
     }
 
     private static boolean isStorageCapacityExceededFailure(Throwable t)
@@ -231,6 +237,12 @@ public class TestTaskDescriptorStorage
 
         @Override
         public int getPartitionId()
+        {
+            return 0;
+        }
+
+        @Override
+        public long getDataSizeInBytes()
         {
             return 0;
         }

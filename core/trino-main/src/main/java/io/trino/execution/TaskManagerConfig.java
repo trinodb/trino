@@ -70,6 +70,16 @@ public class TaskManagerConfig
     private Duration statusRefreshMaxWait = new Duration(1, TimeUnit.SECONDS);
     private Duration infoUpdateInterval = new Duration(3, TimeUnit.SECONDS);
 
+    private boolean interruptStuckSplitTasksEnabled = true;
+    private Duration interruptStuckSplitTasksWarningThreshold = new Duration(10, TimeUnit.MINUTES);
+    private Duration interruptStuckSplitTasksTimeout = new Duration(15, TimeUnit.MINUTES);
+    private Duration interruptStuckSplitTasksDetectionInterval = new Duration(2, TimeUnit.MINUTES);
+
+    private boolean scaleWritersEnabled = true;
+    // The default value is 8 because it is better in performance compare to 2 or 4
+    // and acceptable in terms of resource utilization since values like 32 or higher could take
+    // more resources, hence potentially affect the other concurrent queries in the cluster.
+    private int scaleWritersMaxWriterCount = 8;
     private int writerCount = 1;
     // cap task concurrency to 32 in order to avoid small pages produced by local partitioning exchanges
     private int taskConcurrency = min(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 32);
@@ -380,6 +390,33 @@ public class TaskManagerConfig
         return this;
     }
 
+    public boolean isScaleWritersEnabled()
+    {
+        return scaleWritersEnabled;
+    }
+
+    @Config("task.scale-writers.enabled")
+    @ConfigDescription("Scale the number of concurrent table writers per task based on throughput")
+    public TaskManagerConfig setScaleWritersEnabled(boolean scaleWritersEnabled)
+    {
+        this.scaleWritersEnabled = scaleWritersEnabled;
+        return this;
+    }
+
+    @Min(1)
+    public int getScaleWritersMaxWriterCount()
+    {
+        return scaleWritersMaxWriterCount;
+    }
+
+    @Config("task.scale-writers.max-writer-count")
+    @ConfigDescription("Maximum number of writers per task up to which scaling will happen if task.scale-writers.enabled is set")
+    public TaskManagerConfig setScaleWritersMaxWriterCount(int scaleWritersMaxWriterCount)
+    {
+        this.scaleWritersMaxWriterCount = scaleWritersMaxWriterCount;
+        return this;
+    }
+
     @Min(1)
     @PowerOfTwo
     public int getWriterCount()
@@ -461,6 +498,60 @@ public class TaskManagerConfig
     public TaskManagerConfig setTaskYieldThreads(int taskYieldThreads)
     {
         this.taskYieldThreads = taskYieldThreads;
+        return this;
+    }
+
+    public boolean isInterruptStuckSplitTasksEnabled()
+    {
+        return interruptStuckSplitTasksEnabled;
+    }
+
+    @Config("task.interrupt-stuck-split-tasks-enabled")
+    public TaskManagerConfig setInterruptStuckSplitTasksEnabled(boolean interruptStuckSplitTasksEnabled)
+    {
+        this.interruptStuckSplitTasksEnabled = interruptStuckSplitTasksEnabled;
+        return this;
+    }
+
+    @MinDuration("1m")
+    public Duration getInterruptStuckSplitTasksWarningThreshold()
+    {
+        return interruptStuckSplitTasksWarningThreshold;
+    }
+
+    @Config("task.interrupt-stuck-split-tasks-warning-threshold")
+    @ConfigDescription("Print out call stacks and generate JMX metrics for splits running longer than the threshold")
+    public TaskManagerConfig setInterruptStuckSplitTasksWarningThreshold(Duration interruptStuckSplitTasksWarningThreshold)
+    {
+        this.interruptStuckSplitTasksWarningThreshold = interruptStuckSplitTasksWarningThreshold;
+        return this;
+    }
+
+    @MinDuration("3m")
+    public Duration getInterruptStuckSplitTasksTimeout()
+    {
+        return interruptStuckSplitTasksTimeout;
+    }
+
+    @Config("task.interrupt-stuck-split-tasks-timeout")
+    @ConfigDescription("Interrupt task processing thread after this timeout if the thread is stuck in certain external libraries used by Trino functions")
+    public TaskManagerConfig setInterruptStuckSplitTasksTimeout(Duration interruptStuckSplitTasksTimeout)
+    {
+        this.interruptStuckSplitTasksTimeout = interruptStuckSplitTasksTimeout;
+        return this;
+    }
+
+    @MinDuration("1m")
+    public Duration getInterruptStuckSplitTasksDetectionInterval()
+    {
+        return interruptStuckSplitTasksDetectionInterval;
+    }
+
+    @Config("task.interrupt-stuck-split-tasks-detection-interval")
+    @ConfigDescription("Interval between detecting stuck split")
+    public TaskManagerConfig setInterruptStuckSplitTasksDetectionInterval(Duration interruptStuckSplitTasksDetectionInterval)
+    {
+        this.interruptStuckSplitTasksDetectionInterval = interruptStuckSplitTasksDetectionInterval;
         return this;
     }
 }

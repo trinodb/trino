@@ -13,20 +13,32 @@
  */
 package io.trino.plugin.pinot.client;
 
+import com.google.common.collect.ImmutableList;
+import com.google.inject.ConfigurationException;
+import com.google.inject.spi.Message;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.validation.FileExists;
+
+import javax.annotation.PostConstruct;
+import javax.validation.constraints.NotNull;
+
+import java.io.File;
+import java.util.Optional;
 
 import static io.trino.plugin.pinot.client.PinotKeystoreTrustStoreType.JKS;
 
 public class PinotGrpcServerQueryClientTlsConfig
 {
     private PinotKeystoreTrustStoreType keystoreType = JKS;
-    private String keystorePath;
+    private File keystorePath;
     private String keystorePassword;
     private PinotKeystoreTrustStoreType truststoreType = JKS;
-    private String truststorePath;
+    private File truststorePath;
     private String truststorePassword;
     private String sslProvider = "JDK";
 
+    @NotNull
     public PinotKeystoreTrustStoreType getKeystoreType()
     {
         return keystoreType;
@@ -39,30 +51,32 @@ public class PinotGrpcServerQueryClientTlsConfig
         return this;
     }
 
-    public String getKeystorePath()
+    public Optional<@FileExists File> getKeystorePath()
     {
-        return keystorePath;
+        return Optional.ofNullable(keystorePath);
     }
 
     @Config("pinot.grpc.tls.keystore-path")
-    public PinotGrpcServerQueryClientTlsConfig setKeystorePath(String keystorePath)
+    public PinotGrpcServerQueryClientTlsConfig setKeystorePath(File keystorePath)
     {
         this.keystorePath = keystorePath;
         return this;
     }
 
-    public String getKeystorePassword()
+    public Optional<String> getKeystorePassword()
     {
-        return keystorePassword;
+        return Optional.ofNullable(keystorePassword);
     }
 
     @Config("pinot.grpc.tls.keystore-password")
+    @ConfigSecuritySensitive
     public PinotGrpcServerQueryClientTlsConfig setKeystorePassword(String keystorePassword)
     {
         this.keystorePassword = keystorePassword;
         return this;
     }
 
+    @NotNull
     public PinotKeystoreTrustStoreType getTruststoreType()
     {
         return truststoreType;
@@ -75,30 +89,32 @@ public class PinotGrpcServerQueryClientTlsConfig
         return this;
     }
 
-    public String getTruststorePath()
+    public Optional<@FileExists File> getTruststorePath()
     {
-        return truststorePath;
+        return Optional.ofNullable(truststorePath);
     }
 
     @Config("pinot.grpc.tls.truststore-path")
-    public PinotGrpcServerQueryClientTlsConfig setTruststorePath(String truststorePath)
+    public PinotGrpcServerQueryClientTlsConfig setTruststorePath(File truststorePath)
     {
         this.truststorePath = truststorePath;
         return this;
     }
 
-    public String getTruststorePassword()
+    public Optional<String> getTruststorePassword()
     {
-        return truststorePassword;
+        return Optional.ofNullable(truststorePassword);
     }
 
     @Config("pinot.grpc.tls.truststore-password")
+    @ConfigSecuritySensitive
     public PinotGrpcServerQueryClientTlsConfig setTruststorePassword(String truststorePassword)
     {
         this.truststorePassword = truststorePassword;
         return this;
     }
 
+    @NotNull
     public String getSslProvider()
     {
         return sslProvider;
@@ -109,5 +125,16 @@ public class PinotGrpcServerQueryClientTlsConfig
     {
         this.sslProvider = sslProvider;
         return this;
+    }
+
+    @PostConstruct
+    public void validate()
+    {
+        if (getKeystorePath().isPresent() && getKeystorePassword().isEmpty()) {
+            throw new ConfigurationException(ImmutableList.of(new Message("pinot.grpc.tls.keystore-password must set when pinot.grpc.tls.keystore-path is given")));
+        }
+        if (getTruststorePath().isPresent() && getTruststorePassword().isEmpty()) {
+            throw new ConfigurationException(ImmutableList.of(new Message("pinot.grpc.tls.truststore-password must set when pinot.grpc.tls.truststore-path is given")));
+        }
     }
 }

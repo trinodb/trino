@@ -32,10 +32,10 @@ import javax.validation.constraints.Size;
 import java.io.File;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.StreamSupport;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Streams.stream;
 
 @DefunctConfig("kafka.connect-timeout")
 public class KafkaConfig
@@ -122,7 +122,7 @@ public class KafkaConfig
     private static ImmutableSet<HostAddress> parseNodes(String nodes)
     {
         Splitter splitter = Splitter.on(',').omitEmptyStrings().trimResults();
-        return StreamSupport.stream(splitter.split(nodes).spliterator(), false)
+        return stream(splitter.split(nodes))
                 .map(KafkaConfig::toHostAddress)
                 .collect(toImmutableSet());
     }

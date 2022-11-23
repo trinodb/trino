@@ -16,7 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.event.SplitMonitor;
@@ -49,6 +49,8 @@ import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.DynamicFilterId;
+import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -75,9 +77,9 @@ public final class TaskTestUtils
 
     public static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("tableScan");
 
-    private static final CatalogName CONNECTOR_ID = TEST_TABLE_HANDLE.getCatalogName();
+    private static final CatalogHandle CATALOG_HANDLE = TEST_TABLE_HANDLE.getCatalogHandle();
 
-    public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split(CONNECTOR_ID, TestingSplit.createLocalSplit()));
+    public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split(CATALOG_HANDLE, TestingSplit.createLocalSplit()));
 
     public static final ImmutableList<SplitAssignment> EMPTY_SPLIT_ASSIGNMENTS = ImmutableList.of();
 
@@ -98,11 +100,35 @@ public final class TaskTestUtils
             new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(SYMBOL))
                     .withBucketToPartition(Optional.of(new int[1])),
             StatsAndCosts.empty(),
+            ImmutableList.of(),
+            Optional.empty());
+
+    public static final DynamicFilterId DYNAMIC_FILTER_SOURCE_ID = new DynamicFilterId("filter");
+
+    public static final PlanFragment PLAN_FRAGMENT_WITH_DYNAMIC_FILTER_SOURCE = new PlanFragment(
+            new PlanFragmentId("fragment"),
+            new DynamicFilterSourceNode(
+                    new PlanNodeId("dynamicFilterSource"),
+                    TableScanNode.newInstance(
+                            TABLE_SCAN_NODE_ID,
+                            TEST_TABLE_HANDLE,
+                            ImmutableList.of(SYMBOL),
+                            ImmutableMap.of(SYMBOL, new TestingColumnHandle("column", 0, BIGINT)),
+                            false,
+                            Optional.empty()),
+                    ImmutableMap.of(DYNAMIC_FILTER_SOURCE_ID, SYMBOL)),
+            ImmutableMap.of(SYMBOL, VARCHAR),
+            SOURCE_DISTRIBUTION,
+            ImmutableList.of(TABLE_SCAN_NODE_ID),
+            new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(SYMBOL))
+                    .withBucketToPartition(Optional.of(new int[1])),
+            StatsAndCosts.empty(),
+            ImmutableList.of(),
             Optional.empty());
 
     public static LocalExecutionPlanner createTestingPlanner()
     {
-        PageSourceManager pageSourceManager = new PageSourceManager(CatalogServiceProvider.singleton(CONNECTOR_ID, new TestingPageSourceProvider()));
+        PageSourceManager pageSourceManager = new PageSourceManager(CatalogServiceProvider.singleton(CATALOG_HANDLE, new TestingPageSourceProvider()));
 
         // we don't start the finalizer so nothing will be collected, which is ok for a test
         FinalizerService finalizerService = new FinalizerService();

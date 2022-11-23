@@ -25,13 +25,17 @@ import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
+import static io.trino.spi.block.BlockUtil.ensureCapacity;
+import static java.lang.Math.toIntExact;
 
 public class IntArrayBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntArrayBlock.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(IntArrayBlock.class).instanceSize());
     public static final int SIZE_IN_BYTES_PER_POSITION = Integer.BYTES + Byte.BYTES;
 
     private final int arrayOffset;
@@ -114,7 +118,7 @@ public class IntArrayBlock
         if (valueIsNull != null) {
             consumer.accept(valueIsNull, sizeOf(valueIsNull));
         }
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -126,7 +130,7 @@ public class IntArrayBlock
     @Override
     public int getInt(int position, int offset)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be zero");
         }
@@ -142,14 +146,14 @@ public class IntArrayBlock
     @Override
     public boolean isNull(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return valueIsNull != null && valueIsNull[position + arrayOffset];
     }
 
     @Override
     public Block getSingleValueBlock(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return new IntArrayBlock(
                 0,
                 1,
@@ -169,7 +173,7 @@ public class IntArrayBlock
         int[] newValues = new int[length];
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
-            checkReadablePosition(position);
+            checkReadablePosition(this, position);
             if (valueIsNull != null) {
                 newValueIsNull[i] = valueIsNull[position + arrayOffset];
             }
@@ -208,6 +212,15 @@ public class IntArrayBlock
     }
 
     @Override
+    public Block copyWithAppendedNull()
+    {
+        boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
+        int[] newValues = ensureCapacity(values, arrayOffset + positionCount + 1);
+
+        return new IntArrayBlock(arrayOffset, positionCount + 1, newValueIsNull, newValues);
+    }
+
+    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("IntArrayBlock{");
@@ -219,12 +232,5 @@ public class IntArrayBlock
     Slice getValuesSlice()
     {
         return Slices.wrappedIntArray(values, arrayOffset, positionCount);
-    }
-
-    private void checkReadablePosition(int position)
-    {
-        if (position < 0 || position >= getPositionCount()) {
-            throw new IllegalArgumentException("position is not valid");
-        }
     }
 }

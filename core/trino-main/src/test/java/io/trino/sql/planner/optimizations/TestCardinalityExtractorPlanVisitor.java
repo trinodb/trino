@@ -40,11 +40,11 @@ public class TestCardinalityExtractorPlanVisitor
 
         assertEquals(
                 extractCardinality(planBuilder.limit(3, planBuilder.values(emptyList(), ImmutableList.of(emptyList())))),
-                Range.singleton(1L));
+                new Cardinality(Range.singleton(1L)));
 
         assertEquals(
                 extractCardinality(planBuilder.limit(3, planBuilder.values(emptyList(), ImmutableList.of(emptyList(), emptyList(), emptyList(), emptyList())))),
-                Range.singleton(3L));
+                new Cardinality(Range.singleton(3L)));
     }
 
     @Test
@@ -56,60 +56,60 @@ public class TestCardinalityExtractorPlanVisitor
 
         // single default aggregation
         assertEquals(extractCardinality(
-                planBuilder.aggregation(builder -> builder
-                        .singleGroupingSet()
-                        .source(planBuilder.values(10)))),
-                Range.singleton(1L));
+                        planBuilder.aggregation(builder -> builder
+                                .singleGroupingSet()
+                                .source(planBuilder.values(10)))),
+                new Cardinality(Range.singleton(1L)));
 
         // multiple grouping sets with default aggregation with source that produces arbitrary number of rows
         assertEquals(extractCardinality(
-                planBuilder.aggregation(builder -> builder
-                        .groupingSets(AggregationNode.groupingSets(
-                                ImmutableList.of(symbol),
-                                2,
-                                ImmutableSet.of(0)))
-                        .source(planBuilder.tableScan(ImmutableList.of(symbol), ImmutableMap.of(symbol, columnHandle))))),
-                Range.atLeast(1L));
+                        planBuilder.aggregation(builder -> builder
+                                .groupingSets(AggregationNode.groupingSets(
+                                        ImmutableList.of(symbol),
+                                        2,
+                                        ImmutableSet.of(0)))
+                                .source(planBuilder.tableScan(ImmutableList.of(symbol), ImmutableMap.of(symbol, columnHandle))))),
+                new Cardinality(Range.atLeast(1L)));
 
         // multiple grouping sets with default aggregation with source that produces exact number of rows
         assertEquals(extractCardinality(
-                planBuilder.aggregation(builder -> builder
-                        .groupingSets(AggregationNode.groupingSets(
-                                ImmutableList.of(symbol),
-                                2,
-                                ImmutableSet.of(0)))
-                        .source(planBuilder.values(10, symbol)))),
-                Range.closed(1L, 10L));
+                        planBuilder.aggregation(builder -> builder
+                                .groupingSets(AggregationNode.groupingSets(
+                                        ImmutableList.of(symbol),
+                                        2,
+                                        ImmutableSet.of(0)))
+                                .source(planBuilder.values(10, symbol)))),
+                new Cardinality(Range.closed(1L, 10L)));
 
         // multiple grouping sets with default aggregation with source that produces no rows
         assertEquals(extractCardinality(
-                planBuilder.aggregation(builder -> builder
-                        .groupingSets(AggregationNode.groupingSets(
-                                ImmutableList.of(symbol),
-                                2,
-                                ImmutableSet.of(0)))
-                        .source(planBuilder.values(0, symbol)))),
-                Range.singleton(1L));
+                        planBuilder.aggregation(builder -> builder
+                                .groupingSets(AggregationNode.groupingSets(
+                                        ImmutableList.of(symbol),
+                                        2,
+                                        ImmutableSet.of(0)))
+                                .source(planBuilder.values(0, symbol)))),
+                new Cardinality(Range.singleton(1L)));
 
         // single non-default aggregation with source that produces arbitrary number of rows
         assertEquals(extractCardinality(
-                planBuilder.aggregation(builder -> builder
-                        .singleGroupingSet(symbol)
-                        .source(planBuilder.tableScan(ImmutableList.of(symbol), ImmutableMap.of(symbol, columnHandle))))),
-                Range.atLeast(0L));
+                        planBuilder.aggregation(builder -> builder
+                                .singleGroupingSet(symbol)
+                                .source(planBuilder.tableScan(ImmutableList.of(symbol), ImmutableMap.of(symbol, columnHandle))))),
+                new Cardinality(Range.atLeast(0L)));
 
         // single non-default aggregation with source that produces at least single row
         assertEquals(extractCardinality(
-                planBuilder.aggregation(builder -> builder
-                        .singleGroupingSet(symbol)
-                        .source(planBuilder.values(10, symbol)))),
-                Range.closed(1L, 10L));
+                        planBuilder.aggregation(builder -> builder
+                                .singleGroupingSet(symbol)
+                                .source(planBuilder.values(10, symbol)))),
+                new Cardinality(Range.closed(1L, 10L)));
 
         // single non-default aggregation with source that produces no rows
         assertEquals(extractCardinality(
-                planBuilder.aggregation(builder -> builder
-                        .singleGroupingSet(symbol)
-                        .source(planBuilder.values(0, symbol)))),
-                Range.singleton(0L));
+                        planBuilder.aggregation(builder -> builder
+                                .singleGroupingSet(symbol)
+                                .source(planBuilder.values(0, symbol)))),
+                new Cardinality(Range.singleton(0L)));
     }
 }

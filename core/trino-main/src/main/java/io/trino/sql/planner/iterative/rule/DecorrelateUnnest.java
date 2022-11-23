@@ -20,7 +20,6 @@ import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -46,24 +45,22 @@ import io.trino.sql.planner.plan.WindowNode.Specification;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.StringLiteral;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.matching.Pattern.nonEmpty;
+import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.iterative.rule.ImplementLimitWithTies.rewriteLimitWithTiesWithPartitioning;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
@@ -410,16 +407,13 @@ public class DecorrelateUnnest
                         Optional.of(2),
                         Optional.empty());
             }
-            ResolvedFunction fail = metadata.resolveFunction(session, QualifiedName.of("fail"), fromTypes(VARCHAR));
             Expression predicate = new IfExpression(
                     new ComparisonExpression(
                             GREATER_THAN,
                             rowNumberSymbol.toSymbolReference(),
                             new GenericLiteral("BIGINT", "1")),
                     new Cast(
-                            new FunctionCall(
-                                    fail.toQualifiedName(),
-                                    ImmutableList.of(new Cast(new StringLiteral("Scalar sub-query has returned multiple rows"), toSqlType(VARCHAR)))),
+                            failFunction(metadata, session, SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
                             toSqlType(BOOLEAN)),
                     TRUE_LITERAL);
 

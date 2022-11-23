@@ -138,17 +138,15 @@ public class InMemoryHashAggregationBuilder
         if (groupedAggregators.isEmpty()) {
             return groupByHash.addPage(page);
         }
-        else {
-            return new TransformWork<>(
-                    groupByHash.getGroupIds(page),
-                    groupByIdBlock -> {
-                        for (GroupedAggregator groupedAggregator : groupedAggregators) {
-                            groupedAggregator.processPage(groupByIdBlock, page);
-                        }
-                        // we do not need any output from TransformWork for this case
-                        return null;
-                    });
-        }
+        return new TransformWork<>(
+                groupByHash.getGroupIds(page),
+                groupByIdBlock -> {
+                    for (GroupedAggregator groupedAggregator : groupedAggregators) {
+                        groupedAggregator.processPage(groupByIdBlock, page);
+                    }
+                    // we do not need any output from TransformWork for this case
+                    return null;
+                });
     }
 
     @Override

@@ -26,13 +26,14 @@ import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 import static java.time.Instant.ofEpochSecond;
 import static java.util.Objects.requireNonNull;
 
 public class AtopSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(AtopSplit.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(AtopSplit.class).instanceSize());
 
     private final HostAddress host;
     private final long epochSeconds;

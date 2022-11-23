@@ -19,7 +19,7 @@ import io.trino.sql.query.QueryAssertions;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TemporaryRelation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -52,7 +52,7 @@ public final class SqlDataTypeTest
 
     public SqlDataTypeTest addRoundTrip(String inputLiteral, String expectedLiteral)
     {
-        testCases.add(new TestCase(Optional.empty(), inputLiteral, Optional.empty(), expectedLiteral));
+        testCases.add(new TestCase(Optional.empty(), Optional.empty(), inputLiteral, Optional.empty(), expectedLiteral));
         return this;
     }
 
@@ -63,7 +63,19 @@ public final class SqlDataTypeTest
 
     public SqlDataTypeTest addRoundTrip(String inputType, String inputLiteral, Type expectedType, String expectedLiteral)
     {
-        testCases.add(new TestCase(Optional.of(inputType), inputLiteral, Optional.of(expectedType), expectedLiteral));
+        addRoundTrip(Optional.empty(), inputType, inputLiteral, expectedType, expectedLiteral);
+        return this;
+    }
+
+    public SqlDataTypeTest addRoundTrip(String columnName, String inputType, String inputLiteral, Type expectedType, String expectedLiteral)
+    {
+        addRoundTrip(Optional.of(columnName), inputType, inputLiteral, expectedType, expectedLiteral);
+        return this;
+    }
+
+    public SqlDataTypeTest addRoundTrip(Optional<String> columnName, String inputType, String inputLiteral, Type expectedType, String expectedLiteral)
+    {
+        testCases.add(new TestCase(columnName, Optional.of(inputType), inputLiteral, Optional.of(expectedType), expectedLiteral));
         return this;
     }
 
@@ -75,19 +87,19 @@ public final class SqlDataTypeTest
     public SqlDataTypeTest execute(QueryRunner queryRunner, Session session, DataSetup dataSetup)
     {
         checkState(!testCases.isEmpty(), "No test cases");
-        try (TestTable testTable = dataSetup.setupTestTable(unmodifiableList(testCases))) {
-            verifySelect(queryRunner, session, testTable);
-            verifyPredicate(queryRunner, session, testTable);
+        try (TemporaryRelation temporaryRelation = dataSetup.setupTemporaryRelation(unmodifiableList(testCases))) {
+            verifySelect(queryRunner, session, temporaryRelation);
+            verifyPredicate(queryRunner, session, temporaryRelation);
         }
         return this;
     }
 
-    private void verifySelect(QueryRunner queryRunner, Session session, TestTable testTable)
+    private void verifySelect(QueryRunner queryRunner, Session session, TemporaryRelation temporaryRelation)
     {
         @SuppressWarnings("resource") // Closing QueryAssertions would close the QueryRunner
         QueryAssertions queryAssertions = new QueryAssertions(queryRunner);
 
-        QueryAssert assertion = assertThat(queryAssertions.query(session, "SELECT * FROM " + testTable.getName()));
+        QueryAssert assertion = assertThat(queryAssertions.query(session, "SELECT * FROM " + temporaryRelation.getName()));
         MaterializedResult expected = queryRunner.execute(session, testCases.stream()
                 .map(TestCase::getExpectedLiteral)
                 .collect(joining(",", "VALUES ROW(", ")")));
@@ -107,9 +119,9 @@ public final class SqlDataTypeTest
         assertion.matches(expected);
     }
 
-    private void verifyPredicate(QueryRunner queryRunner, Session session, TestTable testTable)
+    private void verifyPredicate(QueryRunner queryRunner, Session session, TemporaryRelation temporaryRelation)
     {
-        String queryWithAll = "SELECT 'all found' FROM " + testTable.getName() + " WHERE " +
+        String queryWithAll = "SELECT 'all found' FROM " + temporaryRelation.getName() + " WHERE " +
                 IntStream.range(0, testCases.size())
                         .mapToObj(this::getPredicate)
                         .collect(joining(" AND "));
@@ -123,26 +135,29 @@ public final class SqlDataTypeTest
         QueryAssertions queryAssertions = new QueryAssertions(queryRunner);
 
         for (int column = 0; column < testCases.size(); column++) {
-            assertThat(queryAssertions.query(session, "SELECT 'found' FROM " + testTable.getName() + " WHERE " + getPredicate(column)))
+            assertThat(queryAssertions.query(session, "SELECT 'found' FROM " + temporaryRelation.getName() + " WHERE " + getPredicate(column)))
                     .matches("VALUES 'found'");
         }
     }
 
     private String getPredicate(int column)
     {
-        return format("col_%s IS NOT DISTINCT FROM %s", column, testCases.get(column).getExpectedLiteral());
+        String columnName = testCases.get(column).getColumnName().orElseGet(() -> "col_" + column);
+        return format("%s IS NOT DISTINCT FROM %s", columnName, testCases.get(column).getExpectedLiteral());
     }
 
     private static class TestCase
             implements ColumnSetup
     {
+        private final Optional<String> columnName;
         private final Optional<String> declaredType;
         private final String inputLiteral;
         private final Optional<Type> expectedType;
         private final String expectedLiteral;
 
-        public TestCase(Optional<String> declaredType, String inputLiteral, Optional<Type> expectedType, String expectedLiteral)
+        public TestCase(Optional<String> columnName, Optional<String> declaredType, String inputLiteral, Optional<Type> expectedType, String expectedLiteral)
         {
+            this.columnName = requireNonNull(columnName, "columnName is null");
             this.declaredType = requireNonNull(declaredType, "declaredType is null");
             this.expectedType = requireNonNull(expectedType, "expectedType is null");
             this.inputLiteral = requireNonNull(inputLiteral, "inputLiteral is null");
@@ -169,6 +184,11 @@ public final class SqlDataTypeTest
         public String getExpectedLiteral()
         {
             return expectedLiteral;
+        }
+
+        public Optional<String> getColumnName()
+        {
+            return columnName;
         }
     }
 }

@@ -30,7 +30,6 @@ import io.airlift.json.JsonModule;
 import io.airlift.units.Duration;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogName;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.NodeTaskMap;
@@ -45,7 +44,7 @@ import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.TaskTestUtils;
 import io.trino.execution.TestSqlTaskManager;
-import io.trino.execution.buffer.OutputBuffers;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.HandleJsonModule;
 import io.trino.metadata.InternalBlockEncodingSerde;
@@ -107,7 +106,6 @@ import java.util.function.BooleanSupplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -115,7 +113,7 @@ import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
-import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.BROADCAST;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
@@ -123,6 +121,7 @@ import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -182,7 +181,7 @@ public class TestHttpRemoteTask
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
         remoteTask.start();
 
-        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(new CatalogName("test"), TestingSplit.createLocalSplit())));
+        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit())));
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID) != null);
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).getSplits().size() == 1);
 
@@ -216,7 +215,7 @@ public class TestHttpRemoteTask
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
                 new TypeOperators(),
-                newDirectExecutorService());
+                new DynamicFilterConfig());
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, dynamicFilterService);
         RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of());
 
@@ -274,7 +273,6 @@ public class TestHttpRemoteTask
         assertGreaterThanOrEqual(testingTaskResource.getStatusFetchCounter(), 4L);
 
         httpRemoteTaskFactory.stop();
-        dynamicFilterService.stop();
     }
 
     @Test(timeOut = 30_000)
@@ -297,7 +295,7 @@ public class TestHttpRemoteTask
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
                 new TypeOperators(),
-                newDirectExecutorService());
+                new DynamicFilterConfig());
         dynamicFilterService.registerQuery(
                 queryId,
                 TEST_SESSION,
@@ -369,7 +367,6 @@ public class TestHttpRemoteTask
                 ImmutableMap.of(filterId2, Domain.singleValue(BIGINT, 2L)));
 
         httpRemoteTaskFactory.stop();
-        dynamicFilterService.stop();
     }
 
     private void runTest(FailureScenario failureScenario)
@@ -408,7 +405,7 @@ public class TestHttpRemoteTask
     private void addSplit(RemoteTask remoteTask, TestingTaskResource testingTaskResource, int expectedSplitsCount)
             throws InterruptedException
     {
-        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(new CatalogName("test"), TestingSplit.createLocalSplit())));
+        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit())));
         // wait for splits to be received by remote task
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID) != null);
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).getSplits().size() == expectedSplitsCount);
@@ -422,7 +419,7 @@ public class TestHttpRemoteTask
                 new InternalNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
                 TaskTestUtils.PLAN_FRAGMENT,
                 ImmutableMultimap.of(),
-                createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
+                PipelinedOutputBuffers.createInitial(BROADCAST),
                 new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
                 outboundDynamicFilterIds,
                 Optional.empty(),
@@ -772,7 +769,7 @@ public class TestHttpRemoteTask
                     initialTaskStatus.getFailures(),
                     initialTaskStatus.getQueuedPartitionedDrivers(),
                     initialTaskStatus.getRunningPartitionedDrivers(),
-                    initialTaskStatus.isOutputBufferOverutilized(),
+                    initialTaskStatus.getOutputBufferStatus(),
                     initialTaskStatus.getPhysicalWrittenDataSize(),
                     initialTaskStatus.getMemoryReservation(),
                     initialTaskStatus.getPeakMemoryReservation(),

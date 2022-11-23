@@ -35,7 +35,7 @@ import java.util.Set;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.Signature.mangleOperatorName;
+import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.operator.scalar.timestamp.VarcharToTimestampCast.castToLongTimestamp;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -85,11 +85,19 @@ public abstract class AbstractTestFunctions
         functionAssertions = null;
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#function(String, String...)}
+     */
+    @Deprecated
     protected void assertFunction(@Language("SQL") String projection, Type expectedType, Object expected)
     {
         functionAssertions.assertFunction(projection, expectedType, expected);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#operator(OperatorType, String...)}
+     */
+    @Deprecated
     protected void assertOperator(OperatorType operator, String value, Type expectedType, Object expected)
     {
         functionAssertions.assertFunction(format("\"%s\"(%s)", mangleOperatorName(operator), value), expectedType, expected);
@@ -121,11 +129,6 @@ public abstract class AbstractTestFunctions
     protected void assertInvalidFunction(@Language("SQL") String projection, ErrorCodeSupplier expectedErrorCode)
     {
         functionAssertions.assertInvalidFunction(projection, expectedErrorCode);
-    }
-
-    protected void assertFunctionThrowsIncorrectly(@Language("SQL") String projection, Class<? extends Throwable> throwableClass, @Language("RegExp") String message)
-    {
-        functionAssertions.assertFunctionThrowsIncorrectly(projection, throwableClass, message);
     }
 
     protected void assertNumericOverflow(String projection, String message)
@@ -192,7 +195,7 @@ public abstract class AbstractTestFunctions
 
     // this help function should only be used when the map contains null value
     // otherwise, use ImmutableMap.of()
-    protected static <K, V> Map<K, V> asMap(List<K> keyList, List<V> valueList)
+    public static <K, V> Map<K, V> asMap(List<K> keyList, List<V> valueList)
     {
         if (keyList.size() != valueList.size()) {
             fail("keyList should have same size with valueList");

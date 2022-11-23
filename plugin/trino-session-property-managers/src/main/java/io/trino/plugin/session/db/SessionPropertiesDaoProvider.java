@@ -32,7 +32,6 @@ public class SessionPropertiesDaoProvider
     @Inject
     public SessionPropertiesDaoProvider(DbSessionPropertyManagerConfig config)
     {
-        requireNonNull(config, "config is null");
         String url = requireNonNull(config.getConfigDbUrl(), "db url is null");
 
         MysqlDataSource dataSource = new MysqlDataSource();

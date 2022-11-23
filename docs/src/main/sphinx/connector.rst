@@ -19,6 +19,7 @@ from different data sources.
     Elasticsearch   <connector/elasticsearch>
     Google Sheets   <connector/googlesheets>
     Hive            <connector/hive>
+    Hudi            <connector/hudi>
     Iceberg         <connector/iceberg>
     JMX             <connector/jmx>
     Kafka           <connector/kafka>

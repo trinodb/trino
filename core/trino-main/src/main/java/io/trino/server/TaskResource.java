@@ -32,7 +32,7 @@ import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.BufferResult;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.server.security.ResourceSecurity;
 import org.weakref.jmx.Managed;
@@ -310,7 +310,7 @@ public class TaskResource
     @Produces(TRINO_PAGES)
     public void getResults(
             @PathParam("taskId") TaskId taskId,
-            @PathParam("bufferId") OutputBufferId bufferId,
+            @PathParam("bufferId") PipelinedOutputBuffers.OutputBufferId bufferId,
             @PathParam("token") long token,
             @HeaderParam(TRINO_MAX_SIZE) DataSize maxSize,
             @Suspended AsyncResponse asyncResponse)
@@ -378,7 +378,7 @@ public class TaskResource
     @Path("{taskId}/results/{bufferId}/{token}/acknowledge")
     public void acknowledgeResults(
             @PathParam("taskId") TaskId taskId,
-            @PathParam("bufferId") OutputBufferId bufferId,
+            @PathParam("bufferId") PipelinedOutputBuffers.OutputBufferId bufferId,
             @PathParam("token") long token)
     {
         requireNonNull(taskId, "taskId is null");
@@ -392,7 +392,7 @@ public class TaskResource
     @Path("{taskId}/results/{bufferId}")
     public void destroyTaskResults(
             @PathParam("taskId") TaskId taskId,
-            @PathParam("bufferId") OutputBufferId bufferId,
+            @PathParam("bufferId") PipelinedOutputBuffers.OutputBufferId bufferId,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {

@@ -29,6 +29,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PARTITION_PROJECTION_ENABLED;
+import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PARTITION_PROJECTION_IGNORE;
+import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PARTITION_PROJECTION_LOCATION_TEMPLATE;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
@@ -149,7 +152,22 @@ public class HiveTableProperties
                 stringProperty(CSV_QUOTE, "CSV quote character", null, false),
                 stringProperty(CSV_ESCAPE, "CSV escape character", null, false),
                 booleanProperty(TRANSACTIONAL, "Table is transactional", null, false),
-                booleanProperty(AUTO_PURGE, "Skip trash when table or partition is deleted", config.isAutoPurge(), false));
+                booleanProperty(AUTO_PURGE, "Skip trash when table or partition is deleted", config.isAutoPurge(), false),
+                booleanProperty(
+                        PARTITION_PROJECTION_IGNORE,
+                        "Disable AWS Athena partition projection in Trino only",
+                        null,
+                        false),
+                booleanProperty(
+                        PARTITION_PROJECTION_ENABLED,
+                        "Enable AWS Athena partition projection",
+                        null,
+                        false),
+                stringProperty(
+                        PARTITION_PROJECTION_LOCATION_TEMPLATE,
+                        "Partition projection location template",
+                        null,
+                        false));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()

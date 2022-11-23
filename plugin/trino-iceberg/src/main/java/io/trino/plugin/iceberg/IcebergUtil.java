@@ -76,6 +76,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -83,12 +84,10 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Lists.reverse;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static io.trino.plugin.iceberg.IcebergMetadata.ORC_BLOOM_FILTER_COLUMNS_KEY;
 import static io.trino.plugin.iceberg.IcebergMetadata.ORC_BLOOM_FILTER_FPP_KEY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
@@ -118,8 +117,6 @@ import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -145,12 +142,12 @@ import static org.apache.iceberg.TableProperties.OBJECT_STORE_PATH;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
-import static org.apache.iceberg.TableProperties.WRITE_NEW_DATA_LOCATION;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
 public final class IcebergUtil
 {
+    public static final String METADATA_FILE_EXTENSION = ".metadata.json";
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
 
     private IcebergUtil() {}
@@ -218,31 +215,6 @@ public final class IcebergUtil
         return properties.buildOrThrow();
     }
 
-    @Deprecated
-    public static long resolveSnapshotId(Table table, long snapshotId, boolean allowLegacySnapshotSyntax)
-    {
-        if (!allowLegacySnapshotSyntax) {
-            throw new TrinoException(
-                    NOT_SUPPORTED,
-                    format(
-                            "Failed to access snapshot %s for table %s. This syntax for accessing Iceberg tables is not "
-                                    + "supported. Use the AS OF syntax OR set the catalog session property "
-                                    + "allow_legacy_snapshot_syntax=true for temporarily restoring previous behavior.",
-                            snapshotId,
-                            table.name()));
-        }
-
-        if (table.snapshot(snapshotId) != null) {
-            return snapshotId;
-        }
-
-        return reverse(table.history()).stream()
-                .filter(entry -> entry.timestampMillis() <= snapshotId)
-                .map(HistoryEntry::snapshotId)
-                .findFirst()
-                .orElseThrow(() -> new TrinoException(ICEBERG_INVALID_SNAPSHOT_ID, format("Invalid snapshot [%s] for table: %s", snapshotId, table)));
-    }
-
     public static List<IcebergColumnHandle> getColumns(Schema schema, TypeManager typeManager)
     {
         return schema.columns().stream()
@@ -259,6 +231,14 @@ public final class IcebergUtil
                 ImmutableList.of(),
                 type,
                 Optional.ofNullable(column.doc()));
+    }
+
+    public static Schema schemaFromHandles(List<IcebergColumnHandle> columns)
+    {
+        List<NestedField> icebergColumns = columns.stream()
+                .map(column -> NestedField.optional(column.getId(), column.getName(), toIcebergType(column.getType())))
+                .collect(toImmutableList());
+        return new Schema(StructType.of(icebergColumns).asStructType().fields());
     }
 
     public static Map<PartitionField, Integer> getIdentityPartitions(PartitionSpec partitionSpec)
@@ -330,9 +310,15 @@ public final class IcebergUtil
         return '"' + name.replace("\"", "\"\"") + '"';
     }
 
-    public static boolean canEnforceColumnConstraintInAllSpecs(TypeOperators typeOperators, Table table, IcebergColumnHandle columnHandle, Domain domain)
+    public static boolean canEnforceColumnConstraintInSpecs(
+            TypeOperators typeOperators,
+            Table table,
+            Set<Integer> partitionSpecIds,
+            IcebergColumnHandle columnHandle,
+            Domain domain)
     {
         return table.specs().values().stream()
+                .filter(partitionSpec -> partitionSpecIds.contains(partitionSpec.specId()))
                 .allMatch(spec -> canEnforceConstraintWithinPartitioningSpec(typeOperators, spec, columnHandle, domain));
     }
 
@@ -487,15 +473,14 @@ public final class IcebergUtil
             if (type.equals(UuidType.UUID)) {
                 return javaUuidToTrinoUuid(UUID.fromString(valueString));
             }
-            if (isShortDecimal(type) || isLongDecimal(type)) {
-                DecimalType decimalType = (DecimalType) type;
+            if (type instanceof DecimalType decimalType) {
                 BigDecimal decimal = new BigDecimal(valueString);
                 decimal = decimal.setScale(decimalType.getScale(), BigDecimal.ROUND_UNNECESSARY);
                 if (decimal.precision() > decimalType.getPrecision()) {
                     throw new IllegalArgumentException();
                 }
                 BigInteger unscaledValue = decimal.unscaledValue();
-                return isShortDecimal(type) ? unscaledValue.longValue() : Int128.valueOf(unscaledValue);
+                return decimalType.isShort() ? unscaledValue.longValue() : Int128.valueOf(unscaledValue);
             }
         }
         catch (IllegalArgumentException e) {
@@ -557,7 +542,7 @@ public final class IcebergUtil
         return locationsFor(tableLocation, storageProperties);
     }
 
-    public static Schema toIcebergSchema(List<ColumnMetadata> columns)
+    public static Schema schemaFromMetadata(List<ColumnMetadata> columns)
     {
         List<NestedField> icebergColumns = new ArrayList<>();
         for (ColumnMetadata column : columns) {
@@ -577,7 +562,7 @@ public final class IcebergUtil
     public static Transaction newCreateTableTransaction(TrinoCatalog catalog, ConnectorTableMetadata tableMetadata, ConnectorSession session)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
-        Schema schema = toIcebergSchema(tableMetadata.getColumns());
+        Schema schema = schemaFromMetadata(tableMetadata.getColumns());
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
         String targetPath = getTableLocation(tableMetadata.getProperties())
                 .orElseGet(() -> catalog.defaultTableLocation(session, schemaTableName));
@@ -617,7 +602,7 @@ public final class IcebergUtil
     {
         // TODO: support path override in Iceberg table creation: https://github.com/trinodb/trino/issues/8861
         if (table.properties().containsKey(OBJECT_STORE_PATH) ||
-                table.properties().containsKey(WRITE_NEW_DATA_LOCATION) ||
+                table.properties().containsKey("write.folder-storage.path") || // Removed from Iceberg as of 0.14.0, but preserved for backward compatibility
                 table.properties().containsKey(WRITE_METADATA_LOCATION) ||
                 table.properties().containsKey(WRITE_DATA_LOCATION)) {
             throw new TrinoException(NOT_SUPPORTED, "Table contains Iceberg path override properties and cannot be dropped from Trino: " + table.name());
@@ -639,5 +624,26 @@ public final class IcebergUtil
         if (!allColumns.containsAll(orcBloomFilterColumns)) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, format("Orc bloom filter columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(orcBloomFilterColumns), allColumns)));
         }
+    }
+
+    public static String fixBrokenMetadataLocation(String location)
+    {
+        // Version 393-394 stored metadata location with double slash https://github.com/trinodb/trino/commit/e95fdcc7d1ec110b10977d17458e06fc4e6f217d#diff-9bbb7c0b6168f0e6b4732136f9a97f820aa082b04efb5609b6138afc118831d7R46
+        // e.g. s3://bucket/db/table//metadata/00001.metadata.json
+        // It caused failure when accessing S3 objects https://github.com/trinodb/trino/issues/14299
+        // Version 395 fixed the above issue by removing trailing slash https://github.com/trinodb/trino/pull/13984,
+        // but the change was insufficient for existing table cases created by 393 and 394. This method covers existing table cases.
+        String fileName = fileName(location);
+        String correctSuffix = "/metadata/" + fileName;
+        String brokenSuffix = "//metadata/" + fileName;
+        if (!location.endsWith(brokenSuffix)) {
+            return location;
+        }
+        return location.replaceFirst(Pattern.quote(brokenSuffix) + "$", Matcher.quoteReplacement(correctSuffix));
+    }
+
+    public static String fileName(String path)
+    {
+        return path.substring(path.lastIndexOf('/') + 1);
     }
 }

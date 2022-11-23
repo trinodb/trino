@@ -40,7 +40,7 @@ public final class SqlVarbinary
             if (bytes[i] < obj.bytes[i]) {
                 return -1;
             }
-            else if (bytes[i] > obj.bytes[i]) {
+            if (bytes[i] > obj.bytes[i]) {
                 return 1;
             }
         }

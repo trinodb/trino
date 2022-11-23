@@ -54,6 +54,7 @@ import static org.testng.Assert.assertTrue;
 public abstract class BaseSqlServerConnectorTest
         extends BaseJdbcConnectorTest
 {
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -68,32 +69,27 @@ public abstract class BaseSqlServerConnectorTest
 
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;
-
             case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
+                return false;
+
+            case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
+            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
+                return false;
+
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
-                return false;
-
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
-                return false;
-
             case SUPPORTS_NEGATIVE_DATE:
-                return false;
-
-            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
-                return false;
-
-            case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
             default:
@@ -177,6 +173,16 @@ public abstract class BaseSqlServerConnectorTest
                             "Expecting actual not to be empty).*");
             throw new SkipException("to be fixed");
         }
+    }
+
+    @Override
+    protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching(
+                "ALTER TABLE only allows columns to be added that can contain nulls, " +
+                        "or have a DEFAULT definition specified, or the column being added is an identity or timestamp column, " +
+                        "or alternatively if none of the previous conditions are satisfied the table must be empty to allow addition of this column\\. " +
+                        "Column '.*' cannot be added to non-empty table '.*' because it does not satisfy these conditions\\.");
     }
 
     @Override
@@ -552,6 +558,18 @@ public abstract class BaseSqlServerConnectorTest
     }
 
     @Override
+    protected OptionalInt maxSchemaNameLength()
+    {
+        return OptionalInt.of(128);
+    }
+
+    @Override
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("The identifier that starts with '.*' is too long. Maximum length is 128.");
+    }
+
+    @Override
     protected OptionalInt maxTableNameLength()
     {
         return OptionalInt.of(128);
@@ -560,7 +578,19 @@ public abstract class BaseSqlServerConnectorTest
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching("The identifier that starts with '.*' is too long. Maximum length is 128.");
+        assertThat(e).hasMessageMatching("(The identifier that starts with '.*' is too long. Maximum length is 128.|Table name must be shorter than or equal to '128' characters but got '129')");
+    }
+
+    @Override
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(128);
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("Column name must be shorter than or equal to '128' characters but got '129': '.*'");
     }
 
     private String getLongInClause(int start, int length)

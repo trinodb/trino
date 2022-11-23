@@ -20,6 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.toIntExact;
 
 public class TimestampStatistics
         implements RangeStatistics<Long>, Hashable
@@ -27,7 +28,7 @@ public class TimestampStatistics
     // 1 byte to denote if null + 8 bytes for the value
     public static final long TIMESTAMP_VALUE_BYTES = Byte.BYTES + Long.BYTES;
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampStatistics.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TimestampStatistics.class).instanceSize());
 
     private final boolean hasMinimum;
     private final boolean hasMaximum;

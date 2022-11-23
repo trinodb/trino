@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.hive.orc;
 
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.conf.Configuration;

@@ -20,10 +20,10 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.event.client.EventClient;
+import io.trino.hdfs.TrinoFileSystemCache;
+import io.trino.hdfs.TrinoFileSystemCacheStats;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.fs.CachingDirectoryLister;
-import io.trino.plugin.hive.fs.TrinoFileSystemCache;
-import io.trino.plugin.hive.fs.TrinoFileSystemCacheStats;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
@@ -67,6 +67,7 @@ public class HiveModule
 
         binder.bind(HiveSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
+        binder.bind(HiveColumnProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveAnalyzeProperties.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, HiveMaterializedViewPropertiesProvider.class)
                 .setDefault().toInstance(ImmutableList::of);
@@ -75,6 +76,9 @@ public class HiveModule
 
         binder.bind(CachingDirectoryLister.class).in(Scopes.SINGLETON);
         newExporter(binder).export(CachingDirectoryLister.class).withGeneratedName();
+
+        binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(NamenodeStats.class).withGeneratedName();
 
         binder.bind(HiveWriterStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(HiveWriterStats.class).withGeneratedName();
@@ -105,7 +109,7 @@ public class HiveModule
 
         binder.bind(TrinoFileSystemCacheStats.class).toInstance(TrinoFileSystemCache.INSTANCE.getFileSystemCacheStats());
         newExporter(binder).export(TrinoFileSystemCacheStats.class)
-                .as(generator -> generator.generatedNameOf(TrinoFileSystemCache.class));
+                .as(generator -> generator.generatedNameOf(io.trino.plugin.hive.fs.TrinoFileSystemCache.class));
 
         Multibinder<HivePageSourceFactory> pageSourceFactoryBinder = newSetBinder(binder, HivePageSourceFactory.class);
         pageSourceFactoryBinder.addBinding().to(OrcPageSourceFactory.class).in(Scopes.SINGLETON);

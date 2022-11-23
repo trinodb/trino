@@ -17,13 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.plugin.hive.HdfsConfig;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TestingHivePlugin;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
@@ -86,7 +86,7 @@ public class TestSharedHiveMetastore
 
         HdfsConfig hdfsConfig = new HdfsConfig();
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(
-                new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of()),
+                new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of()),
                 hdfsConfig,
                 new NoHdfsAuthentication());
         HiveMetastore metastore = new FileHiveMetastore(

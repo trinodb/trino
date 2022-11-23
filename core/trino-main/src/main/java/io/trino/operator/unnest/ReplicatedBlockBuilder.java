@@ -18,60 +18,30 @@ import io.trino.spi.block.DictionaryBlock;
 
 import java.util.Arrays;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkElementIndex;
-import static com.google.common.base.Preconditions.checkState;
-import static io.trino.operator.unnest.UnnestOperatorBlockUtil.calculateNewArraySize;
 import static java.util.Objects.requireNonNull;
 
-/**
- * This class manages the details for building replicate channel blocks without copying input data
- */
-class ReplicatedBlockBuilder
+public class ReplicatedBlockBuilder
 {
     private Block source;
-    private int[] ids;
-    private int positionCount;
+    private int sourcePosition;
 
-    public void resetInputBlock(Block block)
+    public void resetInputBlock(Block source)
     {
-        this.source = requireNonNull(block, "block is null");
+        this.source = requireNonNull(source, "source is null");
+        sourcePosition = 0;
     }
 
-    public void startNewOutput(int expectedEntries)
+    public Block buildOutputBlock(int[] outputEntriesPerPosition, int offset, int inputBatchSize, int outputRowCount)
     {
-        checkState(source != null, "source is null");
-        this.ids = new int[expectedEntries];
-        this.positionCount = 0;
-    }
+        int[] ids = new int[outputRowCount];
 
-    /**
-     * Repeat the source element at position {@code index} for {@code count} times in the output
-     */
-    public void appendRepeated(int index, int count)
-    {
-        checkState(source != null, "source is null");
-        checkElementIndex(index, source.getPositionCount());
-        checkArgument(count >= 0, "count should be >= 0");
-
-        if (positionCount + count > ids.length) {
-            // Grow capacity
-            int newSize = Math.max(calculateNewArraySize(ids.length), positionCount + count);
-            ids = Arrays.copyOf(ids, newSize);
+        int fromPosition = 0;
+        for (int i = 0; i < inputBatchSize; i++) {
+            int toPosition = fromPosition + outputEntriesPerPosition[offset + i];
+            Arrays.fill(ids, fromPosition, toPosition, sourcePosition++);
+            fromPosition = toPosition;
         }
 
-        Arrays.fill(ids, positionCount, positionCount + count, index);
-        positionCount += count;
-    }
-
-    public Block buildOutputAndFlush()
-    {
-        Block outputBlock = new DictionaryBlock(positionCount, source, ids);
-
-        // Flush stored state, so that ids cannot be modified after the dictionary has been constructed
-        ids = new int[0];
-        positionCount = 0;
-
-        return outputBlock;
+        return DictionaryBlock.create(outputRowCount, source, ids);
     }
 }

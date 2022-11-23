@@ -294,17 +294,12 @@ public class EffectivePredicateExtractor
         {
             Expression sourcePredicate = node.getSource().accept(this, context);
 
-            switch (node.getJoinType()) {
-                case INNER:
-                case LEFT:
-                    return pullExpressionThroughSymbols(
-                            combineConjuncts(metadata, node.getFilter().orElse(TRUE_LITERAL), sourcePredicate),
-                            node.getOutputSymbols());
-                case RIGHT:
-                case FULL:
-                    return TRUE_LITERAL;
-            }
-            throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
+            return switch (node.getJoinType()) {
+                case INNER, LEFT -> pullExpressionThroughSymbols(
+                        combineConjuncts(metadata, node.getFilter().orElse(TRUE_LITERAL), sourcePredicate),
+                        node.getOutputSymbols());
+                case RIGHT, FULL -> TRUE_LITERAL;
+            };
         }
 
         @Override
@@ -317,34 +312,29 @@ public class EffectivePredicateExtractor
                     .map(JoinNode.EquiJoinClause::toExpression)
                     .collect(toImmutableList());
 
-            switch (node.getType()) {
-                case INNER:
-                    return pullExpressionThroughSymbols(combineConjuncts(metadata, ImmutableList.<Expression>builder()
-                            .add(leftPredicate)
-                            .add(rightPredicate)
-                            .add(combineConjuncts(metadata, joinConjuncts))
-                            .add(node.getFilter().orElse(TRUE_LITERAL))
-                            .build()), node.getOutputSymbols());
-                case LEFT:
-                    return combineConjuncts(metadata, ImmutableList.<Expression>builder()
-                            .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
-                            .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
-                            .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
-                            .build());
-                case RIGHT:
-                    return combineConjuncts(metadata, ImmutableList.<Expression>builder()
-                            .add(pullExpressionThroughSymbols(rightPredicate, node.getOutputSymbols()))
-                            .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
-                            .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
-                            .build());
-                case FULL:
-                    return combineConjuncts(metadata, ImmutableList.<Expression>builder()
-                            .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
-                            .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
-                            .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains, node.getRight().getOutputSymbols()::contains))
-                            .build());
-            }
-            throw new UnsupportedOperationException("Unknown join type: " + node.getType());
+            return switch (node.getType()) {
+                case INNER -> pullExpressionThroughSymbols(combineConjuncts(metadata, ImmutableList.<Expression>builder()
+                        .add(leftPredicate)
+                        .add(rightPredicate)
+                        .add(combineConjuncts(metadata, joinConjuncts))
+                        .add(node.getFilter().orElse(TRUE_LITERAL))
+                        .build()), node.getOutputSymbols());
+                case LEFT -> combineConjuncts(metadata, ImmutableList.<Expression>builder()
+                        .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
+                        .build());
+                case RIGHT -> combineConjuncts(metadata, ImmutableList.<Expression>builder()
+                        .add(pullExpressionThroughSymbols(rightPredicate, node.getOutputSymbols()))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
+                        .build());
+                case FULL -> combineConjuncts(metadata, ImmutableList.<Expression>builder()
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains, node.getRight().getOutputSymbols()::contains))
+                        .build());
+            };
         }
 
         @Override
@@ -536,19 +526,16 @@ public class EffectivePredicateExtractor
             Expression leftPredicate = node.getLeft().accept(this, context);
             Expression rightPredicate = node.getRight().accept(this, context);
 
-            switch (node.getType()) {
-                case INNER:
-                    return combineConjuncts(metadata, ImmutableList.<Expression>builder()
-                            .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
-                            .add(pullExpressionThroughSymbols(rightPredicate, node.getOutputSymbols()))
-                            .build());
-                case LEFT:
-                    return combineConjuncts(metadata, ImmutableList.<Expression>builder()
-                            .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
-                            .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
-                            .build());
-            }
-            throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
+            return switch (node.getType()) {
+                case INNER -> combineConjuncts(metadata, ImmutableList.<Expression>builder()
+                        .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
+                        .add(pullExpressionThroughSymbols(rightPredicate, node.getOutputSymbols()))
+                        .build());
+                case LEFT -> combineConjuncts(metadata, ImmutableList.<Expression>builder()
+                        .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
+                        .build());
+            };
         }
 
         private Expression deriveCommonPredicates(PlanNode node, Function<Integer, Collection<Map.Entry<Symbol, SymbolReference>>> mapping)

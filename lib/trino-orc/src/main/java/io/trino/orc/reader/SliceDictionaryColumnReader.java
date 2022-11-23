@@ -56,7 +56,7 @@ import static java.util.Objects.requireNonNull;
 public class SliceDictionaryColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SliceDictionaryColumnReader.class).instanceSize());
 
     private static final byte[] EMPTY_DICTIONARY_DATA = new byte[0];
     // add one extra entry for null after strip/rowGroup dictionary
@@ -163,9 +163,9 @@ public class SliceDictionaryColumnReader
         return block;
     }
 
-    private RunLengthEncodedBlock readAllNullsBlock()
+    private Block readAllNullsBlock()
     {
-        return new RunLengthEncodedBlock(new VariableWidthBlock(1, EMPTY_SLICE, new int[2], Optional.of(new boolean[] {true})), nextBatchSize);
+        return RunLengthEncodedBlock.create(new VariableWidthBlock(1, EMPTY_SLICE, new int[2], Optional.of(new boolean[] {true})), nextBatchSize);
     }
 
     private Block readNonNullBlock()
@@ -174,7 +174,7 @@ public class SliceDictionaryColumnReader
         verifyNotNull(dataStream);
         int[] values = new int[nextBatchSize];
         dataStream.next(values, nextBatchSize);
-        return new DictionaryBlock(nextBatchSize, dictionaryBlock, values);
+        return DictionaryBlock.create(nextBatchSize, dictionaryBlock, values);
     }
 
     private Block readNullBlock(boolean[] isNull, int nonNullCount)
@@ -205,7 +205,7 @@ public class SliceDictionaryColumnReader
             result[nonNullPositionList[i]] = nonNullValueTemp[i];
         }
 
-        return new DictionaryBlock(nextBatchSize, dictionaryBlock, result);
+        return DictionaryBlock.create(nextBatchSize, dictionaryBlock, result);
     }
 
     private void setDictionaryBlockData(byte[] dictionaryData, int[] dictionaryOffsets, int positionCount)

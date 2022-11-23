@@ -96,8 +96,8 @@ public class SuiteRun
 
     public SuiteRun(Extensions extensions)
     {
-        this.additionalEnvironments = requireNonNull(extensions, "extensions is null").getAdditionalEnvironments();
-        this.additionalSuites = requireNonNull(extensions, "extensions is null").getAdditionalSuites();
+        this.additionalEnvironments = extensions.getAdditionalEnvironments();
+        this.additionalSuites = extensions.getAdditionalSuites();
     }
 
     @Override

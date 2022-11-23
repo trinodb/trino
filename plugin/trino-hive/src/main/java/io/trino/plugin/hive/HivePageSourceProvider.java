@@ -18,10 +18,11 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.OrcType;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HivePageSource.BucketValidator;
 import io.trino.plugin.hive.HiveRecordCursorProvider.ReaderRecordCursorWithProjections;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
@@ -128,7 +129,7 @@ public class HivePageSourceProvider
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.domainCompactionThreshold = requireNonNull(hiveConfig, "hiveConfig is null").getDomainCompactionThreshold();
+        this.domainCompactionThreshold = hiveConfig.getDomainCompactionThreshold();
         this.pageSourceFactories = ImmutableSet.copyOf(requireNonNull(pageSourceFactories, "pageSourceFactories is null"));
         this.cursorProviders = ImmutableSet.<HiveRecordCursorProvider>builder()
                 .addAll(requireNonNull(cursorProviders, "cursorProviders is null"))

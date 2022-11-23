@@ -41,7 +41,7 @@ public class ClusterResource
     public ClusterResource(NodeVersion nodeVersion, NodeInfo nodeInfo)
     {
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
-        this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
+        this.environment = nodeInfo.getEnvironment();
     }
 
     @ResourceSecurity(WEB_UI)

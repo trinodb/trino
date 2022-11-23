@@ -54,7 +54,7 @@ import static java.util.Objects.requireNonNull;
 public class MapColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(MapColumnReader.class).instanceSize());
 
     private final MapType type;
     private final OrcColumn column;

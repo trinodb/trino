@@ -85,10 +85,8 @@ public class LocalDispatchQueryFactory
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
         this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
-
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
-
-        this.executor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
+        this.executor = dispatchExecutor.getExecutor();
     }
 
     @Override

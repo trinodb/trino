@@ -111,7 +111,7 @@ public class ByteArrayBlockEncoding
         if (block instanceof ByteArrayBlock) {
             return ((ByteArrayBlock) block).getValuesSlice();
         }
-        else if (block instanceof ByteArrayBlockBuilder) {
+        if (block instanceof ByteArrayBlockBuilder) {
             return ((ByteArrayBlockBuilder) block).getValuesSlice();
         }
 

@@ -47,7 +47,7 @@ import static java.util.Objects.requireNonNull;
 public class OrcOutputBuffer
         extends SliceOutput
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcOutputBuffer.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(OrcOutputBuffer.class).instanceSize());
     private static final int INITIAL_BUFFER_SIZE = 256;
     private static final int DIRECT_FLUSH_SIZE = 32 * 1024;
     private static final int MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 4 * 1024;

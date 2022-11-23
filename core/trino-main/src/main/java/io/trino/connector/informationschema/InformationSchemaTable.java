@@ -82,14 +82,6 @@ public enum InformationSchemaTable
             .build()),
     ENABLED_ROLES(table("enabled_roles")
             .column("role_name", createUnboundedVarcharType())
-            .build()),
-    ROLE_AUTHORIZATION_DESCRIPTORS(table("role_authorization_descriptors")
-            .column("role_name", createUnboundedVarcharType())
-            .column("grantor", createUnboundedVarcharType())
-            .column("grantor_type", createUnboundedVarcharType())
-            .column("grantee", createUnboundedVarcharType())
-            .column("grantee_type", createUnboundedVarcharType())
-            .column("is_grantable", createUnboundedVarcharType())
             .build());
 
     public static final String INFORMATION_SCHEMA = "information_schema";

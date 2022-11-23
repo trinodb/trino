@@ -18,9 +18,13 @@ import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
+import com.google.cloud.bigquery.InsertAllRequest;
+import com.google.cloud.bigquery.InsertAllResponse;
 import com.google.cloud.bigquery.Job;
 import com.google.cloud.bigquery.JobInfo;
 import com.google.cloud.bigquery.JobInfo.CreateDisposition;
+import com.google.cloud.bigquery.JobStatistics;
+import com.google.cloud.bigquery.JobStatistics.QueryStatistics;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.Table;
@@ -43,13 +47,17 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import static com.google.cloud.bigquery.JobStatistics.QueryStatistics.StatementType.SELECT;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_AMBIGUOUS_OBJECT_NAME;
+import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
+import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_INVALID_STATEMENT;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -63,11 +71,11 @@ public class BigQueryClient
     private final ViewMaterializationCache materializationCache;
     private final boolean caseInsensitiveNameMatching;
 
-    public BigQueryClient(BigQuery bigQuery, BigQueryConfig config, ViewMaterializationCache materializationCache)
+    public BigQueryClient(BigQuery bigQuery, boolean caseInsensitiveNameMatching, ViewMaterializationCache materializationCache)
     {
         this.bigQuery = requireNonNull(bigQuery, "bigQuery is null");
         this.materializationCache = requireNonNull(materializationCache, "materializationCache is null");
-        this.caseInsensitiveNameMatching = config.isCaseInsensitiveNameMatching();
+        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
     }
 
     public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName)
@@ -209,23 +217,20 @@ public class BigQueryClient
         return bigQuery.create(jobInfo);
     }
 
-    public TableResult query(String sql, boolean useQueryResultsCache, CreateDisposition createDisposition)
+    public void executeUpdate(QueryJobConfiguration job)
     {
+        log.debug("Execute query: %s", job.getQuery());
         try {
-            return bigQuery.query(QueryJobConfiguration.newBuilder(sql)
-                    .setUseQueryCache(useQueryResultsCache)
-                    .setCreateDisposition(createDisposition)
-                    .build());
+            bigQuery.query(job);
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new BigQueryException(BaseHttpServiceException.UNKNOWN_CODE, format("Failed to run the query [%s]", sql), e);
+            throw new BigQueryException(BaseHttpServiceException.UNKNOWN_CODE, format("Failed to run the query [%s]", job.getQuery()), e);
         }
     }
 
-    public TableResult query(TableId table, List<String> requiredColumns, Optional<String> filter, boolean useQueryResultsCache, CreateDisposition createDisposition)
+    public TableResult query(String sql, boolean useQueryResultsCache, CreateDisposition createDisposition)
     {
-        String sql = selectSql(table, requiredColumns, filter);
         log.debug("Execute query: %s", sql);
         try {
             return bigQuery.query(QueryJobConfiguration.newBuilder(sql)
@@ -239,13 +244,34 @@ public class BigQueryClient
         }
     }
 
-    private String selectSql(TableId table, List<String> requiredColumns, Optional<String> filter)
+    public Schema getSchema(String sql)
+    {
+        log.debug("Get schema from query: %s", sql);
+        JobInfo jobInfo = JobInfo.of(QueryJobConfiguration.newBuilder(sql).setDryRun(true).build());
+
+        JobStatistics statistics;
+        try {
+            statistics = bigQuery.create(jobInfo).getStatistics();
+        }
+        catch (BigQueryException e) {
+            throw new TrinoException(BIGQUERY_INVALID_STATEMENT, "Failed to get schema for query: " + sql, e);
+        }
+
+        QueryStatistics queryStatistics = (QueryStatistics) statistics;
+        if (!queryStatistics.getStatementType().equals(SELECT)) {
+            throw new TrinoException(BIGQUERY_INVALID_STATEMENT, "Unsupported statement type: " + queryStatistics.getStatementType());
+        }
+
+        return requireNonNull(queryStatistics.getSchema(), "Cannot determine schema for query");
+    }
+
+    public static String selectSql(TableId table, List<String> requiredColumns, Optional<String> filter)
     {
         String columns = requiredColumns.stream().map(column -> format("`%s`", column)).collect(joining(","));
         return selectSql(table, columns, filter);
     }
 
-    private String selectSql(TableId table, String formattedColumns, Optional<String> filter)
+    private static String selectSql(TableId table, String formattedColumns, Optional<String> filter)
     {
         String tableName = fullTableName(table);
         String query = format("SELECT %s FROM `%s`", formattedColumns, tableName);
@@ -270,7 +296,16 @@ public class BigQueryClient
         return format("SELECT %s FROM `%s`", formattedColumns, tableName);
     }
 
-    private String fullTableName(TableId remoteTableId)
+    public void insert(InsertAllRequest insertAllRequest)
+    {
+        InsertAllResponse response = bigQuery.insertAll(insertAllRequest);
+        if (response.hasErrors()) {
+            // Note that BigQuery doesn't rollback inserted rows
+            throw new TrinoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, format("Failed to insert rows: %s", response.getInsertErrors()));
+        }
+    }
+
+    private static String fullTableName(TableId remoteTableId)
     {
         String remoteSchemaName = remoteTableId.getDataset();
         String remoteTableName = remoteTableId.getTable();
@@ -280,13 +315,20 @@ public class BigQueryClient
 
     public List<BigQueryColumnHandle> getColumns(BigQueryTableHandle tableHandle)
     {
-        TableInfo tableInfo = getTable(tableHandle.getRemoteTableName().toTableId())
-                .orElseThrow(() -> new TableNotFoundException(tableHandle.getSchemaTableName()));
+        if (tableHandle.getProjectedColumns().isPresent()) {
+            return tableHandle.getProjectedColumns().get().stream()
+                    .map(column -> (BigQueryColumnHandle) column)
+                    .collect(toImmutableList());
+        }
+        checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
+
+        TableInfo tableInfo = getTable(tableHandle.asPlainTable().getRemoteTableName().toTableId())
+                .orElseThrow(() -> new TableNotFoundException(tableHandle.asPlainTable().getSchemaTableName()));
         Schema schema = tableInfo.getDefinition().getSchema();
         if (schema == null) {
             throw new TableNotFoundException(
-                    tableHandle.getSchemaTableName(),
-                    format("Table '%s' has no schema", tableHandle.getSchemaTableName()));
+                    tableHandle.asPlainTable().getSchemaTableName(),
+                    format("Table '%s' has no schema", tableHandle.asPlainTable().getSchemaTableName()));
         }
         return schema.getFields()
                 .stream()

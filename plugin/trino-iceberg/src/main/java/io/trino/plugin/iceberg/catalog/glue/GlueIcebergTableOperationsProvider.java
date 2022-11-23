@@ -15,10 +15,9 @@ package io.trino.plugin.iceberg.catalog.glue;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.glue.AWSGlueAsync;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
-import io.trino.plugin.iceberg.FileIoProvider;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -34,14 +33,18 @@ import static java.util.Objects.requireNonNull;
 public class GlueIcebergTableOperationsProvider
         implements IcebergTableOperationsProvider
 {
-    private final FileIoProvider fileIoProvider;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final AWSGlueAsync glueClient;
     private final GlueMetastoreStats stats;
 
     @Inject
-    public GlueIcebergTableOperationsProvider(FileIoProvider fileIoProvider, GlueMetastoreStats stats, GlueHiveMetastoreConfig glueConfig, AWSCredentialsProvider credentialsProvider)
+    public GlueIcebergTableOperationsProvider(
+            TrinoFileSystemFactory fileSystemFactory,
+            GlueMetastoreStats stats,
+            GlueHiveMetastoreConfig glueConfig,
+            AWSCredentialsProvider credentialsProvider)
     {
-        this.fileIoProvider = requireNonNull(fileIoProvider, "fileIoProvider is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.stats = requireNonNull(stats, "stats is null");
         requireNonNull(glueConfig, "glueConfig is null");
         requireNonNull(credentialsProvider, "credentialsProvider is null");
@@ -60,7 +63,7 @@ public class GlueIcebergTableOperationsProvider
         return new GlueIcebergTableOperations(
                 glueClient,
                 stats,
-                fileIoProvider.createFileIo(new HdfsContext(session), session.getQueryId()),
+                fileSystemFactory.create(session).toFileIo(),
                 session,
                 database,
                 table,

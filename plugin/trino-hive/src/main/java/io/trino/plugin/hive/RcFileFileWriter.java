@@ -44,12 +44,13 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class RcFileFileWriter
         implements FileWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RcFileFileWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RcFileFileWriter.class).instanceSize());
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     private final CountingOutputStream outputStream;
@@ -114,7 +115,7 @@ public class RcFileFileWriter
         for (int i = 0; i < fileInputColumnIndexes.length; i++) {
             int inputColumnIndex = fileInputColumnIndexes[i];
             if (inputColumnIndex < 0) {
-                blocks[i] = new RunLengthEncodedBlock(nullBlocks.get(i), dataPage.getPositionCount());
+                blocks[i] = RunLengthEncodedBlock.create(nullBlocks.get(i), dataPage.getPositionCount());
             }
             else {
                 blocks[i] = dataPage.getBlock(inputColumnIndex);

@@ -16,12 +16,10 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.QueryInfo;
@@ -43,6 +41,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.planprinter.IoPlanPrinter;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.ColumnConstraint;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.EstimatedStatsAndCost;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedDomain;
@@ -53,14 +52,15 @@ import io.trino.sql.planner.planprinter.IoPlanPrinter.IoPlan.TableColumnInfo;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import io.trino.type.TypeDeserializer;
 import org.apache.hadoop.fs.Path;
+import org.assertj.core.api.AbstractLongAssert;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
@@ -87,20 +87,29 @@ import java.util.StringJoiner;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.intersection;
-import static com.google.common.io.Files.asCharSink;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.COLOCATED_JOIN;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE;
+import static io.trino.SystemSessionProperties.SCALE_WRITERS;
+import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
+import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_MAX_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_TABLE_SCAN_NODE_PARTITIONING;
+import static io.trino.SystemSessionProperties.WRITER_MIN_SIZE;
 import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
@@ -151,6 +160,7 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
+import static java.nio.file.Files.writeString;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -184,10 +194,15 @@ public abstract class BaseHiveConnectorTest
     protected static QueryRunner createHiveQueryRunner(Map<String, String> extraProperties, Consumer<QueryRunner> additionalSetup)
             throws Exception
     {
+        // Use faster compression codec in tests. TODO remove explicit config when default changes
+        verify(new HiveConfig().getHiveCompressionCodec() == HiveCompressionOption.GZIP);
+        String hiveCompressionCodec = HiveCompressionCodec.ZSTD.name();
+
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .setExtraProperties(extraProperties)
                 .setAdditionalSetup(additionalSetup)
                 .setHiveProperties(ImmutableMap.of(
+                        "hive.compression-codec", hiveCompressionCodec,
                         "hive.allow-register-partition-procedure", "true",
                         // Reduce writer sort buffer size to ensure SortingFileWriter gets used
                         "hive.writer-sort-buffer-size", "1MB",
@@ -205,12 +220,16 @@ public abstract class BaseHiveConnectorTest
         return queryRunner;
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
+
+            case SUPPORTS_COMMENT_ON_VIEW:
+                return true;
 
             case SUPPORTS_CREATE_VIEW:
                 return true;
@@ -219,10 +238,12 @@ public abstract class BaseHiveConnectorTest
                 return false;
 
             case SUPPORTS_DELETE:
-                return true;
-
             case SUPPORTS_UPDATE:
                 return true;
+
+            case SUPPORTS_MERGE:
+                // FIXME: Fails because only allowed with transactional tables
+                return false;
 
             case SUPPORTS_MULTI_STATEMENT_WRITES:
                 return true;
@@ -230,6 +251,12 @@ public abstract class BaseHiveConnectorTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
+    }
+
+    @Override
+    protected String createTableForWrites(String createTable)
+    {
+        return createTable + " WITH (transactional = true)";
     }
 
     @Override
@@ -1023,37 +1050,39 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "processing",
-                                                        BOOLEAN,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("false"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("false"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "custkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                new FormattedMarker(Optional.of("10"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "processing",
+                                                                BOOLEAN,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("false"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("false"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "custkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))))),
                                         estimate)),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
                         estimate));
@@ -1071,25 +1100,27 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("199"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "custkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                new FormattedMarker(Optional.of("10"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("199"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "custkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))))),
                                         estimate)),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
                         estimate));
@@ -1103,25 +1134,27 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("100"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("100"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("100"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("100"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("100"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("100"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("100"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("100"), EXACTLY))))))),
                                         estimate)),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
                         finalEstimate));
@@ -1144,37 +1177,39 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "custkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                new FormattedMarker(Optional.of("10"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "orderstatus",
-                                                        VarcharType.createVarcharType(1),
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("P"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("P"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "custkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "orderstatus",
+                                                                VarcharType.createVarcharType(1),
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("P"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("P"), EXACTLY))))))),
                                         estimate)),
                         Optional.empty(),
                         finalEstimate));
@@ -1185,40 +1220,42 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "orderstatus",
-                                                        VarcharType.createVarcharType(1),
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("P"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("P"), EXACTLY)),
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("S"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("S"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "custkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                new FormattedMarker(Optional.of("10"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "orderstatus",
+                                                                VarcharType.createVarcharType(1),
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("P"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("P"), EXACTLY)),
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("S"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("S"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "custkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))))),
                                         estimate)),
                         Optional.empty(),
                         finalEstimate));
@@ -1229,33 +1266,57 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "custkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                new FormattedMarker(Optional.of("10"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "custkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))))),
                                         estimate)),
                         Optional.empty(),
                         finalEstimate));
 
         assertUpdate("DROP TABLE test_io_explain_column_filters");
+    }
+
+    @Test
+    public void testIoExplainWithEmptyPartitionedTable()
+    {
+        // Test IO explain a partitioned table with no data.
+        assertUpdate("CREATE TABLE test_io_explain_with_empty_partitioned_table WITH (partitioned_by = ARRAY['orderkey']) AS SELECT custkey, orderkey FROM orders WITH NO DATA", 0);
+
+        EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(0.0, 0.0, 0.0, 0.0, 0.0);
+        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT custkey, orderkey FROM test_io_explain_with_empty_partitioned_table");
+        assertEquals(
+                getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IoPlan(
+                        ImmutableSet.of(
+                                new TableColumnInfo(
+                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_with_empty_partitioned_table"),
+                                        new IoPlanPrinter.Constraint(true, ImmutableSet.of()),
+                                        estimate)),
+                        Optional.empty(),
+                        estimate));
+
+        assertUpdate("DROP TABLE test_io_explain_with_empty_partitioned_table");
     }
 
     @Test
@@ -1287,16 +1348,18 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "io_explain_test_no_filter"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "ds",
-                                                        VARCHAR,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("a"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("a"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "ds",
+                                                                VARCHAR,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("a"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("a"), EXACTLY))))))),
                                         estimate)),
                         Optional.empty(),
                         finalEstimate));
@@ -1332,25 +1395,27 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "io_explain_test_filter_on_agg"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "ds",
-                                                        VARCHAR,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("a"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("a"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "b",
-                                                        VARCHAR,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("b"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("b"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "ds",
+                                                                VARCHAR,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("a"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("a"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "b",
+                                                                VARCHAR,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("b"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("b"), EXACTLY))))))),
                                         estimate)),
                         Optional.empty(),
                         finalEstimate));
@@ -1386,21 +1451,24 @@ public abstract class BaseHiveConnectorTest
                     type.getDisplayName());
 
             assertUpdate(query, 1);
+
             assertEquals(
                     getIoPlanCodec().fromJson((String) getOnlyElement(computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM test_types_table").getOnlyColumnAsSet())),
                     new IoPlan(
                             ImmutableSet.of(new TableColumnInfo(
                                     new CatalogSchemaTableName(catalog, "tpch", "test_types_table"),
-                                    ImmutableSet.of(
-                                            new ColumnConstraint(
-                                                    "my_col",
-                                                    type,
-                                                    new FormattedDomain(
-                                                            false,
-                                                            ImmutableSet.of(
-                                                                    new FormattedRange(
-                                                                            new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY),
-                                                                            new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY)))))),
+                                    new IoPlanPrinter.Constraint(
+                                            false,
+                                            ImmutableSet.of(
+                                                    new ColumnConstraint(
+                                                            "my_col",
+                                                            type,
+                                                            new FormattedDomain(
+                                                                    false,
+                                                                    ImmutableSet.of(
+                                                                            new FormattedRange(
+                                                                                    new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY),
+                                                                                    new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY))))))),
                                     estimate)),
                             Optional.empty(),
                             estimate),
@@ -1809,6 +1877,8 @@ public abstract class BaseHiveConnectorTest
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
                 .setSystemProperty("scale_writers", "false")
+                // task scale writers should be disabled since we want to write with a single task writer
+                .setSystemProperty("task_scale_writers_enabled", "false")
                 .build();
         assertUpdate(session, createTableSql, 1000000);
         assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(expectedTableWriters);
@@ -1816,9 +1886,11 @@ public abstract class BaseHiveConnectorTest
 
         // Write table with small limit and verify we get multiple files per node near the expected size
         // Writer writes chunks of rows that are about 1MB
-        DataSize maxSize = DataSize.of(1, Unit.MEGABYTE);
+        DataSize maxSize = DataSize.of(1, MEGABYTE);
         session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                // task scale writers should be disabled since we want to write with a single task writer
+                .setSystemProperty("task_scale_writers_enabled", "false")
                 .setCatalogSessionProperty("hive", "target_max_file_size", maxSize.toString())
                 .build();
 
@@ -1851,6 +1923,8 @@ public abstract class BaseHiveConnectorTest
         // verify the default behavior is one file per node per partition
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                // task scale writers should be disabled since we want to write a single file
+                .setSystemProperty("task_scale_writers_enabled", "false")
                 .setSystemProperty("scale_writers", "false")
                 .build();
         assertUpdate(session, createTableSql, 1000000);
@@ -1859,9 +1933,11 @@ public abstract class BaseHiveConnectorTest
 
         // Write table with small limit and verify we get multiple files per node near the expected size
         // Writer writes chunks of rows that are about 1MB
-        DataSize maxSize = DataSize.of(1, Unit.MEGABYTE);
+        DataSize maxSize = DataSize.of(1, MEGABYTE);
         session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                // task scale writers should be disabled since we want to write with a single task writer
+                .setSystemProperty("task_scale_writers_enabled", "false")
                 .setCatalogSessionProperty("hive", "target_max_file_size", maxSize.toString())
                 .build();
 
@@ -1977,17 +2053,19 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testEmptyBucketedTable()
     {
-        // go through all storage formats to make sure the empty buckets are correctly created
-        testWithAllStorageFormats(this::testEmptyBucketedTable);
+        // create empty bucket files for all storage formats and compression codecs
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            for (HiveCompressionCodec compressionCodec : HiveCompressionCodec.values()) {
+                if ((storageFormat == HiveStorageFormat.AVRO) && (compressionCodec == HiveCompressionCodec.LZ4)) {
+                    continue;
+                }
+                testEmptyBucketedTable(storageFormat, compressionCodec, true);
+            }
+            testEmptyBucketedTable(storageFormat, HiveCompressionCodec.GZIP, false);
+        }
     }
 
-    private void testEmptyBucketedTable(Session session, HiveStorageFormat storageFormat)
-    {
-        testEmptyBucketedTable(session, storageFormat, true);
-        testEmptyBucketedTable(session, storageFormat, false);
-    }
-
-    private void testEmptyBucketedTable(Session session, HiveStorageFormat storageFormat, boolean createEmpty)
+    private void testEmptyBucketedTable(HiveStorageFormat storageFormat, HiveCompressionCodec compressionCodec, boolean createEmpty)
     {
         String tableName = "test_empty_bucketed_table";
 
@@ -2012,11 +2090,13 @@ public abstract class BaseHiveConnectorTest
         assertEquals(computeActual("SELECT * from " + tableName).getRowCount(), 0);
 
         // make sure that we will get one file per bucket regardless of writer count configured
-        Session parallelWriter = Session.builder(getParallelWriteSession())
+        Session session = Session.builder(getSession())
+                .setSystemProperty("task_writer_count", "4")
                 .setCatalogSessionProperty(catalog, "create_empty_bucket_files", String.valueOf(createEmpty))
+                .setCatalogSessionProperty(catalog, "compression_codec", compressionCodec.name())
                 .build();
-        assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c0')", 1);
-        assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a1', 'b1', 'c1')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c0')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES ('a1', 'b1', 'c1')", 1);
 
         assertQuery("SELECT * from " + tableName, "VALUES ('a0', 'b0', 'c0'), ('a1', 'b1', 'c1')");
 
@@ -2084,6 +2164,143 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(session, "DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(session, tableName));
+    }
+
+    @Test(dataProvider = "bucketFilteringDataTypesSetupProvider")
+    public void testFilterOnBucketedTable(BucketedFilterTestSetup testSetup)
+    {
+        String tableName = "test_filter_on_bucketed_table_" + randomTableSuffix();
+        assertUpdate(
+                """
+                CREATE TABLE %s (bucket_key %s, other_data double)
+                WITH (
+                    format = 'TEXTFILE',
+                    bucketed_by = ARRAY[ 'bucket_key' ],
+                    bucket_count = 5)
+                """.formatted(tableName, testSetup.getTypeName()));
+
+        String values = testSetup.getValues().stream()
+                .map(value -> "(" + value + ", rand())")
+                .collect(joining(", "));
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + values, testSetup.getValues().size());
+
+        // It will only read data from a single bucket instead of all buckets,
+        // so physicalInputPositions should be less than number of rows inserted (.
+        assertQueryStats(
+                getSession(),
+                """
+                SELECT count(*)
+                FROM %s
+                WHERE bucket_key = %s
+                """.formatted(tableName, testSetup.getFilterValue()),
+                queryStats -> assertThat(queryStats.getPhysicalInputPositions()).isEqualTo(testSetup.getExpectedPhysicalInputRows()),
+                result -> assertThat(result.getOnlyValue()).isEqualTo(testSetup.getExpectedResult()));
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @DataProvider
+    public final Object[][] bucketFilteringDataTypesSetupProvider()
+    {
+        List<BucketedFilterTestSetup> testSetups = ImmutableList.of(
+                new BucketedFilterTestSetup(
+                        "BOOLEAN",
+                        Stream.concat(IntStream.range(0, 100).mapToObj(i -> "true"), IntStream.range(0, 100).mapToObj(i -> "false"))
+                                .collect(toImmutableList()),
+                        "true",
+                        100,
+                        100),
+                new BucketedFilterTestSetup(
+                        "TINYINT",
+                        IntStream.range(0, 127).mapToObj(String::valueOf).collect(toImmutableList()),
+                        "126",
+                        26,
+                        1),
+                new BucketedFilterTestSetup(
+                        "SMALLINT",
+                        IntStream.range(0, 1000).map(i -> i + 22767).mapToObj(String::valueOf).collect(toImmutableList()),
+                        "22767",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "INTEGER",
+                        IntStream.range(0, 1000).map(i -> i + 1274942432).mapToObj(String::valueOf).collect(toImmutableList()),
+                        "1274942432",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "BIGINT",
+                        IntStream.range(0, 1000).mapToLong(i -> i + 312739231274942432L).mapToObj(String::valueOf).collect(toImmutableList()),
+                        "312739231274942432",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "REAL",
+                        IntStream.range(0, 1000).mapToDouble(i -> i + 567.123).mapToObj(val -> "REAL '" + val + "'").collect(toImmutableList()),
+                        "567.123",
+                        201,
+                        1),
+                new BucketedFilterTestSetup(
+                        "DOUBLE",
+                        IntStream.range(0, 1000).mapToDouble(i -> i + 1234567890123.123).mapToObj(val -> "DOUBLE '" + val + "'").collect(toImmutableList()),
+                        "1234567890123.123",
+                        201,
+                        1),
+                new BucketedFilterTestSetup(
+                        "VARCHAR",
+                        IntStream.range(0, 1000).mapToObj(i -> "'test value " + i + "'").collect(toImmutableList()),
+                        "'test value 5'",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "VARCHAR(20)",
+                        IntStream.range(0, 1000).mapToObj(i -> "'test value " + i + "'").collect(toImmutableList()),
+                        "'test value 5'",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "DATE",
+                        IntStream.range(0, 1000).mapToObj(i -> "DATE '2020-02-12' + interval '" + i + "' day").collect(toImmutableList()),
+                        "DATE '2020-02-15'",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "ARRAY<INT>",
+                        IntStream.range(0, 1000)
+                                .mapToObj(i -> format("ARRAY[%s, %s, %s, %s]", i + 22767, i + 22768, i + 22769, i + 22770))
+                                .collect(toImmutableList()),
+                        "ARRAY[22767, 22768, 22769, 22770]",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "MAP<DOUBLE, INT>",
+                        IntStream.range(0, 1000)
+                                .mapToObj(i -> format("MAP(ARRAY[%s, %s], ARRAY[%s, %s])", i + 567.123, i + 568.456, i + 22769, i + 22770))
+                                .collect(toImmutableList()),
+                        "MAP(ARRAY[567.123, 568.456], ARRAY[22769, 22770])",
+                        149,
+                        1));
+        return testSetups.stream()
+                .collect(toDataProvider());
+    }
+
+    @Test(dataProvider = "bucketedUnsupportedTypes")
+    public void testBucketedTableUnsupportedTypes(String typeName)
+    {
+        String tableName = "test_bucketed_table_for_unsupported_types_" + randomTableSuffix();
+        assertThatThrownBy(() -> assertUpdate(
+                """
+                CREATE TABLE %s (bucket_key %s, other_data double)
+                WITH (
+                    bucketed_by = ARRAY[ 'bucket_key' ],
+                    bucket_count = 5)
+                """.formatted(tableName, typeName)))
+                .hasMessage("Cannot create a table bucketed on an unsupported type");
+    }
+
+    @DataProvider
+    public final Object[][] bucketedUnsupportedTypes()
+    {
+        return new Object[][] {{"VARBINARY"}, {"TIMESTAMP"}, {"DECIMAL(10,3)"}, {"CHAR"}, {"ROW(id VARCHAR)"}};
     }
 
     /**
@@ -3200,6 +3417,10 @@ public abstract class BaseHiveConnectorTest
         // insert 10 partitions with part1=part2
         assertUpdate("INSERT INTO " + tableName + " SELECT 'bar' foo, n part1, n part2 FROM UNNEST(sequence(1, 10)) a(n)", 10);
 
+        // verify can query less than 1000 partitions
+        assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3 AND part1 IS NOT NULL"))
+                .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
+
         // verify can query 1000 partitions
         assertThat(query("SELECT count(*) FROM " + tableName + " WHERE part1 IS NULL AND part2 < 1001"))
                 .matches("VALUES BIGINT '1000'");
@@ -3209,12 +3430,8 @@ public abstract class BaseHiveConnectorTest
                 .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
         assertThatThrownBy(() -> query("SELECT count(*) FROM " + tableName))
                 .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
-
-        // verify we can query with a predicate that is not representable as a TupleDomain
-        assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3")) // may be translated to Domain.all
-                .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
-        assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3 AND part1 IS NOT NULL"))  // may be translated to Domain.all except nulls
-                .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
+        assertThatThrownBy(() -> query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3")) // translated to Domain.all, all partitions must be scanned
+                .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
 
         // we are not constrained by hive.max-partitions-per-scan (=1000) when listing partitions
         assertThat(query("SELECT * FROM " + partitionsTable))
@@ -3683,12 +3900,7 @@ public abstract class BaseHiveConnectorTest
         assertQuery(bucketedSession, "SELECT count(*) a FROM orders t1 JOIN customer t2 on t1.custkey=t2.custkey", "SELECT count(*) FROM orders");
         assertQuery(bucketedSession, "SELECT count(distinct custkey) FROM orders");
 
-        assertQuery(
-                Session.builder(bucketedSession).setSystemProperty("task_writer_count", "1").build(),
-                "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
-        assertQuery(
-                Session.builder(bucketedSession).setSystemProperty("task_writer_count", "4").build(),
-                "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
+        assertQuery("SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
     }
 
     @Test
@@ -3709,6 +3921,7 @@ public abstract class BaseHiveConnectorTest
             assertUpdate(
                     Session.builder(session)
                             .setSystemProperty("scale_writers", "true")
+                            .setSystemProperty("task_scale_writers_enabled", "false")
                             .setSystemProperty("writer_min_size", "32MB")
                             .build(),
                     createTableSql,
@@ -3732,6 +3945,7 @@ public abstract class BaseHiveConnectorTest
             assertUpdate(
                     Session.builder(session)
                             .setSystemProperty("scale_writers", "true")
+                            .setSystemProperty("task_scale_writers_enabled", "false")
                             .setSystemProperty("writer_min_size", "1MB")
                             .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "4MB")
                             .build(),
@@ -3744,6 +3958,71 @@ public abstract class BaseHiveConnectorTest
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS scale_writers_large");
+        }
+    }
+
+    @Test
+    public void testMultipleWritersWhenTaskScaleWritersIsEnabled()
+    {
+        long workers = (long) computeScalar("SELECT count(*) FROM system.runtime.nodes");
+        int taskMaxScaleWriterCount = 4;
+        testTaskScaleWriters(getSession(), DataSize.of(200, KILOBYTE), taskMaxScaleWriterCount, false)
+                .isBetween(workers + 1, workers * taskMaxScaleWriterCount);
+    }
+
+    @Test
+    public void testTaskWritersDoesNotScaleWithLargeMinWriterSize()
+    {
+        long workers = (long) computeScalar("SELECT count(*) FROM system.runtime.nodes");
+        // In the case of streaming, the number of writers is equal to the number of workers
+        testTaskScaleWriters(getSession(), DataSize.of(2, GIGABYTE), 4, false).isEqualTo(workers);
+    }
+
+    @Test
+    public void testWritersAcrossMultipleWorkersWhenScaleWritersIsEnabled()
+    {
+        long workers = (long) computeScalar("SELECT count(*) FROM system.runtime.nodes");
+        int taskMaxScaleWriterCount = 2;
+        // It is only applicable for pipeline execution mode, since we are testing
+        // when both "scaleWriters" and "taskScaleWriters" are enabled, the writers are
+        // scaling upto multiple worker nodes.
+        testTaskScaleWriters(getSession(), DataSize.of(200, KILOBYTE), taskMaxScaleWriterCount, true)
+                .isBetween((long) taskMaxScaleWriterCount + workers, workers * taskMaxScaleWriterCount);
+    }
+
+    protected AbstractLongAssert<?> testTaskScaleWriters(
+            Session session,
+            DataSize writerMinSize,
+            int taskMaxScaleWriterCount,
+            boolean scaleWriters)
+    {
+        String tableName = "task_scale_writers_" + randomTableSuffix();
+        try {
+            @Language("SQL") String createTableSql = format(
+                    "CREATE TABLE %s WITH (format = 'ORC') AS SELECT * FROM tpch.sf5.orders",
+                    tableName);
+            assertUpdate(
+                    Session.builder(session)
+                            .setSystemProperty(SCALE_WRITERS, String.valueOf(scaleWriters))
+                            .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "true")
+                            .setSystemProperty(WRITER_MIN_SIZE, writerMinSize.toString())
+                            .setSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_COUNT, String.valueOf(taskMaxScaleWriterCount))
+                            // Set the value higher than sf1 input data size such that fault-tolerant scheduler
+                            // shouldn't add new task and scaling only happens through the local scaling exchange.
+                            .setSystemProperty(FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE, "2GB")
+                            // Set the value of orc strip size low to increase the frequency at which
+                            // physicalWrittenDataSize is updated through ConnectorPageSink#getCompletedBytes()
+                            .setCatalogSessionProperty(catalog, "orc_optimized_writer_min_stripe_size", "2MB")
+                            .setCatalogSessionProperty(catalog, "orc_optimized_writer_max_stripe_size", "2MB")
+                            .build(),
+                    createTableSql,
+                    (long) computeActual("SELECT count(*) FROM tpch.sf5.orders").getOnlyValue());
+
+            long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM " + tableName);
+            return assertThat(files);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 
@@ -3849,7 +4128,7 @@ public abstract class BaseHiveConnectorTest
     {
         java.nio.file.Path tempDir = createTempDirectory(null);
         File dataFile = tempDir.resolve("test.txt").toFile();
-        Files.asCharSink(dataFile, UTF_8).write(fileContents);
+        writeString(dataFile.toPath(), fileContents);
 
         // Table properties
         StringJoiner propertiesSql = new StringJoiner(",\n   ");
@@ -4703,7 +4982,7 @@ public abstract class BaseHiveConnectorTest
     public void testParquetTimestampPredicatePushdownOptimizedWriter(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
     {
         Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "experimental_parquet_optimized_writer_enabled", "true")
+                .setCatalogSessionProperty("hive", "parquet_optimized_writer_enabled", "true")
                 .build();
         doTestParquetTimestampPredicatePushdown(session, timestampPrecision, value);
     }
@@ -4718,7 +4997,7 @@ public abstract class BaseHiveConnectorTest
         assertQuery(session, "SELECT * FROM " + tableName, format("VALUES (%s)", formatTimestamp(value)));
 
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(
+        MaterializedResultWithQueryId queryResult = queryRunner.executeWithQueryId(
                 session,
                 format("SELECT * FROM %s WHERE t < %s", tableName, formatTimestamp(value)));
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
@@ -4749,7 +5028,7 @@ public abstract class BaseHiveConnectorTest
         // to account for the fact that ORC stats are stored at millisecond precision and Trino rounds timestamps,
         // we filter by timestamps that differ from the actual value by at least 1ms, to observe pruning
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-        ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(
+        MaterializedResultWithQueryId queryResult = queryRunner.executeWithQueryId(
                 session,
                 format("SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t < %s", formatTimestamp(value.minusNanos(MILLISECONDS.toNanos(1)))));
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
@@ -4816,7 +5095,7 @@ public abstract class BaseHiveConnectorTest
     {
         testParquetDictionaryPredicatePushdown(
                 Session.builder(getSession())
-                        .setCatalogSessionProperty("hive", "experimental_parquet_optimized_writer_enabled", "true")
+                        .setCatalogSessionProperty("hive", "parquet_optimized_writer_enabled", "true")
                         .build());
     }
 
@@ -4838,7 +5117,7 @@ public abstract class BaseHiveConnectorTest
                 results -> assertThat(results.getRowCount()).isEqualTo(0));
     }
 
-    private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, ResultWithQueryId<MaterializedResult> queryResult)
+    private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, MaterializedResultWithQueryId queryResult)
     {
         return queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryResult.getQueryId());
     }
@@ -5374,8 +5653,8 @@ public abstract class BaseHiveConnectorTest
             @Language("SQL") String query = "SELECT count(value1) FROM test_bucketed_select GROUP BY key1";
             @Language("SQL") String expectedQuery = "SELECT count(comment) FROM orders GROUP BY orderkey";
 
-            assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(1));
-            assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(2));
+            assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(0));
+            assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(1));
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_bucketed_select");
@@ -5682,113 +5961,6 @@ public abstract class BaseHiveConnectorTest
         });
 
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testRoleAuthorizationDescriptors()
-    {
-        Session user = testSessionBuilder()
-                .setCatalog(getSession().getCatalog())
-                .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
-                .build();
-
-        assertUpdate("CREATE ROLE test_r_a_d1 IN hive");
-        assertUpdate("CREATE ROLE test_r_a_d2 IN hive");
-        assertUpdate("CREATE ROLE test_r_a_d3 IN hive");
-
-        // nothing showing because no roles have been granted
-        assertQueryReturnsEmptyResult("SELECT * FROM information_schema.role_authorization_descriptors");
-
-        // role_authorization_descriptors is not accessible for a non-admin user, even when it's empty
-        assertQueryFails(user, "SELECT * FROM information_schema.role_authorization_descriptors",
-                "Access Denied: Cannot select from table information_schema.role_authorization_descriptors");
-
-        assertUpdate("GRANT test_r_a_d1 TO USER user IN hive");
-        // user with same name as a role
-        assertUpdate("GRANT test_r_a_d2 TO USER test_r_a_d1 IN hive");
-        assertUpdate("GRANT test_r_a_d2 TO USER user1 WITH ADMIN OPTION IN hive");
-        assertUpdate("GRANT test_r_a_d2 TO USER user2 IN hive");
-        assertUpdate("GRANT test_r_a_d2 TO ROLE test_r_a_d1 IN hive");
-
-        // role_authorization_descriptors is not accessible for a non-admin user
-        assertQueryFails(user, "SELECT * FROM information_schema.role_authorization_descriptors",
-                "Access Denied: Cannot select from table information_schema.role_authorization_descriptors");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors",
-                "VALUES " +
-                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')," +
-                        "('test_r_a_d2', null, null, 'user2', 'USER', 'NO')," +
-                        "('test_r_a_d2', null, null, 'user1', 'USER', 'YES')," +
-                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')," +
-                        "('test_r_a_d1', null, null, 'user', 'USER', 'NO')");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors LIMIT 1000000000",
-                "VALUES " +
-                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')," +
-                        "('test_r_a_d2', null, null, 'user2', 'USER', 'NO')," +
-                        "('test_r_a_d2', null, null, 'user1', 'USER', 'YES')," +
-                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')," +
-                        "('test_r_a_d1', null, null, 'user', 'USER', 'NO')");
-
-        assertQuery(
-                "SELECT COUNT(*) FROM (SELECT * FROM information_schema.role_authorization_descriptors LIMIT 2)",
-                "VALUES (2)");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors WHERE role_name = 'test_r_a_d2'",
-                "VALUES " +
-                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')," +
-                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')," +
-                        "('test_r_a_d2', null, null, 'user1', 'USER', 'YES')," +
-                        "('test_r_a_d2', null, null, 'user2', 'USER', 'NO')");
-
-        assertQuery(
-                "SELECT COUNT(*) FROM (SELECT * FROM information_schema.role_authorization_descriptors WHERE role_name = 'test_r_a_d2' LIMIT 1)",
-                "VALUES 1");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'user'",
-                "VALUES ('test_r_a_d1', null, null, 'user', 'USER', 'NO')");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee like 'user%'",
-                "VALUES " +
-                        "('test_r_a_d1', null, null, 'user', 'USER', 'NO')," +
-                        "('test_r_a_d2', null, null, 'user2', 'USER', 'NO')," +
-                        "('test_r_a_d2', null, null, 'user1', 'USER', 'YES')");
-
-        assertQuery(
-                "SELECT COUNT(*) FROM (SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee like 'user%' LIMIT 2)",
-                "VALUES 2");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'test_r_a_d1'",
-                "VALUES " +
-                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')," +
-                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'test_r_a_d1' LIMIT 1",
-                "VALUES " +
-                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'test_r_a_d1' AND grantee_type = 'USER'",
-                "VALUES ('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'test_r_a_d1' AND grantee_type = 'ROLE'",
-                "VALUES ('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee_type = 'ROLE'",
-                "VALUES ('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')");
-
-        assertUpdate("DROP ROLE test_r_a_d1 IN hive");
-        assertUpdate("DROP ROLE test_r_a_d2 IN hive");
-        assertUpdate("DROP ROLE test_r_a_d3 IN hive");
     }
 
     @Test
@@ -7257,7 +7429,7 @@ public abstract class BaseHiveConnectorTest
                 "  \"fields\": [\n" +
                 "    { \"name\":\"string_col\", \"type\":\"string\" }\n" +
                 "]}";
-        asCharSink(schemaFile, UTF_8).write(schema);
+        writeString(schemaFile.toPath(), schema);
         return schemaFile;
     }
 
@@ -8114,6 +8286,24 @@ public abstract class BaseHiveConnectorTest
                 "'Physical input read time' = \\{duration=.*}");
     }
 
+    @Test
+    public void testExplainAnalyzeScanFilterProjectWallTime()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT nationkey * 2 FROM nation WHERE nationkey > 0",
+                "'Filter CPU time' = \\{duration=.*}",
+                "'Projection CPU time' = \\{duration=.*}");
+    }
+
+    @Test
+    public void testExplainAnalyzeFilterProjectWallTime()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT * FROM (SELECT nationkey, count(*) cnt FROM nation GROUP BY 1) where cnt > 0",
+                "'Filter CPU time' = \\{duration=.*}",
+                "'Projection CPU time' = \\{duration=.*}");
+    }
+
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);
 
     @DataProvider
@@ -8137,6 +8327,7 @@ public abstract class BaseHiveConnectorTest
     {
         return Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "4")
+                .setSystemProperty("task_scale_writers_enabled", "false")
                 .build();
     }
 
@@ -8169,6 +8360,7 @@ public abstract class BaseHiveConnectorTest
         Set<ColumnConstraint> constraints = getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()))
                 .getInputTableColumnInfos().stream()
                 .findFirst().get()
+                .getConstraint()
                 .getColumnConstraints();
 
         assertTrue(constraints.containsAll(expected));
@@ -8222,7 +8414,7 @@ public abstract class BaseHiveConnectorTest
     private boolean isNativeParquetWriter(Session session, HiveStorageFormat storageFormat)
     {
         return storageFormat == HiveStorageFormat.PARQUET &&
-                "true".equals(session.getCatalogProperties("hive").get("experimental_parquet_optimized_writer_enabled"));
+                "true".equals(session.getCatalogProperties("hive").get("parquet_optimized_writer_enabled"));
     }
 
     private List<TestingHiveStorageFormat> getAllTestingHiveStorageFormat()
@@ -8238,12 +8430,12 @@ public abstract class BaseHiveConnectorTest
             if (hiveStorageFormat == HiveStorageFormat.PARQUET) {
                 formats.add(new TestingHiveStorageFormat(
                         Session.builder(session)
-                                .setCatalogSessionProperty(catalog, "experimental_parquet_optimized_writer_enabled", "false")
+                                .setCatalogSessionProperty(catalog, "parquet_optimized_writer_enabled", "false")
                                 .build(),
                         hiveStorageFormat));
                 formats.add(new TestingHiveStorageFormat(
                         Session.builder(session)
-                                .setCatalogSessionProperty(catalog, "experimental_parquet_optimized_writer_enabled", "true")
+                                .setCatalogSessionProperty(catalog, "parquet_optimized_writer_enabled", "true")
                                 .build(),
                         hiveStorageFormat));
                 continue;
@@ -8328,6 +8520,19 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Override
+    protected OptionalInt maxSchemaNameLength()
+    {
+        // This value depends on metastore type
+        return OptionalInt.of(128);
+    }
+
+    @Override
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("Schema name must be shorter than or equal to '128' characters but got '129'");
+    }
+
+    @Override
     protected OptionalInt maxTableNameLength()
     {
         // This value depends on metastore type
@@ -8337,7 +8542,7 @@ public abstract class BaseHiveConnectorTest
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("Failed to create directory");
+        assertThat(e).hasMessageMatching("Failed to create directory.*|Could not rename table directory");
     }
 
     private Session withTimestampPrecision(Session session, HiveTimestampPrecision precision)
@@ -8345,5 +8550,53 @@ public abstract class BaseHiveConnectorTest
         return Session.builder(session)
                 .setCatalogSessionProperty(catalog, "timestamp_precision", precision.name())
                 .build();
+    }
+
+    private static final class BucketedFilterTestSetup
+    {
+        private final String typeName;
+        private final List<String> values;
+        private final String filterValue;
+        private final long expectedPhysicalInputRows;
+        private final long expectedResult;
+
+        private BucketedFilterTestSetup(
+                String typeName,
+                List<String> values,
+                String filterValue,
+                long expectedPhysicalInputRows,
+                long expectedResult)
+        {
+            this.typeName = requireNonNull(typeName, "typeName is null");
+            this.values = requireNonNull(values, "values is null");
+            this.filterValue = requireNonNull(filterValue, "filterValue is null");
+            this.expectedPhysicalInputRows = expectedPhysicalInputRows;
+            this.expectedResult = expectedResult;
+        }
+
+        private String getTypeName()
+        {
+            return typeName;
+        }
+
+        private List<String> getValues()
+        {
+            return values;
+        }
+
+        private String getFilterValue()
+        {
+            return filterValue;
+        }
+
+        private long getExpectedPhysicalInputRows()
+        {
+            return expectedPhysicalInputRows;
+        }
+
+        private long getExpectedResult()
+        {
+            return expectedResult;
+        }
     }
 }

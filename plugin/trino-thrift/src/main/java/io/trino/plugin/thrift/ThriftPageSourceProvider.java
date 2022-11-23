@@ -43,7 +43,7 @@ public class ThriftPageSourceProvider
     {
         this.client = requireNonNull(client, "client is null");
         this.thriftHeaderProvider = requireNonNull(thriftHeaderProvider, "thriftHeaderProvider is null");
-        this.maxBytesPerResponse = requireNonNull(config, "config is null").getMaxResponseSize().toBytes();
+        this.maxBytesPerResponse = config.getMaxResponseSize().toBytes();
         this.stats = requireNonNull(stats, "stats is null");
     }
 

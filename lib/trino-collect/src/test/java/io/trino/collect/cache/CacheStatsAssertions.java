@@ -84,19 +84,13 @@ public class CacheStatsAssertions
         T value = callable.call();
         CacheStats afterStats = stats.get();
 
-        long expectedLoad = beforeStats.loadCount() + loads;
-        long expectedMisses = beforeStats.missCount() + misses;
-        long expectedHits = beforeStats.hitCount() + hits;
+        long loadDelta = afterStats.loadCount() - beforeStats.loadCount();
+        long missesDelta = afterStats.missCount() - beforeStats.missCount();
+        long hitsDelta = afterStats.hitCount() - beforeStats.hitCount();
 
-        assertThat(afterStats.loadCount())
-                .withFailMessage("Expected load count is %d but actual is %d", expectedLoad, afterStats.loadCount())
-                .isEqualTo(expectedLoad);
-        assertThat(afterStats.hitCount())
-                .withFailMessage("Expected hit count is %d but actual is %d", expectedHits, afterStats.hitCount())
-                .isEqualTo(expectedHits);
-        assertThat(afterStats.missCount())
-                .withFailMessage("Expected miss count is %d but actual is %d", expectedMisses, afterStats.missCount())
-                .isEqualTo(expectedMisses);
+        assertThat(loadDelta).as("loads (delta)").isEqualTo(loads);
+        assertThat(hitsDelta).as("hits (delta)").isEqualTo(hits);
+        assertThat(missesDelta).as("misses (delta)").isEqualTo(misses);
 
         return value;
     }

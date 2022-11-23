@@ -187,9 +187,7 @@ public class StringStatisticsBuilder
             if (isMin) {
                 return StringCompactor.truncateMin(minOrMax, stringStatisticsLimitInBytes);
             }
-            else {
-                return StringCompactor.truncateMax(minOrMax, stringStatisticsLimitInBytes);
-            }
+            return StringCompactor.truncateMax(minOrMax, stringStatisticsLimitInBytes);
         }
 
         // Do not hold the entire slice where the actual stats could be small

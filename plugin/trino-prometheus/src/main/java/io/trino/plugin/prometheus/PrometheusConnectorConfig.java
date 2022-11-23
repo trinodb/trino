@@ -40,6 +40,7 @@ public class PrometheusConnectorConfig
     private File bearerTokenFile;
     private String user;
     private String password;
+    private boolean caseInsensitiveNameMatching;
 
     @NotNull
     public URI getPrometheusURI()
@@ -148,6 +149,19 @@ public class PrometheusConnectorConfig
     public PrometheusConnectorConfig setReadTimeout(Duration readTimeout)
     {
         this.readTimeout = readTimeout;
+        return this;
+    }
+
+    public boolean isCaseInsensitiveNameMatching()
+    {
+        return caseInsensitiveNameMatching;
+    }
+
+    @Config("prometheus.case-insensitive-name-matching")
+    @ConfigDescription("Where to match the prometheus metric name case insensitively ")
+    public PrometheusConnectorConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
+    {
+        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
         return this;
     }
 

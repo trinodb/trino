@@ -29,7 +29,6 @@ import java.math.BigDecimal;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static java.math.RoundingMode.HALF_UP;
 
 public class DecimalEncoding
@@ -67,7 +66,7 @@ public class DecimalEncoding
 
     private void encodeValue(Block block, int position, SliceOutput output)
     {
-        if (isShortDecimal(type)) {
+        if (type.isShort()) {
             output.writeBytes(utf8Slice(Decimals.toString(type.getLong(block, position), type.getScale())));
         }
         else {
@@ -88,7 +87,7 @@ public class DecimalEncoding
             if (length == 0 || nullSequence.equals(0, nullSequence.length(), slice, offset, length)) {
                 builder.appendNull();
             }
-            else if (isShortDecimal(type)) {
+            else if (type.isShort()) {
                 type.writeLong(builder, parseLong(slice, offset, length));
             }
             else {
@@ -101,7 +100,7 @@ public class DecimalEncoding
     @Override
     public void decodeValueInto(int depth, BlockBuilder builder, Slice slice, int offset, int length)
     {
-        if (isShortDecimal(type)) {
+        if (type.isShort()) {
             type.writeLong(builder, parseLong(slice, offset, length));
         }
         else {

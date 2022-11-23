@@ -19,6 +19,7 @@ import io.trino.operator.HashGenerator;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
+import io.trino.operator.OperatorFactories.JoinOperatorType;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.operator.ProcessorContext;
@@ -80,9 +81,7 @@ public class LookupJoinOperatorFactory
             List<Type> probeTypes,
             List<Type> probeOutputTypes,
             List<Type> buildOutputTypes,
-            JoinType joinType,
-            boolean outputSingleMatch,
-            boolean waitForBuild,
+            JoinOperatorType joinOperatorType,
             JoinProbeFactory joinProbeFactory,
             BlockTypeOperators blockTypeOperators,
             OptionalInt totalOperatorsCount,
@@ -94,9 +93,9 @@ public class LookupJoinOperatorFactory
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.probeTypes = ImmutableList.copyOf(requireNonNull(probeTypes, "probeTypes is null"));
         this.buildOutputTypes = ImmutableList.copyOf(requireNonNull(buildOutputTypes, "buildOutputTypes is null"));
-        this.joinType = requireNonNull(joinType, "joinType is null");
-        this.outputSingleMatch = outputSingleMatch;
-        this.waitForBuild = waitForBuild;
+        this.joinType = requireNonNull(joinOperatorType.getType(), "joinType is null");
+        this.outputSingleMatch = joinOperatorType.isOutputSingleMatch();
+        this.waitForBuild = joinOperatorType.isWaitForBuild();
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
 
         this.joinBridgeManager = lookupSourceFactoryManager;

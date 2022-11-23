@@ -30,6 +30,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -44,8 +45,8 @@ public class TypedSet
     @VisibleForTesting
     public static final DataSize MAX_FUNCTION_MEMORY = DataSize.of(4, MEGABYTE);
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedSet.class).instanceSize();
-    private static final int INT_ARRAY_LIST_INSTANCE_SIZE = ClassLayout.parseClass(IntArrayList.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TypedSet.class).instanceSize());
+    private static final int INT_ARRAY_LIST_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(IntArrayList.class).instanceSize());
     private static final float FILL_RATIO = 0.75f;
 
     private final Type elementType;
@@ -253,9 +254,7 @@ public class TypedSet
         if (block.isNull(position)) {
             return containsNullElement;
         }
-        else {
-            return blockPositionByHash.getInt(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
-        }
+        return blockPositionByHash.getInt(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
     }
 
     /**

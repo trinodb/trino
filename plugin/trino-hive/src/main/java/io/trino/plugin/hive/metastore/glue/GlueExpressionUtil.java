@@ -34,6 +34,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -147,12 +148,22 @@ public final class GlueExpressionUtil
             return Optional.empty();
         }
 
+        // Glue throws an exception (e.g. input string: "__HIVE_D" is not an integer)
+        // for column <> '__HIVE_DEFAULT_PARTITION__' or column = '__HIVE_DEFAULT_PARTITION__' expression on numeric types
+        // "IS NULL" operator in the official documentation always returns empty result regardless of the type.
+        // https://docs.aws.amazon.com/glue/latest/dg/aws-glue-api-catalog-partitions.html#aws-glue-api-catalog-partitions-GetPartitions
+        if ((domain.getValues().isAll() || domain.isNullAllowed()) && !isQuotedType(domain.getType())) {
+            return Optional.empty();
+        }
+
         if (domain.getValues().isAll()) {
+            verify(!domain.isNullAllowed(), "Unexpected domain: %s", domain);
             return Optional.of(format("(%s <> '%s')", columnName, NULL_STRING));
         }
 
-        // null must be allowed for this case since callers must filter Domain.none() out
         if (domain.getValues().isNone()) {
+            // null must be allowed for this case since callers must filter Domain.none() out
+            verify(domain.isNullAllowed(), "Unexpected domain: %s", domain);
             return Optional.of(format("(%s = '%s')", columnName, NULL_STRING));
         }
 
@@ -194,6 +205,10 @@ public final class GlueExpressionUtil
             String inClause = format("(%s in (%s))", columnName, values);
 
             disjuncts.add(inClause);
+        }
+
+        if (domain.isNullAllowed()) {
+            disjuncts.add(format("(%s = '%s')", columnName, NULL_STRING));
         }
 
         return Optional.of("(" + DISJUNCT_JOINER.join(disjuncts) + ")");

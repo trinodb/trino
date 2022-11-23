@@ -76,10 +76,10 @@ public class JdbcConnector
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
         this.connectorTableFunctions = ImmutableSet.copyOf(requireNonNull(connectorTableFunctions, "connectorTableFunctions is null"));
-        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null").stream()
+        this.sessionProperties = sessionProperties.stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
                 .collect(toImmutableList());
-        this.tableProperties = requireNonNull(tableProperties, "tableProperties is null").stream()
+        this.tableProperties = tableProperties.stream()
                 .flatMap(tablePropertiesProvider -> tablePropertiesProvider.getTableProperties().stream())
                 .collect(toImmutableList());
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");

@@ -15,13 +15,16 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.HdfsConfig;
-import io.trino.plugin.hive.HdfsConfiguration;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -64,7 +67,7 @@ import java.util.UUID;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -90,7 +93,7 @@ public class TestIcebergV2
             throws Exception
     {
         HdfsConfig config = new HdfsConfig();
-        HdfsConfiguration configuration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
+        HdfsConfiguration configuration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
         hdfsEnvironment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
 
         tempDir = Files.createTempDirectory("test_iceberg_v2");
@@ -224,6 +227,32 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testSelectivelyOptimizingLeavesEqualityDeletes()
+            throws Exception
+    {
+        String tableName = "test_selectively_optimizing_leaves_eq_deletes_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['nationkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = loadTable(tableName);
+        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
+        query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE nationkey < 5");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 OR nationkey != 1");
+        Assertions.assertThat(loadTable(tableName).currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("1");
+    }
+
+    @Test
+    public void testOptimizingWholeTableRemovesEqualityDeletes()
+            throws Exception
+    {
+        String tableName = "test_optimizing_whole_table_removes_eq_deletes_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['nationkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = loadTable(tableName);
+        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
+        query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 OR nationkey != 1");
+        Assertions.assertThat(loadTable(tableName).currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
+    }
+
+    @Test
     public void testOptimizingV2TableWithEmptyPartitionSpec()
             throws Exception
     {
@@ -250,7 +279,7 @@ public class TestIcebergV2
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = updateTableToV2(tableName);
         Assertions.assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
-        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L, 2L, 3L, 4L})));
+        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
         List<String> initialActiveFiles = getActiveFiles(tableName);
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
         query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey != 1");
@@ -397,9 +426,9 @@ public class TestIcebergV2
 
         assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
         // Ensure only one snapshot is committed to the table
-        Long initialSnapshotId = (Long) computeActual("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1").getOnlyValue();
+        long initialSnapshotId = (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey < 10", 25);
-        Long parentSnapshotId = (Long) computeActual("SELECT parent_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1").getOnlyValue();
+        long parentSnapshotId = (long) computeScalar("SELECT parent_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
         assertEquals(initialSnapshotId, parentSnapshotId);
         assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
         assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(0);
@@ -413,9 +442,9 @@ public class TestIcebergV2
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
         assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
         // Ensure only one snapshot is committed to the table
-        Long initialSnapshotId = (Long) computeActual("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1").getOnlyValue();
+        long initialSnapshotId = (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey % 2 = 1", "SELECT count(*) FROM nation WHERE regionkey % 2 = 1");
-        Long parentSnapshotId = (Long) computeActual("SELECT parent_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1").getOnlyValue();
+        long parentSnapshotId = (long) computeScalar("SELECT parent_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
         assertEquals(initialSnapshotId, parentSnapshotId);
 
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey % 2 = 0", "SELECT count(*) FROM nation WHERE regionkey % 2 = 0");
@@ -484,11 +513,12 @@ public class TestIcebergV2
 
     private BaseTable loadTable(String tableName)
     {
-        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment));
+        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
+        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
         TrinoCatalog catalog = new TrinoHiveCatalog(
                 new CatalogName("hive"),
                 CachingHiveMetastore.memoizeMetastore(metastore, 1000),
-                hdfsEnvironment,
+                fileSystemFactory,
                 new TestingTypeManager(),
                 tableOperationsProvider,
                 "test",

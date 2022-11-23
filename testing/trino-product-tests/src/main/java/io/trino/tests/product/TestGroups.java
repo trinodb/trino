@@ -68,6 +68,7 @@ public final class TestGroups
     public static final String KAFKA = "kafka";
     public static final String TWO_HIVES = "two_hives";
     public static final String ICEBERG = "iceberg";
+    public static final String ICEBERG_FORMAT_VERSION_COMPATIBILITY = "iceberg_format_version_compatibility";
     public static final String AVRO = "avro";
     public static final String PHOENIX = "phoenix";
     public static final String CLICKHOUSE = "clickhouse";
@@ -76,9 +77,11 @@ public final class TestGroups
     public static final String DELTA_LAKE_OSS = "delta-lake-oss";
     public static final String DELTA_LAKE_HDFS = "delta-lake-hdfs";
     public static final String DELTA_LAKE_MINIO = "delta-lake-minio";
+    public static final String DELTA_LAKE_GCS = "delta-lake-gcs";
     public static final String DELTA_LAKE_DATABRICKS = "delta-lake-databricks";
     public static final String DELTA_LAKE_EXCLUDE_73 = "delta-lake-exclude-73";
     public static final String DELTA_LAKE_EXCLUDE_91 = "delta-lake-exclude-91";
+    public static final String PARQUET = "parquet";
 
     private TestGroups() {}
 }

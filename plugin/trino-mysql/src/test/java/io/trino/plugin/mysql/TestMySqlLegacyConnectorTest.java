@@ -136,6 +136,22 @@ public class TestMySqlLegacyConnectorTest
     }
 
     @Override
+    public void testRenameColumnName(String columnName)
+    {
+        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
+                .hasMessageContaining("You have an error in your SQL syntax")
+                .hasStackTraceContaining("RENAME COLUMN");
+    }
+
+    @Override
+    public void testAlterTableRenameColumnToLongName()
+    {
+        assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
+                .hasMessageContaining("You have an error in your SQL syntax")
+                .hasStackTraceContaining("RENAME COLUMN x");
+    }
+
+    @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
@@ -144,5 +160,11 @@ public class TestMySqlLegacyConnectorTest
             return Optional.empty();
         }
         return super.filterDataMappingSmokeTestData(dataMappingTestSetup);
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("Identifier name .* is too long");
     }
 }

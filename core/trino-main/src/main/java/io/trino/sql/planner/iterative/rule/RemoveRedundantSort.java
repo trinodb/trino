@@ -17,11 +17,11 @@ import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.optimizations.Cardinality;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.ValuesNode;
 
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static io.trino.sql.planner.plan.Patterns.sort;
 
 public class RemoveRedundantSort
@@ -38,10 +38,11 @@ public class RemoveRedundantSort
     @Override
     public Result apply(SortNode node, Captures captures, Context context)
     {
-        if (isAtMost(node.getSource(), context.getLookup(), 0)) {
+        Cardinality cardinality = extractCardinality(node.getSource(), context.getLookup());
+        if (cardinality.isEmpty()) {
             return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
         }
-        if (isScalar(node.getSource(), context.getLookup())) {
+        if (cardinality.isScalar()) {
             return Result.ofPlanNode(node.getSource());
         }
         return Result.empty();

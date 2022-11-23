@@ -174,29 +174,20 @@ public class UnwrapCastInComparison
         private Expression unwrapCast(ComparisonExpression expression)
         {
             // Canonicalization is handled by CanonicalizeExpressionRewriter
-            if (!(expression.getLeft() instanceof Cast)) {
+            if (!(expression.getLeft() instanceof Cast cast)) {
                 return expression;
             }
 
             Object right = new ExpressionInterpreter(expression.getRight(), plannerContext, session, typeAnalyzer.getTypes(session, types, expression.getRight()))
                     .optimize(NoOpSymbolResolver.INSTANCE);
 
-            Cast cast = (Cast) expression.getLeft();
             ComparisonExpression.Operator operator = expression.getOperator();
 
             if (right == null || right instanceof NullLiteral) {
-                switch (operator) {
-                    case EQUAL:
-                    case NOT_EQUAL:
-                    case LESS_THAN:
-                    case LESS_THAN_OR_EQUAL:
-                    case GREATER_THAN:
-                    case GREATER_THAN_OR_EQUAL:
-                        return new Cast(new NullLiteral(), toSqlType(BOOLEAN));
-                    case IS_DISTINCT_FROM:
-                        return new IsNotNullPredicate(cast);
-                }
-                throw new UnsupportedOperationException("Not yet implemented");
+                return switch (operator) {
+                    case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Cast(new NullLiteral(), toSqlType(BOOLEAN));
+                    case IS_DISTINCT_FROM -> new IsNotNullPredicate(cast);
+                };
             }
 
             if (right instanceof Expression) {
@@ -235,10 +226,8 @@ public class UnwrapCastInComparison
                         if (!typeHasNaN(sourceType)) {
                             return TRUE_LITERAL;
                         }
-                        else {
-                            // NaN on the right of comparison will be cast to source type later
-                            break;
-                        }
+                        // NaN on the right of comparison will be cast to source type later
+                        break;
                     default:
                         throw new UnsupportedOperationException("Not yet implemented: " + operator);
                 }
@@ -256,38 +245,22 @@ public class UnwrapCastInComparison
                 int upperBoundComparison = compare(targetType, right, maxInTargetType);
                 if (upperBoundComparison > 0) {
                     // larger than maximum representable value
-                    switch (operator) {
-                        case EQUAL:
-                        case GREATER_THAN:
-                        case GREATER_THAN_OR_EQUAL:
-                            return falseIfNotNull(cast.getExpression());
-                        case NOT_EQUAL:
-                        case LESS_THAN:
-                        case LESS_THAN_OR_EQUAL:
-                            return trueIfNotNull(cast.getExpression());
-                        case IS_DISTINCT_FROM:
-                            return TRUE_LITERAL;
-                    }
-                    throw new UnsupportedOperationException("Not yet implemented: " + operator);
+                    return switch (operator) {
+                        case EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> falseIfNotNull(cast.getExpression());
+                        case NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
+                        case IS_DISTINCT_FROM -> TRUE_LITERAL;
+                    };
                 }
 
                 if (upperBoundComparison == 0) {
                     // equal to max representable value
-                    switch (operator) {
-                        case GREATER_THAN:
-                            return falseIfNotNull(cast.getExpression());
-                        case GREATER_THAN_OR_EQUAL:
-                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
-                        case LESS_THAN_OR_EQUAL:
-                            return trueIfNotNull(cast.getExpression());
-                        case LESS_THAN:
-                            return new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
-                        case EQUAL:
-                        case NOT_EQUAL:
-                        case IS_DISTINCT_FROM:
-                            return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
-                    }
-                    throw new UnsupportedOperationException("Not yet implemented: " + operator);
+                    return switch (operator) {
+                        case GREATER_THAN -> falseIfNotNull(cast.getExpression());
+                        case GREATER_THAN_OR_EQUAL -> new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
+                        case LESS_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
+                        case LESS_THAN -> new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
+                        case EQUAL, NOT_EQUAL, IS_DISTINCT_FROM -> new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
+                    };
                 }
 
                 Object min = sourceRange.get().getMin();
@@ -296,38 +269,22 @@ public class UnwrapCastInComparison
                 int lowerBoundComparison = compare(targetType, right, minInTargetType);
                 if (lowerBoundComparison < 0) {
                     // smaller than minimum representable value
-                    switch (operator) {
-                        case NOT_EQUAL:
-                        case GREATER_THAN:
-                        case GREATER_THAN_OR_EQUAL:
-                            return trueIfNotNull(cast.getExpression());
-                        case EQUAL:
-                        case LESS_THAN:
-                        case LESS_THAN_OR_EQUAL:
-                            return falseIfNotNull(cast.getExpression());
-                        case IS_DISTINCT_FROM:
-                            return TRUE_LITERAL;
-                    }
-                    throw new UnsupportedOperationException("Not yet implemented: " + operator);
+                    return switch (operator) {
+                        case NOT_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
+                        case EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> falseIfNotNull(cast.getExpression());
+                        case IS_DISTINCT_FROM -> TRUE_LITERAL;
+                    };
                 }
 
                 if (lowerBoundComparison == 0) {
                     // equal to min representable value
-                    switch (operator) {
-                        case LESS_THAN:
-                            return falseIfNotNull(cast.getExpression());
-                        case LESS_THAN_OR_EQUAL:
-                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
-                        case GREATER_THAN_OR_EQUAL:
-                            return trueIfNotNull(cast.getExpression());
-                        case GREATER_THAN:
-                            return new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
-                        case EQUAL:
-                        case NOT_EQUAL:
-                        case IS_DISTINCT_FROM:
-                            return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
-                    }
-                    throw new UnsupportedOperationException("Not yet implemented: " + operator);
+                    return switch (operator) {
+                        case LESS_THAN -> falseIfNotNull(cast.getExpression());
+                        case LESS_THAN_OR_EQUAL -> new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
+                        case GREATER_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
+                        case GREATER_THAN -> new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
+                        case EQUAL, NOT_EQUAL, IS_DISTINCT_FROM -> new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
+                    };
                 }
             }
 
@@ -360,50 +317,37 @@ public class UnwrapCastInComparison
 
             if (literalVsRoundtripped > 0) {
                 // cast rounded down
-                switch (operator) {
-                    case EQUAL:
-                        return falseIfNotNull(cast.getExpression());
-                    case NOT_EQUAL:
-                        return trueIfNotNull(cast.getExpression());
-                    case IS_DISTINCT_FROM:
-                        return TRUE_LITERAL;
-                    case LESS_THAN:
-                    case LESS_THAN_OR_EQUAL:
+                return switch (operator) {
+                    case EQUAL -> falseIfNotNull(cast.getExpression());
+                    case NOT_EQUAL -> trueIfNotNull(cast.getExpression());
+                    case IS_DISTINCT_FROM -> TRUE_LITERAL;
+                    case LESS_THAN, LESS_THAN_OR_EQUAL -> {
                         if (sourceRange.isPresent() && compare(sourceType, sourceRange.get().getMin(), literalInSourceType) == 0) {
-                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
+                            yield new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
                         }
-                        return new ComparisonExpression(LESS_THAN_OR_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
-                    case GREATER_THAN:
-                    case GREATER_THAN_OR_EQUAL:
+                        yield new ComparisonExpression(LESS_THAN_OR_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
+                    }
+                    case GREATER_THAN, GREATER_THAN_OR_EQUAL ->
                         // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
                         // larger than the next value in the source type
-                        return new ComparisonExpression(GREATER_THAN, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
-                }
-                throw new UnsupportedOperationException("Not yet implemented: " + operator);
+                            new ComparisonExpression(GREATER_THAN, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
+                };
             }
 
             if (literalVsRoundtripped < 0) {
                 // cast rounded up
-                switch (operator) {
-                    case EQUAL:
-                        return falseIfNotNull(cast.getExpression());
-                    case NOT_EQUAL:
-                        return trueIfNotNull(cast.getExpression());
-                    case IS_DISTINCT_FROM:
-                        return TRUE_LITERAL;
-                    case LESS_THAN:
-                    case LESS_THAN_OR_EQUAL:
+                return switch (operator) {
+                    case EQUAL -> falseIfNotNull(cast.getExpression());
+                    case NOT_EQUAL -> trueIfNotNull(cast.getExpression());
+                    case IS_DISTINCT_FROM -> TRUE_LITERAL;
+                    case LESS_THAN, LESS_THAN_OR_EQUAL ->
                         // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
                         // smaller than the next value in the source type
-                        return new ComparisonExpression(LESS_THAN, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
-                    case GREATER_THAN:
-                    case GREATER_THAN_OR_EQUAL:
-                        if (sourceRange.isPresent() && compare(sourceType, sourceRange.get().getMax(), literalInSourceType) == 0) {
-                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
-                        }
-                        return new ComparisonExpression(GREATER_THAN_OR_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
-                }
-                throw new UnsupportedOperationException("Not yet implemented: " + operator);
+                            new ComparisonExpression(LESS_THAN, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
+                    case GREATER_THAN, GREATER_THAN_OR_EQUAL -> sourceRange.isPresent() && compare(sourceType, sourceRange.get().getMax(), literalInSourceType) == 0 ?
+                            new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType)) :
+                            new ComparisonExpression(GREATER_THAN_OR_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
+                };
             }
 
             return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
@@ -422,33 +366,25 @@ public class UnwrapCastInComparison
             Expression dateTimestamp = literalEncoder.toExpression(session, coerce(date, targetToSource), sourceType);
             Expression nextDateTimestamp = literalEncoder.toExpression(session, coerce(date + 1, targetToSource), sourceType);
 
-            switch (operator) {
-                case EQUAL:
-                    return Optional.of(
-                            and(
-                                    new ComparisonExpression(GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp),
-                                    new ComparisonExpression(LESS_THAN, timestampExpression, nextDateTimestamp)));
-                case NOT_EQUAL:
-                    return Optional.of(
-                            or(
-                                    new ComparisonExpression(LESS_THAN, timestampExpression, dateTimestamp),
-                                    new ComparisonExpression(GREATER_THAN_OR_EQUAL, timestampExpression, nextDateTimestamp)));
-                case LESS_THAN:
-                    return Optional.of(new ComparisonExpression(LESS_THAN, timestampExpression, dateTimestamp));
-                case LESS_THAN_OR_EQUAL:
-                    return Optional.of(new ComparisonExpression(LESS_THAN, timestampExpression, nextDateTimestamp));
-                case GREATER_THAN:
-                    return Optional.of(new ComparisonExpression(GREATER_THAN_OR_EQUAL, timestampExpression, nextDateTimestamp));
-                case GREATER_THAN_OR_EQUAL:
-                    return Optional.of(new ComparisonExpression(GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp));
-                case IS_DISTINCT_FROM:
-                    return Optional.of(
-                            or(
-                                    new IsNullPredicate(timestampExpression),
-                                    new ComparisonExpression(LESS_THAN, timestampExpression, dateTimestamp),
-                                    new ComparisonExpression(GREATER_THAN_OR_EQUAL, timestampExpression, nextDateTimestamp)));
-            }
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unsupported operator: " + operator);
+            return switch (operator) {
+                case EQUAL -> Optional.of(
+                        and(
+                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp),
+                                new ComparisonExpression(LESS_THAN, timestampExpression, nextDateTimestamp)));
+                case NOT_EQUAL -> Optional.of(
+                        or(
+                                new ComparisonExpression(LESS_THAN, timestampExpression, dateTimestamp),
+                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, timestampExpression, nextDateTimestamp)));
+                case LESS_THAN -> Optional.of(new ComparisonExpression(LESS_THAN, timestampExpression, dateTimestamp));
+                case LESS_THAN_OR_EQUAL -> Optional.of(new ComparisonExpression(LESS_THAN, timestampExpression, nextDateTimestamp));
+                case GREATER_THAN -> Optional.of(new ComparisonExpression(GREATER_THAN_OR_EQUAL, timestampExpression, nextDateTimestamp));
+                case GREATER_THAN_OR_EQUAL -> Optional.of(new ComparisonExpression(GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp));
+                case IS_DISTINCT_FROM -> Optional.of(
+                        or(
+                                new IsNullPredicate(timestampExpression),
+                                new ComparisonExpression(LESS_THAN, timestampExpression, dateTimestamp),
+                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, timestampExpression, nextDateTimestamp)));
+            };
         }
 
         private boolean hasInjectiveImplicitCoercion(Type source, Type target, Object value)
@@ -465,13 +401,11 @@ public class UnwrapCastInComparison
                             Double.isNaN(doubleValue) ||
                             (doubleValue > -1L << 53 && doubleValue < 1L << 53); // in (-2^53, 2^53), bigint follows an injective implicit coercion w.r.t double
                 }
-                else {
-                    float realValue = intBitsToFloat(toIntExact((long) value));
-                    return (source.equals(BIGINT) && (realValue > Long.MAX_VALUE || realValue < Long.MIN_VALUE)) ||
-                            (source.equals(INTEGER) && (realValue > Integer.MAX_VALUE || realValue < Integer.MIN_VALUE)) ||
-                            Float.isNaN(realValue) ||
-                            (realValue > -1L << 23 && realValue < 1L << 23); // in (-2^23, 2^23), bigint (and integer) follows an injective implicit coercion w.r.t real
-                }
+                float realValue = intBitsToFloat(toIntExact((long) value));
+                return (source.equals(BIGINT) && (realValue > Long.MAX_VALUE || realValue < Long.MIN_VALUE)) ||
+                        (source.equals(INTEGER) && (realValue > Integer.MAX_VALUE || realValue < Integer.MIN_VALUE)) ||
+                        Float.isNaN(realValue) ||
+                        (realValue > -1L << 23 && realValue < 1L << 23); // in (-2^23, 2^23), bigint (and integer) follows an injective implicit coercion w.r.t real
             }
 
             if (source instanceof DecimalType) {
@@ -488,8 +422,7 @@ public class UnwrapCastInComparison
                 }
             }
 
-            if (target instanceof TimestampWithTimeZoneType) {
-                TimestampWithTimeZoneType timestampWithTimeZoneType = (TimestampWithTimeZoneType) target;
+            if (target instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
                 if (source instanceof TimestampType) {
                     // Cast from TIMESTAMP WITH TIME ZONE to TIMESTAMP and back to TIMESTAMP WITH TIME ZONE does not round trip, unless the value's zone is equal to sesion zone
                     if (!getTimeZone(timestampWithTimeZoneType, value).equals(session.getTimeZoneKey())) {
@@ -517,10 +450,7 @@ public class UnwrapCastInComparison
             }
 
             boolean coercible = new TypeCoercion(plannerContext.getTypeManager()::getType).canCoerce(source, target);
-            if (source instanceof VarcharType && target instanceof CharType) {
-                VarcharType sourceVarchar = (VarcharType) source;
-                CharType targetChar = (CharType) target;
-
+            if (source instanceof VarcharType sourceVarchar && target instanceof CharType targetChar) {
                 if (sourceVarchar.isUnbounded() || sourceVarchar.getBoundedLength() > targetChar.getLength()) {
                     // Truncation, not injective.
                     return false;
@@ -557,7 +487,7 @@ public class UnwrapCastInComparison
             // choice of placing unordered values first or last does not matter for this code
             MethodHandle comparisonOperator = plannerContext.getTypeOperators().getComparisonUnorderedLastOperator(type, InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
             try {
-                return (int) (long) comparisonOperator.invoke(first, second);
+                return toIntExact((long) comparisonOperator.invoke(first, second));
             }
             catch (Throwable throwable) {
                 Throwables.throwIfUnchecked(throwable);
@@ -610,12 +540,12 @@ public class UnwrapCastInComparison
                 .plus(longTimestampWithTimeZone.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND, ChronoUnit.NANOS);
     }
 
-    private static Expression falseIfNotNull(Expression argument)
+    public static Expression falseIfNotNull(Expression argument)
     {
         return and(new IsNullPredicate(argument), new NullLiteral());
     }
 
-    private static Expression trueIfNotNull(Expression argument)
+    public static Expression trueIfNotNull(Expression argument)
     {
         return or(new IsNotNullPredicate(argument), new NullLiteral());
     }

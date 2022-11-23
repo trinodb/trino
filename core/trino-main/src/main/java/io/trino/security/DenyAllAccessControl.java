@@ -33,6 +33,7 @@ import java.util.Set;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
+import static io.trino.spi.security.AccessDeniedException.denyCommentView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
@@ -217,6 +218,12 @@ public class DenyAllAccessControl
     }
 
     @Override
+    public void checkCanSetViewComment(SecurityContext context, QualifiedObjectName viewName)
+    {
+        denyCommentView(viewName.toString());
+    }
+
+    @Override
     public void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName)
     {
         denyCommentColumn(tableName.toString());
@@ -370,6 +377,12 @@ public class DenyAllAccessControl
     public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
     {
         denyGrantExecuteFunctionPrivilege(functionName, context.getIdentity(), grantee);
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption)
+    {
+        denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), grantee);
     }
 
     @Override

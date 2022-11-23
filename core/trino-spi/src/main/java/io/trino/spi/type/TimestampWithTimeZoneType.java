@@ -22,9 +22,10 @@ import static java.lang.String.format;
  * @see ShortTimestampWithTimeZoneType
  * @see LongTimestampWithTimeZoneType
  */
-public abstract class TimestampWithTimeZoneType
+public abstract sealed class TimestampWithTimeZoneType
         extends AbstractType
         implements FixedWidthType
+        permits LongTimestampWithTimeZoneType, ShortTimestampWithTimeZoneType
 {
     public static final int MAX_PRECISION = 12;
 
@@ -44,12 +45,6 @@ public abstract class TimestampWithTimeZoneType
     public static final TimestampWithTimeZoneType TIMESTAMP_TZ_MICROS = createTimestampWithTimeZoneType(6);
     public static final TimestampWithTimeZoneType TIMESTAMP_TZ_NANOS = createTimestampWithTimeZoneType(9);
     public static final TimestampWithTimeZoneType TIMESTAMP_TZ_PICOS = createTimestampWithTimeZoneType(12);
-
-    /**
-     * @deprecated Use {@link #TIMESTAMP_TZ_MILLIS} instead
-     */
-    @Deprecated
-    public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = TIMESTAMP_TZ_MILLIS;
 
     private final int precision;
 

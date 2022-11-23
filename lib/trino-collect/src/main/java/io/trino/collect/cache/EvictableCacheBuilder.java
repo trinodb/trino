@@ -13,6 +13,7 @@
  */
 package io.trino.collect.cache;
 
+import com.google.common.base.Ticker;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -45,6 +46,7 @@ public final class EvictableCacheBuilder<K, V>
         return new EvictableCacheBuilder<>();
     }
 
+    private Optional<Ticker> ticker = Optional.empty();
     private Optional<Duration> expireAfterWrite = Optional.empty();
     private Optional<Duration> refreshAfterWrite = Optional.empty();
     private Optional<Long> maximumSize = Optional.empty();
@@ -54,6 +56,15 @@ public final class EvictableCacheBuilder<K, V>
     private Optional<DisabledCacheImplementation> disabledCacheImplementation = Optional.empty();
 
     private EvictableCacheBuilder() {}
+
+    /**
+     * Pass-through for {@link CacheBuilder#ticker(Ticker)}.
+     */
+    public EvictableCacheBuilder<K, V> ticker(Ticker ticker)
+    {
+        this.ticker = Optional.of(ticker);
+        return this;
+    }
 
     public EvictableCacheBuilder<K, V> expireAfterWrite(long duration, TimeUnit unit)
     {
@@ -172,6 +183,7 @@ public final class EvictableCacheBuilder<K, V>
 
         // CacheBuilder is further modified in EvictableCache::new, so cannot be shared between build() calls.
         CacheBuilder<Object, ? super V> cacheBuilder = CacheBuilder.newBuilder();
+        ticker.ifPresent(cacheBuilder::ticker);
         expireAfterWrite.ifPresent(cacheBuilder::expireAfterWrite);
         refreshAfterWrite.ifPresent(cacheBuilder::refreshAfterWrite);
         maximumSize.ifPresent(cacheBuilder::maximumSize);

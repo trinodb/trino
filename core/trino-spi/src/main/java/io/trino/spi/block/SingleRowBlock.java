@@ -20,12 +20,13 @@ import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.trino.spi.block.BlockUtil.ensureBlocksAreLoaded;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public class SingleRowBlock
         extends AbstractSingleRowBlock
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleRowBlock.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleRowBlock.class).instanceSize());
 
     private final Block[] fieldBlocks;
     private final int rowIndex;
@@ -91,7 +92,7 @@ public class SingleRowBlock
         for (Block fieldBlock : fieldBlocks) {
             consumer.accept(fieldBlock, fieldBlock.getRetainedSizeInBytes());
         }
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -104,6 +105,12 @@ public class SingleRowBlock
     public int getRowIndex()
     {
         return rowIndex;
+    }
+
+    @Override
+    public Block copyWithAppendedNull()
+    {
+        throw new UnsupportedOperationException("SingleRowBlock does not support newBlockWithAppendedNull()");
     }
 
     @Override

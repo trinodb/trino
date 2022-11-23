@@ -53,7 +53,6 @@ public class ViewMaterializationCache
     @Inject
     public ViewMaterializationCache(BigQueryConfig config)
     {
-        requireNonNull(config, "config is null");
         this.destinationTableCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
                         .expireAfterWrite(config.getViewsCacheTtl().toMillis(), MILLISECONDS)

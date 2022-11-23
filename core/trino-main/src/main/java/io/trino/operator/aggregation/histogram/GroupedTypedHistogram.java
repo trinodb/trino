@@ -32,6 +32,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -57,7 +58,7 @@ public class GroupedTypedHistogram
 {
     private static final float MAX_FILL_RATIO = 0.5f;
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedTypedHistogram.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedTypedHistogram.class).instanceSize());
     private static final int EMPTY_BUCKET = -1;
     private static final int NULL = -1;
     private final int bucketId;
@@ -436,10 +437,8 @@ public class GroupedTypedHistogram
                 addNewGroup(groupId, block, position, count);
                 return true;
             }
-            else {
-                valueNode.add(count);
-                return false;
-            }
+            valueNode.add(count);
+            return false;
         }
 
         private void addNewGroup(long groupId, Block block, int position, long count)
@@ -488,16 +487,14 @@ public class GroupedTypedHistogram
                 if (nodePointer == EMPTY_BUCKET) {
                     return new BucketDataNode(bucketId, new ValueNode(nextNodePointer), valueHash, valueAndGroupHash, nextNodePointer, true);
                 }
-                else if (groupAndValueMatches(groupId, block, position, nodePointer, valuePositions.get(nodePointer))) {
+                if (groupAndValueMatches(groupId, block, position, nodePointer, valuePositions.get(nodePointer))) {
                     // value match
                     return new BucketDataNode(bucketId, new ValueNode(nodePointer), valueHash, valueAndGroupHash, nodePointer, false);
                 }
-                else {
-                    // keep looking
-                    int probe = nextProbe(probeCount);
-                    bucketId = nextBucketId(originalBucketId, mask, probe);
-                    probeCount++;
-                }
+                // keep looking
+                int probe = nextProbe(probeCount);
+                bucketId = nextBucketId(originalBucketId, mask, probe);
+                probeCount++;
             }
         }
 

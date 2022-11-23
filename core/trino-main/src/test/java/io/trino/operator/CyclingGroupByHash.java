@@ -23,6 +23,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.List;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.lang.Math.toIntExact;
 
 /**
  * GroupByHash that provides a round robin group ID assignment.
@@ -30,7 +31,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 public class CyclingGroupByHash
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(CyclingGroupByHash.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(CyclingGroupByHash.class).instanceSize());
 
     private final int totalGroupCount;
     private int maxGroupId;

@@ -161,9 +161,7 @@ public class ThriftMetadata
         if (tableMetadata.containsIndexableColumns(indexableColumns)) {
             return Optional.of(new ConnectorResolvedIndex(new ThriftIndexHandle(tableMetadata.getSchemaTableName(), tupleDomain, session), tupleDomain));
         }
-        else {
-            return Optional.empty();
-        }
+        return Optional.empty();
     }
 
     @Override
@@ -219,13 +217,8 @@ public class ThriftMetadata
 
     private ThriftTableMetadata getRequiredTableMetadata(SchemaTableName schemaTableName)
     {
-        Optional<ThriftTableMetadata> table = tableCache.getUnchecked(schemaTableName);
-        if (table.isEmpty()) {
-            throw new TableNotFoundException(schemaTableName);
-        }
-        else {
-            return table.get();
-        }
+        return tableCache.getUnchecked(schemaTableName)
+                .orElseThrow(() -> new TableNotFoundException(schemaTableName));
     }
 
     // this method makes actual thrift request and should be called only by cache load method

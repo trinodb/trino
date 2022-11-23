@@ -15,8 +15,10 @@ package io.trino.execution.buffer;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Ticker;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.stats.TDigest;
 import io.trino.memory.context.LocalMemoryContext;
 
 import javax.annotation.Nullable;
@@ -54,10 +56,19 @@ class OutputBufferMemoryManager
     @GuardedBy("this")
     private ListenableFuture<Void> blockedOnMemory = NOT_BLOCKED;
 
+    private final Ticker ticker = Ticker.systemTicker();
+
     private final AtomicBoolean blockOnFull = new AtomicBoolean(true);
 
     private final Supplier<LocalMemoryContext> memoryContextSupplier;
     private final Executor notificationExecutor;
+
+    @GuardedBy("this")
+    private final TDigest bufferUtilization = new TDigest();
+    @GuardedBy("this")
+    private long lastBufferUtilizationRecordTime;
+    @GuardedBy("this")
+    private double lastBufferUtilization;
 
     public OutputBufferMemoryManager(long maxBufferedBytes, Supplier<LocalMemoryContext> memoryContextSupplier, Executor notificationExecutor)
     {
@@ -66,6 +77,8 @@ class OutputBufferMemoryManager
         this.maxBufferedBytes = maxBufferedBytes;
         this.memoryContextSupplier = Suppliers.memoize(memoryContextSupplier::get);
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
+        this.lastBufferUtilizationRecordTime = ticker.read();
+        this.lastBufferUtilization = 0;
     }
 
     public void updateMemoryUsage(long bytesAdded)
@@ -110,6 +123,7 @@ class OutputBufferMemoryManager
                     this.bufferBlockedFuture = null;
                 }
             }
+            recordBufferUtilization();
         }
         peakMemoryUsage.accumulateAndGet(currentBufferedBytes, Math::max);
         // Notify listeners outside of the critical section
@@ -117,6 +131,14 @@ class OutputBufferMemoryManager
         if (waitForMemory != null) {
             waitForMemory.addListener(this::onMemoryAvailable, notificationExecutor);
         }
+    }
+
+    private synchronized void recordBufferUtilization()
+    {
+        long recordTime = ticker.read();
+        bufferUtilization.add(lastBufferUtilization, (double) recordTime - this.lastBufferUtilizationRecordTime);
+        lastBufferUtilizationRecordTime = recordTime;
+        lastBufferUtilization = getUtilization();
     }
 
     public synchronized ListenableFuture<Void> getBufferBlockedFuture()
@@ -153,6 +175,13 @@ class OutputBufferMemoryManager
     public double getUtilization()
     {
         return bufferedBytes.get() / (double) maxBufferedBytes;
+    }
+
+    public synchronized TDigest getUtilizationHistogram()
+    {
+        // always get most up to date histogram
+        recordBufferUtilization();
+        return TDigest.copyOf(bufferUtilization);
     }
 
     public boolean isOverutilized()

@@ -118,9 +118,7 @@ public final class IrRowPatternFlattener
                         if (child instanceof IrAlternation) {
                             return ((IrAlternation) child).getPatterns().stream();
                         }
-                        else {
-                            return Stream.of(child);
-                        }
+                        return Stream.of(child);
                     })
                     .collect(toImmutableList());
 
@@ -174,9 +172,7 @@ public final class IrRowPatternFlattener
                         if (child instanceof IrConcatenation) {
                             return ((IrConcatenation) child).getPatterns().stream();
                         }
-                        else {
-                            return Stream.of(child);
-                        }
+                        return Stream.of(child);
                     })
                     .filter(child -> !(child instanceof IrEmpty))
                     .collect(toImmutableList());

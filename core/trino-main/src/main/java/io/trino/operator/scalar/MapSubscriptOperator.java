@@ -17,17 +17,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SingleMapBlock;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -77,7 +77,7 @@ public class MapSubscriptOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         MapType mapType = (MapType) boundSignature.getArgumentType(0);
         Type keyType = mapType.getKeyType();
@@ -100,7 +100,7 @@ public class MapSubscriptOperator
         methodHandle = methodHandle.bindTo(missingKeyExceptionFactory).bindTo(keyType).bindTo(valueType);
         methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(Primitives.wrap(valueType.getJavaType())));
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
@@ -160,7 +160,7 @@ public class MapSubscriptOperator
             MethodHandle castMethod = null;
             try {
                 InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(BOXED_NULLABLE), NULLABLE_RETURN, true, false);
-                castMethod = functionDependencies.getCastInvoker(keyType, VARCHAR, invocationConvention).getMethodHandle();
+                castMethod = functionDependencies.getCastImplementation(keyType, VARCHAR, invocationConvention).getMethodHandle();
                 if (!castMethod.type().parameterType(0).equals(ConnectorSession.class)) {
                     castMethod = MethodHandles.dropArguments(castMethod, 0, ConnectorSession.class);
                 }

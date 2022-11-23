@@ -73,7 +73,6 @@ public class TestHiveCompatibility
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
 
         boolean isAvroStorageFormat = "AVRO".equals(storageFormat.getName());
-        boolean isParquetStorageFormat = "PARQUET".equals(storageFormat.getName());
         List<HiveCompatibilityColumnData> columnDataList = new ArrayList<>();
         columnDataList.add(new HiveCompatibilityColumnData("c_boolean", "boolean", "true", true));
         if (!isAvroStorageFormat) {
@@ -93,22 +92,16 @@ public class TestHiveCompatibility
         columnDataList.add(new HiveCompatibilityColumnData("c_varchar", "varchar(10)", "'ala ma kot'", "ala ma kot"));
         columnDataList.add(new HiveCompatibilityColumnData("c_string", "varchar", "'ala ma kota'", "ala ma kota"));
         columnDataList.add(new HiveCompatibilityColumnData("c_binary", "varbinary", "X'62696e61727920636f6e74656e74'", "binary content".getBytes(StandardCharsets.UTF_8)));
-        if (!(isParquetStorageFormat && isHiveVersionBefore12())) {
-            // The PARQUET storage format does not support DATE type in CDH5 distribution
-            columnDataList.add(new HiveCompatibilityColumnData("c_date", "date", "DATE '2015-05-10'", Date.valueOf(LocalDate.of(2015, 5, 10))));
-        }
+        columnDataList.add(new HiveCompatibilityColumnData("c_date", "date", "DATE '2015-05-10'", Date.valueOf(LocalDate.of(2015, 5, 10))));
         if (isAvroStorageFormat) {
-            if (!isHiveVersionBefore12()) {
-                // The AVRO storage format does not support TIMESTAMP type in CDH5 distribution
-                columnDataList.add(new HiveCompatibilityColumnData(
-                        "c_timestamp",
-                        "timestamp",
-                        "TIMESTAMP '2015-05-10 12:15:35.123'",
-                        isHiveWithBrokenAvroTimestamps()
-                                // TODO (https://github.com/trinodb/trino/issues/1218) requires https://issues.apache.org/jira/browse/HIVE-21002
-                                ? Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 6, 30, 35, 123_000_000))
-                                : Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000))));
-            }
+            columnDataList.add(new HiveCompatibilityColumnData(
+                    "c_timestamp",
+                    "timestamp",
+                    "TIMESTAMP '2015-05-10 12:15:35.123'",
+                    isHiveWithBrokenAvroTimestamps()
+                            // TODO (https://github.com/trinodb/trino/issues/1218) requires https://issues.apache.org/jira/browse/HIVE-21002
+                            ? Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 6, 30, 35, 123_000_000))
+                            : Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000))));
         }
         else {
             // Hive expects `INT96` (deprecated on Parquet) for timestamp values
@@ -174,7 +167,7 @@ public class TestHiveCompatibility
     {
         // only admin user is allowed to change session properties
         setAdminRole(onTrino().getConnection());
-        setSessionProperty(onTrino().getConnection(), "hive.experimental_parquet_optimized_writer_enabled", "true");
+        setSessionProperty(onTrino().getConnection(), "hive.parquet_optimized_writer_enabled", "true");
 
         String tableName = "parquet_table_timestamp_created_in_trino";
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
@@ -189,7 +182,7 @@ public class TestHiveCompatibility
             assertThat(onHive().executeQuery("SELECT a_timestamp FROM " + tableName + " WHERE timestamp_precision = '" + hiveTimestampPrecision.name() + "'"))
                     .containsOnly(row(Timestamp.valueOf(expectedValue)));
             // Verify with hive.parquet.timestamp.skip.conversion explicitly enabled
-            // CDH 5 and Apache Hive 3.2 and above enable this by default
+            // Apache Hive 3.2 and above enable this by default
             try {
                 onHive().executeQuery("SET hive.parquet.timestamp.skip.conversion=true");
                 assertThat(onHive().executeQuery("SELECT a_timestamp FROM " + tableName + " WHERE timestamp_precision = '" + hiveTimestampPrecision.name() + "'"))
@@ -208,7 +201,7 @@ public class TestHiveCompatibility
     {
         // only admin user is allowed to change session properties
         setAdminRole(onTrino().getConnection());
-        setSessionProperty(onTrino().getConnection(), "hive.experimental_parquet_optimized_writer_enabled", "true");
+        setSessionProperty(onTrino().getConnection(), "hive.parquet_optimized_writer_enabled", "true");
 
         String tableName = "parquet_table_small_decimal_created_in_trino";
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);

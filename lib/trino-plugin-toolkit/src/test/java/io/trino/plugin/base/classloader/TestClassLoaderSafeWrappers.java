@@ -14,6 +14,7 @@
 package io.trino.plugin.base.classloader;
 
 import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSink;
@@ -24,6 +25,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.ptf.ConnectorTableFunction;
 import org.testng.annotations.Test;
@@ -45,12 +47,14 @@ public class TestClassLoaderSafeWrappers
     {
         testClassLoaderSafe(ConnectorAccessControl.class, ClassLoaderSafeConnectorAccessControl.class);
         testClassLoaderSafe(ConnectorMetadata.class, ClassLoaderSafeConnectorMetadata.class);
+        testClassLoaderSafe(ConnectorMergeSink.class, ClassLoaderSafeConnectorMergeSink.class);
         testClassLoaderSafe(ConnectorPageSink.class, ClassLoaderSafeConnectorPageSink.class);
         testClassLoaderSafe(ConnectorPageSinkProvider.class, ClassLoaderSafeConnectorPageSinkProvider.class);
         testClassLoaderSafe(ConnectorPageSourceProvider.class, ClassLoaderSafeConnectorPageSourceProvider.class);
         testClassLoaderSafe(ConnectorSplitManager.class, ClassLoaderSafeConnectorSplitManager.class);
         testClassLoaderSafe(ConnectorNodePartitioningProvider.class, ClassLoaderSafeNodePartitioningProvider.class);
         testClassLoaderSafe(ConnectorSplitSource.class, ClassLoaderSafeConnectorSplitSource.class);
+        testClassLoaderSafe(UpdatablePageSource.class, ClassLoaderSafeUpdatablePageSource.class);
         testClassLoaderSafe(SystemTable.class, ClassLoaderSafeSystemTable.class);
         testClassLoaderSafe(ConnectorRecordSetProvider.class, ClassLoaderSafeConnectorRecordSetProvider.class);
         testClassLoaderSafe(RecordSet.class, ClassLoaderSafeRecordSet.class);

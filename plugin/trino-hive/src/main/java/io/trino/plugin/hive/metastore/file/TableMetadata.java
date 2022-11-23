@@ -33,6 +33,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.hive.HiveSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static java.util.Objects.requireNonNull;
 
@@ -279,7 +280,7 @@ public class TableMetadata
                 owner,
                 tableType,
                 Storage.builder()
-                        .setLocation(externalLocation.orElse(location))
+                        .setLocation(externalLocation.or(() -> Optional.ofNullable(parameters.get(LOCATION_PROPERTY))).orElse(location))
                         .setStorageFormat(storageFormat.map(StorageFormat::fromHiveStorageFormat).orElse(VIEW_STORAGE_FORMAT))
                         .setBucketProperty(bucketProperty)
                         .setSerdeParameters(serdeParameters)

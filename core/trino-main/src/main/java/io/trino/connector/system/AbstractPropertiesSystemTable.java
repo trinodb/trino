@@ -13,7 +13,7 @@
  */
 package io.trino.connector.system;
 
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.CatalogInfo;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -44,9 +44,9 @@ abstract class AbstractPropertiesSystemTable
 {
     private final ConnectorTableMetadata tableMetadata;
     private final TransactionManager transactionManager;
-    private final Function<CatalogName, Collection<PropertyMetadata<?>>> catalogProperties;
+    private final Function<CatalogHandle, Collection<PropertyMetadata<?>>> catalogProperties;
 
-    protected AbstractPropertiesSystemTable(String tableName, TransactionManager transactionManager, Function<CatalogName, Collection<PropertyMetadata<?>>> catalogProperties)
+    protected AbstractPropertiesSystemTable(String tableName, TransactionManager transactionManager, Function<CatalogHandle, Collection<PropertyMetadata<?>>> catalogProperties)
     {
         this.tableMetadata = tableMetadataBuilder(new SchemaTableName("metadata", tableName))
                 .column("catalog_name", createUnboundedVarcharType())
@@ -78,18 +78,16 @@ abstract class AbstractPropertiesSystemTable
 
         InMemoryRecordSet.Builder table = InMemoryRecordSet.builder(tableMetadata);
 
-        List<String> catalogNames = transactionManager.getCatalogs(transactionId).stream()
-                .map(CatalogInfo::getCatalogName)
-                .map(CatalogName::getCatalogName)
-                .sorted()
+        List<CatalogInfo> catalogInfos = transactionManager.getCatalogs(transactionId).stream()
+                .sorted(Comparator.comparing(CatalogInfo::getCatalogName))
                 .collect(toImmutableList());
 
-        for (String catalogName : catalogNames) {
-            catalogProperties.apply(new CatalogName(catalogName)).stream()
+        for (CatalogInfo catalogInfo : catalogInfos) {
+            catalogProperties.apply(catalogInfo.getCatalogHandle()).stream()
                     .sorted(Comparator.comparing(PropertyMetadata::getName))
                     .forEach(propertyMetadata ->
                             table.addRow(
-                                    catalogName,
+                                    catalogInfo.getCatalogName(),
                                     propertyMetadata.getName(),
                                     firstNonNull(propertyMetadata.getDefaultValue(), "").toString(),
                                     propertyMetadata.getSqlType().toString(),

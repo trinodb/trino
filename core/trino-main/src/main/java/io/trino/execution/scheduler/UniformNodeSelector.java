@@ -311,7 +311,7 @@ public class UniformNodeSelector
             InternalNode minNode = minNodes.poll();
 
             // Allow some degree of non uniformity when assigning splits to nodes. Usually data distribution
-            // among nodes in a cluster won't be fully uniform (e.g because hash function with non-uniform
+            // among nodes in a cluster won't be fully uniform (e.g. because hash function with non-uniform
             // distribution is used like consistent hashing). In such case it makes sense to assign splits to nodes
             // with data because of potential savings in network throughput and CPU time.
             // The difference of 5 between node with maximum and minimum splits is a tradeoff between ratio of

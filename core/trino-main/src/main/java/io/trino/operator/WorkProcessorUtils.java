@@ -111,7 +111,7 @@ public final class WorkProcessorUtils
     static <T> WorkProcessor<T> mergeSorted(Iterable<WorkProcessor<T>> processorIterable, Comparator<T> comparator)
     {
         requireNonNull(comparator, "comparator is null");
-        Iterator<WorkProcessor<T>> processorIterator = requireNonNull(processorIterable, "processorIterable is null").iterator();
+        Iterator<WorkProcessor<T>> processorIterator = processorIterable.iterator();
         checkArgument(processorIterator.hasNext(), "There must be at least one base processor");
         PriorityQueue<ElementAndProcessor<T>> queue = new PriorityQueue<>(2, comparing(ElementAndProcessor::getElement, comparator));
 

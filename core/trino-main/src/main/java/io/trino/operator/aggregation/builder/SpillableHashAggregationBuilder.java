@@ -152,9 +152,7 @@ public class SpillableHashAggregationBuilder
             getFutureValue(spillInProgress);
             return true;
         }
-        else {
-            return false;
-        }
+        return false;
     }
 
     @Override
@@ -208,10 +206,8 @@ public class SpillableHashAggregationBuilder
         if (shouldMergeWithMemory(getSizeInMemoryWhenUnspilling())) {
             return mergeFromDiskAndMemory();
         }
-        else {
-            getFutureValue(spillToDisk());
-            return mergeFromDisk();
-        }
+        getFutureValue(spillToDisk());
+        return mergeFromDisk();
     }
 
     /**

@@ -21,7 +21,6 @@ import io.trino.spi.type.ArrayType;
 
 import javax.inject.Inject;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -68,9 +67,7 @@ public class IcebergTableProperties
                         List.class,
                         ImmutableList.of(),
                         false,
-                        value -> ((Collection<?>) value).stream()
-                                .map(name -> ((String) name).toLowerCase(ENGLISH))
-                                .collect(toImmutableList()),
+                        value -> (List<?>) value,
                         value -> value))
                 .add(stringProperty(
                         LOCATION_PROPERTY,

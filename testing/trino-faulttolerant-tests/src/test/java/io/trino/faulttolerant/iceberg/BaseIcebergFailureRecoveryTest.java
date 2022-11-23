@@ -45,13 +45,6 @@ public abstract class BaseIcebergFailureRecoveryTest
     }
 
     @Override
-    public void testAnalyzeStatistics()
-    {
-        assertThatThrownBy(super::testAnalyzeStatistics)
-                .hasMessageContaining("This connector does not support analyze");
-    }
-
-    @Override
     protected void createPartitionedLineitemTable(String tableName, List<String> columns, String partitionColumn)
     {
         String sql = format(
@@ -125,26 +118,28 @@ public abstract class BaseIcebergFailureRecoveryTest
         assertThatQuery(deleteQuery)
                 .withSetupQuery(setupQuery)
                 .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
-                .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
-                .finishesSuccessfully();
-
-        assertThatQuery(deleteQuery)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
                 .at(boundaryDistributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                 .finishesSuccessfully();
 
-        assertThatQuery(deleteQuery)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
-                .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
-                .finishesSuccessfully();
+        if (getRetryPolicy() == RetryPolicy.QUERY) {
+            assertThatQuery(deleteQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
+                    .at(boundaryDistributedStage())
+                    .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
+                    .finishesSuccessfully();
+
+            assertThatQuery(deleteQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
+                    .at(boundaryDistributedStage())
+                    .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
+                    .finishesSuccessfully();
+        }
     }
 
     // Copied from BaseDeltaFailureRecoveryTest
@@ -209,26 +204,28 @@ public abstract class BaseIcebergFailureRecoveryTest
         assertThatQuery(updateQuery)
                 .withSetupQuery(setupQuery)
                 .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
-                .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
-                .finishesSuccessfully();
-
-        assertThatQuery(updateQuery)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
                 .at(boundaryDistributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                 .finishesSuccessfully();
 
-        assertThatQuery(updateQuery)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
-                .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
-                .finishesSuccessfully();
+        if (getRetryPolicy() == RetryPolicy.QUERY) {
+            assertThatQuery(updateQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
+                    .at(boundaryDistributedStage())
+                    .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
+                    .finishesSuccessfully();
+
+            assertThatQuery(updateQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
+                    .at(boundaryDistributedStage())
+                    .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
+                    .finishesSuccessfully();
+        }
     }
 
     @Test(invocationCount = INVOCATION_COUNT)
@@ -255,6 +252,23 @@ public abstract class BaseIcebergFailureRecoveryTest
         testTableModification(
                 Optional.of("CREATE TABLE <table> WITH (partitioning = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders"),
                 "INSERT INTO <table> SELECT *, 'partition1' p FROM orders",
+                Optional.of("DROP TABLE <table>"));
+    }
+
+    @Test(invocationCount = INVOCATION_COUNT)
+    public void testMergePartitionedTable()
+    {
+        testTableModification(
+                Optional.of("CREATE TABLE <table> WITH (partitioning = ARRAY['bucket(orderkey, 10)']) AS SELECT * FROM orders"),
+                """
+                        MERGE INTO <table> t
+                        USING (SELECT orderkey, 'X' clerk FROM <table>) s
+                        ON t.orderkey = s.orderkey
+                        WHEN MATCHED AND s.orderkey > 1000
+                            THEN UPDATE SET clerk = t.clerk || s.clerk
+                        WHEN MATCHED AND s.orderkey <= 1000
+                            THEN DELETE
+                        """,
                 Optional.of("DROP TABLE <table>"));
     }
 }

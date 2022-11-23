@@ -163,12 +163,10 @@ public class TestReaderProjectionsAdapter
         if (type instanceof RowType) {
             return new LazyBlock(data.size(), () -> createRowBlockWithLazyNestedBlocks(data, (RowType) type));
         }
-        else if (BIGINT.equals(type)) {
+        if (BIGINT.equals(type)) {
             return new LazyBlock(positionCount, () -> createLongArrayBlock(data));
         }
-        else {
-            throw new UnsupportedOperationException();
-        }
+        throw new UnsupportedOperationException();
     }
 
     private static Block createRowBlockWithLazyNestedBlocks(List<Object> data, RowType rowType)

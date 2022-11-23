@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+
+import argparse
+import json
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Fake PTL implementation for testing GitHub matrix pruning"
+    )
+    parser.add_argument(
+        "--suite",
+        help="A list of suites to check",
+    )
+    parser.add_argument(
+        "--config",
+        help="Config used",
+    )
+    args, unknown = parser.parse_known_args()
+    build_json(args.suite.split(","), args.config.lstrip("config-"))
+
+
+def build_json(suites, config):
+    result = {
+        "config": config,
+        "suites":[
+            {"name": suite, "testRuns": [
+                {"environment": {"name": "fake", "features": ["{}:{}".format(config, suite)]}}
+            ]}
+        for suite in suites]}
+    print(json.dumps(result))
+
+
+if __name__ == "__main__":
+    main()

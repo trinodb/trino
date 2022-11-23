@@ -30,7 +30,6 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
@@ -471,7 +470,7 @@ public class TestHiveAndDeltaLakeRedirect
         onTrino().executeQuery(createTableInHiveConnector("default", tableName, true));
         try {
             assertThat(onTrino().executeQuery("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'hive' AND schema_name = 'default' AND table_name = '" + tableName + "'"))
-                    .is(new Condition<>(queryResult -> queryResult.row(0).get(0) == null, "Unexpected table comment"));
+                    .is(new Condition<>(queryResult -> queryResult.getOnlyValue() == null, "Unexpected table comment"));
             String tableComment = "This is my table, there are many like it but this one is mine";
             onTrino().executeQuery(format("COMMENT ON TABLE delta.default.\"" + tableName + "\" IS '%s'", tableComment));
 
@@ -492,7 +491,7 @@ public class TestHiveAndDeltaLakeRedirect
 
         try {
             assertThat(onTrino().executeQuery("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'delta' AND schema_name = 'default' AND table_name = '" + tableName + "'"))
-                    .is(new Condition<>(queryResult -> queryResult.row(0).get(0) == null, "Unexpected table comment"));
+                    .is(new Condition<>(queryResult -> queryResult.getOnlyValue() == null, "Unexpected table comment"));
 
             String tableComment = "This is my table, there are many like it but this one is mine";
             onTrino().executeQuery(format("COMMENT ON TABLE hive.default.\"" + tableName + "\" IS '%s'", tableComment));
@@ -893,8 +892,7 @@ public class TestHiveAndDeltaLakeRedirect
 
     private static AbstractStringAssert<?> assertTableComment(String catalog, String schema, String tableName)
     {
-        QueryResult queryResult = readTableComment(catalog, schema, tableName);
-        return Assertions.assertThat((String) getOnlyElement(getOnlyElement(queryResult.rows())));
+        return Assertions.assertThat((String) readTableComment(catalog, schema, tableName).getOnlyValue());
     }
 
     private static QueryResult readTableComment(String catalog, String schema, String tableName)
@@ -908,8 +906,7 @@ public class TestHiveAndDeltaLakeRedirect
 
     private static AbstractStringAssert<?> assertColumnComment(String catalog, String schema, String tableName, String columnName)
     {
-        QueryResult queryResult = readColumnComment(catalog, schema, tableName, columnName);
-        return Assertions.assertThat((String) getOnlyElement(getOnlyElement(queryResult.rows())));
+        return Assertions.assertThat((String) readColumnComment(catalog, schema, tableName, columnName).getOnlyValue());
     }
 
     private static QueryResult readColumnComment(String catalog, String schema, String tableName, String columnName)

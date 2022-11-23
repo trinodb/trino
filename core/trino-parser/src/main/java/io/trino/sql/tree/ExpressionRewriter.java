@@ -145,7 +145,7 @@ public class ExpressionRewriter<C>
         return rewriteExpression(node, context, treeRewriter);
     }
 
-    public Expression rewriteArrayConstructor(ArrayConstructor node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    public Expression rewriteArray(Array node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
     }

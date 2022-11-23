@@ -58,6 +58,7 @@ public class IcebergConnector
     private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
     private final List<PropertyMetadata<?>> materializedViewProperties;
+    private final List<PropertyMetadata<?>> analyzeProperties;
     private final Optional<ConnectorAccessControl> accessControl;
     private final Set<Procedure> procedures;
     private final Set<TableProcedureMetadata> tableProcedures;
@@ -73,6 +74,7 @@ public class IcebergConnector
             List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
             List<PropertyMetadata<?>> materializedViewProperties,
+            List<PropertyMetadata<?>> analyzeProperties,
             Optional<ConnectorAccessControl> accessControl,
             Set<Procedure> procedures,
             Set<TableProcedureMetadata> tableProcedures)
@@ -83,12 +85,13 @@ public class IcebergConnector
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
-        this.sessionProperties = requireNonNull(sessionPropertiesProviders, "sessionPropertiesProviders is null").stream()
+        this.sessionProperties = sessionPropertiesProviders.stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
                 .collect(toImmutableList());
         this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null"));
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
         this.materializedViewProperties = ImmutableList.copyOf(requireNonNull(materializedViewProperties, "materializedViewProperties is null"));
+        this.analyzeProperties = ImmutableList.copyOf(requireNonNull(analyzeProperties, "analyzeProperties is null"));
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
         this.tableProcedures = ImmutableSet.copyOf(requireNonNull(tableProcedures, "tableProcedures is null"));
@@ -165,6 +168,12 @@ public class IcebergConnector
     public List<PropertyMetadata<?>> getMaterializedViewProperties()
     {
         return materializedViewProperties;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getAnalyzeProperties()
+    {
+        return analyzeProperties;
     }
 
     @Override

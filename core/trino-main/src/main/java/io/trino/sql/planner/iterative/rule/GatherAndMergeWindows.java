@@ -221,9 +221,7 @@ public final class GatherAndMergeWindows
                         restrictOutputs(context.getIdAllocator(), transposedWindows, ImmutableSet.copyOf(parent.getOutputSymbols()))
                                 .orElse(transposedWindows));
             }
-            else {
-                return Optional.empty();
-            }
+            return Optional.empty();
         }
 
         private static int compare(WindowNode o1, WindowNode o2)
@@ -291,11 +289,9 @@ public final class GatherAndMergeWindows
                 if (orderByComparison != 0) {
                     return orderByComparison;
                 }
-                else {
-                    int sortOrderComparison = o1OrderingScheme.getOrdering(symbol1).compareTo(o2OrderingScheme.getOrdering(symbol2));
-                    if (sortOrderComparison != 0) {
-                        return sortOrderComparison;
-                    }
+                int sortOrderComparison = o1OrderingScheme.getOrdering(symbol1).compareTo(o2OrderingScheme.getOrdering(symbol2));
+                if (sortOrderComparison != 0) {
+                    return sortOrderComparison;
                 }
             }
 

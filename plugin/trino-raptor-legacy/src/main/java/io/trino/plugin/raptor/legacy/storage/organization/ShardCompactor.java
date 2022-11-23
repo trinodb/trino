@@ -14,18 +14,20 @@
 package io.trino.plugin.raptor.legacy.storage.organization;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.DistributionStat;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.raptor.legacy.metadata.ColumnInfo;
 import io.trino.plugin.raptor.legacy.metadata.ShardInfo;
-import io.trino.plugin.raptor.legacy.storage.Row;
 import io.trino.plugin.raptor.legacy.storage.StorageManager;
 import io.trino.plugin.raptor.legacy.storage.StorageManagerConfig;
 import io.trino.plugin.raptor.legacy.storage.StoragePageSink;
 import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.predicate.TupleDomain;
@@ -53,7 +55,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.Duration.nanosSince;
-import static io.trino.plugin.raptor.legacy.storage.Row.extractRow;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -78,8 +79,8 @@ public final class ShardCompactor
     public ShardCompactor(StorageManager storageManager, StorageManagerConfig config, TypeManager typeManager)
     {
         this(storageManager,
-                requireNonNull(config, "config is null").toOrcReaderOptions(),
-                requireNonNull(typeManager, "typeManager is null").getTypeOperators());
+                config.toOrcReaderOptions(),
+                typeManager.getTypeOperators());
     }
 
     public ShardCompactor(StorageManager storageManager, OrcReaderOptions orcReaderOptions, TypeOperators typeOperators)
@@ -121,7 +122,7 @@ public final class ShardCompactor
                     if (isNullOrEmptyPage(page)) {
                         continue;
                     }
-                    storagePageSink.appendPages(ImmutableList.of(page));
+                    storagePageSink.appendPage(page);
                     if (storagePageSink.isFull()) {
                         storagePageSink.flush();
                     }
@@ -141,7 +142,7 @@ public final class ShardCompactor
         List<Long> columnIds = columns.stream().map(ColumnInfo::getColumnId).collect(toList());
         List<Type> columnTypes = columns.stream().map(ColumnInfo::getType).collect(toList());
 
-        checkArgument(columnIds.containsAll(sortColumnIds), "sortColumnIds must be a subset of columnIds");
+        checkArgument(ImmutableSet.copyOf(columnIds).containsAll(sortColumnIds), "sortColumnIds must be a subset of columnIds");
 
         List<Integer> sortIndexes = sortColumnIds.stream()
                 .map(columnIds::indexOf)
@@ -149,6 +150,7 @@ public final class ShardCompactor
 
         Queue<SortedRowSource> rowSources = new PriorityQueue<>();
         StoragePageSink outputPageSink = storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes, false);
+        PageBuilder pageBuilder = new PageBuilder(columnTypes);
         try {
             for (UUID uuid : uuids) {
                 ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), orcReaderOptions);
@@ -163,7 +165,12 @@ public final class ShardCompactor
                     continue;
                 }
 
-                outputPageSink.appendRow(rowSource.next());
+                rowSource.next().appendTo(pageBuilder);
+
+                if (pageBuilder.isFull()) {
+                    outputPageSink.appendPage(pageBuilder.build());
+                    pageBuilder.reset();
+                }
 
                 if (outputPageSink.isFull()) {
                     outputPageSink.flush();
@@ -171,6 +178,11 @@ public final class ShardCompactor
 
                 rowSources.add(rowSource);
             }
+
+            if (!pageBuilder.isEmpty()) {
+                outputPageSink.appendPage(pageBuilder.build());
+            }
+
             outputPageSink.flush();
             List<ShardInfo> shardInfos = getFutureValue(outputPageSink.commit());
 
@@ -191,7 +203,6 @@ public final class ShardCompactor
             implements Iterator<Row>, Comparable<SortedRowSource>, Closeable
     {
         private final ConnectorPageSource pageSource;
-        private final List<Type> columnTypes;
         private final List<Integer> sortIndexes;
         private final List<MethodHandle> orderingOperators;
 
@@ -201,8 +212,8 @@ public final class ShardCompactor
         public SortedRowSource(ConnectorPageSource pageSource, List<Type> columnTypes, List<Integer> sortIndexes, List<SortOrder> sortOrders, TypeOperators typeOperators)
         {
             this.pageSource = requireNonNull(pageSource, "pageSource is null");
-            this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
             this.sortIndexes = ImmutableList.copyOf(requireNonNull(sortIndexes, "sortIndexes is null"));
+            requireNonNull(columnTypes, "columnTypes is null");
             requireNonNull(sortOrders, "sortOrders is null");
 
             ImmutableList.Builder<MethodHandle> orderingOperators = ImmutableList.builder();
@@ -252,7 +263,7 @@ public final class ShardCompactor
                 throw new NoSuchElementException();
             }
 
-            Row row = extractRow(currentPage, currentPosition, columnTypes);
+            Row row = new Row(currentPage, currentPosition);
             currentPosition++;
             return row;
         }
@@ -311,6 +322,28 @@ public final class ShardCompactor
                 throws IOException
         {
             pageSource.close();
+        }
+    }
+
+    private static class Row
+    {
+        private final Page page;
+        private final int position;
+
+        public Row(Page page, int position)
+        {
+            this.page = requireNonNull(page, "page is null");
+            this.position = position;
+        }
+
+        public void appendTo(PageBuilder pageBuilder)
+        {
+            pageBuilder.declarePosition();
+            for (int channel = 0; channel < page.getChannelCount(); channel++) {
+                Block block = page.getBlock(channel);
+                BlockBuilder output = pageBuilder.getBlockBuilder(channel);
+                pageBuilder.getType(channel).appendTo(block, position, output);
+            }
         }
     }
 

@@ -15,11 +15,15 @@ package io.trino.spi.statistics;
 
 public enum ColumnStatisticType
 {
+    @Deprecated
     MIN_VALUE,
     MAX_VALUE,
+    @Deprecated
     NUMBER_OF_DISTINCT_VALUES,
     NUMBER_OF_DISTINCT_VALUES_SUMMARY,
+    @Deprecated
     NUMBER_OF_NON_NULL_VALUES,
+    @Deprecated
     NUMBER_OF_TRUE_VALUES,
     MAX_VALUE_SIZE_IN_BYTES,
     TOTAL_SIZE_IN_BYTES,

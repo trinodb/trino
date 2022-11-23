@@ -83,9 +83,9 @@ public class TextRenderer
             output.append(indentMultilineString(reorderJoinStatsAndCost, indent.detailIndent()));
         }
 
-        String estimates = printEstimates(plan, node);
+        List<PlanNodeStatsAndCostSummary> estimates = node.getEstimates(plan.getTypes());
         if (!estimates.isEmpty()) {
-            output.append(indentMultilineString(estimates, indent.detailIndent()));
+            output.append(indentMultilineString(printEstimates(estimates), indent.detailIndent()));
         }
 
         String stats = printStats(plan, node);
@@ -265,9 +265,9 @@ public class TextRenderer
         return "";
     }
 
-    private String printEstimates(PlanRepresentation plan, NodeRepresentation node)
+    private String printEstimates(List<PlanNodeStatsAndCostSummary> estimates)
     {
-        return node.getEstimates(plan.getTypes()).stream()
+        return estimates.stream()
                 .map(this::formatPlanNodeStatsAndCostSummary)
                 .collect(joining("/", "Estimates: ", "\n"));
     }

@@ -21,6 +21,7 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.node.NodeInfo;
 import io.trino.FeaturesConfig;
+import io.trino.exchange.DirectExchangeInput;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
@@ -33,7 +34,6 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.split.RemoteSplit;
-import io.trino.split.RemoteSplit.DirectExchangeInput;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.AfterMethod;
@@ -363,7 +363,7 @@ public class TestMergeOperator
 
     private static Split createRemoteSplit(TaskId taskId)
     {
-        return new Split(ExchangeOperator.REMOTE_CONNECTOR_ID, new RemoteSplit(new DirectExchangeInput(taskId, "http://localhost/" + taskId)));
+        return new Split(ExchangeOperator.REMOTE_CATALOG_HANDLE, new RemoteSplit(new DirectExchangeInput(taskId, "http://localhost/" + taskId)));
     }
 
     private static List<Page> pullAvailablePages(Operator operator)

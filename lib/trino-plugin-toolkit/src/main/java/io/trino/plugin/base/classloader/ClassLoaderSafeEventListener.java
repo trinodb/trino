@@ -59,4 +59,12 @@ public class ClassLoaderSafeEventListener
             delegate.splitCompleted(splitCompletedEvent);
         }
     }
+
+    @Override
+    public boolean requiresAnonymizedPlan()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.requiresAnonymizedPlan();
+        }
+    }
 }

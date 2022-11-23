@@ -90,7 +90,7 @@ public class PagePartitioner
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
         this.partitionChannels = Ints.toArray(requireNonNull(partitionChannels, "partitionChannels is null"));
         requireNonNull(positionsAppenderFactory, "positionsAppenderFactory is null");
-        Block[] partitionConstantBlocks = requireNonNull(partitionConstants, "partitionConstants is null").stream()
+        Block[] partitionConstantBlocks = partitionConstants.stream()
                 .map(constant -> constant.map(NullableValue::asBlock).orElse(null))
                 .toArray(Block[]::new);
         if (Arrays.stream(partitionConstantBlocks).anyMatch(Objects::nonNull)) {
@@ -100,10 +100,10 @@ public class PagePartitioner
             this.partitionConstantBlocks = null;
         }
         this.replicatesAnyRow = replicatesAnyRow;
-        this.nullChannel = requireNonNull(nullChannel, "nullChannel is null").orElse(-1);
+        this.nullChannel = nullChannel.orElse(-1);
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
-        this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null").toArray(new Type[0]);
-        this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
+        this.sourceTypes = sourceTypes.toArray(new Type[0]);
+        this.serde = serdeFactory.createPagesSerde();
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
         //  Ensure partition channels align with constant arguments provided
@@ -459,7 +459,7 @@ public class PagePartitioner
         for (int i = 0; i < blocks.length; i++) {
             int channel = partitionChannels[i];
             if (channel < 0) {
-                blocks[i] = new RunLengthEncodedBlock(partitionConstantBlocks[i], page.getPositionCount());
+                blocks[i] = RunLengthEncodedBlock.create(partitionConstantBlocks[i], page.getPositionCount());
             }
             else {
                 blocks[i] = page.getBlock(channel);

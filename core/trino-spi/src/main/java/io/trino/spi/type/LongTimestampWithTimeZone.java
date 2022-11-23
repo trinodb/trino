@@ -18,11 +18,12 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Objects;
 
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static java.lang.Math.toIntExact;
 
 public final class LongTimestampWithTimeZone
         implements Comparable<LongTimestampWithTimeZone>
 {
-    public static final int INSTANCE_SIZE = ClassLayout.parseClass(LongTimestampWithTimeZone.class).instanceSize();
+    public static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LongTimestampWithTimeZone.class).instanceSize());
 
     private final long epochMillis;
     private final int picosOfMilli; // number of picoseconds of the millisecond corresponding to epochMillis

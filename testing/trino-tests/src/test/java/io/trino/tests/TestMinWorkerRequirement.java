@@ -21,8 +21,7 @@ import io.trino.Session;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.MaterializedResult;
-import io.trino.testing.ResultWithQueryId;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.Test;
 
@@ -186,17 +185,17 @@ public class TestMinWorkerRequirement
                     .setCatalog("tpch")
                     .setSchema("tiny")
                     .build();
-            ListenableFuture<ResultWithQueryId<MaterializedResult>> queryFuture1 = service.submit(() -> queryRunner.executeWithQueryId(session1, "SELECT COUNT(*) from lineitem"));
+            ListenableFuture<MaterializedResultWithQueryId> queryFuture1 = service.submit(() -> queryRunner.executeWithQueryId(session1, "SELECT COUNT(*) from lineitem"));
 
             Session session2 = Session.builder(session1)
                     .setSystemProperty(REQUIRED_WORKERS_COUNT, "3")
                     .build();
-            ListenableFuture<ResultWithQueryId<MaterializedResult>> queryFuture2 = service.submit(() -> queryRunner.executeWithQueryId(session2, "SELECT COUNT(*) from lineitem"));
+            ListenableFuture<MaterializedResultWithQueryId> queryFuture2 = service.submit(() -> queryRunner.executeWithQueryId(session2, "SELECT COUNT(*) from lineitem"));
 
             Session session3 = Session.builder(session1)
                     .setSystemProperty(REQUIRED_WORKERS_COUNT, "4")
                     .build();
-            ListenableFuture<ResultWithQueryId<MaterializedResult>> queryFuture3 = service.submit(() -> queryRunner.executeWithQueryId(session3, "SELECT COUNT(*) from lineitem"));
+            ListenableFuture<MaterializedResultWithQueryId> queryFuture3 = service.submit(() -> queryRunner.executeWithQueryId(session3, "SELECT COUNT(*) from lineitem"));
 
             MILLISECONDS.sleep(1000);
             // None of the queries should run

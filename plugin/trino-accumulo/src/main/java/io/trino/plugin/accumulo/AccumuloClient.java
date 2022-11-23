@@ -107,7 +107,7 @@ public class AccumuloClient
             throws AccumuloException, AccumuloSecurityException
     {
         this.connector = requireNonNull(connector, "connector is null");
-        this.username = requireNonNull(config, "config is null").getUsername();
+        this.username = config.getUsername();
         this.metaManager = requireNonNull(metaManager, "metaManager is null");
         this.tableManager = requireNonNull(tableManager, "tableManager is null");
         this.indexLookup = requireNonNull(indexLookup, "indexLookup is null");
@@ -330,6 +330,7 @@ public class AccumuloClient
                                 cm.getType(),
                                 ordinal,
                                 "Accumulo row ID",
+                                Optional.ofNullable(cm.getComment()),
                                 false));
             }
             else {
@@ -340,7 +341,7 @@ public class AccumuloClient
                 // Get the mapping for this column
                 Pair<String, String> famqual = mapping.get(cm.getName());
                 boolean indexed = indexedColumns.isPresent() && indexedColumns.get().contains(cm.getName().toLowerCase(Locale.ENGLISH));
-                String comment = format("Accumulo column %s:%s. Indexed: %b", famqual.getLeft(), famqual.getRight(), indexed);
+                String extraInfo = format("Accumulo column %s:%s. Indexed: %b", famqual.getLeft(), famqual.getRight(), indexed);
 
                 // Create a new AccumuloColumnHandle object
                 cBuilder.add(
@@ -350,7 +351,8 @@ public class AccumuloClient
                                 Optional.of(famqual.getRight()),
                                 cm.getType(),
                                 ordinal,
-                                comment,
+                                extraInfo,
+                                Optional.ofNullable(cm.getComment()),
                                 indexed));
             }
         }
@@ -615,6 +617,7 @@ public class AccumuloClient
                         columnHandle.getQualifier(),
                         columnHandle.getType(),
                         columnHandle.getOrdinal(),
+                        columnHandle.getExtraInfo(),
                         columnHandle.getComment(),
                         columnHandle.isIndexed()));
             }
@@ -852,20 +855,18 @@ public class AccumuloClient
                         location = Optional.of(entry.getValue().toString());
                         break;
                     }
-                    else {
-                        // Chop off some magic nonsense
-                        scannedCompareKey.set(keyBytes, 3, keyBytes.length - 3);
+                    // Chop off some magic nonsense
+                    scannedCompareKey.set(keyBytes, 3, keyBytes.length - 3);
 
-                        // Compare the keys, moving along the tablets until the location is found
-                        if (scannedCompareKey.getLength() > 0) {
-                            int compareTo = splitCompareKey.compareTo(scannedCompareKey);
-                            if (compareTo <= 0) {
-                                location = Optional.of(entry.getValue().toString());
-                            }
-                            else {
-                                // all future tablets will be greater than this key
-                                break;
-                            }
+                    // Compare the keys, moving along the tablets until the location is found
+                    if (scannedCompareKey.getLength() > 0) {
+                        int compareTo = splitCompareKey.compareTo(scannedCompareKey);
+                        if (compareTo <= 0) {
+                            location = Optional.of(entry.getValue().toString());
+                        }
+                        else {
+                            // all future tablets will be greater than this key
+                            break;
                         }
                     }
                 }

@@ -172,11 +172,9 @@ public class IndexLookup
 
             return true;
         }
-        else {
-            LOG.debug("Use of index metrics is enabled");
-            // Get ranges using the metrics
-            return getRangesWithMetrics(session, schema, table, constraintRanges, rowIdRanges, tabletSplits, auths);
-        }
+        LOG.debug("Use of index metrics is enabled");
+        // Get ranges using the metrics
+        return getRangesWithMetrics(session, schema, table, constraintRanges, rowIdRanges, tabletSplits, auths);
     }
 
     private static Multimap<AccumuloColumnConstraint, Range> getIndexedConstraintRanges(Collection<AccumuloColumnConstraint> constraints, AccumuloRowSerializer serializer)
@@ -279,10 +277,8 @@ public class IndexLookup
             LOG.debug("Number of splits for %s.%s is %d with %d ranges", schema, table, tabletSplits.size(), indexRanges.size());
             return true;
         }
-        else {
-            // We are going to do too much work to use the secondary index, so return false
-            return false;
-        }
+        // We are going to do too much work to use the secondary index, so return false
+        return false;
     }
 
     private static boolean smallestCardAboveThreshold(ConnectorSession session, long numRows, long smallestCardinality)

@@ -29,6 +29,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WI
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
@@ -49,6 +50,10 @@ public abstract class BaseConnectorSmokeTest
 {
     protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(NATION, REGION);
 
+    /**
+     * Make sure to group related behaviours together in the order and grouping they are declared in {@link TestingConnectorBehavior}.
+     * If required, annotate the method with {@code @SuppressWarnings("DuplicateBranchesInSwitch")}.
+     */
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return connectorBehavior.hasBehaviorByDefault(this::hasBehavior);
@@ -144,6 +149,11 @@ public abstract class BaseConnectorSmokeTest
         return "(a bigint, b double)";
     }
 
+    protected String expectedValues(String values)
+    {
+        return format("SELECT CAST(a AS bigint), CAST(b AS double) FROM (VALUES %s) AS t (a, b)", values);
+    }
+
     @Test
     public void testCreateTableAsSelect()
     {
@@ -172,9 +182,9 @@ public abstract class BaseConnectorSmokeTest
         }
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", getCreateTableDefaultDefinition())) {
-            assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (42, -38.5)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (42, -38.5), (13, 99.9)", 2);
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
-                    .matches("VALUES (BIGINT '42', -385e-1)");
+                    .matches(expectedValues("(42, -38.5), (13, 99.9)"));
         }
     }
 
@@ -241,12 +251,50 @@ public abstract class BaseConnectorSmokeTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update", "AS TABLE tpch.tiny.nation")) {
-            String tableName = table.getName();
-            assertUpdate("UPDATE " + tableName + " SET nationkey = 100 + nationkey WHERE regionkey = 2", 5);
-            assertThat(query("SELECT * FROM " + tableName))
-                    .skippingTypesCheck()
-                    .matches("SELECT IF(regionkey=2, nationkey + 100, nationkey) nationkey, name, regionkey, comment FROM tpch.tiny.nation");
+        if (!hasBehavior(SUPPORTS_INSERT)) {
+            throw new AssertionError("Cannot test UPDATE without INSERT");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_", getCreateTableDefaultDefinition())) {
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b) SELECT regionkey, regionkey * 2.5 FROM region", "SELECT count(*) FROM region");
+            assertThat(query("SELECT a, b FROM " + table.getName()))
+                    .matches(expectedValues("(0, 0.0), (1, 2.5), (2, 5.0), (3, 7.5), (4, 10.0)"));
+
+            assertUpdate("UPDATE " + table.getName() + " SET b = b + 1.2 WHERE a % 2 = 0", 3);
+            assertThat(query("SELECT a, b FROM " + table.getName()))
+                    .matches(expectedValues("(0, 1.2), (1, 2.5), (2, 6.2), (3, 7.5), (4, 11.2)"));
+        }
+    }
+
+    @Test
+    public void testMerge()
+    {
+        if (!hasBehavior(SUPPORTS_MERGE)) {
+            // Note this change is a no-op, if actually run
+            assertQueryFails("MERGE INTO nation n USING nation s ON (n.nationkey = s.nationkey) " +
+                            "WHEN MATCHED AND n.regionkey < 1 THEN UPDATE SET nationkey = 5",
+                    "This connector does not support merges");
+            return;
+        }
+
+        if (!hasBehavior(SUPPORTS_INSERT)) {
+            throw new AssertionError("Cannot test MERGE without INSERT");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_merge_", getCreateTableDefaultDefinition())) {
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b) SELECT regionkey, regionkey * 2.5 FROM region", "SELECT count(*) FROM region");
+            assertThat(query("SELECT a, b FROM " + table.getName()))
+                    .matches(expectedValues("(0, 0.0), (1, 2.5), (2, 5.0), (3, 7.5), (4, 10.0)"));
+
+            assertUpdate("MERGE INTO " + table.getName() + " t " +
+                    "USING (VALUES (0, 1.3), (2, 2.9), (3, 0.0), (4, -5.0), (5, 5.7)) AS s (a, b) " +
+                    "ON (t.a = s.a) " +
+                    "WHEN MATCHED AND s.b > 0 THEN UPDATE SET b = t.b + s.b " +
+                    "WHEN MATCHED AND s.b = 0 THEN DELETE " +
+                    "WHEN NOT MATCHED THEN INSERT VALUES (s.a, s.b)",
+                    4);
+            assertThat(query("SELECT a, b FROM " + table.getName()))
+                    .matches(expectedValues("(0, 1.3), (1, 2.5), (2, 7.9), (4, 10.0), (5, 5.7)"));
         }
     }
 

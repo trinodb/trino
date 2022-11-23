@@ -72,7 +72,7 @@ public final class HiveApplyProjectionUtil
                 target = (Variable) expression;
                 break;
             }
-            else if (expression instanceof FieldDereference) {
+            if (expression instanceof FieldDereference) {
                 FieldDereference dereference = (FieldDereference) expression;
                 ordinals.add(dereference.getField());
                 expression = dereference.getTarget();

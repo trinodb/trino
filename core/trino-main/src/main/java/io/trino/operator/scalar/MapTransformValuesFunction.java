@@ -27,15 +27,15 @@ import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.control.TryCatch;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -100,7 +100,7 @@ public final class MapTransformValuesFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         MapType inputMapType = (MapType) boundSignature.getArgumentType(0);
         Type inputValueType = inputMapType.getValueType();
@@ -108,7 +108,7 @@ public final class MapTransformValuesFunction
         Type keyType = outputMapType.getKeyType();
         Type outputValueType = outputMapType.getValueType();
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, FUNCTION),

@@ -33,9 +33,7 @@ public class NoSchemaEmulation
         if (DEFAULT_SCHEMA.equals(schemaName)) {
             throw new SchemaAlreadyExistsException(schemaName);
         }
-        else {
-            throw new TrinoException(GENERIC_USER_ERROR, "Creating schema in Kudu connector not allowed if schema emulation is disabled.");
-        }
+        throw new TrinoException(GENERIC_USER_ERROR, "Creating schema in Kudu connector not allowed if schema emulation is disabled.");
     }
 
     @Override
@@ -44,9 +42,7 @@ public class NoSchemaEmulation
         if (DEFAULT_SCHEMA.equals(schemaName)) {
             throw new TrinoException(GENERIC_USER_ERROR, "Deleting default schema not allowed.");
         }
-        else {
-            throw new SchemaNotFoundException(schemaName);
-        }
+        throw new SchemaNotFoundException(schemaName);
     }
 
     @Override
@@ -67,9 +63,7 @@ public class NoSchemaEmulation
         if (DEFAULT_SCHEMA.equals(schemaTableName.getSchemaName())) {
             return schemaTableName.getTableName();
         }
-        else {
-            throw new SchemaNotFoundException(schemaTableName.getSchemaName());
-        }
+        throw new SchemaNotFoundException(schemaTableName.getSchemaName());
     }
 
     @Override

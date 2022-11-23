@@ -28,11 +28,12 @@ import static io.trino.orc.metadata.statistics.IntegerStatisticsBuilder.mergeInt
 import static io.trino.orc.metadata.statistics.LongDecimalStatisticsBuilder.mergeDecimalStatistics;
 import static io.trino.orc.metadata.statistics.StringStatisticsBuilder.mergeStringStatistics;
 import static io.trino.orc.metadata.statistics.TimestampStatisticsBuilder.mergeTimestampStatistics;
+import static java.lang.Math.toIntExact;
 
 public class ColumnStatistics
         implements Hashable
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ColumnStatistics.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ColumnStatistics.class).instanceSize());
 
     private final boolean hasNumberOfValues;
     private final long numberOfValues;

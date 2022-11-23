@@ -29,7 +29,6 @@ import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.ProtocolHeaders.detectProtocol;
 import static io.trino.server.security.BasicAuthCredentials.extractBasicAuthCredentials;
 import static io.trino.server.security.UserMapping.createUserMapping;
-import static java.util.Objects.requireNonNull;
 
 public class InsecureAuthenticator
         implements Authenticator
@@ -40,7 +39,6 @@ public class InsecureAuthenticator
     @Inject
     public InsecureAuthenticator(InsecureAuthenticatorConfig config, ProtocolConfig protocolConfig)
     {
-        requireNonNull(config, "config is null");
         this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
         this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
     }

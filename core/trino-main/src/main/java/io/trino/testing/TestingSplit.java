@@ -23,11 +23,12 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.List;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 
 public class TestingSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestingSplit.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TestingSplit.class).instanceSize());
 
     private static final HostAddress localHost = HostAddress.fromString("127.0.0.1");
 

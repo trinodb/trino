@@ -13,7 +13,7 @@
  */
 package io.trino.operator;
 
-import io.trino.operator.aggregation.AggregationImplementation;
+import io.trino.operator.aggregation.ParametricAggregationImplementation;
 import io.trino.operator.scalar.ParametricScalar;
 
 import static org.testng.Assert.assertEquals;
@@ -32,7 +32,7 @@ abstract class TestAnnotationEngine
         assertEquals(implementations.getGenericImplementations().size(), generic);
     }
 
-    void assertDependencyCount(AggregationImplementation implementation, int input, int combine, int output)
+    void assertDependencyCount(ParametricAggregationImplementation implementation, int input, int combine, int output)
     {
         assertEquals(implementation.getInputDependencies().size(), input);
         assertEquals(implementation.getCombineDependencies().size(), combine);

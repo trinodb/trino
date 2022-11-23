@@ -25,13 +25,13 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.CallSiteBinder;
@@ -65,13 +65,15 @@ import static java.util.Collections.nCopies;
 public final class ArrayConstructor
         extends SqlScalarFunction
 {
+    public static final String NAME = "$array";
+
     public static final ArrayConstructor ARRAY_CONSTRUCTOR = new ArrayConstructor();
 
     public ArrayConstructor()
     {
         super(FunctionMetadata.scalarBuilder()
                 .signature(Signature.builder()
-                        .name("array_constructor")
+                        .name(NAME)
                         .typeVariable("E")
                         .returnType(arrayType(new TypeSignature("E")))
                         .argumentType(new TypeSignature("E"))
@@ -86,7 +88,7 @@ public final class ArrayConstructor
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         ImmutableList.Builder<Class<?>> builder = ImmutableList.builder();
         Type type = boundSignature.getArgumentTypes().get(0);
@@ -108,7 +110,7 @@ public final class ArrayConstructor
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 nCopies(stackTypes.size(), BOXED_NULLABLE),

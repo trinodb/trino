@@ -29,6 +29,7 @@ properties, refer to the :doc:`connector documentation </connector/>`.
     Logging <properties-logging>
     Web UI <properties-web-interface>
     Regular expression function <properties-regexp-function>
+    HTTP client <properties-http-client>
 
 Property value types
 --------------------

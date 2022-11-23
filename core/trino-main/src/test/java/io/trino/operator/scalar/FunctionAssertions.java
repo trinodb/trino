@@ -24,7 +24,6 @@ import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
@@ -81,7 +80,6 @@ import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.type.BlockTypeOperators;
-import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -130,23 +128,23 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ExpressionTestUtils.createExpression;
 import static io.trino.sql.ExpressionTestUtils.getTypes;
 import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.sql.relational.SqlToRowExpressionTranslator.translate;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -291,6 +289,10 @@ public final class FunctionAssertions
         runner.installPlugin(plugin);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#function(String, String...)}
+     */
+    @Deprecated
     public void assertFunction(String projection, Type expectedType, Object expected)
     {
         if (expected instanceof Slice) {
@@ -301,17 +303,29 @@ public final class FunctionAssertions
         assertEquals(actual, expected);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#function(String, String...)}
+     */
+    @Deprecated
     public void assertFunctionString(String projection, Type expectedType, String expected)
     {
         Object actual = selectSingleValue(projection, expectedType, runner.getExpressionCompiler());
         assertEquals(actual.toString(), expected);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#expression(String)}
+     */
+    @Deprecated
     public void tryEvaluate(String expression, Type expectedType)
     {
         tryEvaluate(expression, expectedType, session);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#expression(String)}
+     */
+    @Deprecated
     public void tryEvaluate(String expression, Type expectedType, Session session)
     {
         selectUniqueValue(expression, expectedType, session, runner.getExpressionCompiler());
@@ -322,6 +336,10 @@ public final class FunctionAssertions
         tryEvaluateWithAll(expression, expectedType, session);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#expression(String)}
+     */
+    @Deprecated
     public void tryEvaluateWithAll(String expression, Type expectedType, Session session)
     {
         executeProjectionWithAll(expression, expectedType, session, runner.getExpressionCompiler());
@@ -377,13 +395,6 @@ public final class FunctionAssertions
     {
         assertTrinoExceptionThrownBy(() -> evaluateInvalid(projection))
                 .hasErrorCode(expectedErrorCode);
-    }
-
-    public void assertFunctionThrowsIncorrectly(@Language("SQL") String projection, Class<? extends Throwable> throwableClass, @Language("RegExp") String message)
-    {
-        assertThatThrownBy(() -> evaluateInvalid(projection))
-                .isInstanceOf(throwableClass)
-                .hasMessageMatching(message);
     }
 
     public void assertNumericOverflow(String projection, String message)
@@ -586,17 +597,6 @@ public final class FunctionAssertions
         Object recordValue = selectSingleValue(scanProjectOperatorFactory, expectedType, createRecordSetSplit(), session);
         results.add(recordValue);
 
-        //
-        // If the projection does not need bound values, execute query using full engine
-        if (!needsBoundValue(projectionExpression)) {
-            MaterializedResult result = runner.execute("SELECT " + projection);
-            assertType(result.getTypes(), expectedType);
-            assertEquals(result.getTypes().size(), 1);
-            assertEquals(result.getMaterializedRows().size(), 1);
-            Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
-            results.add(queryResult);
-        }
-
         // validate type at end since some tests expect failure and for those UNKNOWN is used instead of actual type
         assertEquals(projectionRowExpression.getType(), expectedType);
         return results;
@@ -794,21 +794,19 @@ public final class FunctionAssertions
             if (javaType == boolean.class) {
                 return type.getBoolean(block, position);
             }
-            else if (javaType == long.class) {
+            if (javaType == long.class) {
                 return type.getLong(block, position);
             }
-            else if (javaType == double.class) {
+            if (javaType == double.class) {
                 return type.getDouble(block, position);
             }
-            else if (javaType == Slice.class) {
+            if (javaType == Slice.class) {
                 return type.getSlice(block, position);
             }
-            else if (javaType == Block.class || javaType == Int128.class) {
+            if (javaType == Block.class || javaType == Int128.class) {
                 return type.getObject(block, position);
             }
-            else {
-                throw new UnsupportedOperationException("not yet implemented");
-            }
+            throw new UnsupportedOperationException("not yet implemented");
         });
 
         // convert result from stack type to Type ObjectValue
@@ -946,7 +944,7 @@ public final class FunctionAssertions
             assertInstanceOf(split.getConnectorSplit(), FunctionAssertions.TestSplit.class);
             FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split.getConnectorSplit();
             if (testSplit.isRecordSet()) {
-                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR, TIMESTAMP_WITH_TIME_ZONE, VARBINARY, INTEGER, TEST_ROW_TYPE, SHORT_DECIMAL_TYPE, LONG_DECIMAL_TYPE))
+                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR, TIMESTAMP_TZ_MILLIS, VARBINARY, INTEGER, TEST_ROW_TYPE, SHORT_DECIMAL_TYPE, LONG_DECIMAL_TYPE))
                         .addRow(
                                 1234L,
                                 "hello",
@@ -964,20 +962,18 @@ public final class FunctionAssertions
                         .build();
                 return new RecordPageSource(records);
             }
-            else {
-                return new FixedPageSource(ImmutableList.of(SOURCE_PAGE));
-            }
+            return new FixedPageSource(ImmutableList.of(SOURCE_PAGE));
         }
     }
 
     private static Split createRecordSetSplit()
     {
-        return new Split(new CatalogName("test"), new TestSplit(true));
+        return new Split(TEST_CATALOG_HANDLE, new TestSplit(true));
     }
 
     private static Split createNormalSplit()
     {
-        return new Split(new CatalogName("test"), new TestSplit(false));
+        return new Split(TEST_CATALOG_HANDLE, new TestSplit(false));
     }
 
     private static RowType createTestRowType(int numberOfFields)
@@ -1022,7 +1018,7 @@ public final class FunctionAssertions
     private static class TestSplit
             implements ConnectorSplit
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestSplit.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TestSplit.class).instanceSize());
 
         private final boolean recordSet;
 

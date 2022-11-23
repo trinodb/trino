@@ -108,9 +108,7 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
         {
             this.schemaRegistryClient = requireNonNull(schemaRegistryClient, "schemaRegistryClient is null");
             this.schemaParsers = ImmutableMap.copyOf(requireNonNull(schemaParsers, "schemaParsers is null"));
-            requireNonNull(kafkaConfig, "kafkaConfig is null");
             this.defaultSchema = kafkaConfig.getDefaultSchema();
-            requireNonNull(confluentConfig, "confluentConfig is null");
             this.subjectsCacheRefreshInterval = confluentConfig.getConfluentSubjectsCacheRefreshInterval();
         }
 

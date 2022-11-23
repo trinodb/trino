@@ -36,6 +36,9 @@ connection properties as appropriate for your setup:
 
 .. include:: jdbc-common-configurations.fragment
 
+.. |default_domain_compaction_threshold| replace:: ``32``
+.. include:: jdbc-domain-compaction-threshold.fragment
+
 .. include:: jdbc-case-insensitive-matching.fragment
 
 .. include:: non-transactional-insert.fragment
@@ -71,41 +74,168 @@ that catalog name instead of ``mariadb`` in the above examples.
 Type mapping
 ------------
 
-Trino supports the following MariaDB data types:
+Because Trino and MariaDB each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
 
-==================================  =============================== =============================================================================================================
-MariaDB type                        Trino type                      Notes
-==================================  =============================== =============================================================================================================
-``boolean``                         ``tinyint``
-``tinyint``                         ``tinyint``
-``smallint``                        ``smallint``
-``int``                             ``integer``
-``bigint``                          ``bigint``
-``tinyint unsigned``                ``smallint``
-``smallint unsigned``               ``integer``
-``mediumint unsigned``              ``integer``
-``integer unsigned``                ``bigint``
-``bigint unsigned``                 ``decimal(20,0)``
-``float``                           ``real``
-``double``                          ``double``
-``decimal(p,s)``                    ``decimal(p,s)``
-``char(n)``                         ``char(n)``
-``tinytext``                        ``varchar(255)``
-``text``                            ``varchar(65535)``
-``mediumtext``                      ``varchar(16777215)``
-``longtext``                        ``varchar``
-``varchar(n)``                      ``varchar(n)``
-``tinyblob``                        ``varbinary``
-``blob``                            ``varbinary``
-``mediumblob``                      ``varbinary``
-``longblob``                        ``varbinary``
-``varbinary(n)``                    ``varbinary``
-``date``                            ``date``
-``time(n)``                         ``time(n)``
-``timestamp(n)``                    ``timestamp(n)``                MariaDB stores the current timestamp by default.
-                                                                    Please enable `explicit_defaults_for_timestamp <https://mariadb.com/docs/reference/mdb/system-variables/explicit_defaults_for_timestamp/>`_
-                                                                    to avoid implicit default values.
-==================================  =============================== =============================================================================================================
+MariaDB type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps MariaDB types to the corresponding Trino types according
+to the following table:
+
+.. list-table:: MariaDB type to Trino type mapping
+  :widths: 30, 30, 50
+  :header-rows: 1
+
+  * - MariaDB type
+    - Trino type
+    - Notes
+  * - ``BOOLEAN``
+    - ``TINYINT``
+    - ``BOOL`` and ``BOOLEAN`` are aliases of ``TINYINT(1)``
+  * - ``TINYINT``
+    - ``TINYINT``
+    -
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``INT``
+    - ``INTEGER``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``FLOAT``
+    - ``REAL``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``DECIMAL(p,s)``
+    - ``DECIMAL(p,s)``
+    -
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+    -
+  * - ``TINYTEXT``
+    - ``VARCHAR(255)``
+    -
+  * - ``TEXT``
+    - ``VARCHAR(65535)``
+    -
+  * - ``MEDIUMTEXT``
+    - ``VARCHAR(16777215)``
+    -
+  * - ``LONGTEXT``
+    - ``VARCHAR``
+    -
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+    -
+  * - ``TINYBLOB``
+    - ``VARBINARY``
+    -
+  * - ``BLOB``
+    - ``VARBINARY``
+    -
+  * - ``MEDIUMBLOB``
+    - ``VARBINARY``
+    -
+  * - ``LONGBLOB``
+    - ``VARBINARY``
+    -
+  * - ``VARBINARY(n)``
+    - ``VARBINARY``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME(n)``
+    - ``TIME(n)``
+    -
+  * - ``TIMESTAMP(n)``
+    - ``TIMESTAMP(n)``
+    - MariaDB stores the current timestamp by default. Enable
+      `explicit_defaults_for_timestamp
+      <https://mariadb.com/docs/reference/mdb/system-variables/explicit_defaults_for_timestamp/>`_
+      to avoid implicit default values and use ``NULL`` as the default value.
+
+No other types are supported.
+
+Trino type mapping to MariaDB type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Trino types to the corresponding MariaDB types according
+to the following table:
+
+.. list-table:: Trino type mapping to MariaDB type mapping
+  :widths: 30, 25, 50
+  :header-rows: 1
+
+  * - Trino type
+    - MariaDB type
+    - Notes
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``TINYINT``
+    - ``TINYINT``
+    -
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``INTEGER``
+    - ``INT``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``REAL``
+    - ``FLOAT``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``DECIMAL(p,s)``
+    - ``DECIMAL(p,s)``
+    -
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+    -
+  * - ``VARCHAR(255)``
+    - ``TINYTEXT``
+    - Maps on ``VARCHAR`` of length 255 or less.
+  * - ``VARCHAR(65535)``
+    - ``TEXT``
+    - Maps on ``VARCHAR`` of length between 256 and 65535, inclusive.
+  * - ``VARCHAR(16777215)``
+    - ``MEDIUMTEXT``
+    - Maps on ``VARCHAR`` of length between 65536 and 16777215, inclusive.
+  * - ``VARCHAR``
+    - ``LONGTEXT``
+    - ``VARCHAR`` of length greater than 16777215 and unbounded ``VARCHAR`` map
+      to ``LONGTEXT``.
+  * - ``VARBINARY``
+    - ``MEDIUMBLOB``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME(n)``
+    - ``TIME(n)``
+    -
+  * - ``TIMESTAMP(n)``
+    - ``TIMESTAMP(n)``
+    - MariaDB stores the current timestamp by default. Enable
+      `explicit_defaults_for_timestamp
+      <https://mariadb.com/docs/reference/mdb/system-variables/explicit_defaults_for_timestamp/>`_
+      to avoid implicit default values and use ``NULL`` as the default value.
+
+No other types are supported.
+
 
 Complete list of `MariaDB data types
 <https://mariadb.com/kb/en/data-types/>`_.

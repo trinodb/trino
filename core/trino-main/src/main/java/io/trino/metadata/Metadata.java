@@ -16,7 +16,7 @@ package io.trino.metadata;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -31,12 +31,12 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.JoinApplicationResult;
-import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SortItem;
@@ -46,6 +46,8 @@ import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.function.AggregationFunctionMetadata;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
@@ -72,7 +74,7 @@ import static io.trino.spi.function.OperatorType.CAST;
 
 public interface Metadata
 {
-    Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName);
+    Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogHandle catalogHandle);
 
     boolean catalogExists(Session session, String catalogName);
 
@@ -213,6 +215,11 @@ public interface Metadata
     void setTableComment(Session session, TableHandle tableHandle, Optional<String> comment);
 
     /**
+     * Comments to the specified view.
+     */
+    void setViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment);
+
+    /**
      * Comments to the specified column.
      */
     void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment);
@@ -266,7 +273,7 @@ public interface Metadata
     /**
      * Describes statistics that must be collected during a write.
      */
-    TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
+    TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata);
 
     /**
      * Describe statistics that must be collected during a statistics collection
@@ -371,9 +378,37 @@ public interface Metadata
     void finishUpdate(Session session, TableHandle tableHandle, Collection<Slice> fragments);
 
     /**
-     * Returns a connector id for the specified catalog name.
+     * Return the row update paradigm supported by the connector on the table or throw
+     * an exception if row change is not supported.
      */
-    Optional<CatalogName> getCatalogHandle(Session session, String catalogName);
+    RowChangeParadigm getRowChangeParadigm(Session session, TableHandle tableHandle);
+
+    /**
+     * Get the column handle that will generate row IDs for the merge operation.
+     * These IDs will be passed to the {@code storeMergedRows()} method of the
+     * {@link io.trino.spi.connector.ConnectorMergeSink} that created them.
+     */
+    ColumnHandle getMergeRowIdColumnHandle(Session session, TableHandle tableHandle);
+
+    /**
+     * Get the physical layout for updated or deleted rows of a MERGE operation.
+     */
+    Optional<PartitioningHandle> getUpdateLayout(Session session, TableHandle tableHandle);
+
+    /**
+     * Begin merge query
+     */
+    MergeHandle beginMerge(Session session, TableHandle tableHandle);
+
+    /**
+     * Finish merge query
+     */
+    void finishMerge(Session session, MergeHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
+
+    /**
+     * Returns a catalog handle for the specified catalog name.
+     */
+    Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName);
 
     /**
      * Gets all the loaded catalogs
@@ -458,7 +493,7 @@ public interface Metadata
             JoinType joinType,
             TableHandle left,
             TableHandle right,
-            List<JoinCondition> joinConditions,
+            ConnectorExpression joinCondition,
             Map<String, ColumnHandle> leftAssignments,
             Map<String, ColumnHandle> rightAssignments,
             JoinStatistics statistics);
@@ -511,14 +546,6 @@ public interface Metadata
      * @param catalog if present, the role catalog; otherwise the role is a system role
      */
     Set<String> listRoles(Session session, Optional<String> catalog);
-
-    /**
-     * List all role grants in the specified catalog,
-     * optionally filtered by passed role, grantee, and limit predicates.
-     *
-     * @param catalog if present, the role catalog; otherwise the role is a system role
-     */
-    Set<RoleGrant> listAllRoleGrants(Session session, Optional<String> catalog, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit);
 
     /**
      * List roles grants in the specified catalog for a given principal, not recursively.

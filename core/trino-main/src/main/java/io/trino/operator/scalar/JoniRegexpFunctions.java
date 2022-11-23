@@ -74,14 +74,10 @@ public final class JoniRegexpFunctions
             if (matcher.getBegin() < source.length()) {
                 return matcher.getEnd() + lengthOfCodePointFromStartByte(source.getByte(matcher.getBegin()));
             }
-            else {
-                // last match is empty and we matched end of source, move past the source length to terminate the loop
-                return matcher.getEnd() + 1;
-            }
+            // last match is empty and we matched end of source, move past the source length to terminate the loop
+            return matcher.getEnd() + 1;
         }
-        else {
-            return matcher.getEnd();
-        }
+        return matcher.getEnd();
     }
 
     @Description("Removes substrings matching a regular expression")
@@ -416,9 +412,6 @@ public final class JoniRegexpFunctions
             return matcher.searchInterruptible(at, range, Option.DEFAULT);
         }
         catch (InterruptedException interruptedException) {
-            // The JONI library is compliant with the InterruptedException contract. They reset the interrupted flag before throwing an exception.
-            // Since the InterruptedException is being caught the interrupt flag must either be recovered or the thread must be terminated.
-            // Since we are simply throwing a different exception, the interrupt flag must be recovered to propagate the interrupted status to the upper level code.
             Thread.currentThread().interrupt();
             throw new TrinoException(GENERIC_USER_ERROR, "" +
                     "Regular expression matching was interrupted, likely because it took too long. " +

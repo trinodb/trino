@@ -78,6 +78,7 @@ import static io.trino.plugin.hive.HiveType.HIVE_SHORT;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToDoubleCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToRealCoercer;
+import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToVarcharCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDoubleToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createRealToDecimalCoercer;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucket;
@@ -337,6 +338,9 @@ public class HivePageSource
         if (fromType instanceof DecimalType && toType == REAL) {
             return Optional.of(createDecimalToRealCoercer((DecimalType) fromType));
         }
+        if (fromType instanceof DecimalType && toType instanceof VarcharType) {
+            return Optional.of(createDecimalToVarcharCoercer((DecimalType) fromType, (VarcharType) toType));
+        }
         if (fromType == DOUBLE && toType instanceof DecimalType) {
             return Optional.of(createDoubleToDecimalCoercer((DecimalType) toType));
         }
@@ -415,7 +419,7 @@ public class HivePageSource
         {
             requireNonNull(typeManager, "typeManager is null");
             requireNonNull(fromHiveType, "fromHiveType is null");
-            this.toType = requireNonNull(toHiveType, "toHiveType is null").getType(typeManager);
+            this.toType = toHiveType.getType(typeManager);
             HiveType fromKeyHiveType = HiveType.valueOf(((MapTypeInfo) fromHiveType.getTypeInfo()).getMapKeyTypeInfo().getTypeName());
             HiveType fromValueHiveType = HiveType.valueOf(((MapTypeInfo) fromHiveType.getTypeInfo()).getMapValueTypeInfo().getTypeName());
             HiveType toKeyHiveType = HiveType.valueOf(((MapTypeInfo) toHiveType.getTypeInfo()).getMapKeyTypeInfo().getTypeName());
@@ -482,7 +486,7 @@ public class HivePageSource
                     fields[i] = rowBlock.getField(i);
                 }
                 else {
-                    fields[i] = new DictionaryBlock(nullBlocks[i], ids);
+                    fields[i] = DictionaryBlock.create(ids.length, nullBlocks[i], ids);
                 }
             }
             boolean[] valueIsNull = null;

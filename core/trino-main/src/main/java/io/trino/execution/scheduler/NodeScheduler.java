@@ -20,7 +20,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.RemoteTask;
 import io.trino.metadata.InternalNode;
@@ -61,9 +61,9 @@ public class NodeScheduler
         this.nodeSelectorFactory = requireNonNull(nodeSelectorFactory, "nodeSelectorFactory is null");
     }
 
-    public NodeSelector createNodeSelector(Session session, Optional<CatalogName> catalogName)
+    public NodeSelector createNodeSelector(Session session, Optional<CatalogHandle> catalogHandle)
     {
-        return nodeSelectorFactory.createNodeSelector(requireNonNull(session, "session is null"), requireNonNull(catalogName, "catalogName is null"));
+        return nodeSelectorFactory.createNodeSelector(requireNonNull(session, "session is null"), requireNonNull(catalogHandle, "catalogHandle is null"));
     }
 
     public static List<InternalNode> getAllNodes(NodeMap nodeMap, boolean includeCoordinator)
@@ -165,7 +165,7 @@ public class NodeScheduler
         Set<InternalNode> blockedNodes = new HashSet<>();
         for (Split split : splits) {
             // node placement is forced by the bucket to node map
-            InternalNode node = bucketNodeMap.getAssignedNode(split).get();
+            InternalNode node = bucketNodeMap.getAssignedNode(split);
             SplitWeight splitWeight = split.getSplitWeight();
 
             // if node is full, don't schedule now, which will push back on the scheduling of splits

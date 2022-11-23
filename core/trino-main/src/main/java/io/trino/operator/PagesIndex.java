@@ -64,6 +64,7 @@ import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static io.trino.operator.SyntheticAddress.encodeSyntheticAddress;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -78,7 +79,7 @@ import static java.util.Objects.requireNonNull;
 public class PagesIndex
         implements Swapper
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PagesIndex.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PagesIndex.class).instanceSize());
     private static final Logger log = Logger.get(PagesIndex.class);
 
     private final OrderingCompiler orderingCompiler;
@@ -133,19 +134,25 @@ public class PagesIndex
     {
         public static final TypeOperators TYPE_OPERATORS = new TypeOperators();
         private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler(TYPE_OPERATORS);
-        private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);
+        private final JoinCompiler joinCompiler;
         private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(TYPE_OPERATORS);
         private final boolean eagerCompact;
 
         public TestingFactory(boolean eagerCompact)
         {
+            this(eagerCompact, true);
+        }
+
+        public TestingFactory(boolean eagerCompact, boolean enableSingleChannelBigintLookupSource)
+        {
             this.eagerCompact = eagerCompact;
+            joinCompiler = new JoinCompiler(TYPE_OPERATORS, enableSingleChannelBigintLookupSource);
         }
 
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, TYPE_OPERATOR_FACTORY, types, expectedPositions, eagerCompact);
+            return new PagesIndex(ORDERING_COMPILER, joinCompiler, TYPE_OPERATOR_FACTORY, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -162,7 +169,7 @@ public class PagesIndex
         {
             this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-            this.eagerCompact = requireNonNull(featuresConfig, "featuresConfig is null").isPagesIndexEagerCompactionEnabled();
+            this.eagerCompact = featuresConfig.isPagesIndexEagerCompactionEnabled();
             this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
         }
 
@@ -544,7 +551,8 @@ public class PagesIndex
                 filterFunctionFactory,
                 sortChannel,
                 searchFunctionFactories,
-                hashArraySizeSupplier);
+                hashArraySizeSupplier,
+                OptionalInt.empty());
     }
 
     private static List<Integer> rangeList(int endExclusive)

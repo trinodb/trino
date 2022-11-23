@@ -93,7 +93,7 @@ public class TestOracleCaseInsensitiveMapping
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return requireNonNull(oracleServer, "oracleServer is null")::execute;
+        return oracleServer::execute;
     }
 
     @Test

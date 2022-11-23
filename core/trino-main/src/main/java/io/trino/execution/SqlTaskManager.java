@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
@@ -27,18 +28,22 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.collect.cache.NonEvictableLoadingCache;
+import io.trino.connector.ConnectorServicesProvider;
 import io.trino.event.SplitMonitor;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.OutputBuffers;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.executor.TaskExecutor;
+import io.trino.execution.executor.TaskExecutor.RunningSplitInfo;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.memory.QueryContext;
 import io.trino.operator.RetryPolicy;
+import io.trino.operator.scalar.JoniRegexpFunctions;
+import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
@@ -62,10 +67,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -76,21 +83,33 @@ import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.resourceOvercommit;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.execution.SqlTask.createSqlTask;
+import static io.trino.execution.executor.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.StandardErrorCode.ABANDONED_TASK;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.lang.System.lineSeparator;
+import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
 
 public class SqlTaskManager
         implements Closeable
 {
     private static final Logger log = Logger.get(SqlTaskManager.class);
+    private static final Set<String> JONI_REGEXP_FUNCTION_CLASS_NAMES = ImmutableSet.of(
+            JoniRegexpFunctions.class.getName(),
+            JoniRegexpReplaceLambdaFunction.class.getName());
+    private static final Predicate<List<StackTraceElement>> STUCK_SPLIT_STACK_TRACE_PREDICATE =
+            elements -> elements.stream().anyMatch(stackTraceElement -> JONI_REGEXP_FUNCTION_CLASS_NAMES.contains(stackTraceElement.getClassName()));
 
     private final VersionEmbedder versionEmbedder;
+    private final ConnectorServicesProvider connectorServicesProvider;
     private final ExecutorService taskNotificationExecutor;
     private final ThreadPoolExecutorMBean taskNotificationExecutorMBean;
 
@@ -109,10 +128,12 @@ public class SqlTaskManager
     private final long queryMaxMemoryPerNode;
 
     private final CounterStat failedTasks = new CounterStat();
+    private final Optional<StuckSplitTasksInterrupter> stuckSplitTasksInterrupter;
 
     @Inject
     public SqlTaskManager(
             VersionEmbedder versionEmbedder,
+            ConnectorServicesProvider connectorServicesProvider,
             LocalExecutionPlanner planner,
             LocationFactory locationFactory,
             TaskExecutor taskExecutor,
@@ -127,8 +148,46 @@ public class SqlTaskManager
             GcMonitor gcMonitor,
             ExchangeManagerRegistry exchangeManagerRegistry)
     {
+        this(versionEmbedder,
+                connectorServicesProvider,
+                planner,
+                locationFactory,
+                taskExecutor,
+                splitMonitor,
+                nodeInfo,
+                localMemoryManager,
+                taskManagementExecutor,
+                config,
+                nodeMemoryConfig,
+                localSpillManager,
+                nodeSpillConfig,
+                gcMonitor,
+                exchangeManagerRegistry,
+                STUCK_SPLIT_STACK_TRACE_PREDICATE);
+    }
+
+    @VisibleForTesting
+    public SqlTaskManager(
+            VersionEmbedder versionEmbedder,
+            ConnectorServicesProvider connectorServicesProvider,
+            LocalExecutionPlanner planner,
+            LocationFactory locationFactory,
+            TaskExecutor taskExecutor,
+            SplitMonitor splitMonitor,
+            NodeInfo nodeInfo,
+            LocalMemoryManager localMemoryManager,
+            TaskManagementExecutor taskManagementExecutor,
+            TaskManagerConfig config,
+            NodeMemoryConfig nodeMemoryConfig,
+            LocalSpillManager localSpillManager,
+            NodeSpillConfig nodeSpillConfig,
+            GcMonitor gcMonitor,
+            ExchangeManagerRegistry exchangeManagerRegistry,
+            Predicate<List<StackTraceElement>> stuckSplitStackTracePredicate)
+    {
+        this.connectorServicesProvider = requireNonNull(connectorServicesProvider, "connectorServicesProvider is null");
+
         requireNonNull(nodeInfo, "nodeInfo is null");
-        requireNonNull(config, "config is null");
         infoCacheTime = config.getInfoMaxAge();
         clientTimeout = config.getClientTimeout();
 
@@ -139,7 +198,7 @@ public class SqlTaskManager
         taskNotificationExecutor = newFixedThreadPool(config.getTaskNotificationThreads(), threadsNamed("task-notification-%s"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
 
-        this.taskManagementExecutor = requireNonNull(taskManagementExecutor, "taskManagementExecutor cannot be null").getExecutor();
+        this.taskManagementExecutor = taskManagementExecutor.getExecutor();
         this.driverYieldExecutor = newScheduledThreadPool(config.getTaskYieldThreads(), threadsNamed("task-yield-%s"));
 
         SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, splitMonitor, config);
@@ -165,6 +224,14 @@ public class SqlTaskManager
                         maxBroadcastBufferSize,
                         requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null"),
                         failedTasks)));
+
+        stuckSplitTasksInterrupter = createStuckSplitTasksInterrupter(
+                config.isInterruptStuckSplitTasksEnabled(),
+                config.getInterruptStuckSplitTasksWarningThreshold(),
+                config.getInterruptStuckSplitTasksTimeout(),
+                config.getInterruptStuckSplitTasksDetectionInterval(),
+                stuckSplitStackTracePredicate,
+                taskExecutor);
     }
 
     private QueryContext createQueryContext(
@@ -211,7 +278,19 @@ public class SqlTaskManager
             catch (Throwable e) {
                 log.warn(e, "Error updating stats");
             }
-        }, 0, 1, TimeUnit.SECONDS);
+        }, 0, 1, SECONDS);
+
+        stuckSplitTasksInterrupter.ifPresent(interrupter -> {
+            long intervalSeconds = interrupter.getStuckSplitsDetectionInterval().roundTo(SECONDS);
+            taskManagementExecutor.scheduleAtFixedRate(() -> {
+                try {
+                    failStuckSplitTasks();
+                }
+                catch (Throwable e) {
+                    log.warn(e, "Error failing stuck split tasks");
+                }
+            }, 0, intervalSeconds, SECONDS);
+        });
     }
 
     @PreDestroy
@@ -228,7 +307,7 @@ public class SqlTaskManager
         }
         if (taskCanceled) {
             try {
-                TimeUnit.SECONDS.sleep(5);
+                SECONDS.sleep(5);
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -413,6 +492,8 @@ public class SqlTaskManager
             }
         }
 
+        fragment.ifPresent(planFragment -> connectorServicesProvider.ensureCatalogsLoaded(session, planFragment.getActiveCatalogs()));
+
         sqlTask.recordHeartbeat();
         return sqlTask.updateTask(session, fragment, splitAssignments, outputBuffers, dynamicFilterDomains);
     }
@@ -425,7 +506,7 @@ public class SqlTaskManager
      * NOTE: this design assumes that only tasks and buffers that will
      * eventually exist are queried.
      */
-    public ListenableFuture<BufferResult> getTaskResults(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> getTaskResults(TaskId taskId, PipelinedOutputBuffers.OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
@@ -438,7 +519,7 @@ public class SqlTaskManager
     /**
      * Acknowledges previously received results.
      */
-    public void acknowledgeTaskResults(TaskId taskId, OutputBufferId bufferId, long sequenceId)
+    public void acknowledgeTaskResults(TaskId taskId, PipelinedOutputBuffers.OutputBufferId bufferId, long sequenceId)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
@@ -455,7 +536,7 @@ public class SqlTaskManager
      * NOTE: this design assumes that only tasks and buffers that will
      * eventually exist are queried.
      */
-    public TaskInfo destroyTaskResults(TaskId taskId, OutputBufferId bufferId)
+    public TaskInfo destroyTaskResults(TaskId taskId, PipelinedOutputBuffers.OutputBufferId bufferId)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
@@ -596,5 +677,78 @@ public class SqlTaskManager
 
     {
         return queryContexts.getUnchecked(queryId);
+    }
+
+    @VisibleForTesting
+    public void failStuckSplitTasks()
+    {
+        stuckSplitTasksInterrupter.ifPresent(StuckSplitTasksInterrupter::failStuckSplitTasks);
+    }
+
+    private Optional<StuckSplitTasksInterrupter> createStuckSplitTasksInterrupter(
+            boolean enableInterruptStuckSplitTasks,
+            Duration stuckSplitsWarningThreshold,
+            Duration interruptStuckSplitTasksTimeout,
+            Duration stuckSplitsDetectionInterval,
+            Predicate<List<StackTraceElement>> stuckSplitStackTracePredicate,
+            TaskExecutor taskExecutor)
+    {
+        if (!enableInterruptStuckSplitTasks) {
+            return Optional.empty();
+        }
+        return Optional.of(
+                new StuckSplitTasksInterrupter(
+                        stuckSplitsWarningThreshold,
+                        interruptStuckSplitTasksTimeout,
+                        stuckSplitsDetectionInterval,
+                        stuckSplitStackTracePredicate,
+                        taskExecutor));
+    }
+
+    private class StuckSplitTasksInterrupter
+    {
+        private final Duration interruptStuckSplitTasksTimeout;
+        private final Duration stuckSplitsDetectionInterval;
+        private final Predicate<List<StackTraceElement>> stuckSplitStackTracePredicate;
+        private final TaskExecutor taskExecutor;
+
+        public StuckSplitTasksInterrupter(
+                Duration stuckSplitsWarningThreshold,
+                Duration interruptStuckSplitTasksTimeout,
+                Duration stuckSplitDetectionInterval,
+                Predicate<List<StackTraceElement>> stuckSplitStackTracePredicate,
+                TaskExecutor taskExecutor)
+        {
+            checkArgument(interruptStuckSplitTasksTimeout.compareTo(SPLIT_RUN_QUANTA) >= 0, "interruptStuckSplitTasksTimeout must be at least %s", SPLIT_RUN_QUANTA);
+            checkArgument(stuckSplitsWarningThreshold.compareTo(interruptStuckSplitTasksTimeout) <= 0, "interruptStuckSplitTasksTimeout cannot be less than stuckSplitsWarningThreshold");
+
+            this.interruptStuckSplitTasksTimeout = requireNonNull(interruptStuckSplitTasksTimeout, "interruptStuckSplitTasksTimeout is null");
+            this.stuckSplitsDetectionInterval = requireNonNull(stuckSplitDetectionInterval, "stuckSplitsDetectionInterval is null");
+            this.stuckSplitStackTracePredicate = requireNonNull(stuckSplitStackTracePredicate, "stuckSplitStackTracePredicate is null");
+            this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
+        }
+
+        public Duration getStuckSplitsDetectionInterval()
+        {
+            return stuckSplitsDetectionInterval;
+        }
+
+        private void failStuckSplitTasks()
+        {
+            Set<TaskId> stuckSplitTaskIds = taskExecutor.getStuckSplitTaskIds(interruptStuckSplitTasksTimeout,
+                    (RunningSplitInfo splitInfo) -> {
+                        List<StackTraceElement> stackTraceElements = asList(splitInfo.getThread().getStackTrace());
+                        if (!splitInfo.isPrinted()) {
+                            splitInfo.setPrinted();
+                            log.warn("%s is long running with stackTrace:\n%s", splitInfo.getSplitInfo(), stackTraceElements.stream().map(Object::toString).collect(joining(lineSeparator())));
+                        }
+
+                        return stuckSplitStackTracePredicate.test(stackTraceElements);
+                    });
+
+            for (TaskId stuckSplitTaskId : stuckSplitTaskIds) {
+                failTask(stuckSplitTaskId, new TrinoException(GENERIC_USER_ERROR, format("Task %s is failed, due to containing long running stuck splits.", stuckSplitTaskId)));
+            }
+        }
     }
 }

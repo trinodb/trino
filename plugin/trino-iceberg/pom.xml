@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>389</version>
+        <version>400</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,7 +15,15 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.iceberg.version>0.13.2</dep.iceberg.version>
+
+        <!--
+          Project's default for air.test.parallel is 'methods'. By design, 'instances' runs all the methods in the same instance in the same thread,
+          but two methods on two different instances will be running in different threads.
+          As a side effect, it prevents TestNG from initializing multiple test instances upfront, which happens with 'methods'.
+          A potential downside can be long tail single-threaded execution of a single long test class.
+          TODO (https://github.com/trinodb/trino/issues/11294) remove when we upgrade to surefire with https://issues.apache.org/jira/browse/SUREFIRE-1967
+          -->
+        <air.test.parallel>instances</air.test.parallel>
     </properties>
 
     <dependencies>
@@ -26,10 +34,20 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hdfs</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-hive</artifactId>
             <exclusions>
                 <exclusion>
-                    <!-- calcite-core and iceberg-data have conflicting versions of org.apache.commons:commons-lang3 -->
+                    <!-- calcite-core and Iceberg have conflicting versions of org.apache.commons:commons-lang3 -->
                     <groupId>com.linkedin.calcite</groupId>
                     <artifactId>calcite-core</artifactId>
                 </exclusion>
@@ -152,54 +170,41 @@
             <artifactId>failsafe</artifactId>
         </dependency>
 
-        <!-- Iceberg -->
+        <dependency>
+            <groupId>org.apache.datasketches</groupId>
+            <artifactId>datasketches-java</artifactId>
+            <version>3.3.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.datasketches</groupId>
+            <artifactId>datasketches-memory</artifactId>
+            <version>2.1.0</version>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-api</artifactId>
-            <version>${dep.iceberg.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-core</artifactId>
-            <version>${dep.iceberg.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.avro</groupId>
-                    <artifactId>avro</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-data</artifactId>
-            <version>${dep.iceberg.version}</version>
-            <exclusions>
-                <!-- The parquet-avro dependency uses a different version of org.apache.thrift:libthrift -->
-                <exclusion>
-                    <groupId>org.apache.parquet</groupId>
-                    <artifactId>parquet-avro</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-hive-metastore</artifactId>
-            <version>${dep.iceberg.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-parquet</artifactId>
-            <version>${dep.iceberg.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.parquet</groupId>
-                    <artifactId>parquet-avro</artifactId>
-                </exclusion>
-            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.roaringbitmap</groupId>
+            <artifactId>RoaringBitmap</artifactId>
         </dependency>
 
         <dependency>
@@ -208,6 +213,12 @@
         </dependency>
 
         <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hadoop-toolkit</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>concurrent</artifactId>
@@ -235,15 +246,7 @@
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-orc</artifactId>
-            <version>${dep.iceberg.version}</version>
             <scope>runtime</scope>
-            <exclusions>
-                <exclusion>
-                    <!-- This version of the Avro dependency fails Maven Enforcer RequireUpperBoundDeps checks -->
-                    <groupId>org.apache.avro</groupId>
-                    <artifactId>avro</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -354,6 +357,22 @@
         </dependency>
 
         <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.github.spotbugs</groupId>
+                    <artifactId>spotbugs-annotations</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.jcip</groupId>
+                    <artifactId>jcip-annotations</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <scope>test</scope>
@@ -390,6 +409,8 @@
                         <!-- com.amazonaws:aws-java-sdk-core and software.amazon.awssdk:sdk-core MIME type file duplicate-->
                         <ignoredResourcePattern>mime.types</ignoredResourcePattern>
                         <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                        <ignoredResourcePattern>iceberg-build.properties</ignoredResourcePattern>
+                        <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                 </configuration>
             </plugin>
@@ -410,10 +431,12 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/TestIcebergGlueCatalogConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestTrinoGlueCatalogTest.java</exclude>
+                                <exclude>**/TestTrinoGlueCatalog.java</exclude>
                                 <exclude>**/TestSharedGlueMetastore.java</exclude>
                                 <exclude>**/TestIcebergGlueCatalogAccessOperations.java</exclude>
                                 <exclude>**/TestIcebergGlueCatalogMaterializedViewTest.java</exclude>
+                                <exclude>**/TestIcebergGlueTableOperationsInsertFailure.java</exclude>
+                                <exclude>**/TestIcebergGcsConnectorSmokeTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -422,7 +445,7 @@
         </profile>
 
         <profile>
-            <id>test-glue-catalog</id>
+            <id>cloud-tests</id>
             <build>
                 <plugins>
                     <plugin>
@@ -431,10 +454,12 @@
                         <configuration>
                             <includes>
                                 <include>**/TestIcebergGlueCatalogConnectorSmokeTest.java</include>
-                                <include>**/TestTrinoGlueCatalogTest.java</include>
+                                <include>**/TestTrinoGlueCatalog.java</include>
                                 <include>**/TestSharedGlueMetastore.java</include>
                                 <include>**/TestIcebergGlueCatalogAccessOperations.java</include>
                                 <include>**/TestIcebergGlueCatalogMaterializedViewTest.java</include>
+                                <include>**/TestIcebergGlueTableOperationsInsertFailure.java</include>
+                                <include>**/TestIcebergGcsConnectorSmokeTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>

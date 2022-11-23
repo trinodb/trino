@@ -29,12 +29,13 @@ import java.util.PriorityQueue;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class NumericHistogram
 {
     private static final byte FORMAT_TAG = 0;
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(NumericHistogram.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(NumericHistogram.class).instanceSize());
 
     private final int maxBuckets;
     private final double[] values;

@@ -73,7 +73,6 @@ public class RedisMetadata
             RedisConnectorConfig redisConnectorConfig,
             Supplier<Map<SchemaTableName, RedisTableDescription>> redisTableDescriptionSupplier)
     {
-        requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
         hideInternalColumns = redisConnectorConfig.isHideInternalColumns();
 
         log.debug("Loading redis table definitions from %s", redisConnectorConfig.getTableDescriptionDir().getAbsolutePath());

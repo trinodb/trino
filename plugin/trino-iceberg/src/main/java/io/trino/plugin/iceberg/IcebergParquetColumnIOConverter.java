@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.parquet.Field;
 import io.trino.parquet.GroupField;
 import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.RichColumnDescriptor;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -104,8 +103,7 @@ public final class IcebergParquetColumnIOConverter
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
         }
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
-        RichColumnDescriptor column = new RichColumnDescriptor(primitiveColumnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
-        return Optional.of(new PrimitiveField(type, repetitionLevel, definitionLevel, required, column, primitiveColumnIO.getId()));
+        return Optional.of(new PrimitiveField(type, required, primitiveColumnIO.getColumnDescriptor(), primitiveColumnIO.getId()));
     }
 
     public static class FieldContext

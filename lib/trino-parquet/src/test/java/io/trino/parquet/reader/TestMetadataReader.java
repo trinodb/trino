@@ -20,8 +20,9 @@ import org.apache.parquet.column.statistics.FloatStatistics;
 import org.apache.parquet.column.statistics.IntStatistics;
 import org.apache.parquet.column.statistics.LongStatistics;
 import org.apache.parquet.format.Statistics;
-import org.apache.parquet.schema.OriginalType;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.Types;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -403,7 +404,7 @@ public class TestMetadataReader
         if (max != null) {
             statistics.setMax(max.getBytes(UTF_8));
         }
-        assertThat(MetadataReader.readStats(fileCreatedBy, Optional.of(statistics), new PrimitiveType(OPTIONAL, BINARY, "Test column", OriginalType.UTF8)))
+        assertThat(MetadataReader.readStats(fileCreatedBy, Optional.of(statistics), Types.optional(BINARY).as(LogicalTypeAnnotation.stringType()).named("Test column")))
                 .isInstanceOfSatisfying(BinaryStatistics.class, columnStatistics -> {
                     assertFalse(columnStatistics.isEmpty());
 
@@ -437,7 +438,7 @@ public class TestMetadataReader
     @Test(dataProvider = "allCreatedBy")
     public void testReadStatsBinaryUtf8(Optional<String> fileCreatedBy)
     {
-        PrimitiveType varchar = new PrimitiveType(OPTIONAL, BINARY, "Test column", OriginalType.UTF8);
+        PrimitiveType varchar = Types.optional(BINARY).as(LogicalTypeAnnotation.stringType()).named("Test column");
         Statistics statistics;
 
         // Stats written by Parquet after https://issues.apache.org/jira/browse/PARQUET-1025
@@ -477,7 +478,7 @@ public class TestMetadataReader
                         columnStatistics -> assertTrue(columnStatistics.isEmpty()));
 
         // varchar
-        assertThat(MetadataReader.readStats(fileCreatedBy, Optional.empty(), new PrimitiveType(OPTIONAL, BINARY, "Test column", OriginalType.UTF8)))
+        assertThat(MetadataReader.readStats(fileCreatedBy, Optional.empty(), Types.optional(BINARY).as(LogicalTypeAnnotation.stringType()).named("Test column")))
                 .isInstanceOfSatisfying(
                         BinaryStatistics.class,
                         columnStatistics -> assertTrue(columnStatistics.isEmpty()));

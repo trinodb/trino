@@ -106,7 +106,7 @@ class HiveSplitSource
         this.databaseName = requireNonNull(databaseName, "databaseName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.queues = requireNonNull(queues, "queues is null");
-        this.maxOutstandingSplitsBytes = requireNonNull(maxOutstandingSplitsSize, "maxOutstandingSplitsSize is null").toBytes();
+        this.maxOutstandingSplitsBytes = maxOutstandingSplitsSize.toBytes();
         this.splitLoader = requireNonNull(splitLoader, "splitLoader is null");
         this.stateReference = requireNonNull(stateReference, "stateReference is null");
         this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
@@ -362,9 +362,7 @@ class HiveSplitSource
                 //              But an extra invocation likely doesn't matter.
                 return new ConnectorSplitBatch(splits, splits.isEmpty() && queues.isFinished());
             }
-            else {
-                return new ConnectorSplitBatch(splits, false);
-            }
+            return new ConnectorSplitBatch(splits, false);
         });
     }
 

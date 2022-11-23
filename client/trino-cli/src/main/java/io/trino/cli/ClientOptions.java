@@ -39,7 +39,6 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
-import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.Option;
@@ -219,27 +218,25 @@ public class ClientOptions
 
     public ClientSession toClientSession()
     {
-        return new ClientSession(
-                parseServer(server),
-                user,
-                sessionUser,
-                source,
-                Optional.ofNullable(traceToken),
-                parseClientTags(nullToEmpty(clientTags)),
-                clientInfo,
-                catalog,
-                schema,
-                null,
-                timeZone,
-                Locale.getDefault(),
-                toResourceEstimates(resourceEstimates),
-                toProperties(sessionProperties),
-                emptyMap(),
-                emptyMap(),
-                toExtraCredentials(extraCredentials),
-                null,
-                clientRequestTimeout,
-                disableCompression);
+        return ClientSession.builder()
+                .server(parseServer(server))
+                .principal(user)
+                .user(sessionUser)
+                .source(source)
+                .traceToken(Optional.ofNullable(traceToken))
+                .clientTags(parseClientTags(nullToEmpty(clientTags)))
+                .clientInfo(clientInfo)
+                .catalog(catalog)
+                .schema(schema)
+                .timeZone(timeZone)
+                .locale(Locale.getDefault())
+                .resourceEstimates(toResourceEstimates(resourceEstimates))
+                .properties(toProperties(sessionProperties))
+                .credentials(toExtraCredentials(extraCredentials))
+                .transactionId(null)
+                .clientRequestTimeout(clientRequestTimeout)
+                .compressionDisabled(disableCompression)
+                .build();
     }
 
     public static URI parseServer(String server)

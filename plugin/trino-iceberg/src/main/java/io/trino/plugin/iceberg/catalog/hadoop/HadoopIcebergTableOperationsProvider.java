@@ -14,8 +14,7 @@
 package io.trino.plugin.iceberg.catalog.hadoop;
 
 import com.google.inject.Inject;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.trino.plugin.iceberg.FileIoProvider;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -26,20 +25,19 @@ import java.util.Optional;
 public class HadoopIcebergTableOperationsProvider
         implements IcebergTableOperationsProvider
 {
-    private final FileIoProvider fileIoProvider;
+    private final TrinoFileSystemFactory fileSystemFactory;
 
     @Inject
-    public HadoopIcebergTableOperationsProvider(FileIoProvider fileIoProvider)
+    public HadoopIcebergTableOperationsProvider(TrinoFileSystemFactory fileSystemFactory)
     {
-        this.fileIoProvider = fileIoProvider;
+        this.fileSystemFactory = fileSystemFactory;
     }
 
     @Override
     public IcebergTableOperations createTableOperations(TrinoCatalog catalog, ConnectorSession session, String database, String table, Optional<String> owner, Optional<String> location)
     {
         return new HadoopIcebergTableOperations(
-                fileIoProvider.createFileIo(new HdfsContext(session),
-                session.getQueryId()),
+                fileSystemFactory.create(session).toFileIo(),
                 session,
                 database,
                 table,

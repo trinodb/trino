@@ -26,7 +26,11 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.collect.cache.NonEvictableLoadingCache;
+import io.trino.connector.CatalogHandle;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionKind;
+import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeSignature;
@@ -57,6 +61,7 @@ public class ResolvedFunction
 {
     private static final String PREFIX = "@";
     private final BoundSignature signature;
+    private final CatalogHandle catalogHandle;
     private final FunctionId functionId;
     private final FunctionKind functionKind;
     private final boolean deterministic;
@@ -67,6 +72,7 @@ public class ResolvedFunction
     @JsonCreator
     public ResolvedFunction(
             @JsonProperty("signature") BoundSignature signature,
+            @JsonProperty("catalogHandle") CatalogHandle catalogHandle,
             @JsonProperty("id") FunctionId functionId,
             @JsonProperty("functionKind") FunctionKind functionKind,
             @JsonProperty("deterministic") boolean deterministic,
@@ -75,6 +81,7 @@ public class ResolvedFunction
             @JsonProperty("functionDependencies") Set<ResolvedFunction> functionDependencies)
     {
         this.signature = requireNonNull(signature, "signature is null");
+        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.functionKind = requireNonNull(functionKind, "functionKind is null");
         this.deterministic = deterministic;
@@ -88,6 +95,12 @@ public class ResolvedFunction
     public BoundSignature getSignature()
     {
         return signature;
+    }
+
+    @JsonProperty
+    public CatalogHandle getCatalogHandle()
+    {
+        return catalogHandle;
     }
 
     @JsonProperty("id")
@@ -158,9 +171,11 @@ public class ResolvedFunction
         }
         ResolvedFunction that = (ResolvedFunction) o;
         return Objects.equals(signature, that.signature) &&
+                Objects.equals(catalogHandle, that.catalogHandle) &&
                 Objects.equals(functionId, that.functionId) &&
-                Objects.equals(functionKind, that.functionKind) &&
+                functionKind == that.functionKind &&
                 deterministic == that.deterministic &&
+                Objects.equals(functionNullability, that.functionNullability) &&
                 Objects.equals(typeDependencies, that.typeDependencies) &&
                 Objects.equals(functionDependencies, that.functionDependencies);
     }
@@ -168,7 +183,7 @@ public class ResolvedFunction
     @Override
     public int hashCode()
     {
-        return Objects.hash(signature, functionId, functionKind, deterministic, typeDependencies, functionDependencies);
+        return Objects.hash(signature, catalogHandle, functionId, functionKind, deterministic, functionNullability, typeDependencies, functionDependencies);
     }
 
     @Override

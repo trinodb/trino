@@ -13,7 +13,7 @@
 			"ENABLE_NONROOT_DOCKER": "true",
 			"USE_MOBY": "true",
 			// Version of the Trino CLI to install
-			"TRINO_VERSION": "389"
+			"TRINO_VERSION": "400"
 		}
 	},
 	"runArgs": [

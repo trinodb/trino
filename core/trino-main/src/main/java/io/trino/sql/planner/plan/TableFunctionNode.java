@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.metadata.TableFunctionHandle;
 import io.trino.spi.ptf.Argument;
-import io.trino.spi.ptf.NameAndPosition;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.WindowNode.Specification;
 
@@ -38,7 +37,6 @@ public class TableFunctionNode
     private final List<Symbol> properOutputs;
     private final List<PlanNode> sources;
     private final List<TableArgumentProperties> tableArgumentProperties;
-    private final Map<NameAndPosition, Symbol> inputDescriptorMappings;
     private final TableFunctionHandle handle;
 
     @JsonCreator
@@ -49,7 +47,6 @@ public class TableFunctionNode
             @JsonProperty("properOutputs") List<Symbol> properOutputs,
             @JsonProperty("sources") List<PlanNode> sources,
             @JsonProperty("tableArgumentProperties") List<TableArgumentProperties> tableArgumentProperties,
-            @JsonProperty("inputDescriptorMappings") Map<NameAndPosition, Symbol> inputDescriptorMappings,
             @JsonProperty("handle") TableFunctionHandle handle)
     {
         super(id);
@@ -58,7 +55,6 @@ public class TableFunctionNode
         this.properOutputs = requireNonNull(properOutputs, "properOutputs is null");
         this.sources = requireNonNull(sources, "sources is null");
         this.tableArgumentProperties = requireNonNull(tableArgumentProperties, "tableArgumentProperties is null");
-        this.inputDescriptorMappings = requireNonNull(inputDescriptorMappings, "inputDescriptorMappings is null");
         this.handle = requireNonNull(handle, "handle is null");
     }
 
@@ -84,12 +80,6 @@ public class TableFunctionNode
     public List<TableArgumentProperties> getTableArgumentProperties()
     {
         return tableArgumentProperties;
-    }
-
-    @JsonProperty
-    public Map<NameAndPosition, Symbol> getInputDescriptorMappings()
-    {
-        return inputDescriptorMappings;
     }
 
     @JsonProperty
@@ -122,7 +112,7 @@ public class TableFunctionNode
     public PlanNode replaceChildren(List<PlanNode> newSources)
     {
         checkArgument(sources.size() == newSources.size(), "wrong number of new children");
-        return new TableFunctionNode(getId(), name, arguments, properOutputs, newSources, tableArgumentProperties, inputDescriptorMappings, handle);
+        return new TableFunctionNode(getId(), name, arguments, properOutputs, newSources, tableArgumentProperties, handle);
     }
 
     public static class TableArgumentProperties

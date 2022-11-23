@@ -89,6 +89,7 @@ public class LocalExchangeSinkOperator
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sink = requireNonNull(sink, "sink is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
+        operatorContext.setFinishedFuture(sink.isFinished());
     }
 
     @Override
@@ -106,7 +107,7 @@ public class LocalExchangeSinkOperator
     @Override
     public boolean isFinished()
     {
-        return sink.isFinished();
+        return sink.isFinished().isDone();
     }
 
     @Override

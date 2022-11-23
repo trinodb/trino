@@ -15,15 +15,28 @@ package io.trino.split;
 
 import io.trino.Session;
 import io.trino.metadata.InsertTableHandle;
+import io.trino.metadata.MergeHandle;
 import io.trino.metadata.OutputTableHandle;
 import io.trino.metadata.TableExecuteHandle;
+import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 
 public interface PageSinkProvider
 {
+    /*
+     * Used for CTAS
+     */
     ConnectorPageSink createPageSink(Session session, OutputTableHandle tableHandle);
 
+    /*
+     * Used to insert into an existing table
+     */
     ConnectorPageSink createPageSink(Session session, InsertTableHandle tableHandle);
 
     ConnectorPageSink createPageSink(Session session, TableExecuteHandle tableHandle);
+
+    /*
+     * Used to write the result of SQL MERGE to an existing table
+     */
+    ConnectorMergeSink createMergeSink(Session session, MergeHandle mergeHandle);
 }

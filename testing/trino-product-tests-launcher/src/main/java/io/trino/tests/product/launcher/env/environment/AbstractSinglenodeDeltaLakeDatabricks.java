@@ -22,7 +22,7 @@ import io.trino.tests.product.launcher.env.common.Standard;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -62,7 +62,7 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
         builder.addConnector(
                 "delta-lake",
                 forHostPath(configDir.getPath("delta.properties")),
-                CONTAINER_PRESTO_ETC + "/catalog/delta.properties");
+                CONTAINER_TRINO_ETC + "/catalog/delta.properties");
 
         builder.configureContainer(TESTS, container -> exportAWSCredentials(container)
                 .withEnv("S3_BUCKET", s3Bucket)

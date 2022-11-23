@@ -195,10 +195,8 @@ public class ArrayType
         if (block instanceof AbstractArrayBlock) {
             return ((AbstractArrayBlock) block).apply((valuesBlock, start, length) -> arrayBlockToObjectValues(session, valuesBlock, start, length), position);
         }
-        else {
-            Block arrayBlock = block.getObject(position, Block.class);
-            return arrayBlockToObjectValues(session, arrayBlock, 0, arrayBlock.getPositionCount());
-        }
+        Block arrayBlock = block.getObject(position, Block.class);
+        return arrayBlockToObjectValues(session, arrayBlock, 0, arrayBlock.getPositionCount());
     }
 
     private List<Object> arrayBlockToObjectValues(ConnectorSession session, Block block, int start, int length)

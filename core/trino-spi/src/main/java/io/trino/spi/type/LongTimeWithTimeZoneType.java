@@ -36,7 +36,7 @@ import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclarati
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
-class LongTimeWithTimeZoneType
+final class LongTimeWithTimeZoneType
         extends TimeWithTimeZoneType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(LongTimeWithTimeZoneType.class, lookup(), LongTimeWithTimeZone.class);

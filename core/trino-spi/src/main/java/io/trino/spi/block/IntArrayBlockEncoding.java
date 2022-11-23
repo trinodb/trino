@@ -111,7 +111,7 @@ public class IntArrayBlockEncoding
         if (block instanceof IntArrayBlock) {
             return ((IntArrayBlock) block).getValuesSlice();
         }
-        else if (block instanceof IntArrayBlockBuilder) {
+        if (block instanceof IntArrayBlockBuilder) {
             return ((IntArrayBlockBuilder) block).getValuesSlice();
         }
 

@@ -13,54 +13,163 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.spi.type.BooleanType;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+
+@TestInstance(PER_CLASS)
 public class TestArrayMatchFunctions
-        extends AbstractTestFunctions
 {
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     @Test
     public void testAllMatch()
     {
-        assertFunction("all_match(ARRAY [5, 7, 9], x -> x % 2 = 1)", BooleanType.BOOLEAN, true);
-        assertFunction("all_match(ARRAY [true, false, true], x -> x)", BooleanType.BOOLEAN, false);
-        assertFunction("all_match(ARRAY ['abc', 'ade', 'afg'], x -> substr(x, 1, 1) = 'a')", BooleanType.BOOLEAN, true);
-        assertFunction("all_match(ARRAY [], x -> true)", BooleanType.BOOLEAN, true);
-        assertFunction("all_match(ARRAY [true, true, NULL], x -> x)", BooleanType.BOOLEAN, null);
-        assertFunction("all_match(ARRAY [true, false, NULL], x -> x)", BooleanType.BOOLEAN, false);
-        assertFunction("all_match(ARRAY [NULL, NULL, NULL], x -> x > 1)", BooleanType.BOOLEAN, null);
-        assertFunction("all_match(ARRAY [NULL, NULL, NULL], x -> x IS NULL)", BooleanType.BOOLEAN, true);
-        assertFunction("all_match(ARRAY [MAP(ARRAY[1,2], ARRAY[3,4]), MAP(ARRAY[1,2,3], ARRAY[3,4,5])], x -> cardinality(x) > 1)", BooleanType.BOOLEAN, true);
-        assertFunction("all_match(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'], t -> month(t) = 5)", BooleanType.BOOLEAN, true);
+        assertThat(assertions.expression("all_match(a, x -> x % 2 = 1)")
+                .binding("a", "ARRAY[5, 7, 9]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("all_match(a, x -> x)")
+                .binding("a", "ARRAY[true, false, true]"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("all_match(a, x -> substr(x, 1, 1) = 'a')")
+                .binding("a", "ARRAY['abc', 'ade', 'afg']"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("all_match(a, x -> true)")
+                .binding("a", "ARRAY[]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("all_match(a, x -> x)")
+                .binding("a", "ARRAY[true, true, NULL]"))
+                .matches("CAST(NULL AS boolean)");
+
+        assertThat(assertions.expression("all_match(a, x -> x)")
+                .binding("a", "ARRAY[true, false, NULL]"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("all_match(a, x -> x > 1)")
+                .binding("a", "ARRAY[NULL, NULL, NULL]"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("all_match(a, x -> x IS NULL)")
+                .binding("a", "ARRAY[NULL, NULL, NULL]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("all_match(a, x -> cardinality(x) > 1)")
+                .binding("a", "ARRAY[MAP(ARRAY[1,2], ARRAY[3,4]), MAP(ARRAY[1,2,3], ARRAY[3,4,5])]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("all_match(a, t -> month(t) = 5)")
+                .binding("a", "ARRAY[TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789']"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testAnyMatch()
     {
-        assertFunction("any_match(ARRAY [5, 8, 10], x -> x % 2 = 1)", BooleanType.BOOLEAN, true);
-        assertFunction("any_match(ARRAY [false, false, false], x -> x)", BooleanType.BOOLEAN, false);
-        assertFunction("any_match(ARRAY ['abc', 'def', 'ghi'], x -> substr(x, 1, 1) = 'a')", BooleanType.BOOLEAN, true);
-        assertFunction("any_match(ARRAY [], x -> true)", BooleanType.BOOLEAN, false);
-        assertFunction("any_match(ARRAY [false, false, NULL], x -> x)", BooleanType.BOOLEAN, null);
-        assertFunction("any_match(ARRAY [true, false, NULL], x -> x)", BooleanType.BOOLEAN, true);
-        assertFunction("any_match(ARRAY [NULL, NULL, NULL], x -> x > 1)", BooleanType.BOOLEAN, null);
-        assertFunction("any_match(ARRAY [true, false, NULL], x -> x IS NULL)", BooleanType.BOOLEAN, true);
-        assertFunction("any_match(ARRAY [MAP(ARRAY[1,2], ARRAY[3,4]), MAP(ARRAY[1,2,3], ARRAY[3,4,5])], x -> cardinality(x) > 4)", BooleanType.BOOLEAN, false);
-        assertFunction("any_match(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'], t -> year(t) = 2020)", BooleanType.BOOLEAN, true);
+        assertThat(assertions.expression("any_match(a, x -> x % 2 = 1)")
+                .binding("a", "ARRAY[5, 8, 10]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("any_match(a, x -> x)")
+                .binding("a", "ARRAY[false, false, false]"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("any_match(a, x -> substr(x, 1, 1) = 'a')")
+                .binding("a", "ARRAY['abc', 'def', 'ghi']"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("any_match(a, x -> true)")
+                .binding("a", "ARRAY[]"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("any_match(a, x -> x)")
+                .binding("a", "ARRAY[false, false, NULL]"))
+                .matches("CAST(NULL AS boolean)");
+
+        assertThat(assertions.expression("any_match(a, x -> x)")
+                .binding("a", "ARRAY[true, false, NULL]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("any_match(a, x -> x > 1)")
+                .binding("a", "ARRAY[NULL, NULL, NULL]"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("any_match(a, x -> x IS NULL)")
+                .binding("a", "ARRAY[true, false, NULL]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("any_match(a, x -> cardinality(x) > 4)")
+                .binding("a", "ARRAY[MAP(ARRAY[1,2], ARRAY[3,4]), MAP(ARRAY[1,2,3], ARRAY[3,4,5])]"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("any_match(a, t -> year(t) = 2020)")
+                .binding("a", "ARRAY[TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789']"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testNoneMatch()
     {
-        assertFunction("none_match(ARRAY [5, 8, 10], x -> x % 2 = 1)", BooleanType.BOOLEAN, false);
-        assertFunction("none_match(ARRAY [false, false, false], x -> x)", BooleanType.BOOLEAN, true);
-        assertFunction("none_match(ARRAY ['abc', 'def', 'ghi'], x -> substr(x, 1, 1) = 'a')", BooleanType.BOOLEAN, false);
-        assertFunction("none_match(ARRAY [], x -> true)", BooleanType.BOOLEAN, true);
-        assertFunction("none_match(ARRAY [false, false, NULL], x -> x)", BooleanType.BOOLEAN, null);
-        assertFunction("none_match(ARRAY [true, false, NULL], x -> x)", BooleanType.BOOLEAN, false);
-        assertFunction("none_match(ARRAY [NULL, NULL, NULL], x -> x > 1)", BooleanType.BOOLEAN, null);
-        assertFunction("none_match(ARRAY [true, false, NULL], x -> x IS NULL)", BooleanType.BOOLEAN, false);
-        assertFunction("none_match(ARRAY [MAP(ARRAY[1,2], ARRAY[3,4]), MAP(ARRAY[1,2,3], ARRAY[3,4,5])], x -> cardinality(x) > 4)", BooleanType.BOOLEAN, true);
-        assertFunction("none_match(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'], t -> month(t) = 10)", BooleanType.BOOLEAN, true);
+        assertThat(assertions.expression("none_match(a, x -> x % 2 = 1)")
+                .binding("a", "ARRAY[5, 8, 10]"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("none_match(a, x -> x)")
+                .binding("a", "ARRAY[false, false, false]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("none_match(a, x -> substr(x, 1, 1) = 'a')")
+                .binding("a", "ARRAY['abc', 'def', 'ghi']"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("none_match(a, x -> true)")
+                .binding("a", "ARRAY[]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("none_match(a, x -> x)")
+                .binding("a", "ARRAY[false, false, NULL]"))
+                .matches("CAST(NULL AS boolean)");
+
+        assertThat(assertions.expression("none_match(a, x -> x)")
+                .binding("a", "ARRAY[true, false, NULL]"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("none_match(a, x -> x > 1)")
+                .binding("a", "ARRAY[NULL, NULL, NULL]"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("none_match(a, x -> x IS NULL)")
+                .binding("a", "ARRAY[true, false, NULL]"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("none_match(a, x -> cardinality(x) > 4)")
+                .binding("a", "ARRAY[MAP(ARRAY[1,2], ARRAY[3,4]), MAP(ARRAY[1,2,3], ARRAY[3,4,5])]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("none_match(a, t -> month(t) = 10)")
+                .binding("a", "ARRAY[TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789']"))
+                .isEqualTo(true);
     }
 }

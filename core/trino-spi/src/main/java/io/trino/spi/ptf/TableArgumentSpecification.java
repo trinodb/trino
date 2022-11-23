@@ -13,6 +13,9 @@
  */
 package io.trino.spi.ptf;
 
+import io.trino.spi.Experimental;
+
+@Experimental(eta = "2022-10-31")
 public class TableArgumentSpecification
         extends ArgumentSpecification
 {
@@ -67,6 +70,7 @@ public class TableArgumentSpecification
         public Builder rowSemantics()
         {
             this.rowSemantics = true;
+            this.pruneWhenEmpty = true;
             return this;
         }
 

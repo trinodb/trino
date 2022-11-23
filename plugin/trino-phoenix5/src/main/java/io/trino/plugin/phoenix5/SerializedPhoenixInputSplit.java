@@ -24,11 +24,12 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SerializedPhoenixInputSplit
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SerializedPhoenixInputSplit.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SerializedPhoenixInputSplit.class).instanceSize());
 
     private final byte[] bytes;
 

@@ -26,6 +26,7 @@ import com.google.inject.TypeLiteral;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
@@ -64,6 +65,8 @@ public class GlueMetastoreModule
         // export under the old name, for backwards compatibility
         binder.bind(GlueHiveMetastoreFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(GlueHiveMetastoreFactory.class).as(generator -> generator.generatedNameOf(GlueHiveMetastore.class));
+
+        binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(false);
 
         install(conditionalModule(
                 HiveConfig.class,

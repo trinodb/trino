@@ -34,12 +34,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class HiveSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveSplit.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(HiveSplit.class).instanceSize());
 
     private final String path;
     private final long start;
@@ -322,7 +323,7 @@ public class HiveSplit
 
     public static class BucketConversion
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(BucketConversion.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BucketConversion.class).instanceSize());
 
         private final BucketingVersion bucketingVersion;
         private final int tableBucketCount;
@@ -397,7 +398,7 @@ public class HiveSplit
 
     public static class BucketValidation
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(BucketValidation.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BucketValidation.class).instanceSize());
 
         private final BucketingVersion bucketingVersion;
         private final int bucketCount;

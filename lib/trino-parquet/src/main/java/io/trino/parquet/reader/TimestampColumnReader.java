@@ -13,7 +13,7 @@
  */
 package io.trino.parquet.reader;
 
-import io.trino.parquet.RichColumnDescriptor;
+import io.trino.parquet.PrimitiveField;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.spi.block.BlockBuilder;
@@ -35,9 +35,9 @@ public class TimestampColumnReader
 {
     private final DateTimeZone timeZone;
 
-    public TimestampColumnReader(RichColumnDescriptor descriptor, DateTimeZone timeZone)
+    public TimestampColumnReader(PrimitiveField field, DateTimeZone timeZone)
     {
-        super(descriptor);
+        super(field);
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 

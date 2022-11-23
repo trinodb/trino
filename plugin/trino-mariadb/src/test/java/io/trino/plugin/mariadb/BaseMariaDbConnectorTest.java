@@ -37,22 +37,37 @@ public abstract class BaseMariaDbConnectorTest
 {
     protected TestingMariaDbServer server;
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_JOIN_PUSHDOWN:
+            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
+            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
+                return false;
+
             case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
             case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
                 return true;
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
+
+            case SUPPORTS_JOIN_PUSHDOWN:
+                return true;
             case SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN:
             case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
-            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
-            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
+                return false;
+
             case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
+                return false;
+
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
+                return false;
+
             case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
+
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
             case SUPPORTS_NEGATIVE_DATE:
@@ -262,6 +277,32 @@ public abstract class BaseMariaDbConnectorTest
                 .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
+    // Overridden because the method from BaseConnectorTest fails on one of the assertions, see TODO below
+    @Test
+    @Override
+    public void testInsertIntoNotNullColumn()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
+            assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
+            assertQueryFails(format("INSERT INTO %s (nullable_col) VALUES (1)", table.getName()), errorMessageForInsertIntoNotNullColumn("not_null_col"));
+            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (TRY(5/0), 4)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+            assertQueryFails(format("INSERT INTO %s (not_null_col) VALUES (TRY(6/0))", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+            assertQueryFails(format("INSERT INTO %s (nullable_col) SELECT nationkey FROM nation", table.getName()), errorMessageForInsertIntoNotNullColumn("not_null_col"));
+            // TODO (https://github.com/trinodb/trino/issues/13551) This doesn't fail for other connectors so
+            //  probably shouldn't fail for MariaDB either. Once fixed, remove test override.
+            assertQueryFails(format("INSERT INTO %s (nullable_col) SELECT nationkey FROM nation WHERE regionkey < 0", table.getName()), ".*Field 'not_null_col' doesn't have a default value.*");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "commuted_not_null", "(nullable_col BIGINT, not_null_col BIGINT NOT NULL)")) {
+            assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
+            // This is enforced by the engine and not the connector
+            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+        }
+    }
+
     @Override
     public void testNativeQueryCreateStatement()
     {
@@ -305,6 +346,18 @@ public abstract class BaseMariaDbConnectorTest
     }
 
     @Override
+    protected OptionalInt maxSchemaNameLength()
+    {
+        return OptionalInt.of(64);
+    }
+
+    @Override
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Incorrect database name");
+    }
+
+    @Override
     protected OptionalInt maxTableNameLength()
     {
         return OptionalInt.of(64);
@@ -314,5 +367,17 @@ public abstract class BaseMariaDbConnectorTest
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageContaining("Incorrect table name");
+    }
+
+    @Override
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(64);
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("(.*Identifier name '.*' is too long|.*Incorrect column name.*)");
     }
 }

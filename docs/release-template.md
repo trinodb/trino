@@ -36,6 +36,8 @@
 
 ## Hive connector
 
+## Hudi connector
+
 ## Iceberg connector
 
 ## JMX connector

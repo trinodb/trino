@@ -369,12 +369,10 @@ public class HashAggregationOperator
         if (finishing || outputPages != null) {
             return false;
         }
-        else if (aggregationBuilder != null && aggregationBuilder.isFull()) {
+        if (aggregationBuilder != null && aggregationBuilder.isFull()) {
             return false;
         }
-        else {
-            return unfinishedWork == null;
-        }
+        return unfinishedWork == null;
     }
 
     @Override

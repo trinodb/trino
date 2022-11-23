@@ -32,6 +32,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.trino.spi.block.DictionaryBlock.createProjectedDictionaryBlock;
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryAwarePageProjection
@@ -98,7 +99,7 @@ public class DictionaryAwarePageProjection
         public DictionaryAwarePageProjectionWork(@Nullable ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
             this.session = session;
-            this.block = requireNonNull(page, "page is null").getBlock(0);
+            this.block = page.getBlock(0);
             this.selectedPositions = requireNonNull(selectedPositions, "selectedPositions is null");
             this.produceLazyBlock = DictionaryAwarePageProjection.this.produceLazyBlock && !block.isLoaded();
 
@@ -117,9 +118,7 @@ public class DictionaryAwarePageProjection
             if (produceLazyBlock) {
                 return true;
             }
-            else {
-                return processInternal();
-            }
+            return processInternal();
         }
 
         private boolean processInternal()
@@ -163,7 +162,7 @@ public class DictionaryAwarePageProjection
                 if (block instanceof RunLengthEncodedBlock) {
                     // single value block is always considered effective, but the processing could have thrown
                     // in that case we fallback and process again so the correct error message sent
-                    result = new RunLengthEncodedBlock(dictionaryOutput.get(), selectedPositions.size());
+                    result = RunLengthEncodedBlock.create(dictionaryOutput.get(), selectedPositions.size());
                     return true;
                 }
 
@@ -171,7 +170,7 @@ public class DictionaryAwarePageProjection
                     DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
                     // if dictionary was processed, produce a dictionary block; otherwise do normal processing
                     int[] outputIds = filterDictionaryIds(dictionaryBlock, selectedPositions);
-                    result = new DictionaryBlock(selectedPositions.size(), dictionaryOutput.get(), outputIds, false, sourceIdFunction.apply(dictionaryBlock));
+                    result = createProjectedDictionaryBlock(selectedPositions.size(), dictionaryOutput.get(), outputIds, sourceIdFunction.apply(dictionaryBlock));
                     return true;
                 }
 
@@ -200,10 +199,8 @@ public class DictionaryAwarePageProjection
                     return result.getLoadedBlock();
                 });
             }
-            else {
-                checkState(result != null, "result has not been generated");
-                return result;
-            }
+            checkState(result != null, "result has not been generated");
+            return result;
         }
 
         private void setupDictionaryBlockProjection()

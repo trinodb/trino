@@ -19,12 +19,13 @@ import org.testng.annotations.Test;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDoubleStatistics
         extends AbstractRangeStatisticsTest<DoubleStatistics, Double>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleStatistics.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DoubleStatistics.class).instanceSize());
 
     @Override
     protected DoubleStatistics getCreateStatistics(Double min, Double max)

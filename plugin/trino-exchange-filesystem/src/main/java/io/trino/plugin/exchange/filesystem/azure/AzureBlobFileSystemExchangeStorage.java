@@ -27,6 +27,8 @@ import com.azure.storage.blob.models.CustomerProvidedKey;
 import com.azure.storage.blob.models.DeleteSnapshotsOptionType;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.blob.specialized.BlockBlobAsyncClient;
+import com.azure.storage.common.policy.RequestRetryOptions;
+import com.azure.storage.common.policy.RetryPolicyType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Lists;
@@ -59,6 +61,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -94,11 +97,11 @@ public class AzureBlobFileSystemExchangeStorage
     @Inject
     public AzureBlobFileSystemExchangeStorage(ExchangeAzureConfig config)
     {
-        requireNonNull(config, "config is null");
         this.blockSize = toIntExact(config.getAzureStorageBlockSize().toBytes());
-        Optional<String> connectionString = config.getAzureStorageConnectionString();
 
-        BlobServiceClientBuilder blobServiceClientBuilder = new BlobServiceClientBuilder();
+        BlobServiceClientBuilder blobServiceClientBuilder = new BlobServiceClientBuilder()
+                .retryOptions(new RequestRetryOptions(RetryPolicyType.EXPONENTIAL, config.getMaxErrorRetries(), (Integer) null, null, null, null));
+        Optional<String> connectionString = config.getAzureStorageConnectionString();
         if (connectionString.isPresent()) {
             blobServiceClientBuilder.connectionString(connectionString.get());
         }
@@ -116,7 +119,7 @@ public class AzureBlobFileSystemExchangeStorage
     }
 
     @Override
-    public ExchangeStorageReader createExchangeStorageReader(Queue<ExchangeSourceFile> sourceFiles, int maxPageStorageSize)
+    public ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize)
     {
         return new AzureExchangeStorageReader(blobServiceAsyncClient, sourceFiles, blockSize, maxPageStorageSize);
     }
@@ -267,9 +270,10 @@ public class AzureBlobFileSystemExchangeStorage
     private static class AzureExchangeStorageReader
             implements ExchangeStorageReader
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(AzureExchangeStorageReader.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(AzureExchangeStorageReader.class).instanceSize());
 
         private final BlobServiceAsyncClient blobServiceAsyncClient;
+        @GuardedBy("this")
         private final Queue<ExchangeSourceFile> sourceFiles;
         private final int blockSize;
         private final int bufferSize;
@@ -288,12 +292,12 @@ public class AzureBlobFileSystemExchangeStorage
 
         public AzureExchangeStorageReader(
                 BlobServiceAsyncClient blobServiceAsyncClient,
-                Queue<ExchangeSourceFile> sourceFiles,
+                List<ExchangeSourceFile> sourceFiles,
                 int blockSize,
                 int maxPageStorageSize)
         {
             this.blobServiceAsyncClient = requireNonNull(blobServiceAsyncClient, "blobServiceAsyncClient is null");
-            this.sourceFiles = requireNonNull(sourceFiles, "sourceFiles is null");
+            this.sourceFiles = new ArrayDeque<>(requireNonNull(sourceFiles, "sourceFiles is null"));
             this.blockSize = blockSize;
             // Make sure buffer can accommodate at least one complete Slice, and keep reads aligned to block boundaries
             this.bufferSize = maxPageStorageSize + blockSize;
@@ -370,6 +374,7 @@ public class AzureBlobFileSystemExchangeStorage
             inProgressReadFuture = immediateVoidFuture(); // such that we don't retain reference to the buffer
         }
 
+        @GuardedBy("this")
         private void fillBuffer()
         {
             if (currentFile == null || fileOffset == currentFile.getFileSize()) {
@@ -455,7 +460,7 @@ public class AzureBlobFileSystemExchangeStorage
     private static class AzureExchangeStorageWriter
             implements ExchangeStorageWriter
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(AzureExchangeStorageWriter.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(AzureExchangeStorageWriter.class).instanceSize());
 
         private final BlockBlobAsyncClient blockBlobAsyncClient;
         private final int blockSize;

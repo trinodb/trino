@@ -50,8 +50,7 @@ public class TestIcebergProcedureCalls
     private long getSecondOldestTableSnapshot(String tableName)
     {
         return (Long) onTrino().executeQuery(
-                format("SELECT snapshot_id FROM iceberg.default.\"%s$snapshots\" WHERE parent_id IS NOT NULL ORDER BY committed_at LIMIT 1", tableName))
-                .row(0)
-                .get(0);
+                format("SELECT snapshot_id FROM iceberg.default.\"%s$snapshots\" WHERE parent_id IS NOT NULL ORDER BY committed_at FETCH FIRST 1 ROW WITH TIES", tableName))
+                .getOnlyValue();
     }
 }

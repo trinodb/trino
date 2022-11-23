@@ -17,8 +17,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.InternalNode;
 import io.trino.spi.TrinoException;
 
@@ -131,7 +132,7 @@ public class FixedCountNodeAllocatorService
         private final int maximumAllocationsPerNode;
 
         @GuardedBy("this")
-        private final Map<Optional<CatalogName>, NodeSelector> nodeSelectorCache = new HashMap<>();
+        private final Map<Optional<CatalogHandle>, NodeSelector> nodeSelectorCache = new HashMap<>();
 
         @GuardedBy("this")
         private final Map<InternalNode, Integer> allocationCountMap = new HashMap<>();
@@ -148,10 +149,10 @@ public class FixedCountNodeAllocatorService
         }
 
         @Override
-        public synchronized NodeLease acquire(NodeRequirements requirements)
+        public synchronized NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement)
         {
             try {
-                Optional<InternalNode> node = tryAcquireNode(requirements);
+                Optional<InternalNode> node = tryAcquireNode(nodeRequirements);
                 if (node.isPresent()) {
                     return new FixedCountNodeLease(immediateFuture(node.get()));
                 }
@@ -161,7 +162,7 @@ public class FixedCountNodeAllocatorService
             }
 
             SettableFuture<InternalNode> future = SettableFuture.create();
-            PendingAcquire pendingAcquire = new PendingAcquire(requirements, future);
+            PendingAcquire pendingAcquire = new PendingAcquire(nodeRequirements, future);
             pendingAcquires.add(pendingAcquire);
 
             return new FixedCountNodeLease(future);
@@ -174,7 +175,7 @@ public class FixedCountNodeAllocatorService
 
         private synchronized Optional<InternalNode> tryAcquireNode(NodeRequirements requirements)
         {
-            NodeSelector nodeSelector = nodeSelectorCache.computeIfAbsent(requirements.getCatalogName(), catalogName -> nodeScheduler.createNodeSelector(session, catalogName));
+            NodeSelector nodeSelector = nodeSelectorCache.computeIfAbsent(requirements.getCatalogHandle(), catalogHandle -> nodeScheduler.createNodeSelector(session, catalogHandle));
 
             List<InternalNode> nodes = nodeSelector.allNodes();
             if (nodes.isEmpty()) {

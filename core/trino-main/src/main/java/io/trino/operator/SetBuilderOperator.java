@@ -146,7 +146,7 @@ public class SetBuilderOperator
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.setSupplier = requireNonNull(setSupplier, "setSupplier is null");
 
-        if (requireNonNull(hashChannel, "hashChannel is null").isPresent()) {
+        if (hashChannel.isPresent()) {
             this.sourceChannels = new int[] {setChannel, hashChannel.get()};
         }
         else {

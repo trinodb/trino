@@ -19,7 +19,6 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
 
 public class PageChannelSelector
         implements Function<Page, Page>
@@ -31,7 +30,7 @@ public class PageChannelSelector
 
     public PageChannelSelector(int... channels)
     {
-        this.channels = requireNonNull(channels, "channels is null").clone();
+        this.channels = channels.clone();
         checkArgument(IntStream.of(channels).allMatch(channel -> channel >= 0), "channels must be positive");
     }
 
@@ -39,7 +38,7 @@ public class PageChannelSelector
     public Page apply(Page page)
     {
         // Ensure the channels that are emitted are fully loaded and in the correct order
-        return requireNonNull(page, "page is null").getLoadedPage(channels);
+        return page.getLoadedPage(channels);
     }
 
     public static Function<Page, Page> identitySelection()

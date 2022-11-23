@@ -25,7 +25,7 @@ public class TestDbResourceGroupsMysqlFlywayMigration
     @Override
     protected final JdbcDatabaseContainer<?> startContainer()
     {
-        JdbcDatabaseContainer<?> container = new MySQLContainer<>("mysql:8.0.29-oracle");
+        JdbcDatabaseContainer<?> container = new MySQLContainer<>("mysql:8.0.30");
         container.start();
         return container;
     }

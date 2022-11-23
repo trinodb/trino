@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 
 public class TypedKeyValueHeap
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedKeyValueHeap.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TypedKeyValueHeap.class).instanceSize());
 
     private static final int COMPACT_THRESHOLD_BYTES = 32768;
     private static final int COMPACT_THRESHOLD_RATIO = 3; // when 2/3 of elements in keyBlockBuilder is unreferenced, do compact

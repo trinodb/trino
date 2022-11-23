@@ -250,9 +250,7 @@ public final class ProtoUtils
                     getTotalSizeInBytes(averageColumnLength, rowCount, nullsCount),
                     nullsCount);
         }
-        else {
-            throw new TrinoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
-        }
+        throw new TrinoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
     }
 
     static Column fromProto(alluxio.grpc.table.FieldSchema column)

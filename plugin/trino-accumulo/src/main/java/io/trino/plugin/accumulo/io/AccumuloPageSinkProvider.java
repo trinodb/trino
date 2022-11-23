@@ -48,7 +48,7 @@ public class AccumuloPageSinkProvider
     {
         this.client = requireNonNull(client, "client is null");
         this.connector = requireNonNull(connector, "connector is null");
-        this.username = requireNonNull(config, "config is null").getUsername();
+        this.username = config.getUsername();
     }
 
     @Override

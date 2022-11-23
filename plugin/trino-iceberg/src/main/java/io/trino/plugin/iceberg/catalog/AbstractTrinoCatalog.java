@@ -14,8 +14,8 @@
 package io.trino.plugin.iceberg.catalog;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveMetadata;
 import io.trino.plugin.hive.HiveViewNotSupportedException;
 import io.trino.plugin.hive.ViewReaderUtil;
@@ -33,8 +33,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TypeManager;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -191,15 +189,10 @@ public abstract class AbstractTrinoCatalog
         return tableName;
     }
 
-    protected void deleteTableDirectory(
-            ConnectorSession session,
-            SchemaTableName schemaTableName,
-            HdfsEnvironment hdfsEnvironment,
-            Path tableLocation)
+    protected void deleteTableDirectory(TrinoFileSystem fileSystem, SchemaTableName schemaTableName, String tableLocation)
     {
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), tableLocation);
-            fileSystem.delete(tableLocation, true);
+            fileSystem.deleteDirectory(tableLocation);
         }
         catch (IOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("Failed to delete directory %s of the table %s", tableLocation, schemaTableName), e);

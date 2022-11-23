@@ -73,7 +73,7 @@ public class QueryResultRows
 
     private QueryResultRows(Session session, Optional<List<ColumnAndType>> columns, List<Page> pages, Consumer<Throwable> exceptionConsumer)
     {
-        this.session = requireNonNull(session, "session is null").toConnectorSession();
+        this.session = session.toConnectorSession();
         this.columns = requireNonNull(columns, "columns is null");
         this.pages = ImmutableList.copyOf(pages);
         this.exceptionConsumer = Optional.ofNullable(exceptionConsumer);

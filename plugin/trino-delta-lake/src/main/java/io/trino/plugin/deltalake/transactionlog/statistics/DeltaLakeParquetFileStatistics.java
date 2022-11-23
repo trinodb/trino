@@ -61,16 +61,19 @@ public class DeltaLakeParquetFileStatistics
         return numRecords;
     }
 
+    @Override
     public Optional<Map<String, Object>> getMinValues()
     {
         return minValues.map(TransactionLogAccess::toOriginalNameKeyedMap);
     }
 
+    @Override
     public Optional<Map<String, Object>> getMaxValues()
     {
         return maxValues.map(TransactionLogAccess::toOriginalNameKeyedMap);
     }
 
+    @Override
     public Optional<Map<String, Object>> getNullCount()
     {
         return nullCount.map(TransactionLogAccess::toOriginalNameKeyedMap);

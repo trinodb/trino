@@ -42,7 +42,7 @@ public class TestingKuduServer
     private static final Integer KUDU_TSERVER_PORT = 7050;
     private static final Integer NUMBER_OF_REPLICA = 3;
 
-    private static final String TOXIPROXY_IMAGE = "shopify/toxiproxy:2.1.0";
+    private static final String TOXIPROXY_IMAGE = "ghcr.io/shopify/toxiproxy:2.4.0";
     private static final String TOXIPROXY_NETWORK_ALIAS = "toxiproxy";
 
     private final Network network;
@@ -102,7 +102,7 @@ public class TestingKuduServer
 
     public HostAndPort getMasterAddress()
     {
-        // Do not use master.getContainerIpAddress(), it returns "localhost" which the kudu client resolves to:
+        // Do not use master.getHost(), it returns "localhost" which the kudu client resolves to:
         // localhost/127.0.0.1, localhost/0:0:0:0:0:0:0:1
         // Instead explicitly list only the ipv4 loopback address 127.0.0.1
         return HostAndPort.fromParts("127.0.0.1", master.getMappedPort(KUDU_MASTER_PORT));

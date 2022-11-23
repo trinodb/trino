@@ -51,6 +51,15 @@ public class TestIcebergPlugin
                         "hive.metastore.uri", "thrift://foo:1234"),
                 new TestingConnectorContext())
                 .shutdown();
+
+        // Ensure Glue configuration isn't bound when Glue not in use
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                Map.of(
+                        "hive.metastore.uri", "thrift://foo:1234",
+                        "hive.metastore.glue.region", "us-east"),
+                new TestingConnectorContext()))
+                .hasMessageContaining("Configuration property 'hive.metastore.glue.region' was not used");
     }
 
     @Test

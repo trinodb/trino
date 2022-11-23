@@ -90,7 +90,7 @@ public class TestDictionaryAwarePageProjection
     public void testRleBlock(boolean forceYield, boolean produceLazyBlock)
     {
         Block value = createLongSequenceBlock(42, 43);
-        RunLengthEncodedBlock block = new RunLengthEncodedBlock(value, 100);
+        RunLengthEncodedBlock block = (RunLengthEncodedBlock) RunLengthEncodedBlock.create(value, 100);
 
         testProject(block, RunLengthEncodedBlock.class, forceYield, produceLazyBlock);
     }
@@ -99,7 +99,7 @@ public class TestDictionaryAwarePageProjection
     public void testRleBlockWithFailure(boolean forceYield, boolean produceLazyBlock)
     {
         Block value = createLongSequenceBlock(-43, -42);
-        RunLengthEncodedBlock block = new RunLengthEncodedBlock(value, 100);
+        RunLengthEncodedBlock block = (RunLengthEncodedBlock) RunLengthEncodedBlock.create(value, 100);
 
         testProjectFails(block, RunLengthEncodedBlock.class, forceYield, produceLazyBlock);
     }
@@ -107,7 +107,7 @@ public class TestDictionaryAwarePageProjection
     @Test(dataProvider = "forceYield")
     public void testDictionaryBlock(boolean forceYield, boolean produceLazyBlock)
     {
-        DictionaryBlock block = createDictionaryBlock(10, 100);
+        Block block = createDictionaryBlock(10, 100);
 
         testProject(block, DictionaryBlock.class, forceYield, produceLazyBlock);
     }
@@ -115,7 +115,7 @@ public class TestDictionaryAwarePageProjection
     @Test(dataProvider = "forceYield")
     public void testDictionaryBlockWithFailure(boolean forceYield, boolean produceLazyBlock)
     {
-        DictionaryBlock block = createDictionaryBlockWithFailure(10, 100);
+        Block block = createDictionaryBlockWithFailure(10, 100);
 
         testProjectFails(block, DictionaryBlock.class, forceYield, produceLazyBlock);
     }
@@ -123,7 +123,7 @@ public class TestDictionaryAwarePageProjection
     @Test(dataProvider = "forceYield")
     public void testDictionaryBlockProcessingWithUnusedFailure(boolean forceYield, boolean produceLazyBlock)
     {
-        DictionaryBlock block = createDictionaryBlockWithUnusedEntries(10, 100);
+        Block block = createDictionaryBlockWithUnusedEntries(10, 100);
 
         // failures in the dictionary processing will cause a fallback to normal columnar processing
         testProject(block, LongArrayBlock.class, forceYield, produceLazyBlock);
@@ -135,7 +135,7 @@ public class TestDictionaryAwarePageProjection
         DictionaryAwarePageProjection projection = createProjection(false);
 
         // the same input block will bypass yield with multiple projections
-        DictionaryBlock block = createDictionaryBlock(10, 100);
+        Block block = createDictionaryBlock(10, 100);
         testProjectRange(block, DictionaryBlock.class, projection, true, false);
         testProjectFastReturnIgnoreYield(block, projection, false);
         testProjectFastReturnIgnoreYield(block, projection, false);
@@ -148,7 +148,7 @@ public class TestDictionaryAwarePageProjection
         DictionaryAwarePageProjection projection = createProjection(produceLazyBlock);
 
         // function will always processes the first dictionary
-        DictionaryBlock ineffectiveBlock = createDictionaryBlock(100, 20);
+        Block ineffectiveBlock = createDictionaryBlock(100, 20);
         testProjectRange(ineffectiveBlock, DictionaryBlock.class, projection, forceYield, produceLazyBlock);
         testProjectFastReturnIgnoreYield(ineffectiveBlock, projection, produceLazyBlock);
         // dictionary processing can reuse the last dictionary
@@ -156,7 +156,7 @@ public class TestDictionaryAwarePageProjection
         testProjectList(ineffectiveBlock, DictionaryBlock.class, projection, false, produceLazyBlock);
 
         // last dictionary not effective, so dictionary processing is disabled
-        DictionaryBlock effectiveBlock = createDictionaryBlock(10, 100);
+        Block effectiveBlock = createDictionaryBlock(10, 100);
         testProjectRange(effectiveBlock, LongArrayBlock.class, projection, forceYield, produceLazyBlock);
         testProjectList(effectiveBlock, LongArrayBlock.class, projection, forceYield, produceLazyBlock);
 
@@ -180,17 +180,17 @@ public class TestDictionaryAwarePageProjection
                 block -> randomDictionaryId(),
                 false);
         Block dictionary = createLongsBlock(0, 1);
-        DictionaryBlock firstDictionaryBlock = new DictionaryBlock(dictionary, new int[] {0, 1, 2, 3});
-        DictionaryBlock secondDictionaryBlock = new DictionaryBlock(dictionary, new int[] {3, 2, 1, 0});
+        Block firstDictionaryBlock = DictionaryBlock.create(4, dictionary, new int[] {0, 1, 2, 3});
+        Block secondDictionaryBlock = DictionaryBlock.create(4, dictionary, new int[] {3, 2, 1, 0});
 
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
-        Work<Block> firstWork = projection.project(null, yieldSignal, new Page(firstDictionaryBlock), SelectedPositions.positionsList(new int[] {0}, 0, 1));
+        Work<Block> firstWork = projection.project(null, yieldSignal, new Page(firstDictionaryBlock), SelectedPositions.positionsList(new int[] {0, 1}, 0, 2));
 
         assertTrue(firstWork.process());
         Block firstOutputBlock = firstWork.getResult();
         assertInstanceOf(firstOutputBlock, DictionaryBlock.class);
 
-        Work<Block> secondWork = projection.project(null, yieldSignal, new Page(secondDictionaryBlock), SelectedPositions.positionsList(new int[] {0}, 0, 1));
+        Work<Block> secondWork = projection.project(null, yieldSignal, new Page(secondDictionaryBlock), SelectedPositions.positionsList(new int[] {0, 1}, 0, 2));
 
         assertTrue(secondWork.process());
         Block secondOutputBlock = secondWork.getResult();
@@ -203,28 +203,28 @@ public class TestDictionaryAwarePageProjection
         assertSame(firstDictionary, dictionary);
     }
 
-    private static DictionaryBlock createDictionaryBlock(int dictionarySize, int blockSize)
+    private static Block createDictionaryBlock(int dictionarySize, int blockSize)
     {
         Block dictionary = createLongSequenceBlock(0, dictionarySize);
         int[] ids = new int[blockSize];
         Arrays.setAll(ids, index -> index % dictionarySize);
-        return new DictionaryBlock(dictionary, ids);
+        return DictionaryBlock.create(ids.length, dictionary, ids);
     }
 
-    private static DictionaryBlock createDictionaryBlockWithFailure(int dictionarySize, int blockSize)
+    private static Block createDictionaryBlockWithFailure(int dictionarySize, int blockSize)
     {
         Block dictionary = createLongSequenceBlock(-10, dictionarySize - 10);
         int[] ids = new int[blockSize];
         Arrays.setAll(ids, index -> index % dictionarySize);
-        return new DictionaryBlock(dictionary, ids);
+        return DictionaryBlock.create(ids.length, dictionary, ids);
     }
 
-    private static DictionaryBlock createDictionaryBlockWithUnusedEntries(int dictionarySize, int blockSize)
+    private static Block createDictionaryBlockWithUnusedEntries(int dictionarySize, int blockSize)
     {
         Block dictionary = createLongSequenceBlock(-10, dictionarySize);
         int[] ids = new int[blockSize];
         Arrays.setAll(ids, index -> (index % dictionarySize) + 10);
-        return new DictionaryBlock(dictionary, ids);
+        return DictionaryBlock.create(ids.length, dictionary, ids);
     }
 
     private static Block projectWithYield(Work<Block> work, DriverYieldSignal yieldSignal)

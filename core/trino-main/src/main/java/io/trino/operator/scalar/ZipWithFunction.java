@@ -14,13 +14,13 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -67,13 +67,13 @@ public final class ZipWithFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         Type leftElementType = ((ArrayType) boundSignature.getArgumentType(0)).getElementType();
         Type rightElementType = ((ArrayType) boundSignature.getArgumentType(1)).getElementType();
         Type outputElementType = ((ArrayType) boundSignature.getReturnType()).getElementType();
         ArrayType outputArrayType = new ArrayType(outputElementType);
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL, FUNCTION),

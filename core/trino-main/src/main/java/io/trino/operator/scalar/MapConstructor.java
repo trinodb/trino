@@ -15,11 +15,6 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -28,6 +23,11 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DuplicateMapKeyException;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeSignature;
 
@@ -92,16 +92,16 @@ public final class MapConstructor
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         MapType mapType = (MapType) boundSignature.getReturnType();
-        MethodHandle keyIndeterminate = functionDependencies.getOperatorInvoker(
+        MethodHandle keyIndeterminate = functionDependencies.getOperatorImplementation(
                 INDETERMINATE,
                 ImmutableList.of(mapType.getKeyType()),
                 simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
         MethodHandle instanceFactory = constructorMethodHandle(State.class, MapType.class).bindTo(mapType);
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),

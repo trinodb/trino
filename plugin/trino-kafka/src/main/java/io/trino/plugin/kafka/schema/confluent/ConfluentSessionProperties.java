@@ -24,7 +24,6 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
-import static java.util.Objects.requireNonNull;
 
 public class ConfluentSessionProperties
         implements SessionPropertiesProvider
@@ -36,7 +35,6 @@ public class ConfluentSessionProperties
     @Inject
     public ConfluentSessionProperties(ConfluentSchemaRegistryConfig config)
     {
-        requireNonNull(config, "config is null");
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(enumProperty(
                         EMPTY_FIELD_STRATEGY,

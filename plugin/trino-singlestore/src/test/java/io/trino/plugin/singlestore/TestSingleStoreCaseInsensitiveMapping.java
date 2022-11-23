@@ -61,7 +61,7 @@ public class TestSingleStoreCaseInsensitiveMapping
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return requireNonNull(singleStoreServer, "singleStoreServer is null")::execute;
+        return singleStoreServer::execute;
     }
 
     @Override

@@ -34,8 +34,6 @@ public class SslKafkaProducerFactory
     public SslKafkaProducerFactory(@ForKafkaSsl KafkaProducerFactory delegate, KafkaSslConfig sslConfig)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
-        requireNonNull(sslConfig, "sslConfig is null");
-
         map = ImmutableMap.copyOf(sslConfig.getKafkaClientProperties());
     }
 

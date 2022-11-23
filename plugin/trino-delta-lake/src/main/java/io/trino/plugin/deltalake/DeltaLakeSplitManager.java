@@ -50,6 +50,8 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.pathColumnHandle;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.createStatisticsPredicate;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxInitialSplitSize;
@@ -82,7 +84,6 @@ public class DeltaLakeSplitManager
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
         this.executor = requireNonNull(executor, "executor is null");
-        requireNonNull(config, "config is null");
         this.maxInitialSplits = config.getMaxInitialSplits();
         this.maxSplitsPerSecond = config.getMaxSplitsPerSecond();
         this.maxOutstandingSplits = config.getMaxOutstandingSplits();
@@ -131,6 +132,7 @@ public class DeltaLakeSplitManager
         List<AddFileEntry> validDataFiles = metastore.getValidDataFiles(tableHandle.getSchemaTableName(), session);
         TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint = tableHandle.getEnforcedPartitionConstraint();
         TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint = tableHandle.getNonPartitionConstraint();
+        Domain pathDomain = getPathDomain(nonPartitionConstraint);
 
         // Delta Lake handles updates and deletes by copying entire data files, minus updates/deletes. Because of this we can only have one Split/UpdatablePageSource
         // per file.
@@ -154,6 +156,11 @@ public class DeltaLakeSplitManager
                 .flatMap(addAction -> {
                     if (tableHandle.getAnalyzeHandle().isPresent() && !tableHandle.getAnalyzeHandle().get().isInitialAnalyze() && !addAction.isDataChange()) {
                         // skip files which do not introduce data change on non-initial ANALYZE
+                        return Stream.empty();
+                    }
+
+                    String splitPath = buildSplitPath(tableLocation, addAction);
+                    if (!pathMatchesPredicate(pathDomain, splitPath)) {
                         return Stream.empty();
                     }
 
@@ -194,7 +201,7 @@ public class DeltaLakeSplitManager
                     return splitsForFile(
                             session,
                             addAction,
-                            tableLocation,
+                            splitPath,
                             addAction.getCanonicalPartitionValues(),
                             statisticsPredicate,
                             splittable,
@@ -215,17 +222,28 @@ public class DeltaLakeSplitManager
         return true;
     }
 
+    private static Domain getPathDomain(TupleDomain<DeltaLakeColumnHandle> effectivePredicate)
+    {
+        return effectivePredicate.getDomains()
+                .flatMap(domains -> Optional.ofNullable(domains.get(pathColumnHandle())))
+                .orElse(Domain.all(pathColumnHandle().getType()));
+    }
+
+    private static boolean pathMatchesPredicate(Domain pathDomain, String path)
+    {
+        return pathDomain.includesNullableValue(utf8Slice(path));
+    }
+
     private List<DeltaLakeSplit> splitsForFile(
             ConnectorSession session,
             AddFileEntry addFileEntry,
-            String tableLocation,
+            String splitPath,
             Map<String, Optional<String>> partitionKeys,
             TupleDomain<DeltaLakeColumnHandle> statisticsPredicate,
             boolean splittable,
             AtomicInteger remainingInitialSplits)
     {
         long fileSize = addFileEntry.getSize();
-        String splitPath = buildSplitPath(tableLocation, addFileEntry);
 
         if (!splittable) {
             // remainingInitialSplits is not used when !splittable

@@ -106,9 +106,7 @@ public final class PartitionedConsumption<T>
                 if (next != null) {
                     return next;
                 }
-                else {
-                    return endOfData();
-                }
+                return endOfData();
             }
         };
     }

@@ -148,7 +148,7 @@ public class TrinoColumnIndexStore
             return indexMetadata.stream()
                     .collect(toImmutableMap(
                             ColumnIndexMetadata::getPath,
-                            column -> deserializer.apply(getOnlyElement(chunkReaders.get(column.getPath())).read(), column)));
+                            column -> deserializer.apply(getOnlyElement(chunkReaders.get(column.getPath())).readUnchecked(), column)));
         }
         finally {
             chunkReaders.values().forEach(ChunkReader::free);

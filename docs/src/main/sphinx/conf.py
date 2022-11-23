@@ -58,6 +58,18 @@ def get_version():
     version = os.environ.get('TRINO_VERSION', '').strip()
     return version or maven_version('../../../pom.xml')
 
+
+def globalReplace(app, docname, source):
+    result = source[0]
+    for key in app.config.global_replacements:
+        result = result.replace(key, app.config.global_replacements[key])
+    source[0] = result
+
+
+def setup(app):
+   app.add_config_value('global_replacements', {}, True)
+   app.connect('source-read', globalReplace)
+
 # -- General configuration -----------------------------------------------------
 
 needs_sphinx = '3.0'
@@ -84,6 +96,14 @@ default_role = 'backquote'
 rst_epilog = """
 .. |trino_server_release| replace:: ``trino-server-{release}``
 """.replace('{release}', release)
+
+# Any replace that is inside of a code block should be added here
+# https://stackoverflow.com/questions/8821511/substitutions-inside-sphinx-code-blocks-arent-replaced
+
+global_replacements = {
+    "|trino_version|" : version
+}
+
 
 # -- Options for HTML output ---------------------------------------------------
 

@@ -18,9 +18,11 @@ import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.iceberg.catalog.hms.AbstractMetastoreTableOperations;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.exceptions.CommitFailedException;
+import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
 
 import javax.annotation.concurrent.NotThreadSafe;
@@ -28,6 +30,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_LOCATION_PROP;
@@ -76,7 +79,12 @@ public class FileMetastoreTableOperations
             metastore.replaceTable(database, tableName, table, privileges);
         }
         catch (RuntimeException e) {
-            throw new CommitFailedException(e, "Failed to commit transaction to FileHiveMetastore");
+            if (e instanceof TrinoException trinoException &&
+                    trinoException.getErrorCode() == HIVE_CONCURRENT_MODIFICATION_DETECTED.toErrorCode()) {
+                // CommitFailedException is handled as a special case in the Iceberg library. This commit will automatically retry
+                throw new CommitFailedException(e, "Failed to replace table due to concurrent updates: %s.%s", database, tableName);
+            }
+            throw new CommitStateUnknownException(e);
         }
     }
 }

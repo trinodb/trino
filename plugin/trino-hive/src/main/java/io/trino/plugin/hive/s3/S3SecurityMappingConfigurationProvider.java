@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import io.airlift.log.Logger;
-import io.trino.plugin.hive.DynamicConfigurationProvider;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.hdfs.DynamicConfigurationProvider;
+import io.trino.hdfs.HdfsContext;
 import io.trino.spi.security.AccessDeniedException;
 import org.apache.hadoop.conf.Configuration;
 
@@ -31,7 +31,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.plugin.hive.DynamicConfigurationProvider.setCacheKey;
+import static io.trino.hdfs.DynamicConfigurationProvider.setCacheKey;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACCESS_KEY;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENDPOINT;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_IAM_ROLE;

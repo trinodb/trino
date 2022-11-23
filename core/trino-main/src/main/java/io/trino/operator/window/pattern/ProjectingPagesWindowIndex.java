@@ -244,7 +244,7 @@ public class ProjectingPagesWindowIndex
         // projection always creates a single row block, and will not align with the blocks from the pages index,
         // so we use an RLE block of the same length as the raw block
         int rawBlockPositionCount = pagesIndex.getRawBlock(0, position(position)).getPositionCount();
-        return new RunLengthEncodedBlock(compute, rawBlockPositionCount);
+        return RunLengthEncodedBlock.create(compute, rawBlockPositionCount);
     }
 
     @Override

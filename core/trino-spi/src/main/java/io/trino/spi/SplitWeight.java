@@ -23,10 +23,11 @@ import java.util.function.Function;
 
 import static java.lang.Math.addExact;
 import static java.lang.Math.multiplyExact;
+import static java.lang.Math.toIntExact;
 
 public final class SplitWeight
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SplitWeight.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SplitWeight.class).instanceSize());
 
     private static final long UNIT_VALUE = 100;
     private static final int UNIT_SCALE = 2; // Decimal scale such that (10 ^ UNIT_SCALE) == UNIT_VALUE

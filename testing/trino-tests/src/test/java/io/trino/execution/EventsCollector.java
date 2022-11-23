@@ -14,140 +14,189 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
+import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.spi.eventlistener.SplitCompletedEvent;
 
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
+
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-class EventsCollector
+@ThreadSafe
+final class EventsCollector
 {
-    private EventFilters eventFilters;
-    private ImmutableList.Builder<QueryCreatedEvent> queryCreatedEvents;
-    private ImmutableList.Builder<QueryCompletedEvent> queryCompletedEvents;
-    private ImmutableList.Builder<SplitCompletedEvent> splitCompletedEvents;
-
-    private CountDownLatch eventsLatch;
-
-    public EventsCollector()
-    {
-        this(EventFilters.builder().build());
-    }
-
-    public EventsCollector(EventFilters eventFilters)
-    {
-        this.eventFilters = requireNonNull(eventFilters, "eventFilters is null");
-        reset(0);
-    }
-
-    public synchronized void reset(int numEvents)
-    {
-        queryCreatedEvents = ImmutableList.builder();
-        queryCompletedEvents = ImmutableList.builder();
-        splitCompletedEvents = ImmutableList.builder();
-
-        eventsLatch = new CountDownLatch(numEvents);
-    }
-
-    public void waitForEvents(int timeoutSeconds)
-            throws InterruptedException
-    {
-        eventsLatch.await(timeoutSeconds, TimeUnit.SECONDS);
-    }
+    private final ConcurrentHashMap<QueryId, QueryEvents> queryEvents = new ConcurrentHashMap<>();
+    private final AtomicBoolean requiresAnonymizedPlan = new AtomicBoolean(false);
 
     public synchronized void addQueryCreated(QueryCreatedEvent event)
     {
-        if (!eventFilters.queryCreatedFilter.test(event)) {
-            return;
-        }
-        queryCreatedEvents.add(event);
-        eventsLatch.countDown();
+        getQueryEvents(new QueryId(event.getMetadata().getQueryId())).addQueryCreated(event);
     }
 
     public synchronized void addQueryCompleted(QueryCompletedEvent event)
     {
-        if (!eventFilters.queryCompletedFilter.test(event)) {
-            return;
-        }
-        queryCompletedEvents.add(event);
-        eventsLatch.countDown();
+        getQueryEvents(new QueryId(event.getMetadata().getQueryId())).addQueryCompleted(event);
     }
 
     public synchronized void addSplitCompleted(SplitCompletedEvent event)
     {
-        if (!eventFilters.splitCompletedFilter.test(event)) {
-            return;
-        }
-        splitCompletedEvents.add(event);
-        eventsLatch.countDown();
+        getQueryEvents(new QueryId(event.getQueryId())).addSplitCompleted(event);
     }
 
-    public List<QueryCreatedEvent> getQueryCreatedEvents()
+    public void setRequiresAnonymizedPlan(boolean value)
     {
-        return queryCreatedEvents.build();
+        requiresAnonymizedPlan.set(value);
     }
 
-    public List<QueryCompletedEvent> getQueryCompletedEvents()
+    public boolean requiresAnonymizedPlan()
     {
-        return queryCompletedEvents.build();
+        return requiresAnonymizedPlan.get();
     }
 
-    public List<SplitCompletedEvent> getSplitCompletedEvents()
+    public QueryEvents getQueryEvents(QueryId queryId)
     {
-        return splitCompletedEvents.build();
+        return queryEvents.computeIfAbsent(queryId, ignored -> new QueryEvents());
     }
 
-    public static class EventFilters
+    @ThreadSafe
+    public static class QueryEvents
     {
-        private final Predicate<QueryCreatedEvent> queryCreatedFilter;
-        private final Predicate<QueryCompletedEvent> queryCompletedFilter;
-        private final Predicate<SplitCompletedEvent> splitCompletedFilter;
+        @GuardedBy("this")
+        private QueryCreatedEvent queryCreatedEvent;
+        @GuardedBy("this")
+        private QueryCompletedEvent queryCompletedEvent;
+        @GuardedBy("this")
+        private final CountDownLatch queryCompleteLatch = new CountDownLatch(1);
 
-        private EventFilters(Predicate<QueryCreatedEvent> queryCreatedFilter, Predicate<QueryCompletedEvent> queryCompletedFilter, Predicate<SplitCompletedEvent> splitCompletedFilter)
+        @GuardedBy("this")
+        private final List<SplitCompletedEvent> splitCompletedEvents = new ArrayList<>();
+        @GuardedBy("this")
+        private CountDownLatch splitEventLatch;
+
+        @GuardedBy("this")
+        private final List<Exception> failures = new ArrayList<>();
+
+        public synchronized QueryCreatedEvent getQueryCreatedEvent()
         {
-            this.queryCreatedFilter = requireNonNull(queryCreatedFilter, "queryCreatedFilter is null");
-            this.queryCompletedFilter = requireNonNull(queryCompletedFilter, "queryCompletedFilter is null");
-            this.splitCompletedFilter = requireNonNull(splitCompletedFilter, "splitCompletedFilter is null");
+            checkFailure();
+            if (queryCreatedEvent == null) {
+                throw new IllegalStateException("QueryCreatedEvent has not been set");
+            }
+            return queryCreatedEvent;
         }
 
-        public static Builder builder()
+        public synchronized QueryCompletedEvent getQueryCompletedEvent()
         {
-            return new Builder();
+            checkFailure();
+            if (queryCompletedEvent == null) {
+                throw new IllegalStateException("QueryCompletedEvent has not been set");
+            }
+            return queryCompletedEvent;
         }
 
-        public static class Builder
+        private synchronized void addQueryCreated(QueryCreatedEvent event)
         {
-            private Predicate<QueryCreatedEvent> queryCreatedFilter = queryCreatedEvent -> true;
-            private Predicate<QueryCompletedEvent> queryCompletedFilter = queryCompletedEvent -> true;
-            private Predicate<SplitCompletedEvent> splitCompletedFilter = splitCompletedEvent -> true;
+            requireNonNull(event, "event is null");
+            if (queryCreatedEvent != null) {
+                failures.add(new RuntimeException("QueryCreateEvent already set"));
+                return;
+            }
+            queryCreatedEvent = event;
 
-            public Builder setQueryCreatedFilter(Predicate<QueryCreatedEvent> queryCreatedFilter)
-            {
-                this.queryCreatedFilter = queryCreatedFilter;
-                return this;
+            if (queryCompletedEvent != null) {
+                queryCompleteLatch.countDown();
+            }
+        }
+
+        private synchronized void addQueryCompleted(QueryCompletedEvent event)
+        {
+            requireNonNull(event, "event is null");
+            if (queryCompletedEvent != null) {
+                failures.add(new RuntimeException("QueryCompletedEvent already set"));
+                return;
+            }
+            queryCompletedEvent = event;
+
+            if (queryCreatedEvent != null) {
+                queryCompleteLatch.countDown();
+            }
+        }
+
+        private synchronized void addSplitCompleted(SplitCompletedEvent event)
+        {
+            splitCompletedEvents.add(event);
+            if (splitEventLatch != null) {
+                splitEventLatch.countDown();
+            }
+        }
+
+        public void waitForQueryCompletion(Duration timeout)
+                throws InterruptedException, TimeoutException
+        {
+            CountDownLatch latch;
+            synchronized (this) {
+                latch = queryCompleteLatch;
             }
 
-            public Builder setQueryCompletedFilter(Predicate<QueryCompletedEvent> queryCompletedFilter)
-            {
-                this.queryCompletedFilter = queryCompletedFilter;
-                return this;
+            boolean finished = latch.await(timeout.toMillis(), MILLISECONDS);
+            if (!finished) {
+                synchronized (this) {
+                    TimeoutException exception = new TimeoutException("Query did not complete in %s. Currently, queryCreatedEvent=%s queryCompletedEvent=%s queryCompleteLatch=%s"
+                                    .formatted(timeout, queryCreatedEvent, queryCompletedEvent, queryCompleteLatch));
+                    failures.forEach(exception::addSuppressed);
+                    throw exception;
+                }
+            }
+        }
+
+        public synchronized List<SplitCompletedEvent> waitForSplitCompletedEvents(int numberOfSplitEvents, Duration timeout)
+                throws InterruptedException, TimeoutException
+        {
+            CountDownLatch latch;
+            synchronized (this) {
+                checkFailure();
+
+                if (splitCompletedEvents.size() >= numberOfSplitEvents) {
+                    return ImmutableList.copyOf(splitCompletedEvents);
+                }
+
+                if (splitEventLatch != null) {
+                    // support for waiting multiple times is complex and currently not needed, so it has not been implemented
+                    throw new IllegalStateException("Wait for split completion already triggered for this query");
+                }
+                splitEventLatch = new CountDownLatch(numberOfSplitEvents - splitCompletedEvents.size());
+                latch = splitEventLatch;
             }
 
-            public Builder setSplitCompletedFilter(Predicate<SplitCompletedEvent> splitCompletedFilter)
-            {
-                this.splitCompletedFilter = splitCompletedFilter;
-                return this;
+            boolean finished = latch.await(timeout.toMillis(), MILLISECONDS);
+            if (!finished) {
+                throw new TimeoutException("Split events did not complete in " + timeout);
             }
 
-            public EventFilters build()
-            {
-                return new EventFilters(queryCreatedFilter, queryCompletedFilter, splitCompletedFilter);
+            synchronized (this) {
+                checkFailure();
+                return ImmutableList.copyOf(splitCompletedEvents);
             }
+        }
+
+        private synchronized void checkFailure()
+        {
+            if (failures.isEmpty()) {
+                return;
+            }
+            RuntimeException exception = new RuntimeException("Event collection failed");
+            failures.forEach(exception::addSuppressed);
         }
     }
 }

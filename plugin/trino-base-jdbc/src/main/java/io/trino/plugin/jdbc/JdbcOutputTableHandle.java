@@ -61,7 +61,6 @@ public class JdbcOutputTableHandle
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.columnTypes = ImmutableList.copyOf(columnTypes);
-        requireNonNull(jdbcColumnTypes, "jdbcColumnTypes is null");
         jdbcColumnTypes.ifPresent(jdbcTypeHandles -> checkArgument(jdbcTypeHandles.size() == columnNames.size(), "columnNames and jdbcColumnTypes sizes don't match"));
         this.jdbcColumnTypes = jdbcColumnTypes.map(ImmutableList::copyOf);
     }

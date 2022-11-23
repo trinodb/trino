@@ -56,9 +56,7 @@ public class TestAesSpillCipher
         if (output.length == outLength) {
             return output;
         }
-        else {
-            return Arrays.copyOfRange(output, 0, outLength);
-        }
+        return Arrays.copyOfRange(output, 0, outLength);
     }
 
     private static byte[] decryptExact(SpillCipher cipher, byte[] encryptedData)
@@ -68,9 +66,7 @@ public class TestAesSpillCipher
         if (outLength == output.length) {
             return output;
         }
-        else {
-            return Arrays.copyOfRange(output, 0, outLength);
-        }
+        return Arrays.copyOfRange(output, 0, outLength);
     }
 
     private static void assertFailure(ThrowingRunnable runnable, String expectedErrorMessage)

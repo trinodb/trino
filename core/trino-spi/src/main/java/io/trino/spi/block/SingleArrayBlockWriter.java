@@ -19,13 +19,14 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public class SingleArrayBlockWriter
         extends AbstractSingleArrayBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleArrayBlockWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleArrayBlockWriter.class).instanceSize());
 
     private final BlockBuilder blockBuilder;
     private final long initialBlockBuilderSize;
@@ -66,7 +67,7 @@ public class SingleArrayBlockWriter
     public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(blockBuilder, blockBuilder.getRetainedSizeInBytes());
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -144,7 +145,7 @@ public class SingleArrayBlockWriter
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
     {
         throw new UnsupportedOperationException();
     }

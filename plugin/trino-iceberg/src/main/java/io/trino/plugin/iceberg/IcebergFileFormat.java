@@ -23,6 +23,7 @@ public enum IcebergFileFormat
 {
     ORC,
     PARQUET,
+    AVRO,
     /**/;
 
     public FileFormat toIceberg()
@@ -32,6 +33,8 @@ public enum IcebergFileFormat
                 return FileFormat.ORC;
             case PARQUET:
                 return FileFormat.PARQUET;
+            case AVRO:
+                return FileFormat.AVRO;
         }
         throw new VerifyException("Unhandled type: " + this);
     }
@@ -43,6 +46,8 @@ public enum IcebergFileFormat
                 return ORC;
             case PARQUET:
                 return PARQUET;
+            case AVRO:
+                return AVRO;
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + format);
         }

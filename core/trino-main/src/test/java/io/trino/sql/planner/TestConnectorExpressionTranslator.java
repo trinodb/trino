@@ -24,6 +24,7 @@ import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.StandardFunctions;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
@@ -34,6 +35,8 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.InListExpression;
+import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LikePredicate;
@@ -41,6 +44,7 @@ import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
+import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
@@ -59,11 +63,12 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
-import static io.trino.spi.expression.StandardFunctions.LIKE_PATTERN_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NEGATE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NULLIF_FUNCTION_NAME;
@@ -94,6 +99,8 @@ public class TestConnectorExpressionTranslator
     private static final TypeAnalyzer TYPE_ANALYZER = createTestingTypeAnalyzer(PLANNER_CONTEXT);
     private static final Type ROW_TYPE = rowType(field("int_symbol_1", INTEGER), field("varchar_symbol_1", createVarcharType(5)));
     private static final VarcharType VARCHAR_TYPE = createVarcharType(25);
+    private static final ArrayType VARCHAR_ARRAY_TYPE = new ArrayType(VARCHAR_TYPE);
+
     private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(PLANNER_CONTEXT);
 
     private static final Map<Symbol, Type> symbols = ImmutableMap.<Symbol, Type>builder()
@@ -336,7 +343,7 @@ public class TestConnectorExpressionTranslator
                         new StringLiteral(pattern),
                         Optional.empty()),
                 new Call(BOOLEAN,
-                        LIKE_PATTERN_FUNCTION_NAME,
+                        LIKE_FUNCTION_NAME,
                         List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                 new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())))));
 
@@ -347,7 +354,7 @@ public class TestConnectorExpressionTranslator
                         new StringLiteral(pattern),
                         Optional.of(new StringLiteral(escape))),
                 new Call(BOOLEAN,
-                        LIKE_PATTERN_FUNCTION_NAME,
+                        LIKE_FUNCTION_NAME,
                         List.of(
                                 new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                 new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())),
@@ -418,6 +425,33 @@ public class TestConnectorExpressionTranslator
                 });
     }
 
+    @Test
+    public void testTranslateIn()
+    {
+        String value = "value_1";
+        assertTranslationRoundTrips(
+                new InPredicate(
+                    new SymbolReference("varchar_symbol_1"),
+                    new InListExpression(List.of(new SymbolReference("varchar_symbol_1"), new StringLiteral(value)))),
+                new Call(
+                    BOOLEAN,
+                    StandardFunctions.IN_PREDICATE_FUNCTION_NAME,
+                    List.of(
+                            new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                            new Call(VARCHAR_ARRAY_TYPE, ARRAY_CONSTRUCTOR_FUNCTION_NAME,
+                                    List.of(
+                                            new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                            new Constant(Slices.wrappedBuffer(value.getBytes(UTF_8)), createVarcharType(value.length())))))));
+
+        // IN (null) is not translated
+        assertTranslationToConnectorExpression(
+                TEST_SESSION,
+                new InPredicate(
+                        new SymbolReference("varchar_symbol_1"),
+                        new InListExpression(List.of(new SymbolReference("varchar_symbol_1"), new NullLiteral()))),
+                Optional.empty());
+    }
+
     private void assertTranslationRoundTrips(Expression expression, ConnectorExpression connectorExpression)
     {
         assertTranslationRoundTrips(TEST_SESSION, expression, connectorExpression);
@@ -436,7 +470,7 @@ public class TestConnectorExpressionTranslator
 
     private void assertTranslationToConnectorExpression(Session session, Expression expression, Optional<ConnectorExpression> connectorExpression)
     {
-        Optional<ConnectorExpression> translation = translate(session, expression, TYPE_ANALYZER, TYPE_PROVIDER, PLANNER_CONTEXT);
+        Optional<ConnectorExpression> translation = translate(session, expression, TYPE_PROVIDER, PLANNER_CONTEXT, TYPE_ANALYZER);
         assertEquals(connectorExpression.isPresent(), translation.isPresent());
         translation.ifPresent(value -> assertEquals(value, connectorExpression.get()));
     }

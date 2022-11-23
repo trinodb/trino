@@ -13,21 +13,14 @@
  */
 package io.trino.metadata;
 
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimaps;
-import com.google.common.collect.SetMultimap;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogName;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
+import io.trino.connector.CatalogHandle;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
@@ -35,55 +28,30 @@ import static java.util.Objects.requireNonNull;
 public class InMemoryNodeManager
         implements InternalNodeManager
 {
-    private final InternalNode localNode;
-    private final SetMultimap<CatalogName, InternalNode> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.create());
+    private static final InternalNode CURRENT_NODE = new InternalNode("local", URI.create("local://127.0.0.1:8080"), NodeVersion.UNKNOWN, true);
+    private final Set<InternalNode> allNodes = ConcurrentHashMap.newKeySet();
 
-    @GuardedBy("this")
-    private final List<Consumer<AllNodes>> listeners = new ArrayList<>();
-
-    @Inject
-    public InMemoryNodeManager()
+    public InMemoryNodeManager(InternalNode... remoteNodes)
     {
-        this(URI.create("local://127.0.0.1:8080"));
+        this(ImmutableSet.copyOf(remoteNodes));
     }
 
-    public InMemoryNodeManager(URI localUri)
+    public InMemoryNodeManager(Set<InternalNode> remoteNodes)
     {
-        localNode = new InternalNode("local", localUri, NodeVersion.UNKNOWN, true);
+        allNodes.add(CURRENT_NODE);
+        allNodes.addAll(remoteNodes);
     }
 
-    public void addCurrentNodeConnector(CatalogName catalogName)
+    public void addNodes(InternalNode... internalNodes)
     {
-        addNode(catalogName, localNode);
-    }
-
-    public void addNode(CatalogName catalogName, InternalNode... nodes)
-    {
-        addNode(catalogName, ImmutableList.copyOf(nodes));
-    }
-
-    public void addNode(CatalogName catalogName, Iterable<InternalNode> nodes)
-    {
-        remoteNodes.putAll(catalogName, nodes);
-
-        List<Consumer<AllNodes>> listeners;
-        synchronized (this) {
-            listeners = ImmutableList.copyOf(this.listeners);
-        }
-        AllNodes allNodes = getAllNodes();
-        listeners.forEach(listener -> listener.accept(allNodes));
-    }
-
-    public void removeNode(InternalNode node)
-    {
-        for (CatalogName catalog : ImmutableSet.copyOf(remoteNodes.keySet())) {
-            removeNode(catalog, node);
+        for (InternalNode internalNode : internalNodes) {
+            allNodes.add(requireNonNull(internalNode, "internalNode is null"));
         }
     }
 
-    public void removeNode(CatalogName catalogName, InternalNode node)
+    public void removeNode(InternalNode internalNode)
     {
-        remoteNodes.remove(catalogName, node);
+        allNodes.remove(internalNode);
     }
 
     @Override
@@ -91,65 +59,55 @@ public class InMemoryNodeManager
     {
         switch (state) {
             case ACTIVE:
-                return getAllNodes().getActiveNodes();
+                return allNodes;
             case INACTIVE:
-                return getAllNodes().getInactiveNodes();
             case SHUTTING_DOWN:
-                return getAllNodes().getShuttingDownNodes();
+                return ImmutableSet.of();
         }
         throw new IllegalArgumentException("Unknown node state " + state);
     }
 
     @Override
-    public Set<InternalNode> getActiveConnectorNodes(CatalogName catalogName)
+    public Set<InternalNode> getActiveCatalogNodes(CatalogHandle catalogHandle)
     {
-        return ImmutableSet.copyOf(remoteNodes.get(catalogName));
+        return allNodes;
     }
 
     @Override
     public NodesSnapshot getActiveNodesSnapshot()
     {
-        Set<InternalNode> allActiveNodes = ImmutableSet.<InternalNode>builder()
-                .addAll(remoteNodes.values())
-                .add(localNode)
-                .build();
-        return new NodesSnapshot(allActiveNodes, remoteNodes);
+        return new NodesSnapshot(allNodes, Optional.empty());
     }
 
     @Override
     public AllNodes getAllNodes()
     {
-        return new AllNodes(ImmutableSet.<InternalNode>builder().add(localNode).addAll(remoteNodes.values()).build(), ImmutableSet.of(), ImmutableSet.of(), ImmutableSet.of(localNode));
+        return new AllNodes(
+                allNodes,
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableSet.of(CURRENT_NODE));
     }
 
     @Override
     public InternalNode getCurrentNode()
     {
-        return localNode;
+        return CURRENT_NODE;
     }
 
     @Override
     public Set<InternalNode> getCoordinators()
     {
         // always use localNode as coordinator
-        return ImmutableSet.of(localNode);
+        return ImmutableSet.of(CURRENT_NODE);
     }
 
     @Override
-    public void refreshNodes()
-    {
-        // no-op
-    }
+    public void refreshNodes() {}
 
     @Override
-    public synchronized void addNodeChangeListener(Consumer<AllNodes> listener)
-    {
-        listeners.add(requireNonNull(listener, "listener is null"));
-    }
+    public void addNodeChangeListener(Consumer<AllNodes> listener) {}
 
     @Override
-    public synchronized void removeNodeChangeListener(Consumer<AllNodes> listener)
-    {
-        listeners.remove(requireNonNull(listener, "listener is null"));
-    }
+    public void removeNodeChangeListener(Consumer<AllNodes> listener) {}
 }

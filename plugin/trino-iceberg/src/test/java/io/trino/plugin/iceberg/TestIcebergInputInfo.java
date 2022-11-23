@@ -82,7 +82,7 @@ public class TestIcebergInputInfo
             IcebergInputInfo icebergInputInfo = (IcebergInputInfo) tableInfo.get();
             assertThat(icebergInputInfo).isEqualTo(new IcebergInputInfo(
                     icebergInputInfo.getSnapshotId(),
-                    expectedPartition,
+                    Optional.of(expectedPartition),
                     expectedFileFormat));
         });
     }

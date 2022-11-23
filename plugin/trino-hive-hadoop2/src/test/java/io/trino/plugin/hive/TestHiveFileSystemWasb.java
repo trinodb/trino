@@ -14,6 +14,11 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.hdfs.ConfigurationInitializer;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.plugin.hive.azure.HiveAzureConfig;
 import io.trino.plugin.hive.azure.TrinoAzureConfigurationInitializer;
 import org.apache.hadoop.fs.Path;
@@ -64,7 +69,7 @@ public class TestHiveFileSystemWasb
         ConfigurationInitializer wasbConfig = new TrinoAzureConfigurationInitializer(new HiveAzureConfig()
                 .setWasbAccessKey(accessKey)
                 .setWasbStorageAccount(account));
-        return new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(wasbConfig)), ImmutableSet.of());
+        return new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(wasbConfig)), ImmutableSet.of());
     }
 
     @Override

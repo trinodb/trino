@@ -14,11 +14,11 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.plugin.hive.AcidInfo;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -106,7 +106,7 @@ public class OrcDeletedRows
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.acidInfo = requireNonNull(acidInfo, "acidInfo is null");
         this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
-        this.memoryUsage = requireNonNull(memoryContext, "memoryContext is null").newLocalMemoryContext(OrcDeletedRows.class.getSimpleName());
+        this.memoryUsage = memoryContext.newLocalMemoryContext(OrcDeletedRows.class.getSimpleName());
     }
 
     public MaskDeletedRowsFunction getMaskDeletedRowsFunction(Page sourcePage, OptionalLong startRowId)
@@ -183,7 +183,7 @@ public class OrcDeletedRows
             if (positionCount == block.getPositionCount()) {
                 return block;
             }
-            return new DictionaryBlock(positionCount, block, validPositions);
+            return DictionaryBlock.create(positionCount, block, validPositions);
         }
 
         private void loadValidPositions()
@@ -417,7 +417,7 @@ public class OrcDeletedRows
 
     private static class RowId
     {
-        public static final int INSTANCE_SIZE = ClassLayout.parseClass(RowId.class).instanceSize();
+        public static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RowId.class).instanceSize());
 
         private final long originalTransaction;
         private final int bucket;

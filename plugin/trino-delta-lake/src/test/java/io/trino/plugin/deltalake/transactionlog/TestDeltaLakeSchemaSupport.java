@@ -41,6 +41,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
@@ -57,7 +58,6 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -102,7 +102,7 @@ public class TestDeltaLakeSchemaSupport
                 ColumnMetadata.builder().setName("a").setType(DATE).setNullable(true).build());
         testSinglePrimitiveFieldSchema(
                 "{\"type\":\"struct\",\"fields\":[{\"name\":\"a\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}]}",
-                ColumnMetadata.builder().setName("a").setType(TIMESTAMP_WITH_TIME_ZONE).setNullable(true).build());
+                ColumnMetadata.builder().setName("a").setType(TIMESTAMP_TZ_MILLIS).setNullable(true).build());
     }
 
     private void testSinglePrimitiveFieldSchema(String json, ColumnMetadata metadata)
@@ -169,6 +169,7 @@ public class TestDeltaLakeSchemaSupport
         DeltaLakeColumnHandle arrayColumn = new DeltaLakeColumnHandle(
                 "arr",
                 new ArrayType(new ArrayType(INTEGER)),
+                OptionalInt.empty(),
                 "arr",
                 new ArrayType(new ArrayType(INTEGER)),
                 REGULAR);
@@ -180,6 +181,7 @@ public class TestDeltaLakeSchemaSupport
                         new RowType.Field(Optional.of("s2"), RowType.from(ImmutableList.of(
                                 new RowType.Field(Optional.of("i1"), INTEGER),
                                 new RowType.Field(Optional.of("d2"), DecimalType.createDecimalType(38, 0))))))),
+                OptionalInt.empty(),
                 "str",
                 RowType.from(ImmutableList.of(
                         new RowType.Field(Optional.of("s1"), VarcharType.createUnboundedVarcharType()),
@@ -195,6 +197,7 @@ public class TestDeltaLakeSchemaSupport
                         INTEGER,
                         new MapType(INTEGER, INTEGER, typeOperators),
                         typeOperators),
+                OptionalInt.empty(),
                 "m",
                 new MapType(
                         INTEGER,
@@ -205,7 +208,7 @@ public class TestDeltaLakeSchemaSupport
         URL expected = getResource("io/trino/plugin/deltalake/transactionlog/schema/nested_schema.json");
         ObjectMapper objectMapper = new ObjectMapper();
 
-        String jsonEncoding = serializeSchemaAsJson(ImmutableList.of(arrayColumn, structColumn, mapColumn), ImmutableMap.of());
+        String jsonEncoding = serializeSchemaAsJson(ImmutableList.of(arrayColumn, structColumn, mapColumn), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
         assertEquals(objectMapper.readTree(jsonEncoding), objectMapper.readTree(expected));
     }
 
@@ -220,10 +223,10 @@ public class TestDeltaLakeSchemaSupport
                 .map(DeltaLakeColumnMetadata::getColumnMetadata)
                 .collect(toImmutableList());
         List<DeltaLakeColumnHandle> columnHandles = schema.stream()
-                .map(metadata -> new DeltaLakeColumnHandle(metadata.getName(), metadata.getType(), metadata.getName(), metadata.getType(), REGULAR))
+                .map(metadata -> new DeltaLakeColumnHandle(metadata.getName(), metadata.getType(), OptionalInt.empty(), metadata.getName(), metadata.getType(), REGULAR))
                 .collect(toImmutableList());
         ObjectMapper objectMapper = new ObjectMapper();
-        assertEquals(objectMapper.readTree(serializeSchemaAsJson(columnHandles, ImmutableMap.of())), objectMapper.readTree(json));
+        assertEquals(objectMapper.readTree(serializeSchemaAsJson(columnHandles, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of())), objectMapper.readTree(json));
     }
 
     @Test(dataProvider = "supportedTypes")

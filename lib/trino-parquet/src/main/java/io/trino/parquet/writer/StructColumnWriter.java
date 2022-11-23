@@ -14,8 +14,8 @@
 package io.trino.parquet.writer;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.parquet.writer.repdef.DefLevelIterable;
-import io.trino.parquet.writer.repdef.DefLevelIterables;
+import io.trino.parquet.writer.repdef.DefLevelWriterProvider;
+import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
 import io.trino.parquet.writer.repdef.RepLevelIterable;
 import io.trino.parquet.writer.repdef.RepLevelIterables;
 import io.trino.spi.block.Block;
@@ -26,13 +26,14 @@ import java.io.IOException;
 import java.util.List;
 
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.Preconditions.checkArgument;
 
 public class StructColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructColumnWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(StructColumnWriter.class).instanceSize());
 
     private final List<ColumnWriter> columnWriters;
     private final int maxDefinitionLevel;
@@ -50,9 +51,9 @@ public class StructColumnWriter
         ColumnarRow columnarRow = toColumnarRow(columnChunk.getBlock());
         checkArgument(columnarRow.getFieldCount() == columnWriters.size(), "ColumnarRow field size %s is not equal to columnWriters size %s", columnarRow.getFieldCount(), columnWriters.size());
 
-        List<DefLevelIterable> defLevelIterables = ImmutableList.<DefLevelIterable>builder()
-                .addAll(columnChunk.getDefLevelIterables())
-                .add(DefLevelIterables.of(columnarRow, maxDefinitionLevel))
+        List<DefLevelWriterProvider> defLevelWriterProviders = ImmutableList.<DefLevelWriterProvider>builder()
+                .addAll(columnChunk.getDefLevelWriterProviders())
+                .add(DefLevelWriterProviders.of(columnarRow, maxDefinitionLevel))
                 .build();
         List<RepLevelIterable> repLevelIterables = ImmutableList.<RepLevelIterable>builder()
                 .addAll(columnChunk.getRepLevelIterables())
@@ -62,7 +63,7 @@ public class StructColumnWriter
         for (int i = 0; i < columnWriters.size(); ++i) {
             ColumnWriter columnWriter = columnWriters.get(i);
             Block block = columnarRow.getField(i);
-            columnWriter.writeBlock(new ColumnChunk(block, defLevelIterables, repLevelIterables));
+            columnWriter.writeBlock(new ColumnChunk(block, defLevelWriterProviders, repLevelIterables));
         }
     }
 

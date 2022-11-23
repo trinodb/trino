@@ -13,13 +13,10 @@
  */
 package io.trino.plugin.deltalake;
 
-import io.trino.spi.NodeManager;
 import io.trino.spi.connector.BucketFunction;
-import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -28,39 +25,16 @@ import io.trino.spi.type.TypeOperators;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.function.ToIntFunction;
-
-import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
-import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
     private final TypeOperators typeOperators;
-    private final NodeManager nodeManager;
 
     @Inject
-    public DeltaLakeNodePartitioningProvider(TypeManager typeManager, NodeManager nodeManager)
+    public DeltaLakeNodePartitioningProvider(TypeManager typeManager)
     {
-        this.typeOperators = requireNonNull(typeManager, "typeManager is null").getTypeOperators();
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-    }
-
-    @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
-    {
-        return createBucketNodeMap(nodeManager.getRequiredWorkerNodes().size());
-    }
-
-    @Override
-    public ToIntFunction<ConnectorSplit> getSplitBucketFunction(
-            ConnectorTransactionHandle transactionHandle,
-            ConnectorSession session,
-            ConnectorPartitioningHandle partitioningHandle)
-    {
-        return split -> {
-            throw new UnsupportedOperationException();
-        };
+        this.typeOperators = typeManager.getTypeOperators();
     }
 
     @Override
@@ -71,6 +45,10 @@ public class DeltaLakeNodePartitioningProvider
             List<Type> partitionChannelTypes,
             int bucketCount)
     {
+        if (partitioningHandle instanceof DeltaLakeUpdateHandle) {
+            return new DeltaLakeUpdateBucketFunction(bucketCount);
+        }
+
         DeltaLakePartitioningHandle handle = (DeltaLakePartitioningHandle) partitioningHandle;
         return new DeltaLakeBucketFunction(typeOperators, handle.getPartitioningColumns(), bucketCount);
     }

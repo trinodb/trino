@@ -47,15 +47,17 @@ import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.ObjectId;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.plugin.mongodb.TypeUtils.isArrayType;
@@ -68,11 +70,12 @@ import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.Decimals.readBigDecimal;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.toIntExact;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
@@ -162,19 +165,21 @@ public class MongoPageSink
         }
         if (type.equals(DateType.DATE)) {
             long days = type.getLong(block, position);
-            return new Date(TimeUnit.DAYS.toMillis(days));
+            return LocalDate.ofEpochDay(days);
         }
-        if (type.equals(TimeType.TIME)) {
+        if (type.equals(TimeType.TIME_MILLIS)) {
             long picos = type.getLong(block, position);
-            return new Date(roundDiv(picos, PICOSECONDS_PER_MILLISECOND));
+            return LocalTime.ofNanoOfDay(roundDiv(picos, PICOSECONDS_PER_NANOSECOND));
         }
         if (type.equals(TIMESTAMP_MILLIS)) {
             long millisUtc = floorDiv(type.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
-            return new Date(millisUtc);
+            Instant instant = Instant.ofEpochMilli(millisUtc);
+            return LocalDateTime.ofInstant(instant, UTC);
         }
         if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS)) {
             long millisUtc = unpackMillisUtc(type.getLong(block, position));
-            return new Date(millisUtc);
+            Instant instant = Instant.ofEpochMilli(millisUtc);
+            return LocalDateTime.ofInstant(instant, UTC);
         }
         if (type instanceof DecimalType) {
             return readBigDecimal((DecimalType) type, block, position);

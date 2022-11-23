@@ -20,11 +20,14 @@ import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcMetadataConfig;
+import io.trino.plugin.jdbc.JdbcMetadataSessionProperties;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Type;
@@ -36,6 +39,8 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.InListExpression;
+import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LikePredicate;
@@ -44,6 +49,7 @@ import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.testing.TestingConnectorSession;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -63,7 +69,6 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.DataProviders.toDataProvider;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
@@ -93,6 +98,13 @@ public class TestPostgreSqlClient
                     .setJdbcTypeHandle(new JdbcTypeHandle(Types.VARCHAR, Optional.of("varchar"), Optional.of(10), Optional.empty(), Optional.empty(), Optional.empty()))
                     .build();
 
+    private static final JdbcColumnHandle VARCHAR_COLUMN2 =
+            JdbcColumnHandle.builder()
+                    .setColumnName("c_varchar2")
+                    .setColumnType(createVarcharType(10))
+                    .setJdbcTypeHandle(new JdbcTypeHandle(Types.VARCHAR, Optional.of("varchar"), Optional.of(10), Optional.empty(), Optional.empty(), Optional.empty()))
+                    .build();
+
     private static final JdbcClient JDBC_CLIENT = new PostgreSqlClient(
             new BaseJdbcConfig(),
             new PostgreSqlConfig(),
@@ -103,6 +115,11 @@ public class TestPostgreSqlClient
             new DefaultIdentifierMapping());
 
     private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(PLANNER_CONTEXT);
+
+    private static final ConnectorSession SESSION = TestingConnectorSession
+            .builder()
+            .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig(), Optional.empty()).getSessionProperties())
+            .build();
 
     @Test
     public void testImplementCount()
@@ -410,15 +427,29 @@ public class TestPostgreSqlClient
                 .hasValue("NOT ((\"c_varchar\") IS NOT NULL)");
     }
 
+    @Test
+    public void testConvertIn()
+    {
+        assertThat(JDBC_CLIENT.convertPredicate(
+                SESSION,
+                translateToConnectorExpression(
+                                new InPredicate(
+                                        new SymbolReference("c_varchar"),
+                                        new InListExpression(List.of(new StringLiteral("value1"), new StringLiteral("value2"), new SymbolReference("c_varchar2")))),
+                                Map.of("c_varchar", VARCHAR_COLUMN.getColumnType(), "c_varchar2", VARCHAR_COLUMN2.getColumnType())),
+                Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN, VARCHAR_COLUMN2.getColumnName(), VARCHAR_COLUMN2)))
+                .hasValue("(\"c_varchar\") IN ('value1', 'value2', \"c_varchar2\")");
+    }
+
     private ConnectorExpression translateToConnectorExpression(Expression expression, Map<String, Type> symbolTypes)
     {
         return ConnectorExpressionTranslator.translate(
                         TEST_SESSION,
                         expression,
-                        createTestingTypeAnalyzer(PLANNER_CONTEXT),
                         TypeProvider.viewOf(symbolTypes.entrySet().stream()
                                 .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Entry::getValue))),
-                        PLANNER_CONTEXT)
+                        PLANNER_CONTEXT,
+                        createTestingTypeAnalyzer(PLANNER_CONTEXT))
                 .orElseThrow();
     }
 }

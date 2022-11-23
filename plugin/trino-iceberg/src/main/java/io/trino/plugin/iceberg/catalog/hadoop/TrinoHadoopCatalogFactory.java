@@ -14,8 +14,8 @@
 package io.trino.plugin.iceberg.catalog.hadoop;
 
 import com.google.inject.Inject;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;

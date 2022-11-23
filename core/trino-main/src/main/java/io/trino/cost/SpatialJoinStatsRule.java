@@ -38,7 +38,7 @@ public class SpatialJoinStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(SpatialJoinNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(SpatialJoinNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
         PlanNodeStatsEstimate leftStats = sourceStats.getStats(node.getLeft());
         PlanNodeStatsEstimate rightStats = sourceStats.getStats(node.getRight());

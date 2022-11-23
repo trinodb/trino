@@ -51,12 +51,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.orc.stream.LongOutputStream.createLengthOutputStream;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SliceDirectColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectColumnWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SliceDirectColumnWriter.class).instanceSize());
     private final OrcColumnId columnId;
     private final Type type;
     private final boolean compressed;

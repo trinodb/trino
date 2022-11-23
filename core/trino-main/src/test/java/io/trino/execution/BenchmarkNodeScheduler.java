@@ -20,7 +20,6 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Multimap;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogName;
 import io.trino.execution.scheduler.FlatNetworkTopology;
 import io.trino.execution.scheduler.NetworkLocation;
 import io.trino.execution.scheduler.NetworkTopology;
@@ -34,6 +33,7 @@ import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNode;
+import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
@@ -71,6 +71,8 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.trino.SystemSessionProperties.MAX_UNACKNOWLEDGED_SPLITS_PER_TASK;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static java.lang.Math.toIntExact;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
@@ -90,7 +92,6 @@ public class BenchmarkNodeScheduler
     private static final int RACKS = DATA_NODES / 25;
     private static final int SPLITS = NODES * (MAX_SPLITS_PER_NODE + MAX_PENDING_SPLITS_PER_TASK_PER_NODE / 3);
     private static final int SPLIT_BATCH_SIZE = 100;
-    private static final CatalogName CONNECTOR_ID = new CatalogName("test_connector_id");
 
     @Benchmark
     @OperationsPerInvocation(SPLITS)
@@ -156,7 +157,7 @@ public class BenchmarkNodeScheduler
                 InternalNode node = nodes.get(i);
                 ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
                 for (int j = 0; j < MAX_SPLITS_PER_NODE + MAX_PENDING_SPLITS_PER_TASK_PER_NODE; j++) {
-                    initialSplits.add(new Split(CONNECTOR_ID, new TestSplitRemote(i)));
+                    initialSplits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitRemote(i)));
                 }
                 TaskId taskId = new TaskId(new StageId("test", 1), i, 0);
                 MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
@@ -165,16 +166,14 @@ public class BenchmarkNodeScheduler
             }
 
             for (int i = 0; i < SPLITS; i++) {
-                splits.add(new Split(CONNECTOR_ID, new TestSplitRemote(ThreadLocalRandom.current().nextInt(DATA_NODES))));
+                splits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitRemote(ThreadLocalRandom.current().nextInt(DATA_NODES))));
             }
 
-            InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-            nodeManager.addNode(CONNECTOR_ID, nodes);
-            NodeScheduler nodeScheduler = new NodeScheduler(getNodeSelectorFactory(nodeManager, nodeTaskMap));
+            NodeScheduler nodeScheduler = new NodeScheduler(getNodeSelectorFactory(new InMemoryNodeManager(), nodeTaskMap));
             Session session = TestingSession.testSessionBuilder()
                     .setSystemProperty(MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, Integer.toString(Integer.MAX_VALUE))
                     .build();
-            nodeSelector = nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID));
+            nodeSelector = nodeScheduler.createNodeSelector(session, Optional.of(TEST_CATALOG_HANDLE));
         }
 
         @TearDown
@@ -192,7 +191,7 @@ public class BenchmarkNodeScheduler
                     .setMaxPendingSplitsPerTask(MAX_PENDING_SPLITS_PER_TASK_PER_NODE);
         }
 
-        private NodeSelectorFactory getNodeSelectorFactory(InMemoryNodeManager nodeManager, NodeTaskMap nodeTaskMap)
+        private NodeSelectorFactory getNodeSelectorFactory(InternalNodeManager nodeManager, NodeTaskMap nodeTaskMap)
         {
             NodeSchedulerConfig nodeSchedulerConfig = getNodeSchedulerConfig();
             switch (policy) {
@@ -250,7 +249,7 @@ public class BenchmarkNodeScheduler
     private static class TestSplitRemote
             implements ConnectorSplit
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestSplitRemote.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TestSplitRemote.class).instanceSize());
 
         private final List<HostAddress> hosts;
 

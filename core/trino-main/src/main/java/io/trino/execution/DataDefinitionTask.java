@@ -29,9 +29,4 @@ public interface DataDefinitionTask<T extends Statement>
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector);
-
-    interface ExplainDataDefinition<T extends Statement>
-    {
-        String explain(T statement, List<Expression> parameters);
-    }
 }

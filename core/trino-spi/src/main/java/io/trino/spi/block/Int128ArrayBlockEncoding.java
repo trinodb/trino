@@ -90,7 +90,7 @@ public class Int128ArrayBlockEncoding
         if (block instanceof Int128ArrayBlock) {
             return ((Int128ArrayBlock) block).getValuesSlice();
         }
-        else if (block instanceof Int128ArrayBlockBuilder) {
+        if (block instanceof Int128ArrayBlockBuilder) {
             return ((Int128ArrayBlockBuilder) block).getValuesSlice();
         }
 

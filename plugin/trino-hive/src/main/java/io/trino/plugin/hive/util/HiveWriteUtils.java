@@ -17,8 +17,8 @@ import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveReadOnlyException;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
@@ -448,12 +448,10 @@ public final class HiveWriteUtils
 
     public static Path getTableDefaultLocation(Database database, HdfsContext context, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
-        Optional<String> location = database.getLocation();
-        if (location.isEmpty()) {
-            throw new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName));
-        }
+        String location = database.getLocation()
+                .orElseThrow(() -> new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName)));
 
-        Path databasePath = new Path(location.get());
+        Path databasePath = new Path(location);
         if (!isS3FileSystem(context, hdfsEnvironment, databasePath)) {
             if (!pathExists(context, hdfsEnvironment, databasePath)) {
                 throw new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location does not exist: %s", schemaName, databasePath));

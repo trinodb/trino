@@ -82,9 +82,7 @@ public class TestDereferencePushDown
                         "FROM t a JOIN t b ON a.msg.y = b.msg.y " +
                         "WHERE a.msg.x > BIGINT '5'",
                 output(ImmutableList.of("a_y"),
-                        join(INNER, ImmutableList.of(),
-                                values("a_y"),
-                                values())));
+                                values("a_y")));
 
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT b.msg.x " +
@@ -229,9 +227,7 @@ public class TestDereferencePushDown
                         "FROM t a JOIN t b ON a.msg.y = b.msg.y " +
                         "WHERE a.msg.x > BIGINT '5' " +
                         "LIMIT 100",
-                anyTree(join(INNER, ImmutableList.of(),
-                        values("a_y"),
-                        values())));
+                anyTree(limit(100, values("a_y"))));
 
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT b.msg.x " +

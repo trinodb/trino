@@ -15,15 +15,9 @@ package io.trino.plugin.deltalake;
 
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.plugin.hive.HdfsConfig;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.TestingHivePlugin;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.glue.DefaultGlueColumnStatisticsProviderFactory;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
@@ -36,6 +30,7 @@ import java.nio.file.Path;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
@@ -77,13 +72,8 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                         .put("delta.hive-catalog-name", "hive_with_redirections")
                         .buildOrThrow());
 
-        HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(
-                new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of()),
-                hdfsConfig,
-                new NoHdfsAuthentication());
         this.glueMetastore = new GlueHiveMetastore(
-                hdfsEnvironment,
+                HDFS_ENVIRONMENT,
                 new GlueHiveMetastoreConfig(),
                 DefaultAWSCredentialsProviderChain.getInstance(),
                 directExecutor(),

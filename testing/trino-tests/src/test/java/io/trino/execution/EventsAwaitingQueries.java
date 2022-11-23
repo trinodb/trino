@@ -13,46 +13,58 @@
  */
 package io.trino.execution;
 
+import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.execution.EventsCollector.QueryEvents;
+import io.trino.spi.QueryId;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.QueryRunner;
+import io.trino.testing.MaterializedResultWithQueryId;
+import io.trino.testing.QueryFailedException;
 import org.intellij.lang.annotations.Language;
 
-import java.time.Duration;
 import java.util.Optional;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.fail;
 
 class EventsAwaitingQueries
 {
     private final EventsCollector eventsCollector;
 
-    private final QueryRunner queryRunner;
-    private final Duration extraWaitTime;
+    private final DistributedQueryRunner queryRunner;
 
-    EventsAwaitingQueries(EventsCollector eventsCollector, QueryRunner queryRunner, Duration extraWaitTime)
+    EventsAwaitingQueries(EventsCollector eventsCollector, DistributedQueryRunner queryRunner)
     {
         this.eventsCollector = requireNonNull(eventsCollector, "eventsCollector is null");
         this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
-        this.extraWaitTime = extraWaitTime;
     }
 
-    MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected, Session session)
+    MaterializedResultWithEvents runQueryAndWaitForEvents(@Language("SQL") String sql, Session session)
             throws Exception
     {
-        return runQueryAndWaitForEvents(sql, numEventsExpected, session, Optional.empty());
+        return runQueryAndWaitForEvents(sql, session, Optional.empty());
     }
 
-    MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected, Session session, Optional<String> expectedExceptionRegEx)
+    MaterializedResultWithEvents runQueryAndWaitForEvents(@Language("SQL") String sql, Session session, boolean requireAnonymizedPlan)
             throws Exception
     {
-        eventsCollector.reset(numEventsExpected);
+        eventsCollector.setRequiresAnonymizedPlan(requireAnonymizedPlan);
+        return runQueryAndWaitForEvents(sql, session, Optional.empty());
+    }
+
+    MaterializedResultWithEvents runQueryAndWaitForEvents(@Language("SQL") String sql, Session session, Optional<String> expectedExceptionRegEx)
+            throws Exception
+    {
+        QueryId queryId = null;
         MaterializedResult result = null;
         try {
-            result = queryRunner.execute(session, sql);
+            MaterializedResultWithQueryId materializedResultWithQueryId = queryRunner.executeWithQueryId(session, sql);
+            queryId = materializedResultWithQueryId.getQueryId();
+            result = materializedResultWithQueryId.getResult();
         }
         catch (RuntimeException exception) {
             if (expectedExceptionRegEx.isPresent()) {
@@ -64,12 +76,43 @@ class EventsAwaitingQueries
             else {
                 throw exception;
             }
+            if (exception instanceof QueryFailedException) {
+                queryId = ((QueryFailedException) exception).getQueryId();
+            }
+        }
+        if (queryId == null) {
+            return null;
         }
 
-        eventsCollector.waitForEvents(10);
+        QueryEvents queryEvents = eventsCollector.getQueryEvents(queryId);
+        queryEvents.waitForQueryCompletion(new Duration(30, SECONDS));
+
         // Sleep some more so extraneous, unexpected events can be recorded too.
         // This is not rock solid but improves effectiveness on detecting duplicate events.
-        Thread.sleep(extraWaitTime.toMillis());
-        return result;
+        SECONDS.sleep(1);
+
+        return new MaterializedResultWithEvents(result, queryEvents);
+    }
+
+    public static class MaterializedResultWithEvents
+    {
+        private final MaterializedResult materializedResult;
+        private final QueryEvents queryEvents;
+
+        public MaterializedResultWithEvents(MaterializedResult materializedResult, QueryEvents queryEvents)
+        {
+            this.materializedResult = materializedResult;
+            this.queryEvents = requireNonNull(queryEvents, "queryEvents is null");
+        }
+
+        public MaterializedResult getMaterializedResult()
+        {
+            return materializedResult;
+        }
+
+        public QueryEvents getQueryEvents()
+        {
+            return queryEvents;
+        }
     }
 }

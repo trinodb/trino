@@ -14,12 +14,15 @@
 package io.trino.spi.connector;
 
 import io.trino.spi.function.FunctionKind;
+import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -27,6 +30,7 @@ import java.util.Set;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
+import static io.trino.spi.security.AccessDeniedException.denyCommentView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
@@ -45,6 +49,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
+import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
@@ -77,6 +82,7 @@ import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
 import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 
@@ -212,6 +218,16 @@ public interface ConnectorAccessControl
     default void checkCanSetTableComment(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyCommentTable(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to comment the specified view.
+     *
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanSetViewComment(ConnectorSecurityContext context, SchemaTableName viewName)
+    {
+        denyCommentView(viewName.toString());
     }
 
     /**
@@ -456,6 +472,17 @@ public interface ConnectorAccessControl
     default void checkCanRenameMaterializedView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
     {
         denyRenameMaterializedView(viewName.toString(), newViewName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to grant an access to the function execution to grantee.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanGrantExecuteFunctionPrivilege(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(Locale.ENGLISH), grantee.getName());
+        denyGrantExecuteFunctionPrivilege(functionName.toString(), Identity.ofUser(context.getIdentity().getUser()), granteeAsString);
     }
 
     /**

@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.trino.exchange.DirectExchangeInput;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.metadata.Split;
@@ -25,7 +26,6 @@ import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.type.Type;
 import io.trino.split.RemoteSplit;
-import io.trino.split.RemoteSplit.DirectExchangeInput;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 

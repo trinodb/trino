@@ -35,6 +35,7 @@ public class TestHiveConnectorSmokeTest
                 .build();
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -46,9 +47,8 @@ public class TestHiveConnectorSmokeTest
                 return true;
 
             case SUPPORTS_DELETE:
-                return true;
-
             case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
                 return true;
 
             case SUPPORTS_MULTI_STATEMENT_WRITES:
@@ -71,6 +71,13 @@ public class TestHiveConnectorSmokeTest
     {
         assertThatThrownBy(super::testUpdate)
                 .hasMessage("Hive update is only supported for ACID transactional tables");
+    }
+
+    @Override
+    public void testMerge()
+    {
+        assertThatThrownBy(super::testMerge)
+                .hasMessage("Hive merge is only supported for transactional tables");
     }
 
     @Test

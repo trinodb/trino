@@ -58,6 +58,14 @@ a total of ``300`` gigabytes are generated. The ``tiny`` schema is an
 alias for scale factor ``0.01``, which is a very small data set useful for
 testing.
 
+.. _tpcds-type-mapping:
+
+Type mapping
+------------
+
+Trino supports all data types used within the TPCDS schemas so no mapping is
+required.
+
 .. _tpcds-sql-support:
 
 SQL support

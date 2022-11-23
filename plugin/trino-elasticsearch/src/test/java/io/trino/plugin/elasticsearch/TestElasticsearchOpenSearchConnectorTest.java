@@ -21,7 +21,7 @@ public class TestElasticsearchOpenSearchConnectorTest
     public TestElasticsearchOpenSearchConnectorTest()
     {
         // 1.0.0 and 1.0.1 causes NotSslRecordException during the initialization
-        super("opensearchproject/opensearch:1.1.0");
+        super("opensearchproject/opensearch:1.1.0", "opensearch");
     }
 
     @Override

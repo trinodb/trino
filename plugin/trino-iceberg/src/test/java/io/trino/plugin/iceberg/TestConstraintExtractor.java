@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.expression.ConnectorExpression;
@@ -33,19 +34,26 @@ import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.rule.UnwrapCastInComparison;
+import io.trino.sql.planner.iterative.rule.UnwrapDateTruncInComparison;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.transaction.NoOpTransactionManager;
+import io.trino.transaction.TransactionId;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
 import static io.trino.plugin.iceberg.ConstraintExtractor.extractTupleDomain;
@@ -55,6 +63,8 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
@@ -161,6 +171,92 @@ public class TestConstraintExtractor
                         true))));
     }
 
+    /**
+     * Test equivalent of {@link UnwrapDateTruncInComparison} for {@link TimestampWithTimeZoneType}.
+     * {@link UnwrapCastInComparison} handles {@link DateType} and {@link TimestampType}, but cannot handle
+     * {@link TimestampWithTimeZoneType}. Such unwrap would not be monotonic. Within Iceberg, we know
+     * that {@link TimestampWithTimeZoneType} is always in UTC zone (point in time, with no time zone information),
+     * so we can unwrap.
+     */
+    @Test
+    public void testExtractDateTruncTimestampTzComparison()
+    {
+        String timestampTzColumnSymbol = "timestamp_tz_symbol";
+        FunctionCall truncateToDay = new FunctionCall(
+                QualifiedName.of("date_trunc"),
+                List.of(
+                        LITERAL_ENCODER.toExpression(TEST_SESSION, utf8Slice("day"), createVarcharType(17)),
+                        new SymbolReference(timestampTzColumnSymbol)));
+
+        LocalDate someDate = LocalDate.of(2005, 9, 10);
+        Expression someMidnightExpression = LITERAL_ENCODER.toExpression(
+                TEST_SESSION,
+                LongTimestampWithTimeZone.fromEpochMillisAndFraction(someDate.toEpochDay() * MILLISECONDS_PER_DAY, 0, UTC_KEY),
+                TIMESTAMP_TZ_MICROS);
+        Expression someMiddayExpression = LITERAL_ENCODER.toExpression(
+                TEST_SESSION,
+                LongTimestampWithTimeZone.fromEpochMillisAndFraction(someDate.toEpochDay() * MILLISECONDS_PER_DAY, PICOSECONDS_PER_MICROSECOND, UTC_KEY),
+                TIMESTAMP_TZ_MICROS);
+
+        long startOfDateUtcEpochMillis = someDate.atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND;
+        LongTimestampWithTimeZone startOfDateUtc = timestampTzFromEpochMillis(startOfDateUtcEpochMillis);
+        LongTimestampWithTimeZone startOfNextDateUtc = timestampTzFromEpochMillis(startOfDateUtcEpochMillis + MILLISECONDS_PER_DAY);
+
+        assertThat(extract(
+                constraint(
+                        new ComparisonExpression(EQUAL, truncateToDay, someMidnightExpression),
+                        Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.range(TIMESTAMP_TZ_MICROS, startOfDateUtc, true, startOfNextDateUtc, false)))));
+
+        assertThat(extract(
+                constraint(
+                        new ComparisonExpression(EQUAL, truncateToDay, someMiddayExpression),
+                        Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
+                .isEqualTo(TupleDomain.none());
+
+        assertThat(extract(
+                constraint(
+                        new ComparisonExpression(NOT_EQUAL, truncateToDay, someMidnightExpression),
+                        Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(
+                        Range.lessThan(TIMESTAMP_TZ_MICROS, startOfDateUtc),
+                        Range.greaterThanOrEqual(TIMESTAMP_TZ_MICROS, startOfNextDateUtc)))));
+
+        assertThat(extract(
+                constraint(
+                        new ComparisonExpression(LESS_THAN, truncateToDay, someMidnightExpression),
+                        Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.lessThan(TIMESTAMP_TZ_MICROS, startOfDateUtc)))));
+
+        assertThat(extract(
+                constraint(
+                        new ComparisonExpression(LESS_THAN_OR_EQUAL, truncateToDay, someMidnightExpression),
+                        Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.lessThan(TIMESTAMP_TZ_MICROS, startOfNextDateUtc)))));
+
+        assertThat(extract(
+                constraint(
+                        new ComparisonExpression(GREATER_THAN, truncateToDay, someMidnightExpression),
+                        Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.greaterThanOrEqual(TIMESTAMP_TZ_MICROS, startOfNextDateUtc)))));
+
+        assertThat(extract(
+                constraint(
+                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, truncateToDay, someMidnightExpression),
+                        Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.greaterThanOrEqual(TIMESTAMP_TZ_MICROS, startOfDateUtc)))));
+
+        assertThat(extract(
+                constraint(
+                        new ComparisonExpression(IS_DISTINCT_FROM, truncateToDay, someMidnightExpression),
+                        Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, Domain.create(
+                        ValueSet.ofRanges(
+                                Range.lessThan(TIMESTAMP_TZ_MICROS, startOfDateUtc),
+                                Range.greaterThanOrEqual(TIMESTAMP_TZ_MICROS, startOfNextDateUtc)),
+                        true))));
+    }
+
     @Test
     public void testIntersectSummaryAndExpressionExtraction()
     {
@@ -216,9 +312,9 @@ public class TestConstraintExtractor
     private static TupleDomain<IcebergColumnHandle> extract(Constraint constraint)
     {
         ConstraintExtractor.ExtractionResult result = extractTupleDomain(constraint);
-        assertThat(result.getRemainingExpression())
+        assertThat(result.remainingExpression())
                 .isEqualTo(Constant.TRUE);
-        return result.getTupleDomain();
+        return result.tupleDomain();
     }
 
     private static Constraint constraint(Expression expression, Map<String, IcebergColumnHandle> assignments)
@@ -237,13 +333,13 @@ public class TestConstraintExtractor
     private static ConnectorExpression connectorExpression(Expression expression, Map<String, Type> symbolTypes)
     {
         return ConnectorExpressionTranslator.translate(
-                        TEST_SESSION,
+                        TEST_SESSION.beginTransactionId(TransactionId.create(), new NoOpTransactionManager(), new AllowAllAccessControl()),
                         expression,
-                        createTestingTypeAnalyzer(PLANNER_CONTEXT),
                         TypeProvider.viewOf(symbolTypes.entrySet().stream()
                                 .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue))),
-                        PLANNER_CONTEXT)
-                .orElseThrow();
+                        PLANNER_CONTEXT,
+                        createTestingTypeAnalyzer(PLANNER_CONTEXT))
+                .orElseThrow(() -> new RuntimeException("Translation to ConnectorExpression failed for: " + expression));
     }
 
     private static LongTimestampWithTimeZone timestampTzFromEpochMillis(long epochMillis)

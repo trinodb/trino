@@ -16,8 +16,8 @@ Table function declaration
 
 To declare a table function, you need to implement ``ConnectorTableFunction``.
 Subclassing ``AbstractConnectorTableFunction`` is a convenient way to do it.
-The connector's ``getTableFunctions()`` method must return a ``Provider`` of
-your implementation.
+The connector's ``getTableFunctions()`` method must return a set of your
+implementations.
 
 The constructor
 ^^^^^^^^^^^^^^^
@@ -34,12 +34,12 @@ The constructor
                     "my_function",
                     List.of(
                             ScalarArgumentSpecification.builder()
-                                    .name("column_count")
+                                    .name("COLUMN_COUNT")
                                     .type(INTEGER)
                                     .defaultValue(2)
                                     .build(),
                             ScalarArgumentSpecification.builder()
-                                    .name("row_count")
+                                    .name("ROW_COUNT")
                                     .type(INTEGER)
                                     .build()),
                     GENERIC_TABLE);
@@ -66,7 +66,7 @@ skipped during invocation:
 .. code-block:: java
 
     ScalarArgumentSpecification.builder()
-            .name("column_count")
+            .name("COLUMN_COUNT")
             .type(INTEGER)
             .defaultValue(2)
             .build()
@@ -77,7 +77,7 @@ invocation:
 .. code-block:: java
 
     ScalarArgumentSpecification.builder()
-            .name("row_count")
+            .name("ROW_COUNT")
             .type(INTEGER)
             .build()
 
@@ -105,8 +105,8 @@ is also the place to perform custom checks on the arguments:
     @Override
     public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
     {
-        long columnCount = (long) ((ScalarArgument) arguments.get("column_count")).getValue();
-        long rowCount = (long) ((ScalarArgument) arguments.get("row_count")).getValue();
+        long columnCount = (long) ((ScalarArgument) arguments.get("COLUMN_COUNT")).getValue();
+        long rowCount = (long) ((ScalarArgument) arguments.get("ROW_COUNT")).getValue();
 
         // custom validation of arguments
         if (columnCount < 1 || columnCount > 3) {

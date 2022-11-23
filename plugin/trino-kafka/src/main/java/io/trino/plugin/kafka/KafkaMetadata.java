@@ -69,7 +69,6 @@ public class KafkaMetadata
             TableDescriptionSupplier tableDescriptionSupplier,
             KafkaInternalFieldManager kafkaInternalFieldManager)
     {
-        requireNonNull(kafkaConfig, "kafkaConfig is null");
         this.hideInternalColumns = kafkaConfig.isHideInternalColumns();
         this.tableDescriptionSupplier = requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null");
         this.kafkaInternalFieldManager = requireNonNull(kafkaInternalFieldManager, "kafkaInternalFieldManager is null");

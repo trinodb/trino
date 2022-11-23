@@ -25,8 +25,8 @@ import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createReso
 import static io.trino.tests.product.TestGroups.HIVE_PARTITIONING;
 import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.TestGroups.TRINO_JDBC;
-import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 
 public class TestHdfsSyncPartitionMetadata

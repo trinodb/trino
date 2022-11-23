@@ -23,11 +23,12 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class Rectangle
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Rectangle.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Rectangle.class).instanceSize());
 
     private final double xMin;
     private final double yMin;

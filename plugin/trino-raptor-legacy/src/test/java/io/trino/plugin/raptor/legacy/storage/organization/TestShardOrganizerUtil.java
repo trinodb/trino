@@ -16,7 +16,6 @@ package io.trino.plugin.raptor.legacy.storage.organization;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.io.Files;
 import io.trino.plugin.raptor.legacy.RaptorMetadata;
 import io.trino.plugin.raptor.legacy.metadata.ColumnInfo;
 import io.trino.plugin.raptor.legacy.metadata.ColumnStats;
@@ -36,6 +35,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -76,11 +76,12 @@ public class TestShardOrganizerUtil
 
     @BeforeMethod
     public void setup()
+            throws Exception
     {
         dbi = createTestingJdbi();
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
-        dataDir = Files.createTempDir();
+        dataDir = Files.createTempDirectory(null).toFile();
 
         metadata = new RaptorMetadata(dbi, createShardManager(dbi));
 

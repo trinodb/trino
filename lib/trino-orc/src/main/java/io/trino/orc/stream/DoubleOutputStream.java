@@ -31,7 +31,7 @@ import static java.lang.Math.toIntExact;
 public class DoubleOutputStream
         implements ValueOutputStream<DoubleStreamCheckpoint>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleOutputStream.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DoubleOutputStream.class).instanceSize());
     private final OrcOutputBuffer buffer;
     private final List<DoubleStreamCheckpoint> checkpoints = new ArrayList<>();
 

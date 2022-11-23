@@ -13,11 +13,19 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.annotations.VisibleForTesting;
+import io.trino.plugin.hive.HiveWriterFactory.RowIdSortingFileWriterMaker;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.orc.OrcFileWriter;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
+import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
@@ -28,14 +36,19 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.hdfs.ConfigurationUtils.toJobConf;
 import static io.trino.orc.OrcWriter.OrcOperation.DELETE;
 import static io.trino.orc.OrcWriter.OrcOperation.INSERT;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
+import static io.trino.plugin.hive.HiveUpdatablePageSource.BUCKET_CHANNEL;
+import static io.trino.plugin.hive.HiveUpdatablePageSource.ORIGINAL_TRANSACTION_CHANNEL;
+import static io.trino.plugin.hive.HiveUpdatablePageSource.ROW_ID_CHANNEL;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_NAMES;
 import static io.trino.plugin.hive.acid.AcidSchema.createAcidSchema;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
-import static io.trino.plugin.hive.util.ConfigurationUtils.toJobConf;
+import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -57,40 +70,51 @@ public abstract class AbstractHiveAcidWriters
     protected final AcidTransaction transaction;
     protected final OptionalInt bucketNumber;
     protected final int statementId;
+    protected final Block bucketValueBlock;
+
+    private final Optional<RowIdSortingFileWriterMaker> sortingFileWriterMaker;
     private final OrcFileWriterFactory orcFileWriterFactory;
     private final Configuration configuration;
     protected final ConnectorSession session;
-    protected final HiveType hiveRowType;
+    private final AcidOperation updateKind;
     private final Properties hiveAcidSchema;
+    protected final Block hiveRowTypeNullsBlock;
+    protected Path deltaDirectory;
     protected final Path deleteDeltaDirectory;
     private final String bucketFilename;
-    protected Optional<Path> deltaDirectory;
 
     protected Optional<FileWriter> deleteFileWriter = Optional.empty();
     protected Optional<FileWriter> insertFileWriter = Optional.empty();
+    private int insertRowCounter;
 
     public AbstractHiveAcidWriters(
             AcidTransaction transaction,
             int statementId,
             OptionalInt bucketNumber,
+            Optional<RowIdSortingFileWriterMaker> sortingFileWriterMaker,
             Path bucketPath,
             boolean originalFile,
             OrcFileWriterFactory orcFileWriterFactory,
             Configuration configuration,
             ConnectorSession session,
+            TypeManager typeManager,
             HiveType hiveRowType,
             AcidOperation updateKind)
     {
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.statementId = statementId;
         this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
+        this.sortingFileWriterMaker = requireNonNull(sortingFileWriterMaker, "sortingFileWriterMaker is null");
+        this.bucketValueBlock = nativeValueToBlock(INTEGER, Long.valueOf(OrcFileWriter.computeBucketValue(bucketNumber.orElse(0), statementId)));
         this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
         this.configuration = requireNonNull(configuration, "configuration is null");
         this.session = requireNonNull(session, "session is null");
         checkArgument(transaction.isTransactional(), "Not in a transaction: %s", transaction);
-        this.hiveRowType = requireNonNull(hiveRowType, "hiveRowType is null");
+        this.updateKind = requireNonNull(updateKind, "updateKind is null");
         this.hiveAcidSchema = createAcidSchema(hiveRowType);
+        this.hiveRowTypeNullsBlock = nativeValueToBlock(hiveRowType.getType(typeManager), null);
         requireNonNull(bucketPath, "bucketPath is null");
+        checkArgument(updateKind != AcidOperation.MERGE || sortingFileWriterMaker.isPresent(), "updateKind is MERGE but sortingFileWriterMaker is not present");
         Matcher matcher;
         if (originalFile) {
             matcher = ORIGINAL_FILE_PATH_MATCHER.matcher(bucketPath.toString());
@@ -109,22 +133,59 @@ public abstract class AbstractHiveAcidWriters
             }
         }
         long writeId = transaction.getWriteId();
+        this.deltaDirectory = new Path(format("%s/%s", matcher.group("rootDir"), deltaSubdir(writeId, writeId, statementId)));
         this.deleteDeltaDirectory = new Path(format("%s/%s", matcher.group("rootDir"), deleteDeltaSubdir(writeId, writeId, statementId)));
-        if (updateKind == AcidOperation.UPDATE) {
-            this.deltaDirectory = Optional.of(new Path(format("%s/%s", matcher.group("rootDir"), deltaSubdir(writeId, writeId, statementId))));
-        }
-        else {
-            this.deltaDirectory = Optional.empty();
-        }
     }
 
-    protected void lazyInitializeDeleteFileWriter()
+    protected Page buildDeletePage(Block rowIds, long writeId)
+    {
+        return buildDeletePage(rowIds, writeId, hiveRowTypeNullsBlock);
+    }
+
+    @VisibleForTesting
+    public static Page buildDeletePage(Block rowIdsRowBlock, long writeId, Block rowTypeNullsBlock)
+    {
+        ColumnarRow columnarRow = toColumnarRow(rowIdsRowBlock);
+        checkArgument(!columnarRow.mayHaveNull(), "The rowIdsRowBlock may not have null rows");
+        int positionCount = rowIdsRowBlock.getPositionCount();
+        // We've verified that the rowIds block has no null rows, so it's okay to get the field blocks
+        Block[] blockArray = {
+                RunLengthEncodedBlock.create(DELETE_OPERATION_BLOCK, positionCount),
+                columnarRow.getField(ORIGINAL_TRANSACTION_CHANNEL),
+                columnarRow.getField(BUCKET_CHANNEL),
+                columnarRow.getField(ROW_ID_CHANNEL),
+                RunLengthEncodedBlock.create(BIGINT, writeId, positionCount),
+                RunLengthEncodedBlock.create(rowTypeNullsBlock, positionCount),
+        };
+        return new Page(blockArray);
+    }
+
+    protected Block createRowIdBlock(int positionCount)
+    {
+        Block block = createRowIdBlock(positionCount, insertRowCounter);
+        insertRowCounter += positionCount;
+        return block;
+    }
+
+    @VisibleForTesting
+    public static Block createRowIdBlock(int positionCount, int rowCounter)
+    {
+        long[] rowIds = new long[positionCount];
+        for (int index = 0; index < positionCount; index++) {
+            rowIds[index] = rowCounter;
+            rowCounter++;
+        }
+        return new LongArrayBlock(positionCount, Optional.empty(), rowIds);
+    }
+
+    protected FileWriter getOrCreateDeleteFileWriter()
     {
         if (deleteFileWriter.isEmpty()) {
             Properties schemaCopy = new Properties();
             schemaCopy.putAll(hiveAcidSchema);
+            Path deletePath = new Path(format("%s/%s", deleteDeltaDirectory, bucketFilename));
             deleteFileWriter = orcFileWriterFactory.createFileWriter(
-                    new Path(format("%s/%s", deleteDeltaDirectory, bucketFilename)),
+                    deletePath,
                     ACID_COLUMN_NAMES,
                     fromHiveStorageFormat(ORC),
                     schemaCopy,
@@ -134,17 +195,26 @@ public abstract class AbstractHiveAcidWriters
                     transaction,
                     true,
                     WriterKind.DELETE);
+            if (updateKind == AcidOperation.MERGE) {
+                deleteFileWriter = Optional.of(sortingFileWriterMaker.orElseThrow(() -> new IllegalArgumentException("sortingFileWriterMaker not present"))
+                        .makeFileWriter(getWriter(deleteFileWriter), deletePath));
+            }
         }
+        return getWriter(deleteFileWriter);
     }
 
-    protected void lazyInitializeInsertFileWriter()
+    private FileWriter getWriter(Optional<FileWriter> writer)
+    {
+        return writer.orElseThrow(() -> new IllegalArgumentException("writer is not present"));
+    }
+
+    protected FileWriter getOrCreateInsertFileWriter()
     {
         if (insertFileWriter.isEmpty()) {
             Properties schemaCopy = new Properties();
             schemaCopy.putAll(hiveAcidSchema);
-            Path deltaDir = deltaDirectory.orElseThrow(() -> new IllegalArgumentException("deltaDirectory not present"));
             insertFileWriter = orcFileWriterFactory.createFileWriter(
-                    new Path(format("%s/%s", deltaDir, bucketFilename)),
+                    new Path(format("%s/%s", deltaDirectory, bucketFilename)),
                     ACID_COLUMN_NAMES,
                     fromHiveStorageFormat(ORC),
                     schemaCopy,
@@ -155,5 +225,6 @@ public abstract class AbstractHiveAcidWriters
                     true,
                     WriterKind.INSERT);
         }
+        return getWriter(insertFileWriter);
     }
 }

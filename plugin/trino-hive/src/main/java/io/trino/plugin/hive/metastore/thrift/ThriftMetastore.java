@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidOperation;
@@ -27,7 +28,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
-import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
 import org.apache.hadoop.hive.metastore.api.Database;
@@ -84,7 +84,7 @@ public interface ThriftMetastore
 
     Optional<Table> getTable(String databaseName, String tableName);
 
-    Set<ColumnStatisticType> getSupportedColumnStatistics(Type type);
+    Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type);
 
     PartitionStatistics getTableStatistics(Table table);
 
@@ -120,16 +120,14 @@ public interface ThriftMetastore
 
     default Optional<List<FieldSchema>> getFields(String databaseName, String tableName)
     {
-        Optional<Table> table = getTable(databaseName, tableName);
-        if (table.isEmpty()) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-        }
+        Table table = getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
-        if (table.get().getSd() == null) {
+        if (table.getSd() == null) {
             throw new TrinoException(HIVE_INVALID_METADATA, "Table is missing storage descriptor");
         }
 
-        return Optional.of(table.get().getSd().getCols());
+        return Optional.of(table.getSd().getCols());
     }
 
     default long openTransaction(AcidTransactionOwner transactionOwner)

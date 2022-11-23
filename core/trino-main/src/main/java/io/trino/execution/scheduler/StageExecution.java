@@ -67,8 +67,6 @@ public interface StageExecution
 
     void failTask(TaskId taskId, Throwable failureCause);
 
-    void failTaskRemotely(TaskId taskId, Throwable failureCause);
-
     List<RemoteTask> getAllTasks();
 
     List<TaskStatus> getTaskStatuses();

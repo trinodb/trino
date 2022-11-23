@@ -19,10 +19,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.Session;
 import io.trino.metadata.InsertTableHandle;
+import io.trino.metadata.MergeHandle;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OutputTableHandle;
 import io.trino.metadata.QualifiedObjectName;
@@ -31,7 +31,9 @@ import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.Type;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.Table;
@@ -40,7 +42,6 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -55,7 +56,6 @@ public class TableWriterNode
     private final Symbol fragmentSymbol;
     private final List<Symbol> columns;
     private final List<String> columnNames;
-    private final Set<Symbol> notNullColumnSymbols;
     private final Optional<PartitioningScheme> partitioningScheme;
     private final Optional<PartitioningScheme> preferredPartitioningScheme;
     private final Optional<StatisticAggregations> statisticsAggregation;
@@ -71,7 +71,6 @@ public class TableWriterNode
             @JsonProperty("fragmentSymbol") Symbol fragmentSymbol,
             @JsonProperty("columns") List<Symbol> columns,
             @JsonProperty("columnNames") List<String> columnNames,
-            @JsonProperty("notNullColumnSymbols") Set<Symbol> notNullColumnSymbols,
             @JsonProperty("partitioningScheme") Optional<PartitioningScheme> partitioningScheme,
             @JsonProperty("preferredPartitioningScheme") Optional<PartitioningScheme> preferredPartitioningScheme,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
@@ -89,7 +88,6 @@ public class TableWriterNode
         this.fragmentSymbol = requireNonNull(fragmentSymbol, "fragmentSymbol is null");
         this.columns = ImmutableList.copyOf(columns);
         this.columnNames = ImmutableList.copyOf(columnNames);
-        this.notNullColumnSymbols = ImmutableSet.copyOf(requireNonNull(notNullColumnSymbols, "notNullColumnSymbols is null"));
         this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
         this.preferredPartitioningScheme = requireNonNull(preferredPartitioningScheme, "preferredPartitioningScheme is null");
         this.statisticsAggregation = requireNonNull(statisticsAggregation, "statisticsAggregation is null");
@@ -144,12 +142,6 @@ public class TableWriterNode
     }
 
     @JsonProperty
-    public Set<Symbol> getNotNullColumnSymbols()
-    {
-        return notNullColumnSymbols;
-    }
-
-    @JsonProperty
     public Optional<PartitioningScheme> getPartitioningScheme()
     {
         return partitioningScheme;
@@ -194,7 +186,7 @@ public class TableWriterNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TableWriterNode(getId(), Iterables.getOnlyElement(newChildren), target, rowCountSymbol, fragmentSymbol, columns, columnNames, notNullColumnSymbols, partitioningScheme, preferredPartitioningScheme, statisticsAggregation, statisticsAggregationDescriptor);
+        return new TableWriterNode(getId(), Iterables.getOnlyElement(newChildren), target, rowCountSymbol, fragmentSymbol, columns, columnNames, partitioningScheme, preferredPartitioningScheme, statisticsAggregation, statisticsAggregationDescriptor);
     }
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")
@@ -202,10 +194,12 @@ public class TableWriterNode
             @JsonSubTypes.Type(value = CreateTarget.class, name = "CreateTarget"),
             @JsonSubTypes.Type(value = InsertTarget.class, name = "InsertTarget"),
             @JsonSubTypes.Type(value = DeleteTarget.class, name = "DeleteTarget"),
+            @JsonSubTypes.Type(value = MergeTarget.class, name = "MergeTarget"),
             @JsonSubTypes.Type(value = UpdateTarget.class, name = "UpdateTarget"),
             @JsonSubTypes.Type(value = RefreshMaterializedViewTarget.class, name = "RefreshMaterializedViewTarget"),
             @JsonSubTypes.Type(value = TableExecuteTarget.class, name = "TableExecuteTarget"),
     })
+
     @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
     public abstract static class WriterTarget
     {
@@ -667,6 +661,100 @@ public class TableWriterNode
         public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
         {
             return sourceHandle.map(tableHandle -> metadata.supportsReportingWrittenBytes(session, tableHandle)).orElse(reportingWrittenBytesSupported);
+        }
+    }
+
+    public static class MergeTarget
+            extends WriterTarget
+    {
+        private final TableHandle handle;
+        private final Optional<MergeHandle> mergeHandle;
+        private final SchemaTableName schemaTableName;
+        private final MergeParadigmAndTypes mergeParadigmAndTypes;
+
+        @JsonCreator
+        public MergeTarget(
+                @JsonProperty("handle") TableHandle handle,
+                @JsonProperty("mergeHandle") Optional<MergeHandle> mergeHandle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+                @JsonProperty("mergeParadigmAndTypes") MergeParadigmAndTypes mergeParadigmAndTypes)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+            this.mergeHandle = requireNonNull(mergeHandle, "mergeHandle is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.mergeParadigmAndTypes = requireNonNull(mergeParadigmAndTypes, "mergeElements is null");
+        }
+
+        @JsonProperty
+        public TableHandle getHandle()
+        {
+            return handle;
+        }
+
+        @JsonProperty
+        public Optional<MergeHandle> getMergeHandle()
+        {
+            return mergeHandle;
+        }
+
+        @JsonProperty
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
+        }
+
+        @JsonProperty
+        public MergeParadigmAndTypes getMergeParadigmAndTypes()
+        {
+            return mergeParadigmAndTypes;
+        }
+
+        @Override
+        public String toString()
+        {
+            return handle.toString();
+        }
+
+        @Override
+        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
+        {
+            return false;
+        }
+    }
+
+    public static class MergeParadigmAndTypes
+    {
+        private final RowChangeParadigm paradigm;
+        private final List<Type> columnTypes;
+        private final Type rowIdType;
+
+        @JsonCreator
+        public MergeParadigmAndTypes(
+                @JsonProperty("paradigm") RowChangeParadigm paradigm,
+                @JsonProperty("columnTypes") List<Type> columnTypes,
+                @JsonProperty("rowIdType") Type rowIdType)
+        {
+            this.paradigm = requireNonNull(paradigm, "paradigm is null");
+            this.columnTypes = requireNonNull(columnTypes, "columnTypes is null");
+            this.rowIdType = requireNonNull(rowIdType, "rowIdType is null");
+        }
+
+        @JsonProperty
+        public RowChangeParadigm getParadigm()
+        {
+            return paradigm;
+        }
+
+        @JsonProperty
+        public List<Type> getColumnTypes()
+        {
+            return columnTypes;
+        }
+
+        @JsonProperty
+        public Type getRowIdType()
+        {
+            return rowIdType;
         }
     }
 }

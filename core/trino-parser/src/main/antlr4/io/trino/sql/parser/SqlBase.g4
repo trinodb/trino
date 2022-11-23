@@ -61,6 +61,7 @@ statement
     | DELETE FROM qualifiedName (WHERE booleanExpression)?             #delete
     | TRUNCATE TABLE qualifiedName                                     #truncateTable
     | COMMENT ON TABLE qualifiedName IS (string | NULL)                #commentTable
+    | COMMENT ON VIEW qualifiedName IS (string | NULL)                 #commentView
     | COMMENT ON COLUMN qualifiedName IS (string | NULL)               #commentColumn
     | ALTER TABLE (IF EXISTS)? from=qualifiedName
         RENAME TO to=qualifiedName                                     #renameTable
@@ -830,10 +831,10 @@ nonReserved
     : ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
     | BERNOULLI | BOTH
     | CALL | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | COUNT | CURRENT
-    | DATA | DATE | DAY | DEFAULT | DEFINE | DEFINER | DESC | DESCRIPTOR | DISTRIBUTED | DOUBLE
+    | DATA | DATE | DAY | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DISTRIBUTED | DOUBLE
     | EMPTY | ENCODING | ERROR | EXCLUDING | EXPLAIN
     | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FUNCTIONS
-    | GRANT | DENY | GRANTED | GRANTS | GRAPHVIZ | GROUPS
+    | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
     | IF | IGNORE | INCLUDING | INITIAL | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
@@ -904,13 +905,13 @@ DATE: 'DATE';
 DAY: 'DAY';
 DEALLOCATE: 'DEALLOCATE';
 DEFAULT: 'DEFAULT';
+DEFINE: 'DEFINE';
 DEFINER: 'DEFINER';
 DELETE: 'DELETE';
 DENY: 'DENY';
 DESC: 'DESC';
 DESCRIBE: 'DESCRIBE';
 DESCRIPTOR: 'DESCRIPTOR';
-DEFINE: 'DEFINE';
 DISTINCT: 'DISTINCT';
 DISTRIBUTED: 'DISTRIBUTED';
 DOUBLE: 'DOUBLE';
@@ -1008,9 +1009,9 @@ NULL: 'NULL';
 NULLIF: 'NULLIF';
 NULLS: 'NULLS';
 OBJECT: 'OBJECT';
+OF: 'OF';
 OFFSET: 'OFFSET';
 OMIT: 'OMIT';
-OF: 'OF';
 ON: 'ON';
 ONE: 'ONE';
 ONLY: 'ONLY';

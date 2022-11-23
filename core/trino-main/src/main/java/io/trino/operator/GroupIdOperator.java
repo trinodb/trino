@@ -178,14 +178,14 @@ public class GroupIdOperator
 
         for (int i = 0; i < groupingSetInputs[currentGroupingSet].length; i++) {
             if (groupingSetInputs[currentGroupingSet][i] == -1) {
-                outputBlocks[i] = new RunLengthEncodedBlock(nullBlocks[i], currentPage.getPositionCount());
+                outputBlocks[i] = RunLengthEncodedBlock.create(nullBlocks[i], currentPage.getPositionCount());
             }
             else {
                 outputBlocks[i] = currentPage.getBlock(groupingSetInputs[currentGroupingSet][i]);
             }
         }
 
-        outputBlocks[outputBlocks.length - 1] = new RunLengthEncodedBlock(groupIdBlocks[currentGroupingSet], currentPage.getPositionCount());
+        outputBlocks[outputBlocks.length - 1] = RunLengthEncodedBlock.create(groupIdBlocks[currentGroupingSet], currentPage.getPositionCount());
         currentGroupingSet = (currentGroupingSet + 1) % groupingSetInputs.length;
         Page outputPage = new Page(currentPage.getPositionCount(), outputBlocks);
 

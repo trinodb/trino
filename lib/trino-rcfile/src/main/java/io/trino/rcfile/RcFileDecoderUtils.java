@@ -155,12 +155,10 @@ public final class RcFileDecoderUtils
                     long startOfSyncSequence = offset + position + index;
                     return startOfSyncSequence;
                 }
-                else {
-                    // Otherwise, this is not a match for this region
-                    // Note: this case isn't strictly needed as the loop will exit, but it is
-                    // simpler to explicitly call it out.
-                    return -1;
-                }
+                // Otherwise, this is not a match for this region
+                // Note: this case isn't strictly needed as the loop will exit, but it is
+                // simpler to explicitly call it out.
+                return -1;
             }
         }
         return -1;

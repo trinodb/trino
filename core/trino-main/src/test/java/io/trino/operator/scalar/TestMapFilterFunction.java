@@ -16,7 +16,11 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.ArrayType;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -25,28 +29,53 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.StructuralTestUtil.mapType;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestMapFilterFunction
-        extends AbstractTestFunctions
 {
-    @Test
-    public void testRetainedSizeBounded()
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
     {
-        assertCachedInstanceHasBoundedRetainedSize("map_filter(map(ARRAY ['a', 'b', 'c', 'd'], ARRAY [1, 2, NULL, 4]), (k, v) -> v IS NOT NULL)");
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
     }
 
     @Test
     public void testEmpty()
     {
-        assertFunction("map_filter(map(ARRAY[], ARRAY[]), (k, v) -> true)", mapType(UNKNOWN, UNKNOWN), ImmutableMap.of());
-        assertFunction("map_filter(map(ARRAY[], ARRAY[]), (k, v) -> false)", mapType(UNKNOWN, UNKNOWN), ImmutableMap.of());
-        assertFunction("map_filter(map(ARRAY[], ARRAY[]), (k, v) -> CAST (NULL AS BOOLEAN))", mapType(UNKNOWN, UNKNOWN), ImmutableMap.of());
-        assertFunction("map_filter(CAST (map(ARRAY[], ARRAY[]) AS MAP(BIGINT,VARCHAR)), (k, v) -> true)", mapType(BIGINT, VARCHAR), ImmutableMap.of());
+        assertThat(assertions.expression("map_filter(a, (k, v) -> true)")
+                .binding("a", "map(ARRAY[], ARRAY[])"))
+                .hasType(mapType(UNKNOWN, UNKNOWN))
+                .isEqualTo(ImmutableMap.of());
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> false)")
+                .binding("a", "map(ARRAY[], ARRAY[])"))
+                .hasType(mapType(UNKNOWN, UNKNOWN))
+                .isEqualTo(ImmutableMap.of());
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> CAST (NULL AS BOOLEAN))")
+                .binding("a", "map(ARRAY[], ARRAY[])"))
+                .hasType(mapType(UNKNOWN, UNKNOWN))
+                .isEqualTo(ImmutableMap.of());
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> true)")
+                .binding("a", "CAST(map(ARRAY[], ARRAY[]) AS MAP(BIGINT, VARCHAR))"))
+                .hasType(mapType(BIGINT, VARCHAR))
+                .isEqualTo(ImmutableMap.of());
     }
 
     @Test
@@ -54,150 +83,192 @@ public class TestMapFilterFunction
     {
         Map<Integer, Void> oneToNullMap = new HashMap<>();
         oneToNullMap.put(1, null);
-        assertFunction("map_filter(map(ARRAY[1], ARRAY [NULL]), (k, v) -> v IS NULL)", mapType(INTEGER, UNKNOWN), oneToNullMap);
-        assertFunction("map_filter(map(ARRAY[1], ARRAY [NULL]), (k, v) -> v IS NOT NULL)", mapType(INTEGER, UNKNOWN), ImmutableMap.of());
-        assertFunction("map_filter(map(ARRAY[1], ARRAY [CAST (NULL AS INTEGER)]), (k, v) -> v IS NULL)", mapType(INTEGER, INTEGER), oneToNullMap);
+        assertThat(assertions.expression("map_filter(a, (k, v) -> v IS NULL)")
+                .binding("a", "map(ARRAY[1], ARRAY[NULL])"))
+                .hasType(mapType(INTEGER, UNKNOWN))
+                .isEqualTo(oneToNullMap);
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> v IS NOT NULL)")
+                .binding("a", "map(ARRAY[1], ARRAY[NULL])"))
+                .hasType(mapType(INTEGER, UNKNOWN))
+                .isEqualTo(ImmutableMap.of());
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> v IS NULL)")
+                .binding("a", "map(ARRAY[1], ARRAY[CAST (NULL AS INTEGER)])"))
+                .hasType(mapType(INTEGER, INTEGER))
+                .isEqualTo(oneToNullMap);
+
         Map<Integer, Void> sequenceToNullMap = new HashMap<>();
         sequenceToNullMap.put(1, null);
         sequenceToNullMap.put(2, null);
         sequenceToNullMap.put(3, null);
-        assertFunction("map_filter(map(ARRAY[1, 2, 3], ARRAY [NULL, NULL, NULL]), (k, v) -> v IS NULL)", mapType(INTEGER, UNKNOWN), sequenceToNullMap);
-        assertFunction("map_filter(map(ARRAY[1, 2, 3], ARRAY [NULL, NULL, NULL]), (k, v) -> v IS NOT NULL)", mapType(INTEGER, UNKNOWN), ImmutableMap.of());
+        assertThat(assertions.expression("map_filter(a, (k, v) -> v IS NULL)")
+                .binding("a", "map(ARRAY[1, 2, 3], ARRAY[NULL, NULL, NULL])"))
+                .hasType(mapType(INTEGER, UNKNOWN))
+                .isEqualTo(sequenceToNullMap);
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> v IS NOT NULL)")
+                .binding("a", "map(ARRAY[1, 2, 3], ARRAY[NULL, NULL, NULL])"))
+                .hasType(mapType(INTEGER, UNKNOWN))
+                .isEqualTo(ImmutableMap.of());
     }
 
     @Test
     public void testBasic()
     {
-        assertFunction(
-                "map_filter(map(ARRAY [5, 6, 7, 8], ARRAY [5, 6, 6, 5]), (x, y) -> x <= 6 OR y = 5)",
-                mapType(INTEGER, INTEGER),
-                ImmutableMap.of(5, 5, 6, 6, 8, 5));
-        assertFunction(
-                "map_filter(map(ARRAY [5 + RANDOM(1), 6, 7, 8], ARRAY [5, 6, 6, 5]), (x, y) -> x <= 6 OR y = 5)",
-                mapType(INTEGER, INTEGER),
-                ImmutableMap.of(5, 5, 6, 6, 8, 5));
-        assertFunction(
-                "map_filter(map(ARRAY ['a', 'b', 'c', 'd'], ARRAY [1, 2, NULL, 4]), (k, v) -> v IS NOT NULL)",
-                mapType(createVarcharType(1), INTEGER),
-                ImmutableMap.of("a", 1, "b", 2, "d", 4));
-        assertFunction(
-                "map_filter(map(ARRAY ['a', 'b', 'c'], ARRAY [TRUE, FALSE, NULL]), (k, v) -> v)",
-                mapType(createVarcharType(1), BOOLEAN),
-                ImmutableMap.of("a", true));
-        assertFunction(
-                "map_filter(map(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'], ARRAY[1, 2]), (k, v) -> year(k) = 1111)",
-                mapType(createTimestampType(9), INTEGER),
-                ImmutableMap.of(timestamp(9, "1111-05-10 12:34:56.123456789"), 2));
+        assertThat(assertions.expression("map_filter(a, (x, y) -> x <= 6 OR y = 5)")
+                .binding("a", "map(ARRAY[5, 6, 7, 8], ARRAY[5, 6, 6, 5])"))
+                .hasType(mapType(INTEGER, INTEGER))
+                .isEqualTo(ImmutableMap.of(5, 5, 6, 6, 8, 5));
+
+        assertThat(assertions.expression("map_filter(a, (x, y) -> x <= 6 OR y = 5)")
+                .binding("a", "map(ARRAY[5 + RANDOM(1), 6, 7, 8], ARRAY[5, 6, 6, 5])"))
+                .hasType(mapType(INTEGER, INTEGER))
+                .isEqualTo(ImmutableMap.of(5, 5, 6, 6, 8, 5));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> v IS NOT NULL)")
+                .binding("a", "map(ARRAY['a', 'b', 'c', 'd'], ARRAY[1, 2, NULL, 4])"))
+                .hasType(mapType(createVarcharType(1), INTEGER))
+                .isEqualTo(ImmutableMap.of("a", 1, "b", 2, "d", 4));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> v)")
+                .binding("a", "map(ARRAY['a', 'b', 'c'], ARRAY[TRUE, FALSE, NULL])"))
+                .hasType(mapType(createVarcharType(1), BOOLEAN))
+                .isEqualTo(ImmutableMap.of("a", true));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> year(k) = 1111)")
+                .binding("a", "map(ARRAY[TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'], ARRAY[1, 2])"))
+                .matches("map_from_entries(array[(TIMESTAMP '1111-05-10 12:34:56.123456789', 2)])");
     }
 
     @Test
     public void testTypeCombinations()
     {
-        assertFunction(
-                "map_filter(map(ARRAY [25, 26, 27], ARRAY [25, 26, 27]), (k, v) -> k = 25 OR v = 27)",
-                mapType(INTEGER, INTEGER),
-                ImmutableMap.of(25, 25, 27, 27));
-        assertFunction(
-                "map_filter(map(ARRAY [25, 26, 27], ARRAY [25.5E0, 26.5E0, 27.5E0]), (k, v) -> k = 25 OR v = 27.5E0)",
-                mapType(INTEGER, DOUBLE),
-                ImmutableMap.of(25, 25.5, 27, 27.5));
-        assertFunction(
-                "map_filter(map(ARRAY [25, 26, 27], ARRAY [false, null, true]), (k, v) -> k = 25 OR v)",
-                mapType(INTEGER, BOOLEAN),
-                ImmutableMap.of(25, false, 27, true));
-        assertFunction(
-                "map_filter(map(ARRAY [25, 26, 27], ARRAY ['abc', 'def', 'xyz']), (k, v) -> k = 25 OR v = 'xyz')",
-                mapType(INTEGER, createVarcharType(3)),
-                ImmutableMap.of(25, "abc", 27, "xyz"));
-        assertFunction(
-                "map_filter(map(ARRAY [25, 26, 27], ARRAY [ARRAY ['a', 'b'], ARRAY ['a', 'c'], ARRAY ['a', 'b', 'c']]), (k, v) -> k = 25 OR cardinality(v) = 3)",
-                mapType(INTEGER, new ArrayType(createVarcharType(1))),
-                ImmutableMap.of(25, ImmutableList.of("a", "b"), 27, ImmutableList.of("a", "b", "c")));
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k = 25 OR v = 27)")
+                .binding("a", "map(ARRAY[25, 26, 27], ARRAY[25, 26, 27])"))
+                .hasType(mapType(INTEGER, INTEGER))
+                .isEqualTo(ImmutableMap.of(25, 25, 27, 27));
 
-        assertFunction(
-                "map_filter(map(ARRAY [25.5E0, 26.5E0, 27.5E0], ARRAY [25, 26, 27]), (k, v) -> k = 25.5E0 OR v = 27)",
-                mapType(DOUBLE, INTEGER),
-                ImmutableMap.of(25.5, 25, 27.5, 27));
-        assertFunction(
-                "map_filter(map(ARRAY [25.5E0, 26.5E0, 27.5E0], ARRAY [25.5E0, 26.5E0, 27.5E0]), (k, v) -> k = 25.5E0 OR v = 27.5E0)",
-                mapType(DOUBLE, DOUBLE),
-                ImmutableMap.of(25.5, 25.5, 27.5, 27.5));
-        assertFunction(
-                "map_filter(map(ARRAY [25.5E0, 26.5E0, 27.5E0], ARRAY [false, null, true]), (k, v) -> k = 25.5E0 OR v)",
-                mapType(DOUBLE, BOOLEAN),
-                ImmutableMap.of(25.5, false, 27.5, true));
-        assertFunction(
-                "map_filter(map(ARRAY [25.5E0, 26.5E0, 27.5E0], ARRAY ['abc', 'def', 'xyz']), (k, v) -> k = 25.5E0 OR v = 'xyz')",
-                mapType(DOUBLE, createVarcharType(3)),
-                ImmutableMap.of(25.5, "abc", 27.5, "xyz"));
-        assertFunction(
-                "map_filter(map(ARRAY [25.5E0, 26.5E0, 27.5E0], ARRAY [ARRAY ['a', 'b'], ARRAY ['a', 'c'], ARRAY ['a', 'b', 'c']]), (k, v) -> k = 25.5E0 OR cardinality(v) = 3)",
-                mapType(DOUBLE, new ArrayType(createVarcharType(1))),
-                ImmutableMap.of(25.5, ImmutableList.of("a", "b"), 27.5, ImmutableList.of("a", "b", "c")));
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k = 25 OR v = 27.5E0)")
+                .binding("a", "map(ARRAY[25, 26, 27], ARRAY[25.5E0, 26.5E0, 27.5E0])"))
+                .hasType(mapType(INTEGER, DOUBLE))
+                .isEqualTo(ImmutableMap.of(25, 25.5, 27, 27.5));
 
-        assertFunction(
-                "map_filter(map(ARRAY [true, false], ARRAY [25, 26]), (k, v) -> k AND v = 25)",
-                mapType(BOOLEAN, INTEGER),
-                ImmutableMap.of(true, 25));
-        assertFunction(
-                "map_filter(map(ARRAY [false, true], ARRAY [25.5E0, 26.5E0]), (k, v) -> k OR v > 100)",
-                mapType(BOOLEAN, DOUBLE),
-                ImmutableMap.of(true, 26.5));
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k = 25 OR v)")
+                .binding("a", "map(ARRAY[25, 26, 27], ARRAY[false, null, true])"))
+                .hasType(mapType(INTEGER, BOOLEAN))
+                .isEqualTo(ImmutableMap.of(25, false, 27, true));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k = 25 OR v = 'xyz')")
+                .binding("a", "map(ARRAY[25, 26, 27], ARRAY['abc', 'def', 'xyz'])"))
+                .hasType(mapType(INTEGER, createVarcharType(3)))
+                .isEqualTo(ImmutableMap.of(25, "abc", 27, "xyz"));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k = 25 OR cardinality(v) = 3)")
+                .binding("a", "map(ARRAY[25, 26, 27], ARRAY[ARRAY['a', 'b'], ARRAY['a', 'c'], ARRAY['a', 'b', 'c']])"))
+                .hasType(mapType(INTEGER, new ArrayType(createVarcharType(1))))
+                .isEqualTo(ImmutableMap.of(25, ImmutableList.of("a", "b"), 27, ImmutableList.of("a", "b", "c")));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k = 25.5E0 OR v = 27)")
+                .binding("a", "map(ARRAY[25.5E0, 26.5E0, 27.5E0], ARRAY[25, 26, 27])"))
+                .hasType(mapType(DOUBLE, INTEGER))
+                .isEqualTo(ImmutableMap.of(25.5, 25, 27.5, 27));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k = 25.5E0 OR v = 27.5E0)")
+                .binding("a", "map(ARRAY[25.5E0, 26.5E0, 27.5E0], ARRAY[25.5E0, 26.5E0, 27.5E0])"))
+                .hasType(mapType(DOUBLE, DOUBLE))
+                .isEqualTo(ImmutableMap.of(25.5, 25.5, 27.5, 27.5));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k = 25.5E0 OR v)")
+                .binding("a", "map(ARRAY[25.5E0, 26.5E0, 27.5E0], ARRAY[false, null, true])"))
+                .hasType(mapType(DOUBLE, BOOLEAN))
+                .isEqualTo(ImmutableMap.of(25.5, false, 27.5, true));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k = 25.5E0 OR v = 'xyz')")
+                .binding("a", "map(ARRAY[25.5E0, 26.5E0, 27.5E0], ARRAY['abc', 'def', 'xyz'])"))
+                .hasType(mapType(DOUBLE, createVarcharType(3)))
+                .isEqualTo(ImmutableMap.of(25.5, "abc", 27.5, "xyz"));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k = 25.5E0 OR cardinality(v) = 3)")
+                .binding("a", "map(ARRAY[25.5E0, 26.5E0, 27.5E0], ARRAY[ARRAY['a', 'b'], ARRAY['a', 'c'], ARRAY['a', 'b', 'c']])"))
+                .hasType(mapType(DOUBLE, new ArrayType(createVarcharType(1))))
+                .isEqualTo(ImmutableMap.of(25.5, ImmutableList.of("a", "b"), 27.5, ImmutableList.of("a", "b", "c")));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k AND v = 25)")
+                .binding("a", "map(ARRAY[true, false], ARRAY[25, 26])"))
+                .hasType(mapType(BOOLEAN, INTEGER))
+                .isEqualTo(ImmutableMap.of(true, 25));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k OR v > 100)")
+                .binding("a", "map(ARRAY[false, true], ARRAY[25.5E0, 26.5E0])"))
+                .hasType(mapType(BOOLEAN, DOUBLE))
+                .isEqualTo(ImmutableMap.of(true, 26.5));
+
         Map<Boolean, Boolean> falseToNullMap = new HashMap<>();
         falseToNullMap.put(false, null);
-        assertFunction(
-                "map_filter(map(ARRAY [true, false], ARRAY [false, null]), (k, v) -> NOT k OR v)",
-                mapType(BOOLEAN, BOOLEAN),
-                falseToNullMap);
-        assertFunction(
-                "map_filter(map(ARRAY [false, true], ARRAY ['abc', 'def']), (k, v) -> NOT k AND v = 'abc')",
-                mapType(BOOLEAN, createVarcharType(3)),
-                ImmutableMap.of(false, "abc"));
-        assertFunction(
-                "map_filter(map(ARRAY [true, false], ARRAY [ARRAY ['a', 'b'], ARRAY ['a', 'b', 'c']]), (k, v) -> k OR cardinality(v) = 3)",
-                mapType(BOOLEAN, new ArrayType(createVarcharType(1))),
-                ImmutableMap.of(true, ImmutableList.of("a", "b"), false, ImmutableList.of("a", "b", "c")));
+        assertThat(assertions.expression("map_filter(a, (k, v) -> NOT k OR v)")
+                .binding("a", "map(ARRAY[true, false], ARRAY[false, null])"))
+                .hasType(mapType(BOOLEAN, BOOLEAN))
+                .isEqualTo(falseToNullMap);
 
-        assertFunction(
-                "map_filter(map(ARRAY ['s0', 's1', 's2'], ARRAY [25, 26, 27]), (k, v) -> k = 's0' OR v = 27)",
-                mapType(createVarcharType(2), INTEGER),
-                ImmutableMap.of("s0", 25, "s2", 27));
-        assertFunction(
-                "map_filter(map(ARRAY ['s0', 's1', 's2'], ARRAY [25.5E0, 26.5E0, 27.5E0]), (k, v) -> k = 's0' OR v = 27.5E0)",
-                mapType(createVarcharType(2), DOUBLE),
-                ImmutableMap.of("s0", 25.5, "s2", 27.5));
-        assertFunction(
-                "map_filter(map(ARRAY ['s0', 's1', 's2'], ARRAY [false, null, true]), (k, v) -> k = 's0' OR v)",
-                mapType(createVarcharType(2), BOOLEAN),
-                ImmutableMap.of("s0", false, "s2", true));
-        assertFunction(
-                "map_filter(map(ARRAY ['s0', 's1', 's2'], ARRAY ['abc', 'def', 'xyz']), (k, v) -> k = 's0' OR v = 'xyz')",
-                mapType(createVarcharType(2), createVarcharType(3)),
-                ImmutableMap.of("s0", "abc", "s2", "xyz"));
-        assertFunction(
-                "map_filter(map(ARRAY ['s0', 's1', 's2'], ARRAY [ARRAY ['a', 'b'], ARRAY ['a', 'c'], ARRAY ['a', 'b', 'c']]), (k, v) -> k = 's0' OR cardinality(v) = 3)",
-                mapType(createVarcharType(2), new ArrayType(createVarcharType(1))),
-                ImmutableMap.of("s0", ImmutableList.of("a", "b"), "s2", ImmutableList.of("a", "b", "c")));
+        assertThat(assertions.expression("map_filter(a, (k, v) -> NOT k AND v = 'abc')")
+                .binding("a", "map(ARRAY[false, true], ARRAY['abc', 'def'])"))
+                .hasType(mapType(BOOLEAN, createVarcharType(3)))
+                .isEqualTo(ImmutableMap.of(false, "abc"));
 
-        assertFunction(
-                "map_filter(map(ARRAY [ARRAY [1, 2], ARRAY [3, 4], ARRAY []], ARRAY [25, 26, 27]), (k, v) -> k = ARRAY [1, 2] OR v = 27)",
-                mapType(new ArrayType(INTEGER), INTEGER),
-                ImmutableMap.of(ImmutableList.of(1, 2), 25, ImmutableList.of(), 27));
-        assertFunction(
-                "map_filter(map(ARRAY [ARRAY [1, 2], ARRAY [3, 4], ARRAY []], ARRAY [25.5E0, 26.5E0, 27.5E0]), (k, v) -> k = ARRAY [1, 2] OR v = 27.5E0)",
-                mapType(new ArrayType(INTEGER), DOUBLE),
-                ImmutableMap.of(ImmutableList.of(1, 2), 25.5, ImmutableList.of(), 27.5));
-        assertFunction(
-                "map_filter(map(ARRAY [ARRAY [1, 2], ARRAY [3, 4], ARRAY []], ARRAY [false, null, true]), (k, v) -> k = ARRAY [1, 2] OR v)",
-                mapType(new ArrayType(INTEGER), BOOLEAN),
-                ImmutableMap.of(ImmutableList.of(1, 2), false, ImmutableList.of(), true));
-        assertFunction(
-                "map_filter(map(ARRAY [ARRAY [1, 2], ARRAY [3, 4], ARRAY []], ARRAY ['abc', 'def', 'xyz']), (k, v) -> k = ARRAY [1, 2] OR v = 'xyz')",
-                mapType(new ArrayType(INTEGER), createVarcharType(3)),
-                ImmutableMap.of(ImmutableList.of(1, 2), "abc", ImmutableList.of(), "xyz"));
-        assertFunction(
-                "map_filter(map(ARRAY [ARRAY [1, 2], ARRAY [3, 4], ARRAY []], ARRAY [ARRAY ['a', 'b'], ARRAY ['a', 'b', 'c'], ARRAY ['a', 'c']]), (k, v) -> cardinality(k) = 0 OR cardinality(v) = 3)",
-                mapType(new ArrayType(INTEGER), new ArrayType(createVarcharType(1))),
-                ImmutableMap.of(ImmutableList.of(3, 4), ImmutableList.of("a", "b", "c"), ImmutableList.of(), ImmutableList.of("a", "c")));
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k OR cardinality(v) = 3)")
+                .binding("a", "map(ARRAY[true, false], ARRAY[ARRAY['a', 'b'], ARRAY['a', 'b', 'c']])"))
+                .hasType(mapType(BOOLEAN, new ArrayType(createVarcharType(1))))
+                .isEqualTo(ImmutableMap.of(true, ImmutableList.of("a", "b"), false, ImmutableList.of("a", "b", "c")));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k = 's0' OR v = 27)")
+                .binding("a", "map(ARRAY['s0', 's1', 's2'], ARRAY[25, 26, 27])"))
+                .hasType(mapType(createVarcharType(2), INTEGER))
+                .isEqualTo(ImmutableMap.of("s0", 25, "s2", 27));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k = 's0' OR v = 27.5E0)")
+                .binding("a", "map(ARRAY['s0', 's1', 's2'], ARRAY[25.5E0, 26.5E0, 27.5E0])"))
+                .hasType(mapType(createVarcharType(2), DOUBLE))
+                .isEqualTo(ImmutableMap.of("s0", 25.5, "s2", 27.5));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k = 's0' OR v)")
+                .binding("a", "map(ARRAY['s0', 's1', 's2'], ARRAY[false, null, true])"))
+                .hasType(mapType(createVarcharType(2), BOOLEAN))
+                .isEqualTo(ImmutableMap.of("s0", false, "s2", true));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k = 's0' OR v = 'xyz')")
+                .binding("a", "map(ARRAY['s0', 's1', 's2'], ARRAY['abc', 'def', 'xyz'])"))
+                .hasType(mapType(createVarcharType(2), createVarcharType(3)))
+                .isEqualTo(ImmutableMap.of("s0", "abc", "s2", "xyz"));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k = 's0' OR cardinality(v) = 3)")
+                .binding("a", "map(ARRAY['s0', 's1', 's2'], ARRAY[ARRAY['a', 'b'], ARRAY['a', 'c'], ARRAY['a', 'b', 'c']])"))
+                .hasType(mapType(createVarcharType(2), new ArrayType(createVarcharType(1))))
+                .isEqualTo(ImmutableMap.of("s0", ImmutableList.of("a", "b"), "s2", ImmutableList.of("a", "b", "c")));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k = ARRAY[1, 2] OR v = 27)")
+                .binding("a", "map(ARRAY[ARRAY[1, 2], ARRAY[3, 4], ARRAY[]], ARRAY[25, 26, 27])"))
+                .hasType(mapType(new ArrayType(INTEGER), INTEGER))
+                .isEqualTo(ImmutableMap.of(ImmutableList.of(1, 2), 25, ImmutableList.of(), 27));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k = ARRAY[1, 2] OR v = 27.5E0)")
+                .binding("a", "map(ARRAY[ARRAY[1, 2], ARRAY[3, 4], ARRAY[]], ARRAY[25.5E0, 26.5E0, 27.5E0])"))
+                .hasType(mapType(new ArrayType(INTEGER), DOUBLE))
+                .isEqualTo(ImmutableMap.of(ImmutableList.of(1, 2), 25.5, ImmutableList.of(), 27.5));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k = ARRAY[1, 2] OR v)")
+                .binding("a", "map(ARRAY[ARRAY[1, 2], ARRAY[3, 4], ARRAY[]], ARRAY[false, null, true])"))
+                .hasType(mapType(new ArrayType(INTEGER), BOOLEAN))
+                .isEqualTo(ImmutableMap.of(ImmutableList.of(1, 2), false, ImmutableList.of(), true));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> k = ARRAY[1, 2] OR v = 'xyz')")
+                .binding("a", "map(ARRAY[ARRAY[1, 2], ARRAY[3, 4], ARRAY[]], ARRAY['abc', 'def', 'xyz'])"))
+                .hasType(mapType(new ArrayType(INTEGER), createVarcharType(3)))
+                .isEqualTo(ImmutableMap.of(ImmutableList.of(1, 2), "abc", ImmutableList.of(), "xyz"));
+
+        assertThat(assertions.expression("map_filter(a, (k, v) -> cardinality(k) = 0 OR cardinality(v) = 3)")
+                .binding("a", "map(ARRAY[ARRAY[1, 2], ARRAY[3, 4], ARRAY[]], ARRAY[ARRAY['a', 'b'], ARRAY['a', 'b', 'c'], ARRAY['a', 'c']])"))
+                .hasType(mapType(new ArrayType(INTEGER), new ArrayType(createVarcharType(1))))
+                .isEqualTo(ImmutableMap.of(ImmutableList.of(3, 4), ImmutableList.of("a", "b", "c"), ImmutableList.of(), ImmutableList.of("a", "c")));
     }
 }

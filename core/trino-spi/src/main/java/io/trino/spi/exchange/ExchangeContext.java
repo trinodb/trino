@@ -13,10 +13,12 @@
  */
 package io.trino.spi.exchange;
 
+import io.trino.spi.Experimental;
 import io.trino.spi.QueryId;
 
 import static java.util.Objects.requireNonNull;
 
+@Experimental(eta = "2023-01-01")
 public class ExchangeContext
 {
     private final QueryId queryId;

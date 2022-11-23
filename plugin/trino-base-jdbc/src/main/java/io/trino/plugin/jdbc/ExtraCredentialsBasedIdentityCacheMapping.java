@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
 
 public final class ExtraCredentialsBasedIdentityCacheMapping
         implements IdentityCacheMapping
@@ -43,7 +42,6 @@ public final class ExtraCredentialsBasedIdentityCacheMapping
         catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
-        requireNonNull(config, "config is null");
         userCredentialName = config.getUserCredentialName();
         passwordCredentialName = config.getPasswordCredentialName();
     }
@@ -73,10 +71,8 @@ public final class ExtraCredentialsBasedIdentityCacheMapping
 
         public ExtraCredentialsBasedIdentityCacheKey(Optional<byte[]> userHash, Optional<byte[]> passwordHash)
         {
-            this.userHash = requireNonNull(userHash, "userHash is null")
-                    .orElse(EMPTY_BYTES);
-            this.passwordHash = requireNonNull(passwordHash, "passwordHash is null")
-                    .orElse(EMPTY_BYTES);
+            this.userHash = userHash.orElse(EMPTY_BYTES);
+            this.passwordHash = passwordHash.orElse(EMPTY_BYTES);
         }
 
         @Override

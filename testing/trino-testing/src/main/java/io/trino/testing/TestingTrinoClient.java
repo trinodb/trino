@@ -123,6 +123,7 @@ public class TestingTrinoClient
         private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
 
         private final AtomicReference<List<Type>> types = new AtomicReference<>();
+        private final AtomicReference<List<String>> columnNames = new AtomicReference<>();
 
         private final AtomicReference<Optional<String>> updateType = new AtomicReference<>(Optional.empty());
         private final AtomicReference<OptionalLong> updateCount = new AtomicReference<>(OptionalLong.empty());
@@ -158,6 +159,7 @@ public class TestingTrinoClient
         {
             if (types.get() == null && statusInfo.getColumns() != null) {
                 types.set(getTypes(statusInfo.getColumns()));
+                columnNames.set(getNames(statusInfo.getColumns()));
             }
 
             if (data.getData() != null) {
@@ -173,6 +175,7 @@ public class TestingTrinoClient
             return new MaterializedResult(
                     rows.build(),
                     types.get(),
+                    columnNames.get(),
                     setSessionProperties,
                     resetSessionProperties,
                     updateType.get(),

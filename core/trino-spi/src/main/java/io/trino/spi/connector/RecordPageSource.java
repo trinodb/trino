@@ -34,7 +34,7 @@ public class RecordPageSource
 
     public RecordPageSource(RecordSet recordSet)
     {
-        this(requireNonNull(recordSet, "recordSet is null").getColumnTypes(), recordSet.cursor());
+        this(recordSet.getColumnTypes(), recordSet.cursor());
     }
 
     public RecordPageSource(List<Type> types, RecordCursor cursor)

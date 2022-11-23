@@ -24,7 +24,6 @@ import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
-import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -37,7 +36,7 @@ public final class EnvSinglenodeHiveImpersonation
     public EnvSinglenodeHiveImpersonation(DockerFiles dockerFiles, Standard standard, Hadoop hadoop)
     {
         super(ImmutableList.of(standard, hadoop));
-        configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/singlenode-hive-impersonation");
+        configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-hive-impersonation");
     }
 
     @Override

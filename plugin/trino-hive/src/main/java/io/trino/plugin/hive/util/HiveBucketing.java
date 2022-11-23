@@ -118,14 +118,6 @@ public final class HiveBucketing
     private static final long BUCKETS_EXPLORATION_LIMIT_FACTOR = 4;
     private static final long BUCKETS_EXPLORATION_GUARANTEED_LIMIT = 1000;
 
-    private static final Set<HiveType> SUPPORTED_TYPES_FOR_BUCKET_FILTER = ImmutableSet.of(
-            HiveType.HIVE_BYTE,
-            HiveType.HIVE_SHORT,
-            HiveType.HIVE_INT,
-            HiveType.HIVE_LONG,
-            HiveType.HIVE_BOOLEAN,
-            HiveType.HIVE_STRING);
-
     private HiveBucketing() {}
 
     public static int getHiveBucket(BucketingVersion bucketingVersion, int bucketCount, List<TypeInfo> types, Page page, int position)
@@ -270,7 +262,7 @@ public final class HiveBucketing
             hiveTypes.put(column.getName(), column.getType());
         }
         for (String column : bucketColumns) {
-            if (!SUPPORTED_TYPES_FOR_BUCKET_FILTER.contains(hiveTypes.get(column))) {
+            if (!isTypeSupportedForBucketing(hiveTypes.get(column).getTypeInfo())) {
                 return Optional.empty();
             }
         }

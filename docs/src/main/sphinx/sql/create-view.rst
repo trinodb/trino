@@ -8,6 +8,7 @@ Synopsis
 .. code-block:: text
 
     CREATE [ OR REPLACE ] VIEW view_name
+    [ COMMENT view_comment ]
     [ SECURITY { DEFINER | INVOKER } ]
     AS query
 
@@ -46,6 +47,14 @@ Create a simple view ``test`` over the ``orders`` table::
 
     CREATE VIEW test AS
     SELECT orderkey, orderstatus, totalprice / 2 AS half
+    FROM orders
+
+Create a view ``test_with_comment`` with a view comment::
+
+    CREATE VIEW test_with_comment
+    COMMENT 'A view to keep track of orders.'
+    AS
+    SELECT orderkey, orderstatus, totalprice
     FROM orders
 
 Create a view ``orders_by_date`` that summarizes ``orders``::

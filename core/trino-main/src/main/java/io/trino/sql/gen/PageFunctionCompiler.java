@@ -112,7 +112,7 @@ public class PageFunctionCompiler
     @Inject
     public PageFunctionCompiler(FunctionManager functionManager, CompilerConfig config)
     {
-        this(functionManager, requireNonNull(config, "config is null").getExpressionCacheSize());
+        this(functionManager, config.getExpressionCacheSize());
     }
 
     public PageFunctionCompiler(FunctionManager functionManager, int expressionCacheSize)
@@ -174,14 +174,12 @@ public class PageFunctionCompiler
     {
         requireNonNull(projection, "projection is null");
 
-        if (projection instanceof InputReferenceExpression) {
-            InputReferenceExpression input = (InputReferenceExpression) projection;
+        if (projection instanceof InputReferenceExpression input) {
             InputPageProjection projectionFunction = new InputPageProjection(input.getField(), input.getType());
             return () -> projectionFunction;
         }
 
-        if (projection instanceof ConstantExpression) {
-            ConstantExpression constant = (ConstantExpression) projection;
+        if (projection instanceof ConstantExpression constant) {
             ConstantPageProjection projectionFunction = new ConstantPageProjection(constant.getValue(), constant.getType());
             return () -> projectionFunction;
         }
@@ -611,15 +609,6 @@ public class PageFunctionCompiler
     private static List<Integer> getInputChannels(RowExpression expression)
     {
         return getInputChannels(ImmutableList.of(expression));
-    }
-
-    private static List<Parameter> toBlockParameters(List<Integer> inputChannels)
-    {
-        ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
-        for (int channel : inputChannels) {
-            parameters.add(arg("block_" + channel, Block.class));
-        }
-        return parameters.build();
     }
 
     private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(CallSiteBinder callSiteBinder)

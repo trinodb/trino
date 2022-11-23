@@ -87,9 +87,7 @@ public class FileSingleStreamSpiller
         this.spillerStats = requireNonNull(spillerStats, "spillerStats is null");
         this.localSpillContext = spillContext.newLocalSpillContext();
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
-        if (requireNonNull(spillCipher, "spillCipher is null").isPresent()) {
-            closer.register(spillCipher.get()::close);
-        }
+        spillCipher.ifPresent(cipher -> closer.register(cipher::close));
         // HACK!
         // The writePages() method is called in a separate thread pool and it's possible that
         // these spiller thread can run concurrently with the close() method.

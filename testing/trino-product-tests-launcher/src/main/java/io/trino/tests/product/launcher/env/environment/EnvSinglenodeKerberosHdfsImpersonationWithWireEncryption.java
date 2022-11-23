@@ -25,7 +25,6 @@ import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
-import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -38,7 +37,7 @@ public final class EnvSinglenodeKerberosHdfsImpersonationWithWireEncryption
     public EnvSinglenodeKerberosHdfsImpersonationWithWireEncryption(DockerFiles dockerFiles, Standard standard, HadoopKerberos hadoopKerberos)
     {
         super(ImmutableList.of(standard, hadoopKerberos));
-        configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/singlenode-kerberos-hdfs-impersonation-with-wire-encryption");
+        configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-kerberos-hdfs-impersonation-with-wire-encryption");
     }
 
     @Override

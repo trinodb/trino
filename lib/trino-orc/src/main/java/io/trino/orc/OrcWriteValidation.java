@@ -101,8 +101,10 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.floorDiv;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -472,7 +474,7 @@ public class OrcWriteValidation
 
         private WriteChecksumBuilder(List<Type> types)
         {
-            this.validationHashes = requireNonNull(types, "types is null").stream()
+            this.validationHashes = types.stream()
                     .map(ValidationHash::createValidationHash)
                     .collect(toImmutableList());
 
@@ -622,7 +624,7 @@ public class OrcWriteValidation
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
-            else if (VARBINARY.equals(type)) {
+            else if (VARBINARY.equals(type) || UUID.equals(type)) {
                 statisticsBuilder = new BinaryStatisticsBuilder();
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
@@ -758,7 +760,7 @@ public class OrcWriteValidation
 
     private static class RowGroupStatistics
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(RowGroupStatistics.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RowGroupStatistics.class).instanceSize());
 
         private final OrcWriteValidationMode validationMode;
         private final SortedMap<OrcColumnId, ColumnStatistics> columnStatistics;
@@ -817,7 +819,7 @@ public class OrcWriteValidation
 
     public static class OrcWriteValidationBuilder
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcWriteValidationBuilder.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(OrcWriteValidationBuilder.class).instanceSize());
 
         private final OrcWriteValidationMode validationMode;
 

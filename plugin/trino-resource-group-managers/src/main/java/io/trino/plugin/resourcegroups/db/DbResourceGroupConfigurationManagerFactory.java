@@ -41,8 +41,7 @@ public class DbResourceGroupConfigurationManagerFactory
     @Override
     public ResourceGroupConfigurationManager<?> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
     {
-        config = replaceEnvironmentVariables(config);
-        FlywayMigration.migrate(new ConfigurationFactory(config).build(DbResourceGroupConfig.class));
+        FlywayMigration.migrate(new ConfigurationFactory(replaceEnvironmentVariables(config)).build(DbResourceGroupConfig.class));
         Bootstrap app = new Bootstrap(
                 new MBeanModule(),
                 new MBeanServerModule(),

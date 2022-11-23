@@ -39,7 +39,6 @@ import java.util.List;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.execution.buffer.PagesSerdeUtil.NO_CHECKSUM;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
-import static java.util.Objects.requireNonNull;
 
 @Provider
 @Produces(TRINO_PAGES)
@@ -65,7 +64,6 @@ public class PagesResponseWriter
     @Inject
     public PagesResponseWriter(FeaturesConfig featuresConfig)
     {
-        requireNonNull(featuresConfig, "featuresConfig is null");
         this.dataIntegrityVerificationEnabled = featuresConfig.getExchangeDataIntegrityVerification() != DataIntegrityVerification.NONE;
     }
 

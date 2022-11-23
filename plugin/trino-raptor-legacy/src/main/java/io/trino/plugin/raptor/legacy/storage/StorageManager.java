@@ -52,4 +52,9 @@ public interface StorageManager
             List<Long> columnIds,
             List<Type> columnTypes,
             boolean checkSpace);
+
+    ShardRewriter createShardRewriter(
+            long transactionId,
+            OptionalInt bucketNumber,
+            UUID shardUuid);
 }

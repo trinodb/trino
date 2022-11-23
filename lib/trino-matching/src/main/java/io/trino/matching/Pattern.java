@@ -116,9 +116,7 @@ public abstract class Pattern<T>
             return previous.get().match(object, captures, context)
                     .flatMap(match -> accept(object, match.captures(), context));
         }
-        else {
-            return accept(object, captures, context);
-        }
+        return accept(object, captures, context);
     }
 
     @Override

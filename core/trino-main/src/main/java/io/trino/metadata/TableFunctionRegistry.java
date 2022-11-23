@@ -13,8 +13,9 @@
  */
 package io.trino.metadata;
 
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.ptf.ConnectorTableFunction;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -39,9 +40,9 @@ public class TableFunctionRegistry
      * Resolve table function with given qualified name.
      * Table functions are resolved case-insensitive for consistency with existing scalar function resolution.
      */
-    public Optional<ConnectorTableFunction> resolve(CatalogName catalogName, SchemaFunctionName schemaFunctionName)
+    public Optional<ConnectorTableFunction> resolve(CatalogHandle catalogHandle, SchemaFunctionName schemaFunctionName)
     {
-        return tableFunctionsProvider.getService(catalogName)
+        return tableFunctionsProvider.getService(catalogHandle)
                 .getTableFunction(schemaFunctionName);
     }
 }

@@ -727,9 +727,7 @@ public abstract class AbstractTestHiveFileFormats
             if (decimalType.isShort()) {
                 return BigInteger.valueOf(cursor.getLong(field));
             }
-            else {
-                return ((Int128) cursor.getObject(field)).toBigInteger();
-            }
+            return ((Int128) cursor.getObject(field)).toBigInteger();
         }
         throw new RuntimeException("unknown type");
     }

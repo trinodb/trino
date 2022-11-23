@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake.metastore.glue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.io.Files;
 import com.google.common.io.Resources;
 import com.google.inject.Injector;
 import com.google.inject.Key;
@@ -24,13 +23,14 @@ import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
+import io.trino.filesystem.hdfs.HdfsFileSystemModule;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.DeltaLakeModule;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
@@ -56,6 +56,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -97,8 +98,9 @@ public class TestDeltaLakeGlueMetastore
 
     @BeforeClass
     public void setUp()
+            throws Exception
     {
-        tempDir = Files.createTempDir();
+        tempDir = Files.createTempDirectory(null).toFile();
         String temporaryLocation = tempDir.toURI().toString();
 
         Map<String, String> config = ImmutableMap.<String, String>builder()
@@ -123,6 +125,7 @@ public class TestDeltaLakeGlueMetastore
                 // test setup
                 binder -> {
                     binder.bind(HdfsEnvironment.class).toInstance(HDFS_ENVIRONMENT);
+                    binder.install(new HdfsFileSystemModule());
                 });
 
         Injector injector = app
@@ -265,8 +268,7 @@ public class TestDeltaLakeGlueMetastore
         File deltaTableLogLocation = new File(new File(new URI(deltaLakeTableLocation)), "_delta_log");
         verify(deltaTableLogLocation.mkdirs(), "mkdirs() on '%s' failed", deltaTableLogLocation);
         byte[] entry = Resources.toByteArray(Resources.getResource("deltalake/person/_delta_log/00000000000000000000.json"));
-        Files.asByteSink(new File(deltaTableLogLocation, "00000000000000000000.json"))
-                .write(entry);
+        Files.write(new File(deltaTableLogLocation, "00000000000000000000.json").toPath(), entry);
     }
 
     private String tableLocation(SchemaTableName tableName)

@@ -179,4 +179,19 @@ public class SemiJoinNode
                 Optional.of(distributionType),
                 dynamicFilterId);
     }
+
+    public SemiJoinNode withoutDynamicFilter()
+    {
+        return new SemiJoinNode(
+                getId(),
+                source,
+                filteringSource,
+                sourceJoinSymbol,
+                filteringSourceJoinSymbol,
+                semiJoinOutput,
+                sourceHashSymbol,
+                filteringSourceHashSymbol,
+                distributionType,
+                Optional.empty());
+    }
 }

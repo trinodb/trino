@@ -18,11 +18,12 @@ import org.testng.annotations.Test;
 
 import static java.lang.Long.MAX_VALUE;
 import static java.lang.Long.MIN_VALUE;
+import static java.lang.Math.toIntExact;
 
 public class TestIntegerStatistics
         extends AbstractRangeStatisticsTest<IntegerStatistics, Long>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntegerStatistics.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(IntegerStatistics.class).instanceSize());
 
     @Override
     protected IntegerStatistics getCreateStatistics(Long min, Long max)

@@ -24,11 +24,13 @@ import io.trino.operator.BlockedReason;
 import io.trino.operator.OperatorStats;
 import io.trino.operator.PipelineStats;
 import io.trino.operator.TaskStats;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.util.Failures;
+import io.trino.util.Optionals;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -420,6 +422,7 @@ public class StageStateMachine
         long failedInputBlockedTime = 0;
 
         long bufferedDataSize = 0;
+        Optional<TDigestHistogram> outputBufferUtilization = Optional.empty();
         long outputDataSize = 0;
         long failedOutputDataSize = 0;
         long outputPositions = 0;
@@ -495,6 +498,7 @@ public class StageStateMachine
             inputBlockedTime += taskStats.getInputBlockedTime().roundTo(NANOSECONDS);
 
             bufferedDataSize += taskInfo.getOutputBuffers().getTotalBufferedBytes();
+            outputBufferUtilization = Optionals.combine(outputBufferUtilization, taskInfo.getOutputBuffers().getUtilization(), TDigestHistogram::mergeWith);
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
 
@@ -596,6 +600,7 @@ public class StageStateMachine
                 succinctDuration(inputBlockedTime, NANOSECONDS),
                 succinctDuration(failedInputBlockedTime, NANOSECONDS),
                 succinctBytes(bufferedDataSize),
+                outputBufferUtilization,
                 succinctBytes(outputDataSize),
                 succinctBytes(failedOutputDataSize),
                 outputPositions,

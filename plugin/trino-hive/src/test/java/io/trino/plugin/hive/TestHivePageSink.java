@@ -16,7 +16,6 @@ package io.trino.plugin.hive;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slices;
 import io.trino.operator.GroupByHashPageIndexerFactory;
@@ -48,6 +47,7 @@ import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -106,7 +106,7 @@ public class TestHivePageSink
             throws Exception
     {
         HiveConfig config = new HiveConfig();
-        File tempDir = Files.createTempDir();
+        File tempDir = Files.createTempDirectory(null).toFile();
         try {
             HiveMetastore metastore = createTestingFileHiveMetastore(new File(tempDir, "metastore"));
             for (HiveStorageFormat format : HiveStorageFormat.values()) {

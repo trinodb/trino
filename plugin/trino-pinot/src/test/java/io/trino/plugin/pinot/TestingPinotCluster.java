@@ -59,15 +59,15 @@ import static io.airlift.json.JsonCodec.listJsonCodec;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
-import static org.apache.pinot.common.utils.FileUploadDownloadClient.DEFAULT_SOCKET_TIMEOUT_MS;
+import static org.apache.pinot.common.utils.http.HttpClient.DEFAULT_SOCKET_TIMEOUT_MS;
 import static org.testcontainers.containers.KafkaContainer.ZOOKEEPER_PORT;
 import static org.testcontainers.utility.DockerImageName.parse;
 
 public class TestingPinotCluster
         implements Closeable
 {
-    public static final String PINOT_LATEST_IMAGE_NAME = "apachepinot/pinot:0.10.0";
-    public static final String PINOT_PREVIOUS_IMAGE_NAME = "apachepinot/pinot:0.9.3-jdk11";
+    public static final String PINOT_LATEST_IMAGE_NAME = "apachepinot/pinot:0.11.0";
+    public static final String PINOT_PREVIOUS_IMAGE_NAME = "apachepinot/pinot:0.10.0";
 
     private static final String ZOOKEEPER_INTERNAL_HOST = "zookeeper";
     private static final JsonCodec<List<String>> LIST_JSON_CODEC = listJsonCodec(String.class);
@@ -152,22 +152,22 @@ public class TestingPinotCluster
 
     public String getControllerConnectString()
     {
-        return controller.getContainerIpAddress() + ":" + controller.getMappedPort(CONTROLLER_PORT);
+        return controller.getHost() + ":" + controller.getMappedPort(CONTROLLER_PORT);
     }
 
     public HostAndPort getBrokerHostAndPort()
     {
-        return HostAndPort.fromParts(broker.getContainerIpAddress(), broker.getMappedPort(BROKER_PORT));
+        return HostAndPort.fromParts(broker.getHost(), broker.getMappedPort(BROKER_PORT));
     }
 
     public HostAndPort getServerHostAndPort()
     {
-        return HostAndPort.fromParts(server.getContainerIpAddress(), server.getMappedPort(SERVER_PORT));
+        return HostAndPort.fromParts(server.getHost(), server.getMappedPort(SERVER_PORT));
     }
 
     public HostAndPort getServerGrpcHostAndPort()
     {
-        return HostAndPort.fromParts(server.getContainerIpAddress(), server.getMappedPort(GRPC_PORT));
+        return HostAndPort.fromParts(server.getHost(), server.getMappedPort(GRPC_PORT));
     }
 
     public void createSchema(InputStream tableSchemaSpec, String tableName)
@@ -220,7 +220,7 @@ public class TestingPinotCluster
 
         PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)), 10);
         // Typo in response: https://github.com/apache/incubator-pinot/issues/5566
-        checkState(response.getStatus().equals(format("Table %s_REALTIME succesfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
+        checkState(response.getStatus().startsWith(format("Table %s_REALTIME succes", tableName)), "Unexpected response: '%s'", response.getStatus());
     }
 
     public void addOfflineTable(InputStream offlineSpec, String tableName)
@@ -237,7 +237,7 @@ public class TestingPinotCluster
 
         PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)), 10);
         // Typo in response: https://github.com/apache/incubator-pinot/issues/5566
-        checkState(response.getStatus().equals(format("Table %s_OFFLINE succesfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
+        checkState(response.getStatus().startsWith(format("Table %s_OFFLINE succes", tableName)), "Unexpected response: '%s'", response.getStatus());
     }
 
     public void publishOfflineSegment(String tableName, Path segmentPath)
@@ -271,9 +271,7 @@ public class TestingPinotCluster
                     if (statusCode >= 500) {
                         return false;
                     }
-                    else {
-                        throw e;
-                    }
+                    throw e;
                 }
             });
         }

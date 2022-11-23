@@ -47,9 +47,7 @@ public final class Murmur3PartitionerTokenRing
             if (start == MIN_TOKEN) {
                 return TOTAL_TOKEN_COUNT;
             }
-            else {
-                return ZERO;
-            }
+            return ZERO;
         }
 
         BigInteger result = BigInteger.valueOf(end).subtract(BigInteger.valueOf(start));

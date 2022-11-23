@@ -52,7 +52,6 @@ public class JmxPeriodicSampler
         this.jmxHistoricalData = requireNonNull(jmxHistoricalData, "jmxHistoricalData is null");
         requireNonNull(jmxMetadata, "jmxMetadata is null");
         this.jmxRecordSetProvider = requireNonNull(jmxRecordSetProvider, "jmxRecordSetProvider is null");
-        requireNonNull(jmxConfig, "jmxConfig is null");
         this.period = jmxConfig.getDumpPeriod().toMillis();
 
         ImmutableList.Builder<JmxTableHandle> tableHandleBuilder = ImmutableList.builder();

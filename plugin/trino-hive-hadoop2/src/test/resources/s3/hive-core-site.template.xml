@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<configuration>
+    <property>
+        <name>fs.defaultFS</name>
+        <value>hdfs://hadoop-master:9000</value>
+    </property>
+
+    <property>
+        <name>fs.s3a.endpoint</name>
+        <value>%S3_BUCKET_ENDPOINT%</value>
+    </property>
+
+    <property>
+        <name>fs.s3.awsAccessKeyId</name>
+        <value>%AWS_ACCESS_KEY_ID%</value>
+    </property>
+
+    <property>
+        <name>fs.s3.awsSecretAccessKey</name>
+        <value>%AWS_SECRET_ACCESS_KEY%</value>
+    </property>
+
+    <property>
+        <name>fs.s3a.access.key</name>
+        <value>%AWS_ACCESS_KEY_ID%</value>
+    </property>
+
+    <property>
+        <name>fs.s3a.secret.key</name>
+        <value>%AWS_SECRET_ACCESS_KEY%</value>
+    </property>
+
+    <!-- Hive impersonation -->
+    <property>
+        <name>hadoop.proxyuser.hive.hosts</name>
+        <value>*</value>
+    </property>
+
+    <property>
+        <name>hadoop.proxyuser.hive.groups</name>
+        <value>*</value>
+    </property>
+</configuration>

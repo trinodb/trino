@@ -27,16 +27,10 @@ import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.spi.type.VarcharType.createVarcharType;
 
 public final class CassandraTypes
 {
     private CassandraTypes() {}
-
-    // IPv4: 255.255.255.255 - 15 characters
-    // IPv6: FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF - 39 characters
-    // IPv4 embedded into IPv6: FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:255.255.255.255 - 45 characters
-    private static final int IP_ADDRESS_STRING_MAX_LENGTH = 45;
 
     public static final CassandraType ASCII = new CassandraType(Kind.ASCII, createUnboundedVarcharType());
     public static final CassandraType BIGINT = new CassandraType(Kind.BIGINT, BigintType.BIGINT);
@@ -48,7 +42,6 @@ public final class CassandraTypes
     public static final CassandraType DECIMAL = new CassandraType(Kind.DECIMAL, DoubleType.DOUBLE);
     public static final CassandraType DOUBLE = new CassandraType(Kind.DOUBLE, DoubleType.DOUBLE);
     public static final CassandraType FLOAT = new CassandraType(Kind.FLOAT, RealType.REAL);
-    public static final CassandraType INET = new CassandraType(Kind.INET, createVarcharType(IP_ADDRESS_STRING_MAX_LENGTH));
     public static final CassandraType INT = new CassandraType(Kind.INT, IntegerType.INTEGER);
     public static final CassandraType LIST = new CassandraType(Kind.LIST, createUnboundedVarcharType());
     public static final CassandraType MAP = new CassandraType(Kind.MAP, createUnboundedVarcharType());

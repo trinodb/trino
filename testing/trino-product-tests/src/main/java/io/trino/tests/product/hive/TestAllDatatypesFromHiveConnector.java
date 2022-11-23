@@ -410,9 +410,7 @@ public class TestAllDatatypesFromHiveConnector
         if (tableDefinition.getDatabase().isPresent()) {
             return mutableTableInstanceOf(tableDefinition, tableDefinition.getDatabase().get());
         }
-        else {
-            return mutableTableInstanceOf(tableHandleInSchema(tableDefinition));
-        }
+        return mutableTableInstanceOf(tableHandleInSchema(tableDefinition));
     }
 
     private static TableInstance<?> mutableTableInstanceOf(TableDefinition tableDefinition, String database)

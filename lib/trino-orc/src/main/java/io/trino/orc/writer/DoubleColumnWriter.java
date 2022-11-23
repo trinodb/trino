@@ -48,12 +48,13 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static io.trino.orc.metadata.CompressionKind.NONE;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class DoubleColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleColumnWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DoubleColumnWriter.class).instanceSize());
     private static final ColumnEncoding COLUMN_ENCODING = new ColumnEncoding(DIRECT, 0);
 
     private final OrcColumnId columnId;

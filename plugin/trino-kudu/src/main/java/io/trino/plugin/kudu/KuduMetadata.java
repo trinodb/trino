@@ -23,6 +23,7 @@ import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -39,6 +40,7 @@ import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.NotFoundException;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RetryMode;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.expression.ConnectorExpression;
@@ -65,11 +67,13 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.kudu.KuduColumnHandle.ROW_ID;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
+import static io.trino.spi.connector.RowChangeParadigm.CHANGE_ONLY_UPDATED_COLUMNS;
 import static java.util.Objects.requireNonNull;
 
 public class KuduMetadata
@@ -173,18 +177,21 @@ public class KuduMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
     {
         KuduTableHandle tableHandle = (KuduTableHandle) connectorTableHandle;
-        Schema schema = clientSession.getTableSchema(tableHandle);
-
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        Schema schema = clientSession.getTableSchema(tableHandle);
+        forAllColumnHandles(schema, column -> columnHandles.put(column.getName(), column));
+        return columnHandles.buildOrThrow();
+    }
+
+    private void forAllColumnHandles(Schema schema, Consumer<KuduColumnHandle> handleEater)
+    {
         for (int ordinal = 0; ordinal < schema.getColumnCount(); ordinal++) {
             ColumnSchema col = schema.getColumnByIndex(ordinal);
             String name = col.getName();
             Type type = TypeHelper.fromKuduColumn(col);
             KuduColumnHandle columnHandle = new KuduColumnHandle(name, ordinal, type);
-            columnHandles.put(name, columnHandle);
+            handleEater.accept(columnHandle);
         }
-
-        return columnHandles.buildOrThrow();
     }
 
     @Override
@@ -411,6 +418,45 @@ public class KuduMetadata
     @Override
     public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
+    }
+
+    @Override
+    public RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return CHANGE_ONLY_UPDATED_COLUMNS;
+    }
+
+    @Override
+    public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return KuduColumnHandle.ROW_ID_HANDLE;
+    }
+
+    @Override
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    {
+        KuduTableHandle kuduTableHandle = (KuduTableHandle) tableHandle;
+        KuduTable table = kuduTableHandle.getTable(clientSession);
+        Schema schema = table.getSchema();
+        List<ColumnSchema> columns = schema.getColumns();
+        List<Type> columnTypes = columns.stream()
+                .map(TypeHelper::fromKuduColumn)
+                .collect(toImmutableList());
+        ConnectorTableMetadata tableMetadata = getTableMetadata(kuduTableHandle);
+        List<Type> columnOriginalTypes = tableMetadata.getColumns().stream()
+                .map(ColumnMetadata::getType)
+                .collect(toImmutableList());
+        PartitionDesign design = KuduTableProperties.getPartitionDesign(tableMetadata.getProperties());
+        boolean generateUUID = !design.hasPartitions();
+        return new KuduMergeTableHandle(
+                kuduTableHandle,
+                new KuduOutputTableHandle(tableMetadata.getTable(), columnOriginalTypes, columnTypes, generateUUID, table));
+    }
+
+    @Override
+    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        // For Kudu, nothing needs to be done finish the merge.
     }
 
     @Override

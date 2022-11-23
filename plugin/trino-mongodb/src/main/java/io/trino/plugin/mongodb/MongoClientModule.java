@@ -26,7 +26,6 @@ import io.trino.spi.type.TypeManager;
 import javax.inject.Singleton;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class MongoClientModule
@@ -47,8 +46,6 @@ public class MongoClientModule
     @Provides
     public static MongoSession createMongoSession(TypeManager typeManager, MongoClientConfig config)
     {
-        requireNonNull(config, "config is null");
-
         MongoClientSettings.Builder options = MongoClientSettings.builder();
         options.writeConcern(config.getWriteConcern().getWriteConcern())
                 .readPreference(config.getReadPreference().getReadPreference())

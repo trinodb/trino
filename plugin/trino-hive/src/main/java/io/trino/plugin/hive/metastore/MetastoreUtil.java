@@ -276,9 +276,7 @@ public final class MetastoreUtil
         if (!parameters.containsKey(ProtectMode.PARAMETER_NAME)) {
             return new ProtectMode();
         }
-        else {
-            return getProtectModeFromString(parameters.get(ProtectMode.PARAMETER_NAME));
-        }
+        return getProtectModeFromString(parameters.get(ProtectMode.PARAMETER_NAME));
     }
 
     public static void verifyOnline(SchemaTableName tableName, Optional<String> partitionName, ProtectMode protectMode, Map<String, String> parameters)
@@ -384,29 +382,29 @@ public final class MetastoreUtil
         if (value == null) {
             return nullString;
         }
-        else if (type instanceof CharType) {
+        if (type instanceof CharType) {
             Slice slice = (Slice) value;
             return padSpaces(slice, (CharType) type).toStringUtf8();
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             Slice slice = (Slice) value;
             return slice.toStringUtf8();
         }
-        else if (type instanceof DecimalType && !((DecimalType) type).isShort()) {
-            return Decimals.toString((Int128) value, ((DecimalType) type).getScale());
+        if (type instanceof DecimalType decimalType && !decimalType.isShort()) {
+            return Decimals.toString((Int128) value, decimalType.getScale());
         }
-        else if (type instanceof DecimalType && ((DecimalType) type).isShort()) {
-            return Decimals.toString((long) value, ((DecimalType) type).getScale());
+        if (type instanceof DecimalType decimalType && decimalType.isShort()) {
+            return Decimals.toString((long) value, decimalType.getScale());
         }
-        else if (type instanceof DateType) {
+        if (type instanceof DateType) {
             DateTimeFormatter dateTimeFormatter = ISODateTimeFormat.date().withZoneUTC();
             return dateTimeFormatter.print(TimeUnit.DAYS.toMillis((long) value));
         }
-        else if (type instanceof TimestampType) {
+        if (type instanceof TimestampType) {
             // we throw on this type as we don't have timezone. Callers should not ask for this conversion type, but document for possible future work (?)
             throw new TrinoException(NOT_SUPPORTED, "TimestampType conversion to scalar expressions is not supported");
         }
-        else if (type instanceof TinyintType
+        if (type instanceof TinyintType
                 || type instanceof SmallintType
                 || type instanceof IntegerType
                 || type instanceof BigintType
@@ -415,9 +413,7 @@ public final class MetastoreUtil
                 || type instanceof BooleanType) {
             return value.toString();
         }
-        else {
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported partition key type: %s", type.getDisplayName()));
-        }
+        throw new TrinoException(NOT_SUPPORTED, format("Unsupported partition key type: %s", type.getDisplayName()));
     }
 
     /**

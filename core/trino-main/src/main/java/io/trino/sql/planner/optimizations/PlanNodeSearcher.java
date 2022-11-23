@@ -112,14 +112,11 @@ public class PlanNodeSearcher
     public <T extends PlanNode> Optional<T> findSingle()
     {
         List<T> all = findAll();
-        switch (all.size()) {
-            case 0:
-                return Optional.empty();
-            case 1:
-                return Optional.of(all.get(0));
-            default:
-                throw new IllegalStateException("Multiple nodes found");
-        }
+        return switch (all.size()) {
+            case 0 -> Optional.empty();
+            case 1 -> Optional.of(all.get(0));
+            default -> throw new IllegalStateException("Multiple nodes found");
+        };
     }
 
     /**
@@ -204,12 +201,10 @@ public class PlanNodeSearcher
             if (sources.isEmpty()) {
                 return node;
             }
-            else if (sources.size() == 1) {
+            if (sources.size() == 1) {
                 return replaceChildren(node, ImmutableList.of(removeFirstRecursive(sources.get(0))));
             }
-            else {
-                throw new IllegalArgumentException("Unable to remove first node when a node has multiple children, use removeAll instead");
-            }
+            throw new IllegalArgumentException("Unable to remove first node when a node has multiple children, use removeAll instead");
         }
         return node;
     }
@@ -251,12 +246,10 @@ public class PlanNodeSearcher
         if (sources.isEmpty()) {
             return node;
         }
-        else if (sources.size() == 1) {
+        if (sources.size() == 1) {
             return replaceChildren(node, ImmutableList.of(replaceFirstRecursive(node, sources.get(0))));
         }
-        else {
-            throw new IllegalArgumentException("Unable to replace first node when a node has multiple children, use replaceAll instead");
-        }
+        throw new IllegalArgumentException("Unable to replace first node when a node has multiple children, use replaceAll instead");
     }
 
     public boolean matches()

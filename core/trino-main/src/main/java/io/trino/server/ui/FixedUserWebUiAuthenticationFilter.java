@@ -31,7 +31,7 @@ public class FixedUserWebUiAuthenticationFilter
     @Inject
     public FixedUserWebUiAuthenticationFilter(FixedUserWebUiConfig config)
     {
-        this(basicIdentity(requireNonNull(config, "config is null").getUsername()));
+        this(basicIdentity(config.getUsername()));
     }
 
     public FixedUserWebUiAuthenticationFilter(Identity webUiIdentity)

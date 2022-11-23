@@ -138,13 +138,13 @@ public class ScopeAware<T extends Node>
                 }
                 // For references that come from the current query scope or an outer scope of the current
                 // expression, compare by resolved field
-                else if (!leftFieldInSubqueryScope && !rightFieldInSubqueryScope) {
+                if (!leftFieldInSubqueryScope && !rightFieldInSubqueryScope) {
                     return leftField.getFieldId().equals(rightField.getFieldId());
                 }
                 // References come from different scopes
                 return false;
             }
-            else if (leftExpression instanceof Identifier && rightExpression instanceof Identifier) {
+            if (leftExpression instanceof Identifier && rightExpression instanceof Identifier) {
                 return treeEqual(leftExpression, rightExpression, CanonicalizationAware::canonicalizationAwareComparison);
             }
         }
@@ -170,10 +170,10 @@ public class ScopeAware<T extends Node>
 
                 return OptionalInt.of(field.getFieldId().hashCode());
             }
-            else if (expression instanceof Identifier) {
+            if (expression instanceof Identifier) {
                 return OptionalInt.of(treeHash(expression, CanonicalizationAware::canonicalizationAwareHash));
             }
-            else if (node.getChildren().isEmpty()) {
+            if (node.getChildren().isEmpty()) {
                 // Calculate shallow hash since node doesn't have any children
                 return OptionalInt.of(expression.hashCode());
             }

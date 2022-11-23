@@ -100,7 +100,16 @@ public class BenchmarkDynamicFilterSourceOperator
                         public void addPartition(TupleDomain<DynamicFilterId> tupleDomain) {}
 
                         @Override
-                        public void setPartitionCount(int partitionCount) {}
+                        public void setPartitionCount(int partitionCount)
+                        {
+                            throw new UnsupportedOperationException();
+                        }
+
+                        @Override
+                        public boolean isDomainCollectionComplete()
+                        {
+                            return false;
+                        }
                     },
                     ImmutableList.of(new DynamicFilterSourceOperator.Channel(new DynamicFilterId("0"), BIGINT, 0)),
                     maxDistinctValuesCount,

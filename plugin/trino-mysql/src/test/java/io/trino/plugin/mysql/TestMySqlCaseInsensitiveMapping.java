@@ -62,7 +62,7 @@ public class TestMySqlCaseInsensitiveMapping
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return requireNonNull(mySqlServer, "mySqlServer is null")::execute;
+        return mySqlServer::execute;
     }
 
     @Override

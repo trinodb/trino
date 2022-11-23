@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import io.trino.Session;
+import io.trino.cost.TableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
@@ -143,7 +144,7 @@ public class PredicatePushDown
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -257,8 +258,7 @@ public class PredicatePushDown
             // pre-projected symbols.
             Predicate<Expression> isSupported = conjunct ->
                     isDeterministic(conjunct, metadata) &&
-                            extractUnique(conjunct).stream()
-                                    .allMatch(partitionSymbols::contains);
+                            partitionSymbols.containsAll(extractUnique(conjunct));
 
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(isSupported));
 
@@ -279,8 +279,7 @@ public class PredicatePushDown
                     .map(Map.Entry::getKey)
                     .collect(Collectors.toSet());
 
-            Predicate<Expression> deterministic = conjunct -> extractUnique(conjunct).stream()
-                    .allMatch(deterministicSymbols::contains);
+            Predicate<Expression> deterministic = conjunct -> deterministicSymbols.containsAll(extractUnique(conjunct));
 
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(deterministic));
 
@@ -362,7 +361,7 @@ public class PredicatePushDown
         {
             Set<Symbol> pushDownableSymbols = ImmutableSet.copyOf(node.getDistinctSymbols());
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream()
-                    .collect(Collectors.partitioningBy(conjunct -> extractUnique(conjunct).stream().allMatch(pushDownableSymbols::contains)));
+                    .collect(Collectors.partitioningBy(conjunct -> pushDownableSymbols.containsAll(extractUnique(conjunct))));
 
             PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(metadata, conjuncts.get(true)));
 
@@ -436,7 +435,7 @@ public class PredicatePushDown
             Expression newJoinPredicate;
 
             switch (node.getType()) {
-                case INNER:
+                case INNER -> {
                     InnerJoinPushDownResult innerJoinPushDownResult = processInnerJoin(
                             inheritedPredicate,
                             leftEffectivePredicate,
@@ -448,8 +447,8 @@ public class PredicatePushDown
                     rightPredicate = innerJoinPushDownResult.getRightPredicate();
                     postJoinPredicate = innerJoinPushDownResult.getPostJoinPredicate();
                     newJoinPredicate = innerJoinPushDownResult.getJoinPredicate();
-                    break;
-                case LEFT:
+                }
+                case LEFT -> {
                     OuterJoinPushDownResult leftOuterJoinPushDownResult = processLimitedOuterJoin(
                             inheritedPredicate,
                             leftEffectivePredicate,
@@ -461,8 +460,8 @@ public class PredicatePushDown
                     rightPredicate = leftOuterJoinPushDownResult.getInnerJoinPredicate();
                     postJoinPredicate = leftOuterJoinPushDownResult.getPostJoinPredicate();
                     newJoinPredicate = leftOuterJoinPushDownResult.getJoinPredicate();
-                    break;
-                case RIGHT:
+                }
+                case RIGHT -> {
                     OuterJoinPushDownResult rightOuterJoinPushDownResult = processLimitedOuterJoin(
                             inheritedPredicate,
                             rightEffectivePredicate,
@@ -474,15 +473,14 @@ public class PredicatePushDown
                     rightPredicate = rightOuterJoinPushDownResult.getOuterJoinPredicate();
                     postJoinPredicate = rightOuterJoinPushDownResult.getPostJoinPredicate();
                     newJoinPredicate = rightOuterJoinPushDownResult.getJoinPredicate();
-                    break;
-                case FULL:
+                }
+                case FULL -> {
                     leftPredicate = TRUE_LITERAL;
                     rightPredicate = TRUE_LITERAL;
                     postJoinPredicate = inheritedPredicate;
                     newJoinPredicate = joinPredicate;
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+                }
+                default -> throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
 
             newJoinPredicate = simplifyExpression(newJoinPredicate);
@@ -758,7 +756,7 @@ public class PredicatePushDown
             Expression newJoinPredicate;
 
             switch (node.getType()) {
-                case INNER:
+                case INNER -> {
                     InnerJoinPushDownResult innerJoinPushDownResult = processInnerJoin(
                             inheritedPredicate,
                             leftEffectivePredicate,
@@ -770,8 +768,8 @@ public class PredicatePushDown
                     rightPredicate = innerJoinPushDownResult.getRightPredicate();
                     postJoinPredicate = innerJoinPushDownResult.getPostJoinPredicate();
                     newJoinPredicate = innerJoinPushDownResult.getJoinPredicate();
-                    break;
-                case LEFT:
+                }
+                case LEFT -> {
                     OuterJoinPushDownResult leftOuterJoinPushDownResult = processLimitedOuterJoin(
                             inheritedPredicate,
                             leftEffectivePredicate,
@@ -783,9 +781,8 @@ public class PredicatePushDown
                     rightPredicate = leftOuterJoinPushDownResult.getInnerJoinPredicate();
                     postJoinPredicate = leftOuterJoinPushDownResult.getPostJoinPredicate();
                     newJoinPredicate = leftOuterJoinPushDownResult.getJoinPredicate();
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
+                }
+                default -> throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
             }
 
             newJoinPredicate = simplifyExpression(newJoinPredicate);
@@ -1157,24 +1154,22 @@ public class PredicatePushDown
                             node.getDynamicFilters(),
                             node.getReorderJoinStatsAndCost());
                 }
-                else {
-                    return new JoinNode(
-                            node.getId(),
-                            canConvertToLeftJoin ? LEFT : RIGHT,
-                            node.getLeft(),
-                            node.getRight(),
-                            node.getCriteria(),
-                            node.getLeftOutputSymbols(),
-                            node.getRightOutputSymbols(),
-                            node.isMaySkipOutputDuplicates(),
-                            node.getFilter(),
-                            node.getLeftHashSymbol(),
-                            node.getRightHashSymbol(),
-                            node.getDistributionType(),
-                            node.isSpillable(),
-                            node.getDynamicFilters(),
-                            node.getReorderJoinStatsAndCost());
-                }
+                return new JoinNode(
+                        node.getId(),
+                        canConvertToLeftJoin ? LEFT : RIGHT,
+                        node.getLeft(),
+                        node.getRight(),
+                        node.getCriteria(),
+                        node.getLeftOutputSymbols(),
+                        node.getRightOutputSymbols(),
+                        node.isMaySkipOutputDuplicates(),
+                        node.getFilter(),
+                        node.getLeftHashSymbol(),
+                        node.getRightHashSymbol(),
+                        node.getDistributionType(),
+                        node.isSpillable(),
+                        node.getDynamicFilters(),
+                        node.getReorderJoinStatsAndCost());
             }
 
             if (node.getType() == JoinNode.Type.LEFT && !canConvertOuterToInner(node.getRight().getOutputSymbols(), inheritedPredicate) ||
@@ -1409,7 +1404,7 @@ public class PredicatePushDown
                     .filter(Objects::nonNull)
                     .forEach(sourceConjuncts::add);
 
-            // See if we can push the source effective predicate to the filtering soruce side
+            // See if we can push the source effective predicate to the filtering source side
             EqualityInference.nonInferrableConjuncts(metadata, sourceEffectivePredicate)
                     .map(conjunct -> allInference.rewrite(conjunct, filterScope))
                     .filter(Objects::nonNull)

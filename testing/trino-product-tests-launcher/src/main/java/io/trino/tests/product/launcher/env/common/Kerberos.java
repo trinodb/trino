@@ -46,7 +46,7 @@ public class Kerberos
     public Kerberos(EnvironmentConfig environmentConfig, PortBinder portBinder)
     {
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
-        imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
+        imagesVersion = environmentConfig.getImagesVersion();
     }
 
     @Override

@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static it.unimi.dsi.fastutil.HashCommon.bigArraySize;
 import static it.unimi.dsi.fastutil.HashCommon.maxFill;
 import static it.unimi.dsi.fastutil.HashCommon.mix;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -29,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 // Copyright (C) 2002-2019 Sebastiano Vigna
 public class TopNPeerGroupLookup
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TopNPeerGroupLookup.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TopNPeerGroupLookup.class).instanceSize());
 
     /**
      * The buffer containing key and value data.

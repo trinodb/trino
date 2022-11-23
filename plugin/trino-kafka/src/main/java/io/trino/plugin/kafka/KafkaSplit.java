@@ -27,12 +27,13 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class KafkaSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(KafkaSplit.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(KafkaSplit.class).instanceSize());
 
     private final String topicName;
     private final String keyDataFormat;

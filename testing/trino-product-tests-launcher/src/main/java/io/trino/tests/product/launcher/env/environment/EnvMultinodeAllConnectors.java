@@ -24,8 +24,8 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -57,6 +57,7 @@ public final class EnvMultinodeAllConnectors
                         "elasticsearch",
                         "gsheets",
                         "hive",
+                        "hudi",
                         "iceberg",
                         "kafka",
                         "kinesis",
@@ -82,13 +83,13 @@ public final class EnvMultinodeAllConnectors
                         connector,
                         forHostPath(configDir.getPath(connector + ".properties"))));
         builder.configureContainers(container -> {
-            if (isPrestoContainer(container.getLogicalName())) {
+            if (isTrinoContainer(container.getLogicalName())) {
                 container.withCopyFileToContainer(
                         forHostPath(configDir.getPath("google-sheets-auth.json")),
-                        CONTAINER_PRESTO_ETC + "/catalog/google-sheets-auth.json");
+                        CONTAINER_TRINO_ETC + "/catalog/google-sheets-auth.json");
                 container.withCopyFileToContainer(
                         forHostPath(configDir.getPath("prometheus-bearer.txt")),
-                        CONTAINER_PRESTO_ETC + "/catalog/prometheus-bearer.txt");
+                        CONTAINER_TRINO_ETC + "/catalog/prometheus-bearer.txt");
             }
         });
     }

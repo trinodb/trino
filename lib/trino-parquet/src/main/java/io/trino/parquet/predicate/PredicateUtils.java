@@ -21,10 +21,8 @@ import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.trino.parquet.DictionaryPage;
-import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetEncoding;
-import io.trino.parquet.RichColumnDescriptor;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
@@ -38,12 +36,14 @@ import org.apache.parquet.format.PageType;
 import org.apache.parquet.format.Util;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
+import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
@@ -51,7 +51,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Verify.verify;
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -61,12 +60,20 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.column.Encoding.BIT_PACKED;
 import static org.apache.parquet.column.Encoding.PLAIN_DICTIONARY;
 import static org.apache.parquet.column.Encoding.RLE;
 
 public final class PredicateUtils
 {
+    // Maximum size of dictionary that we will read for row-group pruning.
+    // Reading larger dictionaries is typically not beneficial. Before checking
+    // the dictionary, the row-group and page indexes have already been checked
+    // and when the dictionary does not eliminate a row-group, the work done to
+    // decode the dictionary and match it with predicates is wasted.
+    private static final int MAX_DICTIONARY_SIZE = 8096;
+
     private PredicateUtils() {}
 
     public static boolean isStatisticsOverflow(Type type, long min, long max)
@@ -109,12 +116,12 @@ public final class PredicateUtils
     public static Predicate buildPredicate(
             MessageType requestedSchema,
             TupleDomain<ColumnDescriptor> parquetTupleDomain,
-            Map<List<String>, RichColumnDescriptor> descriptorsByPath,
+            Map<List<String>, ColumnDescriptor> descriptorsByPath,
             DateTimeZone timeZone)
     {
-        ImmutableList.Builder<RichColumnDescriptor> columnReferences = ImmutableList.builder();
+        ImmutableList.Builder<ColumnDescriptor> columnReferences = ImmutableList.builder();
         for (String[] paths : requestedSchema.getPaths()) {
-            RichColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(paths));
+            ColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(paths));
             if (descriptor != null) {
                 columnReferences.add(descriptor);
             }
@@ -122,35 +129,50 @@ public final class PredicateUtils
         return new TupleDomainParquetPredicate(parquetTupleDomain, columnReferences.build(), timeZone);
     }
 
-    public static boolean predicateMatches(Predicate parquetPredicate, BlockMetaData block, ParquetDataSource dataSource, Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain)
-            throws ParquetCorruptionException
-    {
-        return predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, Optional.empty());
-    }
-
-    public static boolean predicateMatches(Predicate parquetPredicate, BlockMetaData block, ParquetDataSource dataSource, Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain, Optional<ColumnIndexStore> columnIndexStore)
-            throws ParquetCorruptionException
+    public static boolean predicateMatches(
+            Predicate parquetPredicate,
+            BlockMetaData block,
+            ParquetDataSource dataSource,
+            Map<List<String>, ColumnDescriptor> descriptorsByPath,
+            TupleDomain<ColumnDescriptor> parquetTupleDomain,
+            Optional<ColumnIndexStore> columnIndexStore,
+            DateTimeZone timeZone)
+            throws IOException
     {
         Map<ColumnDescriptor, Statistics<?>> columnStatistics = getStatistics(block, descriptorsByPath);
-        if (!parquetPredicate.matches(block.getRowCount(), columnStatistics, dataSource.getId())) {
+        Optional<List<ColumnDescriptor>> candidateColumns = parquetPredicate.getIndexLookupCandidates(block.getRowCount(), columnStatistics, dataSource.getId());
+        if (candidateColumns.isEmpty()) {
             return false;
         }
+        if (candidateColumns.get().isEmpty()) {
+            return true;
+        }
+        // Perform column index and dictionary lookups only for the subset of columns where it can be useful.
+        // This prevents unnecessary filesystem reads and decoding work when the predicate on a column comes from
+        // file-level min/max stats or more generally when the predicate selects a range equal to or wider than row-group min/max.
+        Predicate indexPredicate = new TupleDomainParquetPredicate(parquetTupleDomain, candidateColumns.get(), timeZone);
 
         // Page stats is finer grained but relatively more expensive, so we do the filtering after above block filtering.
-        if (columnIndexStore.isPresent() && !parquetPredicate.matches(block.getRowCount(), columnIndexStore.get(), dataSource.getId())) {
+        if (columnIndexStore.isPresent() && !indexPredicate.matches(block.getRowCount(), columnIndexStore.get(), dataSource.getId())) {
             return false;
         }
 
-        return dictionaryPredicatesMatch(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain);
+        return dictionaryPredicatesMatch(
+                indexPredicate,
+                block,
+                dataSource,
+                descriptorsByPath,
+                ImmutableSet.copyOf(candidateColumns.get()),
+                columnIndexStore);
     }
 
-    private static Map<ColumnDescriptor, Statistics<?>> getStatistics(BlockMetaData blockMetadata, Map<List<String>, RichColumnDescriptor> descriptorsByPath)
+    private static Map<ColumnDescriptor, Statistics<?>> getStatistics(BlockMetaData blockMetadata, Map<List<String>, ColumnDescriptor> descriptorsByPath)
     {
         ImmutableMap.Builder<ColumnDescriptor, Statistics<?>> statistics = ImmutableMap.builder();
         for (ColumnChunkMetaData columnMetaData : blockMetadata.getColumns()) {
             Statistics<?> columnStatistics = columnMetaData.getStatistics();
             if (columnStatistics != null) {
-                RichColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
+                ColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
                 if (descriptor != null) {
                     statistics.put(descriptor, columnStatistics);
                 }
@@ -159,49 +181,115 @@ public final class PredicateUtils
         return statistics.buildOrThrow();
     }
 
-    private static boolean dictionaryPredicatesMatch(Predicate parquetPredicate, BlockMetaData blockMetadata, ParquetDataSource dataSource, Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain)
+    private static boolean dictionaryPredicatesMatch(
+            Predicate parquetPredicate,
+            BlockMetaData blockMetadata,
+            ParquetDataSource dataSource,
+            Map<List<String>, ColumnDescriptor> descriptorsByPath,
+            Set<ColumnDescriptor> candidateColumns,
+            Optional<ColumnIndexStore> columnIndexStore)
+            throws IOException
     {
         for (ColumnChunkMetaData columnMetaData : blockMetadata.getColumns()) {
-            RichColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
-            if (descriptor != null) {
-                if (isOnlyDictionaryEncodingPages(columnMetaData) && isColumnPredicate(descriptor, parquetTupleDomain)) {
-                    Slice buffer = dataSource.readFully(columnMetaData.getStartingPos(), toIntExact(columnMetaData.getTotalSize()));
-                    //  Early abort, predicate already filters block so no more dictionaries need be read
-                    if (!parquetPredicate.matches(new DictionaryDescriptor(descriptor, readDictionaryPage(buffer, columnMetaData.getCodec())))) {
-                        return false;
-                    }
+            ColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
+            if (descriptor == null || !candidateColumns.contains(descriptor)) {
+                continue;
+            }
+            if (isOnlyDictionaryEncodingPages(columnMetaData)) {
+                Statistics<?> columnStatistics = columnMetaData.getStatistics();
+                boolean nullAllowed = columnStatistics == null || columnStatistics.getNumNulls() != 0;
+                //  Early abort, predicate already filters block so no more dictionaries need be read
+                if (!parquetPredicate.matches(new DictionaryDescriptor(
+                        descriptor,
+                        nullAllowed,
+                        readDictionaryPage(dataSource, columnMetaData, columnIndexStore)))) {
+                    return false;
                 }
             }
         }
         return true;
     }
 
-    private static Optional<DictionaryPage> readDictionaryPage(Slice data, CompressionCodecName codecName)
+    private static Optional<DictionaryPage> readDictionaryPage(
+            ParquetDataSource dataSource,
+            ColumnChunkMetaData columnMetaData,
+            Optional<ColumnIndexStore> columnIndexStore)
+            throws IOException
     {
-        try {
-            SliceInput inputStream = data.getInput();
-            PageHeader pageHeader = Util.readPageHeader(inputStream);
-
-            if (pageHeader.type != PageType.DICTIONARY_PAGE) {
-                return Optional.empty();
-            }
-
-            Slice compressedData = inputStream.readSlice(pageHeader.getCompressed_page_size());
-            DictionaryPageHeader dicHeader = pageHeader.getDictionary_page_header();
-            ParquetEncoding encoding = getParquetEncoding(Encoding.valueOf(dicHeader.getEncoding().name()));
-            int dictionarySize = dicHeader.getNum_values();
-
-            return Optional.of(new DictionaryPage(decompress(codecName, compressedData, pageHeader.getUncompressed_page_size()), dictionarySize, encoding));
+        int dictionaryPageSize;
+        if (columnMetaData.getDictionaryPageOffset() == 0 || columnMetaData.getFirstDataPageOffset() <= columnMetaData.getDictionaryPageOffset()) {
+            /*
+             * See org.apache.parquet.hadoop.Offsets for reference.
+             * The offsets might not contain the proper values in the below cases:
+             * - The dictionaryPageOffset might not be set; in this case 0 is returned
+             *   (0 cannot be a valid offset because of the MAGIC bytes)
+             * - The firstDataPageOffset might point to the dictionary page
+             *
+             * Such parquet files may have been produced by parquet-mr writers before PARQUET-1977.
+             * We find the dictionary page size from OffsetIndex if that exists,
+             * otherwise fallback to reading the full column chunk.
+             */
+            dictionaryPageSize = columnIndexStore.flatMap(index -> getDictionaryPageSize(index, columnMetaData))
+                    .orElseGet(() -> toIntExact(columnMetaData.getTotalSize()));
         }
-        catch (IOException ignored) {
-            return Optional.empty();
+        else {
+            dictionaryPageSize = toIntExact(columnMetaData.getFirstDataPageOffset() - columnMetaData.getDictionaryPageOffset());
         }
+        // Get the dictionary page header and the dictionary in single read
+        Slice buffer = dataSource.readFully(columnMetaData.getStartingPos(), dictionaryPageSize);
+        return readPageHeaderWithData(buffer.getInput()).map(data -> decodeDictionaryPage(data, columnMetaData));
     }
 
-    private static boolean isColumnPredicate(ColumnDescriptor columnDescriptor, TupleDomain<ColumnDescriptor> parquetTupleDomain)
+    private static Optional<Integer> getDictionaryPageSize(ColumnIndexStore columnIndexStore, ColumnChunkMetaData columnMetaData)
     {
-        verify(parquetTupleDomain.getDomains().isPresent(), "parquetTupleDomain is empty");
-        return parquetTupleDomain.getDomains().get().containsKey(columnDescriptor);
+        OffsetIndex offsetIndex = columnIndexStore.getOffsetIndex(columnMetaData.getPath());
+        if (offsetIndex == null) {
+            return Optional.empty();
+        }
+        long rowGroupOffset = columnMetaData.getStartingPos();
+        long firstPageOffset = offsetIndex.getOffset(0);
+        if (rowGroupOffset < firstPageOffset) {
+            return Optional.of(toIntExact(firstPageOffset - rowGroupOffset));
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<PageHeaderWithData> readPageHeaderWithData(SliceInput inputStream)
+    {
+        PageHeader pageHeader;
+        try {
+            pageHeader = Util.readPageHeader(inputStream);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
+        if (pageHeader.type != PageType.DICTIONARY_PAGE) {
+            return Optional.empty();
+        }
+        DictionaryPageHeader dictionaryHeader = pageHeader.getDictionary_page_header();
+        if (dictionaryHeader.getNum_values() > MAX_DICTIONARY_SIZE) {
+            return Optional.empty();
+        }
+        return Optional.of(new PageHeaderWithData(
+                pageHeader,
+                inputStream.readSlice(pageHeader.getCompressed_page_size())));
+    }
+
+    private static DictionaryPage decodeDictionaryPage(PageHeaderWithData pageHeaderWithData, ColumnChunkMetaData chunkMetaData)
+    {
+        PageHeader pageHeader = pageHeaderWithData.pageHeader();
+        DictionaryPageHeader dicHeader = pageHeader.getDictionary_page_header();
+        ParquetEncoding encoding = getParquetEncoding(Encoding.valueOf(dicHeader.getEncoding().name()));
+        int dictionarySize = dicHeader.getNum_values();
+
+        Slice compressedData = pageHeaderWithData.compressedData();
+        try {
+            return new DictionaryPage(decompress(chunkMetaData.getCodec(), compressedData, pageHeader.getUncompressed_page_size()), dictionarySize, encoding);
+        }
+        catch (IOException e) {
+            throw new ParquetDecodingException("Could not decode the dictionary for " + chunkMetaData.getPath(), e);
+        }
     }
 
     @VisibleForTesting
@@ -224,5 +312,14 @@ public final class PredicateUtils
         }
 
         return false;
+    }
+
+    private record PageHeaderWithData(PageHeader pageHeader, Slice compressedData)
+    {
+        private PageHeaderWithData(PageHeader pageHeader, Slice compressedData)
+        {
+            this.pageHeader = requireNonNull(pageHeader, "pageHeader is null");
+            this.compressedData = requireNonNull(compressedData, "compressedData is null");
+        }
     }
 }

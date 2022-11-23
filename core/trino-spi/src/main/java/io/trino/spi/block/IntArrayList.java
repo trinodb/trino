@@ -52,7 +52,7 @@ class IntArrayList
         }
 
         if (newCapacity > array.length) {
-            int newLength = (int) Math.min(Math.max(2L * (long) array.length, (long) newCapacity), MAX_ARRAY_SIZE);
+            int newLength = (int) Math.min(Math.max(2L * array.length, newCapacity), MAX_ARRAY_SIZE);
             array = Arrays.copyOf(array, newLength);
         }
     }

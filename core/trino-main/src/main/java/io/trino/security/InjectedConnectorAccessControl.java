@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
+import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
@@ -147,6 +148,13 @@ public class InjectedConnectorAccessControl
     {
         checkArgument(context == null, "context must be null");
         accessControl.checkCanSetTableComment(securityContext, getQualifiedObjectName(tableName));
+    }
+
+    @Override
+    public void checkCanSetViewComment(ConnectorSecurityContext context, SchemaTableName viewName)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanSetViewComment(securityContext, getQualifiedObjectName(viewName));
     }
 
     @Override
@@ -301,6 +309,18 @@ public class InjectedConnectorAccessControl
     {
         checkArgument(context == null, "context must be null");
         accessControl.checkCanRenameMaterializedView(securityContext, getQualifiedObjectName(viewName), getQualifiedObjectName(newViewName));
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanGrantExecuteFunctionPrivilege(
+                securityContext,
+                functionKind,
+                getQualifiedObjectName(functionName),
+                Identity.ofUser(grantee.getName()),
+                grantOption);
     }
 
     @Override
@@ -477,6 +497,11 @@ public class InjectedConnectorAccessControl
     private QualifiedObjectName getQualifiedObjectName(SchemaTableName schemaTableName)
     {
         return new QualifiedObjectName(catalogName, schemaTableName.getSchemaName(), schemaTableName.getTableName());
+    }
+
+    private QualifiedObjectName getQualifiedObjectName(SchemaRoutineName schemaRoutineName)
+    {
+        return new QualifiedObjectName(catalogName, schemaRoutineName.getSchemaName(), schemaRoutineName.getRoutineName());
     }
 
     private CatalogSchemaName getCatalogSchemaName(String schemaName)

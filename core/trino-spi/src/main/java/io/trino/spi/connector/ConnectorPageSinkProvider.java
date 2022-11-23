@@ -13,6 +13,10 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.TrinoException;
+
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+
 public interface ConnectorPageSinkProvider
 {
     ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle);
@@ -22,5 +26,10 @@ public interface ConnectorPageSinkProvider
     default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         throw new IllegalArgumentException("createPageSink not supported for tableExecuteHandle");
+    }
+
+    default ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support SQL MERGE operations");
     }
 }

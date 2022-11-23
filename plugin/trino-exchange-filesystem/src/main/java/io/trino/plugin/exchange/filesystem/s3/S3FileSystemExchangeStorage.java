@@ -29,6 +29,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
@@ -84,15 +85,19 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.crypto.SecretKey;
 import javax.inject.Inject;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -123,7 +128,10 @@ import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.
 public class S3FileSystemExchangeStorage
         implements FileSystemExchangeStorage
 {
-    public enum CompatibilityMode {
+    private static final Logger log = Logger.get(S3FileSystemExchangeStorage.class);
+
+    public enum CompatibilityMode
+    {
         AWS,
         GCP
     }
@@ -145,7 +153,6 @@ public class S3FileSystemExchangeStorage
             throws IOException
     {
         this.stats = requireNonNull(stats, "stats is null");
-        requireNonNull(config, "config is null");
         this.region = config.getS3Region();
         this.endpoint = config.getS3Endpoint();
         this.multiUploadPartSize = toIntExact(config.getS3UploadPartSize().toBytes());
@@ -161,16 +168,38 @@ public class S3FileSystemExchangeStorage
                 .putAdvancedOption(USER_AGENT_PREFIX, "")
                 .putAdvancedOption(USER_AGENT_SUFFIX, "Trino-exchange")
                 .build();
-        this.s3AsyncClient = createS3AsyncClient(
+        S3AsyncClient client = createS3AsyncClient(
                 credentialsProvider,
                 overrideConfig,
                 config.getAsyncClientConcurrency(),
                 config.getAsyncClientMaxPendingConnectionAcquires(),
                 config.getConnectionAcquisitionTimeout());
+        this.s3AsyncClient = new S3AsyncClientWrapper(client)
+        {
+            @Override
+            protected void handle(RequestType requestType, CompletableFuture<?> responseFuture)
+            {
+                stats.requestStarted(requestType);
+                responseFuture.whenComplete((result, failure) -> {
+                    if (failure != null && failure.getMessage() != null && failure.getMessage().contains("Maximum pending connection acquisitions exceeded")) {
+                        log.error(failure, "Encountered 'Maximum pending connection acquisitions exceeded' error. Active requests: %s", stats.getActiveRequestsSummary());
+                    }
+                    stats.requestCompleted(requestType);
+                });
+            }
+        };
 
         if (compatibilityMode == GCP) {
-            if (config.getGcsJsonKeyFilePath().isPresent()) {
-                Credentials credentials = GoogleCredentials.fromStream(new FileInputStream(config.getGcsJsonKeyFilePath().get()));
+            Optional<String> gcsJsonKeyFilePath = config.getGcsJsonKeyFilePath();
+            Optional<String> gcsJsonKey = config.getGcsJsonKey();
+            verify(!(gcsJsonKeyFilePath.isPresent() && gcsJsonKey.isPresent()),
+                    "gcsJsonKeyFilePath and gcsJsonKey shouldn't be set at the same time");
+            if (gcsJsonKeyFilePath.isPresent()) {
+                Credentials credentials = GoogleCredentials.fromStream(new FileInputStream(gcsJsonKeyFilePath.get()));
+                this.gcsClient = Optional.of(StorageOptions.newBuilder().setCredentials(credentials).build().getService());
+            }
+            else if (gcsJsonKey.isPresent()) {
+                Credentials credentials = GoogleCredentials.fromStream(new ByteArrayInputStream(gcsJsonKey.get().getBytes(StandardCharsets.UTF_8)));
                 this.gcsClient = Optional.of(StorageOptions.newBuilder().setCredentials(credentials).build().getService());
             }
             else {
@@ -199,9 +228,9 @@ public class S3FileSystemExchangeStorage
     }
 
     @Override
-    public ExchangeStorageReader createExchangeStorageReader(Queue<ExchangeSourceFile> sourceFiles, int maxPageStorageSize)
+    public ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize)
     {
-        return new S3ExchangeStorageReader(stats, s3AsyncClient, sourceFiles, multiUploadPartSize, maxPageStorageSize);
+        return new S3ExchangeStorageReader(stats, s3AsyncClient, multiUploadPartSize, sourceFiles, maxPageStorageSize);
     }
 
     @Override
@@ -464,14 +493,15 @@ public class S3FileSystemExchangeStorage
     private static class S3ExchangeStorageReader
             implements ExchangeStorageReader
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(S3ExchangeStorageReader.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(S3ExchangeStorageReader.class).instanceSize());
 
         private final S3FileSystemExchangeStorageStats stats;
         private final S3AsyncClient s3AsyncClient;
-        private final Queue<ExchangeSourceFile> sourceFiles;
         private final int partSize;
         private final int bufferSize;
 
+        @GuardedBy("this")
+        private final Queue<ExchangeSourceFile> sourceFiles;
         @GuardedBy("this")
         private ExchangeSourceFile currentFile;
         @GuardedBy("this")
@@ -487,14 +517,14 @@ public class S3FileSystemExchangeStorage
         public S3ExchangeStorageReader(
                 S3FileSystemExchangeStorageStats stats,
                 S3AsyncClient s3AsyncClient,
-                Queue<ExchangeSourceFile> sourceFiles,
                 int partSize,
+                List<ExchangeSourceFile> sourceFiles,
                 int maxPageStorageSize)
         {
             this.stats = requireNonNull(stats, "stats is null");
             this.s3AsyncClient = requireNonNull(s3AsyncClient, "s3AsyncClient is null");
-            this.sourceFiles = requireNonNull(sourceFiles, "sourceFiles is null");
             this.partSize = partSize;
+            this.sourceFiles = new ArrayDeque<>(requireNonNull(sourceFiles, "sourceFiles is null"));
             // Make sure buffer can accommodate at least one complete Slice, and keep reads aligned to part boundaries
             this.bufferSize = maxPageStorageSize + partSize;
 
@@ -644,7 +674,7 @@ public class S3FileSystemExchangeStorage
     private static class S3ExchangeStorageWriter
             implements ExchangeStorageWriter
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(S3ExchangeStorageWriter.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(S3ExchangeStorageWriter.class).instanceSize());
 
         private final S3FileSystemExchangeStorageStats stats;
         private final S3AsyncClient s3AsyncClient;

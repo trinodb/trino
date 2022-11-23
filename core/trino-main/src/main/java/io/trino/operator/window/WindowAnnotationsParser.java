@@ -14,8 +14,8 @@
 package io.trino.operator.window;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.metadata.Signature;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Signature;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowFunctionSignature;
 

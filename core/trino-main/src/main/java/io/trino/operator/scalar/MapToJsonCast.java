@@ -19,11 +19,11 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -51,14 +51,10 @@ import static io.trino.util.Reflection.methodHandle;
 public class MapToJsonCast
         extends SqlScalarFunction
 {
-    public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast(false);
-    public static final MapToJsonCast LEGACY_MAP_TO_JSON = new MapToJsonCast(true);
-
+    public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
     private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", ObjectKeyProvider.class, JsonGeneratorWriter.class, Block.class);
 
-    private final boolean legacyRowToJson;
-
-    private MapToJsonCast(boolean legacyRowToJson)
+    private MapToJsonCast()
     {
         super(FunctionMetadata.scalarBuilder()
                 .signature(Signature.builder()
@@ -69,11 +65,10 @@ public class MapToJsonCast
                         .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
                         .build())
                 .build());
-        this.legacyRowToJson = legacyRowToJson;
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         MapType mapType = (MapType) boundSignature.getArgumentType(0);
         Type keyType = mapType.getKeyType();
@@ -81,10 +76,10 @@ public class MapToJsonCast
         checkCondition(canCastToJson(mapType), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON", mapType);
 
         ObjectKeyProvider provider = ObjectKeyProvider.createObjectKeyProvider(keyType);
-        JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(valueType, legacyRowToJson);
+        JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(valueType);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(provider).bindTo(writer);
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),

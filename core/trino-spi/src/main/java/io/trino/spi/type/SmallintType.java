@@ -138,7 +138,7 @@ public final class SmallintType
     @Override
     public long getLong(Block block, int position)
     {
-        return (long) block.getShort(position, 0);
+        return block.getShort(position, 0);
     }
 
     @Override

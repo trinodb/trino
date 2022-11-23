@@ -39,6 +39,7 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class JdbcModule
         extends AbstractConfigurationAwareModule
@@ -64,7 +65,8 @@ public class JdbcModule
         tablePropertiesProviderBinder(binder);
 
         newOptionalBinder(binder, JdbcMetadataFactory.class).setDefault().to(DefaultJdbcMetadataFactory.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, ConnectorSplitManager.class).setDefault().to(JdbcSplitManager.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, Key.get(ConnectorSplitManager.class, ForJdbcDynamicFiltering.class)).setDefault().to(JdbcSplitManager.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, ConnectorSplitManager.class).setDefault().to(JdbcDynamicFilteringSplitManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorRecordSetProvider.class).setDefault().to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorPageSinkProvider.class).setDefault().to(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
 
@@ -73,11 +75,17 @@ public class JdbcModule
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);
         configBinder(binder).bindConfig(JdbcWriteConfig.class);
         configBinder(binder).bindConfig(BaseJdbcConfig.class);
+        configBinder(binder).bindConfig(JdbcDynamicFilteringConfig.class);
 
         configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
         bindSessionPropertiesProvider(binder, TypeHandlingJdbcSessionProperties.class);
         bindSessionPropertiesProvider(binder, JdbcMetadataSessionProperties.class);
         bindSessionPropertiesProvider(binder, JdbcWriteSessionProperties.class);
+        bindSessionPropertiesProvider(binder, JdbcDynamicFilteringSessionProperties.class);
+
+        binder.bind(DynamicFilteringStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(DynamicFilteringStats.class)
+                .as(generator -> generator.generatedNameOf(DynamicFilteringStats.class, catalogName));
 
         binder.bind(CachingJdbcClient.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).to(Key.get(CachingJdbcClient.class)).in(Scopes.SINGLETON);

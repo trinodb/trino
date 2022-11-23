@@ -237,7 +237,7 @@ public class TpcdsMetadata
             case VARCHAR:
                 return createVarcharType(tpcdsType.getPrecision().get());
             case TIME:
-                return TimeType.TIME;
+                return TimeType.TIME_MILLIS;
         }
         throw new IllegalArgumentException("Unsupported TPC-DS type " + tpcdsType);
     }

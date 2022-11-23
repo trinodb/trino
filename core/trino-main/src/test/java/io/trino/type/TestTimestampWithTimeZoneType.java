@@ -20,30 +20,30 @@ import io.trino.spi.type.SqlTimestampWithTimeZone;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 
 public class TestTimestampWithTimeZoneType
         extends AbstractTestType
 {
     public TestTimestampWithTimeZoneType()
     {
-        super(TIMESTAMP_WITH_TIME_ZONE, SqlTimestampWithTimeZone.class, createTestBlock());
+        super(TIMESTAMP_TZ_MILLIS, SqlTimestampWithTimeZone.class, createTestBlock());
     }
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = TIMESTAMP_WITH_TIME_ZONE.createBlockBuilder(null, 15);
-        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(0)));
-        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(1)));
-        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(2)));
-        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(3)));
-        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(4)));
-        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(5)));
-        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(6)));
-        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(7)));
-        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(3333, getTimeZoneKeyForOffset(8)));
-        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(3333, getTimeZoneKeyForOffset(9)));
-        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(4444, getTimeZoneKeyForOffset(10)));
+        BlockBuilder blockBuilder = TIMESTAMP_TZ_MILLIS.createBlockBuilder(null, 15);
+        TIMESTAMP_TZ_MILLIS.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(0)));
+        TIMESTAMP_TZ_MILLIS.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(1)));
+        TIMESTAMP_TZ_MILLIS.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(2)));
+        TIMESTAMP_TZ_MILLIS.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(3)));
+        TIMESTAMP_TZ_MILLIS.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(4)));
+        TIMESTAMP_TZ_MILLIS.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(5)));
+        TIMESTAMP_TZ_MILLIS.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(6)));
+        TIMESTAMP_TZ_MILLIS.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(7)));
+        TIMESTAMP_TZ_MILLIS.writeLong(blockBuilder, packDateTimeWithZone(3333, getTimeZoneKeyForOffset(8)));
+        TIMESTAMP_TZ_MILLIS.writeLong(blockBuilder, packDateTimeWithZone(3333, getTimeZoneKeyForOffset(9)));
+        TIMESTAMP_TZ_MILLIS.writeLong(blockBuilder, packDateTimeWithZone(4444, getTimeZoneKeyForOffset(10)));
         return blockBuilder.build();
     }
 

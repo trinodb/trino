@@ -13,50 +13,39 @@
  */
 package io.trino.plugin.iceberg.delete;
 
-import com.google.common.collect.AbstractIterator;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.StructLike;
 
-import javax.annotation.Nullable;
+import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.iceberg.IcebergPageSink.getIcebergValue;
-import static java.util.Objects.requireNonNull;
 
-public class TrinoRow
+final class TrinoRow
         implements StructLike
 {
-    private final Type[] types;
-    private final Page page;
-    private final int position;
+    private final Object[] values;
 
-    private TrinoRow(Type[] types, Page page, int position)
+    public TrinoRow(Type[] types, Page page, int position)
     {
-        this.types = requireNonNull(types, "types list is null");
-        this.page = requireNonNull(page, "page is null");
-        checkArgument(position >= 0, "page position must be non-negative: %s", position);
-        this.position = position;
-    }
-
-    /**
-     * Gets the position in the Block this row was originally created from.
-     */
-    public int getPosition()
-    {
-        return position;
+        checkArgument(types.length == page.getChannelCount(), "mismatched types for page");
+        values = new Object[types.length];
+        for (int i = 0; i < values.length; i++) {
+            values[i] = getIcebergValue(page.getBlock(i), position, types[i]);
+        }
     }
 
     @Override
     public int size()
     {
-        return page.getChannelCount();
+        return values.length;
     }
 
     @Override
-    public <T> T get(int i, Class<T> aClass)
+    public <T> T get(int i, Class<T> clazz)
     {
-        return aClass.cast(getIcebergValue(page.getBlock(i), position, types[i]));
+        return clazz.cast(values[i]);
     }
 
     @Override
@@ -65,22 +54,9 @@ public class TrinoRow
         throw new UnsupportedOperationException();
     }
 
-    public static Iterable<TrinoRow> fromPage(Type[] types, Page page, int positionCount)
+    @Override
+    public String toString()
     {
-        return () -> new AbstractIterator<>() {
-            private int nextPosition;
-
-            @Nullable
-            @Override
-            protected TrinoRow computeNext()
-            {
-                if (nextPosition == positionCount) {
-                    return endOfData();
-                }
-                int position = nextPosition;
-                nextPosition++;
-                return new TrinoRow(types, page, position);
-            }
-        };
+        return "TrinoRow" + Arrays.toString(values);
     }
 }

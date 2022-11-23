@@ -21,6 +21,7 @@ import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.NullIfExpression;
+import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SubscriptExpression;
@@ -65,7 +66,8 @@ public final class NullabilityAnalyzer
             // except for the CAST(NULL AS x) case -- we should fix this at some point)
             //
             // Also, try_cast (i.e., safe cast) can return null
-            result.set(node.isSafe() || !node.isTypeOnly());
+            process(node.getExpression(), result);
+            result.compareAndSet(false, node.isSafe() || !node.isTypeOnly());
             return null;
         }
 
@@ -129,6 +131,13 @@ public final class NullabilityAnalyzer
         protected Void visitFunctionCall(FunctionCall node, AtomicBoolean result)
         {
             // TODO: this should look at whether the return type of the function is annotated with @SqlNullable
+            result.set(true);
+            return null;
+        }
+
+        @Override
+        protected Void visitNullLiteral(NullLiteral node, AtomicBoolean result)
+        {
             result.set(true);
             return null;
         }

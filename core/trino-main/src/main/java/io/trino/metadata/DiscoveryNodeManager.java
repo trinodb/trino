@@ -27,8 +27,9 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogName;
-import io.trino.connector.system.GlobalSystemConnector;
+import io.trino.connector.CatalogHandle;
+import io.trino.connector.CatalogManagerConfig;
+import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.server.InternalCommunicationConfig;
 import org.weakref.jmx.Managed;
@@ -56,6 +57,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.trino.connector.system.GlobalSystemConnector.CATALOG_HANDLE;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.metadata.NodeState.INACTIVE;
 import static io.trino.metadata.NodeState.SHUTTING_DOWN;
@@ -70,7 +72,7 @@ public final class DiscoveryNodeManager
 {
     private static final Logger log = Logger.get(DiscoveryNodeManager.class);
 
-    private static final Splitter CONNECTOR_ID_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+    private static final Splitter CATALOG_HANDLE_ID_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     private final ServiceSelector serviceSelector;
     private final FailureDetector failureDetector;
     private final NodeVersion expectedNodeVersion;
@@ -80,9 +82,10 @@ public final class DiscoveryNodeManager
     private final ExecutorService nodeStateEventExecutor;
     private final boolean httpsRequired;
     private final InternalNode currentNode;
+    private final boolean allCatalogsOnAllNodes;
 
     @GuardedBy("this")
-    private SetMultimap<CatalogName, InternalNode> activeNodesByCatalogName;
+    private Optional<SetMultimap<CatalogHandle, InternalNode>> activeNodesByCatalogHandle = Optional.empty();
 
     @GuardedBy("this")
     private AllNodes allNodes;
@@ -100,7 +103,8 @@ public final class DiscoveryNodeManager
             FailureDetector failureDetector,
             NodeVersion expectedNodeVersion,
             @ForNodeManager HttpClient httpClient,
-            InternalCommunicationConfig internalCommunicationConfig)
+            InternalCommunicationConfig internalCommunicationConfig,
+            CatalogManagerConfig catalogManagerConfig)
     {
         this.serviceSelector = requireNonNull(serviceSelector, "serviceSelector is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
@@ -109,10 +113,11 @@ public final class DiscoveryNodeManager
         this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("node-state-poller-%s"));
         this.nodeStateEventExecutor = newCachedThreadPool(daemonThreadsNamed("node-state-events-%s"));
         this.httpsRequired = internalCommunicationConfig.isHttpsRequired();
+        this.allCatalogsOnAllNodes = catalogManagerConfig.getCatalogMangerKind() != CatalogMangerKind.STATIC;
 
         this.currentNode = findCurrentNode(
                 serviceSelector.selectAllServices(),
-                requireNonNull(nodeInfo, "nodeInfo is null").getNodeId(),
+                nodeInfo.getNodeId(),
                 expectedNodeVersion,
                 httpsRequired);
 
@@ -214,7 +219,7 @@ public final class DiscoveryNodeManager
         ImmutableSet.Builder<InternalNode> inactiveNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> shuttingDownNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> coordinatorsBuilder = ImmutableSet.builder();
-        ImmutableSetMultimap.Builder<CatalogName, InternalNode> byConnectorIdBuilder = ImmutableSetMultimap.builder();
+        ImmutableSetMultimap.Builder<CatalogHandle, InternalNode> byCatalogHandleBuilder = ImmutableSetMultimap.builder();
 
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service, httpsRequired);
@@ -231,17 +236,17 @@ public final class DiscoveryNodeManager
                             coordinatorsBuilder.add(node);
                         }
 
-                        // record available active nodes organized by connector id
-                        String connectorIds = service.getProperties().get("connectorIds");
-                        if (connectorIds != null) {
-                            connectorIds = connectorIds.toLowerCase(ENGLISH);
-                            for (String connectorId : CONNECTOR_ID_SPLITTER.split(connectorIds)) {
-                                byConnectorIdBuilder.put(new CatalogName(connectorId), node);
+                        // record available active nodes organized by catalog handle
+                        String catalogHandleIds = service.getProperties().get("catalogHandleIds");
+                        if (catalogHandleIds != null) {
+                            catalogHandleIds = catalogHandleIds.toLowerCase(ENGLISH);
+                            for (String catalogHandleId : CATALOG_HANDLE_ID_SPLITTER.split(catalogHandleIds)) {
+                                byCatalogHandleBuilder.put(CatalogHandle.fromId(catalogHandleId), node);
                             }
                         }
 
                         // always add system connector
-                        byConnectorIdBuilder.put(new CatalogName(GlobalSystemConnector.NAME), node);
+                        byCatalogHandleBuilder.put(CATALOG_HANDLE, node);
                         break;
                     case INACTIVE:
                         inactiveNodesBuilder.add(node);
@@ -263,8 +268,10 @@ public final class DiscoveryNodeManager
             }
         }
 
-        // nodes by connector id changes anytime a node adds or removes a connector (note: this is not part of the listener system)
-        activeNodesByCatalogName = byConnectorIdBuilder.build();
+        // nodes by catalog handle changes anytime a node adds or removes a catalog (note: this is not part of the listener system)
+        if (!allCatalogsOnAllNodes) {
+            activeNodesByCatalogHandle = Optional.of(byCatalogHandleBuilder.build());
+        }
 
         AllNodes allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build(), shuttingDownNodesBuilder.build(), coordinatorsBuilder.build());
         // only update if all nodes actually changed (note: this does not include the connectors registered with the nodes)
@@ -337,16 +344,18 @@ public final class DiscoveryNodeManager
     }
 
     @Override
-    public synchronized Set<InternalNode> getActiveConnectorNodes(CatalogName catalogName)
+    public synchronized Set<InternalNode> getActiveCatalogNodes(CatalogHandle catalogHandle)
     {
         // activeNodesByCatalogName is immutable
-        return activeNodesByCatalogName.get(catalogName);
+        return activeNodesByCatalogHandle
+                .map(map -> map.get(catalogHandle))
+                .orElseGet(() -> allNodes.getActiveNodes());
     }
 
     @Override
     public synchronized NodesSnapshot getActiveNodesSnapshot()
     {
-        return new NodesSnapshot(allNodes.getActiveNodes(), activeNodesByCatalogName);
+        return new NodesSnapshot(allNodes.getActiveNodes(), activeNodesByCatalogHandle);
     }
 
     @Override

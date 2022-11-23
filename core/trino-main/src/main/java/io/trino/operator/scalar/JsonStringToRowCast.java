@@ -13,10 +13,10 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.TypeSignature;
 
 import static io.trino.operator.scalar.JsonToRowCast.JSON_TO_ROW;
@@ -44,7 +44,7 @@ public final class JsonStringToRowCast
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         return JSON_TO_ROW.specialize(boundSignature);
     }

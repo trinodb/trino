@@ -71,8 +71,6 @@ public class FileResourceGroupConfigurationManager
     @VisibleForTesting
     static ManagerSpec parseManagerSpec(FileResourceGroupConfig config)
     {
-        requireNonNull(config, "config is null");
-
         ManagerSpec managerSpec;
         try {
             managerSpec = CODEC.fromJson(Files.readAllBytes(Paths.get(config.getConfigFile())));

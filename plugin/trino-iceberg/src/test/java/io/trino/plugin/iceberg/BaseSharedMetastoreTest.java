@@ -180,13 +180,12 @@ public abstract class BaseSharedMetastoreTest
 
     private long getLatestSnapshotId(String schema)
     {
-        return (long) computeActual(format("SELECT snapshot_id FROM iceberg.%s.\"nation_test$snapshots\" ORDER BY committed_at DESC LIMIT 1", schema))
-                .getOnlyValue();
+        return (long) computeScalar(format("SELECT snapshot_id FROM iceberg.%s.\"nation_test$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", schema));
     }
 
     private long getCommittedAtInEpochMilliSeconds(long snapshotId, String schema)
     {
-        return ((ZonedDateTime) computeActual(format("SELECT committed_at FROM iceberg.%s.\"nation_test$snapshots\" WHERE snapshot_id=%s LIMIT 1", schema, snapshotId)).getOnlyValue())
+        return ((ZonedDateTime) computeScalar(format("SELECT committed_at FROM iceberg.%s.\"nation_test$snapshots\" WHERE snapshot_id=%s", schema, snapshotId)))
                 .toInstant().toEpochMilli();
     }
 

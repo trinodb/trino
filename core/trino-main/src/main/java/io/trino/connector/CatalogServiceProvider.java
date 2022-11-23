@@ -31,14 +31,14 @@ public interface CatalogServiceProvider<T>
         };
     }
 
-    static <T> CatalogServiceProvider<T> singleton(CatalogName name, T value)
+    static <T> CatalogServiceProvider<T> singleton(CatalogHandle catalogHandle, T value)
     {
         return catalogName -> {
-            checkArgument(catalogName.equals(name));
+            checkArgument(catalogName.equals(catalogHandle));
             return value;
         };
     }
 
     @NotNull
-    T getService(CatalogName catalogName);
+    T getService(CatalogHandle catalogHandle);
 }

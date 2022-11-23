@@ -32,7 +32,7 @@ import static java.lang.Math.toIntExact;
 public class ByteOutputStream
         implements ValueOutputStream<ByteStreamCheckpoint>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteOutputStream.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ByteOutputStream.class).instanceSize());
 
     private static final int MIN_REPEAT_SIZE = 3;
     // A value out side of the range of a signed byte

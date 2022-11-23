@@ -14,89 +14,135 @@
 package io.trino.operator.scalar;
 
 import io.trino.spi.type.ArrayType;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestArrayReduceFunction
-        extends AbstractTestFunctions
 {
-    public TestArrayReduceFunction()
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
     {
-        super(testSessionBuilder().setTimeZoneKey(getTimeZoneKey("Pacific/Kiritimati")).build());
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
     }
 
     @Test
     public void testEmpty()
     {
-        assertFunction("reduce(ARRAY [], CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)", BIGINT, 0L);
+        assertThat(assertions.expression("reduce(a, CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)")
+                .binding("a", "ARRAY []"))
+                .isEqualTo(0L);
     }
 
     @Test
     public void testBasic()
     {
-        assertFunction("reduce(ARRAY [5, 20, 50], CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)", BIGINT, 75L);
-        assertFunction("reduce(ARRAY [5 + RANDOM(1), 20, 50], CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)", BIGINT, 75L);
-        assertFunction("reduce(ARRAY [5, 6, 10, 20], 0.0E0, (s, x) -> s + x, s -> s)", DOUBLE, 41.0);
+        assertThat(assertions.expression("reduce(a, CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)")
+                .binding("a", "ARRAY [5, 20, 50]"))
+                .isEqualTo(75L);
+        assertThat(assertions.expression("reduce(a, CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)")
+                .binding("a", "ARRAY [5 + RANDOM(1), 20, 50]"))
+                .isEqualTo(75L);
+        assertThat(assertions.expression("reduce(a, 0.0E0, (s, x) -> s + x, s -> s)")
+                .binding("a", "ARRAY [5, 6, 10, 20]"))
+                .isEqualTo(41.0);
     }
 
     @Test
     public void testNulls()
     {
-        assertFunction("reduce(ARRAY [NULL], CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)", BIGINT, null);
-        assertFunction("reduce(ARRAY [NULL, NULL, NULL], CAST (0 AS BIGINT), (s, x) -> coalesce(x, 1) + s, s -> s)", BIGINT, 3L);
-        assertFunction("reduce(ARRAY [5, NULL, 50], CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)", BIGINT, null);
-        assertFunction("reduce(ARRAY [5, NULL, 50], CAST (0 AS BIGINT), (s, x) -> coalesce(x, 0) + s, s -> s)", BIGINT, 55L);
+        assertThat(assertions.expression("reduce(a, CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)")
+                .binding("a", "ARRAY [NULL]"))
+                .isNull(BIGINT);
+        assertThat(assertions.expression("reduce(a, CAST (0 AS BIGINT), (s, x) -> coalesce(x, 1) + s, s -> s)")
+                .binding("a", "ARRAY [NULL, NULL, NULL]"))
+                .isEqualTo(3L);
+        assertThat(assertions.expression("reduce(a, CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)")
+                .binding("a", "ARRAY [5, NULL, 50]"))
+                .isNull(BIGINT);
+        assertThat(assertions.expression("reduce(a, CAST (0 AS BIGINT), (s, x) -> coalesce(x, 0) + s, s -> s)")
+                .binding("a", "ARRAY [5, NULL, 50]"))
+                .isEqualTo(55L);
 
         // mimics max function
-        assertFunction("reduce(ARRAY [], CAST (NULL AS BIGINT), (s, x) -> IF(s IS NULL OR x > s, x, s), s -> s)", BIGINT, null);
-        assertFunction("reduce(ARRAY [NULL], CAST (NULL AS BIGINT), (s, x) -> IF(s IS NULL OR x > s, x, s), s -> s)", BIGINT, null);
-        assertFunction("reduce(ARRAY [NULL, NULL, NULL], CAST (NULL AS BIGINT), (s, x) -> IF(s IS NULL OR x > s, x, s), s -> s)", BIGINT, null);
-        assertFunction("reduce(ARRAY [NULL, 6, 10, NULL, 8], CAST (NULL AS BIGINT), (s, x) -> IF(s IS NULL OR x > s, x, s), s -> s)", BIGINT, 10L);
-        assertFunction("reduce(ARRAY [5, NULL, 6, 10, NULL, 8], CAST (NULL AS BIGINT), (s, x) -> IF(s IS NULL OR x > s, x, s), s -> s)", BIGINT, 10L);
+        assertThat(assertions.expression("reduce(a, CAST (NULL AS BIGINT), (s, x) -> IF(s IS NULL OR x > s, x, s), s -> s)")
+                .binding("a", "ARRAY []"))
+                .isNull(BIGINT);
+        assertThat(assertions.expression("reduce(a, CAST (NULL AS BIGINT), (s, x) -> IF(s IS NULL OR x > s, x, s), s -> s)")
+                .binding("a", "ARRAY [NULL]"))
+                .isNull(BIGINT);
+        assertThat(assertions.expression("reduce(a, CAST (NULL AS BIGINT), (s, x) -> IF(s IS NULL OR x > s, x, s), s -> s)")
+                .binding("a", "ARRAY [NULL, NULL, NULL]"))
+                .isNull(BIGINT);
+        assertThat(assertions.expression("reduce(a, CAST (NULL AS BIGINT), (s, x) -> IF(s IS NULL OR x > s, x, s), s -> s)")
+                .binding("a", "ARRAY [NULL, 6, 10, NULL, 8]"))
+                .isEqualTo(10L);
+        assertThat(assertions.expression("reduce(a, CAST (NULL AS BIGINT), (s, x) -> IF(s IS NULL OR x > s, x, s), s -> s)")
+                .binding("a", "ARRAY [5, NULL, 6, 10, NULL, 8]"))
+                .isEqualTo(10L);
     }
 
     @Test
     public void testTwoValueState()
     {
-        assertFunction(
-                "reduce(" +
-                        "ARRAY [5, 20, 50], " +
-                        "CAST(ROW(0, 0) AS ROW(sum BIGINT, count INTEGER)), " +
-                        "(s, x) -> CAST(ROW(x + s[1], s[2] + 1) AS ROW(sum BIGINT, count INTEGER)), " +
-                        "s -> s[1] / s[2])",
-                BIGINT,
-                25L);
-        assertFunction(
-                "reduce(" +
-                        "ARRAY [5, 6, 10, 20], " +
-                        "CAST(ROW(0.0E0, 0) AS ROW(sum DOUBLE, count INTEGER)), " +
-                        "(s, x) -> CAST(ROW(x + s[1], s[2] + 1) AS ROW(sum DOUBLE, count INTEGER)), " +
-                        "s -> s[1] / s[2])",
-                DOUBLE,
-                10.25);
+        assertThat(assertions.expression("""
+                        reduce(
+                            a,
+                            CAST(ROW(0, 0) AS ROW(sum BIGINT, count INTEGER)),
+                            (s, x) -> CAST(ROW(x + s[1], s[2] + 1) AS ROW(sum BIGINT, count INTEGER)),
+                            s -> s[1] / s[2])
+                        """)
+                .binding("a", "ARRAY [5, 20, 50]"))
+                .isEqualTo(25L);
+        assertThat(assertions.expression("""
+                        reduce(
+                                a,
+                                CAST(ROW(0.0E0, 0) AS ROW(sum DOUBLE, count INTEGER)),
+                                (s, x) -> CAST(ROW(x + s[1], s[2] + 1) AS ROW(sum DOUBLE, count INTEGER)),
+                                s -> s[1] / s[2])
+                        """)
+                .binding("a", "ARRAY [5, 6, 10, 20]"))
+                .isEqualTo(10.25);
     }
 
     @Test
     public void testInstanceFunction()
     {
-        assertFunction(
-                "reduce(ARRAY[ARRAY[1, 2], ARRAY[3, 4], ARRAY[5, NULL, 7]], CAST(ARRAY[] AS ARRAY(INTEGER)), (s, x) -> concat(s, x), s -> s)",
-                new ArrayType(INTEGER),
-                asList(1, 2, 3, 4, 5, null, 7));
+        assertThat(assertions.expression("reduce(a, CAST(ARRAY[] AS ARRAY(INTEGER)), (s, x) -> concat(s, x), s -> s)")
+                .binding("a", "ARRAY[ARRAY[1, 2], ARRAY[3, 4], ARRAY[5, NULL, 7]]"))
+                .hasType(new ArrayType(INTEGER))
+                .isEqualTo(asList(1, 2, 3, 4, 5, null, 7));
     }
 
     @Test
     public void testCoercion()
     {
-        assertFunction("reduce(ARRAY [123456789012345, NULL, 54321], 0, (s, x) -> s + coalesce(x, 0), s -> s)", BIGINT, 123456789066666L);
+        assertThat(assertions.expression("reduce(a, 0, (s, x) -> s + coalesce(x, 0), s -> s)")
+                .binding("a", "ARRAY [123456789012345, NULL, 54321]"))
+                .isEqualTo(123456789066666L);
+
         // TODO: Support coercion of return type of lambda
-        assertInvalidFunction("reduce(ARRAY [1, NULL, 2], 0, (s, x) -> CAST (s + x AS TINYINT), s -> s)", FUNCTION_NOT_FOUND);
+        assertTrinoExceptionThrownBy(() -> assertions.expression("reduce(ARRAY [1, NULL, 2], 0, (s, x) -> CAST (s + x AS TINYINT), s -> s)").evaluate())
+                .hasErrorCode(FUNCTION_NOT_FOUND);
     }
 }

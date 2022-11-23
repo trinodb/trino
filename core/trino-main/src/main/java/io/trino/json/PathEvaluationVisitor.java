@@ -528,47 +528,45 @@ class PathEvaluationVisitor
             }
             return jsonNode.longValue();
         }
-        else {
-            TypedValue value = (TypedValue) object;
-            Type type = value.getType();
-            if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
-                return value.getLongValue();
-            }
-            if (type.equals(DOUBLE)) {
-                try {
-                    return DoubleOperators.castToLong(value.getDoubleValue());
-                }
-                catch (Exception e) {
-                    throw new PathEvaluationError(e);
-                }
-            }
-            if (type.equals(REAL)) {
-                try {
-                    return RealOperators.castToLong(value.getLongValue());
-                }
-                catch (Exception e) {
-                    throw new PathEvaluationError(e);
-                }
-            }
-            if (type instanceof DecimalType) {
-                DecimalType decimalType = (DecimalType) type;
-                int precision = decimalType.getPrecision();
-                int scale = decimalType.getScale();
-                if (((DecimalType) type).isShort()) {
-                    long tenToScale = longTenToNth(DecimalConversions.intScale(scale));
-                    return DecimalCasts.shortDecimalToBigint(value.getLongValue(), precision, scale, tenToScale);
-                }
-                Int128 tenToScale = Int128Math.powerOfTen(DecimalConversions.intScale(scale));
-                try {
-                    return DecimalCasts.longDecimalToBigint((Int128) value.getObjectValue(), precision, scale, tenToScale);
-                }
-                catch (Exception e) {
-                    throw new PathEvaluationError(e);
-                }
-            }
-
-            throw itemTypeError("NUMBER", type.getDisplayName());
+        TypedValue value = (TypedValue) object;
+        Type type = value.getType();
+        if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
+            return value.getLongValue();
         }
+        if (type.equals(DOUBLE)) {
+            try {
+                return DoubleOperators.castToLong(value.getDoubleValue());
+            }
+            catch (Exception e) {
+                throw new PathEvaluationError(e);
+            }
+        }
+        if (type.equals(REAL)) {
+            try {
+                return RealOperators.castToLong(value.getLongValue());
+            }
+            catch (Exception e) {
+                throw new PathEvaluationError(e);
+            }
+        }
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            int precision = decimalType.getPrecision();
+            int scale = decimalType.getScale();
+            if (((DecimalType) type).isShort()) {
+                long tenToScale = longTenToNth(DecimalConversions.intScale(scale));
+                return DecimalCasts.shortDecimalToBigint(value.getLongValue(), precision, scale, tenToScale);
+            }
+            Int128 tenToScale = Int128Math.powerOfTen(DecimalConversions.intScale(scale));
+            try {
+                return DecimalCasts.longDecimalToBigint((Int128) value.getObjectValue(), precision, scale, tenToScale);
+            }
+            catch (Exception e) {
+                throw new PathEvaluationError(e);
+            }
+        }
+
+        throw itemTypeError("NUMBER", type.getDisplayName());
     }
 
     @Override

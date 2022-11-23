@@ -69,8 +69,6 @@ public class PrometheusSplitManager
     {
         this.prometheusClient = requireNonNull(prometheusClient, "prometheusClient is null");
         this.prometheusClock = requireNonNull(prometheusClock, "prometheusClock is null");
-
-        requireNonNull(config, "config is null");
         this.prometheusURI = config.getPrometheusURI();
         this.maxQueryRangeDuration = config.getMaxQueryRangeDuration();
         this.queryChunkSizeDuration = config.getQueryChunkSizeDuration();

@@ -24,12 +24,13 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(InformationSchemaSplit.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(InformationSchemaSplit.class).instanceSize());
 
     private final List<HostAddress> addresses;
 

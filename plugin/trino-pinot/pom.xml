@@ -4,7 +4,7 @@
     <parent>
         <artifactId>trino-root</artifactId>
         <groupId>io.trino</groupId>
-        <version>389</version>
+        <version>400</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -14,7 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.pinot.version>0.10.0</dep.pinot.version>
+        <dep.pinot.version>0.11.0</dep.pinot.version>
         <!--
            Project's default for air.test.parallel is 'methods'. By design, 'instances' makes TestNG run tests from one class in a single thread.
            As a side effect, it prevents TestNG from initializing multiple test instances upfront, which happens with 'methods'.
@@ -39,12 +39,17 @@
             <dependency>
                 <groupId>com.google.protobuf</groupId>
                 <artifactId>protobuf-java</artifactId>
-                <version>3.17.2</version>
+                <version>3.19.2</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.zookeeper</groupId>
+                <artifactId>zookeeper</artifactId>
+                <version>3.5.9</version>
             </dependency>
             <dependency>
                 <groupId>org.glassfish.jersey.core</groupId>
                 <artifactId>jersey-common</artifactId>
-                <version>2.30</version>
+                <version>2.35</version>
             </dependency>
             <dependency>
                 <groupId>org.osgi</groupId>
@@ -166,7 +171,7 @@
         <dependency>
             <groupId>org.apache.helix</groupId>
             <artifactId>helix-core</artifactId>
-            <version>0.9.8</version>
+            <version>1.0.4</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-io</groupId>
@@ -183,6 +188,15 @@
                 <exclusion>
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-core</artifactId>
+                </exclusion>
+                <!-- Conflicts with log4j-to-slf4j from trino-kafka -->
+                <exclusion>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-slf4j-impl</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -307,6 +321,10 @@
                 <exclusion>
                     <groupId>com.google.code.findbugs</groupId>
                     <artifactId>annotations</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.zookeeper</groupId>
+                    <artifactId>zookeeper</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -464,14 +482,14 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-            <version>3.8</version>
+            <version>3.11</version>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpcore</artifactId>
-            <version>4.4.11</version>
+            <version>4.4.13</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -523,6 +541,13 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-testing</artifactId>
             <scope>test</scope>
         </dependency>
@@ -540,6 +565,18 @@
         </dependency>
 
         <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-tpch</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino.tpch</groupId>
+            <artifactId>tpch</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
@@ -549,6 +586,12 @@
             <groupId>io.confluent</groupId>
             <artifactId>kafka-avro-serializer</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.zookeeper</groupId>
+                    <artifactId>zookeeper</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -614,6 +657,66 @@
                             </excludes>
                         </requireUpperBoundDeps>
                     </rules>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredDependencies>
+                        <dependency>
+                            <groupId>io.netty</groupId>
+                            <artifactId>netty-transport-classes-epoll</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>io.netty</groupId>
+                            <artifactId>netty-transport-native-epoll</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>jakarta.validation</groupId>
+                            <artifactId>jakarta.validation-api</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>javax.validation</groupId>
+                            <artifactId>validation-api</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.helix</groupId>
+                            <artifactId>helix-common</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.helix</groupId>
+                            <artifactId>helix-core</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.helix</groupId>
+                            <artifactId>metrics-common</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.helix</groupId>
+                            <artifactId>metadata-store-directory-common</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.helix</groupId>
+                            <artifactId>zookeeper-api</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>commons-logging</groupId>
+                            <artifactId>commons-logging</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.slf4j</groupId>
+                            <artifactId>jcl-over-slf4j</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.logging.log4j</groupId>
+                            <artifactId>log4j-slf4j-impl:2.17.1</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.slf4j</groupId>
+                            <artifactId>slf4j-jdk14</artifactId>
+                        </dependency>
+                    </ignoredDependencies>
                 </configuration>
             </plugin>
         </plugins>

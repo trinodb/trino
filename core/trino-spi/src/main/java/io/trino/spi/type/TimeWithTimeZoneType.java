@@ -18,9 +18,10 @@ import io.trino.spi.TrinoException;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static java.lang.String.format;
 
-public abstract class TimeWithTimeZoneType
+public abstract sealed class TimeWithTimeZoneType
         extends AbstractType
         implements FixedWidthType
+        permits LongTimeWithTimeZoneType, ShortTimeWithTimeZoneType
 {
     public static final int MAX_PRECISION = 12;
     public static final int MAX_SHORT_PRECISION = 9;

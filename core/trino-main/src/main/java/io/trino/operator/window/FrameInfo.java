@@ -48,12 +48,12 @@ public class FrameInfo
     {
         this.type = requireNonNull(type, "type is null");
         this.startType = requireNonNull(startType, "startType is null");
-        this.startChannel = requireNonNull(startChannel, "startChannel is null").orElse(-1);
-        this.sortKeyChannelForStartComparison = requireNonNull(sortKeyChannelForStartComparison, "sortKeyChannelForStartComparison is null").orElse(-1);
+        this.startChannel = startChannel.orElse(-1);
+        this.sortKeyChannelForStartComparison = sortKeyChannelForStartComparison.orElse(-1);
         this.endType = requireNonNull(endType, "endType is null");
-        this.endChannel = requireNonNull(endChannel, "endChannel is null").orElse(-1);
-        this.sortKeyChannelForEndComparison = requireNonNull(sortKeyChannelForEndComparison, "sortKeyChannelForEndComparison is null").orElse(-1);
-        this.sortKeyChannel = requireNonNull(sortKeyChannel, "sortKeyChannel is null").orElse(-1);
+        this.endChannel = endChannel.orElse(-1);
+        this.sortKeyChannelForEndComparison = sortKeyChannelForEndComparison.orElse(-1);
+        this.sortKeyChannel = sortKeyChannel.orElse(-1);
         this.ordering = requireNonNull(ordering, "ordering is null");
     }
 

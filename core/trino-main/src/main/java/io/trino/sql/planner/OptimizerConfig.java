@@ -67,6 +67,7 @@ public class OptimizerConfig
     private boolean pushAggregationThroughOuterJoin = true;
     private boolean enableIntermediateAggregations;
     private boolean pushPartialAggregationThoughJoin;
+    private boolean preAggregateCaseAggregationsEnabled = true;
     private boolean optimizeMixedDistinctAggregations;
     private boolean enableForcedExchangeBelowGroupId = true;
     private boolean optimizeTopNRanking = true;
@@ -80,7 +81,7 @@ public class OptimizerConfig
     private boolean useTableScanNodePartitioning = true;
     private double tableScanNodePartitioningMinBucketToTaskRatio = 0.5;
     private boolean mergeProjectWithValues = true;
-    private boolean forceSingleNodeOutput = true;
+    private boolean forceSingleNodeOutput;
     private boolean useExactPartitioning;
     // adaptive partial aggregation
     private boolean adaptivePartialAggregationEnabled = true;
@@ -442,6 +443,19 @@ public class OptimizerConfig
     public OptimizerConfig setPushPartialAggregationThoughJoin(boolean pushPartialAggregationThoughJoin)
     {
         this.pushPartialAggregationThoughJoin = pushPartialAggregationThoughJoin;
+        return this;
+    }
+
+    public boolean isPreAggregateCaseAggregationsEnabled()
+    {
+        return preAggregateCaseAggregationsEnabled;
+    }
+
+    @Config("optimizer.pre-aggregate-case-aggregations.enabled")
+    @ConfigDescription("Pre-aggregate rows before GROUP BY with multiple CASE aggregations on same column")
+    public OptimizerConfig setPreAggregateCaseAggregationsEnabled(boolean preAggregateCaseAggregationsEnabled)
+    {
+        this.preAggregateCaseAggregationsEnabled = preAggregateCaseAggregationsEnabled;
         return this;
     }
 

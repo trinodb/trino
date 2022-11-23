@@ -57,7 +57,7 @@ public class JmxRecordSetProvider
     public JmxRecordSetProvider(MBeanServer mbeanServer, NodeManager nodeManager, JmxHistoricalData jmxHistoricalData)
     {
         this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
-        this.nodeId = requireNonNull(nodeManager, "nodeManager is null").getCurrentNode().getNodeIdentifier();
+        this.nodeId = nodeManager.getCurrentNode().getNodeIdentifier();
         this.jmxHistoricalData = requireNonNull(jmxHistoricalData, "jmxHistoricalData is null");
     }
 

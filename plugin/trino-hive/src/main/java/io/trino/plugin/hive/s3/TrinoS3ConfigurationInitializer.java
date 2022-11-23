@@ -15,7 +15,7 @@ package io.trino.plugin.hive.s3;
 
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.ConfigurationInitializer;
+import io.trino.hdfs.ConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
@@ -47,6 +47,7 @@ import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_PROXY_PASSWORD;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_PROXY_PORT;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_PROXY_PROTOCOL;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_PROXY_USERNAME;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_REGION;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_REQUESTER_PAYS_ENABLED;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SECRET_KEY;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SIGNER_CLASS;
@@ -72,6 +73,7 @@ public class TrinoS3ConfigurationInitializer
     private final String awsAccessKey;
     private final String awsSecretKey;
     private final String endpoint;
+    private final String region;
     private final TrinoS3StorageClass s3StorageClass;
     private final TrinoS3SignerType signerType;
     private final boolean pathStyleAccess;
@@ -117,6 +119,7 @@ public class TrinoS3ConfigurationInitializer
         this.awsAccessKey = config.getS3AwsAccessKey();
         this.awsSecretKey = config.getS3AwsSecretKey();
         this.endpoint = config.getS3Endpoint();
+        this.region = config.getS3Region();
         this.s3StorageClass = config.getS3StorageClass();
         this.signerType = config.getS3SignerType();
         this.signerClass = config.getS3SignerClass();
@@ -173,6 +176,9 @@ public class TrinoS3ConfigurationInitializer
         }
         if (endpoint != null) {
             config.set(S3_ENDPOINT, endpoint);
+        }
+        if (region != null) {
+            config.set(S3_REGION, region);
         }
         config.set(S3_STORAGE_CLASS, s3StorageClass.name());
         if (signerType != null) {

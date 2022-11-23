@@ -18,16 +18,16 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.authentication.HadoopAuthentication;
+import io.trino.plugin.base.authentication.KerberosConfiguration;
 import io.trino.plugin.hive.ForHiveMetastore;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.authentication.HadoopAuthentication;
-import io.trino.plugin.hive.authentication.HiveMetastoreAuthentication;
-import io.trino.plugin.hive.authentication.MetastoreKerberosConfig;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType;
 
 import static com.google.inject.Scopes.SINGLETON;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.hive.authentication.AuthenticationModules.createCachingKerberosHadoopAuthentication;
+import static io.trino.hdfs.authentication.AuthenticationModules.createCachingKerberosHadoopAuthentication;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType.KERBEROS;
 
 public class ThriftMetastoreAuthenticationModule
         extends AbstractConfigurationAwareModule
@@ -35,28 +35,13 @@ public class ThriftMetastoreAuthenticationModule
     @Override
     protected void setup(Binder binder)
     {
-        install(getAuthenticationModule());
-    }
+        newOptionalBinder(binder, IdentityAwareMetastoreClientFactory.class)
+                .setDefault().to(UgiBasedMetastoreClientFactory.class).in(SINGLETON);
+        newOptionalBinder(binder, HiveMetastoreAuthentication.class)
+                .setDefault().to(NoHiveMetastoreAuthentication.class).in(SINGLETON);
 
-    private Module getAuthenticationModule()
-    {
-        ThriftMetastoreAuthenticationType type = buildConfigObject(ThriftMetastoreAuthenticationConfig.class).getAuthenticationType();
-        switch (type) {
-            case NONE:
-                return new NoHiveMetastoreAuthenticationModule();
-            case KERBEROS:
-                return new KerberosHiveMetastoreAuthenticationModule();
-        }
-        throw new AssertionError("Unknown authentication type: " + type);
-    }
-
-    public static class NoHiveMetastoreAuthenticationModule
-            implements Module
-    {
-        @Override
-        public void configure(Binder binder)
-        {
-            binder.bind(HiveMetastoreAuthentication.class).to(NoHiveMetastoreAuthentication.class).in(SINGLETON);
+        if (buildConfigObject(ThriftMetastoreAuthenticationConfig.class).getAuthenticationType() == KERBEROS) {
+            install(new KerberosHiveMetastoreAuthenticationModule());
         }
     }
 
@@ -66,7 +51,10 @@ public class ThriftMetastoreAuthenticationModule
         @Override
         public void configure(Binder binder)
         {
-            binder.bind(HiveMetastoreAuthentication.class).to(KerberosHiveMetastoreAuthentication.class).in(SINGLETON);
+            newOptionalBinder(binder, IdentityAwareMetastoreClientFactory.class)
+                    .setBinding().to(TokenFetchingMetastoreClientFactory.class).in(SINGLETON);
+            newOptionalBinder(binder, HiveMetastoreAuthentication.class)
+                    .setBinding().to(KerberosHiveMetastoreAuthentication.class).in(SINGLETON);
             configBinder(binder).bindConfig(MetastoreKerberosConfig.class);
         }
 
@@ -76,8 +64,11 @@ public class ThriftMetastoreAuthenticationModule
         public HadoopAuthentication createHadoopAuthentication(MetastoreKerberosConfig config, HdfsConfigurationInitializer updater)
         {
             String principal = config.getHiveMetastoreClientPrincipal();
-            String keytabLocation = config.getHiveMetastoreClientKeytab();
-            return createCachingKerberosHadoopAuthentication(principal, keytabLocation, updater);
+            KerberosConfiguration.Builder builder = new KerberosConfiguration.Builder()
+                    .withKerberosPrincipal(principal);
+            config.getHiveMetastoreClientKeytab().ifPresent(builder::withKeytabLocation);
+            config.getHiveMetastoreClientCredentialCacheLocation().ifPresent(builder::withCredentialCacheLocation);
+            return createCachingKerberosHadoopAuthentication(builder.build(), updater);
         }
     }
 }

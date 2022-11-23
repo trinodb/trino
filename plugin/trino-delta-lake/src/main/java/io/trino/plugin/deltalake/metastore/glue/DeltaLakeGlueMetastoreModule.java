@@ -18,6 +18,7 @@ import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.TypeLiteral;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.deltalake.AllowDeltaLakeManagedTableRename;
 import io.trino.plugin.hive.metastore.glue.ForGlueHiveMetastore;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreModule;
 
@@ -38,5 +39,6 @@ public class DeltaLakeGlueMetastoreModule
                 .setBinding().toProvider(DeltaLakeGlueMetastoreTableFilterProvider.class);
 
         install(new GlueMetastoreModule());
+        binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(true);
     }
 }

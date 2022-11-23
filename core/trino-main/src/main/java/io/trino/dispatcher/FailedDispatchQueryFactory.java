@@ -38,7 +38,7 @@ public class FailedDispatchQueryFactory
     {
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
-        this.executor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
+        this.executor = dispatchExecutor.getExecutor();
     }
 
     public FailedDispatchQuery createFailedDispatchQuery(Session session, String query, Optional<String> preparedQuery, Optional<ResourceGroupId> resourceGroup, Throwable throwable)

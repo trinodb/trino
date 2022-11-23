@@ -145,7 +145,7 @@ public class UnloadedIndexKeyRecordSet
         public UnloadedIndexKeyRecordCursor(List<Type> types, List<PageAndPositions> pageAndPositions)
         {
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-            this.pageAndPositionsIterator = requireNonNull(pageAndPositions, "pageAndPositions is null").iterator();
+            this.pageAndPositionsIterator = pageAndPositions.iterator();
         }
 
         @Override

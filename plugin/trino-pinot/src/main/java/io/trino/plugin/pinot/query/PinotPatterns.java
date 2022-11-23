@@ -181,7 +181,7 @@ public class PinotPatterns
             if (predicate.getType() == Predicate.Type.IN) {
                 return Optional.of(((InPredicate) predicate).getValues());
             }
-            else if (predicate.getType() == Predicate.Type.NOT_IN) {
+            if (predicate.getType() == Predicate.Type.NOT_IN) {
                 return Optional.of(((NotInPredicate) predicate).getValues());
             }
             return Optional.empty();
@@ -236,6 +236,16 @@ public class PinotPatterns
         return Property.optionalProperty("transformFunctionType", functionContext -> {
             if (functionContext.getType() == TRANSFORM) {
                 return Optional.of(getTransformFunctionType(functionContext.getFunctionName()));
+            }
+            return Optional.empty();
+        });
+    }
+
+    public static Property<FunctionContext, ?, String> transformFunctionName()
+    {
+        return Property.optionalProperty("transformFunctionType", functionContext -> {
+            if (functionContext.getType() == TRANSFORM) {
+                return Optional.of(functionContext.getFunctionName());
             }
             return Optional.empty();
         });

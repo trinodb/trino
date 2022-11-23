@@ -66,7 +66,7 @@ public class TestGetTableStatisticsOperations
                 "WHERE o.orderkey = l.orderkey");
         assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
                 ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 3)
+                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 2)
                         .build());
     }
 
@@ -78,7 +78,7 @@ public class TestGetTableStatisticsOperations
                 "WHERE o.orderkey = l.orderkey AND c.custkey = o.custkey");
         assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
                 ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 5)
+                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 3)
                         .build());
     }
 

@@ -20,7 +20,6 @@ import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.connector.CatalogName;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.session.PropertyMetadata;
@@ -31,6 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
+import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class PinotQueryRunner
@@ -43,7 +43,6 @@ public class PinotQueryRunner
             throws Exception
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession("default"))
-                .setNodeCount(2)
                 .setExtraProperties(extraProperties)
                 .build();
         queryRunner.installPlugin(new PinotPlugin(extension));
@@ -61,7 +60,7 @@ public class PinotQueryRunner
         PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(config);
         SessionPropertyManager sessionPropertyManager = new SessionPropertyManager(
                 ImmutableSet.of(new SystemSessionProperties()),
-                CatalogServiceProvider.singleton(new CatalogName(PINOT_CATALOG), Maps.uniqueIndex(pinotSessionProperties.getSessionProperties(), PropertyMetadata::getName)));
+                CatalogServiceProvider.singleton(createTestCatalogHandle(PINOT_CATALOG), Maps.uniqueIndex(pinotSessionProperties.getSessionProperties(), PropertyMetadata::getName)));
         return testSessionBuilder(sessionPropertyManager)
                 .setCatalog(PINOT_CATALOG)
                 .setSchema(schema)

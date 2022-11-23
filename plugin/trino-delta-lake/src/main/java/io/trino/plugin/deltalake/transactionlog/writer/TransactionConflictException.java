@@ -20,4 +20,9 @@ public class TransactionConflictException
     {
         super(message);
     }
+
+    public TransactionConflictException(String message, Throwable cause)
+    {
+        super(message, cause);
+    }
 }

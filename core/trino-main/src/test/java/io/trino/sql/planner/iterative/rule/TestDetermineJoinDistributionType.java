@@ -57,7 +57,6 @@ import static io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType.
 import static io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType.getSourceTablesSizeInBytes;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
-import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
@@ -79,7 +78,9 @@ public class TestDetermineJoinDistributionType
     @BeforeClass
     public void setUp()
     {
-        tester = defaultRuleTester(ImmutableList.of(), ImmutableMap.of(), Optional.of(NODES_COUNT));
+        tester = RuleTester.builder()
+                .withNodeCountForStats(NODES_COUNT)
+                .build();
     }
 
     @AfterClass(alwaysRun = true)

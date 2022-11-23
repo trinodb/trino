@@ -45,12 +45,13 @@ import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ByteColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ByteColumnReader.class).instanceSize());
 
     private final Type type;
 

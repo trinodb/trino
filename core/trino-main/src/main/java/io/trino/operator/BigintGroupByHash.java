@@ -49,7 +49,7 @@ import static java.util.Objects.requireNonNull;
 public class BigintGroupByHash
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BigintGroupByHash.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BigintGroupByHash.class).instanceSize());
     private static final int BATCH_SIZE = 1024;
 
     private static final float FILL_RATIO = 0.75f;
@@ -656,7 +656,7 @@ public class BigintGroupByHash
 
             return new GroupByIdBlock(
                     nextGroupId,
-                    new RunLengthEncodedBlock(
+                    RunLengthEncodedBlock.create(
                             BIGINT.createFixedSizeBlockBuilder(1).writeLong(groupId).build(),
                             block.getPositionCount()));
         }

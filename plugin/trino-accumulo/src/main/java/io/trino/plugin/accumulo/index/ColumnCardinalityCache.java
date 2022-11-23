@@ -90,7 +90,7 @@ public class ColumnCardinalityCache
     public ColumnCardinalityCache(Connector connector, AccumuloConfig config)
     {
         this.connector = requireNonNull(connector, "connector is null");
-        int size = requireNonNull(config, "config is null").getCardinalityCacheSize();
+        int size = config.getCardinalityCacheSize();
         Duration expireDuration = config.getCardinalityCacheExpiration();
 
         // Create a bounded executor with a pool size at 4x number of processors

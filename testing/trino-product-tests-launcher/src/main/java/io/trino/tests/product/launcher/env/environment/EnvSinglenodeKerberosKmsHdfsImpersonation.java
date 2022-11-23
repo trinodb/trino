@@ -18,14 +18,12 @@ import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
-import io.trino.tests.product.launcher.env.common.HadoopKerberosKms;
+import io.trino.tests.product.launcher.env.common.HadoopKerberosKmsWithImpersonation;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
-import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -35,21 +33,16 @@ public final class EnvSinglenodeKerberosKmsHdfsImpersonation
     private final ResourceProvider configDir;
 
     @Inject
-    public EnvSinglenodeKerberosKmsHdfsImpersonation(DockerFiles dockerFiles, Standard standard, HadoopKerberosKms hadoopKerberosKms)
+    public EnvSinglenodeKerberosKmsHdfsImpersonation(DockerFiles dockerFiles, Standard standard, HadoopKerberosKmsWithImpersonation hadoopKerberosKmsWithImpersonation)
     {
-        super(ImmutableList.of(standard, hadoopKerberosKms));
-        configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/singlenode-kerberos-kms-hdfs-impersonation");
+        super(ImmutableList.of(standard, hadoopKerberosKmsWithImpersonation));
+        configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-kerberos-kms-hdfs-impersonation");
     }
 
     @Override
     @SuppressWarnings("resource")
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer(HADOOP, container -> {
-            container
-                    .withCopyFileToContainer(forHostPath(configDir.getPath("kms-acls.xml")), "/etc/hadoop-kms/conf/kms-acls.xml")
-                    .withCopyFileToContainer(forHostPath(configDir.getPath("hiveserver2-site.xml")), "/etc/hive/conf/hiveserver2-site.xml");
-        });
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
         builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg.properties")));
     }

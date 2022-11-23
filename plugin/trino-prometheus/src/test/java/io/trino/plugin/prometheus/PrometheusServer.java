@@ -59,7 +59,7 @@ public class PrometheusServer
 
     public URI getUri()
     {
-        return URI.create("http://" + dockerContainer.getContainerIpAddress() + ":" + dockerContainer.getMappedPort(PROMETHEUS_PORT) + "/");
+        return URI.create("http://" + dockerContainer.getHost() + ":" + dockerContainer.getMappedPort(PROMETHEUS_PORT) + "/");
     }
 
     @Override

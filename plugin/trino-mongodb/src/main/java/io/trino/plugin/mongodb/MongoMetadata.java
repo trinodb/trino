@@ -40,11 +40,14 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.type.Type;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,9 +58,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -66,6 +72,8 @@ public class MongoMetadata
         implements ConnectorMetadata
 {
     private static final Logger log = Logger.get(MongoMetadata.class);
+
+    private static final int MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH = 120;
 
     private final MongoSession mongoSession;
 
@@ -205,6 +213,9 @@ public class MongoMetadata
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
+        if (newTableName.toString().getBytes(UTF_8).length > MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH) {
+            throw new TrinoException(NOT_SUPPORTED, format("Qualified identifier name must be shorter than or equal to '%s' bytes: '%s'", MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH, newTableName));
+        }
         MongoTableHandle table = (MongoTableHandle) tableHandle;
         mongoSession.renameTable(table.getSchemaTableName(), newTableName);
     }
@@ -332,6 +343,19 @@ public class MongoMetadata
 
         TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        Map<ColumnHandle, Domain> domains = newDomain.getDomains().orElseThrow();
+
+        Map<ColumnHandle, Domain> supported = new HashMap<>();
+
+        for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+            Type columnType = ((MongoColumnHandle) entry.getKey()).getType();
+            // TODO: Support predicate pushdown on more types including JSON
+            if (isPushdownSupportedType(columnType)) {
+                supported.put(entry.getKey(), entry.getValue());
+            }
+        }
+        newDomain = TupleDomain.withColumnDomains(supported);
+
         if (oldDomain.equals(newDomain)) {
             return Optional.empty();
         }

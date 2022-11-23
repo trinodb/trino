@@ -29,6 +29,7 @@ import static io.trino.operator.aggregation.histogram.HashUtil.computeBucketCoun
 import static io.trino.operator.aggregation.histogram.HashUtil.nextBucketId;
 import static io.trino.operator.aggregation.histogram.HashUtil.nextProbeLinear;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -41,7 +42,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class ValueStore
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedTypedHistogram.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedTypedHistogram.class).instanceSize());
     private static final float MAX_FILL_RATIO = 0.5f;
     private static final int EMPTY_BUCKET = -1;
     private final Type type;
@@ -98,15 +99,13 @@ public class ValueStore
 
                 return valuePointer;
             }
-            else if (equalOperator.equal(block, position, values, valuePointer)) {
+            if (equalOperator.equal(block, position, values, valuePointer)) {
                 // value at position
                 return valuePointer;
             }
-            else {
-                int probe = nextProbe(probeCount);
-                bucketId = nextBucketId(originalBucketId, mask, probe);
-                probeCount++;
-            }
+            int probe = nextProbe(probeCount);
+            bucketId = nextBucketId(originalBucketId, mask, probe);
+            probeCount++;
         }
     }
 

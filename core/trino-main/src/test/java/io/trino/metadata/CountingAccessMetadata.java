@@ -19,7 +19,7 @@ import com.google.common.collect.Multiset;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -33,12 +33,12 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.JoinApplicationResult;
-import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SortItem;
@@ -48,6 +48,8 @@ import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.function.AggregationFunctionMetadata;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
@@ -97,9 +99,9 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName)
+    public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogHandle catalogHandle)
     {
-        return delegate.getConnectorCapabilities(session, catalogName);
+        return delegate.getConnectorCapabilities(session, catalogHandle);
     }
 
     @Override
@@ -278,6 +280,12 @@ public class CountingAccessMetadata
     }
 
     @Override
+    public void setViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment)
+    {
+        delegate.setViewComment(session, viewName, comment);
+    }
+
+    @Override
     public void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment)
     {
         delegate.setColumnComment(session, tableHandle, column, comment);
@@ -344,9 +352,9 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata)
     {
-        return delegate.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata);
+        return delegate.getStatisticsCollectionMetadataForWrite(session, catalogHandle, tableMetadata);
     }
 
     @Override
@@ -464,7 +472,37 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public Optional<CatalogName> getCatalogHandle(Session session, String catalogName)
+    public RowChangeParadigm getRowChangeParadigm(Session session, TableHandle tableHandle)
+    {
+        return delegate.getRowChangeParadigm(session, tableHandle);
+    }
+
+    @Override
+    public ColumnHandle getMergeRowIdColumnHandle(Session session, TableHandle tableHandle)
+    {
+        return delegate.getMergeRowIdColumnHandle(session, tableHandle);
+    }
+
+    @Override
+    public Optional<PartitioningHandle> getUpdateLayout(Session session, TableHandle tableHandle)
+    {
+        return delegate.getUpdateLayout(session, tableHandle);
+    }
+
+    @Override
+    public MergeHandle beginMerge(Session session, TableHandle tableHandle)
+    {
+        return delegate.beginMerge(session, tableHandle);
+    }
+
+    @Override
+    public void finishMerge(Session session, MergeHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        delegate.finishMerge(session, tableHandle, fragments, computedStatistics);
+    }
+
+    @Override
+    public Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName)
     {
         return delegate.getCatalogHandle(session, catalogName);
     }
@@ -572,9 +610,9 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public Optional<JoinApplicationResult<TableHandle>> applyJoin(Session session, JoinType joinType, TableHandle left, TableHandle right, List<JoinCondition> joinConditions, Map<String, ColumnHandle> leftAssignments, Map<String, ColumnHandle> rightAssignments, JoinStatistics statistics)
+    public Optional<JoinApplicationResult<TableHandle>> applyJoin(Session session, JoinType joinType, TableHandle left, TableHandle right, ConnectorExpression joinCondition, Map<String, ColumnHandle> leftAssignments, Map<String, ColumnHandle> rightAssignments, JoinStatistics statistics)
     {
-        return delegate.applyJoin(session, joinType, left, right, joinConditions, leftAssignments, rightAssignments, statistics);
+        return delegate.applyJoin(session, joinType, left, right, joinCondition, leftAssignments, rightAssignments, statistics);
     }
 
     @Override
@@ -623,12 +661,6 @@ public class CountingAccessMetadata
     public Set<String> listRoles(Session session, Optional<String> catalog)
     {
         return delegate.listRoles(session, catalog);
-    }
-
-    @Override
-    public Set<RoleGrant> listAllRoleGrants(Session session, Optional<String> catalog, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
-    {
-        return delegate.listAllRoleGrants(session, catalog, roles, grantees, limit);
     }
 
     @Override

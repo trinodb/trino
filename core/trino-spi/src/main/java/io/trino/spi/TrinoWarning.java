@@ -37,7 +37,7 @@ public final class TrinoWarning
 
     public TrinoWarning(WarningCodeSupplier warningCodeSupplier, String message)
     {
-        this(requireNonNull(warningCodeSupplier, "warningCodeSupplier is null").toWarningCode(), message);
+        this(warningCodeSupplier.toWarningCode(), message);
     }
 
     @JsonProperty

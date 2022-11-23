@@ -31,6 +31,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -42,7 +43,7 @@ import static java.util.Objects.requireNonNull;
 public final class SortedPositionLinks
         implements PositionLinks
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SortedPositionLinks.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SortedPositionLinks.class).instanceSize());
 
     public static class FactoryBuilder
             implements PositionLinks.FactoryBuilder
@@ -84,16 +85,14 @@ public final class SortedPositionLinks
                 positionLinks.computeIfAbsent(to, key -> new IntArrayList()).add(from);
                 return to;
             }
-            else {
-                // _to_ is larger so, move the chain to _from_
-                IntArrayList links = positionLinks.remove(to);
-                if (links == null) {
-                    links = new IntArrayList();
-                }
-                links.add(to);
-                checkState(positionLinks.put(from, links) == null, "sorted links is corrupted");
-                return from;
+            // _to_ is larger so, move the chain to _from_
+            IntArrayList links = positionLinks.remove(to);
+            if (links == null) {
+                links = new IntArrayList();
             }
+            links.add(to);
+            checkState(positionLinks.put(from, links) == null, "sorted links is corrupted");
+            return from;
         }
 
         private boolean isNull(int position)

@@ -38,7 +38,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNull;
 
 public class AllowAllSystemAccessControl
         implements SystemAccessControl
@@ -59,7 +58,6 @@ public class AllowAllSystemAccessControl
         @Override
         public SystemAccessControl create(Map<String, String> config)
         {
-            requireNonNull(config, "config is null");
             checkArgument(config.isEmpty(), "This access controller does not support any configuration properties");
             return INSTANCE;
         }
@@ -205,6 +203,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanSetViewComment(SystemSecurityContext context, CatalogSchemaTableName view)
+    {
+    }
+
+    @Override
     public void checkCanSetColumnComment(SystemSecurityContext context, CatalogSchemaTableName table)
     {
     }
@@ -328,6 +331,11 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption)
+    {
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, FunctionKind functionKind, CatalogSchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
     {
     }
 

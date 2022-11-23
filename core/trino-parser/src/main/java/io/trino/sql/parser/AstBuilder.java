@@ -25,7 +25,7 @@ import io.trino.sql.tree.Analyze;
 import io.trino.sql.tree.AnchorPattern;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.ArrayConstructor;
+import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
@@ -72,6 +72,8 @@ import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.EmptyPattern;
+import io.trino.sql.tree.EmptyTableTreatment;
+import io.trino.sql.tree.EmptyTableTreatment.Treatment;
 import io.trino.sql.tree.Except;
 import io.trino.sql.tree.ExcludedPattern;
 import io.trino.sql.tree.Execute;
@@ -220,11 +222,11 @@ import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
-import io.trino.sql.tree.TableArgument;
 import io.trino.sql.tree.TableElement;
 import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.TableFunctionArgument;
 import io.trino.sql.tree.TableFunctionInvocation;
+import io.trino.sql.tree.TableFunctionTableArgument;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
@@ -271,8 +273,6 @@ import static io.trino.sql.parser.SqlBaseParser.TIME;
 import static io.trino.sql.parser.SqlBaseParser.TIMESTAMP;
 import static io.trino.sql.tree.AnchorPattern.Type.PARTITION_END;
 import static io.trino.sql.tree.AnchorPattern.Type.PARTITION_START;
-import static io.trino.sql.tree.DescriptorArgument.descriptorArgument;
-import static io.trino.sql.tree.DescriptorArgument.nullDescriptorArgument;
 import static io.trino.sql.tree.JsonExists.ErrorBehavior.ERROR;
 import static io.trino.sql.tree.JsonExists.ErrorBehavior.FALSE;
 import static io.trino.sql.tree.JsonExists.ErrorBehavior.TRUE;
@@ -301,6 +301,8 @@ import static io.trino.sql.tree.SkipTo.skipPastLastRow;
 import static io.trino.sql.tree.SkipTo.skipToFirst;
 import static io.trino.sql.tree.SkipTo.skipToLast;
 import static io.trino.sql.tree.SkipTo.skipToNextRow;
+import static io.trino.sql.tree.TableFunctionDescriptorArgument.descriptorArgument;
+import static io.trino.sql.tree.TableFunctionDescriptorArgument.nullDescriptorArgument;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -560,10 +562,14 @@ class AstBuilder
     @Override
     public Node visitMerge(SqlBaseParser.MergeContext context)
     {
+        Table table = new Table(getLocation(context), getQualifiedName(context.qualifiedName()));
+        Relation targetRelation = table;
+        if (context.identifier() != null) {
+            targetRelation = new AliasedRelation(table, (Identifier) visit(context.identifier()), null);
+        }
         return new Merge(
                 getLocation(context),
-                new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
-                visitIfPresent(context.identifier(), Identifier.class),
+                targetRelation,
                 (Relation) visit(context.relation()),
                 (Expression) visit(context.expression()),
                 visit(context.mergeCase(), MergeCase.class));
@@ -632,6 +638,18 @@ class AstBuilder
         }
 
         return new Comment(getLocation(context), Comment.Type.TABLE, getQualifiedName(context.qualifiedName()), comment);
+    }
+
+    @Override
+    public Node visitCommentView(SqlBaseParser.CommentViewContext context)
+    {
+        Optional<String> comment = Optional.empty();
+
+        if (context.string() != null) {
+            comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
+        }
+
+        return new Comment(getLocation(context), Comment.Type.VIEW, getQualifiedName(context.qualifiedName()), comment);
     }
 
     @Override
@@ -1863,9 +1881,15 @@ class AstBuilder
             orderBy = Optional.of(new OrderBy(visit(context.sortItem(), SortItem.class)));
         }
 
-        boolean pruneWhenEmpty = context.PRUNE() != null;
+        Optional<EmptyTableTreatment> emptyTableTreatment = Optional.empty();
+        if (context.PRUNE() != null) {
+            emptyTableTreatment = Optional.of(new EmptyTableTreatment(getLocation(context.PRUNE()), Treatment.PRUNE));
+        }
+        else if (context.KEEP() != null) {
+            emptyTableTreatment = Optional.of(new EmptyTableTreatment(getLocation(context.KEEP()), Treatment.KEEP));
+        }
 
-        return new TableArgument(getLocation(context), table, partitionBy, orderBy, pruneWhenEmpty);
+        return new TableFunctionTableArgument(getLocation(context), table, partitionBy, orderBy, emptyTableTreatment);
     }
 
     @Override
@@ -1875,7 +1899,7 @@ class AstBuilder
 
         if (context.identifier() != null) {
             Identifier alias = (Identifier) visit(context.identifier());
-            List<Identifier> columnNames = ImmutableList.of();
+            List<Identifier> columnNames = null;
             if (context.columnAliases() != null) {
                 columnNames = visit(context.columnAliases().identifier(), Identifier.class);
             }
@@ -1892,7 +1916,7 @@ class AstBuilder
 
         if (context.identifier() != null) {
             Identifier alias = (Identifier) visit(context.identifier());
-            List<Identifier> columnNames = ImmutableList.of();
+            List<Identifier> columnNames = null;
             if (context.columnAliases() != null) {
                 columnNames = visit(context.columnAliases().identifier(), Identifier.class);
             }
@@ -2128,7 +2152,7 @@ class AstBuilder
     @Override
     public Node visitArrayConstructor(SqlBaseParser.ArrayConstructorContext context)
     {
-        return new ArrayConstructor(getLocation(context), visit(context.expression(), Expression.class));
+        return new Array(getLocation(context), visit(context.expression(), Expression.class));
     }
 
     @Override
@@ -3658,15 +3682,13 @@ class AstBuilder
         if (context instanceof SqlBaseParser.SpecifiedPrincipalContext) {
             return new GrantorSpecification(GrantorSpecification.Type.PRINCIPAL, Optional.of(getPrincipalSpecification(((SqlBaseParser.SpecifiedPrincipalContext) context).principal())));
         }
-        else if (context instanceof SqlBaseParser.CurrentUserGrantorContext) {
+        if (context instanceof SqlBaseParser.CurrentUserGrantorContext) {
             return new GrantorSpecification(GrantorSpecification.Type.CURRENT_USER, Optional.empty());
         }
-        else if (context instanceof SqlBaseParser.CurrentRoleGrantorContext) {
+        if (context instanceof SqlBaseParser.CurrentRoleGrantorContext) {
             return new GrantorSpecification(GrantorSpecification.Type.CURRENT_ROLE, Optional.empty());
         }
-        else {
-            throw new IllegalArgumentException("Unsupported grantor: " + context);
-        }
+        throw new IllegalArgumentException("Unsupported grantor: " + context);
     }
 
     private PrincipalSpecification getPrincipalSpecification(SqlBaseParser.PrincipalContext context)
@@ -3674,15 +3696,13 @@ class AstBuilder
         if (context instanceof SqlBaseParser.UnspecifiedPrincipalContext) {
             return new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, (Identifier) visit(((SqlBaseParser.UnspecifiedPrincipalContext) context).identifier()));
         }
-        else if (context instanceof SqlBaseParser.UserPrincipalContext) {
+        if (context instanceof SqlBaseParser.UserPrincipalContext) {
             return new PrincipalSpecification(PrincipalSpecification.Type.USER, (Identifier) visit(((SqlBaseParser.UserPrincipalContext) context).identifier()));
         }
-        else if (context instanceof SqlBaseParser.RolePrincipalContext) {
+        if (context instanceof SqlBaseParser.RolePrincipalContext) {
             return new PrincipalSpecification(PrincipalSpecification.Type.ROLE, (Identifier) visit(((SqlBaseParser.RolePrincipalContext) context).identifier()));
         }
-        else {
-            throw new IllegalArgumentException("Unsupported principal: " + context);
-        }
+        throw new IllegalArgumentException("Unsupported principal: " + context);
     }
 
     private static void check(boolean condition, String message, ParserRuleContext context)

@@ -13,8 +13,8 @@
  */
 package io.trino.operator.output;
 
+import io.trino.spi.block.AbstractRowBlock;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.RowType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -28,12 +28,13 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateBlockResetSize;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateNewArraySize;
 import static io.trino.spi.block.RowBlock.fromFieldBlocks;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class RowPositionsAppender
         implements PositionsAppender
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RowPositionsAppender.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RowPositionsAppender.class).instanceSize());
     private final PositionsAppender[] fieldAppenders;
     private int initialEntryCount;
     private boolean initialized;
@@ -66,13 +67,14 @@ public class RowPositionsAppender
     }
 
     @Override
+    // TODO: Make PositionsAppender work performant with different block types (https://github.com/trinodb/trino/issues/13267)
     public void append(IntArrayList positions, Block block)
     {
         if (positions.isEmpty()) {
             return;
         }
         ensureCapacity(positions.size());
-        RowBlock sourceRowBlock = (RowBlock) block;
+        AbstractRowBlock sourceRowBlock = (AbstractRowBlock) block;
         IntArrayList nonNullPositions;
         if (sourceRowBlock.mayHaveNull()) {
             nonNullPositions = processNullablePositions(positions, sourceRowBlock);
@@ -95,11 +97,10 @@ public class RowPositionsAppender
     }
 
     @Override
-    public void appendRle(RunLengthEncodedBlock rleBlock)
+    public void appendRle(Block value, int rlePositionCount)
     {
-        int rlePositionCount = rleBlock.getPositionCount();
         ensureCapacity(rlePositionCount);
-        RowBlock sourceRowBlock = (RowBlock) rleBlock.getValue();
+        AbstractRowBlock sourceRowBlock = (AbstractRowBlock) value;
         if (sourceRowBlock.isNull(0)) {
             // append rlePositionCount nulls
             Arrays.fill(rowIsNull, positionCount, positionCount + rlePositionCount, true);
@@ -110,7 +111,7 @@ public class RowPositionsAppender
             List<Block> fieldBlocks = sourceRowBlock.getChildren();
             int fieldPosition = sourceRowBlock.getFieldBlockOffset(0);
             for (int i = 0; i < fieldAppenders.length; i++) {
-                fieldAppenders[i].appendRle(new RunLengthEncodedBlock(fieldBlocks.get(i).getSingleValueBlock(fieldPosition), rlePositionCount));
+                fieldAppenders[i].appendRle(fieldBlocks.get(i).getSingleValueBlock(fieldPosition), rlePositionCount);
             }
             hasNonNullRow = true;
         }
@@ -131,7 +132,7 @@ public class RowPositionsAppender
         }
         else {
             Block nullRowBlock = fromFieldBlocks(1, Optional.of(new boolean[] {true}), fieldBlocks);
-            result = new RunLengthEncodedBlock(nullRowBlock, positionCount);
+            result = RunLengthEncodedBlock.create(nullRowBlock, positionCount);
         }
 
         reset();
@@ -166,7 +167,7 @@ public class RowPositionsAppender
         updateRetainedSize();
     }
 
-    private IntArrayList processNullablePositions(IntArrayList positions, RowBlock sourceRowBlock)
+    private IntArrayList processNullablePositions(IntArrayList positions, AbstractRowBlock sourceRowBlock)
     {
         int[] nonNullPositions = new int[positions.size()];
         int nonNullPositionsCount = 0;
@@ -182,7 +183,7 @@ public class RowPositionsAppender
         return IntArrayList.wrap(nonNullPositions, nonNullPositionsCount);
     }
 
-    private IntArrayList processNonNullablePositions(IntArrayList positions, RowBlock sourceRowBlock)
+    private IntArrayList processNonNullablePositions(IntArrayList positions, AbstractRowBlock sourceRowBlock)
     {
         int[] nonNullPositions = new int[positions.size()];
         for (int i = 0; i < positions.size(); i++) {

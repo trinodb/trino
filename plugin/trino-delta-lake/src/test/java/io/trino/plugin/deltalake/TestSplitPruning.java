@@ -20,7 +20,6 @@ import io.trino.operator.OperatorStats;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -31,6 +30,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -57,7 +57,7 @@ public class TestSplitPruning
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaLakeQueryRunner();
+        return createDeltaLakeQueryRunner(DELTA_CATALOG);
     }
 
     @BeforeClass
@@ -134,10 +134,10 @@ public class TestSplitPruning
                 Set.of(),
                 0);
 
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResult result = getDistributedQueryRunner().execute(
                 getSession(),
                 format("SELECT name FROM %s WHERE val IS NOT NULL", tableName));
-        assertEquals(result.getResult().getOnlyColumnAsSet(), Set.of("a5", "b5", "a6", "b6"));
+        assertEquals(result.getOnlyColumnAsSet(), Set.of("a5", "b5", "a6", "b6"));
     }
 
     @Test

@@ -51,7 +51,7 @@ public final class EnvironmentList
 
     public EnvironmentList(Extensions extensions)
     {
-        this.additionalEnvironments = requireNonNull(extensions, "extensions is null").getAdditionalEnvironments();
+        this.additionalEnvironments = extensions.getAdditionalEnvironments();
     }
 
     @Override

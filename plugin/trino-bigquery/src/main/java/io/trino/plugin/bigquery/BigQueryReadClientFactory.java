@@ -14,6 +14,7 @@
 package io.trino.plugin.bigquery;
 
 import com.google.api.gax.core.FixedCredentialsProvider;
+import com.google.api.gax.grpc.ChannelPoolSettings;
 import com.google.api.gax.rpc.HeaderProvider;
 import com.google.auth.Credentials;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
@@ -37,12 +38,22 @@ public class BigQueryReadClientFactory
 {
     private final BigQueryCredentialsSupplier credentialsSupplier;
     private final HeaderProvider headerProvider;
+    private final ChannelPoolSettings channelPoolSettings;
 
     @Inject
-    public BigQueryReadClientFactory(BigQueryCredentialsSupplier bigQueryCredentialsSupplier, HeaderProvider headerProvider)
+    public BigQueryReadClientFactory(BigQueryConfig bigQueryConfig, BigQueryCredentialsSupplier bigQueryCredentialsSupplier, HeaderProvider headerProvider)
     {
+        requireNonNull(bigQueryConfig, "bigQueryConfig is null");
         this.credentialsSupplier = requireNonNull(bigQueryCredentialsSupplier, "credentialsSupplier is null");
         this.headerProvider = requireNonNull(headerProvider, "headerProvider is null");
+
+        this.channelPoolSettings = ChannelPoolSettings.builder()
+                .setInitialChannelCount(bigQueryConfig.getRpcInitialChannelCount())
+                .setMinChannelCount(bigQueryConfig.getRpcMinChannelCount())
+                .setMaxChannelCount(bigQueryConfig.getRpcMaxChannelCount())
+                .setMinRpcsPerChannel(bigQueryConfig.getMinRpcPerChannel())
+                .setMaxRpcsPerChannel(bigQueryConfig.getMaxRpcPerChannel())
+                .build();
     }
 
     BigQueryReadClient create(ConnectorSession session)
@@ -54,6 +65,7 @@ public class BigQueryReadClientFactory
                     .setTransportChannelProvider(
                             BigQueryReadSettings.defaultGrpcTransportProviderBuilder()
                                     .setHeaderProvider(headerProvider)
+                                    .setChannelPoolSettings(channelPoolSettings)
                                     .build());
             credentials.ifPresent(value ->
                     clientSettings.setCredentialsProvider(FixedCredentialsProvider.create(value)));

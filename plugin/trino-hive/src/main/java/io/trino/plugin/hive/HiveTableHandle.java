@@ -142,16 +142,16 @@ public class HiveTableHandle
         checkState(partitionNames.isEmpty() || partitions.isEmpty(), "partition names and partitions list cannot be present at same time");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.tableParameters = requireNonNull(tableParameters, "tableParameters is null").map(ImmutableMap::copyOf);
+        this.tableParameters = tableParameters.map(ImmutableMap::copyOf);
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
-        this.partitionNames = requireNonNull(partitionNames, "partitionNames is null").map(ImmutableList::copyOf);
-        this.partitions = requireNonNull(partitions, "partitions is null").map(ImmutableList::copyOf);
+        this.partitionNames = partitionNames.map(ImmutableList::copyOf);
+        this.partitions = partitions.map(ImmutableList::copyOf);
         this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
-        this.analyzePartitionValues = requireNonNull(analyzePartitionValues, "analyzePartitionValues is null").map(ImmutableList::copyOf);
+        this.analyzePartitionValues = analyzePartitionValues.map(ImmutableList::copyOf);
         this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
         this.projectedColumns = ImmutableSet.copyOf(requireNonNull(projectedColumns, "projectedColumns is null"));
         this.transaction = requireNonNull(transaction, "transaction is null");
@@ -433,6 +433,12 @@ public class HiveTableHandle
     public boolean isAcidUpdate()
     {
         return transaction.isUpdate();
+    }
+
+    @JsonIgnore
+    public boolean isAcidMerge()
+    {
+        return transaction.isMerge();
     }
 
     @JsonIgnore

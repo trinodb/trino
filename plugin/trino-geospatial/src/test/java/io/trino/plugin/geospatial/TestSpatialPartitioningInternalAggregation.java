@@ -73,7 +73,7 @@ public class TestSpatialPartitioningInternalAggregation
         List<OGCGeometry> geometries = makeGeometries();
         Block geometryBlock = makeGeometryBlock(geometries);
 
-        Block partitionCountBlock = BlockAssertions.createRLEBlock(partitionCount, geometries.size());
+        Block partitionCountBlock = BlockAssertions.createRepeatedValuesBlock(partitionCount, geometries.size());
 
         Rectangle expectedExtent = new Rectangle(-10, -10, Math.nextUp(10.0), Math.nextUp(10.0));
         String expectedValue = getSpatialPartitioning(expectedExtent, geometries, partitionCount);

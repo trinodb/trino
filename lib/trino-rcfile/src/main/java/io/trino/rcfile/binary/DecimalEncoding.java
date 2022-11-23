@@ -31,7 +31,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.rcfile.RcFileDecoderUtils.decodeVIntSize;
 import static io.trino.rcfile.RcFileDecoderUtils.readVInt;
 import static io.trino.rcfile.RcFileDecoderUtils.writeVInt;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.Decimals.rescale;
 import static java.lang.Math.toIntExact;
 
@@ -64,7 +63,7 @@ public class DecimalEncoding
     @Override
     public void encodeValueInto(Block block, int position, SliceOutput output)
     {
-        if (isShortDecimal(type)) {
+        if (type.isShort()) {
             writeLong(output, type.getLong(block, position));
         }
         else {
@@ -85,7 +84,7 @@ public class DecimalEncoding
             if (length == 0) {
                 builder.appendNull();
             }
-            else if (isShortDecimal(type)) {
+            else if (type.isShort()) {
                 type.writeLong(builder, parseLong(slice, offset));
             }
             else {
@@ -117,7 +116,7 @@ public class DecimalEncoding
     @Override
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
-        if (isShortDecimal(type)) {
+        if (type.isShort()) {
             type.writeLong(builder, parseLong(slice, offset));
         }
         else {

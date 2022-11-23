@@ -417,10 +417,10 @@ public class TestPostgreSqlTableStatistics
             for (int i = 0; i < 5; i++) {
                 long actualCount = handle.createQuery("SELECT count(*) FROM " + tableName)
                         .mapTo(Long.class)
-                        .findOnly();
+                        .one();
                 long estimatedCount = handle.createQuery(format("SELECT reltuples FROM pg_class WHERE oid = '%s'::regclass::oid", tableName))
                         .mapTo(Long.class)
-                        .findOnly();
+                        .one();
                 if (actualCount == estimatedCount) {
                     return;
                 }
@@ -440,10 +440,10 @@ public class TestPostgreSqlTableStatistics
             for (int i = 0; i < 5; i++) {
                 long actualCount = handle.createQuery("SELECT count(*) FROM " + parentTableName)
                         .mapTo(Long.class)
-                        .findOnly();
+                        .one();
                 long estimatedCount = handle.createQuery(format("SELECT SUM(reltuples) FROM pg_class WHERE oid IN (%s)", parameter))
                         .mapTo(Long.class)
-                        .findOnly();
+                        .one();
                 if (actualCount == estimatedCount) {
                     return;
                 }

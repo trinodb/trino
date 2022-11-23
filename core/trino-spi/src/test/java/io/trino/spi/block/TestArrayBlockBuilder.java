@@ -73,4 +73,42 @@ public class TestArrayBlockBuilder
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Expected current entry to be closed but was opened");
     }
+
+    @Test
+    public void testBuilderProducesNullRleForNullRows()
+    {
+        // empty block
+        assertIsAllNulls(blockBuilder().build(), 0);
+
+        // single null
+        assertIsAllNulls(blockBuilder().appendNull().build(), 1);
+
+        // multiple nulls
+        assertIsAllNulls(blockBuilder().appendNull().appendNull().build(), 2);
+
+        BlockBuilder blockBuilder = blockBuilder().appendNull().appendNull();
+        assertIsAllNulls(blockBuilder.copyPositions(new int[] {0}, 0, 1), 1);
+        assertIsAllNulls(blockBuilder.getRegion(0, 1), 1);
+        assertIsAllNulls(blockBuilder.copyRegion(0, 1), 1);
+    }
+
+    private static BlockBuilder blockBuilder()
+    {
+        return new ArrayBlockBuilder(BIGINT, null, 10);
+    }
+
+    private static void assertIsAllNulls(Block block, int expectedPositionCount)
+    {
+        assertEquals(block.getPositionCount(), expectedPositionCount);
+        if (expectedPositionCount <= 1) {
+            assertEquals(block.getClass(), ArrayBlock.class);
+        }
+        else {
+            assertEquals(block.getClass(), RunLengthEncodedBlock.class);
+            assertEquals(((RunLengthEncodedBlock) block).getValue().getClass(), ArrayBlock.class);
+        }
+        if (expectedPositionCount > 0) {
+            assertTrue(block.isNull(0));
+        }
+    }
 }

@@ -29,7 +29,6 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -53,15 +52,12 @@ public class SheetsSplitManager
             Constraint constraint)
     {
         SheetsTableHandle tableHandle = (SheetsTableHandle) connectorTableHandle;
-        Optional<SheetsTable> table = sheetsClient.getTable(tableHandle.getTableName());
-
-        // this can happen if table is removed during a query
-        if (table.isEmpty()) {
-            throw new TableNotFoundException(tableHandle.toSchemaTableName());
-        }
+        SheetsTable table = sheetsClient.getTable(tableHandle.getTableName())
+                // this can happen if table is removed during a query
+                .orElseThrow(() -> new TableNotFoundException(tableHandle.toSchemaTableName()));
 
         List<ConnectorSplit> splits = new ArrayList<>();
-        splits.add(new SheetsSplit(tableHandle.getSchemaName(), tableHandle.getTableName(), table.get().getValues()));
+        splits.add(new SheetsSplit(tableHandle.getSchemaName(), tableHandle.getTableName(), table.getValues()));
         Collections.shuffle(splits);
         return new FixedSplitSource(splits);
     }

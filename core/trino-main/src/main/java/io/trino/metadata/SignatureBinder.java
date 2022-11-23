@@ -19,6 +19,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionId;
+import io.trino.spi.function.LongVariableConstraint;
+import io.trino.spi.function.Signature;
+import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.ParameterKind;
 import io.trino.spi.type.RowType;
@@ -474,11 +479,9 @@ public class SignatureBinder
 
         ImmutableList.Builder<TypeSignature> formalTypeParameterTypeSignatures = ImmutableList.builder();
         for (TypeSignatureParameter formalTypeParameter : formalTypeSignature.getParameters()) {
-            Optional<TypeSignature> typeSignature = formalTypeParameter.getTypeSignatureOrNamedTypeSignature();
-            if (typeSignature.isEmpty()) {
-                throw new UnsupportedOperationException("Types with both type parameters and literal parameters at the same time are not supported");
-            }
-            formalTypeParameterTypeSignatures.add(typeSignature.get());
+            TypeSignature typeSignature = formalTypeParameter.getTypeSignatureOrNamedTypeSignature()
+                    .orElseThrow(() -> new UnsupportedOperationException("Types with both type parameters and literal parameters at the same time are not supported"));
+            formalTypeParameterTypeSignatures.add(typeSignature);
         }
 
         return appendConstraintSolvers(
@@ -687,13 +690,11 @@ public class SignatureBinder
                 }
                 return true;
             }
-            else if (toType instanceof JsonType) {
+            if (toType instanceof JsonType) {
                 return fromType.getTypeParameters().stream()
                         .allMatch(fromTypeParameter -> canCast(fromTypeParameter, toType));
             }
-            else {
-                return false;
-            }
+            return false;
         }
         if (fromType instanceof JsonType) {
             if (toType instanceof RowType) {

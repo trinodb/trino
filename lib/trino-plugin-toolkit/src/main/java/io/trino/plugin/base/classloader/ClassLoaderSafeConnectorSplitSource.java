@@ -14,7 +14,6 @@
 package io.trino.plugin.base.classloader;
 
 import io.trino.spi.classloader.ThreadContextClassLoader;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSplitSource;
 
 import javax.inject.Inject;
@@ -36,15 +35,6 @@ public class ClassLoaderSafeConnectorSplitSource
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
-    }
-
-    @Deprecated
-    @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getNextBatch(partitionHandle, maxSize);
-        }
     }
 
     @Override

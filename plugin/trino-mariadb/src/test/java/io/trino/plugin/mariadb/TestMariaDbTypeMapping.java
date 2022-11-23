@@ -864,7 +864,7 @@ public class TestMariaDbTypeMapping
                 {jvmZone},
                 {vilnius},
                 {kathmandu},
-                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
         };
     }
 

@@ -22,7 +22,7 @@ check_if_correct_java_version() {
     # candidate for JAVA_HOME).
     JAVA_VERSION=$(java_version "$1")
     JAVA_MAJOR=$(echo "$JAVA_VERSION" | cut -d'.' -f1)
-    if [ "$JAVA_MAJOR" -ge "11" ]; then
+    if [ "$JAVA_MAJOR" -ge "17" ]; then
         echo "$1" >/tmp/trino-rpm-install-java-home
         return 0
     else
@@ -34,8 +34,8 @@ check_if_correct_java_version() {
 if ! check_if_correct_java_version "$JAVA_HOME"; then
     java_found=false
     for candidate in \
-        /usr/lib/jvm/java-11-* \
-        /usr/lib/jvm/zulu-11 \
+        /usr/lib/jvm/java-17-* \
+        /usr/lib/jvm/zulu-17 \
         /usr/lib/jvm/default-java \
         /usr/java/default \
         / \
@@ -55,9 +55,9 @@ if [ "$java_found" = false ]; then
 +======================================================================+
 |      Error: Required Java version could not be found                 |
 +----------------------------------------------------------------------+
-| Please install JDK 11. On RHEL/CentOS, use java-11-openjdk-devel.    |
+| Please install JDK 17. On RHEL/CentOS, use java-17-openjdk-devel.    |
 |                                                                      |
-| You can also download an OpenJDK 11 build, such as Zulu Community:   |
+| You can also download an OpenJDK 17 build, such as Zulu Community:   |
 |       >>> https://www.azul.com/downloads/zulu-community/ <<<         |
 |                                                                      |
 | NOTE: This script will attempt to find Java whether you install      |

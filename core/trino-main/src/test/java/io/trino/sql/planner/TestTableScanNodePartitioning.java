@@ -16,7 +16,6 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
@@ -65,6 +64,8 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -72,17 +73,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestTableScanNodePartitioning
         extends BasePlanTest
 {
-    public static final String MOCK_CATALOG = "mock_catalog";
     public static final String TEST_SCHEMA = "test_schema";
 
     public static final Session ENABLE_PLAN_WITH_TABLE_NODE_PARTITIONING = testSessionBuilder()
-            .setCatalog(MOCK_CATALOG)
+            .setCatalog(TEST_CATALOG_NAME)
             .setSchema(TEST_SCHEMA)
             .setSystemProperty(USE_TABLE_SCAN_NODE_PARTITIONING, "true")
             .setSystemProperty(TASK_CONCURRENCY, "2") // force parallel plan even on test nodes with single CPU
             .build();
     public static final Session DISABLE_PLAN_WITH_TABLE_NODE_PARTITIONING = testSessionBuilder()
-            .setCatalog(MOCK_CATALOG)
+            .setCatalog(TEST_CATALOG_NAME)
             .setSchema(TEST_SCHEMA)
             .setSystemProperty(USE_TABLE_SCAN_NODE_PARTITIONING, "false")
             .setSystemProperty(TASK_CONCURRENCY, "2") // force parallel plan even on test nodes with single CPU
@@ -123,14 +123,14 @@ public class TestTableScanNodePartitioning
     protected LocalQueryRunner createLocalQueryRunner()
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
-                .setCatalog(MOCK_CATALOG)
+                .setCatalog(TEST_CATALOG_NAME)
                 .setSchema(TEST_SCHEMA)
                 .setSystemProperty(TASK_CONCURRENCY, "2"); // force parallel plan even on test nodes with single CPU
 
         LocalQueryRunner queryRunner = LocalQueryRunner.builder(sessionBuilder.build())
                 .withNodeCountForStats(10)
                 .build();
-        queryRunner.createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
+        queryRunner.createCatalog(TEST_CATALOG_NAME, createMockFactory(), ImmutableMap.of());
         return queryRunner;
     }
 
@@ -175,8 +175,8 @@ public class TestTableScanNodePartitioning
                                                 aggregation(ImmutableMap.of("COUNT_PART", functionCall("count", ImmutableList.of("B"))), PARTIAL,
                                                         tableScan(table, ImmutableMap.of("A", "column_a", "B", "column_b"))))))));
         SubPlan subPlan = subplan(query, OPTIMIZED_AND_VALIDATED, false, session);
-        assertThat(subPlan.getAllFragments()).hasSize(2);
-        assertThat(subPlan.getAllFragments().get(1).getPartitioning().getConnectorHandle()).isEqualTo(expectedPartitioning);
+        assertThat(subPlan.getAllFragments()).hasSize(1);
+        assertThat(subPlan.getAllFragments().get(0).getPartitioning().getConnectorHandle()).isEqualTo(expectedPartitioning);
     }
 
     void assertTableScanPlannedWithoutPartitioning(Session session, String table)
@@ -191,8 +191,8 @@ public class TestTableScanNodePartitioning
                                                         aggregation(ImmutableMap.of("COUNT_PART", functionCall("count", ImmutableList.of("B"))), PARTIAL,
                                                                 tableScan(table, ImmutableMap.of("A", "column_a", "B", "column_b")))))))));
         SubPlan subPlan = subplan(query, OPTIMIZED_AND_VALIDATED, false, session);
-        assertThat(subPlan.getAllFragments()).hasSize(3);
-        assertThat(subPlan.getAllFragments().get(2).getPartitioning().getConnectorHandle()).isEqualTo(SOURCE_DISTRIBUTION.getConnectorHandle());
+        assertThat(subPlan.getAllFragments()).hasSize(2);
+        assertThat(subPlan.getAllFragments().get(1).getPartitioning().getConnectorHandle()).isEqualTo(SOURCE_DISTRIBUTION.getConnectorHandle());
     }
 
     public static MockConnectorFactory createMockFactory()
@@ -243,16 +243,16 @@ public class TestTableScanNodePartitioning
         }
 
         @Override
-        public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+        public Optional<ConnectorBucketNodeMap> getBucketNodeMapping(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
         {
             if (partitioningHandle.equals(PARTITIONING_HANDLE)) {
-                return createBucketNodeMap(BUCKET_COUNT);
+                return Optional.of(createBucketNodeMap(BUCKET_COUNT));
             }
             if (partitioningHandle.equals(SINGLE_BUCKET_HANDLE)) {
-                return createBucketNodeMap(1);
+                return Optional.of(createBucketNodeMap(1));
             }
             if (partitioningHandle.equals(FIXED_PARTITIONING_HANDLE)) {
-                return createBucketNodeMap(ImmutableList.of(nodeManager.getCurrentNode()));
+                return Optional.of(createBucketNodeMap(ImmutableList.of(nodeManager.getCurrentNode())));
             }
             throw new IllegalArgumentException();
         }
@@ -273,7 +273,7 @@ public class TestTableScanNodePartitioning
     private static TableHandle tableHandle(ConnectorTableHandle connectorTableHandle)
     {
         return new TableHandle(
-                new CatalogName(MOCK_CATALOG),
+                TEST_CATALOG_HANDLE,
                 connectorTableHandle,
                 TestingTransactionHandle.create());
     }

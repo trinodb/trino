@@ -19,11 +19,13 @@ import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.GroupedAccumulatorState;
 import org.openjdk.jol.info.ClassLayout;
 
+import static java.lang.Math.toIntExact;
+
 public class SetDigestStateFactory
         implements AccumulatorStateFactory<SetDigestState>
 {
-    private static final int SIZE_OF_SINGLE = ClassLayout.parseClass(SingleSetDigestState.class).instanceSize();
-    private static final int SIZE_OF_GROUPED = ClassLayout.parseClass(GroupedSetDigestState.class).instanceSize();
+    private static final int SIZE_OF_SINGLE = toIntExact(ClassLayout.parseClass(SingleSetDigestState.class).instanceSize());
+    private static final int SIZE_OF_GROUPED = toIntExact(ClassLayout.parseClass(GroupedSetDigestState.class).instanceSize());
 
     @Override
     public SetDigestState createSingleState()

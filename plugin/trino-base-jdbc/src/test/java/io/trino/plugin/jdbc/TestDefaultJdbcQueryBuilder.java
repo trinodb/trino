@@ -75,7 +75,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -122,7 +122,7 @@ public class TestDefaultJdbcQueryBuilder
                 new JdbcColumnHandle("col_2", JDBC_BOOLEAN, BOOLEAN),
                 new JdbcColumnHandle("col_3", JDBC_VARCHAR, VARCHAR),
                 new JdbcColumnHandle("col_4", JDBC_DATE, DATE),
-                new JdbcColumnHandle("col_5", JDBC_TIME, TIME),
+                new JdbcColumnHandle("col_5", JDBC_TIME, TIME_MILLIS),
                 new JdbcColumnHandle("col_6", JDBC_TIMESTAMP, TIMESTAMP_MILLIS),
                 new JdbcColumnHandle("col_7", JDBC_TINYINT, TINYINT),
                 new JdbcColumnHandle("col_8", JDBC_SMALLINT, SMALLINT),
@@ -414,11 +414,11 @@ public class TestDefaultJdbcQueryBuilder
                                 Range.equal(DATE, toDays(2016, 6, 3)),
                                 Range.equal(DATE, toDays(2016, 10, 21)))),
                         false),
-                columns.get(5), Domain.create(SortedRangeSet.copyOf(TIME,
+                columns.get(5), Domain.create(SortedRangeSet.copyOf(TIME_MILLIS,
                         ImmutableList.of(
-                                Range.range(TIME, toTimeRepresentation(6, 12, 23), false, toTimeRepresentation(8, 23, 37), true),
-                                Range.equal(TIME, toTimeRepresentation(2, 3, 4)),
-                                Range.equal(TIME, toTimeRepresentation(20, 23, 37)))),
+                                Range.range(TIME_MILLIS, toTimeRepresentation(6, 12, 23), false, toTimeRepresentation(8, 23, 37), true),
+                                Range.equal(TIME_MILLIS, toTimeRepresentation(2, 3, 4)),
+                                Range.equal(TIME_MILLIS, toTimeRepresentation(20, 23, 37)))),
                         false)));
 
         Connection connection = database.getConnection();

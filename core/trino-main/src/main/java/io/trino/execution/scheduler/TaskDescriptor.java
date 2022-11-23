@@ -16,7 +16,6 @@ package io.trino.execution.scheduler;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
 import io.trino.metadata.Split;
-import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -25,15 +24,15 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Multimaps.asMap;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class TaskDescriptor
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TaskDescriptor.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TaskDescriptor.class).instanceSize());
 
     private final int partitionId;
     private final ListMultimap<PlanNodeId, Split> splits;
-    private final ListMultimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles;
     private final NodeRequirements nodeRequirements;
 
     private transient volatile long retainedSizeInBytes;
@@ -41,12 +40,10 @@ public class TaskDescriptor
     public TaskDescriptor(
             int partitionId,
             ListMultimap<PlanNodeId, Split> splits,
-            ListMultimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles,
             NodeRequirements nodeRequirements)
     {
         this.partitionId = partitionId;
         this.splits = ImmutableListMultimap.copyOf(requireNonNull(splits, "splits is null"));
-        this.exchangeSourceHandles = ImmutableListMultimap.copyOf(requireNonNull(exchangeSourceHandles, "exchangeSourceHandles is null"));
         this.nodeRequirements = requireNonNull(nodeRequirements, "nodeRequirements is null");
     }
 
@@ -58,11 +55,6 @@ public class TaskDescriptor
     public ListMultimap<PlanNodeId, Split> getSplits()
     {
         return splits;
-    }
-
-    public ListMultimap<PlanNodeId, ExchangeSourceHandle> getExchangeSourceHandles()
-    {
-        return exchangeSourceHandles;
     }
 
     public NodeRequirements getNodeRequirements()
@@ -80,13 +72,13 @@ public class TaskDescriptor
             return false;
         }
         TaskDescriptor that = (TaskDescriptor) o;
-        return partitionId == that.partitionId && Objects.equals(splits, that.splits) && Objects.equals(exchangeSourceHandles, that.exchangeSourceHandles) && Objects.equals(nodeRequirements, that.nodeRequirements);
+        return partitionId == that.partitionId && Objects.equals(splits, that.splits) && Objects.equals(nodeRequirements, that.nodeRequirements);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(partitionId, splits, exchangeSourceHandles, nodeRequirements);
+        return Objects.hash(partitionId, splits, nodeRequirements);
     }
 
     @Override
@@ -95,7 +87,6 @@ public class TaskDescriptor
         return toStringHelper(this)
                 .add("partitionId", partitionId)
                 .add("splits", splits)
-                .add("exchangeSourceHandles", exchangeSourceHandles)
                 .add("nodeRequirements", nodeRequirements)
                 .toString();
     }
@@ -106,7 +97,6 @@ public class TaskDescriptor
         if (result == 0) {
             result = INSTANCE_SIZE
                     + estimatedSizeOf(asMap(splits), PlanNodeId::getRetainedSizeInBytes, splits -> estimatedSizeOf(splits, Split::getRetainedSizeInBytes))
-                    + estimatedSizeOf(asMap(exchangeSourceHandles), PlanNodeId::getRetainedSizeInBytes, handles -> estimatedSizeOf(handles, ExchangeSourceHandle::getRetainedSizeInBytes))
                     + nodeRequirements.getRetainedSizeInBytes();
             retainedSizeInBytes = result;
         }

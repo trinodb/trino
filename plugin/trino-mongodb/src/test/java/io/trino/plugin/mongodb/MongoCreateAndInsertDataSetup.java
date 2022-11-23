@@ -16,6 +16,7 @@ package io.trino.plugin.mongodb;
 import com.mongodb.client.MongoClient;
 import io.trino.testing.datatype.ColumnSetup;
 import io.trino.testing.datatype.DataSetup;
+import io.trino.testing.sql.TemporaryRelation;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.bson.Document;
@@ -43,7 +44,7 @@ public final class MongoCreateAndInsertDataSetup
     }
 
     @Override
-    public TestTable setupTestTable(List<ColumnSetup> inputs)
+    public TemporaryRelation setupTemporaryRelation(List<ColumnSetup> inputs)
     {
         TestTable testTable = new MongoTestTable(trinoSqlExecutor, tableNamePrefix);
         try {

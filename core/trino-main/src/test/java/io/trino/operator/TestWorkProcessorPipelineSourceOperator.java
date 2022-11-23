@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.metadata.Split;
 import io.trino.operator.WorkProcessor.Transformation;
@@ -48,6 +47,7 @@ import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.WorkProcessorAssertion.transformationFrom;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingSplit.createLocalSplit;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -205,14 +205,14 @@ public class TestWorkProcessorPipelineSourceOperator
         assertEquals(operatorStats.get(2).getOutputDataSize().toBytes(), 45);
 
         assertThat(operatorStats.get(1).getMetrics().getMetrics())
-                .hasSize(2)
+                .hasSize(4)
                 .containsEntry("testOperatorMetric", new LongCount(1));
 
         // assert source operator stats are correct
         OperatorStats sourceOperatorStats = operatorStats.get(0);
 
         assertThat(sourceOperatorStats.getMetrics().getMetrics())
-                .hasSize(3)
+                .hasSize(5)
                 .containsEntry("testSourceMetric", new LongCount(1))
                 .containsEntry("testSourceClosed", new LongCount(1));
         assertEquals(sourceOperatorStats.getConnectorMetrics().getMetrics(), ImmutableMap.of(
@@ -250,7 +250,7 @@ public class TestWorkProcessorPipelineSourceOperator
         // assert pipeline metrics
         List<OperatorStats> operatorSummaries = pipelineStats.getOperatorSummaries();
         assertThat(operatorSummaries.get(0).getMetrics().getMetrics())
-                .hasSize(3)
+                .hasSize(5)
                 .containsEntry("testSourceMetric", new LongCount(1))
                 .containsEntry("testSourceClosed", new LongCount(1));
         assertEquals(operatorSummaries.get(0).getConnectorMetrics().getMetrics(), ImmutableMap.of(
@@ -258,7 +258,7 @@ public class TestWorkProcessorPipelineSourceOperator
                 "testSourceConnectorClosed", new LongCount(1),
                 "Physical input read time", new DurationTiming(new Duration(7, NANOSECONDS))));
         assertThat(operatorSummaries.get(1).getMetrics().getMetrics())
-                .hasSize(2)
+                .hasSize(4)
                 .containsEntry("testOperatorMetric", new LongCount(1));
     }
 
@@ -297,7 +297,7 @@ public class TestWorkProcessorPipelineSourceOperator
     private Split createSplit()
     {
         return new Split(
-                new CatalogName("catalog_name"),
+                TEST_CATALOG_HANDLE,
                 createLocalSplit());
     }
 

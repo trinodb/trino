@@ -59,7 +59,7 @@ public class BackpressureRestHighLevelClient
     {
         this.backpressureStats = requireNonNull(backpressureStats, "backpressureStats is null");
         delegate = new RestHighLevelClient(requireNonNull(restClientBuilder, "restClientBuilder is null"));
-        backpressureRestClient = new BackpressureRestClient(delegate.getLowLevelClient(), requireNonNull(config, "config is null"), backpressureStats);
+        backpressureRestClient = new BackpressureRestClient(delegate.getLowLevelClient(), config, backpressureStats);
         retryPolicy = new RetryPolicy<ActionResponse>()
                 .withMaxAttempts(-1)
                 .withMaxDuration(java.time.Duration.ofMillis(config.getMaxRetryTime().toMillis()))

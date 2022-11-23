@@ -19,7 +19,6 @@ import com.google.inject.Provides;
 import com.google.inject.Singleton;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.util.Objects.requireNonNull;
 
 public class WarningCollectorModule
         implements Module
@@ -34,7 +33,6 @@ public class WarningCollectorModule
     @Singleton
     public WarningCollectorFactory createWarningCollectorFactory(WarningCollectorConfig config)
     {
-        requireNonNull(config, "config is null");
         return () -> new DefaultWarningCollector(config);
     }
 }

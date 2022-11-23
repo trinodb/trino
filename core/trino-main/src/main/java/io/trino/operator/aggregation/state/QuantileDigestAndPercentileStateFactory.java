@@ -19,6 +19,7 @@ import io.trino.array.ObjectBigArray;
 import io.trino.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
 
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class QuantileDigestAndPercentileStateFactory
@@ -40,7 +41,7 @@ public class QuantileDigestAndPercentileStateFactory
             extends AbstractGroupedAccumulatorState
             implements QuantileDigestAndPercentileState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedQuantileDigestAndPercentileState.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedQuantileDigestAndPercentileState.class).instanceSize());
         private final ObjectBigArray<QuantileDigest> digests = new ObjectBigArray<>();
         private final DoubleBigArray percentiles = new DoubleBigArray();
         private long size;
@@ -93,7 +94,7 @@ public class QuantileDigestAndPercentileStateFactory
     public static class SingleQuantileDigestAndPercentileState
             implements QuantileDigestAndPercentileState
     {
-        public static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleQuantileDigestAndPercentileState.class).instanceSize();
+        public static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleQuantileDigestAndPercentileState.class).instanceSize());
         private QuantileDigest digest;
         private double percentile;
 

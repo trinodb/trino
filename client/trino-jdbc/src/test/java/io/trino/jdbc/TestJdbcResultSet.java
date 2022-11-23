@@ -24,6 +24,9 @@ import java.sql.SQLException;
 
 import static java.lang.String.format;
 
+/**
+ * An integration test for JDBC client interacting with Trino server.
+ */
 public class TestJdbcResultSet
         extends BaseTestJdbcResultSet
 {

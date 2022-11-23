@@ -48,7 +48,7 @@ public class BigQueryPageSourceProvider
     {
         this.bigQueryClientFactory = requireNonNull(bigQueryClientFactory, "bigQueryClientFactory is null");
         this.bigQueryReadClientFactory = requireNonNull(bigQueryReadClientFactory, "bigQueryReadClientFactory is null");
-        this.maxReadRowsRetries = requireNonNull(config, "config is null").getMaxReadRowsRetries();
+        this.maxReadRowsRetries = config.getMaxReadRowsRetries();
     }
 
     @Override
@@ -85,13 +85,10 @@ public class BigQueryPageSourceProvider
             BigQuerySplit split,
             List<BigQueryColumnHandle> columnHandles)
     {
-        switch (split.getMode()) {
-            case STORAGE:
-                return createStoragePageSource(session, split, columnHandles);
-            case QUERY:
-                return createQueryPageSource(session, table, columnHandles, split.getFilter());
-        }
-        throw new UnsupportedOperationException("Unsupported mode: " + split.getMode());
+        return switch (split.getMode()) {
+            case STORAGE -> createStoragePageSource(session, split, columnHandles);
+            case QUERY -> createQueryPageSource(session, table, columnHandles, split.getFilter());
+        };
     }
 
     private ConnectorPageSource createStoragePageSource(ConnectorSession session, BigQuerySplit split, List<BigQueryColumnHandle> columnHandles)

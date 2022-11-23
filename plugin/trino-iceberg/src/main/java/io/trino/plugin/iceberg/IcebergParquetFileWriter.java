@@ -13,15 +13,13 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.parquet.writer.ParquetWriterOptions;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
-import org.apache.iceberg.parquet.ParquetUtil;
+import org.apache.iceberg.io.InputFile;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
 
@@ -32,50 +30,52 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.parquet.ParquetUtil.fileMetrics;
 
 public class IcebergParquetFileWriter
         extends ParquetFileWriter
         implements IcebergFileWriter
 {
     private final MetricsConfig metricsConfig;
-    private final Path outputPath;
-    private final HdfsEnvironment hdfsEnvironment;
-    private final HdfsContext hdfsContext;
+    private final String outputPath;
+    private final TrinoFileSystem fileSystem;
 
     public IcebergParquetFileWriter(
             MetricsConfig metricsConfig,
             OutputStream outputStream,
             Callable<Void> rollbackAction,
             List<Type> fileColumnTypes,
+            List<String> fileColumnNames,
             MessageType messageType,
             Map<List<String>, Type> primitiveTypes,
             ParquetWriterOptions parquetWriterOptions,
             int[] fileInputColumnIndexes,
             CompressionCodecName compressionCodecName,
             String trinoVersion,
-            Path outputPath,
-            HdfsEnvironment hdfsEnvironment,
-            HdfsContext hdfsContext)
+            String outputPath,
+            TrinoFileSystem fileSystem)
     {
         super(outputStream,
                 rollbackAction,
                 fileColumnTypes,
+                fileColumnNames,
                 messageType,
                 primitiveTypes,
                 parquetWriterOptions,
                 fileInputColumnIndexes,
                 compressionCodecName,
                 trinoVersion,
+                Optional.empty(),
                 Optional.empty());
         this.metricsConfig = requireNonNull(metricsConfig, "metricsConfig is null");
         this.outputPath = requireNonNull(outputPath, "outputPath is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
+        this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
     }
 
     @Override
     public Metrics getMetrics()
     {
-        return hdfsEnvironment.doAs(hdfsContext.getIdentity(), () -> ParquetUtil.fileMetrics(new HdfsInputFile(outputPath, hdfsEnvironment, hdfsContext), metricsConfig));
+        InputFile inputFile = fileSystem.toFileIo().newInputFile(outputPath);
+        return fileMetrics(inputFile, metricsConfig);
     }
 }

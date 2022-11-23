@@ -29,6 +29,7 @@ import okhttp3.OkHttpClient.Builder;
 import okhttp3.Request;
 import okhttp3.Response;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.io.File;
@@ -41,6 +42,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static io.trino.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_TABLES_METRICS_RETRIEVE_ERROR;
 import static io.trino.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_UNKNOWN_ERROR;
@@ -50,6 +52,7 @@ import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.readString;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -61,11 +64,11 @@ public class PrometheusClient
     private final OkHttpClient httpClient;
     private final Supplier<Map<String, Object>> tableSupplier;
     private final Type varcharMapType;
+    private final boolean caseInsensitiveNameMatching;
 
     @Inject
     public PrometheusClient(PrometheusConnectorConfig config, JsonCodec<Map<String, Object>> metricCodec, TypeManager typeManager)
     {
-        requireNonNull(config, "config is null");
         requireNonNull(metricCodec, "metricCodec is null");
         requireNonNull(typeManager, "typeManager is null");
 
@@ -80,6 +83,7 @@ public class PrometheusClient
                 config.getCacheDuration().toMillis(),
                 MILLISECONDS);
         varcharMapType = typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+        this.caseInsensitiveNameMatching = config.isCaseInsensitiveNameMatching();
     }
 
     private static URI getPrometheusMetricsURI(URI prometheusUri)
@@ -106,6 +110,7 @@ public class PrometheusClient
         throw new TrinoException(PROMETHEUS_TABLES_METRICS_RETRIEVE_ERROR, "Prometheus did no return metrics list (table names): " + status);
     }
 
+    @Nullable
     public PrometheusTable getTable(String schema, String tableName)
     {
         requireNonNull(schema, "schema is null");
@@ -114,19 +119,41 @@ public class PrometheusClient
             return null;
         }
 
-        List<String> tableNames = (List<String>) tableSupplier.get().get("data");
-        if (tableNames == null) {
-            return null;
-        }
-        if (!tableNames.contains(tableName)) {
+        String remoteTableName = toRemoteTableName(tableName);
+        if (remoteTableName == null) {
             return null;
         }
         return new PrometheusTable(
-                tableName,
+                remoteTableName,
                 ImmutableList.of(
                         new PrometheusColumn("labels", varcharMapType),
                         new PrometheusColumn("timestamp", TIMESTAMP_COLUMN_TYPE),
                         new PrometheusColumn("value", DoubleType.DOUBLE)));
+    }
+
+    @Nullable
+    private String toRemoteTableName(String tableName)
+    {
+        verify(tableName.equals(tableName.toLowerCase(ENGLISH)), "tableName not in lower-case: %s", tableName);
+        List<String> tableNames = (List<String>) tableSupplier.get().get("data");
+        if (tableNames == null) {
+            return null;
+        }
+
+        if (!caseInsensitiveNameMatching) {
+            if (tableNames.contains(tableName)) {
+                return tableName;
+            }
+        }
+        else {
+            for (String remoteTableName : tableNames) {
+                if (tableName.equals(remoteTableName.toLowerCase(ENGLISH))) {
+                    return remoteTableName;
+                }
+            }
+        }
+
+        return null;
     }
 
     private Map<String, Object> fetchMetrics(JsonCodec<Map<String, Object>> metricsCodec, URI metadataUri)

@@ -72,8 +72,6 @@ class EstimateAssertion
         if (object instanceof Number) {
             return ((Number) object).doubleValue();
         }
-        else {
-            throw new UnsupportedOperationException(format("Can't compare with tolerance objects of class %s. Use assertEquals.", object.getClass()));
-        }
+        throw new UnsupportedOperationException(format("Can't compare with tolerance objects of class %s. Use assertEquals.", object.getClass()));
     }
 }

@@ -18,9 +18,11 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 
+import static java.lang.Math.toIntExact;
+
 public class IntList
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntList.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(IntList.class).instanceSize());
 
     private int[] values;
     private int next;

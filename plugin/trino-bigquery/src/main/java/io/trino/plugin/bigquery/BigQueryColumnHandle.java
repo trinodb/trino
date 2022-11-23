@@ -31,13 +31,14 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryColumnHandle
         implements ColumnHandle, BigQueryType.Adaptor
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BigQueryColumnHandle.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BigQueryColumnHandle.class).instanceSize());
 
     private final String name;
     private final BigQueryType bigQueryType;

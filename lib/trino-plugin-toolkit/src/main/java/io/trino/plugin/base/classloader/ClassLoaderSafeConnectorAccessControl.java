@@ -151,6 +151,14 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
+    public void checkCanSetViewComment(ConnectorSecurityContext context, SchemaTableName viewName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.checkCanSetViewComment(context, viewName);
+        }
+    }
+
+    @Override
     public void checkCanSetColumnComment(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -331,6 +339,14 @@ public class ClassLoaderSafeConnectorAccessControl
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.checkCanRenameMaterializedView(context, viewName, newViewName);
+        }
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.checkCanGrantExecuteFunctionPrivilege(context, functionKind, functionName, grantee, grantOption);
         }
     }
 

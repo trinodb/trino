@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.trino.plugin.hive.HiveConfig.CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.OVERWRITE;
 import static io.trino.plugin.hive.util.TestHiveUtil.nonDefaultTimeZone;
@@ -38,7 +39,8 @@ public class TestHiveConfig
         assertRecordedDefaults(recordDefaults(HiveConfig.class)
                 .setSingleStatementWritesOnly(false)
                 .setMaxSplitSize(DataSize.of(64, Unit.MEGABYTE))
-                .setMaxPartitionsPerScan(100_000)
+                .setMaxPartitionsPerScan(1_000_000)
+                .setMaxPartitionsForEagerLoad(100_000)
                 .setMaxOutstandingSplits(1_000)
                 .setMaxOutstandingSplitsSize(DataSize.of(256, Unit.MEGABYTE))
                 .setMaxSplitIteratorThreads(1_000)
@@ -56,6 +58,7 @@ public class TestHiveConfig
                 .setMaxConcurrentFileRenames(20)
                 .setMaxConcurrentMetastoreDrops(20)
                 .setMaxConcurrentMetastoreUpdates(20)
+                .setMaxPartitionDropsPerQuery(100_000)
                 .setRecursiveDirWalkerEnabled(false)
                 .setIgnoreAbsentPartitions(false)
                 .setHiveStorageFormat(HiveStorageFormat.ORC)
@@ -113,7 +116,8 @@ public class TestHiveConfig
                 .setSizeBasedSplitWeightsEnabled(true)
                 .setMinimumAssignedSplitWeight(0.05)
                 .setDeltaLakeCatalogName(null)
-                .setAutoPurge(false));
+                .setAutoPurge(false)
+                .setPartitionProjectionEnabled(false));
     }
 
     @Test
@@ -123,6 +127,7 @@ public class TestHiveConfig
                 .put("hive.single-statement-writes", "true")
                 .put("hive.max-split-size", "256MB")
                 .put("hive.max-partitions-per-scan", "123")
+                .put("hive.max-partitions-for-eager-load", "122")
                 .put("hive.max-outstanding-splits", "10")
                 .put("hive.max-outstanding-splits-size", "32MB")
                 .put("hive.max-split-iterator-threads", "10")
@@ -154,6 +159,7 @@ public class TestHiveConfig
                 .put("hive.max-concurrent-file-renames", "100")
                 .put("hive.max-concurrent-metastore-drops", "100")
                 .put("hive.max-concurrent-metastore-updates", "100")
+                .put("hive.max-partition-drops-per-query", "1000")
                 .put("hive.text.max-line-length", "13MB")
                 .put("hive.orc.time-zone", nonDefaultTimeZone().getID())
                 .put("hive.parquet.time-zone", nonDefaultTimeZone().getID())
@@ -198,12 +204,14 @@ public class TestHiveConfig
                 .put("hive.minimum-assigned-split-weight", "1.0")
                 .put("hive.delta-lake-catalog-name", "delta")
                 .put("hive.auto-purge", "true")
+                .put(CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED, "true")
                 .buildOrThrow();
 
         HiveConfig expected = new HiveConfig()
                 .setSingleStatementWritesOnly(true)
                 .setMaxSplitSize(DataSize.of(256, Unit.MEGABYTE))
                 .setMaxPartitionsPerScan(123)
+                .setMaxPartitionsForEagerLoad(122)
                 .setMaxOutstandingSplits(10)
                 .setMaxOutstandingSplitsSize(DataSize.of(32, Unit.MEGABYTE))
                 .setMaxSplitIteratorThreads(10)
@@ -221,6 +229,7 @@ public class TestHiveConfig
                 .setMaxConcurrentFileRenames(100)
                 .setMaxConcurrentMetastoreDrops(100)
                 .setMaxConcurrentMetastoreUpdates(100)
+                .setMaxPartitionDropsPerQuery(1000)
                 .setRecursiveDirWalkerEnabled(true)
                 .setIgnoreAbsentPartitions(true)
                 .setHiveStorageFormat(HiveStorageFormat.SEQUENCEFILE)
@@ -278,7 +287,8 @@ public class TestHiveConfig
                 .setSizeBasedSplitWeightsEnabled(false)
                 .setMinimumAssignedSplitWeight(1.0)
                 .setDeltaLakeCatalogName("delta")
-                .setAutoPurge(true);
+                .setAutoPurge(true)
+                .setPartitionProjectionEnabled(true);
 
         assertFullMapping(properties, expected);
     }

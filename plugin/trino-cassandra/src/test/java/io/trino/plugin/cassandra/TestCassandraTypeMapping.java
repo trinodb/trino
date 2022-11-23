@@ -61,7 +61,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -392,15 +392,31 @@ public class TestCassandraTypeMapping
     public void testCassandraInet()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("inet", "NULL", createVarcharType(45), "CAST(NULL AS varchar(45))")
-                .addRoundTrip("inet", "'0.0.0.0'", createVarcharType(45), "CAST('0.0.0.0' AS varchar(45))")
-                .addRoundTrip("inet", "'116.253.40.133'", createVarcharType(45), "CAST('116.253.40.133' AS varchar(45))")
-                .addRoundTrip("inet", "'255.255.255.255'", createVarcharType(45), "CAST('255.255.255.255' AS varchar(45))")
-                .addRoundTrip("inet", "'::'", createVarcharType(45), "CAST('::' AS varchar(45))")
-                .addRoundTrip("inet", "'2001:44c8:129:2632:33:0:252:2'", createVarcharType(45), "CAST('2001:44c8:129:2632:33:0:252:2' AS varchar(45))")
-                .addRoundTrip("inet", "'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'", createVarcharType(45), "CAST('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff' AS varchar(45))")
-                .addRoundTrip("inet", "'ffff:ffff:ffff:ffff:ffff:ffff:255.255.255.255'", createVarcharType(45), "CAST('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff' AS varchar(45))")
+                .addRoundTrip("inet", "NULL", IPADDRESS, "CAST(NULL AS ipaddress)")
+                .addRoundTrip("inet", "'0.0.0.0'", IPADDRESS, "CAST('0.0.0.0' AS ipaddress)")
+                .addRoundTrip("inet", "'116.253.40.133'", IPADDRESS, "CAST('116.253.40.133' AS ipaddress)")
+                .addRoundTrip("inet", "'255.255.255.255'", IPADDRESS, "CAST('255.255.255.255' AS ipaddress)")
+                .addRoundTrip("inet", "'::'", IPADDRESS, "CAST('::' AS ipaddress)")
+                .addRoundTrip("inet", "'2001:44c8:129:2632:33:0:252:2'", IPADDRESS, "CAST('2001:44c8:129:2632:33:0:252:2' AS ipaddress)")
+                .addRoundTrip("inet", "'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'", IPADDRESS, "CAST('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff' AS ipaddress)")
+                .addRoundTrip("inet", "'ffff:ffff:ffff:ffff:ffff:ffff:255.255.255.255'", IPADDRESS, "CAST('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff' AS ipaddress)")
                 .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_inet"));
+    }
+
+    @Test
+    public void testIpAddress()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("ipaddress", "NULL", IPADDRESS, "CAST(NULL AS ipaddress)")
+                .addRoundTrip("ipaddress", "ipaddress '0.0.0.0'", IPADDRESS, "CAST('0.0.0.0' AS ipaddress)")
+                .addRoundTrip("ipaddress", "ipaddress '116.253.40.133'", IPADDRESS, "CAST('116.253.40.133' AS ipaddress)")
+                .addRoundTrip("ipaddress", "ipaddress '255.255.255.255'", IPADDRESS, "CAST('255.255.255.255' AS ipaddress)")
+                .addRoundTrip("ipaddress", "ipaddress '::'", IPADDRESS, "CAST('::' AS ipaddress)")
+                .addRoundTrip("ipaddress", "ipaddress '2001:44c8:129:2632:33:0:252:2'", IPADDRESS, "CAST('2001:44c8:129:2632:33:0:252:2' AS ipaddress)")
+                .addRoundTrip("ipaddress", "ipaddress 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'", IPADDRESS, "CAST('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff' AS ipaddress)")
+                .addRoundTrip("ipaddress", "ipaddress 'ffff:ffff:ffff:ffff:ffff:ffff:255.255.255.255'", IPADDRESS, "CAST('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff' AS ipaddress)")
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_ipaddress"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_ipaddress"));
     }
 
     @Test
@@ -541,7 +557,7 @@ public class TestCassandraTypeMapping
                 // using two non-JVM zones so that we don't need to worry what Cassandra system zone is
                 {vilnius},
                 {kathmandu},
-                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
         };
     }
 

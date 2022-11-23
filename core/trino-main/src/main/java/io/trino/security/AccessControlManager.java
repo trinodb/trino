@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle.CatalogHandleType;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.metadata.QualifiedObjectName;
@@ -124,7 +124,7 @@ public class AccessControlManager
     }
 
     /**
-     * Lazy registry for connector access controls due to circular dependency between access control and connector creation in ConnectorManager.
+     * Lazy registry for connector access controls due to circular dependency between access control and connector creation in CatalogManager.
      */
     public void setConnectorAccessControlProvider(CatalogServiceProvider<Optional<ConnectorAccessControl>> connectorAccessControlProvider)
     {
@@ -483,6 +483,19 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanSetViewComment(SecurityContext securityContext, QualifiedObjectName viewName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(viewName, "viewName is null");
+
+        checkCanAccessCatalog(securityContext, viewName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanSetViewComment(securityContext.toSystemSecurityContext(), viewName.asCatalogSchemaTableName()));
+
+        catalogAuthorizationCheck(viewName.getCatalogName(), securityContext, (control, context) -> control.checkCanSetViewComment(context, viewName.asSchemaTableName()));
+    }
+
+    @Override
     public void checkCanSetColumnComment(SecurityContext securityContext, QualifiedObjectName tableName)
     {
         requireNonNull(securityContext, "securityContext is null");
@@ -828,6 +841,31 @@ public class AccessControlManager
                 functionName,
                 new TrinoPrincipal(PrincipalType.USER, grantee.getUser()),
                 grantOption));
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext securityContext, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(functionKind, "functionKind is null");
+        requireNonNull(functionName, "functionName is null");
+
+        systemAuthorizationCheck(control -> control.checkCanGrantExecuteFunctionPrivilege(
+                securityContext.toSystemSecurityContext(),
+                functionKind,
+                functionName.asCatalogSchemaRoutineName(),
+                new TrinoPrincipal(PrincipalType.USER, grantee.getUser()),
+                grantOption));
+
+        catalogAuthorizationCheck(
+                functionName.getCatalogName(),
+                securityContext,
+                (control, context) -> control.checkCanGrantExecuteFunctionPrivilege(
+                        context,
+                        functionKind,
+                        functionName.asSchemaRoutineName(),
+                        new TrinoPrincipal(PrincipalType.USER, grantee.getUser()),
+                        grantOption));
     }
 
     @Override
@@ -1226,7 +1264,7 @@ public class AccessControlManager
             return null;
         }
 
-        return transactionManager.getCatalogName(transactionId, catalogName)
+        return transactionManager.getCatalogHandle(transactionId, catalogName)
                 .flatMap(connectorAccessControlProvider::getService)
                 .orElse(null);
     }
@@ -1312,7 +1350,7 @@ public class AccessControlManager
     private ConnectorSecurityContext toConnectorSecurityContext(String catalogName, TransactionId requiredTransactionId, Identity identity, QueryId queryId)
     {
         return new ConnectorSecurityContext(
-                transactionManager.getConnectorTransaction(requiredTransactionId, new CatalogName(catalogName)),
+                transactionManager.getRequiredCatalogMetadata(requiredTransactionId, catalogName).getTransactionHandleFor(CatalogHandleType.NORMAL),
                 identity.toConnectorIdentity(catalogName),
                 queryId);
     }

@@ -69,7 +69,7 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitArrayConstructor(ArrayConstructor node, C context)
+    protected Void visitArray(Array node, C context)
     {
         for (Expression expression : node.getValues()) {
             process(expression, context);
@@ -678,10 +678,9 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitMerge(Merge node, C context)
     {
-        process(node.getTable(), context);
-        node.getTargetAlias().ifPresent(target -> process(target, context));
-        process(node.getRelation(), context);
-        process(node.getExpression(), context);
+        process(node.getTarget(), context);
+        process(node.getSource(), context);
+        process(node.getPredicate(), context);
         node.getMergeCases().forEach(mergeCase -> process(mergeCase, context));
         return null;
     }

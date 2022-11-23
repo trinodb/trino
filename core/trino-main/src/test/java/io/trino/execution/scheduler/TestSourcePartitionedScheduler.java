@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogName;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.MockRemoteTaskFactory;
@@ -100,6 +99,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.Integer.min;
@@ -114,7 +114,6 @@ import static org.testng.Assert.assertTrue;
 public class TestSourcePartitionedScheduler
 {
     private static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("plan_id");
-    private static final CatalogName CONNECTOR_ID = TEST_TABLE_HANDLE.getCatalogName();
     private static final QueryId QUERY_ID = new QueryId("query");
     private static final DynamicFilterId DYNAMIC_FILTER_ID = new DynamicFilterId("filter1");
 
@@ -129,7 +128,7 @@ public class TestSourcePartitionedScheduler
 
     public TestSourcePartitionedScheduler()
     {
-        nodeManager.addNode(CONNECTOR_ID,
+        nodeManager.addNodes(
                 new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
@@ -161,6 +160,29 @@ public class TestSourcePartitionedScheduler
         ScheduleResult scheduleResult = scheduler.schedule();
 
         assertEquals(scheduleResult.getNewTasks().size(), 1);
+        assertEffectivelyFinished(scheduleResult, scheduler);
+
+        stage.abort();
+    }
+
+    @Test
+    public void testDoesNotScheduleEmptySplit()
+    {
+        PlanFragment plan = createFragment();
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        StageExecution stage = createStageExecution(plan, nodeTaskMap);
+
+        ConnectorSplitSource splitSource = createFixedSplitSource(2, TestingSplit::createRemoteSplit);
+        StageScheduler scheduler = getSourcePartitionedScheduler(splitSource, stage, nodeManager, nodeTaskMap, 1, STAGE);
+
+        assertEquals(scheduler.schedule().getNewTasks().size(), 1);
+
+        // ensure that next batch size fetched by scheduler will be empty and last
+        splitSource.getNextBatch(1);
+
+        ScheduleResult scheduleResult = scheduler.schedule();
+        assertEquals(scheduleResult.getNewTasks().size(), 0);
+
         assertEffectivelyFinished(scheduleResult, scheduler);
 
         stage.abort();
@@ -343,8 +365,8 @@ public class TestSourcePartitionedScheduler
             StageScheduler scheduler = newSourcePartitionedSchedulerAsStageScheduler(
                     stage,
                     TABLE_SCAN_NODE_ID,
-                    new ConnectorAwareSplitSource(CONNECTOR_ID, createFixedSplitSource(20, TestingSplit::createRemoteSplit)),
-                    new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID)), stage::getAllTasks),
+                    new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, createFixedSplitSource(20, TestingSplit::createRemoteSplit)),
+                    new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(TEST_CATALOG_HANDLE)), stage::getAllTasks),
                     2,
                     new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
                     new TableExecuteContextManager(),
@@ -357,8 +379,7 @@ public class TestSourcePartitionedScheduler
     public void testWorkerBalancedSplitAssignment()
     {
         // use private node manager so we can add a node later
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        nodeManager.addNode(CONNECTOR_ID,
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(
                 new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
@@ -381,7 +402,7 @@ public class TestSourcePartitionedScheduler
 
         // Add new node
         InternalNode additionalNode = new InternalNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, false);
-        nodeManager.addNode(CONNECTOR_ID, additionalNode);
+        nodeManager.addNodes(additionalNode);
 
         // Schedule 5 splits in another query. Since the new node does not have any splits, all 5 splits are assigned to the new node
         PlanFragment secondPlan = createFragment();
@@ -404,8 +425,7 @@ public class TestSourcePartitionedScheduler
     public void testStageBalancedSplitAssignment()
     {
         // use private node manager so we can add a node later
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        nodeManager.addNode(CONNECTOR_ID,
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(
                 new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
@@ -429,7 +449,7 @@ public class TestSourcePartitionedScheduler
 
         // Add new node
         InternalNode additionalNode = new InternalNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, false);
-        nodeManager.addNode(CONNECTOR_ID, additionalNode);
+        nodeManager.addNodes(additionalNode);
 
         // Schedule 5 splits in first query. Since the new node does not have any splits, all 5 splits are assigned to the new node
         firstSplitSource.addSplits(5);
@@ -446,7 +466,7 @@ public class TestSourcePartitionedScheduler
 
         // Add new node
         InternalNode anotherAdditionalNode = new InternalNode("other5", URI.create("http://127.0.0.1:15"), NodeVersion.UNKNOWN, false);
-        nodeManager.addNode(CONNECTOR_ID, anotherAdditionalNode);
+        nodeManager.addNodes(anotherAdditionalNode);
 
         // Schedule 5 splits in another query. New query should be balanced across all nodes
         PlanFragment secondPlan = createFragment();
@@ -470,8 +490,7 @@ public class TestSourcePartitionedScheduler
     {
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         // use private node manager so we can add a node later
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        nodeManager.addNode(CONNECTOR_ID,
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(
                 new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
@@ -484,8 +503,8 @@ public class TestSourcePartitionedScheduler
         StageScheduler scheduler = newSourcePartitionedSchedulerAsStageScheduler(
                 stage,
                 TABLE_SCAN_NODE_ID,
-                new ConnectorAwareSplitSource(CONNECTOR_ID, createFixedSplitSource(500, TestingSplit::createRemoteSplit)),
-                new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID)), stage::getAllTasks),
+                new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, createFixedSplitSource(500, TestingSplit::createRemoteSplit)),
+                new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(TEST_CATALOG_HANDLE)), stage::getAllTasks),
                 500,
                 new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
                 new TableExecuteContextManager(),
@@ -502,7 +521,7 @@ public class TestSourcePartitionedScheduler
         }
 
         // new node added - the pending splits should go to it since the child tasks are not blocked
-        nodeManager.addNode(CONNECTOR_ID, new InternalNode("other4", URI.create("http://127.0.0.4:14"), NodeVersion.UNKNOWN, false));
+        nodeManager.addNodes(new InternalNode("other4", URI.create("http://127.0.0.4:14"), NodeVersion.UNKNOWN, false));
         scheduleResult = scheduler.schedule();
         assertEquals(scheduleResult.getBlockedReason().get(), SPLIT_QUEUES_FULL); // split queue is full but still the source task creation isn't blocked
         assertEquals(scheduleResult.getNewTasks().size(), 1);
@@ -514,8 +533,7 @@ public class TestSourcePartitionedScheduler
     {
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         // use private node manager so we can add a node later
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        nodeManager.addNode(CONNECTOR_ID,
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(
                 new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
@@ -528,8 +546,8 @@ public class TestSourcePartitionedScheduler
         StageScheduler scheduler = newSourcePartitionedSchedulerAsStageScheduler(
                 stage,
                 TABLE_SCAN_NODE_ID,
-                new ConnectorAwareSplitSource(CONNECTOR_ID, createFixedSplitSource(400, TestingSplit::createRemoteSplit)),
-                new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID)), stage::getAllTasks),
+                new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, createFixedSplitSource(400, TestingSplit::createRemoteSplit)),
+                new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(TEST_CATALOG_HANDLE)), stage::getAllTasks),
                 400,
                 new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
                 new TableExecuteContextManager(),
@@ -546,7 +564,7 @@ public class TestSourcePartitionedScheduler
         }
 
         // new node added but 1 child's output buffer is overutilized - so lockdown the tasks
-        nodeManager.addNode(CONNECTOR_ID, new InternalNode("other4", URI.create("http://127.0.0.4:14"), NodeVersion.UNKNOWN, false));
+        nodeManager.addNodes(new InternalNode("other4", URI.create("http://127.0.0.4:14"), NodeVersion.UNKNOWN, false));
         scheduleResult = scheduler.schedule();
         assertEquals(scheduleResult.getBlockedReason().get(), SPLIT_QUEUES_FULL);
         assertEquals(scheduleResult.getNewTasks().size(), 0);
@@ -570,8 +588,8 @@ public class TestSourcePartitionedScheduler
         StageScheduler scheduler = newSourcePartitionedSchedulerAsStageScheduler(
                 stage,
                 TABLE_SCAN_NODE_ID,
-                new ConnectorAwareSplitSource(CONNECTOR_ID, createBlockedSplitSource()),
-                new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID)), stage::getAllTasks),
+                new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, createBlockedSplitSource()),
+                new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(TEST_CATALOG_HANDLE)), stage::getAllTasks),
                 2,
                 dynamicFilterService,
                 new TableExecuteContextManager(),
@@ -637,11 +655,11 @@ public class TestSourcePartitionedScheduler
                 .setSplitsBalancingPolicy(splitsBalancingPolicy);
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap, new Duration(0, SECONDS)));
 
-        SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID)), stage::getAllTasks);
+        SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(TEST_CATALOG_HANDLE)), stage::getAllTasks);
         return newSourcePartitionedSchedulerAsStageScheduler(
                 stage,
                 TABLE_SCAN_NODE_ID,
-                new ConnectorAwareSplitSource(CONNECTOR_ID, splitSource),
+                new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, splitSource),
                 placementPolicy,
                 splitBatchSize,
                 new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
@@ -690,6 +708,7 @@ public class TestSourcePartitionedScheduler
                 ImmutableList.of(TABLE_SCAN_NODE_ID),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
                 StatsAndCosts.empty(),
+                ImmutableList.of(),
                 Optional.empty());
     }
 
@@ -731,18 +750,18 @@ public class TestSourcePartitionedScheduler
         StageId stageId = new StageId(QUERY_ID, 0);
         SqlStage stage = SqlStage.createSqlStage(stageId,
                 fragment,
-                ImmutableMap.of(TABLE_SCAN_NODE_ID, new TableInfo(new QualifiedObjectName("test", "test", "test"), TupleDomain.all())),
+                ImmutableMap.of(TABLE_SCAN_NODE_ID, new TableInfo(Optional.of("test"), new QualifiedObjectName("test", "test", "test"), TupleDomain.all())),
                 new MockRemoteTaskFactory(queryExecutor, scheduledExecutor),
                 TEST_SESSION,
                 true,
                 nodeTaskMap,
                 queryExecutor,
                 new SplitSchedulerStats());
-        ImmutableMap.Builder<PlanFragmentId, OutputBufferManager> outputBuffers = ImmutableMap.builder();
-        outputBuffers.put(fragment.getId(), new PartitionedOutputBufferManager(FIXED_HASH_DISTRIBUTION, 1));
+        ImmutableMap.Builder<PlanFragmentId, PipelinedOutputBufferManager> outputBuffers = ImmutableMap.builder();
+        outputBuffers.put(fragment.getId(), new PartitionedPipelinedOutputBufferManager(FIXED_HASH_DISTRIBUTION, 1));
         fragment.getRemoteSourceNodes().stream()
                 .flatMap(node -> node.getSourceFragmentIds().stream())
-                .forEach(fragmentId -> outputBuffers.put(fragmentId, new PartitionedOutputBufferManager(FIXED_HASH_DISTRIBUTION, 10)));
+                .forEach(fragmentId -> outputBuffers.put(fragmentId, new PartitionedPipelinedOutputBufferManager(FIXED_HASH_DISTRIBUTION, 10)));
         return createPipelinedStageExecution(
                 stage,
                 outputBuffers.buildOrThrow(),

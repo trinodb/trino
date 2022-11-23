@@ -24,6 +24,8 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestPinotConfig
 {
@@ -45,6 +47,7 @@ public class TestPinotConfig
                         .setAggregationPushdownEnabled(true)
                         .setCountDistinctPushdownEnabled(true)
                         .setGrpcEnabled(true)
+                        .setProxyEnabled(false)
                         .setTargetSegmentPageSize(DataSize.of(1, MEGABYTE)));
     }
 
@@ -52,7 +55,7 @@ public class TestPinotConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("pinot.controller-urls", "host1:1111,host2:1111")
+                .put("pinot.controller-urls", "https://host1:1111,https://host2:1111")
                 .put("pinot.estimated-size-in-bytes-for-non-numeric-column", "30")
                 .put("pinot.connection-timeout", "8m")
                 .put("pinot.metadata-expiry", "1m")
@@ -65,11 +68,12 @@ public class TestPinotConfig
                 .put("pinot.aggregation-pushdown.enabled", "false")
                 .put("pinot.count-distinct-pushdown.enabled", "false")
                 .put("pinot.grpc.enabled", "false")
+                .put("pinot.proxy.enabled", "true")
                 .put("pinot.target-segment-page-size", "2MB")
                 .buildOrThrow();
 
         PinotConfig expected = new PinotConfig()
-                .setControllerUrls("host1:1111,host2:1111")
+                .setControllerUrls("https://host1:1111,https://host2:1111")
                 .setEstimatedSizeInBytesForNonNumericColumn(30)
                 .setConnectionTimeout(new Duration(8, TimeUnit.MINUTES))
                 .setMetadataCacheExpiry(new Duration(1, TimeUnit.MINUTES))
@@ -82,6 +86,7 @@ public class TestPinotConfig
                 .setAggregationPushdownEnabled(false)
                 .setCountDistinctPushdownEnabled(false)
                 .setGrpcEnabled(false)
+                .setProxyEnabled(true)
                 .setTargetSegmentPageSize(DataSize.of(2, MEGABYTE));
 
         ConfigAssertions.assertFullMapping(properties, expected);
@@ -96,5 +101,27 @@ public class TestPinotConfig
                 .validate())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Invalid configuration: pinot.aggregation-pushdown.enabled must be enabled if pinot.count-distinct-pushdown.enabled");
+    }
+
+    @Test
+    public void testControllerUrls()
+    {
+        PinotConfig config = new PinotConfig();
+        config.setControllerUrls("my-controller-1:8443,my-controller-2:8443");
+        assertTrue(config.allUrlSchemesEqual());
+        assertFalse(config.isTlsEnabled());
+        config.setControllerUrls("http://my-controller-1:9000,http://my-controller-2:9000");
+        assertTrue(config.allUrlSchemesEqual());
+        assertFalse(config.isTlsEnabled());
+        config.setControllerUrls("https://my-controller-1:8443,https://my-controller-2:8443");
+        assertTrue(config.allUrlSchemesEqual());
+        assertTrue(config.isTlsEnabled());
+        config.setControllerUrls("my-controller-1:8443,http://my-controller-2:8443");
+        assertTrue(config.allUrlSchemesEqual());
+        assertFalse(config.isTlsEnabled());
+        config.setControllerUrls("http://my-controller-1:8443,https://my-controller-2:8443");
+        assertFalse(config.allUrlSchemesEqual());
+        config.setControllerUrls("my-controller-1:8443,https://my-controller-2:8443");
+        assertFalse(config.allUrlSchemesEqual());
     }
 }

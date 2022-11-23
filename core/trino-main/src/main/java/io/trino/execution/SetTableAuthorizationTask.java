@@ -19,7 +19,6 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
-import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.Expression;
@@ -71,8 +70,7 @@ public class SetTableAuthorizationTask
 
         getRequiredCatalogHandle(metadata, session, statement, tableName.getCatalogName());
         RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
-        Optional<TableHandle> tableHandle = redirection.getTableHandle();
-        if (tableHandle.isEmpty()) {
+        if (redirection.getTableHandle().isEmpty()) {
             throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
         }
         if (redirection.getRedirectedTableName().isPresent()) {

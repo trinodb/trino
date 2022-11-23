@@ -42,7 +42,7 @@ public class TestFunctions
     public void testVersion()
     {
         assertEquals(
-                onTrino().executeQuery("SELECT version()").row(0).get(0),
-                onTrino().executeQuery("SELECT node_version FROM system.runtime.nodes WHERE coordinator = TRUE").row(0).get(0));
+                onTrino().executeQuery("SELECT version()").getOnlyValue(),
+                onTrino().executeQuery("SELECT node_version FROM system.runtime.nodes WHERE coordinator = TRUE").getOnlyValue());
     }
 }

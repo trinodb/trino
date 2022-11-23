@@ -21,6 +21,9 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.plugin.blackhole.BlackHolePlugin;
+import io.trino.plugin.jdbc.JdbcPlugin;
+import io.trino.plugin.jdbc.TestingH2JdbcModule;
+import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
@@ -29,12 +32,15 @@ import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DataProviders;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
 import io.trino.testing.TestingSession;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
@@ -42,6 +48,7 @@ import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW;
@@ -67,6 +74,7 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestAccessControl
@@ -85,6 +93,8 @@ public class TestAccessControl
                 .build();
         queryRunner.installPlugin(new BlackHolePlugin());
         queryRunner.createCatalog("blackhole", "blackhole");
+        queryRunner.installPlugin(new MemoryPlugin());
+        queryRunner.createCatalog("memory", "memory", Map.of());
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
@@ -112,6 +122,8 @@ public class TestAccessControl
                 .withListRoleGrants((connectorSession, roles, grantees, limit) -> ImmutableSet.of(new RoleGrant(new TrinoPrincipal(USER, "alice"), "alice_role", false)))
                 .build()));
         queryRunner.createCatalog("mock", "mock");
+        queryRunner.installPlugin(new JdbcPlugin("base-jdbc", new TestingH2JdbcModule()));
+        queryRunner.createCatalog("jdbc", "base-jdbc", TestingH2JdbcModule.createProperties());
         for (String tableName : ImmutableList.of("orders", "nation", "region", "lineitem")) {
             queryRunner.execute(format("CREATE TABLE %1$s AS SELECT * FROM tpch.tiny.%1$s WITH NO DATA", tableName));
         }
@@ -344,6 +356,47 @@ public class TestAccessControl
     }
 
     @Test
+    public void testCommentView()
+    {
+        String viewName = "comment_view" + randomTableSuffix();
+        assertUpdate("CREATE VIEW " + viewName + " COMMENT 'old comment' AS SELECT * FROM orders");
+        assertAccessDenied("COMMENT ON VIEW " + viewName + " IS 'new comment'", "Cannot comment view to .*", privilege(viewName, COMMENT_VIEW));
+        assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "COMMENT ON VIEW " + viewName + " IS 'new comment'"))
+                .hasMessageContaining("This connector does not support setting view comments");
+    }
+
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testViewWithTableFunction(boolean securityDefiner)
+    {
+        Session viewOwner = getSession();
+        Session otherUser = Session.builder(getSession())
+                .setIdentity(Identity.ofUser(getSession().getUser() + "-someone-else"))
+                .build();
+
+        String viewName = "memory.default.definer_view_with_ptf";
+        assertUpdate(viewOwner, "CREATE VIEW " + viewName + " SECURITY " + (securityDefiner ? "DEFINER" : "INVOKER") + " AS SELECT * FROM TABLE (jdbc.system.query('SELECT ''from h2'', monthname(CAST(''2005-09-10'' AS date))'))");
+        String viewValues = "VALUES ('from h2', 'September') ";
+
+        assertThat(query(viewOwner, "TABLE " + viewName)).matches(viewValues);
+        assertThat(query(otherUser, "TABLE " + viewName)).matches(viewValues);
+
+        TestingPrivilege grantExecute = TestingAccessControlManager.privilege("jdbc.system.query", GRANT_EXECUTE_FUNCTION);
+        assertAccessAllowed(viewOwner, "TABLE " + viewName, grantExecute);
+        if (securityDefiner) {
+            assertAccessDenied(
+                    otherUser,
+                    "TABLE " + viewName,
+                    "View owner does not have sufficient privileges: 'user' cannot grant 'jdbc.system.query' execution to user 'user-someone-else'",
+                    grantExecute);
+        }
+        else {
+            assertAccessAllowed(otherUser, "TABLE " + viewName, grantExecute);
+        }
+
+        assertUpdate("DROP VIEW " + viewName);
+    }
+
+    @Test
     public void testSetTableProperties()
     {
         assertAccessDenied("ALTER TABLE orders SET PROPERTIES field_length = 32", "Cannot set table properties to .*.orders.*", privilege("orders", SET_TABLE_PROPERTIES));
@@ -354,7 +407,7 @@ public class TestAccessControl
     @Test
     public void testDeleteAccessControl()
     {
-        assertAccessDenied("DELETE FROM orders WHERE orderkey < 12", "Cannot select from columns \\[orderkey] in table or view .*." + "orders" + ".*", privilege("orders" + ".orderkey", SELECT_COLUMN));
+        assertAccessDenied("DELETE FROM orders WHERE orderkey < 12", "Cannot select from columns \\[orderkey] in table or view .*.orders.*", privilege("orders.orderkey", SELECT_COLUMN));
         assertAccessAllowed("DELETE FROM orders WHERE orderkey < 12", privilege("orders" + ".orderdate", SELECT_COLUMN));
         assertAccessAllowed("DELETE FROM orders", privilege("orders", SELECT_COLUMN));
     }
@@ -369,8 +422,65 @@ public class TestAccessControl
     public void testUpdateAccessControl()
     {
         assertAccessDenied("UPDATE orders SET orderkey=123", "Cannot update columns \\[orderkey] in table .*", privilege("orders", UPDATE_TABLE));
-        assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "UPDATE orders SET orderkey=123"))
-                .hasMessageContaining("This connector does not support updates");
+        assertAccessDenied("UPDATE orders SET orderkey=123 WHERE custkey < 12", "Cannot select from columns \\[custkey] in table or view .*.default.orders", privilege("orders.custkey", SELECT_COLUMN));
+        assertAccessAllowed("UPDATE orders SET orderkey=123", privilege("orders", SELECT_COLUMN));
+    }
+
+    @Test
+    public void testMergeAccessControl()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String schemaName = getSession().getSchema().orElseThrow();
+
+        String targetTable = "merge_nation_target_" + randomTableSuffix();
+        String targetName = format("%s.%s.%s", catalogName, schemaName, targetTable);
+        String sourceTable = "merge_nation_source_" + randomTableSuffix();
+        String sourceName = format("%s.%s.%s", catalogName, schemaName, sourceTable);
+
+        assertUpdate(format("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR)", targetTable));
+
+        assertUpdate(format("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR)", sourceTable));
+
+        String baseMergeSql = format("MERGE INTO %s t USING %s s", targetTable, sourceTable) +
+                "    ON (t.nation_name = s.nation_name)";
+        String deleteCase = "" +
+                "    WHEN MATCHED AND t.nation_name > (SELECT name FROM tpch.tiny.region WHERE name = t.region_name AND name LIKE ('A%'))" +
+                "        THEN DELETE";
+        String updateCase = "" +
+                "    WHEN MATCHED AND t.nation_name = 'GERMANY'" +
+                "        THEN UPDATE SET nation_name = concat(s.nation_name, '_foo')";
+        String insertCase = "" +
+                "    WHEN NOT MATCHED AND s.region_name = 'EUROPE'" +
+                "        THEN INSERT VALUES(s.nation_name, (SELECT 'EUROPE'))";
+
+        // Show that without SELECT on the source table, the MERGE fails regardless of which case is included
+        for (String mergeCase : ImmutableList.of(deleteCase, updateCase, insertCase)) {
+            assertAccessDenied(baseMergeSql + mergeCase, "Cannot select from columns .* in table or view " + sourceName, privilege(sourceTable, SELECT_COLUMN));
+        }
+
+        // Show that without SELECT on the target table, the MERGE fails regardless of which case is included
+        for (String mergeCase : ImmutableList.of(deleteCase, updateCase, insertCase)) {
+            assertAccessDenied(baseMergeSql + mergeCase, "Cannot select from columns .* in table or view " + targetName, privilege(targetTable, SELECT_COLUMN));
+        }
+
+        // Show that without INSERT on the target table, the MERGE fails
+        assertAccessDenied(baseMergeSql + insertCase, "Cannot insert into table " + targetName, privilege(targetTable, INSERT_TABLE));
+
+        // Show that without DELETE on the target table, the MERGE fails
+        assertAccessDenied(baseMergeSql + deleteCase, "Cannot delete from table " + targetName, privilege(targetTable, DELETE_TABLE));
+
+        // Show that without UPDATE on the target table, the MERGE fails
+        assertAccessDenied(baseMergeSql + updateCase, "Cannot update columns \\[nation_name] in table " + targetName, privilege(targetTable, UPDATE_TABLE));
+
+        assertAccessAllowed("""
+                MERGE INTO orders o USING region r ON (o.orderkey = r.regionkey)
+                WHEN MATCHED AND o.orderkey % 2 = 0 THEN DELETE
+                WHEN MATCHED AND o.orderkey % 2 = 1 THEN UPDATE SET orderkey = null
+                WHEN NOT MATCHED THEN INSERT VALUES (null, null, null, null, null, null, null, null, null)
+                """);
+
+        assertUpdate("DROP TABLE " + sourceTable);
+        assertUpdate("DROP TABLE " + targetTable);
     }
 
     @Test

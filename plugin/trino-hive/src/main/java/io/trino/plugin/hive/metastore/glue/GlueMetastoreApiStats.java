@@ -20,6 +20,8 @@ import org.weakref.jmx.Nested;
 
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.concurrent.Callable;
+
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThreadSafe
@@ -63,7 +65,9 @@ public class GlueMetastoreApiStats
     }
 
     public interface ThrowingCallable<V, E extends Exception>
+            extends Callable<V>
     {
+        @Override
         V call()
                 throws E;
     }

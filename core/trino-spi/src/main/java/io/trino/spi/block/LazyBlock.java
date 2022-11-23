@@ -27,6 +27,7 @@ import java.util.function.ObjLongConsumer;
 
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
@@ -35,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 public class LazyBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LazyBlock.class).instanceSize() + ClassLayout.parseClass(LazyData.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LazyBlock.class).instanceSize() + ClassLayout.parseClass(LazyData.class).instanceSize());
 
     private final int positionCount;
     private final LazyData lazyData;
@@ -210,13 +211,19 @@ public class LazyBlock
     public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         getBlock().retainedBytesForEachPart(consumer);
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
     public String getEncodingName()
     {
         return LazyBlockEncoding.NAME;
+    }
+
+    @Override
+    public Block copyWithAppendedNull()
+    {
+        throw new UnsupportedOperationException("LazyBlock does not support newBlockWithAppendedNull()");
     }
 
     @Override

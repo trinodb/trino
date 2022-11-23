@@ -15,8 +15,8 @@ package io.trino.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
@@ -48,24 +48,24 @@ import static io.trino.plugin.hive.procedure.Procedures.checkPartitionColumns;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
-import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class RegisterPartitionProcedure
         implements Provider<Procedure>
 {
-    private static final MethodHandle REGISTER_PARTITION = methodHandle(
-            RegisterPartitionProcedure.class,
-            "registerPartition",
-            ConnectorSession.class,
-            ConnectorAccessControl.class,
-            String.class,
-            String.class,
-            List.class,
-            List.class,
-            String.class);
+    private static final MethodHandle REGISTER_PARTITION;
+
+    static {
+        try {
+            REGISTER_PARTITION = lookup().unreflect(RegisterPartitionProcedure.class.getMethod("registerPartition", ConnectorSession.class, ConnectorAccessControl.class, String.class, String.class, List.class, List.class, String.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     private final boolean allowRegisterPartition;
     private final TransactionalMetadataFactory hiveMetadataFactory;
@@ -74,7 +74,7 @@ public class RegisterPartitionProcedure
     @Inject
     public RegisterPartitionProcedure(HiveConfig hiveConfig, TransactionalMetadataFactory hiveMetadataFactory, HdfsEnvironment hdfsEnvironment)
     {
-        this.allowRegisterPartition = requireNonNull(hiveConfig, "hiveConfig is null").isAllowRegisterPartition();
+        this.allowRegisterPartition = hiveConfig.isAllowRegisterPartition();
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }

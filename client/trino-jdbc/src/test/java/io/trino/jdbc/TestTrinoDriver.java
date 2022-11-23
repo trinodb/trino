@@ -816,6 +816,24 @@ public class TestTrinoDriver
                         .put("SSLVerification", "NONE")
                         .buildOrThrow())))
                 .isNotNull();
+
+        assertThat(DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("SSL", "true")
+                        .put("SSLVerification", "NONE")
+                        .put("assumeLiteralNamesInMetadataCallsForNonConformingClients", "true")
+                        .buildOrThrow())))
+                .isNotNull();
+
+        assertThat(DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("SSL", "true")
+                        .put("SSLVerification", "NONE")
+                        .put("assumeLiteralUnderscoreInMetadataCallsForNonConformingClients", "true")
+                        .buildOrThrow())))
+                .isNotNull();
     }
 
     @Test
@@ -888,7 +906,7 @@ public class TestTrinoDriver
         assertTrue(queryFinished.await(10, SECONDS));
         assertThat(queryFailure.get())
                 .isInstanceOf(SQLException.class)
-                .hasMessage("ResultSet thread was interrupted");
+                .hasMessage("Interrupted");
         assertEquals(getQueryState(queryId.get()), FAILED);
     }
 

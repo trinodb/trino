@@ -76,7 +76,6 @@ public class SheetsClient
     @Inject
     public SheetsClient(SheetsConfig config, JsonCodec<Map<String, List<SheetsTable>>> catalogCodec)
     {
-        requireNonNull(config, "config is null");
         requireNonNull(catalogCodec, "catalogCodec is null");
 
         this.metadataSheetId = config.getMetadataSheetId();
@@ -158,11 +157,9 @@ public class SheetsClient
     public List<List<Object>> readAllValues(String tableName)
     {
         try {
-            Optional<String> sheetExpression = tableSheetMappingCache.getUnchecked(tableName);
-            if (sheetExpression.isEmpty()) {
-                throw new TrinoException(SHEETS_UNKNOWN_TABLE_ERROR, "Sheet expression not found for table " + tableName);
-            }
-            return sheetDataCache.getUnchecked(sheetExpression.get());
+            String sheetExpression = tableSheetMappingCache.getUnchecked(tableName)
+                    .orElseThrow(() -> new TrinoException(SHEETS_UNKNOWN_TABLE_ERROR, "Sheet expression not found for table " + tableName));
+            return sheetDataCache.getUnchecked(sheetExpression);
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);

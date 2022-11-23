@@ -48,6 +48,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -286,6 +287,58 @@ public class TestMongoTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
     }
 
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimestamp(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp '-290307-12-31 23:59:59.999'", "timestamp '-290307-12-31 23:59:59.999'") // min value
+                .addRoundTrip("timestamp '1582-10-04 23:59:59.999'", "timestamp '1582-10-04 23:59:59.999'") // before julian->gregorian switch
+                .addRoundTrip("timestamp '1582-10-05 00:00:00.000'", "timestamp '1582-10-05 00:00:00.000'") // begin julian->gregorian switch
+                .addRoundTrip("timestamp '1582-10-14 23:59:59.999'", "timestamp '1582-10-14 23:59:59.999'") // end julian->gregorian switch
+                .addRoundTrip("timestamp '1970-01-01 00:00:00.000'", "timestamp '1970-01-01 00:00:00.000'") // epoch
+                .addRoundTrip("timestamp '1986-01-01 00:13:07.123'", "timestamp '1986-01-01 00:13:07.123'") // time gap in Kathmandu
+                .addRoundTrip("timestamp '2018-03-25 03:17:17.123'", "timestamp '2018-03-25 03:17:17.123'") // time gap in Vilnius
+                .addRoundTrip("timestamp '2018-10-28 01:33:17.456'", "timestamp '2018-10-28 01:33:17.456'") // time doubled in JVM zone
+                .addRoundTrip("timestamp '2018-10-28 03:33:33.333'", "timestamp '2018-10-28 03:33:33.333'") // time double in Vilnius
+                .addRoundTrip("timestamp '294247-01-10 04:00:54.775'", "timestamp '294247-01-10 04:00:54.775'") // max value
+
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
+    }
+
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimestampWithTimeZoneMapping(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp '-69387-04-22 03:45:14.752 UTC'", "timestamp '-69387-04-22 03:45:14.752 UTC'") // min value
+                .addRoundTrip("timestamp '1582-10-04 23:59:59.999 UTC'", "timestamp '1582-10-04 23:59:59.999 UTC'") // before julian->gregorian switch
+                .addRoundTrip("timestamp '1582-10-05 00:00:00.000 UTC'", "timestamp '1582-10-05 00:00:00.000 UTC'") // begin julian->gregorian switch
+                .addRoundTrip("timestamp '1582-10-14 23:59:59.999 UTC'", "timestamp '1582-10-14 23:59:59.999 UTC'") // end julian->gregorian switch
+                .addRoundTrip("timestamp '1970-01-01 00:00:00.000 UTC'", "timestamp '1970-01-01 00:00:00.000 UTC'") // epoch
+                .addRoundTrip("timestamp '1986-01-01 00:13:07.123 UTC'", "timestamp '1986-01-01 00:13:07.123 UTC'") // time gap in Kathmandu
+                .addRoundTrip("timestamp '2018-03-25 03:17:17.123 UTC'", "timestamp '2018-03-25 03:17:17.123 UTC'") // time gap in Vilnius
+                .addRoundTrip("timestamp '2018-10-28 01:33:17.456 UTC'", "timestamp '2018-10-28 01:33:17.456 UTC'") // time doubled in JVM zone
+                .addRoundTrip("timestamp '2018-10-28 03:33:33.333 UTC'", "timestamp '2018-10-28 03:33:33.333 UTC'") // time double in Vilnius
+                .addRoundTrip("timestamp '2022-10-01 22:30:00.000 -01:30'", "timestamp '2022-10-02 00:00:00.000 UTC'") // not UTC (-01:30)
+                .addRoundTrip("timestamp '2022-10-02 01:30:00.000 +01:30'", "timestamp '2022-10-02 00:00:00.000 UTC'") // not UTC (+01:30)
+                .addRoundTrip("timestamp '73326-09-11 20:14:45.247 UTC'", "timestamp '73326-09-11 20:14:45.247 UTC'") // max value
+
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp_with_time_zone"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp_with_time_zone"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp_with_time_zone"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp_with_time_zone"));
+    }
+
     @Test
     public void testArray()
     {
@@ -311,6 +364,17 @@ public class TestMongoTypeMapping
         }
     }
 
+    @Test
+    public void testJson()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("json", "json '{\"id\":0,\"name\":\"user_0\"}'", JSON, "json '{\"id\":0,\"name\":\"user_0\"}'")
+                .addRoundTrip("json", "json '{}'", JSON, "json '{}'")
+                .addRoundTrip("json", "CAST(NULL AS json)", JSON, "CAST(NULL AS json)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_json"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_json"));
+    }
+
     @DataProvider
     public Object[][] sessionZonesDataProvider()
     {
@@ -321,7 +385,7 @@ public class TestMongoTypeMapping
                 {ZoneId.of("Europe/Vilnius")},
                 // minutes offset change since 1970-01-01, no DST
                 {ZoneId.of("Asia/Kathmandu")},
-                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
         };
     }
 

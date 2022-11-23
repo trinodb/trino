@@ -18,11 +18,12 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class CanonicalColumnName
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(CanonicalColumnName.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(CanonicalColumnName.class).instanceSize());
 
     private int hash;
     private final String originalName;

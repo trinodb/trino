@@ -16,6 +16,7 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
@@ -30,7 +31,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
-import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
@@ -433,7 +433,7 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
+    public Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type)
     {
         return ThriftMetastoreUtil.getSupportedColumnStatistics(type);
     }
@@ -582,8 +582,8 @@ public class InMemoryThriftMetastore
 
         private PartitionName(String schemaName, String tableName, List<String> partitionValues, String partitionName)
         {
-            this.schemaName = requireNonNull(schemaName, "schemaName is null").toLowerCase(US);
-            this.tableName = requireNonNull(tableName, "tableName is null").toLowerCase(US);
+            this.schemaName = schemaName.toLowerCase(US);
+            this.tableName = tableName.toLowerCase(US);
             this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
             this.partitionName = partitionName;
         }

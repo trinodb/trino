@@ -83,7 +83,7 @@ public final class PostgreSqlQueryRunner
             throws Exception
     {
         DistributedQueryRunner queryRunner = createPostgreSqlQueryRunner(
-                new TestingPostgreSqlServer(),
+                new TestingPostgreSqlServer(true),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
                 TpchTable.getTables());

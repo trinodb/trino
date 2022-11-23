@@ -15,15 +15,21 @@ package io.trino.spi.exchange;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import io.trino.spi.Experimental;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 import java.util.regex.Pattern;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 
+@Experimental(eta = "2023-01-01")
 public class ExchangeId
 {
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ExchangeId.class).instanceSize();
+
     private static final Pattern ID_PATTERN = Pattern.compile("[a-zA-Z0-9_-]+");
 
     private final String id;
@@ -72,5 +78,10 @@ public class ExchangeId
     public String toString()
     {
         return id;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + estimatedSizeOf(id);
     }
 }

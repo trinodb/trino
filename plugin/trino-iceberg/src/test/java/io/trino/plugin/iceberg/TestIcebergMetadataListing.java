@@ -16,19 +16,19 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.plugin.hive.HdfsConfig;
-import io.trino.plugin.hive.HdfsConfiguration;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TestingHivePlugin;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
+import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
@@ -52,7 +52,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestIcebergMetadataListing
         extends AbstractTestQueryFramework
 {
-    private HiveMetastore metastore;
+    private FileHiveMetastore metastore;
     private SchemaTableName storageTable;
 
     @Override
@@ -69,7 +69,7 @@ public class TestIcebergMetadataListing
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
 
         HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
 
         metastore = new FileHiveMetastore(
@@ -80,7 +80,7 @@ public class TestIcebergMetadataListing
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));
 
-        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(metastore), Optional.empty(), EMPTY_MODULE));
+        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)), Optional.empty(), EMPTY_MODULE));
         queryRunner.createCatalog("iceberg", "iceberg");
         queryRunner.installPlugin(new TestingHivePlugin(metastore));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.of("hive.security", "sql-standard"));

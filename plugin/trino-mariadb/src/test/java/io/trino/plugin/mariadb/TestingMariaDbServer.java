@@ -76,7 +76,7 @@ public class TestingMariaDbServer
 
     public String getJdbcUrl()
     {
-        return format("jdbc:mariadb://%s:%s", container.getContainerIpAddress(), container.getMappedPort(MARIADB_PORT));
+        return format("jdbc:mariadb://%s:%s", container.getHost(), container.getMappedPort(MARIADB_PORT));
     }
 
     @Override

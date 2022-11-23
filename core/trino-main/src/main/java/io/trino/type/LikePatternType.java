@@ -14,13 +14,17 @@
 package io.trino.type;
 
 import io.airlift.slice.Slice;
+import io.trino.likematcher.LikeMatcher;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.TypeSignature;
 
-import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
+import java.util.Optional;
+
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.Slices.utf8Slice;
 
 public class LikePatternType
         extends AbstractVariableWidthType
@@ -30,7 +34,7 @@ public class LikePatternType
 
     private LikePatternType()
     {
-        super(new TypeSignature(NAME), JoniRegexp.class);
+        super(new TypeSignature(NAME), LikeMatcher.class);
     }
 
     @Override
@@ -52,13 +56,40 @@ public class LikePatternType
             return null;
         }
 
-        return joniRegexp(block.getSlice(position, 0, block.getSliceLength(position)));
+        // layout is: <pattern length> <pattern> <hasEscape> <escape>?
+        int offset = 0;
+        int length = block.getInt(position, offset);
+        offset += SIZE_OF_INT;
+        String pattern = block.getSlice(position, offset, length).toStringUtf8();
+        offset += length;
+
+        boolean hasEscape = block.getByte(position, offset) != 0;
+        offset++;
+
+        Optional<Character> escape = Optional.empty();
+        if (hasEscape) {
+            escape = Optional.of((char) block.getInt(position, offset));
+        }
+
+        return LikeMatcher.compile(pattern, escape);
     }
 
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        Slice pattern = ((JoniRegexp) value).pattern();
-        blockBuilder.writeBytes(pattern, 0, pattern.length()).closeEntry();
+        LikeMatcher matcher = (LikeMatcher) value;
+
+        Slice pattern = utf8Slice(matcher.getPattern());
+        int length = pattern.length();
+        blockBuilder.writeInt(length);
+        blockBuilder.writeBytes(pattern, 0, length);
+        if (matcher.getEscape().isEmpty()) {
+            blockBuilder.writeByte(0);
+        }
+        else {
+            blockBuilder.writeByte(1);
+            blockBuilder.writeInt(matcher.getEscape().get());
+        }
+        blockBuilder.closeEntry();
     }
 }

@@ -23,18 +23,22 @@ import java.util.Optional;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
+import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class MapBlock
         extends AbstractMapBlock
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlock.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(MapBlock.class).instanceSize());
 
     private final int startOffset;
     private final int positionCount;
 
+    @Nullable
     private final boolean[] mapIsNull;
     private final int[] offsets;
     private final Block keyBlock;
@@ -200,6 +204,12 @@ public class MapBlock
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return mapIsNull != null;
+    }
+
+    @Override
     public int getPositionCount()
     {
         return positionCount;
@@ -242,7 +252,7 @@ public class MapBlock
             consumer.accept(mapIsNull, sizeOf(mapIsNull));
         }
         consumer.accept(hashTables, hashTables.getRetainedSizeInBytes());
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -287,5 +297,22 @@ public class MapBlock
     protected void ensureHashTableLoaded()
     {
         hashTables.buildAllHashTablesIfNecessary(getRawKeyBlock(), offsets, mapIsNull);
+    }
+
+    @Override
+    public Block copyWithAppendedNull()
+    {
+        boolean[] newMapIsNull = copyIsNullAndAppendNull(getMapIsNull(), getOffsetBase(), getPositionCount());
+        int[] newOffsets = copyOffsetsAndAppendNull(getOffsets(), getOffsetBase(), getPositionCount());
+
+        return createMapBlockInternal(
+                getMapType(),
+                getOffsetBase(),
+                getPositionCount() + 1,
+                Optional.of(newMapIsNull),
+                newOffsets,
+                getRawKeyBlock(),
+                getRawValueBlock(),
+                getHashTables());
     }
 }

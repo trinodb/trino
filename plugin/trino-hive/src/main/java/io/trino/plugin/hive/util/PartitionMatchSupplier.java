@@ -64,7 +64,7 @@ public final class PartitionMatchSupplier
         boolean partitionMatches = partitionMatches(partitionColumns, currentPredicate, hivePartition);
         if (!partitionMatches || filterIsComplete) {
             // Store the result to avoid re-evaluating the filter for each subsequent split
-            this.finalResult = (Boolean) partitionMatches;
+            this.finalResult = partitionMatches;
         }
         return partitionMatches;
     }

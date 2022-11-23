@@ -24,6 +24,7 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 // TODO this class is not memory efficient.  We can bypass all of the Trino type and block code
@@ -32,7 +33,7 @@ import static java.util.Objects.requireNonNull;
 // can use store the data in multiple Slices to avoid a large contiguous allocation.
 public class DictionaryBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DictionaryBuilder.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DictionaryBuilder.class).instanceSize());
     private static final float FILL_RATIO = 0.75f;
     private static final int EMPTY_SLOT = -1;
     private static final int NULL_POSITION = 0;
@@ -103,9 +104,7 @@ public class DictionaryBuilder
         if (block.isNull(position)) {
             return containsNullElement;
         }
-        else {
-            return blockPositionByHash.get(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
-        }
+        return blockPositionByHash.get(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
     }
 
     public int putIfAbsent(Block block, int position)

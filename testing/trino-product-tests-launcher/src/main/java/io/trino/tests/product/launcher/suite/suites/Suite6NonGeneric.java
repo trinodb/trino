@@ -22,7 +22,9 @@ import io.trino.tests.product.launcher.env.environment.EnvMultinodeKafkaSsl;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodePhoenix5;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeCassandra;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosKmsHdfsImpersonation;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosKmsHdfsImpersonationWithCredentialCache;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosKmsHdfsNoImpersonation;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosKmsHdfsNoImpersonationWithCredentialCache;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
@@ -43,7 +45,13 @@ public class Suite6NonGeneric
                 testOnEnvironment(EnvSinglenodeKerberosKmsHdfsNoImpersonation.class)
                         .withGroups("configured_features", "storage_formats")
                         .build(),
+                testOnEnvironment(EnvSinglenodeKerberosKmsHdfsNoImpersonationWithCredentialCache.class)
+                        .withGroups("configured_features", "storage_formats")
+                        .build(),
                 testOnEnvironment(EnvSinglenodeKerberosKmsHdfsImpersonation.class)
+                        .withGroups("configured_features", "storage_formats")
+                        .build(),
+                testOnEnvironment(EnvSinglenodeKerberosKmsHdfsImpersonationWithCredentialCache.class)
                         .withGroups("configured_features", "storage_formats")
                         .build(),
                 testOnEnvironment(EnvSinglenodeCassandra.class)

@@ -16,7 +16,9 @@ package io.trino.plugin.pinot.client;
 import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
 
-import static org.apache.pinot.common.utils.grpc.GrpcQueryClient.Config.DEFAULT_MAX_INBOUND_MESSAGE_BYTES_SIZE;
+import java.util.Optional;
+
+import static org.apache.pinot.common.config.GrpcConfig.DEFAULT_MAX_INBOUND_MESSAGE_BYTES_SIZE;
 
 public class PinotGrpcServerQueryClientConfig
 {
@@ -24,6 +26,7 @@ public class PinotGrpcServerQueryClientConfig
     private int grpcPort = 8090;
     private DataSize maxInboundMessageSize = DataSize.ofBytes(DEFAULT_MAX_INBOUND_MESSAGE_BYTES_SIZE);
     private boolean usePlainText = true;
+    private Optional<String> proxyUri = Optional.empty();
 
     public int getMaxRowsPerSplitForSegmentQueries()
     {
@@ -70,6 +73,20 @@ public class PinotGrpcServerQueryClientConfig
     public PinotGrpcServerQueryClientConfig setUsePlainText(boolean usePlainText)
     {
         this.usePlainText = usePlainText;
+        return this;
+    }
+
+    public Optional<String> getProxyUri()
+    {
+        return proxyUri;
+    }
+
+    @Config("pinot.grpc.proxy-uri")
+    public PinotGrpcServerQueryClientConfig setProxyUri(String proxyUri)
+    {
+        if (proxyUri != null && !proxyUri.isEmpty()) {
+            this.proxyUri = Optional.of(proxyUri);
+        }
         return this;
     }
 }

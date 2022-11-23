@@ -53,7 +53,7 @@ public class PhoenixConnectorFactory
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
-                    new PhoenixClientModule(),
+                    new PhoenixClientModule(catalogName),
                     binder -> {
                         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                         binder.bind(ClassLoader.class).toInstance(PhoenixConnectorFactory.class.getClassLoader());

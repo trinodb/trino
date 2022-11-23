@@ -16,23 +16,14 @@ package io.trino.plugin.deltalake.transactionlog;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.parquet.ParquetReaderOptions;
-import io.trino.plugin.deltalake.AccessTrackingFileSystem;
+import io.trino.plugin.deltalake.AccessTrackingFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsConfig;
-import io.trino.plugin.hive.HdfsConfiguration;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.type.TypeManager;
-import io.trino.testing.TestingConnectorSession;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -47,9 +38,10 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -57,30 +49,23 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestTableSnapshot
 {
-    private final ConnectorSession session = TestingConnectorSession.SESSION;
-    private final TypeManager typeManager = TESTING_TYPE_MANAGER;
     private final ParquetReaderOptions parquetReaderOptions = new ParquetReaderConfig().toParquetReaderOptions();
 
     private CheckpointSchemaManager checkpointSchemaManager;
-    private AccessTrackingFileSystem accessTrackingFileSystem;
+    private AccessTrackingFileSystemFactory accessTrackingFileSystemFactory;
+    private TrinoFileSystem accessTrackingFileSystem;
     private Path tableLocation;
-    private HdfsEnvironment hdfsEnvironment;
 
     @BeforeMethod
     public void setUp()
-            throws IOException, URISyntaxException
+            throws URISyntaxException
     {
-        checkpointSchemaManager = new CheckpointSchemaManager(typeManager);
+        checkpointSchemaManager = new CheckpointSchemaManager(TESTING_TYPE_MANAGER);
         URI deltaLogPath = getClass().getClassLoader().getResource("databricks/person").toURI();
         tableLocation = new Path(deltaLogPath);
 
-        Configuration conf = newEmptyConfiguration();
-        FileSystem filesystem = tableLocation.getFileSystem(conf);
-        accessTrackingFileSystem = new AccessTrackingFileSystem(filesystem);
-
-        HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
-        hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
+        accessTrackingFileSystemFactory = new AccessTrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT));
+        accessTrackingFileSystem = accessTrackingFileSystemFactory.create(SESSION);
     }
 
     @Test
@@ -95,10 +80,10 @@ public class TestTableSnapshot
         expectedFileAccess.put("00000000000000000012.json", 1);
         expectedFileAccess.put("00000000000000000013.json", 1);
         expectedFileAccess.put("00000000000000000014.json", 1);
-        assertEquals(accessTrackingFileSystem.getOpenCount(), expectedFileAccess);
+        assertEquals(accessTrackingFileSystemFactory.getOpenCount(), expectedFileAccess);
 
         tableSnapshot.getJsonTransactionLogEntries().forEach(entry -> {});
-        assertEquals(accessTrackingFileSystem.getOpenCount(), expectedFileAccess);
+        assertEquals(accessTrackingFileSystemFactory.getOpenCount(), expectedFileAccess);
     }
 
     // TODO: Can't test the FileSystem access here because the DeltaLakePageSourceProvider doesn't use the FileSystem passed into the TableSnapshot. (https://github.com/trinodb/trino/issues/12040)
@@ -110,7 +95,7 @@ public class TestTableSnapshot
                 new SchemaTableName("schema", "person"), accessTrackingFileSystem, tableLocation, parquetReaderOptions, true);
         tableSnapshot.setCachedMetadata(Optional.of(new MetadataEntry("id", "name", "description", null, "schema", ImmutableList.of(), ImmutableMap.of(), 0)));
         try (Stream<DeltaLakeTransactionLogEntry> stream = tableSnapshot.getCheckpointTransactionLogEntries(
-                session, ImmutableSet.of(ADD), checkpointSchemaManager, typeManager, accessTrackingFileSystem, hdfsEnvironment, new FileFormatDataSourceStats())) {
+                SESSION, ImmutableSet.of(ADD), checkpointSchemaManager, TESTING_TYPE_MANAGER, accessTrackingFileSystem, new FileFormatDataSourceStats())) {
             List<DeltaLakeTransactionLogEntry> entries = stream.collect(toImmutableList());
 
             assertThat(entries).hasSize(9);
@@ -150,7 +135,7 @@ public class TestTableSnapshot
 
         // lets read two entry types in one call; add and protocol
         try (Stream<DeltaLakeTransactionLogEntry> stream = tableSnapshot.getCheckpointTransactionLogEntries(
-                session, ImmutableSet.of(ADD, PROTOCOL), checkpointSchemaManager, typeManager, accessTrackingFileSystem, hdfsEnvironment, new FileFormatDataSourceStats())) {
+                SESSION, ImmutableSet.of(ADD, PROTOCOL), checkpointSchemaManager, TESTING_TYPE_MANAGER, accessTrackingFileSystem, new FileFormatDataSourceStats())) {
             List<DeltaLakeTransactionLogEntry> entries = stream.collect(toImmutableList());
 
             assertThat(entries).hasSize(10);

@@ -28,14 +28,12 @@ public class FallbackToFullNodePartitionMemoryEstimator
     // temporarily express full-node requirement as huge amount of memory
     public static final DataSize FULL_NODE_MEMORY = DataSize.of(512, DataSize.Unit.GIGABYTE);
 
-    private static final MemoryRequirements FULL_NODE_MEMORY_REQUIREMENTS = new MemoryRequirements(FULL_NODE_MEMORY, true);
+    private static final MemoryRequirements FULL_NODE_MEMORY_REQUIREMENTS = new MemoryRequirements(FULL_NODE_MEMORY);
 
     @Override
     public MemoryRequirements getInitialMemoryRequirements(Session session, DataSize defaultMemoryLimit)
     {
-        return new MemoryRequirements(
-                defaultMemoryLimit,
-                false);
+        return new MemoryRequirements(defaultMemoryLimit);
     }
 
     @Override

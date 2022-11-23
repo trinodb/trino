@@ -17,6 +17,9 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 
+import java.util.Optional;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnInfo
@@ -25,11 +28,14 @@ public class ColumnInfo
     private final String name;
     private final Type type;
 
-    public ColumnInfo(ColumnHandle handle, String name, Type type)
+    private final Optional<String> comment;
+
+    public ColumnInfo(ColumnHandle handle, String name, Type type, Optional<String> comment)
     {
         this.handle = requireNonNull(handle, "handle is null");
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     public ColumnHandle getHandle()
@@ -44,12 +50,20 @@ public class ColumnInfo
 
     public ColumnMetadata getMetadata()
     {
-        return new ColumnMetadata(name, type);
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(type)
+                .setComment(comment)
+                .build();
     }
 
     @Override
     public String toString()
     {
-        return name + "::" + type;
+        return toStringHelper(this)
+                .add("name", name)
+                .add("type", type)
+                .add("comment", comment)
+                .toString();
     }
 }

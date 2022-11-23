@@ -13,7 +13,7 @@
  */
 package io.trino.parquet.reader;
 
-import io.trino.parquet.RichColumnDescriptor;
+import io.trino.parquet.PrimitiveField;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.TimeType;
@@ -26,9 +26,9 @@ import static java.lang.String.format;
 public class TimeMicrosColumnReader
         extends PrimitiveColumnReader
 {
-    public TimeMicrosColumnReader(RichColumnDescriptor descriptor)
+    public TimeMicrosColumnReader(PrimitiveField field)
     {
-        super(descriptor);
+        super(field);
     }
 
     @Override
@@ -39,7 +39,7 @@ public class TimeMicrosColumnReader
             type.writeLong(blockBuilder, picos);
         }
         else {
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, columnDescriptor));
+            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, field.getDescriptor()));
         }
     }
 }

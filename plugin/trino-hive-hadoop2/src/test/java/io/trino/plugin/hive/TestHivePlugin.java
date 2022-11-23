@@ -134,7 +134,7 @@ public class TestHivePlugin
         factory.create(
                 "test",
                 ImmutableMap.of(
-                        "hive.metastore", "alluxio",
+                        "hive.metastore", "alluxio-deprecated",
                         "hive.metastore.alluxio.master.address", "dummy:1234"),
                 new TestingConnectorContext())
                 .shutdown();

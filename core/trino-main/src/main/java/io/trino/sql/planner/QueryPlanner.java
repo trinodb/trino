@@ -20,18 +20,25 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
-import io.trino.metadata.TableSchema;
+import io.trino.metadata.TableLayout;
+import io.trino.metadata.TableMetadata;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.sql.ExpressionUtils;
 import io.trino.sql.NodeUtils;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analysis.GroupingSetAnalysis;
+import io.trino.sql.analyzer.Analysis.MergeAnalysis;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.analyzer.Analysis.SelectExpression;
 import io.trino.sql.analyzer.FieldId;
@@ -39,11 +46,15 @@ import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.planner.RelationPlanner.PatternRecognitionComponents;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
+import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeProcessorNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -53,29 +64,44 @@ import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
+import io.trino.sql.planner.plan.TableWriterNode.MergeParadigmAndTypes;
+import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FetchFirst;
+import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.FunctionCall.NullTreatment;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.IntervalLiteral;
+import io.trino.sql.tree.IsNotNullPredicate;
+import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.Join;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
+import io.trino.sql.tree.Merge;
+import io.trino.sql.tree.MergeCase;
+import io.trino.sql.tree.MergeDelete;
+import io.trino.sql.tree.MergeInsert;
+import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.NotExpression;
+import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
@@ -83,12 +109,15 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.Relation;
+import io.trino.sql.tree.Row;
+import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SortItem;
-import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.VariableDefinition;
+import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
 import io.trino.type.TypeCoercion;
@@ -115,18 +144,27 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getMaxRecursionDepth;
 import static io.trino.SystemSessionProperties.isSkipRedundantSort;
+import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
+import static io.trino.spi.StandardErrorCode.MERGE_TARGET_ROW_MULTIPLE_MATCHES;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.ConnectorMergeSink.DELETE_OPERATION_NUMBER;
+import static io.trino.spi.connector.ConnectorMergeSink.INSERT_OPERATION_NUMBER;
+import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_OPERATION_NUMBER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.isNumericType;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.GroupingOperationRewriter.rewriteGroupingOperation;
+import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.OrderingScheme.sortItemToSortOrder;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.plan.AggregationNode.groupingSets;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -144,6 +182,7 @@ import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 class QueryPlanner
 {
@@ -296,7 +335,6 @@ class QueryPlanner
                 0);
 
         // 2. append filter to fail on non-empty result
-        ResolvedFunction fail = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of("fail"), fromTypes(VARCHAR));
         String recursionLimitExceededMessage = format("Recursion depth limit exceeded (%s). Use 'max_recursion_depth' session property to modify the limit.", maxRecursionDepth);
         Expression predicate = new IfExpression(
                 new ComparisonExpression(
@@ -304,9 +342,7 @@ class QueryPlanner
                         countSymbol.toSymbolReference(),
                         new GenericLiteral("BIGINT", "0")),
                 new Cast(
-                        new FunctionCall(
-                                fail.toQualifiedName(),
-                                ImmutableList.of(new Cast(new StringLiteral(recursionLimitExceededMessage), toSqlType(VARCHAR)))),
+                        failFunction(plannerContext.getMetadata(), session, NOT_SUPPORTED, recursionLimitExceededMessage),
                         toSqlType(BOOLEAN)),
                 TRUE_LITERAL);
         FilterNode filterNode = new FilterNode(idAllocator.getNextId(), windowNode, predicate);
@@ -509,9 +545,11 @@ class QueryPlanner
         Table table = node.getTable();
         TableHandle handle = analysis.getTableHandle(table);
 
-        TableSchema tableSchema = plannerContext.getMetadata().getTableSchema(session, handle);
-        Map<String, ColumnHandle> columnMap = plannerContext.getMetadata().getColumnHandles(session, handle);
-        List<ColumnSchema> columnsSchemas = tableSchema.getColumns();
+        Metadata metadata = plannerContext.getMetadata();
+        // TODO obtaining metadata should not happen here https://github.com/trinodb/trino/issues/13740
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
+        Map<String, ColumnHandle> columnMap = metadata.getColumnHandles(session, handle);
+        List<ColumnMetadata> columnsMetadata = tableMetadata.getColumns();
 
         List<String> targetColumnNames = node.getAssignments().stream()
                 .map(assignment -> assignment.getName().getValue())
@@ -521,8 +559,8 @@ class QueryPlanner
         ImmutableList.Builder<String> updatedColumnNamesBuilder = ImmutableList.builder();
         ImmutableList.Builder<ColumnHandle> updatedColumnHandlesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Expression> orderedColumnValuesBuilder = ImmutableList.builder();
-        for (ColumnSchema columnSchema : columnsSchemas) {
-            String name = columnSchema.getName();
+        for (ColumnMetadata columnMetadata : columnsMetadata) {
+            String name = columnMetadata.getName();
             int index = targetColumnNames.indexOf(name);
             if (index >= 0) {
                 updatedColumnNamesBuilder.add(name);
@@ -551,7 +589,30 @@ class QueryPlanner
         builder = planAndMappings.getSubPlan();
 
         ImmutableList.Builder<Symbol> updatedColumnValuesBuilder = ImmutableList.builder();
-        orderedColumnValues.forEach(columnValue -> updatedColumnValuesBuilder.add(planAndMappings.get(columnValue)));
+        Assignments.Builder assignmentsBuilder = Assignments.builder();
+        assignmentsBuilder.putIdentities(builder.getRoot().getOutputSymbols());
+        Map<String, ColumnMetadata> columnNameToMetadata = columnsMetadata.stream()
+                .collect(toImmutableMap(ColumnMetadata::getName, identity()));
+
+        for (int i = 0; i < updatedColumnNames.size(); i++) {
+            String columName = updatedColumnNames.get(i);
+            ColumnMetadata columnMetadata = columnNameToMetadata.get(columName);
+            Symbol output = symbolAllocator.newSymbol(columName, columnMetadata.getType());
+            updatedColumnValuesBuilder.add(output);
+            Expression expression = planAndMappings.get(orderedColumnValues.get(i)).toSymbolReference();
+            if (!columnMetadata.isNullable()) {
+                expression = new CoalesceExpression(expression, new Cast(
+                        failFunction(
+                                metadata,
+                                session,
+                                INVALID_ARGUMENTS,
+                                "NULL value not allowed for NOT NULL column: " + columName),
+                        toSqlType(columnMetadata.getType())));
+            }
+            assignmentsBuilder.put(output, expression);
+        }
+
+        builder = builder.withNewRoot(new ProjectNode(idAllocator.getNextId(), builder.getRoot(), assignmentsBuilder.build()));
         Symbol rowId = builder.translate(analysis.getRowIdField(table));
         updatedColumnValuesBuilder.add(rowId);
 
@@ -568,12 +629,313 @@ class QueryPlanner
                 builder.getRoot(),
                 new UpdateTarget(
                         Optional.empty(),
-                        plannerContext.getMetadata().getTableMetadata(session, handle).getTable(),
+                        tableMetadata.getTable(),
                         updatedColumnNames,
                         updatedColumnHandles),
                 rowId,
                 updatedColumnValuesBuilder.build(),
                 outputs);
+    }
+
+    public MergeWriterNode plan(Merge merge)
+    {
+        MergeAnalysis mergeAnalysis = analysis.getMergeAnalysis().orElseThrow(() -> new IllegalArgumentException("analysis.getMergeAnalysis() isn't present"));
+
+        List<List<ColumnHandle>> mergeCaseColumnsHandles = mergeAnalysis.getMergeCaseColumnHandles();
+
+        // Make the plan for the merge target table scan
+        RelationPlan targetTablePlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+                .process(merge.getTarget());
+
+        // Assign a unique id to every target table row
+        Symbol uniqueIdSymbol = symbolAllocator.newSymbol("unique_id", BIGINT);
+        RelationPlan planWithUniqueId = new RelationPlan(
+                new AssignUniqueId(idAllocator.getNextId(), targetTablePlan.getRoot(), uniqueIdSymbol),
+                mergeAnalysis.getTargetTableScope(),
+                targetTablePlan.getFieldMappings(),
+                outerContext);
+
+        // Project the "present" column
+        Assignments.Builder projections = Assignments.builder();
+        projections.putIdentities(planWithUniqueId.getRoot().getOutputSymbols());
+
+        Symbol presentColumn = symbolAllocator.newSymbol("present", BOOLEAN);
+        projections.put(presentColumn, TRUE_LITERAL);
+
+        RelationPlan planWithPresentColumn = new RelationPlan(
+                new ProjectNode(idAllocator.getNextId(), planWithUniqueId.getRoot(), projections.build()),
+                mergeAnalysis.getTargetTableScope(),
+                planWithUniqueId.getFieldMappings(),
+                outerContext);
+
+        RelationPlan source = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+                .process(merge.getSource());
+
+        RelationPlan joinPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+                .planJoin(coerceIfNecessary(analysis, merge.getPredicate(), merge.getPredicate()), Join.Type.RIGHT, mergeAnalysis.getJoinScope(), planWithPresentColumn, source, analysis.getSubqueries(merge));
+
+        PlanBuilder subPlan = newPlanBuilder(joinPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
+
+        // Build the SearchedCaseExpression that creates the project merge_row
+        Metadata metadata = plannerContext.getMetadata();
+        List<ColumnSchema> dataColumnSchemas = mergeAnalysis.getDataColumnSchemas();
+        ImmutableList.Builder<WhenClause> whenClauses = ImmutableList.builder();
+        Set<ColumnHandle> nonNullableColumnHandles = mergeAnalysis.getNonNullableColumnHandles();
+        for (int caseNumber = 0; caseNumber < merge.getMergeCases().size(); caseNumber++) {
+            MergeCase mergeCase = merge.getMergeCases().get(caseNumber);
+
+            Optional<Expression> casePredicate = Optional.empty();
+            if (mergeCase.getExpression().isPresent()) {
+                Expression original = mergeCase.getExpression().get();
+                Expression predicate = coerceIfNecessary(analysis, original, original);
+                casePredicate = Optional.of(predicate);
+                subPlan = subqueryPlanner.handleSubqueries(subPlan, predicate, analysis.getSubqueries(merge));
+            }
+
+            ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
+            List<ColumnHandle> mergeCaseSetColumns = mergeCaseColumnsHandles.get(caseNumber);
+            for (ColumnHandle dataColumnHandle : mergeAnalysis.getDataColumnHandles()) {
+                int index = mergeCaseSetColumns.indexOf(dataColumnHandle);
+                if (index >= 0) {
+                    Expression original = mergeCase.getSetExpressions().get(index);
+                    Expression setExpression = coerceIfNecessary(analysis, original, original);
+                    subPlan = subqueryPlanner.handleSubqueries(subPlan, setExpression, analysis.getSubqueries(merge));
+                    Expression rewritten = subPlan.rewrite(setExpression);
+                    if (nonNullableColumnHandles.contains(dataColumnHandle)) {
+                        int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(dataColumnHandle), "Could not find fieldIndex for non nullable column");
+                        ColumnSchema columnSchema = dataColumnSchemas.get(fieldIndex);
+                        String columnName = columnSchema.getName();
+                        rewritten = new CoalesceExpression(rewritten, new Cast(failFunction(metadata, session, INVALID_ARGUMENTS, "Assigning NULL to non-null MERGE target table column " + columnName), toSqlType(columnSchema.getType())));
+                    }
+                    rowBuilder.add(rewritten);
+                }
+                else {
+                    Integer fieldNumber = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(dataColumnHandle), "Field number for ColumnHandle is null");
+                    rowBuilder.add(planWithPresentColumn.getFieldMappings().get(fieldNumber).toSymbolReference());
+                }
+            }
+
+            // Build the match condition for the MERGE case
+
+            // Add a boolean column which is true if a target table row was matched
+            rowBuilder.add(new IsNotNullPredicate(presentColumn.toSymbolReference()));
+
+            // Add the operation number
+            rowBuilder.add(new GenericLiteral("TINYINT", String.valueOf(getMergeCaseOperationNumber(mergeCase))));
+
+            // Add the merge case number, needed by MarkDistinct
+            rowBuilder.add(new GenericLiteral("INTEGER", String.valueOf(caseNumber)));
+
+            Optional<Expression> rewritten = casePredicate.map(subPlan::rewrite);
+            Expression condition = presentColumn.toSymbolReference();
+            if (mergeCase instanceof MergeInsert) {
+                condition = new IsNullPredicate(presentColumn.toSymbolReference());
+            }
+
+            if (rewritten.isPresent()) {
+                condition = ExpressionUtils.and(condition, rewritten.get());
+            }
+
+            whenClauses.add(new WhenClause(condition, new Row(rowBuilder.build())));
+        }
+
+        // Build the "else" clause for the SearchedCaseExpression
+        ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
+        dataColumnSchemas.forEach(columnSchema ->
+                rowBuilder.add(new Cast(new NullLiteral(), toSqlType(columnSchema.getType()))));
+        rowBuilder.add(new IsNotNullPredicate(presentColumn.toSymbolReference()));
+        // The operation number
+        rowBuilder.add(new GenericLiteral("TINYINT", "-1"));
+        // The case number
+        rowBuilder.add(new GenericLiteral("INTEGER", "-1"));
+
+        SearchedCaseExpression caseExpression = new SearchedCaseExpression(whenClauses.build(), Optional.of(new Row(rowBuilder.build())));
+        RowType rowType = createMergeRowType(dataColumnSchemas);
+
+        FieldReference rowIdReference = analysis.getRowIdField(mergeAnalysis.getTargetTable());
+        Symbol rowIdSymbol = planWithPresentColumn.getFieldMappings().get(rowIdReference.getFieldIndex());
+        Symbol mergeRowSymbol = symbolAllocator.newSymbol("merge_row", rowType);
+        Symbol caseNumberSymbol = symbolAllocator.newSymbol("case_number", INTEGER);
+
+        // Project the partition symbols, the merge_row, the rowId, and the unique_id symbol
+        Assignments.Builder projectionAssignmentsBuilder = Assignments.builder();
+        for (ColumnHandle column : mergeAnalysis.getRedistributionColumnHandles()) {
+            int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(column), "Could not find fieldIndex for redistribution column");
+            Symbol symbol = planWithPresentColumn.getFieldMappings().get(fieldIndex);
+            projectionAssignmentsBuilder.put(symbol, symbol.toSymbolReference());
+        }
+        projectionAssignmentsBuilder.put(uniqueIdSymbol, uniqueIdSymbol.toSymbolReference());
+        projectionAssignmentsBuilder.put(rowIdSymbol, rowIdSymbol.toSymbolReference());
+        projectionAssignmentsBuilder.put(mergeRowSymbol, caseExpression);
+
+        ProjectNode subPlanProject = new ProjectNode(
+                idAllocator.getNextId(),
+                subPlan.getRoot(),
+                projectionAssignmentsBuilder.build());
+
+        // Now add a column for the case_number, gotten from the merge_row
+        ProjectNode project = new ProjectNode(
+                idAllocator.getNextId(),
+                subPlanProject,
+                Assignments.builder()
+                        .putIdentities(subPlanProject.getOutputSymbols())
+                        .put(caseNumberSymbol, new SubscriptExpression(mergeRowSymbol.toSymbolReference(), new LongLiteral(Long.toString(rowType.getFields().size()))))
+                        .build());
+
+        // Mark distinct combinations of the unique_id value and the case_number
+        Symbol isDistinctSymbol = symbolAllocator.newSymbol("is_distinct", BOOLEAN);
+        MarkDistinctNode markDistinctNode = new MarkDistinctNode(idAllocator.getNextId(), project, isDistinctSymbol, ImmutableList.of(uniqueIdSymbol, caseNumberSymbol), Optional.empty());
+
+        // Raise an error if unique_id symbol is non-null and the unique_id/case_number combination was not distinct
+        Expression filter = new IfExpression(
+                LogicalExpression.and(
+                        new NotExpression(isDistinctSymbol.toSymbolReference()),
+                        new IsNotNullPredicate(uniqueIdSymbol.toSymbolReference())),
+                new Cast(
+                        failFunction(metadata, session, MERGE_TARGET_ROW_MULTIPLE_MATCHES, "One MERGE target table row matched more than one source row"),
+                        toSqlType(BOOLEAN)),
+                TRUE_LITERAL);
+
+        FilterNode filterNode = new FilterNode(idAllocator.getNextId(), markDistinctNode, filter);
+
+        Table table = merge.getTargetTable();
+        TableHandle handle = analysis.getTableHandle(table);
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
+
+        RowChangeParadigm paradigm = metadata.getRowChangeParadigm(session, handle);
+        Type rowIdType = analysis.getType(analysis.getRowIdField(table));
+        List<Type> dataColumnTypes = tableMetadata.getMetadata().getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .map(ColumnMetadata::getType)
+                .collect(toImmutableList());
+
+        MergeParadigmAndTypes mergeParadigmAndTypes = new MergeParadigmAndTypes(paradigm, dataColumnTypes, rowIdType);
+        MergeTarget mergeTarget = new MergeTarget(handle, Optional.empty(), tableMetadata.getTable(), mergeParadigmAndTypes);
+
+        ImmutableList.Builder<Symbol> columnSymbolsBuilder = ImmutableList.builder();
+        for (ColumnHandle columnHandle : mergeAnalysis.getDataColumnHandles()) {
+            int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(columnHandle), "Could not find field number for column handle");
+            columnSymbolsBuilder.add(planWithPresentColumn.getFieldMappings().get(fieldIndex));
+        }
+        List<Symbol> columnSymbols = columnSymbolsBuilder.build();
+        ImmutableList.Builder<Symbol> redistributionSymbolsBuilder = ImmutableList.builder();
+        for (ColumnHandle columnHandle : mergeAnalysis.getRedistributionColumnHandles()) {
+            int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(columnHandle), "Could not find field number for column handle");
+            redistributionSymbolsBuilder.add(planWithPresentColumn.getFieldMappings().get(fieldIndex));
+        }
+
+        Symbol operationSymbol = symbolAllocator.newSymbol("operation", TINYINT);
+        Symbol insertFromUpdateSymbol = symbolAllocator.newSymbol("insert_from_update", TINYINT);
+
+        List<Symbol> projectedSymbols = ImmutableList.<Symbol>builder()
+                .addAll(columnSymbols)
+                .add(operationSymbol)
+                .add(rowIdSymbol)
+                .add(insertFromUpdateSymbol)
+                .build();
+
+        MergeProcessorNode mergeProcessorNode = new MergeProcessorNode(
+                idAllocator.getNextId(),
+                filterNode,
+                mergeTarget,
+                rowIdSymbol,
+                mergeRowSymbol,
+                columnSymbols,
+                redistributionSymbolsBuilder.build(),
+                projectedSymbols);
+
+        Optional<PartitioningScheme> partitioningScheme = createMergePartitioningScheme(
+                mergeAnalysis.getInsertLayout(),
+                columnSymbols,
+                mergeAnalysis.getInsertPartitioningArgumentIndexes(),
+                mergeAnalysis.getUpdateLayout(),
+                rowIdSymbol,
+                operationSymbol);
+
+        List<Symbol> outputs = ImmutableList.of(
+                symbolAllocator.newSymbol("partialrows", BIGINT),
+                symbolAllocator.newSymbol("fragment", VARBINARY));
+
+        return new MergeWriterNode(
+                idAllocator.getNextId(),
+                mergeProcessorNode,
+                mergeTarget,
+                projectedSymbols,
+                partitioningScheme,
+                outputs);
+    }
+
+    private static int getMergeCaseOperationNumber(MergeCase mergeCase)
+    {
+        if (mergeCase instanceof MergeInsert) {
+            return INSERT_OPERATION_NUMBER;
+        }
+        if (mergeCase instanceof MergeUpdate) {
+            return UPDATE_OPERATION_NUMBER;
+        }
+        if (mergeCase instanceof MergeDelete) {
+            return DELETE_OPERATION_NUMBER;
+        }
+        throw new IllegalArgumentException("Unrecognized MergeCase: " + mergeCase);
+    }
+
+    private static RowType createMergeRowType(List<ColumnSchema> allColumnsSchema)
+    {
+        // create the RowType that holds all column values
+        List<RowType.Field> fields = new ArrayList<>();
+        for (ColumnSchema schema : allColumnsSchema) {
+            fields.add(new RowType.Field(Optional.of(schema.getName()), schema.getType()));
+        }
+        fields.add(new RowType.Field(Optional.empty(), BOOLEAN)); // present
+        fields.add(new RowType.Field(Optional.empty(), TINYINT)); // operation_number
+        fields.add(new RowType.Field(Optional.empty(), INTEGER)); // case_number
+        return RowType.from(fields);
+    }
+
+    public static Optional<PartitioningScheme> createMergePartitioningScheme(
+            Optional<TableLayout> insertLayout,
+            List<Symbol> symbols,
+            List<Integer> insertPartitioningArgumentIndexes,
+            Optional<PartitioningHandle> updateLayout,
+            Symbol rowIdSymbol,
+            Symbol operationSymbol)
+    {
+        if (insertLayout.isEmpty() && updateLayout.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Optional<PartitioningScheme> insertPartitioning = insertLayout.map(layout -> {
+            List<Symbol> arguments = insertPartitioningArgumentIndexes.stream()
+                    .map(symbols::get)
+                    .collect(toImmutableList());
+
+            return layout.getPartitioning()
+                    .map(handle -> new PartitioningScheme(Partitioning.create(handle, arguments), symbols))
+                    // empty connector partitioning handle means evenly partitioning on partitioning columns
+                    .orElseGet(() -> new PartitioningScheme(Partitioning.create(FIXED_HASH_DISTRIBUTION, arguments), symbols));
+        });
+
+        Optional<PartitioningScheme> updatePartitioning = updateLayout.map(handle ->
+                new PartitioningScheme(Partitioning.create(handle, ImmutableList.of(rowIdSymbol)), ImmutableList.of(rowIdSymbol)));
+
+        PartitioningHandle partitioningHandle = new PartitioningHandle(
+                Optional.empty(),
+                Optional.empty(),
+                new MergePartitioningHandle(insertPartitioning, updatePartitioning));
+
+        List<Symbol> combinedSymbols = new ArrayList<>();
+        combinedSymbols.add(operationSymbol);
+        insertPartitioning.ifPresent(scheme -> combinedSymbols.addAll(partitioningSymbols(scheme)));
+        updatePartitioning.ifPresent(scheme -> combinedSymbols.addAll(partitioningSymbols(scheme)));
+
+        return Optional.of(new PartitioningScheme(Partitioning.create(partitioningHandle, combinedSymbols), combinedSymbols));
+    }
+
+    private static List<Symbol> partitioningSymbols(PartitioningScheme scheme)
+    {
+        return scheme.getPartitioning().getArguments().stream()
+                .map(Partitioning.ArgumentBinding::getColumn)
+                .collect(toImmutableList());
     }
 
     private static Optional<PlanNodeId> getIdForLeftTableScan(PlanNode node)
@@ -1052,7 +1414,6 @@ class QueryPlanner
         // First, append filter to validate offset values. They mustn't be negative or null.
         Symbol offsetSymbol = coercions.get(frameOffset.get());
         Expression zeroOffset = zeroOfType(symbolAllocator.getTypes().get(offsetSymbol));
-        ResolvedFunction fail = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of("fail"), fromTypes(VARCHAR));
         Expression predicate = new IfExpression(
                 new ComparisonExpression(
                         GREATER_THAN_OR_EQUAL,
@@ -1060,9 +1421,7 @@ class QueryPlanner
                         zeroOffset),
                 TRUE_LITERAL,
                 new Cast(
-                        new FunctionCall(
-                                fail.toQualifiedName(),
-                                ImmutableList.of(new Cast(new StringLiteral("Window frame offset value must not be negative or null"), toSqlType(VARCHAR)))),
+                        failFunction(plannerContext.getMetadata(), session, INVALID_WINDOW_FRAME, "Window frame offset value must not be negative or null"),
                         toSqlType(BOOLEAN)));
         subPlan = subPlan.withNewRoot(new FilterNode(
                 idAllocator.getNextId(),
@@ -1158,14 +1517,11 @@ class QueryPlanner
 
         // Append filter to validate offset values. They mustn't be negative or null.
         Expression zeroOffset = zeroOfType(offsetType);
-        ResolvedFunction fail = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of("fail"), fromTypes(VARCHAR));
         Expression predicate = new IfExpression(
                 new ComparisonExpression(GREATER_THAN_OR_EQUAL, offsetSymbol.toSymbolReference(), zeroOffset),
                 TRUE_LITERAL,
                 new Cast(
-                        new FunctionCall(
-                                fail.toQualifiedName(),
-                                ImmutableList.of(new Cast(new StringLiteral("Window frame offset value must not be negative or null"), toSqlType(VARCHAR)))),
+                        failFunction(plannerContext.getMetadata(), session, INVALID_WINDOW_FRAME, "Window frame offset value must not be negative or null"),
                         toSqlType(BOOLEAN)));
         subPlan = subPlan.withNewRoot(new FilterNode(
                 idAllocator.getNextId(),

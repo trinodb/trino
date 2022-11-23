@@ -142,7 +142,6 @@ abstract class AbstractConnectionProperty<T>
         getValue(properties);
     }
 
-    protected static final Predicate<Properties> REQUIRED = properties -> true;
     protected static final Predicate<Properties> NOT_REQUIRED = properties -> false;
 
     protected static final Predicate<Properties> ALLOWED = properties -> true;

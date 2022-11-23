@@ -58,9 +58,7 @@ public class PruneDistinctAggregation
         if (rewriter.isRewritten()) {
             return Result.ofPlanNode(replaceChildren(node, newSources));
         }
-        else {
-            return Result.empty();
-        }
+        return Result.empty();
     }
 
     private static boolean isDistinctOperator(AggregationNode node)

@@ -61,7 +61,7 @@ public class TestMariaDbCaseInsensitiveMapping
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return requireNonNull(server, "server is null")::execute;
+        return server::execute;
     }
 
     @Override

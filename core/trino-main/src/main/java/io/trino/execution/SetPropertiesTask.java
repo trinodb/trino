@@ -76,9 +76,11 @@ public class SetPropertiesTask
         Session session = stateMachine.getSession();
         QualifiedObjectName objectName = createQualifiedObjectName(session, statement, statement.getName());
 
+        String catalogName = objectName.getCatalogName();
         if (statement.getType() == TABLE) {
             Map<String, Optional<Object>> properties = tablePropertyManager.getNullableProperties(
-                    getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, objectName.getCatalogName()),
+                    catalogName,
+                    getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, catalogName),
                     statement.getProperties(),
                     session,
                     plannerContext,
@@ -89,7 +91,8 @@ public class SetPropertiesTask
         }
         else if (statement.getType() == MATERIALIZED_VIEW) {
             Map<String, Optional<Object>> properties = materializedViewPropertyManager.getNullableProperties(
-                    getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, objectName.getCatalogName()),
+                    catalogName,
+                    getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, catalogName),
                     statement.getProperties(),
                     session,
                     plannerContext,
@@ -115,13 +118,11 @@ public class SetPropertiesTask
             throw semanticException(NOT_SUPPORTED, statement, "Cannot set properties to a view in ALTER TABLE");
         }
 
-        Optional<TableHandle> tableHandle = plannerContext.getMetadata().getTableHandle(session, tableName);
-        if (tableHandle.isEmpty()) {
-            throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", tableName);
-        }
+        TableHandle tableHandle = plannerContext.getMetadata().getTableHandle(session, tableName)
+                .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", tableName));
 
         accessControl.checkCanSetTableProperties(session.toSecurityContext(), tableName, properties);
-        plannerContext.getMetadata().setTableProperties(session, tableHandle.get(), properties);
+        plannerContext.getMetadata().setTableProperties(session, tableHandle, properties);
     }
 
     private void setMaterializedViewProperties(

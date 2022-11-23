@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>389</version>
+        <version>400</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -139,6 +139,12 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-benchmark-queries</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-blackhole</artifactId>
             <scope>test</scope>
         </dependency>
@@ -152,6 +158,62 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-exchange-filesystem</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hdfs</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hive</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <!-- conflicts with com.google.protobuf:protobuf-java -->
+                    <groupId>org.alluxio</groupId>
+                    <artifactId>alluxio-shaded-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <!-- calcite-core and Iceberg have conflicting versions of org.apache.commons:commons-lang3 -->
+                    <groupId>com.linkedin.calcite</groupId>
+                    <artifactId>calcite-core</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hive</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <!-- conflicts with com.google.protobuf:protobuf-java -->
+                    <groupId>org.alluxio</groupId>
+                    <artifactId>alluxio-shaded-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <!-- calcite-core and Iceberg have conflicting versions of org.apache.commons:commons-lang3 -->
+                    <groupId>com.linkedin.calcite</groupId>
+                    <artifactId>calcite-core</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-iceberg</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-iceberg</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
@@ -208,7 +270,20 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-containers</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -227,6 +302,18 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-tpch</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino.hive</groupId>
+            <artifactId>hive-apache</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino.tpcds</groupId>
+            <artifactId>tpcds</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -261,6 +348,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <scope>test</scope>
@@ -285,4 +378,22 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredResourcePatterns>
+                        <!-- com.amazonaws:aws-java-sdk-core and software.amazon.awssdk:sdk-core MIME type file duplicate-->
+                        <ignoredResourcePattern>mime.types</ignoredResourcePattern>
+                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                        <ignoredResourcePattern>iceberg-build.properties</ignoredResourcePattern>
+                        <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

@@ -16,10 +16,13 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
-import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
-import io.trino.operator.scalar.ScalarFunctionImplementation;
+import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
+import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
@@ -62,7 +65,7 @@ public class LiteralFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         Type parameterType = boundSignature.getArgumentTypes().get(0);
         Type type = boundSignature.getReturnType();
@@ -88,7 +91,7 @@ public class LiteralFunction
                 parameterType.getJavaType(),
                 type.getJavaType());
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
@@ -110,9 +113,7 @@ public class LiteralFunction
             if (type instanceof VarcharType) {
                 return type;
             }
-            else {
-                return VARBINARY;
-            }
+            return VARBINARY;
         }
         if (clazz == boolean.class) {
             return BOOLEAN;

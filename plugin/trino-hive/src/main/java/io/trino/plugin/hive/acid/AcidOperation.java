@@ -22,16 +22,18 @@ import java.util.Optional;
 
 public enum AcidOperation
 {
-    // UPDATE and MERGE will be added when they are implemented
     NONE,
     CREATE_TABLE,
     DELETE,
     INSERT,
-    UPDATE;
+    UPDATE,
+    MERGE,
+    /**/;
 
     private static final Map<AcidOperation, DataOperationType> DATA_OPERATION_TYPES = ImmutableMap.of(
             DELETE, DataOperationType.DELETE,
-            INSERT, DataOperationType.INSERT);
+            INSERT, DataOperationType.INSERT,
+            MERGE, DataOperationType.UPDATE);
 
     private static final Map<AcidOperation, OrcOperation> ORC_OPERATIONS = ImmutableMap.of(
             DELETE, OrcOperation.DELETE,

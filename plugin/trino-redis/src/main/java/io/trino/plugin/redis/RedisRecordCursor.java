@@ -69,10 +69,12 @@ public class RedisRecordCursor
 
     private final RedisSplit split;
     private final List<RedisColumnHandle> columnHandles;
-    private final RedisJedisManager redisJedisManager;
     private final JedisPool jedisPool;
     private final ScanParams scanParams;
     private final int maxKeysPerFetch;
+    private final char redisKeyDelimiter;
+    private final boolean isKeyPrefixSchemaTable;
+    private final int redisScanCount;
 
     private ScanResult<String> redisCursor;
     private List<String> keys;
@@ -98,10 +100,12 @@ public class RedisRecordCursor
         this.valueDecoder = valueDecoder;
         this.split = split;
         this.columnHandles = columnHandles;
-        this.redisJedisManager = redisJedisManager;
         this.jedisPool = redisJedisManager.getJedisPool(split.getNodes().get(0));
+        this.redisKeyDelimiter = redisJedisManager.getRedisKeyDelimiter();
+        this.isKeyPrefixSchemaTable = redisJedisManager.isKeyPrefixSchemaTable();
+        this.redisScanCount = redisJedisManager.getRedisScanCount();
         this.scanParams = setScanParams();
-        this.maxKeysPerFetch = redisJedisManager.getRedisConnectorConfig().getRedisMaxKeysPerFetch();
+        this.maxKeysPerFetch = redisJedisManager.getRedisMaxKeysPerFetch();
         this.currentRowGroup = new LinkedList<>();
 
         if (split.getConstraint().isAll()) {
@@ -336,7 +340,7 @@ public class RedisRecordCursor
     {
         if (split.getKeyDataType() == RedisDataType.STRING) {
             ScanParams scanParams = new ScanParams();
-            scanParams.count(redisJedisManager.getRedisConnectorConfig().getRedisScanCount());
+            scanParams.count(redisScanCount);
 
             // when Redis key string follows "schema:table:*" format
             // scan command can efficiently query tables
@@ -348,12 +352,12 @@ public class RedisRecordCursor
 
             // "default" schema is not prefixed to the key
 
-            if (redisJedisManager.getRedisConnectorConfig().isKeyPrefixSchemaTable()) {
+            if (isKeyPrefixSchemaTable) {
                 String keyMatch = "";
                 if (!split.getSchemaName().equals("default")) {
-                    keyMatch = split.getSchemaName() + redisJedisManager.getRedisConnectorConfig().getRedisKeyDelimiter();
+                    keyMatch = split.getSchemaName() + redisKeyDelimiter;
                 }
-                keyMatch = keyMatch + split.getTableName() + redisJedisManager.getRedisConnectorConfig().getRedisKeyDelimiter() + "*";
+                keyMatch = keyMatch + split.getTableName() + redisKeyDelimiter + "*";
                 scanParams.match(keyMatch);
             }
             return scanParams;
@@ -364,7 +368,7 @@ public class RedisRecordCursor
 
     private void setPushdownKeys()
     {
-        String keyStringPrefix = redisJedisManager.getRedisConnectorConfig().isKeyPrefixSchemaTable()
+        String keyStringPrefix = isKeyPrefixSchemaTable
                 ? scanParams.match().substring(0, scanParams.match().length() - 1)
                 : EMPTY_STRING;
         TupleDomain<ColumnHandle> constraint = split.getConstraint();
@@ -379,19 +383,17 @@ public class RedisRecordCursor
                     log.debug("Set pushdown keys %s with single value", keys.toString());
                     return;
                 }
-                else {
-                    ValueSet valueSet = domain.getValues();
-                    if (valueSet instanceof SortedRangeSet) {
-                        Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
-                        List<Range> rangeList = ranges.getOrderedRanges();
-                        if (rangeList.stream().allMatch(Range::isSingleValue)) {
-                            keys = rangeList.stream()
-                                    .map(range -> ((Slice) range.getSingleValue()).toStringUtf8())
-                                    .filter(str -> keyStringPrefix.isEmpty() || str.contains(keyStringPrefix))
-                                    .collect(toList());
-                            log.debug("Set pushdown keys %s with sorted range values", keys.toString());
-                            return;
-                        }
+                ValueSet valueSet = domain.getValues();
+                if (valueSet instanceof SortedRangeSet) {
+                    Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
+                    List<Range> rangeList = ranges.getOrderedRanges();
+                    if (rangeList.stream().allMatch(Range::isSingleValue)) {
+                        keys = rangeList.stream()
+                                .map(range -> ((Slice) range.getSingleValue()).toStringUtf8())
+                                .filter(str -> keyStringPrefix.isEmpty() || str.contains(keyStringPrefix))
+                                .collect(toList());
+                        log.debug("Set pushdown keys %s with sorted range values", keys.toString());
+                        return;
                     }
                 }
             }

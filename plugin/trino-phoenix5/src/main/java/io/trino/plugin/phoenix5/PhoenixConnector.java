@@ -62,11 +62,11 @@ public class PhoenixConnector
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
-        this.tableProperties = requireNonNull(tableProperties, "tableProperties is null").stream()
+        this.tableProperties = tableProperties.stream()
                 .flatMap(tablePropertiesProvider -> tablePropertiesProvider.getTableProperties().stream())
                 .collect(toImmutableList());
         this.columnProperties = requireNonNull(columnProperties, "columnProperties is null");
-        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null").stream()
+        this.sessionProperties = sessionProperties.stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
                 .collect(toImmutableList());
     }

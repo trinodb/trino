@@ -69,8 +69,6 @@ public class MatchResult
         if (matches) {
             return "MATCH";
         }
-        else {
-            return "NO MATCH";
-        }
+        return "NO MATCH";
     }
 }

@@ -60,7 +60,6 @@ public class QuerySessionSupplier
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
-        requireNonNull(config, "config is null");
         this.defaultPath = requireNonNull(config.getPath(), "path is null");
         this.forcedSessionTimeZone = requireNonNull(config.getForcedSessionTimeZone(), "forcedSessionTimeZone is null");
         this.defaultCatalog = requireNonNull(config.getDefaultCatalog(), "defaultCatalog is null");

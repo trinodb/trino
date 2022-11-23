@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.BaseDynamicPartitionPruningTest;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -40,7 +39,7 @@ public class TestIcebergDynamicPartitionPruningTest
     }
 
     @Override
-    public void testJoinDynamicFilteringMultiJoinOnBucketedTables(JoinDistributionType joinDistributionType)
+    public void testJoinDynamicFilteringMultiJoinOnBucketedTables()
     {
         throw new SkipException("Iceberg does not support bucketing");
     }

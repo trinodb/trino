@@ -41,7 +41,7 @@ import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINA
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
 import static io.trino.tests.product.launcher.env.common.Hadoop.createHadoopContainer;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.testcontainers.containers.BindMode.READ_WRITE;
@@ -49,7 +49,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 
 /**
  * Two pseudo-distributed, kerberized Hadoop installations running on side-by-side,
- * each within single container, with single-node, kerberized Presto.
+ * each within single container, with single-node, kerberized Trino.
  */
 @TestsEnvironment
 public final class EnvTwoKerberosHives
@@ -76,8 +76,8 @@ public final class EnvTwoKerberosHives
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/two-kerberos-hives");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
-        hadoopBaseImage = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopBaseImage();
-        hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
+        hadoopBaseImage = environmentConfig.getHadoopBaseImage();
+        hadoopImagesVersion = environmentConfig.getHadoopImagesVersion();
     }
 
     @PreDestroy
@@ -97,10 +97,10 @@ public final class EnvTwoKerberosHives
                     .withFileSystemBind(keytabsHostDirectory, "/etc/trino/conf", READ_WRITE)
                     .withCopyFileToContainer(forHostPath(configDir.getPath("presto-krb5.conf")), "/etc/krb5.conf");
         });
-        builder.addConnector("hive", forHostPath(configDir.getPath("hive1.properties")), CONTAINER_PRESTO_ETC + "/catalog/hive1.properties");
-        builder.addConnector("hive", forHostPath(configDir.getPath("hive2.properties")), CONTAINER_PRESTO_ETC + "/catalog/hive2.properties");
-        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg1.properties")), CONTAINER_PRESTO_ETC + "/catalog/iceberg1.properties");
-        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg2.properties")), CONTAINER_PRESTO_ETC + "/catalog/iceberg2.properties");
+        builder.addConnector("hive", forHostPath(configDir.getPath("hive1.properties")), CONTAINER_TRINO_ETC + "/catalog/hive1.properties");
+        builder.addConnector("hive", forHostPath(configDir.getPath("hive2.properties")), CONTAINER_TRINO_ETC + "/catalog/hive2.properties");
+        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg1.properties")), CONTAINER_TRINO_ETC + "/catalog/iceberg1.properties");
+        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg2.properties")), CONTAINER_TRINO_ETC + "/catalog/iceberg2.properties");
 
         builder.configureContainer(HADOOP, container -> {
             container.setDockerImageName(hadoopBaseImage + "-kerberized:" + hadoopImagesVersion);

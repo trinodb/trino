@@ -21,11 +21,12 @@ import java.util.Objects;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.trino.spi.connector.SchemaUtil.checkNotEmpty;
+import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
 
 public final class SchemaTableName
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SchemaTableName.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SchemaTableName.class).instanceSize());
 
     private final String schemaName;
     private final String tableName;

@@ -103,15 +103,15 @@ public class TestDefaultJdbcMetadata
                 "value", new JdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT)));
 
         // unknown table
-        unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("unknown", "unknown"), "unknown", "unknown", "unknown"));
-        unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("example", "numbers"), null, "example", "unknown"));
+        unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("unknown", "unknown"), new RemoteTableName(Optional.of("unknown"), Optional.of("unknown"), "unknown"), Optional.empty()));
+        unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("example", "numbers"), new RemoteTableName(Optional.empty(), Optional.of("example"), "unknown"), Optional.empty()));
     }
 
     private void unknownTableColumnHandle(JdbcTableHandle tableHandle)
     {
         assertThatThrownBy(() -> metadata.getColumnHandles(SESSION, tableHandle))
                 .isInstanceOf(TableNotFoundException.class)
-                .hasMessage("Table '%s' has no supported columns (all 0 columns are not supported)", tableHandle.getSchemaTableName());
+                .hasMessage("Table '%s' has no supported columns (all 0 columns are not supported)", tableHandle.asPlainTable().getSchemaTableName());
     }
 
     @Test
@@ -134,16 +134,16 @@ public class TestDefaultJdbcMetadata
                 new ColumnMetadata("va%ue", BIGINT)));
 
         // unknown tables should produce null
-        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("u", "numbers"), null, "unknown", "unknown"));
-        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("example", "numbers"), null, "example", "unknown"));
-        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("example", "numbers"), null, "unknown", "numbers"));
+        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("u", "numbers"), new RemoteTableName(Optional.empty(), Optional.of("unknown"), "unknown"), Optional.empty()));
+        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("example", "numbers"), new RemoteTableName(Optional.empty(), Optional.of("example"), "unknown"), Optional.empty()));
+        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("example", "numbers"), new RemoteTableName(Optional.empty(), Optional.of("unknown"), "numbers"), Optional.empty()));
     }
 
     private void unknownTableMetadata(JdbcTableHandle tableHandle)
     {
         assertThatThrownBy(() -> metadata.getTableMetadata(SESSION, tableHandle))
                 .isInstanceOf(TableNotFoundException.class)
-                .hasMessage("Table '%s' has no supported columns (all 0 columns are not supported)", tableHandle.getSchemaTableName());
+                .hasMessage("Table '%s' has no supported columns (all 0 columns are not supported)", tableHandle.asPlainTable().getSchemaTableName());
     }
 
     @Test

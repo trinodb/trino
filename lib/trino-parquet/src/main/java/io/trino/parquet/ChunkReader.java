@@ -15,11 +15,25 @@ package io.trino.parquet;
 
 import io.airlift.slice.Slice;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+
 public interface ChunkReader
 {
     long getDiskOffset();
 
-    Slice read();
+    Slice read()
+            throws IOException;
+
+    default Slice readUnchecked()
+    {
+        try {
+            return read();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
 
     void free();
 }

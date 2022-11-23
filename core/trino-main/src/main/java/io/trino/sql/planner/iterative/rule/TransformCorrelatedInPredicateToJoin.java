@@ -370,9 +370,7 @@ public class TransformCorrelatedInPredicateToJoin
             if (isCorrelatedRecursively(node)) {
                 return Optional.empty();
             }
-            else {
-                return Optional.of(new Decorrelated(ImmutableList.of(), reference));
-            }
+            return Optional.of(new Decorrelated(ImmutableList.of(), reference));
         }
 
         private boolean isCorrelatedRecursively(PlanNode node)

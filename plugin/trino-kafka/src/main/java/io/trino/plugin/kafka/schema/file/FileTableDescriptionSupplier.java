@@ -60,8 +60,6 @@ public class FileTableDescriptionSupplier
     FileTableDescriptionSupplier(FileTableDescriptionSupplierConfig config, KafkaConfig kafkaConfig, JsonCodec<KafkaTopicDescription> topicDescriptionCodec)
     {
         this.topicDescriptionCodec = requireNonNull(topicDescriptionCodec, "topicDescriptionCodec is null");
-        requireNonNull(config, "config is null");
-        requireNonNull(kafkaConfig, "kafkaConfig is null");
         this.tableDescriptionDir = config.getTableDescriptionDir();
         this.defaultSchema = kafkaConfig.getDefaultSchema();
         this.tableNames = ImmutableSet.copyOf(config.getTableNames());

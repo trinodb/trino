@@ -141,30 +141,114 @@ Property                                              Description               
                                                       <https://cloud.google.com/bigquery/docs/cached-results>`_      ``false``
 ===================================================== ============================================================== ======================================================
 
-Data types
-----------
+.. _bigquery-type-mapping:
 
-With a few exceptions, all BigQuery types are mapped directly to their Trino
-counterparts. Here are all the mappings:
+Type mapping
+------------
 
-============== =============================== =============================================================================================================
-BigQuery       Trino                           Notes
-============== =============================== =============================================================================================================
-``ARRAY``      ``ARRAY``
-``BOOLEAN``    ``BOOLEAN``
-``BYTES``      ``VARBINARY``
-``DATE``       ``DATE``
-``DATETIME``   ``TIMESTAMP(6)``
-``FLOAT``      ``DOUBLE``
-``GEOGRAPHY``  ``VARCHAR``                     In `Well-known text (WKT) <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
-``INTEGER``    ``BIGINT``
-``NUMERIC``    ``DECIMAL(P,S)``                Defaults to ``38`` as precision and ``9`` as scale
-``BIGNUMERIC`` ``DECIMAL(P,S)``                Precision > 38 is not supported. Note that the default precision and scale of BIGNUMERIC is ``(77, 38)``.
-``RECORD``     ``ROW``
-``STRING``     ``VARCHAR``
-``TIME``       ``TIME(6)``
-``TIMESTAMP``  ``TIMESTAMP(6) WITH TIME ZONE`` Time zone is UTC
-============== =============================== =============================================================================================================
+Because Trino and BigQuery each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
+
+BigQuery type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps BigQuery types to the corresponding Trino types according
+to the following table:
+
+.. list-table:: BigQuery type to Trino type mapping
+  :widths: 30, 30, 50
+  :header-rows: 1
+
+  * - BigQuery type
+    - Trino type
+    - Notes
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``INT64``
+    - ``BIGINT``
+    - ``INT``, ``SMALLINT``, ``INTEGER``, ``BIGINT``, ``TINYINT``, and
+      ``BYTEINT`` are aliases for ``INT64`` in BigQuery.
+  * - ``FLOAT64``
+    - ``DOUBLE``
+    -
+  * - ``NUMERIC``
+    - ``DECIMAL(P,S)``
+    - The default precision and scale of ``NUMERIC`` is ``(38, 9)``.
+  * - ``BIGNUMERIC``
+    - ``DECIMAL(P,S)``
+    - Precision > 38 is not supported. The default precision and scale of
+      ``BIGNUMERIC`` is ``(77, 38)``.
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``DATETIME``
+    - ``TIMESTAMP(6)``
+    -
+  * - ``STRING``
+    - ``VARCHAR``
+    -
+  * - ``BYTES``
+    - ``VARBINARY``
+    -
+  * - ``TIME``
+    - ``TIME(6)``
+    -
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP(6) WITH TIME ZONE``
+    - Time zone is UTC
+  * - ``GEOGRAPHY``
+    - ``VARCHAR``
+    - In `Well-known text (WKT) <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
+  * - ``ARRAY``
+    - ``ARRAY``
+    -
+  * - ``RECORD``
+    - ``ROW``
+    -
+
+No other types are supported.
+
+Trino type to BigQuery type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Trino types to the corresponding BigQuery types according
+to the following table:
+
+.. list-table:: Trino type to BigQuery type mapping
+  :widths: 30, 30, 50
+  :header-rows: 1
+
+  * - Trino type
+    - BigQuery type
+    - Notes
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``VARBINARY``
+    - ``BYTES``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``DOUBLE``
+    - ``FLOAT``
+    -
+  * - ``BIGINT``
+    - ``INT64``
+    - ``INT``, ``SMALLINT``, ``INTEGER``, ``BIGINT``, ``TINYINT``, and
+      ``BYTEINT`` are aliases for ``INT64`` in BigQuery.
+  * - ``VARCHAR``
+    - ``STRING``
+    -
+  * - ``TIMESTAMP(6)``
+    - ``DATETIME``
+    -
+
+No other types are supported.
 
 System tables
 -------------
@@ -208,15 +292,52 @@ SQL support
 -----------
 
 The connector provides read and write access to data and metadata in the
-BigQuery database, though write access is limited. In addition to the
+BigQuery database. In addition to the
 :ref:`globally available <sql-globally-available>` and
 :ref:`read operation <sql-read-operations>` statements, the connector supports
 the following features:
 
+* :doc:`/sql/insert`
+* :doc:`/sql/truncate`
 * :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`
 * :doc:`/sql/create-schema`
 * :doc:`/sql/drop-schema`
+* :doc:`/sql/comment`
+
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access BigQuery.
+
+.. _bigquery-query-function:
+
+``query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying BigQuery directly. It
+requires syntax native to BigQuery, because the full query is pushed down and
+processed by BigQuery. This can be useful for accessing native features which are
+not available in Trino or for improving query performance in situations where
+running a query natively may be faster.
+
+For example, group and concatenate all employee IDs by manager ID::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        bigquery.system.query(
+          query => 'SELECT
+            manager_id, STRING_AGG(employee_id)
+          FROM
+            company.employees
+          GROUP BY
+            manager_id'
+        )
+      );
 
 FAQ
 ---

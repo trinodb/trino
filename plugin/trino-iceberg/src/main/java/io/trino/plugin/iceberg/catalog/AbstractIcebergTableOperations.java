@@ -42,6 +42,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveType.toHiveType;
+import static io.trino.plugin.iceberg.IcebergUtil.fixBrokenMetadataLocation;
 import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
@@ -51,6 +52,7 @@ import static org.apache.iceberg.TableMetadataParser.getFileExtension;
 import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION;
 import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION_DEFAULT;
 import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
+import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 
 @NotThreadSafe
 public abstract class AbstractIcebergTableOperations
@@ -60,7 +62,7 @@ public abstract class AbstractIcebergTableOperations
 
     protected static final String METADATA_FOLDER_NAME = "metadata";
 
-    protected static final StorageFormat STORAGE_FORMAT = StorageFormat.create(
+    public static final StorageFormat ICEBERG_METASTORE_STORAGE_FORMAT = StorageFormat.create(
             LazySimpleSerDe.class.getName(),
             FileInputFormat.class.getName(),
             FileOutputFormat.class.getName());
@@ -124,7 +126,7 @@ public abstract class AbstractIcebergTableOperations
             refreshFromMetadataLocation(null);
             return currentMetadata;
         }
-        refreshFromMetadataLocation(getRefreshedLocation(invalidateCaches));
+        refreshFromMetadataLocation(fixBrokenMetadataLocation(getRefreshedLocation(invalidateCaches)));
         return currentMetadata;
     }
 
@@ -173,14 +175,14 @@ public abstract class AbstractIcebergTableOperations
         if (metadata != null) {
             String writeLocation = metadata.properties().get(WRITE_METADATA_LOCATION);
             if (writeLocation != null) {
-                return format("%s/%s", writeLocation, filename);
+                return format("%s/%s", stripTrailingSlash(writeLocation), filename);
             }
             location = metadata.location();
         }
         else {
             location = this.location.orElseThrow(() -> new IllegalStateException("Location not set"));
         }
-        return format("%s/%s/%s", location, METADATA_FOLDER_NAME, filename);
+        return format("%s/%s/%s", stripTrailingSlash(location), METADATA_FOLDER_NAME, filename);
     }
 
     @Override
@@ -244,9 +246,9 @@ public abstract class AbstractIcebergTableOperations
     {
         String location = metadata.properties().get(WRITE_METADATA_LOCATION);
         if (location != null) {
-            return format("%s/%s", location, filename);
+            return format("%s/%s", stripTrailingSlash(location), filename);
         }
-        return format("%s/%s/%s", metadata.location(), METADATA_FOLDER_NAME, filename);
+        return format("%s/%s/%s", stripTrailingSlash(metadata.location()), METADATA_FOLDER_NAME, filename);
     }
 
     protected static int parseVersion(String metadataLocation)

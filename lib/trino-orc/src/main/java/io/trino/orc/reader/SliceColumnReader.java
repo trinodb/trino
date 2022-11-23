@@ -41,12 +41,13 @@ import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.spi.type.Chars.byteCountWithoutTrailingSpace;
 import static io.trino.spi.type.Varchars.byteCount;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SliceColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SliceColumnReader.class).instanceSize());
 
     private final OrcColumn column;
     private final SliceDirectColumnReader directReader;

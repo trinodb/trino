@@ -20,7 +20,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -36,12 +37,12 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.JoinApplicationResult;
-import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SortItem;
@@ -51,6 +52,10 @@ import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.function.AggregationFunctionMetadata;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
@@ -73,9 +78,9 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
-import static io.trino.metadata.FunctionId.toFunctionId;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.spi.function.FunctionId.toFunctionId;
 import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -91,7 +96,7 @@ public abstract class AbstractMockMetadata
     private final ResolvedFunctionDecoder functionDecoder = new ResolvedFunctionDecoder(TESTING_TYPE_MANAGER::getType);
 
     @Override
-    public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName)
+    public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogHandle catalogHandle)
     {
         throw new UnsupportedOperationException();
     }
@@ -271,6 +276,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void setViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment)
     {
         throw new UnsupportedOperationException();
@@ -337,7 +348,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
     }
@@ -463,7 +474,37 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<CatalogName> getCatalogHandle(Session session, String catalogName)
+    public RowChangeParadigm getRowChangeParadigm(Session session, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ColumnHandle getMergeRowIdColumnHandle(Session session, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<PartitioningHandle> getUpdateLayout(Session session, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public MergeHandle beginMerge(Session session, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void finishMerge(Session session, MergeHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName)
     {
         throw new UnsupportedOperationException();
     }
@@ -569,7 +610,7 @@ public abstract class AbstractMockMetadata
             JoinType joinType,
             TableHandle left,
             TableHandle right,
-            List<JoinCondition> joinConditions,
+            ConnectorExpression joinCondition,
             Map<String, ColumnHandle> leftAssignments,
             Map<String, ColumnHandle> rightAssignments,
             JoinStatistics statistics)
@@ -648,12 +689,6 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Set<RoleGrant> listAllRoleGrants(Session session, Optional<String> catalog, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Set<RoleGrant> listRoleGrants(Session session, Optional<String> catalog, TrinoPrincipal principal)
     {
         throw new UnsupportedOperationException();
@@ -726,6 +761,7 @@ public abstract class AbstractMockMetadata
             BoundSignature boundSignature = new BoundSignature(nameSuffix, DOUBLE, ImmutableList.of());
             return new ResolvedFunction(
                     boundSignature,
+                    GlobalSystemConnector.CATALOG_HANDLE,
                     toFunctionId(boundSignature.toSignature()),
                     SCALAR,
                     true,

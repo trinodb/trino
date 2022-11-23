@@ -18,6 +18,7 @@ import io.trino.array.ObjectBigArray;
 import io.trino.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
 
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class QuantileDigestStateFactory
@@ -39,7 +40,7 @@ public class QuantileDigestStateFactory
             extends AbstractGroupedAccumulatorState
             implements QuantileDigestState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedQuantileDigestState.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedQuantileDigestState.class).instanceSize());
         private final ObjectBigArray<QuantileDigest> qdigests = new ObjectBigArray<>();
         private long size;
 
@@ -78,7 +79,7 @@ public class QuantileDigestStateFactory
     public static class SingleQuantileDigestState
             implements QuantileDigestState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleQuantileDigestState.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleQuantileDigestState.class).instanceSize());
         private QuantileDigest qdigest;
 
         @Override

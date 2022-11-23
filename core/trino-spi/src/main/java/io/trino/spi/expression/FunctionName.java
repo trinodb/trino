@@ -14,6 +14,8 @@
 
 package io.trino.spi.expression;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.CatalogSchemaName;
 
 import java.util.Objects;
@@ -32,7 +34,10 @@ public class FunctionName
         this(Optional.empty(), name);
     }
 
-    public FunctionName(Optional<CatalogSchemaName> catalogSchema, String name)
+    @JsonCreator
+    public FunctionName(
+            @JsonProperty("catalogSchema") Optional<CatalogSchemaName> catalogSchema,
+            @JsonProperty("name") String name)
     {
         this.catalogSchema = requireNonNull(catalogSchema, "catalogSchema is null");
         this.name = requireNonNull(name, "name is null");
@@ -41,6 +46,7 @@ public class FunctionName
     /**
      * @return the catalog and schema of this function, or {@link Optional#empty()} if this is a built-in function
      */
+    @JsonProperty
     public Optional<CatalogSchemaName> getCatalogSchema()
     {
         return catalogSchema;
@@ -49,6 +55,7 @@ public class FunctionName
     /**
      * @return the function's name
      */
+    @JsonProperty
     public String getName()
     {
         return name;

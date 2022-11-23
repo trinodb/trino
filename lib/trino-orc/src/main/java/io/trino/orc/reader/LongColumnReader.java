@@ -52,12 +52,13 @@ import static io.trino.orc.reader.ReaderUtils.unpackLongNulls;
 import static io.trino.orc.reader.ReaderUtils.unpackShortNulls;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class LongColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LongColumnReader.class).instanceSize());
 
     private final Type type;
     private final OrcColumn column;

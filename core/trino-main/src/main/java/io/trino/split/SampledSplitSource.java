@@ -15,7 +15,7 @@ package io.trino.split;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 
 import javax.annotation.Nullable;
 
@@ -41,9 +41,9 @@ public class SampledSplitSource
 
     @Nullable
     @Override
-    public CatalogName getCatalogName()
+    public CatalogHandle getCatalogHandle()
     {
-        return splitSource.getCatalogName();
+        return splitSource.getCatalogHandle();
     }
 
     @Override

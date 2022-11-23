@@ -20,7 +20,7 @@ public class TestMySqlTableStatisticsMySql8IndexStatistics
 {
     public TestMySqlTableStatisticsMySql8IndexStatistics()
     {
-        super("mysql:8.0.15");
+        super("mysql:8.0.30");
     }
 
     @Override

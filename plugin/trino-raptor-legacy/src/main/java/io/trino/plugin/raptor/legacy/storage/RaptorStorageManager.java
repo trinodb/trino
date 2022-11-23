@@ -32,9 +32,6 @@ import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
 import io.trino.orc.TupleDomainOrcPredicate;
 import io.trino.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
-import io.trino.orc.metadata.ColumnMetadata;
-import io.trino.orc.metadata.OrcColumnId;
-import io.trino.orc.metadata.OrcType;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.raptor.legacy.RaptorColumnHandle;
 import io.trino.plugin.raptor.legacy.backup.BackupManager;
@@ -54,15 +51,12 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.NamedTypeSignature;
-import io.trino.spi.type.RowFieldName;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VarcharType;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -94,7 +88,6 @@ import java.util.concurrent.TimeoutException;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.concurrent.MoreFutures.allAsList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -103,9 +96,9 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.Unit.PETABYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static io.trino.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.isBucketNumberColumn;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.isHiddenColumn;
+import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.isMergeRowIdColumn;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.isShardRowIdColumn;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.isShardUuidColumn;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
@@ -113,14 +106,17 @@ import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_LOCAL_DISK_FU
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_RECOVERY_TIMEOUT;
 import static io.trino.plugin.raptor.legacy.storage.ShardStats.computeColumnStats;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.CharType.createCharType;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeSignatureParameter.typeParameter;
 import static java.lang.Math.min;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.util.Objects.requireNonNull;
@@ -203,7 +199,7 @@ public class RaptorStorageManager
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.storageService = requireNonNull(storageService, "storageService is null");
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
-        this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null")
+        this.orcReaderOptions = orcReaderOptions
                 .withMaxReadBlockSize(HUGE_MAX_READ_BLOCK_SIZE);
 
         backupManager = requireNonNull(backgroundBackupManager, "backgroundBackupManager is null");
@@ -310,6 +306,9 @@ public class RaptorStorageManager
         if (isBucketNumberColumn(columnId)) {
             return ColumnAdaptation.bucketNumberColumn(bucketNumber);
         }
+        if (isMergeRowIdColumn(columnId)) {
+            return ColumnAdaptation.mergeRowIdColumn(bucketNumber, shardUuid);
+        }
         throw new TrinoException(RAPTOR_ERROR, "Invalid column ID: " + columnId);
     }
 
@@ -322,7 +321,8 @@ public class RaptorStorageManager
         return new RaptorStoragePageSink(transactionId, columnIds, columnTypes, bucketNumber);
     }
 
-    private ShardRewriter createShardRewriter(long transactionId, OptionalInt bucketNumber, UUID shardUuid)
+    @Override
+    public ShardRewriter createShardRewriter(long transactionId, OptionalInt bucketNumber, UUID shardUuid)
     {
         return rowsToDelete -> {
             if (rowsToDelete.isEmpty()) {
@@ -402,7 +402,7 @@ public class RaptorStorageManager
                     .orElseThrow(() -> new TrinoException(RAPTOR_ERROR, "Data file is empty: " + file));
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
-            for (ColumnInfo info : getColumnInfo(reader)) {
+            for (ColumnInfo info : getColumnInfo(typeManager, reader)) {
                 computeColumnStats(reader, info.getColumnId(), info.getType(), typeManager).ifPresent(list::add);
             }
             return list.build();
@@ -423,7 +423,7 @@ public class RaptorStorageManager
         File input = storageService.getStorageFile(shardUuid);
         File output = storageService.getStagingFile(newShardUuid);
 
-        OrcFileInfo info = rewriteFile(input, output, rowsToDelete);
+        OrcFileInfo info = rewriteFile(typeManager, input, output, rowsToDelete);
         long rowCount = info.getRowCount();
 
         if (rowCount == 0) {
@@ -452,39 +452,19 @@ public class RaptorStorageManager
         return ImmutableList.of(Slices.wrappedBuffer(SHARD_DELTA_CODEC.toJsonBytes(delta)));
     }
 
-    private static OrcFileInfo rewriteFile(File input, File output, BitSet rowsToDelete)
+    private static OrcFileInfo rewriteFile(TypeManager typeManager, File input, File output, BitSet rowsToDelete)
     {
         try {
-            return OrcFileRewriter.rewrite(input, output, rowsToDelete);
+            return OrcFileRewriter.rewrite(typeManager, input, output, rowsToDelete);
         }
         catch (IOException e) {
             throw new TrinoException(RAPTOR_ERROR, "Failed to rewrite shard file: " + input, e);
         }
     }
 
-    private List<ColumnInfo> getColumnInfo(OrcReader reader)
+    static List<ColumnInfo> getColumnInfo(TypeManager typeManager, OrcReader reader)
     {
-        Optional<OrcFileMetadata> metadata = getOrcFileMetadata(reader);
-        if (metadata.isPresent()) {
-            return getColumnInfoFromOrcUserMetadata(metadata.get());
-        }
-
-        // support for legacy files without metadata
-        return getColumnInfoFromOrcColumnTypes(reader.getColumnNames(), reader.getFooter().getTypes());
-    }
-
-    private List<ColumnInfo> getColumnInfoFromOrcColumnTypes(List<String> orcColumnNames, ColumnMetadata<OrcType> orcColumnTypes)
-    {
-        Type rowType = getType(orcColumnTypes, ROOT_COLUMN);
-        if (orcColumnNames.size() != rowType.getTypeParameters().size()) {
-            throw new TrinoException(RAPTOR_ERROR, "Column names and types do not match");
-        }
-
-        ImmutableList.Builder<ColumnInfo> list = ImmutableList.builder();
-        for (int i = 0; i < orcColumnNames.size(); i++) {
-            list.add(new ColumnInfo(Long.parseLong(orcColumnNames.get(i)), rowType.getTypeParameters().get(i)));
-        }
-        return list.build();
+        return getColumnInfoFromOrcUserMetadata(typeManager, getOrcFileMetadata(reader));
     }
 
     static long xxhash64(File file)
@@ -497,13 +477,14 @@ public class RaptorStorageManager
         }
     }
 
-    private static Optional<OrcFileMetadata> getOrcFileMetadata(OrcReader reader)
+    private static OrcFileMetadata getOrcFileMetadata(OrcReader reader)
     {
         return Optional.ofNullable(reader.getFooter().getUserMetadata().get(OrcFileMetadata.KEY))
-                .map(slice -> METADATA_CODEC.fromJson(slice.getBytes()));
+                .map(slice -> METADATA_CODEC.fromJson(slice.getBytes()))
+                .orElseThrow(() -> new TrinoException(RAPTOR_ERROR, "No Raptor metadata in file"));
     }
 
-    private List<ColumnInfo> getColumnInfoFromOrcUserMetadata(OrcFileMetadata orcFileMetadata)
+    private static List<ColumnInfo> getColumnInfoFromOrcUserMetadata(TypeManager typeManager, OrcFileMetadata orcFileMetadata)
     {
         return orcFileMetadata.getColumnTypes().entrySet()
                 .stream()
@@ -512,51 +493,23 @@ public class RaptorStorageManager
                 .collect(toList());
     }
 
-    private Type getType(ColumnMetadata<OrcType> types, OrcColumnId columnId)
-    {
-        OrcType type = types.get(columnId);
-        switch (type.getOrcTypeKind()) {
-            case BOOLEAN:
-                return BOOLEAN;
-            case LONG:
-                return BIGINT;
-            case DOUBLE:
-                return DOUBLE;
-            case STRING:
-                return createUnboundedVarcharType();
-            case VARCHAR:
-                return createVarcharType(type.getLength().get());
-            case CHAR:
-                return createCharType(type.getLength().get());
-            case BINARY:
-                return VARBINARY;
-            case DECIMAL:
-                return DecimalType.createDecimalType(type.getPrecision().get(), type.getScale().get());
-            case LIST:
-                TypeSignature elementType = getType(types, type.getFieldTypeIndex(0)).getTypeSignature();
-                return typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.typeParameter(elementType)));
-            case MAP:
-                TypeSignature keyType = getType(types, type.getFieldTypeIndex(0)).getTypeSignature();
-                TypeSignature valueType = getType(types, type.getFieldTypeIndex(1)).getTypeSignature();
-                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.typeParameter(keyType), TypeSignatureParameter.typeParameter(valueType)));
-            case STRUCT:
-                List<String> fieldNames = type.getFieldNames();
-                ImmutableList.Builder<TypeSignatureParameter> fieldTypes = ImmutableList.builder();
-                for (int i = 0; i < type.getFieldCount(); i++) {
-                    fieldTypes.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(
-                            Optional.of(new RowFieldName(fieldNames.get(i))),
-                            getType(types, type.getFieldTypeIndex(i)).getTypeSignature())));
-                }
-                return typeManager.getParameterizedType(StandardTypes.ROW, fieldTypes.build());
-            default:
-                throw new TrinoException(RAPTOR_ERROR, "Unhandled ORC type: " + type);
-        }
-    }
-
     static Type toOrcFileType(Type raptorType, TypeManager typeManager)
     {
-        // TIMESTAMPS are stored as BIGINT to void the poor encoding in ORC
+        if ((raptorType == BOOLEAN) ||
+                (raptorType == TINYINT) ||
+                (raptorType == SMALLINT) ||
+                (raptorType == INTEGER) ||
+                (raptorType == BIGINT) ||
+                (raptorType == REAL) ||
+                (raptorType == DOUBLE) ||
+                (raptorType == DATE) ||
+                (raptorType instanceof DecimalType) ||
+                (raptorType instanceof VarcharType) ||
+                (raptorType instanceof VarbinaryType)) {
+            return raptorType;
+        }
         if (raptorType.equals(TIMESTAMP_MILLIS)) {
+            // TIMESTAMPS are stored as BIGINT to avoid the poor encoding in ORC
             return BIGINT;
         }
         if (raptorType instanceof ArrayType) {
@@ -566,15 +519,9 @@ public class RaptorStorageManager
         if (raptorType instanceof MapType) {
             TypeSignature keyType = toOrcFileType(((MapType) raptorType).getKeyType(), typeManager).getTypeSignature();
             TypeSignature valueType = toOrcFileType(((MapType) raptorType).getValueType(), typeManager).getTypeSignature();
-            return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.typeParameter(keyType), TypeSignatureParameter.typeParameter(valueType)));
+            return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(typeParameter(keyType), typeParameter(valueType)));
         }
-        if (raptorType instanceof RowType) {
-            List<Field> fields = ((RowType) raptorType).getFields().stream()
-                    .map(field -> new Field(field.getName(), toOrcFileType(field.getType(), typeManager)))
-                    .collect(toImmutableList());
-            return RowType.from(fields);
-        }
-        return raptorType;
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + raptorType);
     }
 
     private static OrcPredicate getPredicate(TupleDomain<RaptorColumnHandle> effectivePredicate, Map<Long, OrcColumn> indexMap)
@@ -630,13 +577,6 @@ public class RaptorStorageManager
         {
             createWriterIfNecessary();
             writer.appendPages(inputPages, pageIndexes, positionIndexes);
-        }
-
-        @Override
-        public void appendRow(Row row)
-        {
-            createWriterIfNecessary();
-            writer.appendRow(row);
         }
 
         @Override
@@ -720,7 +660,7 @@ public class RaptorStorageManager
                 File stagingFile = storageService.getStagingFile(shardUuid);
                 storageService.createParents(stagingFile);
                 stagingFiles.add(stagingFile);
-                writer = new OrcFileWriter(columnIds, columnTypes, stagingFile);
+                writer = new OrcFileWriter(typeManager, columnIds, columnTypes, stagingFile);
             }
         }
     }

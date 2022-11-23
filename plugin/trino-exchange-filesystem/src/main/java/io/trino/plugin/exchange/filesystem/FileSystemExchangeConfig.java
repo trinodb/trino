@@ -42,8 +42,10 @@ public class FileSystemExchangeConfig
     private int exchangeSinkBuffersPerPartition = 2;
     private DataSize exchangeSinkMaxFileSize = DataSize.of(1, GIGABYTE);
     private int exchangeSourceConcurrentReaders = 4;
+    private int exchangeSourceMaxFilesPerReader = 25;
     private int maxOutputPartitionCount = 50;
     private int exchangeFileListingParallelism = 50;
+    private DataSize exchangeSourceHandleTargetDataSize = DataSize.of(256, MEGABYTE);
 
     @NotNull
     @NotEmpty(message = "At least one base directory needs to be configured")
@@ -151,6 +153,19 @@ public class FileSystemExchangeConfig
     }
 
     @Min(1)
+    public int getExchangeSourceMaxFilesPerReader()
+    {
+        return exchangeSourceMaxFilesPerReader;
+    }
+
+    @Config("exchange.source-max-files-per-reader")
+    public FileSystemExchangeConfig setExchangeSourceMaxFilesPerReader(int exchangeSourceMaxFilesPerReader)
+    {
+        this.exchangeSourceMaxFilesPerReader = exchangeSourceMaxFilesPerReader;
+        return this;
+    }
+
+    @Min(1)
     public int getMaxOutputPartitionCount()
     {
         return maxOutputPartitionCount;
@@ -174,6 +189,20 @@ public class FileSystemExchangeConfig
     public FileSystemExchangeConfig setExchangeFileListingParallelism(int exchangeFileListingParallelism)
     {
         this.exchangeFileListingParallelism = exchangeFileListingParallelism;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getExchangeSourceHandleTargetDataSize()
+    {
+        return exchangeSourceHandleTargetDataSize;
+    }
+
+    @Config("exchange.source-handle-target-data-size")
+    @ConfigDescription("Target size of the data referenced by a single source handle")
+    public FileSystemExchangeConfig setExchangeSourceHandleTargetDataSize(DataSize exchangeSourceHandleTargetDataSize)
+    {
+        this.exchangeSourceHandleTargetDataSize = exchangeSourceHandleTargetDataSize;
         return this;
     }
 }

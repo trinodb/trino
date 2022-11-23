@@ -56,7 +56,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -92,16 +92,11 @@ public class AccumuloPageSink
         this.columns = table.getColumns();
 
         // Fetch the row ID ordinal, throwing an exception if not found for safety
-        Optional<Integer> ordinal = columns.stream()
+        this.rowIdOrdinal = columns.stream()
                 .filter(columnHandle -> columnHandle.getName().equals(table.getRowId()))
                 .map(AccumuloColumnHandle::getOrdinal)
-                .findAny();
-
-        if (ordinal.isEmpty()) {
-            throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Row ID ordinal not found");
-        }
-
-        this.rowIdOrdinal = ordinal.get();
+                .findAny()
+                .orElseThrow(() -> new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Row ID ordinal not found"));
         this.serializer = table.getSerializerInstance();
 
         try {
@@ -205,7 +200,7 @@ public class AccumuloPageSink
             else if (type.equals(SMALLINT)) {
                 serializer.setShort(value, field.getShort());
             }
-            else if (type.equals(TIME)) {
+            else if (type.equals(TIME_MILLIS)) {
                 serializer.setTime(value, field.getTime());
             }
             else if (type.equals(TINYINT)) {

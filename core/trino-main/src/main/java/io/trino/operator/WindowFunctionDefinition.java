@@ -16,8 +16,8 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.window.FrameInfo;
 import io.trino.operator.window.MappedWindowFunction;
-import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.function.WindowFunction;
+import io.trino.spi.function.WindowFunctionSupplier;
 import io.trino.spi.type.Type;
 
 import java.util.Arrays;

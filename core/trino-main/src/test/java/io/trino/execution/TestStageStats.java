@@ -18,11 +18,15 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.stats.Distribution;
 import io.airlift.stats.Distribution.DistributionSnapshot;
+import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testng.Assert.assertEquals;
@@ -87,6 +91,7 @@ public class TestStageStats
             new Duration(202, NANOSECONDS),
 
             DataSize.ofBytes(34),
+            Optional.of(getTDigestHistogram(10)),
             DataSize.ofBytes(35),
             DataSize.ofBytes(36),
             37,
@@ -177,6 +182,7 @@ public class TestStageStats
         assertEquals(actual.getFailedInputBlockedTime(), new Duration(202, NANOSECONDS));
 
         assertEquals(actual.getBufferedDataSize(), DataSize.ofBytes(34));
+        assertEquals(actual.getOutputBufferUtilization().get().getMax(), 9.0);
         assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(35));
         assertEquals(actual.getFailedOutputDataSize(), DataSize.ofBytes(36));
         assertEquals(actual.getOutputPositions(), 37);
@@ -204,5 +210,14 @@ public class TestStageStats
             distribution.add(i);
         }
         return distribution.snapshot();
+    }
+
+    private static TDigestHistogram getTDigestHistogram(int count)
+    {
+        TDigest digest = new TDigest();
+        for (int i = 0; i < count; i++) {
+            digest.add(i);
+        }
+        return new TDigestHistogram(digest);
     }
 }

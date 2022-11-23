@@ -17,30 +17,30 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.SqlTime;
 
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 
 public class TestTimeType
         extends AbstractTestType
 {
     public TestTimeType()
     {
-        super(TIME, SqlTime.class, createTestBlock());
+        super(TIME_MILLIS, SqlTime.class, createTestBlock());
     }
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = TIME.createBlockBuilder(null, 15);
-        TIME.writeLong(blockBuilder, 1_111_000_000_000L);
-        TIME.writeLong(blockBuilder, 1_111_000_000_000L);
-        TIME.writeLong(blockBuilder, 1_111_000_000_000L);
-        TIME.writeLong(blockBuilder, 2_222_000_000_000L);
-        TIME.writeLong(blockBuilder, 2_222_000_000_000L);
-        TIME.writeLong(blockBuilder, 2_222_000_000_000L);
-        TIME.writeLong(blockBuilder, 2_222_000_000_000L);
-        TIME.writeLong(blockBuilder, 2_222_000_000_000L);
-        TIME.writeLong(blockBuilder, 3_333_000_000_000L);
-        TIME.writeLong(blockBuilder, 3_333_000_000_000L);
-        TIME.writeLong(blockBuilder, 4_444_000_000_000L);
+        BlockBuilder blockBuilder = TIME_MILLIS.createBlockBuilder(null, 15);
+        TIME_MILLIS.writeLong(blockBuilder, 1_111_000_000_000L);
+        TIME_MILLIS.writeLong(blockBuilder, 1_111_000_000_000L);
+        TIME_MILLIS.writeLong(blockBuilder, 1_111_000_000_000L);
+        TIME_MILLIS.writeLong(blockBuilder, 2_222_000_000_000L);
+        TIME_MILLIS.writeLong(blockBuilder, 2_222_000_000_000L);
+        TIME_MILLIS.writeLong(blockBuilder, 2_222_000_000_000L);
+        TIME_MILLIS.writeLong(blockBuilder, 2_222_000_000_000L);
+        TIME_MILLIS.writeLong(blockBuilder, 2_222_000_000_000L);
+        TIME_MILLIS.writeLong(blockBuilder, 3_333_000_000_000L);
+        TIME_MILLIS.writeLong(blockBuilder, 3_333_000_000_000L);
+        TIME_MILLIS.writeLong(blockBuilder, 4_444_000_000_000L);
         return blockBuilder.build();
     }
 

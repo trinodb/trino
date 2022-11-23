@@ -95,23 +95,7 @@ This property is required; there is no default. A connection url or seeds must b
 
 As MongoDB is a document database, there is no fixed schema information in the system. So a special collection in each MongoDB database should define the schema of all tables. Please refer the :ref:`table-definition-label` section for the details.
 
-At startup, the connector tries to guess the data type of fields based on the mapping in the following table.
-
-================== ================ ================================================
-MongoDB            Trino            Notes
-================== ================ ================================================
-``Boolean``        ``BOOLEAN``
-``Int32``          ``BIGINT``
-``Int64``          ``BIGINT``
-``Double``         ``DOUBLE``
-``Date``           ``TIMESTAMP(3)``
-``String``         ``VARCHAR``
-``Binary``         ``VARBINARY``
-``ObjectId``       ``ObjectId``
-``Object``         ``ROW``
-``Array``          ``ARRAY``        Map to ``ROW`` if the element type is not unique
-``DBRef``          ``ROW``
-================== ================ ================================================
+At startup, the connector tries to guess the data type of fields based on the :ref:`type mapping <mongodb-type-mapping>`.
 
 The initial guess can be incorrect for your specific collection. In that case, you need to modify it manually. Please refer the :ref:`table-definition-label` section for the details.
 
@@ -366,6 +350,99 @@ In Trino, the same can be achieved with this query:
     SELECT *
     FROM collection
     WHERE _id > timestamp_objectid(TIMESTAMP '2021-08-07 17:51:36 +00:00');
+
+.. _mongodb-type-mapping:
+
+Type mapping
+------------
+
+Because Trino and MongoDB each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
+
+MongoDB to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps MongoDB types to the corresponding Trino types following
+this table:
+
+.. list-table:: MongoDB to Trino type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - MongoDB type
+    - Trino type
+    - Notes
+  * - ``Boolean``
+    - ``BOOLEAN``
+    -
+  * - ``Int32``
+    - ``BIGINT``
+    -
+  * - ``Int64``
+    - ``BIGINT``
+    -
+  * - ``Double``
+    - ``DOUBLE``
+    -
+  * - ``Date``
+    - ``TIMESTAMP(3)``
+    -
+  * - ``String``
+    - ``VARCHAR``
+    -
+  * - ``Binary``
+    - ``VARBINARY``
+    -
+  * - ``ObjectId``
+    - ``ObjectId``
+    -
+  * - ``Object``
+    - ``ROW``
+    -
+  * - ``Array``
+    - ``ARRAY``
+    -   Map to ``ROW`` if the element type is not unique.
+  * - ``DBRef``
+    - ``ROW``
+    -
+
+No other types are supported.
+
+Trino to MongoDB type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Trino types to the corresponding MongoDB types following
+this table:
+
+.. list-table:: Trino to MongoDB type mapping
+  :widths: 30, 20
+  :header-rows: 1
+
+  * - Trino type
+    - MongoDB type
+  * - ``BOOLEAN``
+    - ``Boolean``
+  * - ``BIGINT``
+    - ``Int64``
+  * - ``DOUBLE``
+    - ``Double``
+  * - ``TIMESTAMP(3)``
+    - ``Date``
+  * - ``VARCHAR``
+    - ``String``
+  * - ``VARBINARY``
+    - ``Binary``
+  * - ``ObjectId``
+    - ``ObjectId``
+  * - ``ROW``
+    - ``Object``
+  * - ``ARRAY``
+    - ``Array``
+
+No other types are supported.
 
 .. _mongodb-sql-support:
 

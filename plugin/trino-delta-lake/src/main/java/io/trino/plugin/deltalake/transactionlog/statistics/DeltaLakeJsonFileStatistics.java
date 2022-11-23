@@ -89,18 +89,21 @@ public class DeltaLakeJsonFileStatistics
     }
 
     @JsonProperty
+    @Override
     public Optional<Map<String, Object>> getMinValues()
     {
         return minValues.map(TransactionLogAccess::toOriginalNameKeyedMap);
     }
 
     @JsonProperty
+    @Override
     public Optional<Map<String, Object>> getMaxValues()
     {
         return maxValues.map(TransactionLogAccess::toOriginalNameKeyedMap);
     }
 
     @JsonProperty
+    @Override
     public Optional<Map<String, Object>> getNullCount()
     {
         return nullCount.map(TransactionLogAccess::toOriginalNameKeyedMap);

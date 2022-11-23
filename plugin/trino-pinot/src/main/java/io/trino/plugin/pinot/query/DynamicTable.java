@@ -39,6 +39,7 @@ public final class DynamicTable
     // semantically aggregation is applied after constraint
     private final List<PinotColumnHandle> groupingColumns;
     private final List<PinotColumnHandle> aggregateColumns;
+    private final Optional<String> havingExpression;
 
     // semantically sorting is applied after aggregation
     private final List<OrderByExpression> orderBy;
@@ -59,6 +60,7 @@ public final class DynamicTable
             @JsonProperty("filter") Optional<String> filter,
             @JsonProperty("groupingColumns") List<PinotColumnHandle> groupingColumns,
             @JsonProperty("aggregateColumns") List<PinotColumnHandle> aggregateColumns,
+            @JsonProperty("havingExpression") Optional<String> havingExpression,
             @JsonProperty("orderBy") List<OrderByExpression> orderBy,
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("offset") OptionalLong offset,
@@ -70,6 +72,7 @@ public final class DynamicTable
         this.filter = requireNonNull(filter, "filter is null");
         this.groupingColumns = ImmutableList.copyOf(requireNonNull(groupingColumns, "groupingColumns is null"));
         this.aggregateColumns = ImmutableList.copyOf(requireNonNull(aggregateColumns, "aggregateColumns is null"));
+        this.havingExpression = requireNonNull(havingExpression, "havingExpression is null");
         this.orderBy = ImmutableList.copyOf(requireNonNull(orderBy, "orderBy is null"));
         this.limit = requireNonNull(limit, "limit is null");
         this.offset = requireNonNull(offset, "offset is null");
@@ -112,6 +115,12 @@ public final class DynamicTable
     public List<PinotColumnHandle> getAggregateColumns()
     {
         return aggregateColumns;
+    }
+
+    @JsonProperty
+    public Optional<String> getHavingExpression()
+    {
+        return havingExpression;
     }
 
     @JsonProperty
@@ -160,6 +169,7 @@ public final class DynamicTable
                 filter.equals(that.filter) &&
                 groupingColumns.equals(that.groupingColumns) &&
                 aggregateColumns.equals(that.aggregateColumns) &&
+                havingExpression.equals(that.havingExpression) &&
                 orderBy.equals(that.orderBy) &&
                 limit.equals(that.limit) &&
                 offset.equals(that.offset) &&
@@ -169,7 +179,7 @@ public final class DynamicTable
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableName, projections, filter, groupingColumns, aggregateColumns, orderBy, limit, offset, query);
+        return Objects.hash(tableName, projections, filter, groupingColumns, aggregateColumns, havingExpression, orderBy, limit, offset, query);
     }
 
     @Override
@@ -181,6 +191,7 @@ public final class DynamicTable
                 .add("filter", filter)
                 .add("groupingColumns", groupingColumns)
                 .add("aggregateColumns", aggregateColumns)
+                .add("havingExpression", havingExpression)
                 .add("orderBy", orderBy)
                 .add("limit", limit)
                 .add("offset", offset)

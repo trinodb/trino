@@ -74,7 +74,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -91,6 +91,7 @@ public class MaterializedResult
 
     private final List<MaterializedRow> rows;
     private final List<Type> types;
+    private final List<String> columnNames;
     private final Map<String, String> setSessionProperties;
     private final Set<String> resetSessionProperties;
     private final Optional<String> updateType;
@@ -100,12 +101,13 @@ public class MaterializedResult
 
     public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types)
     {
-        this(rows, types, ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty());
+        this(rows, types, ImmutableList.of(), ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty());
     }
 
     public MaterializedResult(
             List<MaterializedRow> rows,
             List<? extends Type> types,
+            List<String> columnNames,
             Map<String, String> setSessionProperties,
             Set<String> resetSessionProperties,
             Optional<String> updateType,
@@ -115,6 +117,7 @@ public class MaterializedResult
     {
         this.rows = ImmutableList.copyOf(requireNonNull(rows, "rows is null"));
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
         this.setSessionProperties = ImmutableMap.copyOf(requireNonNull(setSessionProperties, "setSessionProperties is null"));
         this.resetSessionProperties = ImmutableSet.copyOf(requireNonNull(resetSessionProperties, "resetSessionProperties is null"));
         this.updateType = requireNonNull(updateType, "updateType is null");
@@ -142,6 +145,12 @@ public class MaterializedResult
     public List<Type> getTypes()
     {
         return types;
+    }
+
+    public List<String> getColumnNames()
+    {
+        checkState(!columnNames.isEmpty(), "Column names are unknown");
+        return columnNames;
     }
 
     public Map<String, String> getSetSessionProperties()
@@ -313,7 +322,7 @@ public class MaterializedResult
                 type.writeObject(blockBuilder, new LongTimestamp(micros, ((SqlTimestamp) value).getPicosOfMicros()));
             }
         }
-        else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+        else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
             long millisUtc = ((SqlTimestampWithTimeZone) value).getMillisUtc();
             TimeZoneKey timeZoneKey = ((SqlTimestampWithTimeZone) value).getTimeZoneKey();
             type.writeLong(blockBuilder, packDateTimeWithZone(millisUtc, timeZoneKey));
@@ -362,6 +371,7 @@ public class MaterializedResult
                         .map(MaterializedResult::convertToTestTypes)
                         .collect(toImmutableList()),
                 types,
+                columnNames,
                 setSessionProperties,
                 resetSessionProperties,
                 updateType,

@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import io.airlift.units.DataSize;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;

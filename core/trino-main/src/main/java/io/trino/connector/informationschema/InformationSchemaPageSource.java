@@ -81,8 +81,6 @@ public class InformationSchemaPageSource
     private final PageBuilder pageBuilder;
     private final Function<Page, Page> projection;
 
-    private final Optional<Set<String>> roles;
-    private final Optional<Set<String>> grantees;
     private long recordCount;
     private long completedBytes;
     private long memoryUsageBytes;
@@ -123,9 +121,6 @@ public class InformationSchemaPageSource
             return prefixes.iterator();
         });
         limit = tableHandle.getLimit();
-
-        roles = tableHandle.getRoles();
-        grantees = tableHandle.getGrantees();
 
         List<ColumnMetadata> columnMetadata = table.getTableMetadata().getColumns();
 
@@ -235,9 +230,6 @@ public class InformationSchemaPageSource
                     break;
                 case ENABLED_ROLES:
                     addEnabledRolesRecords();
-                    break;
-                case ROLE_AUTHORIZATION_DESCRIPTORS:
-                    addRoleAuthorizationDescriptorRecords();
                     break;
             }
         }
@@ -354,30 +346,6 @@ public class InformationSchemaPageSource
 
         for (String role : metadata.listRoles(session, catalogName)) {
             addRecord(role);
-            if (isLimitExhausted()) {
-                return;
-            }
-        }
-    }
-
-    private void addRoleAuthorizationDescriptorRecords()
-    {
-        Optional<String> catalogName = metadata.isCatalogManagedSecurity(session, this.catalogName) ? Optional.of(this.catalogName) : Optional.empty();
-        try {
-            accessControl.checkCanShowRoleAuthorizationDescriptors(session.toSecurityContext(), catalogName);
-        }
-        catch (AccessDeniedException exception) {
-            return;
-        }
-
-        for (RoleGrant grant : metadata.listAllRoleGrants(session, catalogName, roles, grantees, limit)) {
-            addRecord(
-                    grant.getRoleName(),
-                    null, // grantor
-                    null, // grantor type
-                    grant.getGrantee().getName(),
-                    grant.getGrantee().getType().toString(),
-                    grant.isGrantable() ? "YES" : "NO");
             if (isLimitExhausted()) {
                 return;
             }

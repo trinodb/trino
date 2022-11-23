@@ -79,7 +79,7 @@ public class ResourceGroupSpec
 
         softConcurrencyLimit.ifPresent(soft -> checkArgument(soft >= 0, "softConcurrencyLimit is negative"));
         softConcurrencyLimit.ifPresent(soft -> checkArgument(this.hardConcurrencyLimit >= soft, "hardConcurrencyLimit must be greater than or equal to softConcurrencyLimit"));
-        this.schedulingPolicy = requireNonNull(schedulingPolicy, "schedulingPolicy is null").map(value -> SchedulingPolicy.valueOf(value.toUpperCase(ENGLISH)));
+        this.schedulingPolicy = schedulingPolicy.map(value -> SchedulingPolicy.valueOf(value.toUpperCase(ENGLISH)));
         this.schedulingWeight = requireNonNull(schedulingWeight, "schedulingWeight is null");
 
         requireNonNull(softMemoryLimit, "softMemoryLimit is null");
@@ -94,7 +94,7 @@ public class ResourceGroupSpec
             this.softMemoryLimitFraction = Optional.empty();
         }
 
-        this.subGroups = ImmutableList.copyOf(requireNonNull(subGroups, "subGroups is null").orElse(ImmutableList.of()));
+        this.subGroups = ImmutableList.copyOf(subGroups.orElse(ImmutableList.of()));
         Set<ResourceGroupNameTemplate> names = new HashSet<>();
         for (ResourceGroupSpec subGroup : this.subGroups) {
             checkArgument(names.add(subGroup.getName()), "Duplicated sub group: %s", subGroup.getName());

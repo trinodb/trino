@@ -18,6 +18,7 @@ import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMySqlConnectorTest
         extends BaseMySqlConnectorTest
@@ -39,5 +40,11 @@ public class TestMySqlConnectorTest
         assertQueryFails(
                 "SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'",
                 "Incorrect DATE value: '-1996-09-14'");
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("(Incorrect column name '.*'|Identifier name '.*' is too long)");
     }
 }

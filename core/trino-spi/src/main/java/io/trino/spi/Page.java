@@ -25,14 +25,13 @@ import java.util.List;
 import java.util.Map;
 
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.spi.block.DictionaryId.randomDictionaryId;
-import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class Page
 {
-    public static final int INSTANCE_SIZE = ClassLayout.parseClass(Page.class).instanceSize();
+    public static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Page.class).instanceSize());
     private static final Block[] EMPTY_BLOCKS = new Block[0];
 
     /**
@@ -187,7 +186,7 @@ public final class Page
 
         Map<DictionaryId, DictionaryBlockIndexes> dictionaryBlocks = getRelatedDictionaryBlocks();
         for (DictionaryBlockIndexes blockIndexes : dictionaryBlocks.values()) {
-            List<DictionaryBlock> compactBlocks = compactRelatedBlocks(blockIndexes.getBlocks());
+            List<DictionaryBlock> compactBlocks = DictionaryBlock.compactRelatedBlocks(blockIndexes.getBlocks());
             List<Integer> indexes = blockIndexes.getIndexes();
             for (int i = 0; i < compactBlocks.size(); i++) {
                 blocks[indexes.get(i)] = compactBlocks.get(i);
@@ -210,68 +209,6 @@ public final class Page
             }
         }
         return relatedDictionaryBlocks;
-    }
-
-    private static List<DictionaryBlock> compactRelatedBlocks(List<DictionaryBlock> blocks)
-    {
-        DictionaryBlock firstDictionaryBlock = blocks.get(0);
-        Block dictionary = firstDictionaryBlock.getDictionary();
-
-        int positionCount = firstDictionaryBlock.getPositionCount();
-        int dictionarySize = dictionary.getPositionCount();
-
-        // determine which dictionary entries are referenced and build a reindex for them
-        int[] dictionaryPositionsToCopy = new int[min(dictionarySize, positionCount)];
-        int[] remapIndex = new int[dictionarySize];
-        Arrays.fill(remapIndex, -1);
-
-        int numberOfIndexes = 0;
-        for (int i = 0; i < positionCount; i++) {
-            int position = firstDictionaryBlock.getId(i);
-            if (remapIndex[position] == -1) {
-                dictionaryPositionsToCopy[numberOfIndexes] = position;
-                remapIndex[position] = numberOfIndexes;
-                numberOfIndexes++;
-            }
-        }
-
-        // entire dictionary is referenced
-        if (numberOfIndexes == dictionarySize) {
-            return blocks;
-        }
-
-        // compact the dictionaries
-        int[] newIds = getNewIds(positionCount, firstDictionaryBlock, remapIndex);
-        List<DictionaryBlock> outputDictionaryBlocks = new ArrayList<>(blocks.size());
-        DictionaryId newDictionaryId = randomDictionaryId();
-        for (DictionaryBlock dictionaryBlock : blocks) {
-            if (!firstDictionaryBlock.getDictionarySourceId().equals(dictionaryBlock.getDictionarySourceId())) {
-                throw new IllegalArgumentException("dictionarySourceIds must be the same");
-            }
-
-            try {
-                Block compactDictionary = dictionaryBlock.getDictionary().copyPositions(dictionaryPositionsToCopy, 0, numberOfIndexes);
-                outputDictionaryBlocks.add(new DictionaryBlock(positionCount, compactDictionary, newIds, !(compactDictionary instanceof DictionaryBlock), newDictionaryId));
-            }
-            catch (UnsupportedOperationException e) {
-                // ignore if copy positions is not supported for the dictionary
-                outputDictionaryBlocks.add(dictionaryBlock);
-            }
-        }
-        return outputDictionaryBlocks;
-    }
-
-    private static int[] getNewIds(int positionCount, DictionaryBlock dictionaryBlock, int[] remapIndex)
-    {
-        int[] newIds = new int[positionCount];
-        for (int i = 0; i < positionCount; i++) {
-            int newId = remapIndex[dictionaryBlock.getId(i)];
-            if (newId == -1) {
-                throw new IllegalStateException("reference to a non-existent key");
-            }
-            newIds[i] = newId;
-        }
-        return newIds;
     }
 
     /**

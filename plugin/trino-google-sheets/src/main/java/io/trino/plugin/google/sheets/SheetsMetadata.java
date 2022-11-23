@@ -80,25 +80,21 @@ public class SheetsMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        Optional<ConnectorTableMetadata> connectorTableMetadata = getTableMetadata(((SheetsTableHandle) table).toSchemaTableName());
-        if (connectorTableMetadata.isEmpty()) {
-            throw new TrinoException(SHEETS_UNKNOWN_TABLE_ERROR, "Metadata not found for table " + ((SheetsTableHandle) table).getTableName());
-        }
-        return connectorTableMetadata.get();
+        SheetsTableHandle tableHandle = (SheetsTableHandle) table;
+        return getTableMetadata(tableHandle.toSchemaTableName())
+                .orElseThrow(() -> new TrinoException(SHEETS_UNKNOWN_TABLE_ERROR, "Metadata not found for table " + tableHandle.getTableName()));
     }
 
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         SheetsTableHandle sheetsTableHandle = (SheetsTableHandle) tableHandle;
-        Optional<SheetsTable> table = sheetsClient.getTable(sheetsTableHandle.getTableName());
-        if (table.isEmpty()) {
-            throw new TableNotFoundException(sheetsTableHandle.toSchemaTableName());
-        }
+        SheetsTable table = sheetsClient.getTable(sheetsTableHandle.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(sheetsTableHandle.toSchemaTableName()));
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         int index = 0;
-        for (ColumnMetadata column : table.get().getColumnsMetadata()) {
+        for (ColumnMetadata column : table.getColumnsMetadata()) {
             columnHandles.put(column.getName(), new SheetsColumnHandle(column.getName(), column.getType(), index));
             index++;
         }

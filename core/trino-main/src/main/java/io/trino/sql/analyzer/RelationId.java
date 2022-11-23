@@ -86,11 +86,9 @@ public class RelationId
                     .addValue(format("x%08x", identityHashCode(this)))
                     .toString();
         }
-        else {
-            return toStringHelper(this)
-                    .addValue(sourceNode.get().getClass().getSimpleName())
-                    .addValue(format("x%08x", identityHashCode(sourceNode.get())))
-                    .toString();
-        }
+        return toStringHelper(this)
+                .addValue(sourceNode.get().getClass().getSimpleName())
+                .addValue(format("x%08x", identityHashCode(sourceNode.get())))
+                .toString();
     }
 }

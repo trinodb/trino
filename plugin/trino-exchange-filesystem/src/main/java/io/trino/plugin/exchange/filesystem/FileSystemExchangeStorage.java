@@ -21,14 +21,13 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
-import java.util.Queue;
 
 public interface FileSystemExchangeStorage
         extends AutoCloseable
 {
     void createDirectories(URI dir) throws IOException;
 
-    ExchangeStorageReader createExchangeStorageReader(Queue<ExchangeSourceFile> sourceFiles, int maxPageStorageSize);
+    ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize);
 
     ExchangeStorageWriter createExchangeStorageWriter(URI file, Optional<SecretKey> secretKey);
 

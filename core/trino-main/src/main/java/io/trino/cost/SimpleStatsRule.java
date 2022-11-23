@@ -34,11 +34,11 @@ public abstract class SimpleStatsRule<T extends PlanNode>
     }
 
     @Override
-    public final Optional<PlanNodeStatsEstimate> calculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
+    public final Optional<PlanNodeStatsEstimate> calculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
-        return doCalculate(node, sourceStats, lookup, session, types)
+        return doCalculate(node, sourceStats, lookup, session, types, tableStatsProvider)
                 .map(estimate -> normalizer.normalize(estimate, node.getOutputSymbols(), types));
     }
 
-    protected abstract Optional<PlanNodeStatsEstimate> doCalculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types);
+    protected abstract Optional<PlanNodeStatsEstimate> doCalculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider);
 }

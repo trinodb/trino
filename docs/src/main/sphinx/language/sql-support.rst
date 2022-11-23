@@ -89,6 +89,7 @@ Data management
 * :doc:`/sql/update`
 * :doc:`/sql/delete`
 * :doc:`/sql/truncate`
+* :doc:`/sql/merge`
 
 .. _sql-materialized-view-management:
 

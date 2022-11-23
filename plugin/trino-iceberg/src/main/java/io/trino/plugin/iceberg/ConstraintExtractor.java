@@ -15,6 +15,8 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.math.LongMath;
+import io.airlift.slice.Slice;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.expression.Call;
@@ -31,6 +33,9 @@ import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 
+import java.time.Instant;
+import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Optional;
 
@@ -50,6 +55,10 @@ import static io.trino.spi.expression.StandardFunctions.NOT_EQUAL_OPERATOR_FUNCT
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static java.math.RoundingMode.UNNECESSARY;
+import static java.time.ZoneOffset.UTC;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class ConstraintExtractor
@@ -78,8 +87,8 @@ public final class ConstraintExtractor
 
     private static Optional<TupleDomain<IcebergColumnHandle>> toTupleDomain(ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
-        if (expression instanceof Call) {
-            return toTupleDomain((Call) expression, assignments);
+        if (expression instanceof Call call) {
+            return toTupleDomain(call, assignments);
         }
         return Optional.empty();
     }
@@ -92,14 +101,28 @@ public final class ConstraintExtractor
 
             // Note: CanonicalizeExpressionRewriter ensures that constants are the second comparison argument.
 
-            if (firstArgument instanceof Call && ((Call) firstArgument).getFunctionName().equals(CAST_FUNCTION_NAME) &&
-                    secondArgument instanceof Constant &&
+            if (firstArgument instanceof Call firstAsCall && firstAsCall.getFunctionName().equals(CAST_FUNCTION_NAME) &&
+                    secondArgument instanceof Constant constant &&
                     // if type do no match, this cannot be a comparison function
                     firstArgument.getType().equals(secondArgument.getType())) {
                 return unwrapCastInComparison(
                         call.getFunctionName(),
-                        getOnlyElement(((Call) firstArgument).getArguments()),
-                        (Constant) secondArgument,
+                        getOnlyElement(firstAsCall.getArguments()),
+                        constant,
+                        assignments);
+            }
+
+            if (firstArgument instanceof Call firstAsCall &&
+                    firstAsCall.getFunctionName().equals(new FunctionName("date_trunc")) && firstAsCall.getArguments().size() == 2 &&
+                    firstAsCall.getArguments().get(0) instanceof Constant unit &&
+                    secondArgument instanceof Constant constant &&
+                    // if type do no match, this cannot be a comparison function
+                    firstArgument.getType().equals(secondArgument.getType())) {
+                return unwrapDateTruncInComparison(
+                        call.getFunctionName(),
+                        unit,
+                        firstAsCall.getArguments().get(1),
+                        constant,
                         assignments);
             }
         }
@@ -114,7 +137,7 @@ public final class ConstraintExtractor
             Constant constant,
             Map<String, ColumnHandle> assignments)
     {
-        if (!(castSource instanceof Variable)) {
+        if (!(castSource instanceof Variable sourceVariable)) {
             // Engine unwraps casts in comparisons in UnwrapCastInComparison. Within a connector we can do more than
             // engine only for source columns. We cannot draw many conclusions for intermediate expressions without
             // knowing them well.
@@ -126,10 +149,10 @@ public final class ConstraintExtractor
             return Optional.empty();
         }
 
-        IcebergColumnHandle column = resolve((Variable) castSource, assignments);
-        if (column.getType() instanceof TimestampWithTimeZoneType) {
+        IcebergColumnHandle column = resolve(sourceVariable, assignments);
+        if (column.getType() instanceof TimestampWithTimeZoneType sourceType) {
             // Iceberg supports only timestamp(6) with time zone
-            checkArgument(((TimestampWithTimeZoneType) column.getType()).getPrecision() == 6, "Unexpected type: %s", column.getType());
+            checkArgument(sourceType.getPrecision() == 6, "Unexpected type: %s", column.getType());
 
             if (constant.getType() == DateType.DATE) {
                 return unwrapTimestampTzToDateCast(column, functionName, (long) constant.getValue())
@@ -179,6 +202,120 @@ public final class ConstraintExtractor
         return Optional.empty();
     }
 
+    private static Optional<TupleDomain<IcebergColumnHandle>> unwrapDateTruncInComparison(
+            // upon invocation, we don't know if this really is a comparison
+            FunctionName functionName,
+            Constant unit,
+            ConnectorExpression dateTruncSource,
+            Constant constant,
+            Map<String, ColumnHandle> assignments)
+    {
+        if (!(dateTruncSource instanceof Variable sourceVariable)) {
+            // Engine unwraps date_trunc in comparisons in UnwrapDateTruncInComparison. Within a connector we can do more than
+            // engine only for source columns. We cannot draw many conclusions for intermediate expressions without
+            // knowing them well.
+            return Optional.empty();
+        }
+
+        if (unit.getValue() == null) {
+            return Optional.empty();
+        }
+
+        if (constant.getValue() == null) {
+            // Comparisons with NULL should be simplified by the engine
+            return Optional.empty();
+        }
+
+        IcebergColumnHandle column = resolve(sourceVariable, assignments);
+        if (column.getType() instanceof TimestampWithTimeZoneType type) {
+            // Iceberg supports only timestamp(6) with time zone
+            checkArgument(type.getPrecision() == 6, "Unexpected type: %s", column.getType());
+            verify(constant.getType().equals(type), "This method should not be invoked when type mismatch (i.e. surely not a comparison)");
+
+            return unwrapDateTruncInComparison(((Slice) unit.getValue()).toStringUtf8(), functionName, constant)
+                    .map(domain -> TupleDomain.withColumnDomains(ImmutableMap.of(column, domain)));
+        }
+
+        return Optional.empty();
+    }
+
+    private static Optional<Domain> unwrapDateTruncInComparison(String unit, FunctionName functionName, Constant constant)
+    {
+        Type type = constant.getType();
+        checkArgument(constant.getValue() != null && type.equals(TIMESTAMP_TZ_MICROS), "Unexpected constant: %s", constant);
+
+        // Normalized to UTC because for comparisons the zone is irrelevant
+        ZonedDateTime dateTime = Instant.ofEpochMilli(((LongTimestampWithTimeZone) constant.getValue()).getEpochMillis())
+                .plusNanos(LongMath.divide(((LongTimestampWithTimeZone) constant.getValue()).getPicosOfMilli(), PICOSECONDS_PER_NANOSECOND, UNNECESSARY))
+                .atZone(UTC);
+
+        ZonedDateTime periodStart;
+        ZonedDateTime nextPeriodStart;
+        switch (unit.toLowerCase(ENGLISH)) {
+            case "hour" -> {
+                periodStart = ZonedDateTime.of(dateTime.toLocalDate(), LocalTime.of(dateTime.getHour(), 0), UTC);
+                nextPeriodStart = periodStart.plusHours(1);
+            }
+            case "day" -> {
+                periodStart = dateTime.toLocalDate().atStartOfDay().atZone(UTC);
+                nextPeriodStart = periodStart.plusDays(1);
+            }
+            case "month" -> {
+                periodStart = dateTime.toLocalDate().withDayOfMonth(1).atStartOfDay().atZone(UTC);
+                nextPeriodStart = periodStart.plusMonths(1);
+            }
+            case "year" -> {
+                periodStart = dateTime.toLocalDate().withMonth(1).withDayOfMonth(1).atStartOfDay().atZone(UTC);
+                nextPeriodStart = periodStart.plusYears(1);
+            }
+            default -> {
+                return Optional.empty();
+            }
+        }
+        boolean constantAtPeriodStart = dateTime.equals(periodStart);
+
+        LongTimestampWithTimeZone start = LongTimestampWithTimeZone.fromEpochSecondsAndFraction(periodStart.toEpochSecond(), 0, UTC_KEY);
+        LongTimestampWithTimeZone end = LongTimestampWithTimeZone.fromEpochSecondsAndFraction(nextPeriodStart.toEpochSecond(), 0, UTC_KEY);
+
+        if (functionName.equals(EQUAL_OPERATOR_FUNCTION_NAME)) {
+            if (!constantAtPeriodStart) {
+                return Optional.of(Domain.none(type));
+            }
+            return Optional.of(Domain.create(ValueSet.ofRanges(Range.range(type, start, true, end, false)), false));
+        }
+        if (functionName.equals(NOT_EQUAL_OPERATOR_FUNCTION_NAME)) {
+            if (!constantAtPeriodStart) {
+                return Optional.of(Domain.notNull(type));
+            }
+            return Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThan(type, start), Range.greaterThanOrEqual(type, end)), false));
+        }
+        if (functionName.equals(IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME)) {
+            if (!constantAtPeriodStart) {
+                return Optional.of(Domain.all(type));
+            }
+            return Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThan(type, start), Range.greaterThanOrEqual(type, end)), true));
+        }
+        if (functionName.equals(LESS_THAN_OPERATOR_FUNCTION_NAME)) {
+            if (constantAtPeriodStart) {
+                return Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThan(type, start)), false));
+            }
+            return Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThan(type, end)), false));
+        }
+        if (functionName.equals(LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME)) {
+            return Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThan(type, end)), false));
+        }
+        if (functionName.equals(GREATER_THAN_OPERATOR_FUNCTION_NAME)) {
+            return Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, end)), false));
+        }
+        if (functionName.equals(GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME)) {
+            if (constantAtPeriodStart) {
+                return Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, start)), false));
+            }
+            return Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, end)), false));
+        }
+        return Optional.empty();
+    }
+
     private static IcebergColumnHandle resolve(Variable variable, Map<String, ColumnHandle> assignments)
     {
         ColumnHandle columnHandle = assignments.get(variable.getName());
@@ -186,25 +323,12 @@ public final class ConstraintExtractor
         return (IcebergColumnHandle) columnHandle;
     }
 
-    public static class ExtractionResult
+    public record ExtractionResult(TupleDomain<IcebergColumnHandle> tupleDomain, ConnectorExpression remainingExpression)
     {
-        private final TupleDomain<IcebergColumnHandle> tupleDomain;
-        private final ConnectorExpression remainingExpression;
-
-        public ExtractionResult(TupleDomain<IcebergColumnHandle> tupleDomain, ConnectorExpression remainingExpression)
+        public ExtractionResult
         {
-            this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
-            this.remainingExpression = requireNonNull(remainingExpression, "remainingExpression is null");
-        }
-
-        public TupleDomain<IcebergColumnHandle> getTupleDomain()
-        {
-            return tupleDomain;
-        }
-
-        public ConnectorExpression getRemainingExpression()
-        {
-            return remainingExpression;
+            requireNonNull(tupleDomain, "tupleDomain is null");
+            requireNonNull(remainingExpression, "remainingExpression is null");
         }
     }
 }

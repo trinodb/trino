@@ -19,7 +19,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.ColumnarRow;
-import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import org.testng.annotations.Test;
@@ -89,7 +88,7 @@ public class TestColumnarRow
 
     private static <T> void assertDictionaryBlock(Block block, T[] expectedValues)
     {
-        DictionaryBlock dictionaryBlock = createTestDictionaryBlock(block);
+        Block dictionaryBlock = createTestDictionaryBlock(block);
         T[] expectedDictionaryValues = createTestDictionaryExpectedValues(expectedValues);
 
         assertBlock(dictionaryBlock, expectedDictionaryValues);

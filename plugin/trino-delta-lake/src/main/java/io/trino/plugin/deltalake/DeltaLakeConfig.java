@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -36,8 +37,10 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+@DefunctConfig("delta.experimental.ignore-checkpoint-write-failures")
 public class DeltaLakeConfig
 {
+    public static final String EXTENDED_STATISTICS_ENABLED = "delta.extended-statistics.enabled";
     public static final String VACUUM_MIN_RETENTION = "delta.vacuum.min-retention";
 
     // Runtime.getRuntime().maxMemory() is not 100% stable and may return slightly different value over JVM lifetime. We use
@@ -46,7 +49,9 @@ public class DeltaLakeConfig
     static final DataSize DEFAULT_DATA_FILE_CACHE_SIZE = DataSize.succinctBytes(Math.floorDiv(Runtime.getRuntime().maxMemory(), 10L));
 
     private Duration metadataCacheTtl = new Duration(5, TimeUnit.MINUTES);
+    private long metadataCacheMaxSize = 1000;
     private DataSize dataFileCacheSize = DEFAULT_DATA_FILE_CACHE_SIZE;
+    private Duration dataFileCacheTtl = new Duration(30, TimeUnit.MINUTES);
     private int domainCompactionThreshold = 100;
     private int maxOutstandingSplits = 1_000;
     private int maxSplitsPerSecond = Integer.MAX_VALUE;
@@ -58,7 +63,6 @@ public class DeltaLakeConfig
     private boolean unsafeWritesEnabled;
     private boolean checkpointRowStatisticsWritingEnabled = true;
     private long defaultCheckpointWritingInterval = 10;
-    private boolean ignoreCheckpointWriteFailures;
     private Duration vacuumMinRetention = new Duration(7, DAYS);
     private Optional<String> hiveCatalogName = Optional.empty();
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
@@ -69,6 +73,7 @@ public class DeltaLakeConfig
     private boolean deleteSchemaLocationsFallback;
     private String parquetTimeZone = TimeZone.getDefault().getID();
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
+    private boolean uniqueTableLocation = true;
 
     public Duration getMetadataCacheTtl()
     {
@@ -83,6 +88,19 @@ public class DeltaLakeConfig
         return this;
     }
 
+    public long getMetadataCacheMaxSize()
+    {
+        return metadataCacheMaxSize;
+    }
+
+    @Config("delta.metadata.cache-size")
+    @ConfigDescription("Maximum number of Delta table metadata entries to cache")
+    public DeltaLakeConfig setMetadataCacheMaxSize(long metadataCacheMaxSize)
+    {
+        this.metadataCacheMaxSize = metadataCacheMaxSize;
+        return this;
+    }
+
     public DataSize getDataFileCacheSize()
     {
         return dataFileCacheSize;
@@ -93,6 +111,20 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setDataFileCacheSize(DataSize dataFileCacheSize)
     {
         this.dataFileCacheSize = dataFileCacheSize;
+        return this;
+    }
+
+    @NotNull
+    public Duration getDataFileCacheTtl()
+    {
+        return dataFileCacheTtl;
+    }
+
+    @Config("delta.metadata.live-files.cache-ttl")
+    @ConfigDescription("Caching duration for Delta data file metadata (e.g. table schema, partition info)")
+    public DeltaLakeConfig setDataFileCacheTtl(Duration dataFileCacheTtl)
+    {
+        this.dataFileCacheTtl = dataFileCacheTtl;
         return this;
     }
 
@@ -233,18 +265,6 @@ public class DeltaLakeConfig
         return defaultCheckpointWritingInterval;
     }
 
-    @Config("delta.experimental.ignore-checkpoint-write-failures")
-    public DeltaLakeConfig setIgnoreCheckpointWriteFailures(boolean ignoreCheckpointWriteFailures)
-    {
-        this.ignoreCheckpointWriteFailures = ignoreCheckpointWriteFailures;
-        return this;
-    }
-
-    public boolean isIgnoreCheckpointWriteFailures()
-    {
-        return ignoreCheckpointWriteFailures;
-    }
-
     @NotNull
     public Duration getVacuumMinRetention()
     {
@@ -316,7 +336,7 @@ public class DeltaLakeConfig
         return extendedStatisticsEnabled;
     }
 
-    @Config("delta.extended-statistics.enabled")
+    @Config(EXTENDED_STATISTICS_ENABLED)
     @ConfigDescription("Use extended statistics collected by ANALYZE")
     public DeltaLakeConfig setExtendedStatisticsEnabled(boolean extendedStatisticsEnabled)
     {
@@ -396,6 +416,19 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setTargetMaxFileSize(DataSize targetMaxFileSize)
     {
         this.targetMaxFileSize = targetMaxFileSize;
+        return this;
+    }
+
+    public boolean isUniqueTableLocation()
+    {
+        return uniqueTableLocation;
+    }
+
+    @Config("delta.unique-table-location")
+    @ConfigDescription("Use randomized, unique table locations")
+    public DeltaLakeConfig setUniqueTableLocation(boolean uniqueTableLocation)
+    {
+        this.uniqueTableLocation = uniqueTableLocation;
         return this;
     }
 }

@@ -82,7 +82,6 @@ public class ConfluentModule
             Set<SchemaRegistryClientPropertiesProvider> propertiesProviders,
             ClassLoader classLoader)
     {
-        requireNonNull(confluentConfig, "confluentConfig is null");
         requireNonNull(schemaProviders, "schemaProviders is null");
         requireNonNull(propertiesProviders, "propertiesProviders is null");
 

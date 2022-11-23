@@ -18,20 +18,22 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import io.airlift.node.NodeInfo;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogServiceProviderModule;
-import io.trino.connector.ConnectorManager;
 import io.trino.connector.ConnectorServicesProvider;
+import io.trino.connector.CoordinatorDynamicCatalogManager;
+import io.trino.connector.DefaultCatalogFactory;
+import io.trino.connector.LazyCatalogFactory;
 import io.trino.connector.system.AnalyzePropertiesSystemTable;
 import io.trino.connector.system.CatalogSystemTable;
 import io.trino.connector.system.ColumnPropertiesSystemTable;
 import io.trino.connector.system.GlobalSystemConnector;
-import io.trino.connector.system.GlobalSystemConnectorFactory;
 import io.trino.connector.system.MaterializedViewPropertiesSystemTable;
 import io.trino.connector.system.MaterializedViewSystemTable;
 import io.trino.connector.system.NodeSystemTable;
@@ -84,6 +86,7 @@ import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
@@ -167,7 +170,6 @@ import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizers;
-import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -220,6 +222,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.connector.CatalogServiceProviderModule.createAccessControlProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createAnalyzePropertyManager;
 import static io.trino.connector.CatalogServiceProviderModule.createColumnPropertyManager;
+import static io.trino.connector.CatalogServiceProviderModule.createFunctionProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createIndexProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createMaterializedViewPropertyManager;
 import static io.trino.connector.CatalogServiceProviderModule.createNodePartitioningProvider;
@@ -231,6 +234,7 @@ import static io.trino.connector.CatalogServiceProviderModule.createTableFunctio
 import static io.trino.connector.CatalogServiceProviderModule.createTableProceduresPropertyManager;
 import static io.trino.connector.CatalogServiceProviderModule.createTableProceduresProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createTablePropertyManager;
+import static io.trino.connector.CatalogStore.NO_STORED_CATALOGS;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
@@ -256,7 +260,7 @@ public class LocalQueryRunner
 
     private final SqlParser sqlParser;
     private final PlanFragmenter planFragmenter;
-    private final InMemoryNodeManager nodeManager;
+    private final InternalNodeManager nodeManager;
     private final BlockTypeOperators blockTypeOperators;
     private final PlannerContext plannerContext;
     private final TypeRegistry typeRegistry;
@@ -289,15 +293,16 @@ public class LocalQueryRunner
     private final ExpressionCompiler expressionCompiler;
     private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
     private final JoinCompiler joinCompiler;
-    private final ConnectorManager connectorManager;
+    private final CatalogFactory catalogFactory;
+    private final CoordinatorDynamicCatalogManager catalogManager;
     private final PluginManager pluginManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
 
     private final TaskManagerConfig taskManagerConfig;
     private final boolean alwaysRevokeMemory;
-    private final NodeSpillConfig nodeSpillConfig;
+    private final DataSize maxSpillPerNode;
+    private final DataSize queryMaxSpillPerNode;
     private final OptimizerConfig optimizerConfig;
-    private final PlanOptimizersProvider planOptimizersProvider;
     private final OperatorFactories operatorFactories;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
     private boolean printPlan;
@@ -323,7 +328,6 @@ public class LocalQueryRunner
             boolean alwaysRevokeMemory,
             int nodeCountForStats,
             Map<String, List<PropertyMetadata<?>>> defaultSessionProperties,
-            PlanOptimizersProvider planOptimizersProvider,
             MetadataProvider metadataProvider,
             OperatorFactories operatorFactories,
             Set<SystemSessionPropertiesProvider> extraSessionProperties)
@@ -333,8 +337,9 @@ public class LocalQueryRunner
         checkArgument(defaultSession.getTransactionId().isEmpty() || !withInitialTransaction, "Already in transaction");
 
         this.taskManagerConfig = new TaskManagerConfig().setTaskConcurrency(4);
-        this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
-        this.planOptimizersProvider = requireNonNull(planOptimizersProvider, "planOptimizersProvider is null");
+        requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
+        this.maxSpillPerNode = nodeSpillConfig.getMaxSpillPerNode();
+        this.queryMaxSpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
         this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
         this.alwaysRevokeMemory = alwaysRevokeMemory;
         this.notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
@@ -350,7 +355,9 @@ public class LocalQueryRunner
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig().setIncludeCoordinator(true);
         requireNonNull(featuresConfig, "featuresConfig is null");
         this.optimizerConfig = new OptimizerConfig();
-        CatalogManager catalogManager = new CatalogManager();
+        LazyCatalogFactory catalogFactory = new LazyCatalogFactory();
+        this.catalogFactory = catalogFactory;
+        this.catalogManager = new CoordinatorDynamicCatalogManager(NO_STORED_CATALOGS, catalogFactory);
         this.transactionManager = InMemoryTransactionManager.create(
                 new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
                 yieldExecutor,
@@ -365,62 +372,61 @@ public class LocalQueryRunner
         this.globalFunctionCatalog = new GlobalFunctionCatalog();
         globalFunctionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(blockEncodingSerde)));
         globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion()));
-        this.functionManager = new FunctionManager(globalFunctionCatalog);
         Metadata metadata = metadataProvider.getMetadata(
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
                 globalFunctionCatalog,
                 typeManager);
-        globalFunctionCatalog.addFunctions(new InternalFunctionBundle(
-                new JsonExistsFunction(functionManager, metadata, typeManager),
-                new JsonValueFunction(functionManager, metadata, typeManager),
-                new JsonQueryFunction(functionManager, metadata, typeManager)));
         typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
-        this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager);
         this.joinCompiler = new JoinCompiler(typeOperators);
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler, blockTypeOperators);
         this.groupProvider = new TestingGroupProvider();
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
 
-        this.pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
-        this.expressionCompiler = new ExpressionCompiler(functionManager, pageFunctionCompiler);
-        this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(functionManager);
-
         HandleResolver handleResolver = new HandleResolver();
 
         NodeInfo nodeInfo = new NodeInfo("test");
-        this.connectorManager = new ConnectorManager(
+        catalogFactory.setCatalogFactory(new DefaultCatalogFactory(
                 metadata,
-                catalogManager,
                 accessControl,
                 handleResolver,
                 nodeManager,
-                nodeInfo,
-                testingVersionEmbedder(),
                 pageSorter,
                 pageIndexerFactory,
+                nodeInfo,
+                testingVersionEmbedder(),
                 transactionManager,
-                eventListenerManager,
                 typeManager,
-                nodeSchedulerConfig);
-        this.splitManager = new SplitManager(createSplitManagerProvider(connectorManager), new QueryManagerConfig());
-        this.pageSourceManager = new PageSourceManager(createPageSourceProvider(connectorManager));
-        this.pageSinkManager = new PageSinkManager(createPageSinkProvider(connectorManager));
-        this.indexManager = new IndexManager(createIndexProvider(connectorManager));
+                nodeSchedulerConfig));
+        this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), new QueryManagerConfig());
+        this.pageSourceManager = new PageSourceManager(createPageSourceProvider(catalogManager));
+        this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
+        this.indexManager = new IndexManager(createIndexProvider(catalogManager));
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
-        this.sessionPropertyManager = createSessionPropertyManager(connectorManager, extraSessionProperties, taskManagerConfig, featuresConfig, optimizerConfig);
-        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators, createNodePartitioningProvider(connectorManager));
-        TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry(createTableProceduresProvider(connectorManager));
-        TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(createTableFunctionProvider(connectorManager));
-        this.schemaPropertyManager = createSchemaPropertyManager(connectorManager);
-        this.columnPropertyManager = createColumnPropertyManager(connectorManager);
-        this.tablePropertyManager = createTablePropertyManager(connectorManager);
-        this.materializedViewPropertyManager = createMaterializedViewPropertyManager(connectorManager);
-        this.analyzePropertyManager = createAnalyzePropertyManager(connectorManager);
-        TableProceduresPropertyManager tableProceduresPropertyManager = createTableProceduresPropertyManager(connectorManager);
+        this.sessionPropertyManager = createSessionPropertyManager(catalogManager, extraSessionProperties, taskManagerConfig, featuresConfig, optimizerConfig);
+        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators, createNodePartitioningProvider(catalogManager));
+        TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry(createTableProceduresProvider(catalogManager));
+        this.functionManager = new FunctionManager(createFunctionProvider(catalogManager), globalFunctionCatalog);
+        TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(createTableFunctionProvider(catalogManager));
+        this.schemaPropertyManager = createSchemaPropertyManager(catalogManager);
+        this.columnPropertyManager = createColumnPropertyManager(catalogManager);
+        this.tablePropertyManager = createTablePropertyManager(catalogManager);
+        this.materializedViewPropertyManager = createMaterializedViewPropertyManager(catalogManager);
+        this.analyzePropertyManager = createAnalyzePropertyManager(catalogManager);
+        TableProceduresPropertyManager tableProceduresPropertyManager = createTableProceduresPropertyManager(catalogManager);
 
-        accessControl.setConnectorAccessControlProvider(createAccessControlProvider(connectorManager));
+        accessControl.setConnectorAccessControlProvider(createAccessControlProvider(catalogManager));
+
+        globalFunctionCatalog.addFunctions(new InternalFunctionBundle(
+                new JsonExistsFunction(functionManager, metadata, typeManager),
+                new JsonValueFunction(functionManager, metadata, typeManager),
+                new JsonQueryFunction(functionManager, metadata, typeManager)));
+
+        this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager);
+        this.pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
+        this.expressionCompiler = new ExpressionCompiler(functionManager, pageFunctionCompiler);
+        this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(functionManager);
 
         this.statementAnalyzerFactory = new StatementAnalyzerFactory(
                 plannerContext,
@@ -441,9 +447,9 @@ public class LocalQueryRunner
         this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator);
 
-        this.planFragmenter = new PlanFragmenter(metadata, functionManager, new QueryManagerConfig());
+        this.planFragmenter = new PlanFragmenter(metadata, functionManager, transactionManager, catalogManager, new QueryManagerConfig());
 
-        GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
+        GlobalSystemConnector globalSystemConnector = new GlobalSystemConnector(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
                 new CatalogSystemTable(metadata, accessControl),
                 new TableCommentSystemTable(metadata, accessControl),
@@ -459,7 +465,7 @@ public class LocalQueryRunner
         exchangeManagerRegistry = new ExchangeManagerRegistry(new ExchangeHandleResolver());
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
-                connectorManager,
+                catalogFactory,
                 globalFunctionCatalog,
                 new NoOpResourceGroupManager(),
                 accessControl,
@@ -474,8 +480,7 @@ public class LocalQueryRunner
                 handleResolver,
                 exchangeManagerRegistry);
 
-        connectorManager.addConnectorFactory(globalSystemConnectorFactory, ignored -> globalSystemConnectorFactory.getClass().getClassLoader());
-        connectorManager.createCatalog(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
+        catalogManager.registerGlobalSystemConnector(globalSystemConnector);
 
         // rewrite session to use managed SessionPropertyMetadata
         Optional<TransactionId> transactionId = withInitialTransaction ? Optional.of(transactionManager.beginTransaction(true)) : defaultSession.getTransactionId();
@@ -546,7 +551,7 @@ public class LocalQueryRunner
     {
         notificationExecutor.shutdownNow();
         yieldExecutor.shutdownNow();
-        connectorManager.stop();
+        catalogManager.stop();
         finalizerService.destroy();
         singleStreamSpillerFactory.destroy();
     }
@@ -719,9 +724,8 @@ public class LocalQueryRunner
 
     public void createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
-        nodeManager.addCurrentNodeConnector(new CatalogName(catalogName));
-        connectorManager.addConnectorFactory(connectorFactory, ignored -> connectorFactory.getClass().getClassLoader());
-        connectorManager.createCatalog(catalogName, connectorFactory.getName(), properties);
+        catalogFactory.addConnectorFactory(connectorFactory, ignored -> connectorFactory.getClass().getClassLoader());
+        catalogManager.createCatalog(catalogName, connectorFactory.getName(), properties);
     }
 
     @Override
@@ -739,8 +743,12 @@ public class LocalQueryRunner
     @Override
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        nodeManager.addCurrentNodeConnector(new CatalogName(catalogName));
-        connectorManager.createCatalog(catalogName, connectorName, properties);
+        catalogManager.createCatalog(catalogName, connectorName, properties);
+    }
+
+    public CatalogManager getCatalogManager()
+    {
+        return catalogManager;
     }
 
     public LocalQueryRunner printPlan()
@@ -823,8 +831,8 @@ public class LocalQueryRunner
             });
 
             TaskContext taskContext = TestingTaskContext.builder(notificationExecutor, yieldExecutor, session)
-                    .setMaxSpillSize(nodeSpillConfig.getMaxSpillPerNode())
-                    .setQueryMaxSpillSize(nodeSpillConfig.getQueryMaxSpillPerNode())
+                    .setMaxSpillSize(maxSpillPerNode)
+                    .setQueryMaxSpillSize(queryMaxSpillPerNode)
                     .build();
 
             Plan plan = createPlan(session, sql, WarningCollector.NOOP);
@@ -1039,7 +1047,7 @@ public class LocalQueryRunner
 
     public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
     {
-        return planOptimizersProvider.getPlanOptimizers(
+        return new PlanOptimizers(
                 plannerContext,
                 new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
                 taskManagerConfig,
@@ -1119,7 +1127,7 @@ public class LocalQueryRunner
                                 columnPropertyManager,
                                 tablePropertyManager,
                                 materializedViewPropertyManager),
-                        new ShowStatsRewrite(queryExplainerFactory, statsCalculator),
+                        new ShowStatsRewrite(plannerContext.getMetadata(), queryExplainerFactory, statsCalculator),
                         new ExplainRewrite(queryExplainerFactory, new QueryPreparer(sqlParser)))));
     }
 
@@ -1133,25 +1141,6 @@ public class LocalQueryRunner
         return searchFrom(node)
                 .where(TableScanNode.class::isInstance)
                 .findAll();
-    }
-
-    public interface PlanOptimizersProvider
-    {
-        PlanOptimizersFactory getPlanOptimizers(
-                PlannerContext plannerContext,
-                TypeAnalyzer typeAnalyzer,
-                TaskManagerConfig taskManagerConfig,
-                boolean forceSingleNode,
-                SplitManager splitManager,
-                PageSourceManager pageSourceManager,
-                StatsCalculator statsCalculator,
-                ScalarStatsCalculator scalarStatsCalculator,
-                CostCalculator costCalculator,
-                CostCalculator estimatedExchangesCostCalculator,
-                CostComparator costComparator,
-                TaskCountEstimator taskCountEstimator,
-                NodePartitioningManager nodePartitioningManager,
-                RuleStatsRecorder ruleStats);
     }
 
     public interface MetadataProvider
@@ -1173,7 +1162,6 @@ public class LocalQueryRunner
         private Map<String, List<PropertyMetadata<?>>> defaultSessionProperties = ImmutableMap.of();
         private Set<SystemSessionPropertiesProvider> extraSessionProperties = ImmutableSet.of();
         private int nodeCountForStats;
-        private PlanOptimizersProvider planOptimizersProvider = PlanOptimizers::new;
         private MetadataProvider metadataProvider = MetadataManager::new;
         private OperatorFactories operatorFactories = new TrinoOperatorFactories();
 
@@ -1218,12 +1206,6 @@ public class LocalQueryRunner
             return this;
         }
 
-        public Builder withPlanOptimizersProvider(PlanOptimizersProvider planOptimizersProvider)
-        {
-            this.planOptimizersProvider = requireNonNull(planOptimizersProvider, "planOptimizersProvider is null");
-            return this;
-        }
-
         public Builder withMetadataProvider(MetadataProvider metadataProvider)
         {
             this.metadataProvider = metadataProvider;
@@ -1257,7 +1239,6 @@ public class LocalQueryRunner
                     alwaysRevokeMemory,
                     nodeCountForStats,
                     defaultSessionProperties,
-                    planOptimizersProvider,
                     metadataProvider,
                     operatorFactories,
                     extraSessionProperties);

@@ -26,4 +26,12 @@ public final class ParquetValidationUtils
             throw new ParquetCorruptionException(format(formatString, args));
         }
     }
+
+    public static void validateParquet(boolean condition, ParquetDataSourceId dataSourceId, String formatString, Object... args)
+            throws ParquetCorruptionException
+    {
+        if (!condition) {
+            throw new ParquetCorruptionException(dataSourceId, formatString, args);
+        }
+    }
 }

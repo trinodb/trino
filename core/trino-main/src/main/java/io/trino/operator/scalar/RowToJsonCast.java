@@ -19,12 +19,12 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.metadata.TypeVariableConstraint;
 import io.trino.spi.block.Block;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
+import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
@@ -50,15 +50,11 @@ import static io.trino.util.Reflection.methodHandle;
 public class RowToJsonCast
         extends SqlScalarFunction
 {
-    public static final RowToJsonCast ROW_TO_JSON = new RowToJsonCast(false);
-    public static final RowToJsonCast LEGACY_ROW_TO_JSON = new RowToJsonCast(true);
+    public static final RowToJsonCast ROW_TO_JSON = new RowToJsonCast();
 
     private static final MethodHandle METHOD_HANDLE = methodHandle(RowToJsonCast.class, "toJsonObject", List.class, List.class, Block.class);
-    private static final MethodHandle LEGACY_METHOD_HANDLE = methodHandle(RowToJsonCast.class, "toJsonArray", List.class, Block.class);
 
-    private final boolean legacyRowToJson;
-
-    private RowToJsonCast(boolean legacyRowToJson)
+    private RowToJsonCast()
     {
         super(FunctionMetadata.scalarBuilder()
                 .signature(Signature.builder()
@@ -73,11 +69,10 @@ public class RowToJsonCast
                         .argumentType(new TypeSignature("T"))
                         .build())
                 .build());
-        this.legacyRowToJson = legacyRowToJson;
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         Type type = boundSignature.getArgumentType(0);
         checkCondition(canCastToJson(type), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON", type);
@@ -85,24 +80,15 @@ public class RowToJsonCast
         List<Type> fieldTypes = type.getTypeParameters();
 
         List<JsonGeneratorWriter> fieldWriters = new ArrayList<>(fieldTypes.size());
-        MethodHandle methodHandle;
-        if (legacyRowToJson) {
-            for (Type fieldType : fieldTypes) {
-                fieldWriters.add(createJsonGeneratorWriter(fieldType, true));
-            }
-            methodHandle = LEGACY_METHOD_HANDLE.bindTo(fieldWriters);
+        List<TypeSignatureParameter> typeSignatureParameters = type.getTypeSignature().getParameters();
+        List<String> fieldNames = new ArrayList<>(fieldTypes.size());
+        for (int i = 0; i < fieldTypes.size(); i++) {
+            fieldNames.add(typeSignatureParameters.get(i).getNamedTypeSignature().getName().orElse(""));
+            fieldWriters.add(createJsonGeneratorWriter(fieldTypes.get(i)));
         }
-        else {
-            List<TypeSignatureParameter> typeSignatureParameters = type.getTypeSignature().getParameters();
-            List<String> fieldNames = new ArrayList<>(fieldTypes.size());
-            for (int i = 0; i < fieldTypes.size(); i++) {
-                fieldNames.add(typeSignatureParameters.get(i).getNamedTypeSignature().getName().orElse(""));
-                fieldWriters.add(createJsonGeneratorWriter(fieldTypes.get(i), false));
-            }
-            methodHandle = METHOD_HANDLE.bindTo(fieldNames).bindTo(fieldWriters);
-        }
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(fieldNames).bindTo(fieldWriters);
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
@@ -121,25 +107,6 @@ public class RowToJsonCast
                     fieldWriters.get(i).writeJsonValue(jsonGenerator, block, i);
                 }
                 jsonGenerator.writeEndObject();
-            }
-            return output.slice();
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @UsedByGeneratedCode
-    public static Slice toJsonArray(List<JsonGeneratorWriter> fieldWriters, Block block)
-    {
-        try {
-            SliceOutput output = new DynamicSliceOutput(40);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
-                jsonGenerator.writeStartArray();
-                for (int i = 0; i < block.getPositionCount(); i++) {
-                    fieldWriters.get(i).writeJsonValue(jsonGenerator, block, i);
-                }
-                jsonGenerator.writeEndArray();
             }
             return output.slice();
         }

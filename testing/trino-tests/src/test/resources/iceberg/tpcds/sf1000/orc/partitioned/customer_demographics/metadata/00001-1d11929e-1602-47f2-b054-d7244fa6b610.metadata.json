@@ -1,0 +1,166 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "0f4b22df-a5ae-4a55-bd9b-de7e143e9618",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/customer_demographics",
+  "last-updated-ms" : 1663708809128,
+  "last-column-id" : 9,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "cd_demo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "cd_gender",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "cd_marital_status",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 4,
+      "name" : "cd_education_status",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 5,
+      "name" : "cd_purchase_estimate",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 6,
+      "name" : "cd_credit_rating",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 7,
+      "name" : "cd_dep_count",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 8,
+      "name" : "cd_dep_employed_count",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 9,
+      "name" : "cd_dep_college_count",
+      "required" : false,
+      "type" : "int"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "cd_demo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "cd_gender",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "cd_marital_status",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 4,
+      "name" : "cd_education_status",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 5,
+      "name" : "cd_purchase_estimate",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 6,
+      "name" : "cd_credit_rating",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 7,
+      "name" : "cd_dep_count",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 8,
+      "name" : "cd_dep_employed_count",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 9,
+      "name" : "cd_dep_college_count",
+      "required" : false,
+      "type" : "int"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.7.ndv" : "7",
+    "trino.stats.ndv.2.ndv" : "2",
+    "trino.stats.ndv.1.ndv" : "1890006",
+    "trino.stats.ndv.8.ndv" : "7",
+    "trino.stats.ndv.3.ndv" : "5",
+    "trino.stats.ndv.6.ndv" : "4",
+    "write.format.default" : "ORC",
+    "trino.stats.ndv.4.ndv" : "7",
+    "trino.stats.ndv.5.ndv" : "20",
+    "trino.stats.ndv.9.ndv" : "7"
+  },
+  "current-snapshot-id" : 3205611945061422968,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 3205611945061422968,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 3205611945061422968,
+    "timestamp-ms" : 1648044129969,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "6",
+      "added-records" : "1920800",
+      "added-files-size" : "836427",
+      "changed-partition-count" : "1",
+      "total-records" : "1920800",
+      "total-files-size" : "836427",
+      "total-data-files" : "6",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/customer_demographics/metadata/snap-3205611945061422968-1-c3780e6c-ef23-4ea1-a89d-4160c571eb7f.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648044129969,
+    "snapshot-id" : 3205611945061422968
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1648044129969,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/customer_demographics/metadata/00000-65a9e817-5939-4d36-b6a9-9998a64ee2cc.metadata.json"
+  } ]
+}

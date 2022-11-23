@@ -64,6 +64,19 @@ public class TestIcebergSystemTables
         assertUpdate("INSERT INTO test_schema.test_table_nan VALUES (1, 1.1, 1.2, CAST('2022-01-01' AS DATE)), (2, nan(), 2.2, CAST('2022-01-02' AS DATE)), (3, 3.3, nan(), CAST('2022-01-03' AS DATE))", 3);
         assertUpdate("INSERT INTO test_schema.test_table_nan VALUES (4, nan(), 4.1, CAST('2022-01-04' AS DATE)), (5, 4.2, nan(), CAST('2022-01-04' AS DATE)), (6, nan(), nan(), CAST('2022-01-04' AS DATE))", 3);
         assertQuery("SELECT count(*) FROM test_schema.test_table_nan", "VALUES 6");
+
+        assertUpdate("CREATE TABLE test_schema.test_table_with_dml (_varchar VARCHAR, _date DATE) WITH (partitioning = ARRAY['_date'])");
+        assertUpdate(
+                "INSERT INTO test_schema.test_table_with_dml " +
+                        "VALUES " +
+                        "('a1', DATE '2022-01-01'), ('a2', DATE '2022-01-01'), " +
+                        "('b1', DATE '2022-02-02'), ('b2', DATE '2022-02-02'), " +
+                        "('c1', DATE '2022-03-03'), ('c2', DATE '2022-03-03')",
+                6);
+        assertUpdate("UPDATE test_schema.test_table_with_dml SET _varchar = 'a1.updated' WHERE _date = DATE '2022-01-01' AND _varchar = 'a1'", 1);
+        assertUpdate("DELETE FROM test_schema.test_table_with_dml WHERE _date = DATE '2022-02-02' AND _varchar = 'b2'", 1);
+        assertUpdate("INSERT INTO test_schema.test_table_with_dml VALUES ('c3', DATE '2022-03-03'), ('d1', DATE '2022-04-04')", 2);
+        assertQuery("SELECT count(*) FROM test_schema.test_table_with_dml", "VALUES 7");
     }
 
     @AfterClass(alwaysRun = true)
@@ -73,6 +86,7 @@ public class TestIcebergSystemTables
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_multilevel_partitions");
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_drop_column");
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_nan");
+        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_with_dml");
         assertUpdate("DROP SCHEMA IF EXISTS test_schema");
     }
 
@@ -202,19 +216,38 @@ public class TestIcebergSystemTables
                         "('partition_spec_id', 'integer', '', '')," +
                         "('added_snapshot_id', 'bigint', '', '')," +
                         "('added_data_files_count', 'integer', '', '')," +
+                        "('added_rows_count', 'bigint', '', '')," +
                         "('existing_data_files_count', 'integer', '', '')," +
+                        "('existing_rows_count', 'bigint', '', '')," +
                         "('deleted_data_files_count', 'integer', '', '')," +
+                        "('deleted_rows_count', 'bigint', '', '')," +
                         "('partitions', 'array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))', '', '')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$manifests\"");
-        assertThat(query("SELECT partitions FROM test_schema.\"test_table$manifests\""))
-                .matches("VALUES " +
-                        "    CAST(ARRAY[ROW(false, false, '2019-09-08', '2019-09-09')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))) , " +
-                        "    CAST(ARRAY[ROW(false, false, '2019-09-09', '2019-09-10')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))");
+        assertThat(query("SELECT added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partitions FROM test_schema.\"test_table$manifests\""))
+                .matches(
+                        "VALUES " +
+                                "    (2, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2019-09-08', '2019-09-09')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))) , " +
+                                "    (2, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2019-09-09', '2019-09-10')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
 
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table_multilevel_partitions$manifests\"");
-        assertThat(query("SELECT partitions FROM test_schema.\"test_table_multilevel_partitions$manifests\""))
-                .matches("VALUES " +
-                        "    CAST(ARRAY[ROW(false, false, '0', '1'), ROW(false, false, '2019-09-08', '2019-09-09')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))");
+        assertThat(query("SELECT added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partitions FROM test_schema.\"test_table_multilevel_partitions$manifests\""))
+                .matches(
+                        "VALUES " +
+                                "(3, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '0', '1'), ROW(false, false, '2019-09-08', '2019-09-09')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
+
+        assertQuerySucceeds("SELECT * FROM test_schema.\"test_table_with_dml$manifests\"");
+        assertThat(query("SELECT added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partitions FROM test_schema.\"test_table_with_dml$manifests\""))
+                .matches(
+                        "VALUES " +
+                                // INSERT on '2022-01-01', '2022-02-02', '2022-03-03' partitions
+                                "(3, BIGINT '0', BIGINT '6', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-01-01', '2022-03-03')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
+                                // UPDATE on '2022-01-01' partition
+                                "(1, BIGINT '0', BIGINT '1', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-01-01', '2022-01-01')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
+                                "(1, BIGINT '0', BIGINT '1', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-01-01', '2022-01-01')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
+                                // DELETE from '2022-02-02' partition
+                                "(1, BIGINT '0', BIGINT '1', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-02-02', '2022-02-02')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
+                                // INSERT on '2022-03-03', '2022-04-04' partitions
+                                "(2, BIGINT '0', BIGINT '2', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-03-03', '2022-04-04')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
     }
 
     @Test

@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.procedure;
 public enum IcebergTableProcedureId
 {
     OPTIMIZE,
+    DROP_EXTENDED_STATS,
     EXPIRE_SNAPSHOTS,
     REMOVE_ORPHAN_FILES,
 }

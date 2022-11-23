@@ -32,9 +32,7 @@ public final class InputStreamCheckpoint
         if (compressed) {
             return createInputStreamCheckpoint(positionsList.nextPosition(), positionsList.nextPosition());
         }
-        else {
-            return createInputStreamCheckpoint(0, positionsList.nextPosition());
-        }
+        return createInputStreamCheckpoint(0, positionsList.nextPosition());
     }
 
     public static long createInputStreamCheckpoint(int compressedBlockOffset, int decompressedOffset)
@@ -58,9 +56,7 @@ public final class InputStreamCheckpoint
         if (compressed) {
             return ImmutableList.of(decodeCompressedBlockOffset(inputStreamCheckpoint), decodeDecompressedOffset(inputStreamCheckpoint));
         }
-        else {
-            return ImmutableList.of(decodeDecompressedOffset(inputStreamCheckpoint));
-        }
+        return ImmutableList.of(decodeDecompressedOffset(inputStreamCheckpoint));
     }
 
     public static String inputStreamCheckpointToString(long inputStreamCheckpoint)

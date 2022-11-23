@@ -52,12 +52,13 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.orc.metadata.Stream.StreamKind.SECONDARY;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class DecimalColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DecimalColumnWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DecimalColumnWriter.class).instanceSize());
     private final OrcColumnId columnId;
     private final DecimalType type;
     private final ColumnEncoding columnEncoding;

@@ -45,6 +45,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static io.trino.execution.executor.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
+import static io.trino.operator.OperatorFactories.JoinOperatorType.innerJoin;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static java.util.Objects.requireNonNull;
 
@@ -109,14 +110,12 @@ public class HashJoinBenchmark
 
             List<Type> lineItemTypes = getColumnTypes("lineitem", "orderkey", "quantity");
             OperatorFactory lineItemTableScan = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "orderkey", "quantity");
-            OperatorFactory joinOperator = operatorFactories.innerJoin(
+            OperatorFactory joinOperator = operatorFactories.spillingJoin(
+                    innerJoin(false, false),
                     1,
                     new PlanNodeId("test"),
                     lookupSourceFactoryManager,
                     false,
-                    false,
-                    false,
-                    true,
                     lineItemTypes,
                     Ints.asList(0),
                     OptionalInt.empty(),

@@ -23,6 +23,7 @@ import io.trino.plugin.iceberg.IcebergFileFormat;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -30,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 public class IcebergOptimizeHandle
         extends IcebergProcedureHandle
 {
-    private final long snapshotId;
+    private final Optional<Long> snapshotId;
     private final String schemaAsJson;
     private final String partitionSpecAsJson;
     private final List<IcebergColumnHandle> tableColumns;
@@ -38,19 +39,17 @@ public class IcebergOptimizeHandle
     private final Map<String, String> tableStorageProperties;
     private final DataSize maxScannedFileSize;
     private final boolean retriesEnabled;
-    private final boolean wholeTableScan;
 
     @JsonCreator
     public IcebergOptimizeHandle(
-            long snapshotId,
+            Optional<Long> snapshotId,
             String schemaAsJson,
             String partitionSpecAsJson,
             List<IcebergColumnHandle> tableColumns,
             IcebergFileFormat fileFormat,
             Map<String, String> tableStorageProperties,
             DataSize maxScannedFileSize,
-            boolean retriesEnabled,
-            boolean wholeTableScan)
+            boolean retriesEnabled)
     {
         this.snapshotId = snapshotId;
         this.schemaAsJson = requireNonNull(schemaAsJson, "schemaAsJson is null");
@@ -60,11 +59,10 @@ public class IcebergOptimizeHandle
         this.tableStorageProperties = ImmutableMap.copyOf(requireNonNull(tableStorageProperties, "tableStorageProperties is null"));
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
         this.retriesEnabled = retriesEnabled;
-        this.wholeTableScan = wholeTableScan;
     }
 
     @JsonProperty
-    public long getSnapshotId()
+    public Optional<Long> getSnapshotId()
     {
         return snapshotId;
     }
@@ -111,12 +109,6 @@ public class IcebergOptimizeHandle
         return retriesEnabled;
     }
 
-    @JsonProperty
-    public boolean isWholeTableScan()
-    {
-        return wholeTableScan;
-    }
-
     @Override
     public String toString()
     {
@@ -129,7 +121,6 @@ public class IcebergOptimizeHandle
                 .add("tableStorageProperties", tableStorageProperties)
                 .add("maxScannedFileSize", maxScannedFileSize)
                 .add("retriesEnabled", retriesEnabled)
-                .add("tupleDomainAll", wholeTableScan)
                 .toString();
     }
 }

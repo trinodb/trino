@@ -47,6 +47,8 @@ import java.util.Optional;
  */
 public interface TrinoCatalog
 {
+    boolean namespaceExists(ConnectorSession session, String namespace);
+
     List<String> listNamespaces(ConnectorSession session);
 
     void dropNamespace(ConnectorSession session, String namespace);
@@ -77,6 +79,7 @@ public interface TrinoCatalog
 
     /**
      * load an Iceberg table
+     *
      * @param session Trino session
      * @param schemaTableName Trino schema and table name
      * @return Iceberg table loaded
@@ -85,6 +88,8 @@ public interface TrinoCatalog
     Table loadTable(ConnectorSession session, SchemaTableName schemaTableName);
 
     void updateTableComment(ConnectorSession session, SchemaTableName schemaTableName, Optional<String> comment);
+
+    void updateViewComment(ConnectorSession session, SchemaTableName schemaViewName, Optional<String> comment);
 
     String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName);
 

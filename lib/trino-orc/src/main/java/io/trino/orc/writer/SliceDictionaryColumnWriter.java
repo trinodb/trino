@@ -67,7 +67,7 @@ import static java.util.stream.Collectors.toList;
 public class SliceDictionaryColumnWriter
         implements ColumnWriter, DictionaryColumn
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryColumnWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SliceDictionaryColumnWriter.class).instanceSize());
     private static final int DIRECT_CONVERSION_CHUNK_MAX_LOGICAL_BYTES = toIntExact(DataSize.of(32, MEGABYTE).toBytes());
 
     private final OrcColumnId columnId;
@@ -216,7 +216,7 @@ public class SliceDictionaryColumnWriter
         for (int i = 0; valueCount > 0 && i < segments.length; i++) {
             int[] segment = segments[i];
             int positionCount = Math.min(valueCount, segment.length);
-            Block block = new DictionaryBlock(positionCount, dictionary, segment);
+            Block block = DictionaryBlock.create(positionCount, dictionary, segment);
 
             while (block != null) {
                 int chunkPositionCount = block.getPositionCount();

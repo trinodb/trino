@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
+import static java.lang.Math.toIntExact;
 
 /**
  * Instances of this state use a single PageBuilder for all groups.
@@ -33,7 +34,7 @@ import static com.google.common.base.Verify.verify;
 public abstract class AbstractGroupCollectionAggregationState<T>
         extends AbstractGroupedAccumulatorState
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(AbstractGroupCollectionAggregationState.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(AbstractGroupCollectionAggregationState.class).instanceSize());
     private static final int MAX_NUM_BLOCKS = 30000;
     private static final short NULL = -1;
 

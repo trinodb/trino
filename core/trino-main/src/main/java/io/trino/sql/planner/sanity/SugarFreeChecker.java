@@ -22,7 +22,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.ArrayConstructor;
+import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentPath;
@@ -112,7 +112,7 @@ public final class SugarFreeChecker
         }
 
         @Override
-        protected Void visitArrayConstructor(ArrayConstructor node, Builder<Symbol> context)
+        protected Void visitArray(Array node, Builder<Symbol> context)
         {
             throw createIllegalNodeException(node);
         }

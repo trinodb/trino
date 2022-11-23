@@ -16,6 +16,7 @@ package io.trino.plugin.redis;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.trino.decoder.dummy.DummyRowDecoder;
@@ -28,6 +29,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -42,13 +44,18 @@ public class RedisTableDescriptionSupplier
 {
     private static final Logger log = Logger.get(RedisTableDescriptionSupplier.class);
 
-    private final RedisConnectorConfig redisConnectorConfig;
+    private final File tableDescriptionDir;
+    private final Set<String> tableNames;
+    private final String defaultSchema;
     private final JsonCodec<RedisTableDescription> tableDescriptionCodec;
 
     @Inject
     RedisTableDescriptionSupplier(RedisConnectorConfig redisConnectorConfig, JsonCodec<RedisTableDescription> tableDescriptionCodec)
     {
-        this.redisConnectorConfig = requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
+        requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
+        this.tableDescriptionDir = redisConnectorConfig.getTableDescriptionDir();
+        this.tableNames = ImmutableSet.copyOf(redisConnectorConfig.getTableNames());
+        this.defaultSchema = redisConnectorConfig.getDefaultSchema();
         this.tableDescriptionCodec = requireNonNull(tableDescriptionCodec, "tableDescriptionCodec is null");
     }
 
@@ -58,10 +65,10 @@ public class RedisTableDescriptionSupplier
         ImmutableMap.Builder<SchemaTableName, RedisTableDescription> builder = ImmutableMap.builder();
 
         try {
-            for (File file : listFiles(redisConnectorConfig.getTableDescriptionDir())) {
+            for (File file : listFiles(tableDescriptionDir)) {
                 if (file.isFile() && file.getName().endsWith(".json")) {
                     RedisTableDescription table = tableDescriptionCodec.fromJson(readAllBytes(file.toPath()));
-                    String schemaName = firstNonNull(table.getSchemaName(), redisConnectorConfig.getDefaultSchema());
+                    String schemaName = firstNonNull(table.getSchemaName(), defaultSchema);
                     log.debug("Redis table %s.%s: %s", schemaName, table.getTableName(), table);
                     builder.put(new SchemaTableName(schemaName, table.getTableName()), table);
                 }
@@ -71,13 +78,13 @@ public class RedisTableDescriptionSupplier
 
             log.debug("Loaded table definitions: %s", tableDefinitions.keySet());
 
-            for (String definedTable : redisConnectorConfig.getTableNames()) {
+            for (String definedTable : tableNames) {
                 SchemaTableName tableName;
                 try {
                     tableName = parseTableName(definedTable);
                 }
                 catch (IllegalArgumentException iae) {
-                    tableName = new SchemaTableName(redisConnectorConfig.getDefaultSchema(), definedTable);
+                    tableName = new SchemaTableName(defaultSchema, definedTable);
                 }
 
                 if (!tableDefinitions.containsKey(tableName)) {

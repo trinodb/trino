@@ -5,7 +5,6 @@ Memory connector
 The Memory connector stores all data and metadata in RAM on workers
 and both are discarded when Trino restarts.
 
-
 Configuration
 -------------
 
@@ -41,6 +40,14 @@ Drop table::
 
     DROP TABLE memory.default.nation;
 
+.. _memory-type-mapping:
+
+Type mapping
+------------
+
+Trino supports all data types used within the Memory schemas so no mapping is
+required.
+
 .. _memory-sql-support:
 
 SQL support
@@ -57,6 +64,7 @@ statements, the connector supports the following features:
 * :doc:`/sql/drop-table`
 * :doc:`/sql/create-schema`
 * :doc:`/sql/drop-schema`
+* :doc:`/sql/comment`
 
 DROP TABLE
 ^^^^^^^^^^
@@ -79,8 +87,6 @@ Delayed execution for dynamic filters
 For the Memory connector, a table scan is delayed until the collection of dynamic filters.
 This can be disabled by using the configuration property ``memory.enable-lazy-dynamic-filtering``
 in the catalog file.
-
-
 
 Limitations
 -----------

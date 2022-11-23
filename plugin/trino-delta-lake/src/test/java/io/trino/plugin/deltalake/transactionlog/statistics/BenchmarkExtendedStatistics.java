@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -79,7 +80,7 @@ public class BenchmarkExtendedStatistics
         {
             columns = new ArrayList<>(columnsCount);
             for (int i = 0; i < columnsCount; i++) {
-                columns.add(new DeltaLakeColumnHandle("column_" + i, BigintType.BIGINT, "column_" + i, BigintType.BIGINT, REGULAR));
+                columns.add(new DeltaLakeColumnHandle("column_" + i, BigintType.BIGINT, OptionalInt.empty(), "column_" + i, BigintType.BIGINT, REGULAR));
             }
 
             fileStatistics = new ArrayList<>(filesCount);

@@ -1,0 +1,451 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "85fccc8a-9e56-40a8-a1ab-b20039b7dabb",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/catalog_sales",
+  "last-updated-ms" : 1663708790241,
+  "last-column-id" : 34,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "cs_sold_time_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "cs_ship_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "cs_bill_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "cs_bill_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 5,
+      "name" : "cs_bill_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "cs_bill_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 7,
+      "name" : "cs_ship_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 8,
+      "name" : "cs_ship_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 9,
+      "name" : "cs_ship_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 10,
+      "name" : "cs_ship_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 11,
+      "name" : "cs_call_center_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 12,
+      "name" : "cs_catalog_page_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 13,
+      "name" : "cs_ship_mode_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 14,
+      "name" : "cs_warehouse_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 15,
+      "name" : "cs_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 16,
+      "name" : "cs_promo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 17,
+      "name" : "cs_order_number",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 18,
+      "name" : "cs_quantity",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 19,
+      "name" : "cs_wholesale_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 20,
+      "name" : "cs_list_price",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 21,
+      "name" : "cs_sales_price",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 22,
+      "name" : "cs_ext_discount_amt",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 23,
+      "name" : "cs_ext_sales_price",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 24,
+      "name" : "cs_ext_wholesale_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 25,
+      "name" : "cs_ext_list_price",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 26,
+      "name" : "cs_ext_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 27,
+      "name" : "cs_coupon_amt",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 28,
+      "name" : "cs_ext_ship_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 29,
+      "name" : "cs_net_paid",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 30,
+      "name" : "cs_net_paid_inc_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 31,
+      "name" : "cs_net_paid_inc_ship",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 32,
+      "name" : "cs_net_paid_inc_ship_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 33,
+      "name" : "cs_net_profit",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 34,
+      "name" : "cs_sold_date_sk",
+      "required" : false,
+      "type" : "long"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "cs_sold_time_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "cs_ship_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "cs_bill_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "cs_bill_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 5,
+      "name" : "cs_bill_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "cs_bill_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 7,
+      "name" : "cs_ship_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 8,
+      "name" : "cs_ship_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 9,
+      "name" : "cs_ship_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 10,
+      "name" : "cs_ship_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 11,
+      "name" : "cs_call_center_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 12,
+      "name" : "cs_catalog_page_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 13,
+      "name" : "cs_ship_mode_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 14,
+      "name" : "cs_warehouse_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 15,
+      "name" : "cs_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 16,
+      "name" : "cs_promo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 17,
+      "name" : "cs_order_number",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 18,
+      "name" : "cs_quantity",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 19,
+      "name" : "cs_wholesale_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 20,
+      "name" : "cs_list_price",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 21,
+      "name" : "cs_sales_price",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 22,
+      "name" : "cs_ext_discount_amt",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 23,
+      "name" : "cs_ext_sales_price",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 24,
+      "name" : "cs_ext_wholesale_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 25,
+      "name" : "cs_ext_list_price",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 26,
+      "name" : "cs_ext_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 27,
+      "name" : "cs_coupon_amt",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 28,
+      "name" : "cs_ext_ship_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 29,
+      "name" : "cs_net_paid",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 30,
+      "name" : "cs_net_paid_inc_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 31,
+      "name" : "cs_net_paid_inc_ship",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 32,
+      "name" : "cs_net_paid_inc_ship_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 33,
+      "name" : "cs_net_profit",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 34,
+      "name" : "cs_sold_date_sk",
+      "required" : false,
+      "type" : "long"
+    } ]
+  } ],
+  "partition-spec" : [ {
+    "name" : "cs_sold_date_sk",
+    "transform" : "identity",
+    "source-id" : 34,
+    "field-id" : 1000
+  } ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ {
+      "name" : "cs_sold_date_sk",
+      "transform" : "identity",
+      "source-id" : 34,
+      "field-id" : 1000
+    } ]
+  } ],
+  "last-partition-id" : 1000,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.22.ndv" : "1070707",
+    "trino.stats.ndv.2.ndv" : "1950",
+    "trino.stats.ndv.7.ndv" : "12236563",
+    "trino.stats.ndv.27.ndv" : "1568468",
+    "trino.stats.ndv.30.ndv" : "2432400",
+    "trino.stats.ndv.19.ndv" : "10091",
+    "trino.stats.ndv.18.ndv" : "100",
+    "trino.stats.ndv.14.ndv" : "20",
+    "trino.stats.ndv.23.ndv" : "1067497",
+    "trino.stats.ndv.34.ndv" : "1828",
+    "trino.stats.ndv.21.ndv" : "29691",
+    "trino.stats.ndv.8.ndv" : "1890006",
+    "trino.stats.ndv.3.ndv" : "12236563",
+    "write.format.default" : "ORC",
+    "trino.stats.ndv.17.ndv" : "165467466",
+    "trino.stats.ndv.31.ndv" : "2468889",
+    "trino.stats.ndv.13.ndv" : "20",
+    "trino.stats.ndv.26.ndv" : "216236",
+    "trino.stats.ndv.16.ndv" : "1483",
+    "trino.stats.ndv.33.ndv" : "2073314",
+    "trino.stats.ndv.4.ndv" : "1890006",
+    "trino.stats.ndv.5.ndv" : "7082",
+    "trino.stats.ndv.29.ndv" : "1810472",
+    "trino.stats.ndv.9.ndv" : "7082",
+    "trino.stats.ndv.12.ndv" : "16739",
+    "trino.stats.ndv.25.ndv" : "1115360",
+    "trino.stats.ndv.10.ndv" : "5947530",
+    "trino.stats.ndv.1.ndv" : "89157",
+    "trino.stats.ndv.28.ndv" : "553991",
+    "trino.stats.ndv.15.ndv" : "297612",
+    "trino.stats.ndv.6.ndv" : "5947530",
+    "trino.stats.ndv.32.ndv" : "3332491",
+    "trino.stats.ndv.20.ndv" : "29733",
+    "trino.stats.ndv.24.ndv" : "388752",
+    "trino.stats.ndv.11.ndv" : "42"
+  },
+  "current-snapshot-id" : 1121206068119349348,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 1121206068119349348,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 1121206068119349348,
+    "timestamp-ms" : 1648045697254,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "1837",
+      "added-records" : "1439980416",
+      "added-files-size" : "72180118842",
+      "changed-partition-count" : "1837",
+      "total-records" : "1439980416",
+      "total-files-size" : "72180118842",
+      "total-data-files" : "1837",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/catalog_sales/metadata/snap-1121206068119349348-1-28606fe7-b3d7-4f87-b73c-facdbf6465bc.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648045697254,
+    "snapshot-id" : 1121206068119349348
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1648045697254,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/catalog_sales/metadata/00000-ba37c36a-7386-40aa-9efa-b8a527f5336c.metadata.json"
+  } ]
+}

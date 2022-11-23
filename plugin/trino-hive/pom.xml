@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>389</version>
+        <version>400</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,6 +15,15 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+
+        <!--
+          Project's default for air.test.parallel is 'methods'. By design, 'instances' runs all the methods in the same instance in the same thread,
+          but two methods on two different instances will be running in different threads.
+          As a side effect, it prevents TestNG from initializing multiple test instances upfront, which happens with 'methods'.
+          A potential downside can be long tail single-threaded execution of a single long test class.
+          TODO (https://github.com/trinodb/trino/issues/11294) remove when we upgrade to surefire with https://issues.apache.org/jira/browse/SUREFIRE-1967
+          -->
+        <air.test.parallel>instances</air.test.parallel>
     </properties>
 
     <dependencies>
@@ -25,7 +34,17 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-hadoop-toolkit</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hdfs</artifactId>
         </dependency>
 
         <dependency>
@@ -156,21 +175,7 @@
         <dependency>
             <groupId>com.google.cloud.bigdataoss</groupId>
             <artifactId>gcs-connector</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.cloud.bigdataoss</groupId>
-            <artifactId>gcsio</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.cloud.bigdataoss</groupId>
-            <artifactId>util</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.cloud.bigdataoss</groupId>
-            <artifactId>util-hadoop</artifactId>
+            <classifier>shaded</classifier>
         </dependency>
 
         <dependency>
@@ -253,6 +258,11 @@
         <dependency>
             <groupId>org.apache.thrift</groupId>
             <artifactId>libthrift</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.gaul</groupId>
+            <artifactId>modernizer-maven-annotations</artifactId>
         </dependency>
 
         <dependency>
@@ -389,6 +399,28 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.github.spotbugs</groupId>
+                    <artifactId>spotbugs-annotations</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.jcip</groupId>
+                    <artifactId>jcip-annotations</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>net.jodah</groupId>
+            <artifactId>failsafe</artifactId>
             <scope>test</scope>
         </dependency>
 
