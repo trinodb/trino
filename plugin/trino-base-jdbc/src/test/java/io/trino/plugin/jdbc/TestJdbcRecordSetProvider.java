@@ -90,6 +90,8 @@ public class TestJdbcRecordSetProvider
         closeAll(
                 database,
                 () -> executor.shutdownNow());
+        database = null;
+        executor = null;
     }
 
     @Test

@@ -77,6 +77,7 @@ public class TestDeprecatedFunctionWarning
     public void tearDown()
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     @Test

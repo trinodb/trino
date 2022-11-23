@@ -175,5 +175,6 @@ public class TestMinimalFunctionality
     {
         embeddedKinesisStream.deleteStream(streamName);
         queryRunner.close();
+        queryRunner = null;
     }
 }

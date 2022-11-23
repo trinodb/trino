@@ -100,6 +100,7 @@ public class TestJdbcWarnings
             throws Exception
     {
         server.close();
+        server = null;
     }
 
     @SuppressWarnings("JDBCResourceOpenedButNotSafelyClosed")
@@ -117,8 +118,11 @@ public class TestJdbcWarnings
             throws Exception
     {
         executor.shutdownNow();
+        executor = null;
         statement.close();
+        statement = null;
         connection.close();
+        connection = null;
     }
 
     @Test

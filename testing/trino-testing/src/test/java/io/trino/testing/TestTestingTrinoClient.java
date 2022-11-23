@@ -83,6 +83,7 @@ public class TestTestingTrinoClient
             throws Exception
     {
         server.close();
+        server = null;
     }
 
     @Test

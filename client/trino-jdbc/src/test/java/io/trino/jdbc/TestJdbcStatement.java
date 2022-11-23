@@ -75,6 +75,7 @@ public class TestJdbcStatement
         closeAll(
                 server,
                 executor::shutdownNow);
+        server = null;
     }
 
     @Test(timeOut = 60_000)

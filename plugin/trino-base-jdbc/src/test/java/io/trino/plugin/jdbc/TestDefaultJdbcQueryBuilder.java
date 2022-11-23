@@ -181,6 +181,7 @@ public class TestDefaultJdbcQueryBuilder
             throws Exception
     {
         database.close();
+        database = null;
     }
 
     @Test

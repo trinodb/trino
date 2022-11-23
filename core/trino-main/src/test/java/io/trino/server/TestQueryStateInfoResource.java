@@ -119,6 +119,8 @@ public class TestQueryStateInfoResource
         closer.register(server);
         closer.register(client);
         closer.close();
+        server = null;
+        client = null;
     }
 
     @Test
