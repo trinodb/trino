@@ -57,6 +57,7 @@ public class TaskStatus
     private final int runningPartitionedDrivers;
     private final long runningPartitionedSplitsWeight;
     private final OutputBufferStatus outputBufferStatus;
+    private final DataSize outputDataSize;
     private final DataSize physicalWrittenDataSize;
     private final DataSize memoryReservation;
     private final DataSize peakMemoryReservation;
@@ -81,6 +82,7 @@ public class TaskStatus
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
             @JsonProperty("outputBufferStatus") OutputBufferStatus outputBufferStatus,
+            @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
             @JsonProperty("memoryReservation") DataSize memoryReservation,
             @JsonProperty("peakMemoryReservation") DataSize peakMemoryReservation,
@@ -111,6 +113,7 @@ public class TaskStatus
         this.runningPartitionedSplitsWeight = runningPartitionedSplitsWeight;
 
         this.outputBufferStatus = requireNonNull(outputBufferStatus, "outputBufferStatus is null");
+        this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
 
@@ -193,6 +196,12 @@ public class TaskStatus
     }
 
     @JsonProperty
+    public DataSize getOutputDataSize()
+    {
+        return outputDataSize;
+    }
+
+    @JsonProperty
     public DataSize getMemoryReservation()
     {
         return memoryReservation;
@@ -266,6 +275,7 @@ public class TaskStatus
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
                 0,
                 new Duration(0, MILLISECONDS),
                 INITIAL_DYNAMIC_FILTERS_VERSION,
@@ -286,6 +296,7 @@ public class TaskStatus
                 taskStatus.getQueuedPartitionedDrivers(),
                 taskStatus.getRunningPartitionedDrivers(),
                 taskStatus.getOutputBufferStatus(),
+                taskStatus.getOutputDataSize(),
                 taskStatus.getPhysicalWrittenDataSize(),
                 taskStatus.getMemoryReservation(),
                 taskStatus.getPeakMemoryReservation(),
