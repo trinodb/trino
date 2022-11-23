@@ -30,6 +30,7 @@ import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -71,6 +72,13 @@ public class TestJsonRepresentation
     {
         queryRunner = LocalQueryRunner.create(TEST_SESSION);
         queryRunner.createCatalog(TEST_SESSION.getCatalog().get(), new TpchConnectorFactory(1), ImmutableMap.of());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        queryRunner.close();
+        queryRunner = null;
     }
 
     @Test
