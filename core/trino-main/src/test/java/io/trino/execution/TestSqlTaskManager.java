@@ -276,30 +276,32 @@ public class TestSqlTaskManager
         TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, ticker);
         // Here we explicitly enqueue an indefinite running split runner
         taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(mockSplitRunner));
+
         taskExecutor.start();
+        try {
+            // wait for the task executor to start processing the split
+            mockSplitRunner.waitForStart();
 
-        // wait for the task executor to start processing the split
-        mockSplitRunner.waitForStart();
+            TaskManagerConfig taskManagerConfig = new TaskManagerConfig()
+                    .setInterruptStuckSplitTasksEnabled(true)
+                    .setInterruptStuckSplitTasksDetectionInterval(new Duration(10, SECONDS))
+                    .setInterruptStuckSplitTasksWarningThreshold(new Duration(10, SECONDS))
+                    .setInterruptStuckSplitTasksTimeout(new Duration(10, SECONDS));
 
-        TaskManagerConfig taskManagerConfig = new TaskManagerConfig()
-                .setInterruptStuckSplitTasksEnabled(true)
-                .setInterruptStuckSplitTasksDetectionInterval(new Duration(10, SECONDS))
-                .setInterruptStuckSplitTasksWarningThreshold(new Duration(10, SECONDS))
-                .setInterruptStuckSplitTasksTimeout(new Duration(10, SECONDS));
+            try (SqlTaskManager sqlTaskManager = createSqlTaskManager(taskManagerConfig, new NodeMemoryConfig(), taskExecutor, stackTraceElements -> true)) {
+                sqlTaskManager.addStateChangeListener(TASK_ID, (state) -> {
+                    if (state.isDone()) {
+                        taskExecutor.removeTask(taskHandle);
+                    }
+                });
 
-        try (SqlTaskManager sqlTaskManager = createSqlTaskManager(taskManagerConfig, new NodeMemoryConfig(), taskExecutor, stackTraceElements -> true)) {
-            sqlTaskManager.addStateChangeListener(TASK_ID, (state) -> {
-                if (state.isDone()) {
-                    taskExecutor.removeTask(taskHandle);
-                }
-            });
+                ticker.increment(30, SECONDS);
+                sqlTaskManager.failStuckSplitTasks();
 
-            ticker.increment(30, SECONDS);
-            sqlTaskManager.failStuckSplitTasks();
-
-            mockSplitRunner.waitForFinish();
-            assertEquals(sqlTaskManager.getAllTaskInfo().size(), 1);
-            assertEquals(sqlTaskManager.getAllTaskInfo().get(0).getTaskStatus().getState(), TaskState.FAILED);
+                mockSplitRunner.waitForFinish();
+                assertEquals(sqlTaskManager.getAllTaskInfo().size(), 1);
+                assertEquals(sqlTaskManager.getAllTaskInfo().get(0).getTaskStatus().getState(), TaskState.FAILED);
+            }
         }
         finally {
             taskExecutor.stop();
