@@ -58,10 +58,10 @@ public class TestTaskExecutor
         Duration splitProcessingDurationThreshold = new Duration(10, MINUTES);
 
         TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, ticker);
-        taskExecutor.start();
-        ticker.increment(20, MILLISECONDS);
 
+        taskExecutor.start();
         try {
+            ticker.increment(20, MILLISECONDS);
             TaskId taskId = new TaskId(new StageId("test", 0), 0, 0);
             TaskHandle taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
 
@@ -156,10 +156,10 @@ public class TestTaskExecutor
     {
         TestingTicker ticker = new TestingTicker();
         TaskExecutor taskExecutor = new TaskExecutor(1, 2, 3, 4, ticker);
-        taskExecutor.start();
-        ticker.increment(20, MILLISECONDS);
 
+        taskExecutor.start();
         try {
+            ticker.increment(20, MILLISECONDS);
             TaskHandle shortQuantaTaskHandle = taskExecutor.addTask(new TaskId(new StageId("short_quanta", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
             TaskHandle longQuantaTaskHandle = taskExecutor.addTask(new TaskId(new StageId("long_quanta", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
 
@@ -190,10 +190,10 @@ public class TestTaskExecutor
     {
         TestingTicker ticker = new TestingTicker();
         TaskExecutor taskExecutor = new TaskExecutor(2, 2, 3, 4, ticker);
-        taskExecutor.start();
-        ticker.increment(20, MILLISECONDS);
 
+        taskExecutor.start();
         try {
+            ticker.increment(20, MILLISECONDS);
             TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId(new StageId("test", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
 
             Phaser globalPhaser = new Phaser();
@@ -229,10 +229,10 @@ public class TestTaskExecutor
     {
         TestingTicker ticker = new TestingTicker();
         TaskExecutor taskExecutor = new TaskExecutor(6, 3, 3, 4, new MultilevelSplitQueue(2), ticker);
-        taskExecutor.start();
-        ticker.increment(20, MILLISECONDS);
 
+        taskExecutor.start();
         try {
+            ticker.increment(20, MILLISECONDS);
             for (int i = 0; i < (LEVEL_THRESHOLD_SECONDS.length - 1); i++) {
                 TaskHandle[] taskHandles = {
                         taskExecutor.addTask(new TaskId(new StageId("test1", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty()),
@@ -307,8 +307,8 @@ public class TestTaskExecutor
     {
         TestingTicker ticker = new TestingTicker();
         TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, ticker);
-        taskExecutor.start();
 
+        taskExecutor.start();
         try {
             TaskId taskId = new TaskId(new StageId("test", 0), 0, 0);
             TaskHandle taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
@@ -382,6 +382,7 @@ public class TestTaskExecutor
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
         TestingTicker ticker = new TestingTicker();
         TaskExecutor taskExecutor = new TaskExecutor(4, 16, 1, maxDriversPerTask, splitQueue, ticker);
+
         taskExecutor.start();
         try {
             TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId(new StageId("test", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
@@ -422,6 +423,7 @@ public class TestTaskExecutor
         TestingTicker ticker = new TestingTicker();
         // create a task executor with min/max drivers per task to be 2 and 4
         TaskExecutor taskExecutor = new TaskExecutor(4, 16, 2, 4, splitQueue, ticker);
+
         taskExecutor.start();
         try {
             // overwrite the max drivers per task to be 1
@@ -461,8 +463,8 @@ public class TestTaskExecutor
         TestingTicker ticker = new TestingTicker();
         // create a task executor with min/max drivers per task to be 2
         TaskExecutor taskExecutor = new TaskExecutor(4, 1, 2, 2, splitQueue, ticker);
-        taskExecutor.start();
 
+        taskExecutor.start();
         try {
             TaskHandle testTaskHandle = taskExecutor.addTask(
                     new TaskId(new StageId(new QueryId("test"), 0), 0, 0),
