@@ -71,10 +71,11 @@ public class TestMemoryRevokingScheduler
     private final SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(10, GIGABYTE));
     private final Map<QueryId, QueryContext> queryContexts = new HashMap<>();
 
+    private MemoryPool memoryPool;
+    private TaskExecutor taskExecutor;
     private ScheduledExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private SqlTaskExecutionFactory sqlTaskExecutionFactory;
-    private MemoryPool memoryPool;
 
     private Set<OperatorContext> allOperatorContexts;
 
@@ -83,7 +84,7 @@ public class TestMemoryRevokingScheduler
     {
         memoryPool = new MemoryPool(DataSize.ofBytes(10));
 
-        TaskExecutor taskExecutor = new TaskExecutor(8, 16, 3, 4, Ticker.systemTicker());
+        taskExecutor = new TaskExecutor(8, 16, 3, 4, Ticker.systemTicker());
         taskExecutor.start();
 
         // Must be single threaded
@@ -107,8 +108,12 @@ public class TestMemoryRevokingScheduler
     {
         queryContexts.clear();
         memoryPool = null;
+        taskExecutor.stop();
+        taskExecutor = null;
         executor.shutdownNow();
         scheduledExecutor.shutdownNow();
+        sqlTaskExecutionFactory = null;
+        allOperatorContexts = null;
     }
 
     @Test
