@@ -40,13 +40,13 @@ public class MongoPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId)
     {
         MongoOutputTableHandle handle = (MongoOutputTableHandle) outputTableHandle;
-        return new MongoPageSink(config, mongoSession, handle.getRemoteTableName(), handle.getColumns());
+        return new MongoPageSink(config, mongoSession, handle.getTemporaryRemoteTableName().orElseGet(handle::getRemoteTableName), handle.getColumns(), handle.getPageSinkIdColumnName(), pageSinkId);
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId)
     {
         MongoInsertTableHandle handle = (MongoInsertTableHandle) insertTableHandle;
-        return new MongoPageSink(config, mongoSession, handle.getRemoteTableName(), handle.getColumns());
+        return new MongoPageSink(config, mongoSession, handle.getTemporaryRemoteTableName().orElseGet(handle::getRemoteTableName), handle.getColumns(), handle.getPageSinkIdColumnName(), pageSinkId);
     }
 }

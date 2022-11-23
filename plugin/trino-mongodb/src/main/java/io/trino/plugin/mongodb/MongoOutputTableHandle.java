@@ -19,7 +19,9 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class MongoOutputTableHandle
@@ -27,14 +29,22 @@ public class MongoOutputTableHandle
 {
     private final RemoteTableName remoteTableName;
     private final List<MongoColumnHandle> columns;
+    private final Optional<String> temporaryTableName;
+    private final Optional<String> pageSinkIdColumnName;
 
     @JsonCreator
     public MongoOutputTableHandle(
             @JsonProperty("remoteTableName") RemoteTableName remoteTableName,
-            @JsonProperty("columns") List<MongoColumnHandle> columns)
+            @JsonProperty("columns") List<MongoColumnHandle> columns,
+            @JsonProperty("temporaryTableName") Optional<String> temporaryTableName,
+            @JsonProperty("pageSinkIdColumnName") Optional<String> pageSinkIdColumnName)
     {
         this.remoteTableName = requireNonNull(remoteTableName, "remoteTableName is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.temporaryTableName = requireNonNull(temporaryTableName, "temporaryTableName is null");
+        this.pageSinkIdColumnName = requireNonNull(pageSinkIdColumnName, "pageSinkIdColumnName is null");
+        checkArgument(temporaryTableName.isPresent() == pageSinkIdColumnName.isPresent(),
+                "temporaryTableName.isPresent is not equal to pageSinkIdColumnName.isPresent");
     }
 
     @JsonProperty
@@ -47,5 +57,22 @@ public class MongoOutputTableHandle
     public List<MongoColumnHandle> getColumns()
     {
         return columns;
+    }
+
+    @JsonProperty
+    public Optional<String> getTemporaryTableName()
+    {
+        return temporaryTableName;
+    }
+
+    public Optional<RemoteTableName> getTemporaryRemoteTableName()
+    {
+        return temporaryTableName.map(tableName -> new RemoteTableName(remoteTableName.getDatabaseName(), tableName));
+    }
+
+    @JsonProperty
+    public Optional<String> getPageSinkIdColumnName()
+    {
+        return pageSinkIdColumnName;
     }
 }
