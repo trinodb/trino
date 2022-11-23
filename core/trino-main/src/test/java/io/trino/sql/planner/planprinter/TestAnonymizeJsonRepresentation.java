@@ -34,6 +34,7 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.testing.LocalQueryRunner;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -83,6 +84,13 @@ public class TestAnonymizeJsonRepresentation
     {
         queryRunner = LocalQueryRunner.create(TEST_SESSION);
         queryRunner.createCatalog(TEST_SESSION.getCatalog().get(), new TpchConnectorFactory(1), ImmutableMap.of());
+    }
+
+    @AfterClass
+    public void tearDown()
+    {
+        queryRunner.close();
+        queryRunner = null;
     }
 
     @Test
