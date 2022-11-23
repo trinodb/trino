@@ -87,6 +87,14 @@ public abstract class BaseElasticsearchConnectorTest
                 catalogName);
     }
 
+    @AfterClass(alwaysRun = true)
+    public final void destroy()
+            throws IOException
+    {
+        elasticsearch.stop();
+        client.close();
+    }
+
     @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
@@ -138,14 +146,6 @@ public abstract class BaseElasticsearchConnectorTest
                 {500},
                 {1000}
         };
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-            throws IOException
-    {
-        elasticsearch.stop();
-        client.close();
     }
 
     @Test
