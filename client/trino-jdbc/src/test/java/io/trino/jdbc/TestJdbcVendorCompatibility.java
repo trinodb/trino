@@ -99,6 +99,8 @@ public class TestJdbcVendorCompatibility
             referenceDrivers.forEach(closer::register);
             closer.register(server);
         }
+        server = null;
+        referenceDrivers.clear();
     }
 
     @SuppressWarnings("JDBCResourceOpenedButNotSafelyClosed")

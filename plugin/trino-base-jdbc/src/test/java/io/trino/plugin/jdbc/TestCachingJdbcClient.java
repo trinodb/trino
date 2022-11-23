@@ -127,7 +127,9 @@ public class TestCachingJdbcClient
             throws Exception
     {
         executor.shutdownNow();
+        executor = null;
         database.close();
+        database = null;
     }
 
     @Test

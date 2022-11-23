@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Key;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
-import io.airlift.testing.Closeables;
 import io.jsonwebtoken.impl.DefaultClaims;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.ui.OAuth2WebUiAuthenticationFilter;
@@ -49,6 +48,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.client.OkHttpUtil.setupInsecureSsl;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
@@ -142,7 +142,9 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
     {
         logging.clearLevel(OAuth2WebUiAuthenticationFilter.class.getName());
         logging.clearLevel(OAuth2Service.class.getName());
-        Closeables.closeAll(server, hydraIdP);
+        closeAll(server, hydraIdP);
+        server = null;
+        hydraIdP = null;
     }
 
     @Test

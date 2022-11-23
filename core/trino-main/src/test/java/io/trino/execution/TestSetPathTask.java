@@ -26,6 +26,7 @@ import io.trino.sql.tree.PathSpecification;
 import io.trino.sql.tree.SetPath;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -44,13 +45,14 @@ import static org.testng.Assert.assertEquals;
 
 public class TestSetPathTask
 {
-    private final TransactionManager transactionManager;
-    private final AccessControl accessControl;
-    private final Metadata metadata;
+    private TransactionManager transactionManager;
+    private AccessControl accessControl;
+    private Metadata metadata;
 
     private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
-    public TestSetPathTask()
+    @BeforeClass
+    public void setUp()
     {
         transactionManager = createTestTransactionManager();
         accessControl = new AllowAllAccessControl();
@@ -65,6 +67,9 @@ public class TestSetPathTask
     {
         executor.shutdownNow();
         executor = null;
+        transactionManager = null;
+        accessControl = null;
+        metadata = null;
     }
 
     @Test

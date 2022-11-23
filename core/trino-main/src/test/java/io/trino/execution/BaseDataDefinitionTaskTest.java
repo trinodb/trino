@@ -128,7 +128,14 @@ public abstract class BaseDataDefinitionTaskTest
     {
         if (queryRunner != null) {
             queryRunner.close();
+            queryRunner = null;
         }
+        testSession = null;
+        metadata = null;
+        plannerContext = null;
+        materializedViewPropertyManager = null;
+        transactionManager = null;
+        queryStateMachine = null;
     }
 
     protected static QualifiedObjectName qualifiedObjectName(String objectName)

@@ -82,6 +82,8 @@ public class TestQueryResource
             throws Exception
     {
         closeAll(server, client);
+        server = null;
+        client = null;
     }
 
     @Test

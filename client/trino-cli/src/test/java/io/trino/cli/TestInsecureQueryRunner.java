@@ -57,6 +57,7 @@ public class TestInsecureQueryRunner
             throws Exception
     {
         server.close();
+        server = null;
     }
 
     @Test

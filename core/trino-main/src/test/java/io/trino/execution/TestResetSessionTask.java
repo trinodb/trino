@@ -91,6 +91,10 @@ public class TestResetSessionTask
         queryRunner = null;
         executor.shutdownNow();
         executor = null;
+        transactionManager = null;
+        accessControl = null;
+        metadata = null;
+        sessionPropertyManager = null;
     }
 
     @Test

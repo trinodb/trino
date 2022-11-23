@@ -112,6 +112,7 @@ public class TestDefaultJdbcMetadata
             throws Exception
     {
         database.close();
+        database = null;
     }
 
     @Test
