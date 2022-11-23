@@ -36,6 +36,7 @@ import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.ByteAp
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.CharApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.DoubleApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.FloatApacheParquetValueDecoder;
+import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.Int96ApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.IntApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.IntToLongApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.LongApacheParquetValueDecoder;
@@ -43,6 +44,7 @@ import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.LongDe
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.ShortApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.ShortDecimalApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.UuidApacheParquetValueDecoder;
+import static io.trino.parquet.reader.flat.Int96ColumnAdapter.Int96Buffer;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -151,6 +153,14 @@ public final class ValueDecoders
     {
         return switch (encoding) {
             case PLAIN, RLE, BIT_PACKED -> new BooleanApacheParquetValueDecoder(getApacheParquetReader(encoding, field, dictionary));
+            default -> throw wrongEncoding(encoding, field);
+        };
+    }
+
+    public static ValueDecoder<Int96Buffer> getInt96Decoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        return switch (encoding) {
+            case PLAIN, PLAIN_DICTIONARY, RLE_DICTIONARY -> new Int96ApacheParquetValueDecoder(getApacheParquetReader(encoding, field, dictionary));
             default -> throw wrongEncoding(encoding, field);
         };
     }

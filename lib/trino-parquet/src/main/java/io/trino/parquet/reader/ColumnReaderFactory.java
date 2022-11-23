@@ -24,6 +24,7 @@ import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
@@ -40,10 +41,13 @@ import org.joda.time.DateTimeZone;
 import java.util.Optional;
 
 import static io.trino.parquet.ParquetTypeUtils.createDecimalType;
+import static io.trino.parquet.reader.decoders.TransformingValueDecoders.getInt96ToLongTimestampDecoder;
+import static io.trino.parquet.reader.decoders.TransformingValueDecoders.getInt96ToShortTimestampDecoder;
 import static io.trino.parquet.reader.flat.BinaryColumnAdapter.BINARY_ADAPTER;
 import static io.trino.parquet.reader.flat.BooleanColumnAdapter.BOOLEAN_ADAPTER;
 import static io.trino.parquet.reader.flat.ByteColumnAdapter.BYTE_ADAPTER;
 import static io.trino.parquet.reader.flat.Int128ColumnAdapter.INT128_ADAPTER;
+import static io.trino.parquet.reader.flat.Int96ColumnAdapter.INT96_ADAPTER;
 import static io.trino.parquet.reader.flat.IntColumnAdapter.INT_ADAPTER;
 import static io.trino.parquet.reader.flat.LongColumnAdapter.LONG_ADAPTER;
 import static io.trino.parquet.reader.flat.ShortColumnAdapter.SHORT_ADAPTER;
@@ -67,6 +71,7 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LE
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 
 public final class ColumnReaderFactory
 {
@@ -131,6 +136,18 @@ public final class ColumnReaderFactory
             }
             if (DOUBLE.equals(type) && primitiveType == PrimitiveTypeName.DOUBLE) {
                 return new FlatColumnReader<>(field, ValueDecoders::getDoubleDecoder, LONG_ADAPTER);
+            }
+            if (type instanceof TimestampType timestampType && primitiveType == INT96) {
+                if (timestampType.isShort()) {
+                    return new FlatColumnReader<>(
+                            field,
+                            (encoding, primitiveField, dictionary) -> getInt96ToShortTimestampDecoder(encoding, primitiveField, dictionary, timeZone),
+                            LONG_ADAPTER);
+                }
+                return new FlatColumnReader<>(
+                        field,
+                        (encoding, primitiveField, dictionary) -> getInt96ToLongTimestampDecoder(encoding, primitiveField, dictionary, timeZone),
+                        INT96_ADAPTER);
             }
             if (type instanceof DecimalType decimalType && decimalType.isShort()
                     && (primitiveType == INT32 || primitiveType == INT64 || primitiveType == FIXED_LEN_BYTE_ARRAY)) {
