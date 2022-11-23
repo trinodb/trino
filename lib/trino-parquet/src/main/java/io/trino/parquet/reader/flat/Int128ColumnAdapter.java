@@ -30,15 +30,15 @@ public class Int128ColumnAdapter
     }
 
     @Override
-    public Block createNonNullBlock(int size, long[] values)
+    public Block createNonNullBlock(long[] values)
     {
-        return new Int128ArrayBlock(size, Optional.empty(), values);
+        return new Int128ArrayBlock(values.length / 2, Optional.empty(), values);
     }
 
     @Override
-    public Block createNullableBlock(int size, boolean[] nulls, long[] values)
+    public Block createNullableBlock(boolean[] nulls, long[] values)
     {
-        return new Int128ArrayBlock(size, Optional.of(nulls), values);
+        return new Int128ArrayBlock(values.length / 2, Optional.of(nulls), values);
     }
 
     @Override

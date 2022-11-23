@@ -31,9 +31,9 @@ public interface ColumnAdapter<BufferType>
 
     void copyValue(BufferType source, int sourceIndex, BufferType destination, int destinationIndex);
 
-    Block createNullableBlock(int size, boolean[] nulls, BufferType values);
+    Block createNullableBlock(boolean[] nulls, BufferType values);
 
-    Block createNonNullBlock(int size, BufferType values);
+    Block createNonNullBlock(BufferType values);
 
     default void unpackNullValues(BufferType source, BufferType destination, boolean[] isNull, int destOffset, int nonNullCount, int totalValuesCount)
     {

@@ -97,4 +97,9 @@ public class BinaryBuffer
     {
         return offsets;
     }
+
+    public int getValueCount()
+    {
+        return offsets.length - 1;
+    }
 }
