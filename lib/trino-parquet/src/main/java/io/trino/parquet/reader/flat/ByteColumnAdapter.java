@@ -46,4 +46,12 @@ public class ByteColumnAdapter
     {
         destination[destinationIndex] = source[sourceIndex];
     }
+
+    @Override
+    public void decodeDictionaryIds(byte[] values, int offset, int length, int[] ids, byte[] dictionary)
+    {
+        for (int i = 0; i < length; i++) {
+            values[offset + i] = dictionary[ids[i]];
+        }
+    }
 }
