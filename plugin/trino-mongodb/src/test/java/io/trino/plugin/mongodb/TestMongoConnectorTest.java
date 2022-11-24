@@ -26,7 +26,7 @@ public class TestMongoConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        server = closeAfterClass(new MongoServer());
+        server = new MongoServer();
         client = createMongoClient(server);
         return createMongoQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
