@@ -98,7 +98,7 @@ public class TestDeltaLakeRenameToWithGlueMetastore
         }
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void cleanup()
     {
         assertUpdate("DROP SCHEMA IF EXISTS " + SCHEMA);
