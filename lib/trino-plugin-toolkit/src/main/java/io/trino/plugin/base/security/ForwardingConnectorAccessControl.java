@@ -50,6 +50,12 @@ public abstract class ForwardingConnectorAccessControl
     protected abstract ConnectorAccessControl delegate();
 
     @Override
+    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName, Map<String, Object> properties)
+    {
+        delegate().checkCanCreateSchema(context, schemaName, properties);
+    }
+
+    @Override
     public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
     {
         delegate().checkCanCreateSchema(context, schemaName);

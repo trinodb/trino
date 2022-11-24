@@ -137,7 +137,7 @@ public class TestFileBasedSystemAccessControl
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("empty.json");
 
-        accessControl.checkCanCreateSchema(UNKNOWN, new CatalogSchemaName("some-catalog", "unknown"));
+        accessControl.checkCanCreateSchema(UNKNOWN, new CatalogSchemaName("some-catalog", "unknown"), ImmutableMap.of());
         accessControl.checkCanDropSchema(UNKNOWN, new CatalogSchemaName("some-catalog", "unknown"));
         accessControl.checkCanRenameSchema(UNKNOWN, new CatalogSchemaName("some-catalog", "unknown"), "new_unknown");
         accessControl.checkCanSetSchemaAuthorization(UNKNOWN,
@@ -205,20 +205,21 @@ public class TestFileBasedSystemAccessControl
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-schema.json");
 
-        accessControl.checkCanCreateSchema(ADMIN, new CatalogSchemaName("some-catalog", "bob"));
-        accessControl.checkCanCreateSchema(ADMIN, new CatalogSchemaName("some-catalog", "staff"));
-        accessControl.checkCanCreateSchema(ADMIN, new CatalogSchemaName("some-catalog", "authenticated"));
-        accessControl.checkCanCreateSchema(ADMIN, new CatalogSchemaName("some-catalog", "test"));
+        Map<String, Object> properties = ImmutableMap.of();
+        accessControl.checkCanCreateSchema(ADMIN, new CatalogSchemaName("some-catalog", "bob"), properties);
+        accessControl.checkCanCreateSchema(ADMIN, new CatalogSchemaName("some-catalog", "staff"), properties);
+        accessControl.checkCanCreateSchema(ADMIN, new CatalogSchemaName("some-catalog", "authenticated"), properties);
+        accessControl.checkCanCreateSchema(ADMIN, new CatalogSchemaName("some-catalog", "test"), properties);
 
-        accessControl.checkCanCreateSchema(BOB, new CatalogSchemaName("some-catalog", "bob"));
-        accessControl.checkCanCreateSchema(BOB, new CatalogSchemaName("some-catalog", "staff"));
-        accessControl.checkCanCreateSchema(BOB, new CatalogSchemaName("some-catalog", "authenticated"));
-        assertAccessDenied(() -> accessControl.checkCanCreateSchema(BOB, new CatalogSchemaName("some-catalog", "test")), CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanCreateSchema(BOB, new CatalogSchemaName("some-catalog", "bob"), properties);
+        accessControl.checkCanCreateSchema(BOB, new CatalogSchemaName("some-catalog", "staff"), properties);
+        accessControl.checkCanCreateSchema(BOB, new CatalogSchemaName("some-catalog", "authenticated"), properties);
+        assertAccessDenied(() -> accessControl.checkCanCreateSchema(BOB, new CatalogSchemaName("some-catalog", "test"), properties), CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
 
-        accessControl.checkCanCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "authenticated"));
-        assertAccessDenied(() -> accessControl.checkCanCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "bob")), CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "staff")), CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "test")), CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "authenticated"), properties);
+        assertAccessDenied(() -> accessControl.checkCanCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "bob"), properties), CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "staff"), properties), CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "test"), properties), CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
     }
 
     @Test

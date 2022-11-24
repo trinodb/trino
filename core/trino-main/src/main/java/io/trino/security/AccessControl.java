@@ -109,7 +109,7 @@ public interface AccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName);
+    void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName, Map<String, Object> properties);
 
     /**
      * Check if identity is allowed to drop the specified schema.

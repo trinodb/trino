@@ -88,17 +88,6 @@ public class CreateSchemaTask
     {
         CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()));
 
-        // TODO: validate that catalog exists
-
-        accessControl.checkCanCreateSchema(session.toSecurityContext(), schema);
-
-        if (plannerContext.getMetadata().schemaExists(session, schema)) {
-            if (!statement.isNotExists()) {
-                throw semanticException(SCHEMA_ALREADY_EXISTS, statement, "Schema '%s' already exists", schema);
-            }
-            return immediateVoidFuture();
-        }
-
         String catalogName = schema.getCatalogName();
         CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, catalogName);
 
@@ -111,6 +100,15 @@ public class CreateSchemaTask
                 accessControl,
                 bindParameters(statement, parameters),
                 true);
+
+        accessControl.checkCanCreateSchema(session.toSecurityContext(), schema, properties);
+
+        if (plannerContext.getMetadata().schemaExists(session, schema)) {
+            if (!statement.isNotExists()) {
+                throw semanticException(SCHEMA_ALREADY_EXISTS, statement, "Schema '%s' already exists", schema);
+            }
+            return immediateVoidFuture();
+        }
 
         TrinoPrincipal principal = getCreatePrincipal(statement, session, plannerContext.getMetadata(), catalogName);
         try {
