@@ -33,6 +33,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.OPTIMIZE_PRE_SORTED_PARTIAL_TOPN;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.EXACTLY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -139,24 +140,33 @@ public class TestTpchConnectorTest
     @Test
     public void testPreSortedInput()
     {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PRE_SORTED_PARTIAL_TOPN, "true")
+                .build();
         // TPCH connector produces pre-sorted data for orders and lineitem tables
         assertExplain(
+                session,
                 "EXPLAIN SELECT * FROM orders ORDER BY orderkey ASC NULLS FIRST LIMIT 10",
                 "\\QLimitPartial[count = 10, inputPreSortedBy = [orderkey]]");
         assertExplain(
+                session,
                 "EXPLAIN SELECT * FROM lineitem ORDER BY orderkey ASC NULLS FIRST LIMIT 10",
                 "\\QLimitPartial[count = 10, inputPreSortedBy = [orderkey]]");
         assertExplain(
+                session,
                 "EXPLAIN SELECT * FROM lineitem ORDER BY orderkey ASC NULLS FIRST, linenumber ASC NULLS FIRST LIMIT 10",
                 "\\QLimitPartial[count = 10, inputPreSortedBy = [orderkey, linenumber]]");
         assertExplain(
+                session,
                 "EXPLAIN SELECT * FROM lineitem ORDER BY orderkey ASC NULLS FIRST, linenumber LIMIT 10",
                 "\\QTopNPartial[count = 10, orderBy = [orderkey ASC NULLS FIRST, linenumber ASC NULLS LAST]]");
         assertExplain(
+                session,
                 "EXPLAIN SELECT * FROM lineitem ORDER BY orderkey ASC LIMIT 10",
                 "\\QTopNPartial[count = 10, orderBy = [orderkey ASC NULLS LAST]]");
 
         assertQuery(
+                session,
                 "SELECT * FROM lineitem WHERE orderkey IS NOT NULL ORDER BY orderkey ASC NULLS FIRST LIMIT 10",
                 "SELECT * FROM lineitem ORDER BY orderkey ASC LIMIT 10");
     }

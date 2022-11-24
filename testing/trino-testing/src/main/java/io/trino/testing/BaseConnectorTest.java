@@ -4958,14 +4958,17 @@ public abstract class BaseConnectorTest
                     .findAll()
                     .size();
             if (actualCount != expectedCount) {
-                Metadata metadata = getDistributedQueryRunner().getMetadata();
-                FunctionManager functionManager = getDistributedQueryRunner().getFunctionManager();
-                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
-                throw new AssertionError(format(
-                        "Expected [\n%s\n] partial limit but found [\n%s\n] partial limit. Actual plan is [\n\n%s\n]",
-                        expectedCount,
-                        actualCount,
-                        formattedPlan));
+                Metadata metadata = getQueryRunner().getMetadata();
+                FunctionManager functionManager = getQueryRunner().getFunctionManager();
+                transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                        .execute(session, (Consumer<Session>) transactionSession -> {
+                            String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, functionManager, StatsAndCosts.empty(), transactionSession, 0, false);
+                            throw new AssertionError(format(
+                                    "Expected [%s] partial limit but found [%s] partial limit. Actual plan is [\n\n%s\n]",
+                                    expectedCount,
+                                    actualCount,
+                                    formattedPlan));
+                        });
             }
         };
     }

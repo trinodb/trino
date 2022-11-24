@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.OPTIMIZE_PRE_SORTED_PARTIAL_TOPN;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -84,6 +85,7 @@ public class TestPartialTopNWithPresortedInput
         Session session = testSessionBuilder()
                 .setCatalog(MOCK_CATALOG)
                 .setSchema(TEST_SCHEMA)
+                .setSystemProperty(OPTIMIZE_PRE_SORTED_PARTIAL_TOPN, "true")
                 .build();
         LocalQueryRunner queryRunner = LocalQueryRunner.builder(session).build();
         MockConnectorFactory mockFactory = MockConnectorFactory.builder()

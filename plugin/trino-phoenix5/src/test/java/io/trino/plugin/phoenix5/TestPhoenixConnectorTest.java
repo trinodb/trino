@@ -38,6 +38,7 @@ import java.util.OptionalInt;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.OPTIMIZE_PRE_SORTED_PARTIAL_TOPN;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
@@ -512,7 +513,10 @@ public class TestPhoenixConnectorTest
     {
         List<PlanMatchPattern.Ordering> orderBy = ImmutableList.of(sort("orderkey", ASCENDING, LAST));
 
-        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10"))
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PRE_SORTED_PARTIAL_TOPN, "true")
+                .build();
+        assertThat(query(session, "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10"))
                 .matches(output(
                         topN(10, orderBy, FINAL,
                                 exchange(LOCAL, GATHER, ImmutableList.of(),
@@ -528,7 +532,7 @@ public class TestPhoenixConnectorTest
 
         orderBy = ImmutableList.of(sort("orderkey", ASCENDING, FIRST));
 
-        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey NULLS FIRST LIMIT 10"))
+        assertThat(query(session, "SELECT orderkey FROM orders ORDER BY orderkey NULLS FIRST LIMIT 10"))
                 .matches(output(
                         topN(10, orderBy, FINAL,
                                 exchange(LOCAL, GATHER, ImmutableList.of(),
@@ -544,7 +548,7 @@ public class TestPhoenixConnectorTest
 
         orderBy = ImmutableList.of(sort("orderkey", DESCENDING, LAST));
 
-        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey DESC LIMIT 10"))
+        assertThat(query(session, "SELECT orderkey FROM orders ORDER BY orderkey DESC LIMIT 10"))
                 .matches(output(
                         topN(10, orderBy, FINAL,
                                 exchange(LOCAL, GATHER, ImmutableList.of(),
@@ -560,7 +564,7 @@ public class TestPhoenixConnectorTest
 
         orderBy = ImmutableList.of(sort("orderkey", ASCENDING, LAST), sort("custkey", ASCENDING, LAST));
 
-        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey, custkey LIMIT 10"))
+        assertThat(query(session, "SELECT orderkey FROM orders ORDER BY orderkey, custkey LIMIT 10"))
                 .matches(output(
                         project(
                                 topN(10, orderBy, FINAL,
@@ -577,7 +581,7 @@ public class TestPhoenixConnectorTest
 
         orderBy = ImmutableList.of(sort("orderkey", ASCENDING, LAST), sort("custkey", DESCENDING, LAST));
 
-        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey, custkey DESC LIMIT 10"))
+        assertThat(query(session, "SELECT orderkey FROM orders ORDER BY orderkey, custkey DESC LIMIT 10"))
                 .matches(output(
                         project(
                                 topN(10, orderBy, FINAL,
@@ -609,7 +613,10 @@ public class TestPhoenixConnectorTest
 
         String expected = "SELECT custkey FROM customer ORDER BY 1 NULLS FIRST LIMIT 100";
         String actual = format("SELECT custkey FROM %s ORDER BY 1 NULLS FIRST LIMIT 100", tableName);
-        assertQuery(getSession(), actual, expected, assertPartialLimitWithPreSortedInputsCount(getSession(), 1));
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PRE_SORTED_PARTIAL_TOPN, "true")
+                .build();
+        assertQuery(session, actual, expected, assertPartialLimitWithPreSortedInputsCount(session, 1));
         assertUpdate("DROP TABLE " + tableName);
     }
 

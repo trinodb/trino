@@ -75,6 +75,7 @@ public class OptimizerConfig
     private boolean complexExpressionPushdownEnabled = true;
     private boolean predicatePushdownUseTableProperties = true;
     private boolean ignoreDownstreamPreferences;
+    private boolean optimizePreSortedPartialTopN;
     private boolean rewriteFilteringSemiJoinToInnerJoin = true;
     private boolean optimizeDuplicateInsensitiveJoins = true;
     private boolean useLegacyWindowFilterPushdown;
@@ -603,6 +604,19 @@ public class OptimizerConfig
     public OptimizerConfig setIgnoreDownstreamPreferences(boolean ignoreDownstreamPreferences)
     {
         this.ignoreDownstreamPreferences = ignoreDownstreamPreferences;
+        return this;
+    }
+
+    public boolean isOptimizePreSortedPartialTopN()
+    {
+        return optimizePreSortedPartialTopN;
+    }
+
+    @Config("optimizer.optimize-pre-sorted-partial-topn")
+    @ConfigDescription("Optimize partial topN on pre-sorted input to partial limitN in AddExchange optimizer")
+    public OptimizerConfig setOptimizePreSortedPartialTopN(boolean optimizePreSortedPartialTopN)
+    {
+        this.optimizePreSortedPartialTopN = optimizePreSortedPartialTopN;
         return this;
     }
 

@@ -105,6 +105,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.COLOCATED_JOIN;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE;
+import static io.trino.SystemSessionProperties.OPTIMIZE_PRE_SORTED_PARTIAL_TOPN;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_MAX_WRITER_COUNT;
@@ -7607,11 +7608,20 @@ public abstract class BaseHiveConnectorTest
 
         @Language("SQL") String expected = "SELECT custkey FROM customer ORDER BY 1 NULLS FIRST LIMIT 100";
         @Language("SQL") String actual = format("SELECT custkey FROM %s ORDER BY 1 NULLS FIRST LIMIT 100", tableName);
-        Session session = getSession();
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PRE_SORTED_PARTIAL_TOPN, "true")
+                .build();
         assertQuery(session, actual, expected, assertPartialLimitWithPreSortedInputsCount(session, 0));
 
         session = Session.builder(getSession())
                 .setCatalogSessionProperty("hive", "propagate_table_scan_sorting_properties", "true")
+                .setSystemProperty(OPTIMIZE_PRE_SORTED_PARTIAL_TOPN, "false")
+                .build();
+        assertQuery(session, actual, expected, assertPartialLimitWithPreSortedInputsCount(session, 0));
+
+        session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "propagate_table_scan_sorting_properties", "true")
+                .setSystemProperty(OPTIMIZE_PRE_SORTED_PARTIAL_TOPN, "true")
                 .build();
         assertQuery(session, actual, expected, assertPartialLimitWithPreSortedInputsCount(session, 1));
         assertUpdate("DROP TABLE " + tableName);

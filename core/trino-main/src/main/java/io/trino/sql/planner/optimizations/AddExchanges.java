@@ -157,6 +157,7 @@ public class AddExchanges
         private final boolean preferStreamingOperators;
         private final boolean redistributeWrites;
         private final boolean scaleWriters;
+        private final boolean optimizePreSortedPartialTopN;
 
         public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session, TableStatsProvider tableStatsProvider)
         {
@@ -170,6 +171,7 @@ public class AddExchanges
             this.redistributeWrites = SystemSessionProperties.isRedistributeWrites(session);
             this.scaleWriters = SystemSessionProperties.isScaleWriters(session);
             this.preferStreamingOperators = SystemSessionProperties.preferStreamingOperators(session);
+            this.optimizePreSortedPartialTopN = SystemSessionProperties.optimizePreSortedPartialTopN(session);
         }
 
         @Override
@@ -465,8 +467,8 @@ public class AddExchanges
                     // We record the pre-sorted symbols in LimitNode to avoid pushdown of such replaced LimitNode
                     // through the source which was producing ordered input.
                     List<LocalProperty<Symbol>> desiredProperties = node.getOrderingScheme().toLocalProperties();
-                    boolean sortingSatisfied = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).stream()
-                            .allMatch(Optional::isEmpty);
+                    boolean sortingSatisfied = optimizePreSortedPartialTopN
+                            && LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).stream().allMatch(Optional::isEmpty);
                     if (sortingSatisfied) {
                         yield withDerivedProperties(
                                 new LimitNode(

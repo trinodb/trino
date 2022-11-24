@@ -42,6 +42,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static io.trino.SystemSessionProperties.OPTIMIZE_PRE_SORTED_PARTIAL_TOPN;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -76,6 +77,7 @@ public class TestValidateLimitWithPresortedInput
         Session session = testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
                 .setSchema(TEST_SCHEMA)
+                .setSystemProperty(OPTIMIZE_PRE_SORTED_PARTIAL_TOPN, "true")
                 .build();
         LocalQueryRunner queryRunner = LocalQueryRunner.builder(session).build();
         MockConnectorFactory mockFactory = MockConnectorFactory.builder()

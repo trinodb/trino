@@ -137,6 +137,7 @@ public final class SystemSessionProperties
     public static final String ENABLE_LARGE_DYNAMIC_FILTERS = "enable_large_dynamic_filters";
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
+    public static final String OPTIMIZE_PRE_SORTED_PARTIAL_TOPN = "optimize_pre_sorted_partial_topn";
     public static final String FILTERING_SEMI_JOIN_TO_INNER = "rewrite_filtering_semi_join_to_inner_join";
     public static final String OPTIMIZE_DUPLICATE_INSENSITIVE_JOINS = "optimize_duplicate_insensitive_joins";
     public static final String REQUIRED_WORKERS_COUNT = "required_workers_count";
@@ -657,6 +658,11 @@ public final class SystemSessionProperties
                         IGNORE_DOWNSTREAM_PREFERENCES,
                         "Ignore Parent's PreferredProperties in AddExchange optimizer",
                         optimizerConfig.isIgnoreDownstreamPreferences(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_PRE_SORTED_PARTIAL_TOPN,
+                        "Optimize partial topN on pre-sorted input to partial limitN in AddExchange optimizer",
+                        optimizerConfig.isOptimizePreSortedPartialTopN(),
                         false),
                 booleanProperty(
                         FILTERING_SEMI_JOIN_TO_INNER,
@@ -1369,6 +1375,11 @@ public final class SystemSessionProperties
     public static boolean ignoreDownStreamPreferences(Session session)
     {
         return session.getSystemProperty(IGNORE_DOWNSTREAM_PREFERENCES, Boolean.class);
+    }
+
+    public static boolean optimizePreSortedPartialTopN(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_PRE_SORTED_PARTIAL_TOPN, Boolean.class);
     }
 
     public static boolean isRewriteFilteringSemiJoinToInnerJoin(Session session)
