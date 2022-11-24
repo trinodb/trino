@@ -1037,7 +1037,7 @@ public class SemiTransactionalHiveMetastore
             boolean cleanExtraOutputFilesOnCommit)
     {
         setShared();
-        checkArgument(getPrestoQueryId(partition).isPresent());
+        checkArgument(getQueryId(partition).isPresent());
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
         Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partition.getValues());
         HdfsContext hdfsContext = new HdfsContext(session);
@@ -2884,12 +2884,12 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    private static Optional<String> getPrestoQueryId(Table table)
+    private static Optional<String> getQueryId(Table table)
     {
         return Optional.ofNullable(table.getParameters().get(PRESTO_QUERY_ID_NAME));
     }
 
-    private static Optional<String> getPrestoQueryId(Partition partition)
+    private static Optional<String> getQueryId(Partition partition)
     {
         return Optional.ofNullable(partition.getParameters().get(PRESTO_QUERY_ID_NAME));
     }
@@ -3438,7 +3438,7 @@ public class SemiTransactionalHiveMetastore
             this.privileges = requireNonNull(privileges, "privileges is null");
             this.ignoreExisting = ignoreExisting;
             this.statistics = requireNonNull(statistics, "statistics is null");
-            this.queryId = getPrestoQueryId(newTable).orElseThrow(() -> new IllegalArgumentException("Query id is not present"));
+            this.queryId = getQueryId(newTable).orElseThrow(() -> new IllegalArgumentException("Query id is not present"));
         }
 
         public String getDescription()
@@ -3459,7 +3459,7 @@ public class SemiTransactionalHiveMetastore
                     Optional<Table> existingTable = metastore.getTable(newTable.getDatabaseName(), newTable.getTableName());
                     if (existingTable.isPresent()) {
                         Table table = existingTable.get();
-                        Optional<String> existingTableQueryId = getPrestoQueryId(table);
+                        Optional<String> existingTableQueryId = getQueryId(table);
                         if (existingTableQueryId.isPresent() && existingTableQueryId.get().equals(queryId)) {
                             // ignore table if it was already created by the same query during retries
                             done = true;
@@ -3704,7 +3704,7 @@ public class SemiTransactionalHiveMetastore
 
         public void addPartition(PartitionWithStatistics partition)
         {
-            checkArgument(getPrestoQueryId(partition.getPartition()).isPresent());
+            checkArgument(getQueryId(partition.getPartition()).isPresent());
             partitions.add(partition);
         }
 
@@ -3725,8 +3725,8 @@ public class SemiTransactionalHiveMetastore
                     for (PartitionWithStatistics partition : batch) {
                         try {
                             Optional<Partition> remotePartition = metastore.getPartition(schemaName, tableName, partition.getPartition().getValues());
-                            // getPrestoQueryId(partition) is guaranteed to be non-empty. It is asserted in PartitionAdder.addPartition.
-                            if (remotePartition.isPresent() && getPrestoQueryId(remotePartition.get()).equals(getPrestoQueryId(partition.getPartition()))) {
+                            // getQueryId(partition) is guaranteed to be non-empty. It is asserted in PartitionAdder.addPartition.
+                            if (remotePartition.isPresent() && getQueryId(remotePartition.get()).equals(getQueryId(partition.getPartition()))) {
                                 createdPartitionValues.add(partition.getPartition().getValues());
                             }
                             else {
