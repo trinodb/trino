@@ -18,6 +18,7 @@ import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.dictionary.Dictionary;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
@@ -26,10 +27,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getInt96Decoder;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getLongDecoder;
 import static io.trino.parquet.reader.flat.Int96ColumnAdapter.Int96Buffer;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
@@ -123,6 +127,41 @@ public class TransformingValueDecoders
                         values.ints[i] = (int) ((nanosOfSecond * PICOSECONDS_PER_NANOSECOND) % PICOSECONDS_PER_MICROSECOND);
                     }
                 });
+    }
+
+    public static ValueDecoder<long[]> getInt96ToShortTimestampWithTimeZoneDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        checkArgument(
+                field.getType() instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.isShort(),
+                "Trino type %s is not a short timestamp with timezone",
+                field.getType());
+        ValueDecoder<Int96Buffer> delegate = getInt96Decoder(encoding, field, dictionary);
+        return new ValueDecoder<>() {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(long[] values, int offset, int length)
+            {
+                Int96Buffer int96Buffer = new Int96Buffer(length);
+                delegate.read(int96Buffer, 0, length);
+                for (int i = 0; i < length; i++) {
+                    long epochSeconds = int96Buffer.longs[i];
+                    int nanosOfSecond = int96Buffer.ints[i];
+                    long utcMillis = epochSeconds * MILLISECONDS_PER_SECOND + (nanosOfSecond / NANOSECONDS_PER_MILLISECOND);
+                    values[offset + i] = packDateTimeWithZone(utcMillis, UTC_KEY);
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
     }
 
     private static class InlineTransformDecoder<T>

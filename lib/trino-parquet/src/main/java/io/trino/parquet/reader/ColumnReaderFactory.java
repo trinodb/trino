@@ -25,6 +25,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
@@ -148,6 +149,12 @@ public final class ColumnReaderFactory
                         field,
                         (encoding, primitiveField, dictionary) -> getInt96ToLongTimestampDecoder(encoding, primitiveField, dictionary, timeZone),
                         INT96_ADAPTER);
+            }
+            if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && primitiveType == INT96) {
+                if (timestampWithTimeZoneType.isShort()) {
+                    return new FlatColumnReader<>(field, TransformingValueDecoders::getInt96ToShortTimestampWithTimeZoneDecoder, LONG_ADAPTER);
+                }
+                throw unsupportedException(type, field);
             }
             if (type instanceof DecimalType decimalType && decimalType.isShort()
                     && (primitiveType == INT32 || primitiveType == INT64 || primitiveType == FIXED_LEN_BYTE_ARRAY)) {
