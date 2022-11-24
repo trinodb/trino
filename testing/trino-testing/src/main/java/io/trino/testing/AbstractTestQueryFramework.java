@@ -89,15 +89,16 @@ public abstract class AbstractTestQueryFramework
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
 
+    private AutoCloseableCloser afterClassCloser;
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
-    private final AutoCloseableCloser afterClassCloser = AutoCloseableCloser.create();
     private io.trino.sql.query.QueryAssertions queryAssertions;
 
     @BeforeClass
     public void init()
             throws Exception
     {
+        afterClassCloser = AutoCloseableCloser.create();
         queryRunner = afterClassCloser.register(createQueryRunner());
         h2QueryRunner = afterClassCloser.register(new H2QueryRunner());
         queryAssertions = new io.trino.sql.query.QueryAssertions(queryRunner);
@@ -110,12 +111,13 @@ public abstract class AbstractTestQueryFramework
     public final void close()
             throws Exception
     {
-        try (afterClassCloser) {
+        try (AutoCloseable ignored = afterClassCloser) {
             checkQueryMemoryReleased();
             checkQueryInfosFinal();
             checkTasksDone();
         }
         finally {
+            afterClassCloser = null;
             queryRunner = null;
             h2QueryRunner = null;
             queryAssertions = null;
@@ -678,6 +680,11 @@ public abstract class AbstractTestQueryFramework
     @CanIgnoreReturnValue
     protected final <T extends AutoCloseable> T closeAfterClass(T resource)
     {
+        checkState(
+                afterClassCloser != null,
+                "closeAfterClass invoked before test is initialized or after it is torn down. " +
+                        "In particular, make sure you do not allocate any resources in a test class constructor, " +
+                        "as this can easily lead to OutOfMemoryErrors and other types of test flakiness.");
         return afterClassCloser.register(resource);
     }
 }
