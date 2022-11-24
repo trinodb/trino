@@ -52,7 +52,7 @@ public class ElasticsearchSplitManager
     {
         ElasticsearchTableHandle tableHandle = (ElasticsearchTableHandle) table;
 
-        if (tableHandle.getType().equals(QUERY)) {
+        if (tableHandle.getType().equals(QUERY) && !ElasticsearchUtils.isSplit(client.isPassthroughQuerySplitEnable(), tableHandle.getQuery().get())) {
             return new FixedSplitSource(new ElasticsearchSplit(tableHandle.getIndex(), 0, Optional.empty()));
         }
         List<ElasticsearchSplit> splits = client.getSearchShards(tableHandle.getIndex()).stream()

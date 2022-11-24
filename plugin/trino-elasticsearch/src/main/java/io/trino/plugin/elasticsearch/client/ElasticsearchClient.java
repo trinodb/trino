@@ -35,6 +35,7 @@ import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.trino.plugin.elasticsearch.AwsSecurityConfig;
 import io.trino.plugin.elasticsearch.ElasticsearchConfig;
+import io.trino.plugin.elasticsearch.ElasticsearchUtils;
 import io.trino.plugin.elasticsearch.PasswordConfig;
 import io.trino.spi.TrinoException;
 import jakarta.annotation.PostConstruct;
@@ -126,6 +127,7 @@ public class ElasticsearchClient
     private final Duration refreshInterval;
     private final boolean tlsEnabled;
     private final boolean ignorePublishAddress;
+    private final boolean isPassthroughQuerySplitEnable;
 
     private final TimeStat searchStats = new TimeStat(MILLISECONDS);
     private final TimeStat nextPageStats = new TimeStat(MILLISECONDS);
@@ -145,6 +147,7 @@ public class ElasticsearchClient
         this.scrollTimeout = config.getScrollTimeout();
         this.refreshInterval = config.getNodeRefreshInterval();
         this.tlsEnabled = config.isTlsEnabled();
+        this.isPassthroughQuerySplitEnable = config.isPassthroughQuerySplit();
     }
 
     @PostConstruct
@@ -535,9 +538,13 @@ public class ElasticsearchClient
         return jsonNode.get(name);
     }
 
-    public String executeQuery(String index, String query)
+    public String executeQuery(String index, String query, int shard)
     {
         String path = format("/%s/_search", index);
+
+        if (ElasticsearchUtils.isSplit(isPassthroughQuerySplitEnable, query)) {
+            path = path + "?preference=_shards:" + shard;
+        }
 
         Response response;
         try {
@@ -791,5 +798,10 @@ public class ElasticsearchClient
     private interface ResponseHandler<T>
     {
         T process(String body);
+    }
+
+    public boolean isPassthroughQuerySplitEnable()
+    {
+        return isPassthroughQuerySplitEnable;
     }
 }

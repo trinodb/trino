@@ -80,7 +80,7 @@ public abstract class BaseElasticsearchConnectorTest
                 elasticsearch.getAddress(),
                 TpchTable.getTables(),
                 ImmutableMap.of(),
-                ImmutableMap.of(),
+                ImmutableMap.of("elasticsearch.passthrough-query-split", "true"),
                 3,
                 catalogName);
     }
@@ -1821,12 +1821,13 @@ public abstract class BaseElasticsearchConnectorTest
                 "VALUES '{\"nationkey\":0,\"name\":\"ALGERIA\",\"regionkey\":0,\"comment\":\" haggle. carefully final deposits detect slyly agai\"}'");
 
         // select multiple records by range. Use array wrapper to wrap multiple results
-        assertQuery("SELECT array_sort(CAST(json_parse(json_query(result, 'lax $[0][0].hits.hits._source.name' WITH ARRAY WRAPPER)) AS array(varchar))) " +
+        assertEquals(computeActual("SELECT array_sort(CAST(json_parse(json_query(result, 'lax $[0][0].hits.hits._source.name' WITH ARRAY WRAPPER)) AS array(varchar))) " +
                         format("FROM TABLE(%s.system.raw_query(", catalogName) +
                         "schema => 'tpch', " +
                         "index => 'nation', " +
-                        "query => '{\"query\": {\"range\": {\"nationkey\": {\"gte\": 0,\"lte\": 3}}}}')) t(result)",
-                "VALUES ARRAY['ALGERIA', 'ARGENTINA', 'BRAZIL', 'CANADA']");
+                        "query => '{\"query\": {\"range\": {\"nationkey\": {\"gte\": 0,\"lte\": 3}}}}')) t(result)").getMaterializedRows().stream()
+                        .flatMap(m -> m.getFields().stream()).flatMap(o -> ((List<String>) o).stream()).sorted().toList().toString(),
+                "[ALGERIA, ARGENTINA, BRAZIL, CANADA]");
 
         // use aggregations
         @Language("JSON")
@@ -1855,7 +1856,7 @@ public abstract class BaseElasticsearchConnectorTest
                         "schema => 'tpch', " +
                         "index => 'nation', " +
                         "query => '{\"query\": {\"match\": {\"name\": \"UTOPIA\"}}}')) t(result)",
-                "VALUES '[]'");
+                "SELECT * LIMIT 0;");
 
         // syntax error
         assertThatThrownBy(() -> query("SELECT * " +

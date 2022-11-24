@@ -13,6 +13,9 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
@@ -20,8 +23,10 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorSession;
 
 import java.io.IOException;
+import java.util.Map;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
@@ -33,13 +38,13 @@ public class PassthroughQueryPageSource
     private final String result;
     private boolean done;
 
-    public PassthroughQueryPageSource(ElasticsearchClient client, ElasticsearchTableHandle table)
+    public PassthroughQueryPageSource(ElasticsearchClient client, ConnectorSession session, ElasticsearchTableHandle table, int shard)
     {
         requireNonNull(client, "client is null");
         requireNonNull(table, "table is null");
 
         long start = System.nanoTime();
-        result = client.executeQuery(table.getIndex(), table.getQuery().get());
+        result = client.executeQuery(table.getIndex(), table.getQuery().get(), shard);
         readTimeNanos = System.nanoTime() - start;
     }
 
@@ -70,11 +75,38 @@ public class PassthroughQueryPageSource
 
         done = true;
 
+        if (isSkipEmptyResult()) {
+            return null;
+        }
+
         PageBuilder page = new PageBuilder(1, ImmutableList.of(VARCHAR));
         page.declarePosition();
         BlockBuilder column = page.getBlockBuilder(0);
         VARCHAR.writeSlice(column, Slices.utf8Slice(result));
         return page.build();
+    }
+
+    private boolean isSkipEmptyResult()
+    {
+        try {
+            Map<String, Object> map = new ObjectMapper().readValue(result, new TypeReference<>() {});
+            if (map.get("hits") == null) {
+                return true;
+            }
+            else {
+                Object total = ((Map) map.get("hits")).get("total");
+                if (total instanceof Integer && ((Integer) total) == 0) {
+                    return true;
+                }
+                if (total instanceof Map<?, ?> && ((Integer) ((Map) total).get("value")) == 0 && ((Map) total).get("relation").equals("eq")) {
+                    return true;
+                }
+            }
+        }
+        catch (JsonProcessingException e) {
+            return true;
+        }
+        return false;
     }
 
     @Override
