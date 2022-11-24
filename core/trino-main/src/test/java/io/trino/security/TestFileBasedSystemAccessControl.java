@@ -250,13 +250,13 @@ public class TestFileBasedSystemAccessControl
                     assertEquals(accessControlManager.filterSchemas(new SecurityContext(transactionId, alice, queryId), "alice-catalog", aliceSchemas), aliceSchemas);
                     assertEquals(accessControlManager.filterSchemas(new SecurityContext(transactionId, bob, queryId), "alice-catalog", aliceSchemas), ImmutableSet.of());
 
-                    accessControlManager.checkCanCreateSchema(new SecurityContext(transactionId, alice, queryId), aliceSchema);
+                    accessControlManager.checkCanCreateSchema(new SecurityContext(transactionId, alice, queryId), aliceSchema, ImmutableMap.of());
                     accessControlManager.checkCanDropSchema(new SecurityContext(transactionId, alice, queryId), aliceSchema);
                     accessControlManager.checkCanRenameSchema(new SecurityContext(transactionId, alice, queryId), aliceSchema, "new-schema");
                     accessControlManager.checkCanShowSchemas(new SecurityContext(transactionId, alice, queryId), "alice-catalog");
                 });
         assertThatThrownBy(() -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
-            accessControlManager.checkCanCreateSchema(new SecurityContext(transactionId, bob, queryId), aliceSchema);
+            accessControlManager.checkCanCreateSchema(new SecurityContext(transactionId, bob, queryId), aliceSchema, ImmutableMap.of());
         })).isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Access Denied: Cannot access catalog alice-catalog");
     }
@@ -277,7 +277,7 @@ public class TestFileBasedSystemAccessControl
                 });
 
         assertThatThrownBy(() -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
-            accessControlManager.checkCanCreateSchema(new SecurityContext(transactionId, alice, queryId), aliceSchema);
+            accessControlManager.checkCanCreateSchema(new SecurityContext(transactionId, alice, queryId), aliceSchema, ImmutableMap.of());
         })).isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Access Denied: Cannot create schema alice-catalog.schema");
 
@@ -292,7 +292,7 @@ public class TestFileBasedSystemAccessControl
                 .hasMessage("Access Denied: Cannot rename schema from alice-catalog.schema to new-schema");
 
         assertThatThrownBy(() -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
-            accessControlManager.checkCanCreateSchema(new SecurityContext(transactionId, bob, queryId), aliceSchema);
+            accessControlManager.checkCanCreateSchema(new SecurityContext(transactionId, bob, queryId), aliceSchema, ImmutableMap.of());
         })).isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Access Denied: Cannot access catalog alice-catalog");
     }

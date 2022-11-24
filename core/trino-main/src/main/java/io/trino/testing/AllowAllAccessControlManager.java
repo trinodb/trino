@@ -67,7 +67,7 @@ public class AllowAllAccessControlManager
     }
 
     @Override
-    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName) {}
+    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName, Map<String, Object> properties) {}
 
     @Override
     public void checkCanDropSchema(SecurityContext context, CatalogSchemaName schemaName) {}

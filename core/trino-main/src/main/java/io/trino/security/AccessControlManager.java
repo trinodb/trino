@@ -303,16 +303,16 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanCreateSchema(SecurityContext securityContext, CatalogSchemaName schemaName)
+    public void checkCanCreateSchema(SecurityContext securityContext, CatalogSchemaName schemaName, Map<String, Object> properties)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(schemaName, "schemaName is null");
 
         checkCanAccessCatalog(securityContext, schemaName.getCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanCreateSchema(securityContext.toSystemSecurityContext(), schemaName));
+        systemAuthorizationCheck(control -> control.checkCanCreateSchema(securityContext.toSystemSecurityContext(), schemaName, properties));
 
-        catalogAuthorizationCheck(schemaName.getCatalogName(), securityContext, (control, context) -> control.checkCanCreateSchema(context, schemaName.getSchemaName()));
+        catalogAuthorizationCheck(schemaName.getCatalogName(), securityContext, (control, context) -> control.checkCanCreateSchema(context, schemaName.getSchemaName(), properties));
     }
 
     @Override

@@ -309,13 +309,13 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName)
+    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName, Map<String, Object> properties)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), schemaName.getSchemaName(), CREATE_SCHEMA)) {
             denyCreateSchema(schemaName.toString());
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanCreateSchema(context, schemaName);
+            super.checkCanCreateSchema(context, schemaName, properties);
         }
     }
 
