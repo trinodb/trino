@@ -173,9 +173,26 @@ jobs:
           if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-server gib-impacted.log; then
             $MAVEN test ${MAVEN_TEST} -pl :trino-test-jdbc-compatibility-old-server
           fi
-      - uses: ./.github/actions/upload
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        # Upload all test reports only on failure, because the artifacts are large
+        if: failure()
         with:
-          test-report-retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
+          name: result ${{ github.job }}
+          path: |
+            **/target/surefire-reports
+            **/target/checkstyle-*
+      - name: Upload test report
+        uses: actions/upload-artifact@v3
+        # Always upload the test report for the annotate.yml workflow,
+        # but only the single XML file to keep the artifact small
+        if: always()
+        with:
+          # Name prefix is checked in the `Annotate checks` workflow
+          name: test report ${{ github.job }}
+          path: |
+            **/surefire-reports/TEST-*.xml
+          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
         if: steps.cache.outputs.cache-hit != 'true'
@@ -278,10 +295,26 @@ jobs:
         run: |
           source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
             plugin/trino-hive-hadoop2/bin/run_hive_alluxio_tests.sh
-      - uses: ./.github/actions/upload
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        # Upload all test reports only on failure, because the artifacts are large
+        if: failure()
         with:
-          name-suffix: ${{ github.job }} (${{ matrix.config }})
-          test-report-retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
+          name: result ${{ github.job }}
+          path: |
+            **/target/surefire-reports
+            **/target/checkstyle-*
+      - name: Upload test report
+        uses: actions/upload-artifact@v3
+        # Always upload the test report for the annotate.yml workflow,
+        # but only the single XML file to keep the artifact small
+        if: always()
+        with:
+          # Name prefix is checked in the `Annotate checks` workflow
+          name: test report ${{ github.job }} (${{ matrix.config }})
+          path: |
+            **/surefire-reports/TEST-*.xml
+          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
         if: steps.cache.outputs.cache-hit != 'true'
@@ -331,9 +364,26 @@ jobs:
             !:trino-sqlserver,
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-tests'
-      - uses: ./.github/actions/upload
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        # Upload all test reports only on failure, because the artifacts are large
+        if: failure()
         with:
-          test-report-retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
+          name: result ${{ github.job }}
+          path: |
+            **/target/surefire-reports
+            **/target/checkstyle-*
+      - name: Upload test report
+        uses: actions/upload-artifact@v3
+        # Always upload the test report for the annotate.yml workflow,
+        # but only the single XML file to keep the artifact small
+        if: always()
+        with:
+          # Name prefix is checked in the `Annotate checks` workflow
+          name: test report ${{ github.job }}
+          path: |
+            **/surefire-reports/TEST-*.xml
+          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
         if: steps.cache.outputs.cache-hit != 'true'
@@ -504,10 +554,26 @@ jobs:
           # ", :, <, >, |, *, ?, \, / are not allowed in artifact names, replace it with an underscore
           name=$(echo -n "${{ matrix.modules }}" | sed -e 's/[":<>|\*\?\\\/]/_/g')
           echo "ARTIFACT_NAME=$name" >> $GITHUB_ENV
-      - uses: ./.github/actions/upload
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        # Upload all test reports only on failure, because the artifacts are large
+        if: failure()
         with:
-          name-suffix: ${{ env.ARTIFACT_NAME }}
-          test-report-retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
+          name: result ${{ env.ARTIFACT_NAME }}
+          path: |
+            **/target/surefire-reports
+            **/target/checkstyle-*
+      - name: Upload test report
+        uses: actions/upload-artifact@v3
+        # Always upload the test report for the annotate.yml workflow,
+        # but only the single XML file to keep the artifact small
+        if: always()
+        with:
+          # Name prefix is checked in the `Annotate checks` workflow
+          name: test report ${{ github.job }} (${{ env.ARTIFACT_NAME }})
+          path: |
+            **/surefire-reports/TEST-*.xml
+          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
         if: steps.cache.outputs.cache-hit != 'true'
