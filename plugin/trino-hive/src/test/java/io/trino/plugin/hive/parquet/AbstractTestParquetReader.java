@@ -44,7 +44,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -103,6 +102,7 @@ import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.math.BigInteger.ONE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
@@ -977,8 +977,8 @@ public abstract class AbstractTestParquetReader
             ImmutableList.Builder<SqlDecimal> expectedValuesMaxPrecision = ImmutableList.builder();
             ImmutableList.Builder<HiveDecimal> writeValues = ImmutableList.builder();
 
-            BigInteger start = BigDecimal.valueOf(10).pow(precision).subtract(BigDecimal.valueOf(1)).negate().toBigInteger();
-            BigInteger end = BigDecimal.valueOf(10).pow(precision).toBigInteger();
+            BigInteger start = BigInteger.valueOf(10).pow(precision).subtract(ONE).negate();
+            BigInteger end = BigInteger.valueOf(10).pow(precision);
             BigInteger step = BigInteger.valueOf(1).max(end.subtract(start).divide(BigInteger.valueOf(1_000)));
             for (BigInteger value = start; value.compareTo(end) < 0; value = value.add(step)) {
                 writeValues.add(HiveDecimal.create(value, scale));
