@@ -86,7 +86,7 @@ public class TestAnonymizeJsonRepresentation
         queryRunner.createCatalog(TEST_SESSION.getCatalog().get(), new TpchConnectorFactory(1), ImmutableMap.of());
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         queryRunner.close();

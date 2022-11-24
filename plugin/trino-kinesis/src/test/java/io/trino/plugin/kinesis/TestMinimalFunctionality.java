@@ -86,7 +86,7 @@ public class TestMinimalFunctionality
         embeddedKinesisStream = new EmbeddedKinesisStream(TestUtils.noneToBlank(accessKey), TestUtils.noneToBlank(secretKey));
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void stop()
     {
         embeddedKinesisStream.close();

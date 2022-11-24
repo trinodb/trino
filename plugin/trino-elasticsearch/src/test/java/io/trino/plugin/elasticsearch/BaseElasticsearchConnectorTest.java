@@ -87,7 +87,7 @@ public abstract class BaseElasticsearchConnectorTest
                 catalogName);
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
