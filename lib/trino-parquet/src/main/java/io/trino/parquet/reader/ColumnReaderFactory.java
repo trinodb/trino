@@ -14,6 +14,7 @@
 package io.trino.parquet.reader;
 
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.reader.decoders.TransformingValueDecoders;
 import io.trino.parquet.reader.decoders.ValueDecoders;
 import io.trino.parquet.reader.flat.FlatColumnReader;
 import io.trino.spi.TrinoException;
@@ -112,7 +113,7 @@ public final class ColumnReaderFactory
             }
             if (type instanceof TimeType && primitiveType == INT64) {
                 if (annotation instanceof TimeLogicalTypeAnnotation timeAnnotation && timeAnnotation.getUnit() == MICROS) {
-                    return new FlatColumnReader<>(field, ValueDecoders::getTimeMicrosDecoder, LONG_ADAPTER);
+                    return new FlatColumnReader<>(field, TransformingValueDecoders::getTimeMicrosDecoder, LONG_ADAPTER);
                 }
                 throw unsupportedException(type, field);
             }
