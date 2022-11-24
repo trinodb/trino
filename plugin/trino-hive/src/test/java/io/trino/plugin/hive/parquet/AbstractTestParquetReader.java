@@ -977,8 +977,8 @@ public abstract class AbstractTestParquetReader
             ImmutableList.Builder<SqlDecimal> expectedValuesMaxPrecision = ImmutableList.builder();
             ImmutableList.Builder<HiveDecimal> writeValues = ImmutableList.builder();
 
-            BigInteger start = BigDecimal.valueOf(Math.pow(10, precision)).subtract(BigDecimal.valueOf(1)).negate().toBigInteger();
-            BigInteger end = BigDecimal.valueOf(Math.pow(10, precision)).toBigInteger();
+            BigInteger start = BigDecimal.valueOf(10).pow(precision).subtract(BigDecimal.valueOf(1)).negate().toBigInteger();
+            BigInteger end = BigDecimal.valueOf(10).pow(precision).toBigInteger();
             BigInteger step = BigInteger.valueOf(1).max(end.subtract(start).divide(BigInteger.valueOf(1_000)));
             for (BigInteger value = start; value.compareTo(end) < 0; value = value.add(step)) {
                 writeValues.add(HiveDecimal.create(value, scale));
