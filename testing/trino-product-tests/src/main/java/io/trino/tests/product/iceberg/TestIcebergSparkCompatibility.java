@@ -1496,15 +1496,25 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(tableName);
         String trinoTableName = trinoTableName(tableName);
 
-        onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(col0 INT, col1 INT)");
-        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, 2)");
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(col0 INT, col1 INT, col2 STRING, col3 BINARY)");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, 2, 'col2Value0', X'000102f0feff')");
         assertThat(onTrino().executeQuery("SHOW STATS FOR " + trinoTableName))
-                .containsOnly(row("col0", null, null, 0.0, null, "1", "1"), row("col1", null, null, 0.0, null, "2", "2"), row(null, null, null, null, 1.0, null, null));
+                .containsOnly(
+                        row("col0", null, null, 0.0, null, "1", "1"),
+                        row("col1", null, null, 0.0, null, "2", "2"),
+                        row("col2", 151.0, null, 0.0, null, null, null),
+                        row("col3", 72.0, null, 0.0, null, null, null),
+                        row(null, null, null, null, 1.0, null, null));
 
         onSpark().executeQuery("ALTER TABLE " + sparkTableName + " SET TBLPROPERTIES (write.metadata.metrics.column.col1='none')");
-        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (3, 4)");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (3, 4, 'col2Value1', X'000102f0feee')");
         assertThat(onTrino().executeQuery("SHOW STATS FOR " + trinoTableName))
-                .containsOnly(row("col0", null, null, 0.0, null, "1", "3"), row("col1", null, null, null, null, null, null), row(null, null, null, null, 2.0, null, null));
+                .containsOnly(
+                        row("col0", null, null, 0.0, null, "1", "3"),
+                        row("col1", null, null, null, null, null, null),
+                        row("col2", 305.0, null, 0.0, null, null, null),
+                        row("col3", 145.0, null, 0.0, null, null, null),
+                        row(null, null, null, null, 2.0, null, null));
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
