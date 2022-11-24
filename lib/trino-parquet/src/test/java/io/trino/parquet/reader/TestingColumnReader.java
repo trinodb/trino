@@ -478,8 +478,8 @@ public class TestingColumnReader
     private static Assertion<DecodedTimestamp> assertInt96Short(int rounding)
     {
         return (values, block, offset, blockOffset) -> {
-            long epochSeconds = values[offset].getEpochSeconds();
-            int nanos = values[offset].getNanosOfSecond();
+            long epochSeconds = values[offset].epochSeconds();
+            int nanos = values[offset].nanosOfSecond();
             long epochNanos = epochSeconds * Timestamps.NANOSECONDS_PER_SECOND + nanos;
             long expectedMicros = Timestamps.round(epochNanos, rounding) / 1000;
 
@@ -490,8 +490,8 @@ public class TestingColumnReader
     private static Assertion<DecodedTimestamp> assertInt96Long()
     {
         return (values, block, offset, blockOffset) -> {
-            long epochSeconds = values[offset].getEpochSeconds();
-            int nanos = values[offset].getNanosOfSecond();
+            long epochSeconds = values[offset].epochSeconds();
+            int nanos = values[offset].nanosOfSecond();
             long epochNanos = epochSeconds * Timestamps.NANOSECONDS_PER_SECOND + nanos;
 
             long actualEpochMicros = block.getLong(blockOffset, 0);
@@ -504,8 +504,8 @@ public class TestingColumnReader
     private static Assertion<DecodedTimestamp> assertInt96ShortWithTimezone()
     {
         return (values, block, offset, blockOffset) -> {
-            long epochSeconds = values[offset].getEpochSeconds();
-            int nanos = values[offset].getNanosOfSecond();
+            long epochSeconds = values[offset].epochSeconds();
+            int nanos = values[offset].nanosOfSecond();
             long epochNanos = epochSeconds * Timestamps.NANOSECONDS_PER_SECOND + nanos;
             long expectedMillis = Timestamps.round(epochNanos, 6) / 1000000;
 
