@@ -19,6 +19,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -41,6 +42,13 @@ public class TestDruidTypeMapping
     {
         this.druidServer = new TestingDruidServer(DRUID_DOCKER_IMAGE);
         return DruidQueryRunner.createDruidQueryRunnerTpch(druidServer, ImmutableMap.of(), ImmutableList.of());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        druidServer.close();
+        druidServer = null;
     }
 
     @Test
