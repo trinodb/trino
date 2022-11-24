@@ -71,6 +71,11 @@ public class LegacyAccessControl
     }
 
     @Override
+    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName, Map<String, Object> properties)
+    {
+    }
+
+    @Override
     public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
     {
     }

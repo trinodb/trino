@@ -137,6 +137,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema, Map<String, Object> properties)
+    {
+    }
+
+    @Override
     public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema)
     {
     }
