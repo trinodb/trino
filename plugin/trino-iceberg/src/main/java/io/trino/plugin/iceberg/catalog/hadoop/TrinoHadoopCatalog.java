@@ -156,9 +156,6 @@ public class TrinoHadoopCatalog
             // Currently, Trino schemas are always lowercase, so this one cannot exist (https://github.com/trinodb/trino/issues/17)
             return false;
         }
-        if (HadoopIcebergUtil.isHadoopSystemSchema(namespace)) {
-            return false;
-        }
         if (listNamespaces(session).stream().filter(_namespace -> namespace.equals(_namespace.toString())).findAny().orElse(null) != null) {
             return true;
         }
