@@ -16,6 +16,7 @@ package io.trino.plugin.kudu;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -41,6 +42,13 @@ public abstract class BaseKuduConnectorSmokeTest
     {
         kuduServer = new TestingKuduServer(getKuduServerVersion());
         return createKuduQueryRunnerTpch(kuduServer, getKuduSchemaEmulationPrefix(), REQUIRED_TPCH_TABLES);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        kuduServer.close();
+        kuduServer = null;
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")
