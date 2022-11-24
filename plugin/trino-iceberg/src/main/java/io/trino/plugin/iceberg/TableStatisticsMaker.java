@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
@@ -21,12 +22,14 @@ import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
@@ -40,6 +43,8 @@ import java.util.regex.Pattern;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
@@ -88,6 +93,9 @@ public class TableStatisticsMaker
         List<IcebergColumnHandle> columnHandles = getColumns(icebergTableSchema, typeManager);
         Map<Integer, IcebergColumnHandle> idToColumnHandle = columnHandles.stream()
                 .collect(toUnmodifiableMap(IcebergColumnHandle::getId, identity()));
+        Map<Integer, org.apache.iceberg.types.Type> idToType = columns.stream()
+                .map(column -> Maps.immutableEntry(column.fieldId(), column.type()))
+                .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(enforcedPredicate))
@@ -114,17 +122,42 @@ public class TableStatisticsMaker
 
         ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();
         double recordCount = summary.getRecordCount();
-        for (IcebergColumnHandle columnHandle : idToColumnHandle.values()) {
+        for (Map.Entry<Integer, IcebergColumnHandle> columnHandleTuple : idToColumnHandle.entrySet()) {
+            IcebergColumnHandle columnHandle = columnHandleTuple.getValue();
             int fieldId = columnHandle.getId();
             ColumnStatistics.Builder columnBuilder = new ColumnStatistics.Builder();
             Long nullCount = summary.getNullCounts().get(fieldId);
             if (nullCount != null) {
                 columnBuilder.setNullsFraction(Estimate.of(nullCount / recordCount));
             }
-            if (summary.getColumnSizes() != null) {
+            if (idToType.get(columnHandleTuple.getKey()).typeId() == Type.TypeID.FIXED) {
+                Types.FixedType fixedType = (Types.FixedType) idToType.get(columnHandleTuple.getKey());
+                long columnSize = fixedType.length();
+                columnBuilder.setDataSize(Estimate.of(columnSize));
+            }
+            else if (summary.getColumnSizes() != null) {
                 Long columnSize = summary.getColumnSizes().get(fieldId);
                 if (columnSize != null) {
-                    columnBuilder.setDataSize(Estimate.of(columnSize));
+                    // columnSize is the size on disk and Trino column stats is size in memory.
+                    // The relation between the two is type and data dependent.
+                    // However, Trino currently does not use data size statistics for fixed-width types
+                    // (it's not needed for them), so do not report it at all, to avoid reporting some bogus value.
+                    if (!(columnHandle.getBaseType() instanceof FixedWidthType)) {
+                        if (columnHandle.getBaseType() == VARCHAR) {
+                            // Tested using item table from TPCDS benchmark
+                            // compared column size of item_desc column stored inside files
+                            // with length of values in that column reported by trino
+                            columnSize = (long) (columnSize * 2.7);
+                        }
+                        else if (columnHandle.getBaseType() == VARBINARY) {
+                            // Tested using VARBINARY columns with random, both in length and content, data
+                            // compared column size stored inside parquet files with length of bytes written to it
+                            // Data used for testing came from alpha numeric characters so it was not very real life like scenario
+                            // In the future better heuristic could be used here
+                            columnSize = (long) (columnSize * 1.4);
+                        }
+                        columnBuilder.setDataSize(Estimate.of(columnSize));
+                    }
                 }
             }
             Object min = summary.getMinValues().get(fieldId);
