@@ -28,6 +28,7 @@ import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -142,6 +143,13 @@ public class TestCassandraTypeMapping
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableList.of());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanUp()
+    {
+        session.close();
+        session = null;
     }
 
     @Test

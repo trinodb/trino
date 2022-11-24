@@ -27,6 +27,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.assertions.Assert;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -133,6 +134,13 @@ public class TestCassandraConnectorTest
         session = server.getSession();
         session.execute("CREATE KEYSPACE IF NOT EXISTS " + KEYSPACE + " WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
         return createCassandraQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanUp()
+    {
+        session.close();
+        session = null;
     }
 
     @Override
