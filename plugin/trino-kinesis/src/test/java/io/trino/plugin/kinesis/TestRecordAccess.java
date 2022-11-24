@@ -83,7 +83,7 @@ public class TestRecordAccess
         mockClient = TestUtils.installKinesisPlugin(queryRunner);
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void stop()
     {
         queryRunner.close();

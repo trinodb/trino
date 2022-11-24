@@ -107,7 +107,7 @@ public class TestThriftProjectionPushdown
         return Optional.of(runner);
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void cleanup()
     {
         if (servers != null) {
