@@ -2,9 +2,19 @@
 
 set -xeuo pipefail
 
+function graceful_shutdown()
+{
+    echo "Shutting down this worker gracefully"
+    curl -v -X PUT -d '"SHUTTING_DOWN"' -H "Content-type: application/json" http://localhost:8080/v1/info/state
+}
+
+trap 'graceful_shutdown; wait $PID' SIGTERM
+
 launcher_opts=(--etc-dir /etc/trino)
 if ! grep -s -q 'node.id' /etc/trino/node.properties; then
     launcher_opts+=("-Dnode.id=${HOSTNAME}")
 fi
 
-exec /usr/lib/trino/bin/launcher run "${launcher_opts[@]}" "$@"
+exec /usr/lib/trino/bin/launcher run "${launcher_opts[@]}" "$@" &
+PID=$!
+wait $PID
