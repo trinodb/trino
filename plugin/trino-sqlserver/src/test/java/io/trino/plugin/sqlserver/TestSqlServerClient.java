@@ -21,6 +21,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -64,7 +65,8 @@ public class TestSqlServerClient
                 throw new UnsupportedOperationException();
             },
             new DefaultQueryBuilder(),
-            new DefaultIdentifierMapping());
+            new DefaultIdentifierMapping(),
+            RemoteQueryModifier.NONE);
 
     @Test
     public void testImplementCount()

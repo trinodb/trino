@@ -18,6 +18,7 @@ import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
@@ -58,7 +59,8 @@ public class TestOracleClient
                 throw new UnsupportedOperationException();
             },
             new DefaultQueryBuilder(),
-            new DefaultIdentifierMapping());
+            new DefaultIdentifierMapping(),
+            RemoteQueryModifier.NONE);
 
     private static final ConnectorSession SESSION = TestingConnectorSession.SESSION;
 

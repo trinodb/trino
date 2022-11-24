@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -57,7 +58,7 @@ public class JdbcPageSink
     private final LongWriteFunction pageSinkIdWriteFunction;
     private final boolean includePageSinkIdColumn;
 
-    public JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient, ConnectorPageSinkId pageSinkId)
+    public JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient, ConnectorPageSinkId pageSinkId, RemoteQueryModifier remoteQueryModifier)
     {
         try {
             connection = jdbcClient.getConnection(session, handle);
@@ -112,7 +113,11 @@ public class JdbcPageSink
 
         String insertSql = jdbcClient.buildInsertSql(handle, columnWriters);
         try {
+            insertSql = remoteQueryModifier.apply(session, insertSql);
             statement = connection.prepareStatement(insertSql);
+        }
+        catch (TrinoException e) {
+            throw closeAllSuppress(e, connection);
         }
         catch (SQLException e) {
             closeAllSuppress(e, connection);
