@@ -631,7 +631,7 @@ public class DeltaLakeMetadata
             metastore.createDatabase(database);
         }
         catch (SchemaAlreadyExistsException e) {
-            // Ignore SchemaAlreadyExistsException when table looks like created by us.
+            // Ignore SchemaAlreadyExistsException when database looks like created by us.
             // This may happen when an actually successful metastore create call is retried
             // e.g. because of a timeout on our side.
             Optional<Database> existingDatabase = metastore.getDatabase(schemaName);
