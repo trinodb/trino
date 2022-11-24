@@ -72,6 +72,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.instrumentation.Instrumentations.instrumentedConnectorAccessControl;
+import static io.trino.instrumentation.Instrumentations.instrumentedSystemAccessControlFactory;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SERVER_STARTING_UP;
@@ -119,7 +121,7 @@ public class AccessControlManager
     {
         requireNonNull(accessControlFactory, "accessControlFactory is null");
 
-        if (systemAccessControlFactories.putIfAbsent(accessControlFactory.getName(), accessControlFactory) != null) {
+        if (systemAccessControlFactories.putIfAbsent(accessControlFactory.getName(), instrumentedSystemAccessControlFactory(accessControlFactory)) != null) {
             throw new IllegalArgumentException(format("Access control '%s' is already registered", accessControlFactory.getName()));
         }
     }
@@ -1302,6 +1304,7 @@ public class AccessControlManager
 
         return transactionManager.getCatalogHandle(transactionId, catalogName)
                 .flatMap(connectorAccessControlProvider::getService)
+                .map(connectorAccessControl -> instrumentedConnectorAccessControl(catalogName, connectorAccessControl))
                 .orElse(null);
     }
 

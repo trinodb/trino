@@ -49,6 +49,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.instrumentation.Instrumentations.instrumentedConnectorFactory;
 import static io.trino.spi.connector.CatalogHandle.createInformationSchemaCatalogHandle;
 import static io.trino.spi.connector.CatalogHandle.createSystemTablesCatalogHandle;
 import static java.util.Objects.requireNonNull;
@@ -211,7 +212,7 @@ public class DefaultCatalogFactory
 
         public InternalConnectorFactory(ConnectorFactory connectorFactory, Function<CatalogHandle, ClassLoader> duplicatePluginClassLoaderFactory)
         {
-            this.connectorFactory = connectorFactory;
+            this.connectorFactory = instrumentedConnectorFactory(connectorFactory);
             this.duplicatePluginClassLoaderFactory = duplicatePluginClassLoaderFactory;
         }
 

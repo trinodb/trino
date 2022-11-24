@@ -118,6 +118,7 @@
         <module>lib/trino-hadoop-toolkit</module>
         <module>lib/trino-hdfs</module>
         <module>lib/trino-hive-formats</module>
+        <module>lib/trino-instrumentation</module>
         <module>lib/trino-matching</module>
         <module>lib/trino-memory-context</module>
         <module>lib/trino-orc</module>
@@ -391,6 +392,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-ignite</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-instrumentation</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1328,6 +1335,12 @@
                 <groupId>com.qubole.rubix</groupId>
                 <artifactId>rubix-presto-shaded</artifactId>
                 <version>0.3.18</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.squareup</groupId>
+                <artifactId>javapoet</artifactId>
+                <version>1.13.0</version>
             </dependency>
 
             <dependency>
