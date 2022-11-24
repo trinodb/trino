@@ -31,6 +31,7 @@ env:
   # This value should be greater than the time taken for the longest image pull.
   TESTCONTAINERS_PULL_PAUSE_TIMEOUT: 600
   TEST_REPORT_RETENTION_DAYS: 5
+  HEAP_DUMP_RETENTION_DAYS: 14
   # used by actions/cache to retry the download after this time: https://github.com/actions/cache/blob/main/workarounds.md#cache-segment-restore-timeout
   SEGMENT_DOWNLOAD_TIMEOUT_MINS: 5
 
@@ -153,6 +154,8 @@ jobs:
   test-jdbc-compatibility:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      SECRETS_PRESENT: ${{ secrets.SECRETS_PRESENT }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -193,6 +196,15 @@ jobs:
           path: |
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
+      - name: Upload heap dump
+        uses: actions/upload-artifact@v3
+        if: failure() && env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        with:
+          name: heap dump ${{ github.job }}
+          if-no-files-found: 'ignore'
+          path: |
+            **/*.hprof
+          retention-days: ${{ env.HEAP_DUMP_RETENTION_DAYS }}
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
         if: steps.cache.outputs.cache-hit != 'true'
@@ -207,6 +219,8 @@ jobs:
           - config-hdp3
           # TODO: config-apache-hive3
     timeout-minutes: 60
+    env:
+      SECRETS_PRESENT: ${{ secrets.SECRETS_PRESENT }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -315,6 +329,15 @@ jobs:
           path: |
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
+      - name: Upload heap dump
+        uses: actions/upload-artifact@v3
+        if: failure() && env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        with:
+          name: heap dump ${{ github.job }} (${{ matrix.config }})
+          if-no-files-found: 'ignore'
+          path: |
+            **/*.hprof
+          retention-days: ${{ env.HEAP_DUMP_RETENTION_DAYS }}
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
         if: steps.cache.outputs.cache-hit != 'true'
@@ -323,6 +346,8 @@ jobs:
   test-other-modules:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      SECRETS_PRESENT: ${{ secrets.SECRETS_PRESENT }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -384,6 +409,15 @@ jobs:
           path: |
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
+      - name: Upload heap dump
+        uses: actions/upload-artifact@v3
+        if: failure() && env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        with:
+          name: heap dump ${{ github.job }}
+          if-no-files-found: 'ignore'
+          path: |
+            **/*.hprof
+          retention-days: ${{ env.HEAP_DUMP_RETENTION_DAYS }}
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
         if: steps.cache.outputs.cache-hit != 'true'
@@ -463,6 +497,8 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.build-test-matrix.outputs.matrix) }}
     timeout-minutes: 60
+    env:
+      SECRETS_PRESENT: ${{ secrets.SECRETS_PRESENT }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -575,6 +611,15 @@ jobs:
           path: |
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
+      - name: Upload heap dump
+        uses: actions/upload-artifact@v3
+        if: failure() && env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        with:
+          name: heap dump ${{ github.job }} (${{ env.ARTIFACT_NAME }})
+          if-no-files-found: 'ignore'
+          path: |
+            **/*.hprof
+          retention-days: ${{ env.HEAP_DUMP_RETENTION_DAYS }}
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
         if: steps.cache.outputs.cache-hit != 'true'
