@@ -19,10 +19,10 @@ local exchange (GATHER, SINGLE, [])
                                                                     scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan call_center
+                                                                scan item
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan item
+                                                            scan call_center
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["cc_name_102", "i_brand_14", "i_category_18"])
                         local exchange (REPARTITION, ROUND_ROBIN, [])
@@ -40,10 +40,10 @@ local exchange (GATHER, SINGLE, [])
                                                                     scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan call_center
+                                                                scan item
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan item
+                                                            scan call_center
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPARTITION, HASH, ["cc_name_232", "i_brand_144", "i_category_148"])
                     local exchange (REPARTITION, ROUND_ROBIN, [])
@@ -61,7 +61,7 @@ local exchange (GATHER, SINGLE, [])
                                                                 scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan call_center
+                                                            scan item
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan item
+                                                        scan call_center
