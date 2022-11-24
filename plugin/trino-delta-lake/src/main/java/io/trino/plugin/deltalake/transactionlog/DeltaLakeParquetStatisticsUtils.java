@@ -289,7 +289,7 @@ public class DeltaLakeParquetStatisticsUtils
             }
             if (statistics instanceof BinaryStatistics) {
                 DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(((BinaryStatistics) statistics).genericGetMin());
-                Instant ts = Instant.ofEpochSecond(decodedTimestamp.getEpochSeconds(), decodedTimestamp.getNanosOfSecond());
+                Instant ts = Instant.ofEpochSecond(decodedTimestamp.epochSeconds(), decodedTimestamp.nanosOfSecond());
                 return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC).truncatedTo(MILLIS)));
             }
         }
@@ -366,7 +366,7 @@ public class DeltaLakeParquetStatisticsUtils
             }
             if (statistics instanceof BinaryStatistics) {
                 DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(((BinaryStatistics) statistics).genericGetMax());
-                Instant ts = Instant.ofEpochSecond(decodedTimestamp.getEpochSeconds(), decodedTimestamp.getNanosOfSecond());
+                Instant ts = Instant.ofEpochSecond(decodedTimestamp.epochSeconds(), decodedTimestamp.nanosOfSecond());
                 ZonedDateTime zonedDateTime = ZonedDateTime.ofInstant(ts, UTC);
                 ZonedDateTime truncatedToMillis = zonedDateTime.truncatedTo(MILLIS);
                 if (truncatedToMillis.isBefore(zonedDateTime)) {
