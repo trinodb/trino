@@ -37,6 +37,8 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -153,6 +155,158 @@ public class TransformingValueDecoders
                     int nanosOfSecond = int96Buffer.ints[i];
                     long utcMillis = epochSeconds * MILLISECONDS_PER_SECOND + (nanosOfSecond / NANOSECONDS_PER_MILLISECOND);
                     values[offset + i] = packDateTimeWithZone(utcMillis, UTC_KEY);
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public static ValueDecoder<long[]> getInt64TimestampMillsToShortTimestampDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        checkArgument(
+                field.getType() instanceof TimestampType timestampType && timestampType.isShort(),
+                "Trino type %s is not a short timestamp",
+                field.getType());
+        int precision = ((TimestampType) field.getType()).getPrecision();
+        ValueDecoder<long[]> valueDecoder = getLongDecoder(encoding, field, dictionary);
+        if (precision < 3) {
+            return new InlineTransformDecoder<>(
+                    valueDecoder,
+                    (values, offset, length) -> {
+                        // decoded values are epochMillis, round to lower precision and convert to epochMicros
+                        for (int i = offset; i < offset + length; i++) {
+                            values[i] = round(values[i], 3 - precision) * MICROSECONDS_PER_MILLISECOND;
+                        }
+                    });
+        }
+        return new InlineTransformDecoder<>(
+                valueDecoder,
+                (values, offset, length) -> {
+                    // decoded values are epochMillis, convert to epochMicros
+                    for (int i = offset; i < offset + length; i++) {
+                        values[i] = values[i] * MICROSECONDS_PER_MILLISECOND;
+                    }
+                });
+    }
+
+    public static ValueDecoder<long[]> getInt64TimestampMicrosToShortTimestampDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        checkArgument(
+                field.getType() instanceof TimestampType timestampType && timestampType.isShort(),
+                "Trino type %s is not a short timestamp",
+                field.getType());
+        int precision = ((TimestampType) field.getType()).getPrecision();
+        ValueDecoder<long[]> valueDecoder = getLongDecoder(encoding, field, dictionary);
+        if (precision == 6) {
+            return valueDecoder;
+        }
+        return new InlineTransformDecoder<>(
+                valueDecoder,
+                (values, offset, length) -> {
+                    // decoded values are epochMicros, round to lower precision
+                    for (int i = offset; i < offset + length; i++) {
+                        values[i] = round(values[i], 6 - precision);
+                    }
+                });
+    }
+
+    public static ValueDecoder<long[]> getInt64TimestampNanosToShortTimestampDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        checkArgument(
+                field.getType() instanceof TimestampType timestampType && timestampType.isShort(),
+                "Trino type %s is not a short timestamp",
+                field.getType());
+        int precision = ((TimestampType) field.getType()).getPrecision();
+        return new InlineTransformDecoder<>(
+                getLongDecoder(encoding, field, dictionary),
+                (values, offset, length) -> {
+                    // decoded values are epochNanos, round to lower precision and convert to epochMicros
+                    for (int i = offset; i < offset + length; i++) {
+                        values[i] = round(values[i], 9 - precision) / NANOSECONDS_PER_MICROSECOND;
+                    }
+                });
+    }
+
+    public static ValueDecoder<Int96Buffer> getInt64TimestampMillisToLongTimestampDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        ValueDecoder<long[]> delegate = getLongDecoder(encoding, field, dictionary);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(Int96Buffer values, int offset, int length)
+            {
+                delegate.read(values.longs, offset, length);
+                // decoded values are epochMillis, convert to epochMicros
+                for (int i = offset; i < offset + length; i++) {
+                    values.longs[i] = values.longs[i] * MICROSECONDS_PER_MILLISECOND;
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public static ValueDecoder<Int96Buffer> getInt64TimestampMicrosToLongTimestampDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        ValueDecoder<long[]> delegate = getLongDecoder(encoding, field, dictionary);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(Int96Buffer values, int offset, int length)
+            {
+                // decoded values are epochMicros
+                delegate.read(values.longs, offset, length);
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public static ValueDecoder<Int96Buffer> getInt64TimestampNanosToLongTimestampDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        ValueDecoder<long[]> delegate = getLongDecoder(encoding, field, dictionary);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(Int96Buffer values, int offset, int length)
+            {
+                delegate.read(values.longs, offset, length);
+                // decoded values are epochNanos, convert to (epochMicros, picosOfMicro)
+                for (int i = offset; i < offset + length; i++) {
+                    long epochNanos = values.longs[i];
+                    values.longs[i] = floorDiv(epochNanos, NANOSECONDS_PER_MICROSECOND);
+                    values.ints[i] = floorMod(epochNanos, NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND;
                 }
             }
 
