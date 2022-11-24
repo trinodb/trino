@@ -35,6 +35,7 @@ import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -212,7 +213,7 @@ public class PhoenixClient
     private final Configuration configuration;
 
     @Inject
-    public PhoenixClient(PhoenixConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping)
+    public PhoenixClient(PhoenixConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping, RemoteQueryModifier queryModifier)
             throws SQLException
     {
         super(
@@ -221,6 +222,7 @@ public class PhoenixClient
                 queryBuilder,
                 ImmutableSet.of(),
                 identifierMapping,
+                queryModifier,
                 false);
         this.configuration = newEmptyConfiguration();
         getConnectionProperties(config).forEach((k, v) -> configuration.set((String) k, (String) v));

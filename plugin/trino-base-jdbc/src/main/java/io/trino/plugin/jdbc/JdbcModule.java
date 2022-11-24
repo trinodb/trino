@@ -21,6 +21,7 @@ import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifierModule;
 import io.trino.plugin.jdbc.mapping.IdentifierMappingModule;
 import io.trino.plugin.jdbc.procedure.FlushJdbcMetadataCacheProcedure;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -49,6 +50,7 @@ public class JdbcModule
     {
         install(new JdbcDiagnosticModule());
         install(new IdentifierMappingModule());
+        install(new RemoteQueryModifierModule());
 
         newOptionalBinder(binder, ConnectorAccessControl.class);
         newOptionalBinder(binder, QueryBuilder.class).setDefault().to(DefaultQueryBuilder.class).in(Scopes.SINGLETON);

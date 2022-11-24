@@ -48,6 +48,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
 import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
 import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -204,9 +205,10 @@ public class ClickHouseClient
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
             TypeManager typeManager,
-            IdentifierMapping identifierMapping)
+            IdentifierMapping identifierMapping,
+            RemoteQueryModifier queryModifier)
     {
-        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
+        super(config, "\"", connectionFactory, queryBuilder, identifierMapping, queryModifier);
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
@@ -256,7 +258,7 @@ public class ClickHouseClient
     }
 
     @Override
-    protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+    protected void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
     {
         // ClickHouse does not support `create table tbl as select * from tbl2 where 0=1`
         // ClickHouse supports the following two methods to copy schema
@@ -267,7 +269,7 @@ public class ClickHouseClient
                 quoted(null, schemaName, newTableName),
                 quoted(null, schemaName, tableName));
         try {
-            execute(connection, sql);
+            execute(session, connection, sql);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -368,7 +370,7 @@ public class ClickHouseClient
                     "ALTER TABLE %s MODIFY %s",
                     quoted(handle.asPlainTable().getRemoteTableName()),
                     join(" ", tableOptions.build()));
-            execute(connection, sql);
+            execute(session, connection, sql);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -399,21 +401,21 @@ public class ClickHouseClient
     protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
             throws SQLException
     {
-        execute(connection, "CREATE DATABASE " + quoted(remoteSchemaName));
+        execute(session, connection, "CREATE DATABASE " + quoted(remoteSchemaName));
     }
 
     @Override
     protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
             throws SQLException
     {
-        execute(connection, "DROP DATABASE " + quoted(remoteSchemaName));
+        execute(session, connection, "DROP DATABASE " + quoted(remoteSchemaName));
     }
 
     @Override
     protected void renameSchema(ConnectorSession session, Connection connection, String remoteSchemaName, String newRemoteSchemaName)
             throws SQLException
     {
-        execute(connection, "RENAME DATABASE " + quoted(remoteSchemaName) + " TO " + quoted(newRemoteSchemaName));
+        execute(session, connection, "RENAME DATABASE " + quoted(remoteSchemaName) + " TO " + quoted(newRemoteSchemaName));
     }
 
     @Override
@@ -425,7 +427,7 @@ public class ClickHouseClient
                     "ALTER TABLE %s ADD COLUMN %s",
                     quoted(handle.asPlainTable().getRemoteTableName()),
                     getColumnDefinitionSql(session, column, remoteColumnName));
-            execute(connection, sql);
+            execute(session, connection, sql);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -469,7 +471,7 @@ public class ClickHouseClient
     protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
             throws SQLException
     {
-        execute(connection, format("RENAME TABLE %s.%s TO %s.%s",
+        execute(session, connection, format("RENAME TABLE %s.%s TO %s.%s",
                 quoted(remoteSchemaName),
                 quoted(remoteTableName),
                 quoted(newRemoteSchemaName),
