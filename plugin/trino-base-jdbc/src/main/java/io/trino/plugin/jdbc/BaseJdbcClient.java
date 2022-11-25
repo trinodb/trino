@@ -410,7 +410,7 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session, JdbcSplit split)
+    public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
             throws SQLException
     {
         Connection connection = connectionFactory.openConnection(session);

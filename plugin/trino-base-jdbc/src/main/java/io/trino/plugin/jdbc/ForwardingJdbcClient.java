@@ -139,10 +139,10 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session, JdbcSplit split)
+    public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
             throws SQLException
     {
-        return delegate().getConnection(session, split);
+        return delegate().getConnection(session, split, tableHandle);
     }
 
     @Override
