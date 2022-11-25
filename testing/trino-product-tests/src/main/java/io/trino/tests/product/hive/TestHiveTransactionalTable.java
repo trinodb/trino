@@ -1831,8 +1831,7 @@ public class TestHiveTransactionalTable
                 "STORED AS ORC " +
                 "TBLPROPERTIES ('transactional'='true')");
 
-        ThriftMetastoreClient client = testHiveMetastoreClientFactory.createMetastoreClient();
-        try {
+        try (ThriftMetastoreClient client = testHiveMetastoreClientFactory.createMetastoreClient()) {
             String selectFromOnePartitionsSql = "SELECT col FROM " + tableName + " ORDER BY COL";
 
             // Create `delta-A` file
@@ -1873,7 +1872,6 @@ public class TestHiveTransactionalTable
             assertThat(onePartitionQueryResult).containsOnly(row(1), row(1), row(2), row(2));
         }
         finally {
-            client.close();
             onHive().executeQuery("DROP TABLE " + tableName);
         }
     }
