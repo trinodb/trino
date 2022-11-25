@@ -197,7 +197,7 @@ public final class Partitioning
 
     public boolean isEffectivelySinglePartition(Set<Symbol> knownConstants)
     {
-        return isPartitionedOn(ImmutableSet.of(), knownConstants);
+        return handle.isDeterministic() && isPartitionedOn(ImmutableSet.of(), knownConstants);
     }
 
     public boolean isRepartitionEffective(Collection<Symbol> keys, Set<Symbol> knownConstants)

@@ -338,18 +338,18 @@ public class ActualProperties
 
         public static Global coordinatorSingleStreamPartition()
         {
-            return partitionedOn(
-                    COORDINATOR_DISTRIBUTION,
-                    ImmutableList.of(),
-                    Optional.of(ImmutableList.of()));
+            return new Global(
+                    Optional.of(Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of())),
+                    Optional.of(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of())),
+                    false);
         }
 
         public static Global singleStreamPartition()
         {
-            return partitionedOn(
-                    SINGLE_DISTRIBUTION,
-                    ImmutableList.of(),
-                    Optional.of(ImmutableList.of()));
+            return new Global(
+                    Optional.of(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of())),
+                    Optional.of(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of())),
+                    false);
         }
 
         public static Global arbitraryPartition()

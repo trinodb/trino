@@ -31,6 +31,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.sql.planner.PartitioningHandle.createNonDeterministicPartitioning;
 import static io.trino.sql.planner.PartitioningHandle.createPartitioning;
 import static io.trino.sql.planner.PartitioningHandle.createScaledWriterPartitioning;
 import static java.util.Objects.requireNonNull;
@@ -50,17 +51,22 @@ public final class SystemPartitioningHandle
     public static final PartitioningHandle SINGLE_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.SINGLE, SystemPartitionFunction.SINGLE);
     public static final PartitioningHandle COORDINATOR_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.COORDINATOR_ONLY, SystemPartitionFunction.SINGLE);
     public static final PartitioningHandle FIXED_HASH_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.HASH);
-    public static final PartitioningHandle FIXED_ARBITRARY_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.ROUND_ROBIN);
-    public static final PartitioningHandle FIXED_BROADCAST_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.BROADCAST);
+    public static final PartitioningHandle FIXED_ARBITRARY_DISTRIBUTION = createNonDeterministicSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.ROUND_ROBIN);
+    public static final PartitioningHandle FIXED_BROADCAST_DISTRIBUTION = createNonDeterministicSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.BROADCAST);
     public static final PartitioningHandle SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION = createScaledWriterSystemPartitioning(SystemPartitionFunction.ROUND_ROBIN);
     public static final PartitioningHandle SCALED_WRITER_HASH_DISTRIBUTION = createScaledWriterSystemPartitioning(SystemPartitionFunction.HASH);
-    public static final PartitioningHandle SOURCE_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.SOURCE, SystemPartitionFunction.UNKNOWN);
-    public static final PartitioningHandle ARBITRARY_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.ARBITRARY, SystemPartitionFunction.UNKNOWN);
-    public static final PartitioningHandle FIXED_PASSTHROUGH_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.UNKNOWN);
+    public static final PartitioningHandle SOURCE_DISTRIBUTION = createNonDeterministicSystemPartitioning(SystemPartitioning.SOURCE, SystemPartitionFunction.UNKNOWN);
+    public static final PartitioningHandle ARBITRARY_DISTRIBUTION = createNonDeterministicSystemPartitioning(SystemPartitioning.ARBITRARY, SystemPartitionFunction.UNKNOWN);
+    public static final PartitioningHandle FIXED_PASSTHROUGH_DISTRIBUTION = createNonDeterministicSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.UNKNOWN);
 
     private static PartitioningHandle createSystemPartitioning(SystemPartitioning partitioning, SystemPartitionFunction function)
     {
         return createPartitioning(Optional.empty(), Optional.empty(), new SystemPartitioningHandle(partitioning, function));
+    }
+
+    private static PartitioningHandle createNonDeterministicSystemPartitioning(SystemPartitioning partitioning, SystemPartitionFunction function)
+    {
+        return createNonDeterministicPartitioning(Optional.empty(), Optional.empty(), new SystemPartitioningHandle(partitioning, function));
     }
 
     private static PartitioningHandle createScaledWriterSystemPartitioning(SystemPartitionFunction function)

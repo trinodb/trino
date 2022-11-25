@@ -31,6 +31,10 @@ public class PartitioningHandle
     private final Optional<CatalogHandle> catalogHandle;
     private final Optional<ConnectorTransactionHandle> transactionHandle;
     private final ConnectorPartitioningHandle connectorHandle;
+    /**
+     * False if rows for a given partition can be distributed between multiple streams.
+     */
+    private final boolean deterministic;
     private final boolean scaleWriters;
 
     public static boolean isScaledWriterHashDistribution(PartitioningHandle partitioning)
@@ -44,7 +48,15 @@ public class PartitioningHandle
             Optional<ConnectorTransactionHandle> transactionHandle,
             ConnectorPartitioningHandle connectorHandle)
     {
-        return new PartitioningHandle(catalogHandle, transactionHandle, connectorHandle, false);
+        return new PartitioningHandle(catalogHandle, transactionHandle, connectorHandle, true, false);
+    }
+
+    public static PartitioningHandle createNonDeterministicPartitioning(
+            Optional<CatalogHandle> catalogHandle,
+            Optional<ConnectorTransactionHandle> transactionHandle,
+            ConnectorPartitioningHandle connectorHandle)
+    {
+        return new PartitioningHandle(catalogHandle, transactionHandle, connectorHandle, false, false);
     }
 
     public static PartitioningHandle createScaledWriterPartitioning(
@@ -52,7 +64,7 @@ public class PartitioningHandle
             Optional<ConnectorTransactionHandle> transactionHandle,
             ConnectorPartitioningHandle connectorHandle)
     {
-        return new PartitioningHandle(catalogHandle, transactionHandle, connectorHandle, true);
+        return new PartitioningHandle(catalogHandle, transactionHandle, connectorHandle, false, true);
     }
 
     /*
@@ -65,12 +77,15 @@ public class PartitioningHandle
             @JsonProperty("catalogHandle") Optional<CatalogHandle> catalogHandle,
             @JsonProperty("transactionHandle") Optional<ConnectorTransactionHandle> transactionHandle,
             @JsonProperty("connectorHandle") ConnectorPartitioningHandle connectorHandle,
+            @JsonProperty("deterministic") boolean deterministic,
             @JsonProperty("scaleWriters") boolean scaleWriters)
     {
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         checkArgument(catalogHandle.isEmpty() || transactionHandle.isPresent(), "transactionHandle is required when catalogHandle is present");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
+        checkArgument(!(deterministic && scaleWriters), "Scale writers partitioning handle cannot be deterministic");
+        this.deterministic = deterministic;
         this.scaleWriters = scaleWriters;
     }
 
@@ -90,6 +105,12 @@ public class PartitioningHandle
     public ConnectorPartitioningHandle getConnectorHandle()
     {
         return connectorHandle;
+    }
+
+    @JsonProperty
+    public boolean isDeterministic()
+    {
+        return deterministic;
     }
 
     @JsonProperty
@@ -122,13 +143,14 @@ public class PartitioningHandle
         return Objects.equals(catalogHandle, that.catalogHandle) &&
                 Objects.equals(transactionHandle, that.transactionHandle) &&
                 Objects.equals(connectorHandle, that.connectorHandle) &&
+                deterministic == that.deterministic &&
                 scaleWriters == that.scaleWriters;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogHandle, transactionHandle, connectorHandle, scaleWriters);
+        return Objects.hash(catalogHandle, transactionHandle, connectorHandle, deterministic, scaleWriters);
     }
 
     @Override

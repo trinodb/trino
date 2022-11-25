@@ -700,4 +700,55 @@ public abstract class AbstractTestWindowQueries
                         "(5, 'A', 'e', 'c', null), " +
                         "(6, 'A', null, 'e', 'e')");
     }
+
+    @Test
+    public void testPreSortedInput()
+    {
+        assertQueryOrdered("" +
+                        "WITH students_results(student_id, course_id, grade) AS (VALUES " +
+                        "    (1000, 100, 17), " +
+                        "    (2000, 200, 16), " +
+                        "    (3000, 300, 18), " +
+                        "    (1000, 100, 18), " +
+                        "    (2000, 100, 10), " +
+                        "    (3000, 200, 20), " +
+                        "    (1000, 200, 16), " +
+                        "    (2000, 300, 12), " +
+                        "    (3000, 100, 17), " +
+                        "    (2000, 200, 15), " +
+                        "    (3000, 100, 18), " +
+                        "    (1000, 300, 12), " +
+                        "    (3000, 100, 20), " +
+                        "    (1000, 300, 16), " +
+                        "    (2000, 100, 12)) " +
+                        "SELECT student_id, course_id, cnt, avg_w_sum, " +
+                        "    avg(sum_w_sum) OVER (" +
+                        "        ORDER BY student_id, course_id" +
+                        "        ROWS BETWEEN 2 PRECEDING AND 1 FOLLOWING" +
+                        "    ) AS avg_w " +
+                        "FROM (" +
+                        "    SELECT" +
+                        "        student_id, course_id, count(*) AS cnt," +
+                        "        sum(sum(grade)) OVER (" +
+                        "            ORDER BY student_id, course_id" +
+                        "            ROWS BETWEEN 2 PRECEDING AND 1 FOLLOWING" +
+                        "        ) AS avg_w_sum," +
+                        "        sum(sum(grade)) OVER (" +
+                        "            PARTITION BY student_id" +
+                        "        ) AS sum_w_sum" +
+                        "    FROM students_results" +
+                        "    GROUP BY student_id, course_id" +
+                        ") AS t " +
+                        "ORDER BY student_id, course_id",
+                "VALUES " +
+                        "(1000, 100, 2, 51,  79.0), " +
+                        "(1000, 200, 1, 79,  79.0), " +
+                        "(1000, 300, 2, 101, 75.5), " +
+                        "(2000, 100, 2, 97,  72.0), " +
+                        "(2000, 200, 2, 93,  68.5), " +
+                        "(2000, 300, 1, 120, 72.0), " +
+                        "(3000, 100, 3, 118, 79.0), " +
+                        "(3000, 200, 1, 105, 86.0), " +
+                        "(3000, 300, 1, 93, 93.0)");
+    }
 }
