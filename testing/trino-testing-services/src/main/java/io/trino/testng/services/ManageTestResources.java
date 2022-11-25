@@ -39,26 +39,26 @@ import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.testng.services.Listeners.reportListenerFailure;
-import static io.trino.testng.services.ReportResourceHungryTests.Stage.AFTER_CLASS;
-import static io.trino.testng.services.ReportResourceHungryTests.Stage.BEFORE_CLASS;
+import static io.trino.testng.services.ManageTestResources.Stage.AFTER_CLASS;
+import static io.trino.testng.services.ManageTestResources.Stage.BEFORE_CLASS;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.lang.reflect.Modifier.isStatic;
 
-public class ReportResourceHungryTests
+public class ManageTestResources
         implements ITestListener
 {
-    private static final Logger log = Logger.get(ReportResourceHungryTests.class);
+    private static final Logger log = Logger.get(ManageTestResources.class);
 
     private final boolean enabled;
     private final List<Rule> rules;
 
-    public ReportResourceHungryTests()
+    public ManageTestResources()
     {
         enabled = isEnabled();
         if (!enabled) {
-            log.info("ReportResourceHungryTests is disabled!");
+            log.info("ManageTestResources is disabled!");
             rules = List.of();
             return;
         }
@@ -87,8 +87,8 @@ public class ReportResourceHungryTests
 
     private static boolean isEnabled()
     {
-        if (System.getProperty("ReportResourceHungryTests.enabled") != null) {
-            return Boolean.getBoolean("ReportResourceHungryTests.enabled");
+        if (System.getProperty("ManageTestResources.enabled") != null) {
+            return Boolean.getBoolean("ManageTestResources.enabled");
         }
         if (System.getenv("DISABLE_REPORT_RESOURCE_HUNGRY_TESTS_CHECK") != null) {
             return false;
@@ -103,11 +103,11 @@ public class ReportResourceHungryTests
             return;
         }
         try {
-            reportResources(context, BEFORE_CLASS);
+            manageResources(context, BEFORE_CLASS);
         }
         catch (ReflectiveOperationException | Error e) {
             reportListenerFailure(
-                    ReportResourceHungryTests.class,
+                    ManageTestResources.class,
                     "Failed to process %s: \n%s",
                     context,
                     getStackTraceAsString(e));
@@ -136,29 +136,29 @@ public class ReportResourceHungryTests
             return;
         }
         try {
-            reportResources(context, AFTER_CLASS);
+            manageResources(context, AFTER_CLASS);
         }
         catch (ReflectiveOperationException | Error e) {
             reportListenerFailure(
-                    ReportResourceHungryTests.class,
+                    ManageTestResources.class,
                     "Failed to process %s: \n%s",
                     context,
                     getStackTraceAsString(e));
         }
     }
 
-    private void reportResources(ITestContext context, Stage stage)
+    private void manageResources(ITestContext context, Stage stage)
             throws ReflectiveOperationException
     {
         Set<ITestClass> testClasses = Stream.of(context.getAllTestMethods())
                 .map(ITestNGMethod::getTestClass)
                 .collect(toImmutableSet());
         for (ITestClass testClass : testClasses) {
-            reportResources(testClass, stage);
+            manageResources(testClass, stage);
         }
     }
 
-    private void reportResources(ITestClass testClass, Stage stage)
+    private void manageResources(ITestClass testClass, Stage stage)
             throws ReflectiveOperationException
     {
         // This method should not be called when check not enabled.
@@ -188,7 +188,7 @@ public class ReportResourceHungryTests
                     for (Rule rule : rules) {
                         if (rule.isExpensiveResource(field, value, stage)) {
                             reportListenerFailure(
-                                    ReportResourceHungryTests.class,
+                                    ManageTestResources.class,
                                     """
 
                                             \tField %s
