@@ -20,6 +20,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
 import org.testng.annotations.AfterClass;
@@ -30,8 +31,11 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
@@ -99,6 +103,28 @@ public class TestIcebergRegisterTableProcedure
                         "ROW(INT '1', VARCHAR 'INDIA', BOOLEAN 'true'), " +
                         "ROW(INT '2', VARCHAR 'USA', BOOLEAN 'false')");
         assertUpdate(format("DROP TABLE %s", tableName));
+    }
+
+    @Test(dataProvider = "fileFormats")
+    public void testRegisterPartitionedTable(IcebergFileFormat icebergFileFormat)
+    {
+        String tableName = "test_register_partitioned_table_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (data int, part varchar) WITH (partitioning = ARRAY['part'], format = '" + icebergFileFormat + "')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+
+        MaterializedResult partitions = computeActual(format("SELECT * FROM \"%s$partitions\"", tableName));
+        assertThat(partitions.getMaterializedRows()).hasSize(1);
+
+        String tableLocation = getTableLocation(tableName);
+        dropTableFromMetastore(tableName);
+
+        assertUpdate("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "')");
+
+        MaterializedResult partitionsAfterRegister = computeActual(format("SELECT * FROM \"%s$partitions\"", tableName));
+        assertThat(partitions).isEqualTo(partitionsAfterRegister);
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test(dataProvider = "fileFormats")
@@ -396,7 +422,14 @@ public class TestIcebergRegisterTableProcedure
 
     private String getTableLocation(String tableName)
     {
-        return (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*/[^/]*$', '') FROM " + tableName);
+        Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
+        Matcher matcher = locationPattern.matcher((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue());
+        if (matcher.find()) {
+            String location = matcher.group(1);
+            verify(!matcher.find(), "Unexpected second match");
+            return location;
+        }
+        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
     }
 
     private void dropTableFromMetastore(String tableName)
