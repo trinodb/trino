@@ -17,6 +17,8 @@ import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.ProductTest;
+import io.trino.tempto.Requires;
+import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
@@ -25,13 +27,18 @@ import java.net.URI;
 import java.net.URISyntaxException;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.HDFS_IMPERSONATION;
 import static io.trino.tests.product.TestGroups.HDFS_NO_IMPERSONATION;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.connectToTrino;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
+@Requires(ImmutableTpchTablesRequirements.ImmutableNationTable.class)
 public class TestImpersonation
         extends ProductTest
 {
@@ -70,6 +77,29 @@ public class TestImpersonation
         String tableName = "check_hdfs_impersonation_enabled";
         checkTableOwner(tableName, aliceJdbcUser, aliceExecutor);
         checkTableGroup(tableName, aliceExecutor);
+    }
+
+    @Test(groups = {HDFS_IMPERSONATION, PROFILE_SPECIFIC_TESTS})
+    public void testViewsWithSecurityDefiner()
+    {
+        aliceExecutor.executeQuery("DROP VIEW IF EXISTS hive_test_view_impersonation_security_definer");
+        aliceExecutor.executeQuery("CREATE VIEW hive_test_view_impersonation_security_definer SECURITY DEFINER AS SELECT * FROM nation");
+        assertThat(onTrino().executeQuery("SELECT * FROM hive_test_view_impersonation_security_definer")).hasRowsCount(25);
+        assertThat(onTrino().executeQuery("SELECT n_nationkey, n_name, n_regionkey, n_comment FROM hive_test_view_impersonation_security_definer WHERE n_nationkey < 3"))
+                .containsOnly(
+                        row(0, "ALGERIA", 0, " haggle. carefully final deposits detect slyly agai"),
+                        row(1, "ARGENTINA", 1, "al foxes promise slyly according to the regular accounts. bold requests alon"),
+                        row(2, "BRAZIL", 1, "y alongside of the pending deposits. carefully special packages are about the ironic forges. slyly special "));
+    }
+
+    @Test(groups = {HDFS_IMPERSONATION, PROFILE_SPECIFIC_TESTS})
+    public void testViewsWithSecurityInvoker()
+    {
+        aliceExecutor.executeQuery("DROP VIEW IF EXISTS hive_test_view_impersonation_security_invoker");
+        aliceExecutor.executeQuery("CREATE VIEW hive_test_view_impersonation_security_invoker SECURITY DEFINER AS SELECT * FROM nation");
+
+        assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM hive_test_view_impersonation_security_invoker"))
+                .hasMessageContaining("Failed to list directory: *");
     }
 
     private static String getTableLocation(QueryExecutor executor, String tableName)
