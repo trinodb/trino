@@ -16,6 +16,8 @@ package io.trino.testng.services;
 import com.google.common.base.Joiner;
 import io.airlift.log.Logger;
 import org.testng.IClassListener;
+import org.testng.IInvokedMethod;
+import org.testng.IInvokedMethodListener;
 import org.testng.ITestClass;
 import org.testng.ITestContext;
 import org.testng.ITestListener;
@@ -27,7 +29,7 @@ import java.math.RoundingMode;
 import static java.lang.String.format;
 
 public class ProgressLoggingListener
-        implements IClassListener, ITestListener
+        implements IClassListener, ITestListener, IInvokedMethodListener
 {
     private static final Logger LOGGER = Logger.get(ProgressLoggingListener.class);
     private final boolean enabled;
@@ -53,18 +55,32 @@ public class ProgressLoggingListener
     }
 
     @Override
-    public void onStart(ITestContext context)
-    {
-    }
+    public void onStart(ITestContext context) {}
 
     @Override
-    public void onTestStart(ITestResult testCase)
+    public void beforeInvocation(IInvokedMethod method, ITestResult testResult)
     {
         if (!enabled) {
             return;
         }
-        LOGGER.info("[TEST START] %s", formatTestName(testCase));
+        boolean testMethod = method.isTestMethod();
+        boolean configurationMethod = method.isConfigurationMethod();
+        if (testMethod) {
+            LOGGER.info("[TEST START] %s", formatTestName(testResult));
+        }
+        if (configurationMethod) {
+            LOGGER.info("[CONFIGURATION] %s for %s", method, formatTestName(testResult));
+        }
+        if (!testMethod && !configurationMethod) {
+            LOGGER.info("[UNKNOWN THING] %s for %s", method, formatTestName(testResult));
+        }
     }
+
+    @Override
+    public void afterInvocation(IInvokedMethod method, ITestResult testResult) {}
+
+    @Override
+    public void onTestStart(ITestResult testCase) {}
 
     @Override
     public void onTestSuccess(ITestResult testCase)
@@ -99,14 +115,10 @@ public class ProgressLoggingListener
     }
 
     @Override
-    public void onTestFailedButWithinSuccessPercentage(ITestResult testCase)
-    {
-    }
+    public void onTestFailedButWithinSuccessPercentage(ITestResult testCase) {}
 
     @Override
-    public void onFinish(ITestContext context)
-    {
-    }
+    public void onFinish(ITestContext context) {}
 
     @Override
     public void onBeforeClass(ITestClass testClass)
