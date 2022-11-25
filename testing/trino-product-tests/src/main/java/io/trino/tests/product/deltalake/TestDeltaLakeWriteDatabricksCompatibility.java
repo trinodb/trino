@@ -40,6 +40,7 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICK
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -201,9 +202,14 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     {
         try (CaseTestTable table = new CaseTestTable("update_case_compat", partitionColumn, List.of(row(1, 1, 1)))) {
             // TODO: The test fails for uppercase columns because the statement analyzer compares the column name case-sensitively.
-            //   Remove the part of the regex after the '|' once that's changed.
-            assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE delta.default.%s SET %s = 0 WHERE lower = 1", table.name(), partitionColumn)))
-                    .hasMessageMatching(".*(Updating table partition columns is not supported|The UPDATE SET target column .* doesn't exist)");
+            if (!partitionColumn.equals(partitionColumn.toLowerCase(ENGLISH))) {
+                assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE delta.default.%s SET %s = 0 WHERE lower = 1", table.name(), partitionColumn)))
+                        .hasMessageMatching(".*The UPDATE SET target column .* doesn't exist");
+            }
+            else {
+                onTrino().executeQuery(format("UPDATE delta.default.%s SET %s = 0 WHERE lower = 1", table.name(), partitionColumn));
+                assertTable(table, table.rows().map(row -> row.withPartition(0)));
+            }
         }
     }
 
