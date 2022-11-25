@@ -557,7 +557,8 @@ public class TestCachingJdbcClient
                 OptionalLong.empty(),
                 Optional.empty(),
                 Optional.of(Set.of(new SchemaTableName(schema, "first"))),
-                0);
+                0,
+                Optional.empty());
 
         // load
         assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(1).afterRunning(() -> {

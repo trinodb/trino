@@ -280,7 +280,8 @@ public abstract class BaseJdbcClient
                 Optional.of(columns.build()),
                 // The query is opaque, so we don't know referenced tables
                 Optional.empty(),
-                0);
+                0,
+                Optional.empty());
     }
 
     @Override
