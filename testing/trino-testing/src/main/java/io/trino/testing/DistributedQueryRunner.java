@@ -86,19 +86,21 @@ public class DistributedQueryRunner
     private static final Logger log = Logger.get(DistributedQueryRunner.class);
     private static final String ENVIRONMENT = "testing";
 
-    private final TestingDiscoveryServer discoveryServer;
-    private final TestingTrinoServer coordinator;
-    private final Optional<TestingTrinoServer> backupCoordinator;
-    private final Runnable registerNewWorker;
+    private TestingDiscoveryServer discoveryServer;
+    private TestingTrinoServer coordinator;
+    private Optional<TestingTrinoServer> backupCoordinator;
+    private Runnable registerNewWorker;
     private final List<TestingTrinoServer> servers = new CopyOnWriteArrayList<>();
     private final List<FunctionBundle> functionBundles = new CopyOnWriteArrayList<>(ImmutableList.of(AbstractTestQueries.CUSTOM_FUNCTIONS));
     private final List<Plugin> plugins = new CopyOnWriteArrayList<>();
 
     private final Closer closer = Closer.create();
 
-    private final TestingTrinoClient trinoClient;
+    private TestingTrinoClient trinoClient;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+
+    private boolean closed;
 
     public static Builder<?> builder(Session defaultSession)
     {
@@ -566,6 +568,9 @@ public class DistributedQueryRunner
     @Override
     public final void close()
     {
+        if (closed) {
+            return;
+        }
         cancelAllQueries();
         try {
             closer.close();
@@ -573,6 +578,17 @@ public class DistributedQueryRunner
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+        discoveryServer = null;
+        coordinator = null;
+        backupCoordinator = Optional.empty();
+        registerNewWorker = () -> {
+            throw new IllegalStateException("Already closed");
+        };
+        servers.clear();
+        functionBundles.clear();
+        plugins.clear();
+        trinoClient = null;
+        closed = true;
     }
 
     private void cancelAllQueries()
