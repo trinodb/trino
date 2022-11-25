@@ -159,10 +159,10 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session, JdbcSplit split)
+    public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
             throws SQLException
     {
-        return stats.getGetConnectionWithSplit().wrap(() -> delegate().getConnection(session, split));
+        return stats.getGetConnectionWithSplit().wrap(() -> delegate().getConnection(session, split, tableHandle));
     }
 
     @Override
