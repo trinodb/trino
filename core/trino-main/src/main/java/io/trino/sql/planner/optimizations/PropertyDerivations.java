@@ -546,8 +546,8 @@ public final class PropertyDerivations
                         .unordered(true)
                         .build();
                 case FULL ->
-                    // We can't say anything about the partitioning scheme because any partition of
-                    // a hash-partitioned join can produce nulls in case of a lack of matches
+                        // We can't say anything about the partitioning scheme because any partition of
+                        // a hash-partitioned join can produce nulls in case of a lack of matches
                         ActualProperties.builder()
                                 .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
                                 .build();
@@ -704,7 +704,7 @@ public final class PropertyDerivations
                         .constants(constants)
                         .build();
                 case REPLICATE ->
-                    // TODO: this should have the same global properties as the stream taking the replicated data
+                        // TODO: this should have the same global properties as the stream taking the replicated data
                         ActualProperties.builder()
                                 .global(arbitraryPartition())
                                 .constants(constants)
