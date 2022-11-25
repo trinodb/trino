@@ -28,6 +28,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.trino.sql.planner.PartitioningHandle.createPartitioning;
 import static java.util.Objects.requireNonNull;
 
 public class TableProperties
@@ -61,7 +62,7 @@ public class TableProperties
     {
         return tableProperties.getTablePartitioning()
                 .map(nodePartitioning -> new TablePartitioning(
-                        new PartitioningHandle(
+                        createPartitioning(
                                 Optional.of(catalogHandle),
                                 Optional.of(transaction),
                                 nodePartitioning.getPartitioningHandle()),

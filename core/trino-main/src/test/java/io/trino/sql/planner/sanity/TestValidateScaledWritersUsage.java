@@ -45,6 +45,7 @@ import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.PartitioningHandle.createScaledWriterPartitioning;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -322,11 +323,10 @@ public class TestValidateScaledWritersUsage
         return new Object[][] {
                 {SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION},
                 {SCALED_WRITER_HASH_DISTRIBUTION},
-                {new PartitioningHandle(
+                {createScaledWriterPartitioning(
                         Optional.of(CatalogHandle.fromId("test")),
                         Optional.of(new ConnectorTransactionHandle() {}),
-                        new ConnectorPartitioningHandle() {},
-                        true)}
+                        new ConnectorPartitioningHandle() {})}
         };
     }
 

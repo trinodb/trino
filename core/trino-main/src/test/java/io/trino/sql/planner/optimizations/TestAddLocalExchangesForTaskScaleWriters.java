@@ -34,6 +34,8 @@ import java.util.Optional;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.planner.PartitioningHandle.createPartitioning;
+import static io.trino.sql.planner.PartitioningHandle.createScaledWriterPartitioning;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
@@ -149,7 +151,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
     public void testLocalScaledPartitionedWriterWithoutSupportForMultipleWritersPerPartition(boolean taskScaleWritersEnabled)
     {
         String catalogName = "mock_report_written_bytes_without_multiple_writer_per_partition";
-        PartitioningHandle partitioningHandle = new PartitioningHandle(
+        PartitioningHandle partitioningHandle = createPartitioning(
                 Optional.of(CatalogHandle.fromId(catalogName)),
                 Optional.of(MockConnectorTransactionHandle.INSTANCE),
                 CONNECTOR_PARTITIONING_HANDLE);
@@ -196,7 +198,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
     public void testLocalScaledPartitionedWriterWithoutSupportsForReportingWrittenBytes(boolean taskScaleWritersEnabled)
     {
         String catalogName = "mock_dont_report_written_bytes";
-        PartitioningHandle partitioningHandle = new PartitioningHandle(
+        PartitioningHandle partitioningHandle = createPartitioning(
                 Optional.of(CatalogHandle.fromId(catalogName)),
                 Optional.of(MockConnectorTransactionHandle.INSTANCE),
                 CONNECTOR_PARTITIONING_HANDLE);
@@ -290,15 +292,14 @@ public class TestAddLocalExchangesForTaskScaleWriters
     public void testLocalScaledPartitionedWriterForConnectorPartitioning()
     {
         String catalogName = "mock_report_written_bytes_with_multiple_writer_per_partition";
-        PartitioningHandle partitioningHandle = new PartitioningHandle(
+        PartitioningHandle partitioningHandle = createPartitioning(
                 Optional.of(CatalogHandle.fromId(catalogName)),
                 Optional.of(MockConnectorTransactionHandle.INSTANCE),
                 CONNECTOR_PARTITIONING_HANDLE);
-        PartitioningHandle scaledPartitioningHandle = new PartitioningHandle(
+        PartitioningHandle scaledPartitioningHandle = createScaledWriterPartitioning(
                 Optional.of(CatalogHandle.fromId(catalogName)),
                 Optional.of(MockConnectorTransactionHandle.INSTANCE),
-                CONNECTOR_PARTITIONING_HANDLE,
-                true);
+                CONNECTOR_PARTITIONING_HANDLE);
 
         assertDistributedPlan(
                 "INSERT INTO connector_partitioned_table SELECT * FROM source_table",

@@ -162,6 +162,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.GroupingOperationRewriter.rewriteGroupingOperation;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.OrderingScheme.sortItemToSortOrder;
+import static io.trino.sql.planner.PartitioningHandle.createPartitioning;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -1128,7 +1129,7 @@ class QueryPlanner
         Optional<PartitioningScheme> updatePartitioning = updateLayout.map(handle ->
                 new PartitioningScheme(Partitioning.create(handle, ImmutableList.of(rowIdSymbol)), ImmutableList.of(rowIdSymbol)));
 
-        PartitioningHandle partitioningHandle = new PartitioningHandle(
+        PartitioningHandle partitioningHandle = createPartitioning(
                 Optional.empty(),
                 Optional.empty(),
                 new MergePartitioningHandle(insertPartitioning, updatePartitioning));

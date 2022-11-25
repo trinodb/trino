@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.trino.sql.planner.PartitioningHandle.createPartitioning;
 import static java.util.Objects.requireNonNull;
 
 public class TableLayout
@@ -59,7 +60,7 @@ public class TableLayout
     public Optional<PartitioningHandle> getPartitioning()
     {
         return layout.getPartitioning()
-                .map(partitioning -> new PartitioningHandle(Optional.of(catalogHandle), Optional.of(transactionHandle), partitioning));
+                .map(partitioning -> createPartitioning(Optional.of(catalogHandle), Optional.of(transactionHandle), partitioning));
     }
 
     public List<String> getPartitionColumns()

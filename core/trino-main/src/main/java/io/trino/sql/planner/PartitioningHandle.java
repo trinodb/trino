@@ -39,14 +39,27 @@ public class PartitioningHandle
                 && (partitioning.equals(SCALED_WRITER_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent());
     }
 
-    public PartitioningHandle(
+    public static PartitioningHandle createPartitioning(
             Optional<CatalogHandle> catalogHandle,
             Optional<ConnectorTransactionHandle> transactionHandle,
             ConnectorPartitioningHandle connectorHandle)
     {
-        this(catalogHandle, transactionHandle, connectorHandle, false);
+        return new PartitioningHandle(catalogHandle, transactionHandle, connectorHandle, false);
     }
 
+    public static PartitioningHandle createScaledWriterPartitioning(
+            Optional<CatalogHandle> catalogHandle,
+            Optional<ConnectorTransactionHandle> transactionHandle,
+            ConnectorPartitioningHandle connectorHandle)
+    {
+        return new PartitioningHandle(catalogHandle, transactionHandle, connectorHandle, true);
+    }
+
+    /*
+     * This constructor is for JSON deserialization only. Do not use.
+     * It's marked as @Deprecated to help avoid usage, and not because we plan to remove it.
+     */
+    @Deprecated
     @JsonCreator
     public PartitioningHandle(
             @JsonProperty("catalogHandle") Optional<CatalogHandle> catalogHandle,

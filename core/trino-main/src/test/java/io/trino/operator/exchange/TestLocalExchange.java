@@ -60,6 +60,8 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.PartitioningHandle.createPartitioning;
+import static io.trino.sql.planner.PartitioningHandle.createScaledWriterPartitioning;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
@@ -843,7 +845,7 @@ public class TestLocalExchange
         partitionManagers.put(
                 TEST_CATALOG_HANDLE,
                 connectorNodePartitioningProvider);
-        PartitioningHandle partitioningHandle = new PartitioningHandle(
+        PartitioningHandle partitioningHandle = createPartitioning(
                 Optional.of(TEST_CATALOG_HANDLE),
                 Optional.of(TestingTransactionHandle.create()),
                 connectorPartitioningHandle);
@@ -1047,11 +1049,10 @@ public class TestLocalExchange
         partitionManagers.put(
                 TEST_CATALOG_HANDLE,
                 connectorNodePartitioningProvider);
-        return new PartitioningHandle(
+        return createScaledWriterPartitioning(
                 Optional.of(TEST_CATALOG_HANDLE),
                 Optional.of(TestingTransactionHandle.create()),
-                connectorPartitioningHandle,
-                true);
+                connectorPartitioningHandle);
     }
 
     private void run(LocalExchange localExchange, Consumer<LocalExchange> test)

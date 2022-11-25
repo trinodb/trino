@@ -31,6 +31,8 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.sql.planner.PartitioningHandle.createPartitioning;
+import static io.trino.sql.planner.PartitioningHandle.createScaledWriterPartitioning;
 import static java.util.Objects.requireNonNull;
 
 public final class SystemPartitioningHandle
@@ -58,12 +60,12 @@ public final class SystemPartitioningHandle
 
     private static PartitioningHandle createSystemPartitioning(SystemPartitioning partitioning, SystemPartitionFunction function)
     {
-        return new PartitioningHandle(Optional.empty(), Optional.empty(), new SystemPartitioningHandle(partitioning, function));
+        return createPartitioning(Optional.empty(), Optional.empty(), new SystemPartitioningHandle(partitioning, function));
     }
 
     private static PartitioningHandle createScaledWriterSystemPartitioning(SystemPartitionFunction function)
     {
-        return new PartitioningHandle(Optional.empty(), Optional.empty(), new SystemPartitioningHandle(SystemPartitioning.ARBITRARY, function), true);
+        return createScaledWriterPartitioning(Optional.empty(), Optional.empty(), new SystemPartitioningHandle(SystemPartitioning.ARBITRARY, function));
     }
 
     private final SystemPartitioning partitioning;

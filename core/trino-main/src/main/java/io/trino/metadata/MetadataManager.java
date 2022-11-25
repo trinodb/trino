@@ -163,6 +163,7 @@ import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.planner.PartitioningHandle.createPartitioning;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
@@ -417,7 +418,7 @@ public final class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogHandle);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
         Optional<ConnectorPartitioningHandle> commonHandle = metadata.getCommonPartitioningHandle(session.toConnectorSession(catalogHandle), left.getConnectorHandle(), right.getConnectorHandle());
-        return commonHandle.map(handle -> new PartitioningHandle(Optional.of(catalogHandle), left.getTransactionHandle(), handle));
+        return commonHandle.map(handle -> createPartitioning(Optional.of(catalogHandle), left.getTransactionHandle(), handle));
     }
 
     @Override
@@ -1001,7 +1002,7 @@ public final class MetadataManager
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalogHandle);
 
         return metadata.getUpdateLayout(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle())
-                .map(partitioning -> new PartitioningHandle(Optional.of(catalogHandle), Optional.of(transactionHandle), partitioning));
+                .map(partitioning -> createPartitioning(Optional.of(catalogHandle), Optional.of(transactionHandle), partitioning));
     }
 
     @Override

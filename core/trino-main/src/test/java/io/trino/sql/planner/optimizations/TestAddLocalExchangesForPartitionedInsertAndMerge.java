@@ -40,6 +40,7 @@ import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.planner.PartitioningHandle.createPartitioning;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -63,7 +64,7 @@ public class TestAddLocalExchangesForPartitionedInsertAndMerge
                     FIXED_HASH_DISTRIBUTION,
                     ImmutableList.of(new Symbol("year"))),
             ImmutableList.of(new Symbol("customer"), new Symbol("year")));
-    private static final PartitioningHandle MERGE_PARTITIONING_HANDLE = new PartitioningHandle(
+    private static final PartitioningHandle MERGE_PARTITIONING_HANDLE = createPartitioning(
             Optional.empty(),
             Optional.empty(),
             new MergePartitioningHandle(
