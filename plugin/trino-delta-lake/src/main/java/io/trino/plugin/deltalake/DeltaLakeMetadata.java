@@ -1255,7 +1255,7 @@ public class DeltaLakeMetadata
 
             transactionLogWriter.appendAddFileEntry(
                     new AddFileEntry(
-                            toUriFormat(info.getPath()), // Databricks and OSS Delta Lake both expect path to be url-encoded, even though the procotol specification doesn't mention that
+                            toUriFormat(info.getPath()), // Paths are RFC 2396 URI encoded https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file
                             partitionValues,
                             info.getSize(),
                             info.getCreationTime(),

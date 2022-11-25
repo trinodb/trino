@@ -283,6 +283,19 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     }
 
     @Test
+    public void testPathUriDecoding()
+    {
+        String tableName = "test_uri_table_" + randomNameSuffix();
+        registerTableFromResources(tableName, "databricks/uri", getQueryRunner());
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('a=equal', 1), ('a:colon', 2), ('a+plus', 3)");
+        String firstFilePath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE y = 1");
+        assertQuery("SELECT * FROM " + tableName + " WHERE \"$path\" = '" + firstFilePath + "'", "VALUES ('a=equal', 1)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testCreateTablePartitionValidation()
     {
         String tableName = "test_create_table_partition_validation_" + randomNameSuffix();

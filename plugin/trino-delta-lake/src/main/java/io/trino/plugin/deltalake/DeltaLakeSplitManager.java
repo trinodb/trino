@@ -36,7 +36,7 @@ import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
-import java.net.URLDecoder;
+import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -58,7 +58,6 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxInitial
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxSplitSize;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -290,8 +289,9 @@ public class DeltaLakeSplitManager
 
     private static String buildSplitPath(String tableLocation, AddFileEntry addAction)
     {
-        // paths are relative to the table location and URL encoded
-        String path = URLDecoder.decode(addAction.getPath(), UTF_8);
+        // paths are relative to the table location and are RFC 2396 URIs
+        // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file
+        String path = URI.create(addAction.getPath()).getPath();
         if (tableLocation.endsWith("/")) {
             return tableLocation + path;
         }
