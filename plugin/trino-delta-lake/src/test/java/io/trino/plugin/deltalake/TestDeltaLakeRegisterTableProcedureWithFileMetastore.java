@@ -13,25 +13,15 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 
 import java.io.File;
-import java.util.Map;
 
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 
 public class TestDeltaLakeRegisterTableProcedureWithFileMetastore
         extends BaseDeltaLakeRegisterTableProcedureTest
 {
-    @Override
-    protected Map<String, String> getConnectorProperties(String dataDirectory)
-    {
-        return ImmutableMap.of(
-                "hive.metastore", "file",
-                "hive.metastore.catalog.dir", dataDirectory);
-    }
-
     @Override
     protected HiveMetastore createTestMetastore(String dataDirectory)
     {

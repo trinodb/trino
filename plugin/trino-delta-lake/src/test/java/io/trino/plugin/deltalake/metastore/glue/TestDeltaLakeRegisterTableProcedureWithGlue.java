@@ -14,14 +14,12 @@
 package io.trino.plugin.deltalake.metastore.glue;
 
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.deltalake.BaseDeltaLakeRegisterTableProcedureTest;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.glue.DefaultGlueColumnStatisticsProviderFactory;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 
-import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -31,19 +29,12 @@ public class TestDeltaLakeRegisterTableProcedureWithGlue
         extends BaseDeltaLakeRegisterTableProcedureTest
 {
     @Override
-    protected Map<String, String> getConnectorProperties(String dataDirectory)
-    {
-        return ImmutableMap.of(
-                "hive.metastore", "glue",
-                "hive.metastore.glue.default-warehouse-dir", dataDirectory);
-    }
-
-    @Override
     protected HiveMetastore createTestMetastore(String dataDirectory)
     {
         return new GlueHiveMetastore(
                 HDFS_ENVIRONMENT,
-                new GlueHiveMetastoreConfig(),
+                new GlueHiveMetastoreConfig()
+                        .setDefaultWarehouseDir(dataDirectory),
                 DefaultAWSCredentialsProviderChain.getInstance(),
                 directExecutor(),
                 new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),

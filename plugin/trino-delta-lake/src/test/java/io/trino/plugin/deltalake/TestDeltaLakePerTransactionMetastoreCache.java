@@ -91,6 +91,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
         queryRunner.installPlugin(new TestingDeltaLakePlugin(
+                Optional.empty(),
                 new AbstractConfigurationAwareModule()
                 {
                     @Override

@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.plugin.deltalake.metastore.TestingDeltaLakeMetastoreModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -24,8 +25,10 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -33,6 +36,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteDirectoryContents;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
@@ -64,10 +68,9 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data").toString();
         this.metastore = createTestMetastore(dataDirectory);
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin());
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), EMPTY_MODULE));
 
         Map<String, String> connectorProperties = ImmutableMap.<String, String>builder()
-                .putAll(getConnectorProperties(dataDirectory))
                 .put("delta.unique-table-location", "true")
                 .put("delta.register-table-procedure.enabled", "true")
                 .buildOrThrow();
@@ -77,8 +80,6 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
 
         return queryRunner;
     }
-
-    protected abstract Map<String, String> getConnectorProperties(String dataDirectory);
 
     protected abstract HiveMetastore createTestMetastore(String dataDirectory);
 
@@ -204,14 +205,14 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         String tableNameNew = "test_register_table_with_no_transaction_log_new_" + randomNameSuffix();
 
         // Delete files under transaction log directory and put an invalid log file to verify register_table call fails
-        String transactionLogDir = getTransactionLogDir(new org.apache.hadoop.fs.Path(tableLocation)).toString();
+        String transactionLogDir = new URI(getTransactionLogDir(new org.apache.hadoop.fs.Path(tableLocation)).toString()).getPath();
         deleteDirectoryContents(Path.of(transactionLogDir), ALLOW_INSECURE);
         new File(getTransactionLogJsonEntryPath(new org.apache.hadoop.fs.Path(transactionLogDir), 0).toString()).createNewFile();
 
         assertQueryFails(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableNameNew, tableLocation),
                 ".*Failed to access table location: (.*)");
 
-        deleteRecursively(Path.of(tableLocation), ALLOW_INSECURE);
+        deleteRecursively(Path.of(new URI(tableLocation).getPath()), ALLOW_INSECURE);
         metastore.dropTable(SCHEMA, tableName, false);
     }
 
@@ -228,12 +229,12 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         String tableNameNew = "test_register_table_with_no_transaction_log_new_" + randomNameSuffix();
 
         // Delete files under transaction log directory to verify register_table call fails
-        deleteDirectoryContents(Path.of(getTransactionLogDir(new org.apache.hadoop.fs.Path(tableLocation)).toString()), ALLOW_INSECURE);
+        deleteDirectoryContents(Path.of(new URI(getTransactionLogDir(new org.apache.hadoop.fs.Path(tableLocation)).toString()).getPath()), ALLOW_INSECURE);
 
         assertQueryFails(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableNameNew, tableLocation),
                 ".*No transaction log found in location (.*)");
 
-        deleteRecursively(Path.of(tableLocation), ALLOW_INSECURE);
+        deleteRecursively(Path.of(new URI(tableLocation).getPath()), ALLOW_INSECURE);
         metastore.dropTable(SCHEMA, tableName, false);
     }
 
