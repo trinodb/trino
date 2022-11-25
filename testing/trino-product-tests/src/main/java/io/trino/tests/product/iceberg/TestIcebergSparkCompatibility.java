@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import io.airlift.concurrent.MoreFutures;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
+import io.trino.tempto.AfterTestWithContext;
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
@@ -96,6 +97,13 @@ public class TestIcebergSparkCompatibility
             throws TException
     {
         metastoreClient = testHiveMetastoreClientFactory.createMetastoreClient();
+    }
+
+    @AfterTestWithContext
+    public void tearDown()
+    {
+        metastoreClient.close();
+        metastoreClient = null;
     }
 
     // see spark-defaults.conf
