@@ -101,7 +101,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
 import static io.trino.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.coordinatorSingleStreamPartition;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
@@ -653,7 +655,7 @@ public final class PropertyDerivations
             // This is acceptable because AddLocalExchanges does not use global properties and is only
             // interested in the local properties.
             // However, for the purpose of validation, some global properties (single-node vs distributed)
-            // are computed for local exchanges.
+            // need to be propagated through local exchanges.
             // TODO: implement full properties for local exchanges
             if (node.getScope() == LOCAL) {
                 if (inputProperties.size() == 1) {
@@ -674,10 +676,18 @@ public final class PropertyDerivations
                 builder.constants(constants);
 
                 if (inputProperties.stream().anyMatch(ActualProperties::isCoordinatorOnly)) {
-                    builder.global(coordinatorSingleStreamPartition());
+                    builder.global(partitionedOn(
+                            COORDINATOR_DISTRIBUTION,
+                            ImmutableList.of(),
+                            // only gathering local exchange preserves single stream property
+                            node.getType() == GATHER ? Optional.of(ImmutableList.of()) : Optional.empty()));
                 }
                 else if (inputProperties.stream().anyMatch(ActualProperties::isSingleNode)) {
-                    builder.global(coordinatorSingleStreamPartition());
+                    builder.global(partitionedOn(
+                            SINGLE_DISTRIBUTION,
+                            ImmutableList.of(),
+                            // only gathering local exchange preserves single stream property
+                            node.getType() == GATHER ? Optional.of(ImmutableList.of()) : Optional.empty()));
                 }
                 else if (node.getOrderingScheme().isPresent() && node.getType() == GATHER) {
                     // Local merging exchange uses passthrough distribution
