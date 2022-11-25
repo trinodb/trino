@@ -108,7 +108,6 @@ public final class ColumnReaderFactory
                 if (isIntegerAnnotation(annotation)) {
                     return new FlatColumnReader<>(field, ValueDecoders::getIntToLongDecoder, LONG_ADAPTER);
                 }
-                throw unsupportedException(type, field);
             }
             if (type instanceof TimeType && primitiveType == INT64) {
                 if (annotation instanceof TimeLogicalTypeAnnotation timeAnnotation && timeAnnotation.getUnit() == MICROS) {
