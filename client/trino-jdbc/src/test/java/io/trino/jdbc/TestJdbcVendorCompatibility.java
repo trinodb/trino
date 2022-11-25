@@ -14,10 +14,10 @@
 package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Closer;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.server.testing.TestingTrinoServer;
+import io.trino.util.AutoCloseableCloser;
 import oracle.jdbc.OracleType;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -88,16 +88,34 @@ public class TestJdbcVendorCompatibility
         Logging.initialize();
         log = Logger.get(TestJdbcVendorCompatibility.class);
         server = TestingTrinoServer.create();
-        referenceDrivers = ImmutableList.of(new PostgresqlReferenceDriver(), new OracleReferenceDriver());
+
+        // Capture resources as soon as they are allocated. Ensure all allocate resources are cleaned up even if e.g. the last one fails to start.
+        referenceDrivers = new ArrayList<>();
+        referenceDrivers.add(new PostgresqlReferenceDriver());
+        referenceDrivers.add(new OracleReferenceDriver());
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDownServer()
             throws Exception
     {
-        try (Closer closer = Closer.create()) {
-            referenceDrivers.forEach(closer::register);
-            closer.register(server);
+        try (AutoCloseableCloser closer = AutoCloseableCloser.create()) {
+            if (referenceDrivers != null) {
+                referenceDrivers.forEach(closer::register);
+                referenceDrivers.clear();
+            }
+            if (server != null) {
+                closer.register(server);
+                server = null;
+            }
+            if (connection != null) {
+                closer.register(connection);
+                connection = null;
+            }
+            if (statement != null) {
+                closer.register(statement);
+                statement = null;
+            }
         }
     }
 
@@ -116,8 +134,14 @@ public class TestJdbcVendorCompatibility
     public void tearDown()
             throws Exception
     {
-        statement.close();
-        connection.close();
+        if (statement != null) {
+            statement.close();
+            statement = null;
+        }
+        if (connection != null) {
+            connection.close();
+            connection = null;
+        }
         for (ReferenceDriver driver : referenceDrivers) {
             try {
                 driver.tearDown();
