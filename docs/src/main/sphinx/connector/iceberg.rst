@@ -1236,7 +1236,9 @@ used to specify the schema where the storage table will be created.
 Updating the data in the materialized view with
 :doc:`/sql/refresh-materialized-view` deletes the data from the storage table,
 and inserts the data that is the result of executing the materialized view
-query into the existing table. Refreshing a materialized view also stores
+query into the existing table. Data is replaced atomically, so users can
+continue to query the materialized view while it is being refreshed.
+Refreshing a materialized view also stores
 the snapshot-ids of all tables that are part of the materialized
 view's query in the materialized view metadata. When the materialized
 view is queried, the snapshot-ids are used to check if the data in the storage
