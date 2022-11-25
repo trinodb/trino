@@ -58,7 +58,6 @@ import static io.trino.parquet.reader.TestingColumnReader.PLAIN_WRITER;
 import static io.trino.parquet.reader.TestingColumnReader.getDictionaryPage;
 import static io.trino.parquet.reader.flat.IntColumnAdapter.INT_ADAPTER;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
@@ -76,13 +75,6 @@ public class TestFlatColumnReader
     private static final PrimitiveType TYPE = new PrimitiveType(REQUIRED, INT32, "");
     private static final PrimitiveField NULLABLE_FIELD = new PrimitiveField(INTEGER, false, new ColumnDescriptor(new String[] {}, TYPE, 0, 0), 0);
     private static final PrimitiveField FIELD = new PrimitiveField(INTEGER, true, new ColumnDescriptor(new String[] {}, TYPE, 0, 0), 0);
-
-    private final String[] fieldPath;
-
-    public TestFlatColumnReader(String[] fieldPath)
-    {
-        this.fieldPath = requireNonNull(fieldPath, "fieldPath is null");
-    }
 
     @Test
     public void testReadPageV1BitPacked()
@@ -538,7 +530,7 @@ public class TestFlatColumnReader
         return new PrimitiveField(
                 format.getTrinoType(),
                 required,
-                new ColumnDescriptor(fieldPath, primitiveType, 0, required ? 0 : 1),
+                new ColumnDescriptor(new String[] {"dummy"}, primitiveType, 0, required ? 0 : 1),
                 0);
     }
 
