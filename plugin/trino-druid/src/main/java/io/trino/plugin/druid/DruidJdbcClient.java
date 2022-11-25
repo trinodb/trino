@@ -399,7 +399,8 @@ public class DruidJdbcClient
                     table.getLimit(),
                     table.getColumns(),
                     table.getOtherReferencedTables(),
-                    table.getNextSyntheticColumnId());
+                    table.getNextSyntheticColumnId(),
+                    table.getAuthorization());
         }
 
         return table;
