@@ -208,6 +208,11 @@ public class ManageTestResources
                                     rule);
                         }
                     }
+
+                    // Opportunistic cleanup
+                    if (stage == AFTER_CLASS && !isStatic(field.getModifiers())) {
+                        field.set(instance, null);
+                    }
                 }
             }
         }
