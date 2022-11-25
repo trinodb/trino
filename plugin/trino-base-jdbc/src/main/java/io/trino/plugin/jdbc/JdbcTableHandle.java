@@ -58,6 +58,7 @@ public final class JdbcTableHandle
     private final Optional<Set<SchemaTableName>> otherReferencedTables;
 
     private final int nextSyntheticColumnId;
+    private final Optional<String> authorization;
 
     public JdbcTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName, Optional<String> comment)
     {
@@ -69,7 +70,8 @@ public final class JdbcTableHandle
                 OptionalLong.empty(),
                 Optional.empty(),
                 Optional.of(ImmutableSet.of()),
-                0);
+                0,
+                Optional.empty());
     }
 
     @JsonCreator
@@ -81,7 +83,8 @@ public final class JdbcTableHandle
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("columns") Optional<List<JdbcColumnHandle>> columns,
             @JsonProperty("otherReferencedTables") Optional<Set<SchemaTableName>> otherReferencedTables,
-            @JsonProperty("nextSyntheticColumnId") int nextSyntheticColumnId)
+            @JsonProperty("nextSyntheticColumnId") int nextSyntheticColumnId,
+            @JsonProperty("authorization") Optional<String> authorization)
     {
         this.relationHandle = requireNonNull(relationHandle, "relationHandle is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
@@ -92,6 +95,7 @@ public final class JdbcTableHandle
         this.columns = columns.map(ImmutableList::copyOf);
         this.otherReferencedTables = otherReferencedTables.map(ImmutableSet::copyOf);
         this.nextSyntheticColumnId = nextSyntheticColumnId;
+        this.authorization = requireNonNull(authorization, "authorization is null");
     }
 
     public JdbcTableHandle intersectedWithConstraint(TupleDomain<ColumnHandle> newConstraint)
@@ -104,7 +108,8 @@ public final class JdbcTableHandle
                 limit,
                 columns,
                 otherReferencedTables,
-                nextSyntheticColumnId);
+                nextSyntheticColumnId,
+                authorization);
     }
 
     public JdbcNamedRelationHandle asPlainTable()
@@ -195,6 +200,12 @@ public final class JdbcTableHandle
         return nextSyntheticColumnId;
     }
 
+    @JsonProperty
+    public Optional<String> getAuthorization()
+    {
+        return authorization;
+    }
+
     @JsonIgnore
     public boolean isSynthetic()
     {
@@ -223,13 +234,14 @@ public final class JdbcTableHandle
                 Objects.equals(this.sortOrder, o.sortOrder) &&
                 Objects.equals(this.limit, o.limit) &&
                 Objects.equals(this.columns, o.columns) &&
-                this.nextSyntheticColumnId == o.nextSyntheticColumnId;
+                this.nextSyntheticColumnId == o.nextSyntheticColumnId &&
+                Objects.equals(this.authorization, o.authorization);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(relationHandle, constraint, constraintExpressions, sortOrder, limit, columns, nextSyntheticColumnId);
+        return Objects.hash(relationHandle, constraint, constraintExpressions, sortOrder, limit, columns, nextSyntheticColumnId, authorization);
     }
 
     @Override
@@ -253,6 +265,7 @@ public final class JdbcTableHandle
         sortOrder.ifPresent(value -> builder.append(" sortOrder=").append(value));
         limit.ifPresent(value -> builder.append(" limit=").append(value));
         columns.ifPresent(value -> builder.append(" columns=").append(value));
+        authorization.ifPresent(value -> builder.append(" authorization=").append(value));
         return builder.toString();
     }
 }
