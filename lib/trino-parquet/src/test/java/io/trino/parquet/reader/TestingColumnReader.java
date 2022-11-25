@@ -474,6 +474,12 @@ public class TestingColumnReader
         };
     }
 
+    private static Assertion<Number> assertTimeInt(int precision)
+    {
+        int multiplier = IntMath.pow(10, precision);
+        return (values, block, offset, blockOffset) -> assertThat(block.getLong(blockOffset, 0)).isEqualTo(values[offset].longValue() * multiplier);
+    }
+
     private static Assertion<DecodedTimestamp> assertInt96Short(int rounding)
     {
         return (values, block, offset, blockOffset) -> {
@@ -643,6 +649,7 @@ public class TestingColumnReader
                 new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, uuidType(), UUID, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_UUID, ASSERT_INT_128),
                 new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, null, UUID, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_UUID, ASSERT_INT_128),
                 // Trino type precision is irrelevant since the data is always stored as picoseconds
+                new ColumnReaderFormat<>(INT32, timeType(false, MILLIS), TimeType.TIME_MILLIS, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, assertTimeInt(9)),
                 new ColumnReaderFormat<>(INT64, timeType(false, MICROS), TimeType.TIME_MICROS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, assertTime(6)),
                 // Short decimals
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),

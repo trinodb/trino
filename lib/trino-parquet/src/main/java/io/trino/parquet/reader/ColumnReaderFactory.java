@@ -105,6 +105,9 @@ public final class ColumnReaderFactory
                 throw unsupportedException(type, field);
             }
             if (type instanceof AbstractLongType && primitiveType == INT32) {
+                if (type instanceof TimeType && annotation instanceof TimeLogicalTypeAnnotation timeAnnotation && timeAnnotation.getUnit() == MILLIS) {
+                    return new FlatColumnReader<>(field, ValueDecoders::getTimeMillisDecoder, LONG_ADAPTER);
+                }
                 if (isIntegerAnnotation(annotation)) {
                     return new FlatColumnReader<>(field, ValueDecoders::getIntToLongDecoder, LONG_ADAPTER);
                 }

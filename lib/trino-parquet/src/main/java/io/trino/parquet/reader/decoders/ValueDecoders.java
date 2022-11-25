@@ -44,6 +44,7 @@ import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.ShortA
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.ShortDecimalApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.UuidApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.DelegateDecoders.timeMicrosDecoder;
+import static io.trino.parquet.reader.decoders.DelegateDecoders.timeMillisDecoder;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -76,6 +77,11 @@ public final class ValueDecoders
     public static ValueDecoder<long[]> getTimeMicrosDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
     {
         return timeMicrosDecoder(getLongDecoder(encoding, field, dictionary));
+    }
+
+    public static ValueDecoder<long[]> getTimeMillisDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        return timeMillisDecoder(getIntToLongDecoder(encoding, field, dictionary));
     }
 
     public static ValueDecoder<long[]> getShortDecimalDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)

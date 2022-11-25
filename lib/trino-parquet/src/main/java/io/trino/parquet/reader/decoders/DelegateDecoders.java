@@ -16,6 +16,7 @@ package io.trino.parquet.reader.decoders;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 
 public class DelegateDecoders
 {
@@ -37,6 +38,33 @@ public class DelegateDecoders
                 delegate.read(values, offset, length);
                 for (int i = offset; i < offset + length; i++) {
                     values[i] = values[i] * PICOSECONDS_PER_MICROSECOND;
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public static ValueDecoder<long[]> timeMillisDecoder(ValueDecoder<long[]> delegate)
+    {
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(long[] values, int offset, int length)
+            {
+                delegate.read(values, offset, length);
+                for (int i = offset; i < offset + length; i++) {
+                    values[i] = values[i] * PICOSECONDS_PER_MILLISECOND;
                 }
             }
 
