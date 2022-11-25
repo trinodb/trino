@@ -37,6 +37,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -77,7 +78,7 @@ public class TestDeltaLakeMetastoreAccessOperations
                         .setMetastoreUser("test"));
         metastore = new CountingAccessHiveMetastore(hiveMetastore);
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(new CountingAccessMetastoreModule(metastore)));
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.empty(), new CountingAccessMetastoreModule(metastore)));
         ImmutableMap.Builder<String, String> deltaLakeProperties = ImmutableMap.builder();
         deltaLakeProperties.put("hive.metastore", "test"); // use test value so we do not get clash with default bindings)
         queryRunner.createCatalog("delta_lake", "delta-lake", deltaLakeProperties.buildOrThrow());
