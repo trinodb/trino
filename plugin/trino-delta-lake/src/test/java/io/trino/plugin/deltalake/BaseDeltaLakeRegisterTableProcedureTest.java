@@ -117,6 +117,25 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
     }
 
     @Test
+    public void testRegisterPartitionedTable()
+    {
+        String tableName = "test_register_partitioned_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " WITH(partitioned_by = ARRAY['part']) AS SELECT 1 AS data, 'a' AS part", 1);
+
+        String tableLocation = getTableLocation(tableName);
+
+        metastore.dropTable(SCHEMA, tableName, false);
+
+        assertUpdate(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableName, tableLocation));
+
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName)).contains("partitioned_by = ARRAY['part']");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'a')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testRegisterTableWithComments()
     {
         String tableName = "test_register_table_with_comments_" + randomNameSuffix();
