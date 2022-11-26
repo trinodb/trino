@@ -55,9 +55,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.execution.ParameterExtractor.bindParameters;
@@ -79,6 +82,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.EXCLUDING;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class CreateTableTask
@@ -267,13 +271,17 @@ public class CreateTableTask
                 parameterLookup,
                 true);
 
-        accessControl.checkCanCreateTable(session.toSecurityContext(), tableName, properties);
-
         Set<String> specifiedPropertyKeys = statement.getProperties().stream()
-                .map(property -> property.getName().getValue())
+                // property names are case-insensitive and normalized to lower case
+                .map(property -> property.getName().getValue().toLowerCase(ENGLISH))
                 .collect(toImmutableSet());
-        Map<String, Object> finalProperties = combineProperties(specifiedPropertyKeys, properties, inheritedProperties);
+        Map<String, Object> explicitlySetProperties = properties.keySet().stream()
+                .peek(key -> verify(key.equals(key.toLowerCase(ENGLISH)), "Property name '%s' not in lower-case", key))
+                .filter(specifiedPropertyKeys::contains)
+                .collect(toImmutableMap(Function.identity(), properties::get));
+        accessControl.checkCanCreateTable(session.toSecurityContext(), tableName, explicitlySetProperties);
 
+        Map<String, Object> finalProperties = combineProperties(specifiedPropertyKeys, properties, inheritedProperties);
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment());
         try {
             plannerContext.getMetadata().createTable(session, catalogName, tableMetadata, statement.isNotExists());
