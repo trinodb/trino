@@ -89,6 +89,15 @@ public class JdbcModule
 
         newSetBinder(binder, ConnectorTableFunction.class);
 
+        install(conditionalModule(
+                QueryConfig.class,
+                QueryConfig::isRetryOpeningConnection,
+                innerBinder -> {
+                    innerBinder.bind(ConnectionFactory.class).annotatedWith(ForRetryJdbc.class).to(RetryingConnectionFactory.class);
+                    innerBinder.bind(RetryingConnectionCondition.class).toInstance(RetryingConnectionFactory::isRetryableException);
+                },
+                innerBinder -> innerBinder.bind(ConnectionFactory.class).annotatedWith(ForRetryJdbc.class).to(Key.get(ConnectionFactory.class, ForBaseJdbc.class)).in(Scopes.SINGLETON)));
+
         binder.bind(ConnectionFactory.class)
                 .annotatedWith(ForLazyConnectionFactory.class)
                 .to(Key.get(ConnectionFactory.class, StatsCollecting.class))

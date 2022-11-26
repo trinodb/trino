@@ -34,6 +34,7 @@ import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.ForJdbcDynamicFiltering;
 import io.trino.plugin.jdbc.ForLazyConnectionFactory;
 import io.trino.plugin.jdbc.ForRecordCursor;
+import io.trino.plugin.jdbc.ForRetryJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcDiagnosticModule;
 import io.trino.plugin.jdbc.JdbcDynamicFilteringConfig;
@@ -48,6 +49,9 @@ import io.trino.plugin.jdbc.JdbcWriteSessionProperties;
 import io.trino.plugin.jdbc.LazyConnectionFactory;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.QueryConfig;
+import io.trino.plugin.jdbc.RetryingConnectionCondition;
+import io.trino.plugin.jdbc.RetryingConnectionFactory;
 import io.trino.plugin.jdbc.ReusableConnectionFactoryModule;
 import io.trino.plugin.jdbc.StatsCollecting;
 import io.trino.plugin.jdbc.TypeHandlingJdbcConfig;
@@ -130,6 +134,15 @@ public class PhoenixClientModule
         binder.bind(JdbcClient.class).to(Key.get(JdbcClient.class, StatsCollecting.class)).in(Scopes.SINGLETON);
         binder.bind(ConnectorMetadata.class).annotatedWith(ForClassLoaderSafe.class).to(PhoenixMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorMetadata.class).to(ClassLoaderSafeConnectorMetadata.class).in(Scopes.SINGLETON);
+
+        install(conditionalModule(
+                QueryConfig.class,
+                QueryConfig::isRetryOpeningConnection,
+                innerBinder -> {
+                    innerBinder.bind(ConnectionFactory.class).annotatedWith(ForRetryJdbc.class).to(RetryingConnectionFactory.class);
+                    innerBinder.bind(RetryingConnectionCondition.class).toInstance(RetryingConnectionFactory::isRetryableException);
+                },
+                innerBinder -> innerBinder.bind(ConnectionFactory.class).annotatedWith(ForRetryJdbc.class).to(Key.get(ConnectionFactory.class, ForBaseJdbc.class)).in(Scopes.SINGLETON)));
 
         binder.bind(ConnectionFactory.class)
                 .annotatedWith(ForLazyConnectionFactory.class)

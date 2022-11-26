@@ -124,7 +124,7 @@ public class TestingOracleServer
                 new OracleDriver(),
                 new BaseJdbcConfig().setConnectionUrl(connectionUrl),
                 StaticCredentialProvider.of(username, password));
-        return new RetryingConnectionFactory(connectionFactory);
+        return new RetryingConnectionFactory(connectionFactory, OracleClientModule::isRetryableException);
     }
 
     @Override

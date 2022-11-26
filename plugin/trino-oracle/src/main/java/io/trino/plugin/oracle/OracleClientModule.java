@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.oracle;
 
+import com.google.common.base.Throwables;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -33,6 +34,7 @@ import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleDriver;
 
 import java.sql.SQLException;
+import java.sql.SQLRecoverableException;
 import java.util.Properties;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -78,6 +80,13 @@ public class OracleClientModule
                 new OracleDriver(),
                 config.getConnectionUrl(),
                 connectionProperties,
-                credentialProvider));
+                credentialProvider),
+                OracleClientModule::isRetryableException);
+    }
+
+    static boolean isRetryableException(Throwable exception)
+    {
+        return Throwables.getCausalChain(exception).stream()
+                .anyMatch(SQLRecoverableException.class::isInstance);
     }
 }

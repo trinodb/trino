@@ -19,10 +19,16 @@ import io.airlift.configuration.ConfigDescription;
 public class QueryConfig
 {
     private boolean reuseConnection = true;
+    private boolean retryOpeningConnection;
 
     public boolean isReuseConnection()
     {
         return reuseConnection;
+    }
+
+    public boolean isRetryOpeningConnection()
+    {
+        return retryOpeningConnection;
     }
 
     @Config("query.reuse-connection")
@@ -30,6 +36,14 @@ public class QueryConfig
     public QueryConfig setReuseConnection(boolean reuseConnection)
     {
         this.reuseConnection = reuseConnection;
+        return this;
+    }
+
+    @Config("query.retry-opening-connection")
+    @ConfigDescription("Enables retrying opening JDBC connection")
+    public QueryConfig setRetryOpeningConnection(boolean retryOpeningConnection)
+    {
+        this.retryOpeningConnection = retryOpeningConnection;
         return this;
     }
 }

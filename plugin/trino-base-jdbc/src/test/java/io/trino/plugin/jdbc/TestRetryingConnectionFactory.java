@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.sql.SQLRecoverableException;
+import java.sql.SQLTransientException;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.stream.Stream;
@@ -29,9 +29,9 @@ import static com.google.common.reflect.Reflection.newProxy;
 import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.RETURN;
 import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_NPE;
 import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_SQL_EXCEPTION;
-import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_SQL_RECOVERABLE_EXCEPTION;
+import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_SQL_TRANSIENT_EXCEPTION;
 import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_TRINO_EXCEPTION;
-import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_WRAPPED_SQL_RECOVERABLE_EXCEPTION;
+import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_WRAPPED_SQL_TRANSIENT_EXCEPTION;
 import static io.trino.spi.block.TestingSession.SESSION;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static java.util.Objects.requireNonNull;
@@ -52,7 +52,7 @@ public class TestRetryingConnectionFactory
             throws Exception
     {
         MockConnectorFactory mock = new MockConnectorFactory(RETURN);
-        ConnectionFactory factory = new RetryingConnectionFactory(mock);
+        ConnectionFactory factory = new RetryingConnectionFactory(mock, RetryingConnectionFactory::isRetryableException);
         assertNotNull(factory.openConnection(SESSION));
         assertEquals(mock.getCallCount(), 1);
     }
@@ -60,8 +60,8 @@ public class TestRetryingConnectionFactory
     @Test
     public void testRetryAndStopOnTrinoException()
     {
-        MockConnectorFactory mock = new MockConnectorFactory(THROW_SQL_RECOVERABLE_EXCEPTION, THROW_TRINO_EXCEPTION);
-        ConnectionFactory factory = new RetryingConnectionFactory(mock);
+        MockConnectorFactory mock = new MockConnectorFactory(THROW_SQL_TRANSIENT_EXCEPTION, THROW_TRINO_EXCEPTION);
+        ConnectionFactory factory = new RetryingConnectionFactory(mock, RetryingConnectionFactory::isRetryableException);
         assertThatThrownBy(() -> factory.openConnection(SESSION))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Testing Trino exception");
@@ -71,8 +71,8 @@ public class TestRetryingConnectionFactory
     @Test
     public void testRetryAndStopOnSqlException()
     {
-        MockConnectorFactory mock = new MockConnectorFactory(THROW_SQL_RECOVERABLE_EXCEPTION, THROW_SQL_EXCEPTION);
-        ConnectionFactory factory = new RetryingConnectionFactory(mock);
+        MockConnectorFactory mock = new MockConnectorFactory(THROW_SQL_TRANSIENT_EXCEPTION, THROW_SQL_EXCEPTION);
+        ConnectionFactory factory = new RetryingConnectionFactory(mock, RetryingConnectionFactory::isRetryableException);
         assertThatThrownBy(() -> factory.openConnection(SESSION))
                 .isInstanceOf(SQLException.class)
                 .hasMessage("Testing sql exception");
@@ -83,7 +83,7 @@ public class TestRetryingConnectionFactory
     public void testNullPointerException()
     {
         MockConnectorFactory mock = new MockConnectorFactory(THROW_NPE);
-        ConnectionFactory factory = new RetryingConnectionFactory(mock);
+        ConnectionFactory factory = new RetryingConnectionFactory(mock, RetryingConnectionFactory::isRetryableException);
         assertThatThrownBy(() -> factory.openConnection(SESSION))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("Testing NPE");
@@ -94,8 +94,8 @@ public class TestRetryingConnectionFactory
     public void testRetryAndReturn()
             throws Exception
     {
-        MockConnectorFactory mock = new MockConnectorFactory(THROW_SQL_RECOVERABLE_EXCEPTION, RETURN);
-        ConnectionFactory factory = new RetryingConnectionFactory(mock);
+        MockConnectorFactory mock = new MockConnectorFactory(THROW_SQL_TRANSIENT_EXCEPTION, RETURN);
+        ConnectionFactory factory = new RetryingConnectionFactory(mock, RetryingConnectionFactory::isRetryableException);
         assertNotNull(factory.openConnection(SESSION));
         assertEquals(mock.getCallCount(), 2);
     }
@@ -104,8 +104,8 @@ public class TestRetryingConnectionFactory
     public void testRetryOnWrappedAndReturn()
             throws Exception
     {
-        MockConnectorFactory mock = new MockConnectorFactory(THROW_WRAPPED_SQL_RECOVERABLE_EXCEPTION, RETURN);
-        ConnectionFactory factory = new RetryingConnectionFactory(mock);
+        MockConnectorFactory mock = new MockConnectorFactory(THROW_WRAPPED_SQL_TRANSIENT_EXCEPTION, RETURN);
+        ConnectionFactory factory = new RetryingConnectionFactory(mock, RetryingConnectionFactory::isRetryableException);
         assertNotNull(factory.openConnection(SESSION));
         assertEquals(mock.getCallCount(), 2);
     }
@@ -142,10 +142,10 @@ public class TestRetryingConnectionFactory
                     throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "Testing Trino exception");
                 case THROW_SQL_EXCEPTION:
                     throw new SQLException("Testing sql exception");
-                case THROW_SQL_RECOVERABLE_EXCEPTION:
-                    throw new SQLRecoverableException("Testing sql recoverable exception");
-                case THROW_WRAPPED_SQL_RECOVERABLE_EXCEPTION:
-                    throw new RuntimeException(new SQLRecoverableException("Testing sql recoverable exception"));
+                case THROW_SQL_TRANSIENT_EXCEPTION:
+                    throw new SQLTransientException("Testing sql recoverable exception");
+                case THROW_WRAPPED_SQL_TRANSIENT_EXCEPTION:
+                    throw new RuntimeException(new SQLTransientException("Testing sql recoverable exception"));
             }
             throw new IllegalStateException("Unsupported action:" + action);
         }
@@ -154,8 +154,8 @@ public class TestRetryingConnectionFactory
         {
             THROW_TRINO_EXCEPTION,
             THROW_SQL_EXCEPTION,
-            THROW_SQL_RECOVERABLE_EXCEPTION,
-            THROW_WRAPPED_SQL_RECOVERABLE_EXCEPTION,
+            THROW_SQL_TRANSIENT_EXCEPTION,
+            THROW_WRAPPED_SQL_TRANSIENT_EXCEPTION,
             THROW_NPE,
             RETURN,
         }

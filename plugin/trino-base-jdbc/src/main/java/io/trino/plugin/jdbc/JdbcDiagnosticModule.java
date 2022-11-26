@@ -73,7 +73,7 @@ public class JdbcDiagnosticModule
     @Provides
     @Singleton
     @StatsCollecting
-    public static ConnectionFactory createConnectionFactoryWithStats(@ForBaseJdbc ConnectionFactory connectionFactory)
+    public static ConnectionFactory createConnectionFactoryWithStats(@ForRetryJdbc ConnectionFactory connectionFactory)
     {
         return new StatisticsAwareConnectionFactory(connectionFactory);
     }
