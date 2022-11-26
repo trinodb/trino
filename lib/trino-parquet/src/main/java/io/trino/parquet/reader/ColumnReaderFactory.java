@@ -173,6 +173,22 @@ public final class ColumnReaderFactory
                     case NANOS -> new FlatColumnReader<>(field, TransformingValueDecoders::getInt64TimestampNanosToLongTimestampDecoder, INT96_ADAPTER);
                 };
             }
+            if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && primitiveType == INT64) {
+                if (!(annotation instanceof TimestampLogicalTypeAnnotation timestampAnnotation)) {
+                    throw unsupportedException(type, field);
+                }
+                if (timestampWithTimeZoneType.isShort()) {
+                    return switch (timestampAnnotation.getUnit()) {
+                        case MILLIS -> new FlatColumnReader<>(field, TransformingValueDecoders::getInt64TimestampMillsToShortTimestampWithTimeZoneDecoder, LONG_ADAPTER);
+                        case MICROS -> new FlatColumnReader<>(field, TransformingValueDecoders::getInt64TimestampMicrosToShortTimestampWithTimeZoneDecoder, LONG_ADAPTER);
+                        case NANOS -> throw unsupportedException(type, field);
+                    };
+                }
+                return switch (timestampAnnotation.getUnit()) {
+                    case MILLIS, NANOS -> throw unsupportedException(type, field);
+                    case MICROS -> new FlatColumnReader<>(field, TransformingValueDecoders::getInt64TimestampMicrosToLongTimestampWithTimeZoneDecoder, INT96_ADAPTER);
+                };
+            }
             if (type instanceof DecimalType decimalType && decimalType.isShort()
                     && (primitiveType == INT32 || primitiveType == INT64 || primitiveType == FIXED_LEN_BYTE_ARRAY)) {
                 if (annotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation && !isDecimalRescaled(decimalAnnotation, decimalType)) {
