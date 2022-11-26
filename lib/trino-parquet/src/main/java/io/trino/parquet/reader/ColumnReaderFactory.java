@@ -167,7 +167,12 @@ public final class ColumnReaderFactory
 
         return switch (primitiveType) {
             case BOOLEAN -> new BooleanColumnReader(field);
-            case INT32 -> createDecimalColumnReader(field).orElse(new IntColumnReader(field));
+            case INT32 -> {
+                if (annotation instanceof TimeLogicalTypeAnnotation timeAnnotation && timeAnnotation.getUnit() == MILLIS) {
+                    yield new TimeMillisColumnReader(field);
+                }
+                yield createDecimalColumnReader(field).orElse(new IntColumnReader(field));
+            }
             case INT64 -> {
                 if (annotation instanceof TimeLogicalTypeAnnotation timeAnnotation) {
                     if (timeAnnotation.getUnit() == MICROS) {
