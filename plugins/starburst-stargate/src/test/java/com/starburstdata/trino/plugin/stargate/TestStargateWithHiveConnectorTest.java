@@ -10,6 +10,7 @@
 package com.starburstdata.trino.plugin.stargate;
 
 import io.trino.Session;
+import io.trino.plugin.jdbc.JoinOperator;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -441,11 +442,12 @@ public class TestStargateWithHiveConnectorTest
      * tables using the Remote Starburst instance.
      */
     @Override
-    public void testJoinPushdown()
+    @Test(dataProvider = "joinOperators")
+    public void testJoinPushdown(JoinOperator joinOperator)
     {
         // Make sure that the test still fails how we expect it to, on table creation instead
         // of on join pushdown.
-        assertThatThrownBy(super::testJoinPushdown)
+        assertThatThrownBy(() -> super.testJoinPushdown(joinOperator))
                 .hasMessageMatching("This connector does not support creating tables.*");
         throw new SkipException("test requires table creation");
     }
