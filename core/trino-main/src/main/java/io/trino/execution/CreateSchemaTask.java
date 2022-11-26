@@ -34,7 +34,12 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
 
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.metadata.MetadataUtil.checkRoleExists;
@@ -44,6 +49,7 @@ import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class CreateSchemaTask
@@ -101,7 +107,15 @@ public class CreateSchemaTask
                 bindParameters(statement, parameters),
                 true);
 
-        accessControl.checkCanCreateSchema(session.toSecurityContext(), schema, properties);
+        Set<String> specifiedPropertyKeys = statement.getProperties().stream()
+                // property names are case-insensitive and normalized to lower case
+                .map(property -> property.getName().getValue().toLowerCase(ENGLISH))
+                .collect(toImmutableSet());
+        Map<String, Object> explicitlySetProperties = properties.keySet().stream()
+                .peek(key -> verify(key.equals(key.toLowerCase(ENGLISH)), "Property name '%s' not in lower-case", key))
+                .filter(specifiedPropertyKeys::contains)
+                .collect(toImmutableMap(Function.identity(), properties::get));
+        accessControl.checkCanCreateSchema(session.toSecurityContext(), schema, explicitlySetProperties);
 
         if (plannerContext.getMetadata().schemaExists(session, schema)) {
             if (!statement.isNotExists()) {
