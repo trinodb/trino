@@ -194,6 +194,34 @@ public class TransformingValueDecoders
                 });
     }
 
+    public static ValueDecoder<long[]> getInt64TimestampMillsToShortTimestampWithTimeZoneDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        checkArgument(
+                field.getType() instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.isShort(),
+                "Trino type %s is not a short timestamp",
+                field.getType());
+        int precision = ((TimestampWithTimeZoneType) field.getType()).getPrecision();
+        ValueDecoder<long[]> valueDecoder = getLongDecoder(encoding, field, dictionary);
+        if (precision < 3) {
+            return new InlineTransformDecoder<>(
+                    valueDecoder,
+                    (values, offset, length) -> {
+                        // decoded values are epochMillis, round to lower precision and convert to packed millis utc value
+                        for (int i = offset; i < offset + length; i++) {
+                            values[i] = packDateTimeWithZone(round(values[i], 3 - precision), UTC_KEY);
+                        }
+                    });
+        }
+        return new InlineTransformDecoder<>(
+                valueDecoder,
+                (values, offset, length) -> {
+                    // decoded values are epochMillis, convert to packed millis utc value
+                    for (int i = offset; i < offset + length; i++) {
+                        values[i] = packDateTimeWithZone(values[i], UTC_KEY);
+                    }
+                });
+    }
+
     public static ValueDecoder<long[]> getInt64TimestampMicrosToShortTimestampDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
     {
         checkArgument(
@@ -211,6 +239,23 @@ public class TransformingValueDecoders
                     // decoded values are epochMicros, round to lower precision
                     for (int i = offset; i < offset + length; i++) {
                         values[i] = round(values[i], 6 - precision);
+                    }
+                });
+    }
+
+    public static ValueDecoder<long[]> getInt64TimestampMicrosToShortTimestampWithTimeZoneDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        checkArgument(
+                field.getType() instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.isShort(),
+                "Trino type %s is not a short timestamp",
+                field.getType());
+        int precision = ((TimestampWithTimeZoneType) field.getType()).getPrecision();
+        return new InlineTransformDecoder<>(
+                getLongDecoder(encoding, field, dictionary),
+                (values, offset, length) -> {
+                    // decoded values are epochMicros, round to lower precision and convert to packed millis utc value
+                    for (int i = offset; i < offset + length; i++) {
+                        values[i] = packDateTimeWithZone(round(values[i], 6 - precision) / MICROSECONDS_PER_MILLISECOND, UTC_KEY);
                     }
                 });
     }
@@ -277,6 +322,37 @@ public class TransformingValueDecoders
             {
                 // decoded values are epochMicros
                 delegate.read(values.longs, offset, length);
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public static ValueDecoder<Int96Buffer> getInt64TimestampMicrosToLongTimestampWithTimeZoneDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        ValueDecoder<long[]> delegate = getLongDecoder(encoding, field, dictionary);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(Int96Buffer values, int offset, int length)
+            {
+                delegate.read(values.longs, offset, length);
+                // decoded values are epochMicros, convert to (packed epochMillisUtc, picosOfMilli)
+                for (int i = offset; i < offset + length; i++) {
+                    long epochMicros = values.longs[i];
+                    values.longs[i] = packDateTimeWithZone(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND), UTC_KEY);
+                    values.ints[i] = floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_MICROSECOND;
+                }
             }
 
             @Override
