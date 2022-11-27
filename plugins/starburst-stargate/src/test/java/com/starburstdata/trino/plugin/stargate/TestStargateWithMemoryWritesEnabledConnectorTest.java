@@ -156,7 +156,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
     {
         // Overridden because we get an error message with "Query failed (<query_id>):" prefixed instead of one expected by superclass
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
-            assertQueryFails("DELETE FROM " + table.getName(), ".*This connector does not support deletes");
+            assertQueryFails("DELETE FROM " + table.getName(), ".*This connector does not support modifying table rows");
         }
     }
 
@@ -165,7 +165,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
     {
         // Overridden because we get an error message with "Query failed (<query_id>):" prefixed instead of one expected by superclass
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
-            assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", ".*This connector does not support deletes");
+            assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", ".*This connector does not support modifying table rows");
         }
     }
 
