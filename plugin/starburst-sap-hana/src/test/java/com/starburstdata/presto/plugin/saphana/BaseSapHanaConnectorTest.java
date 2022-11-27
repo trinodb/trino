@@ -342,7 +342,7 @@ public abstract class BaseSapHanaConnectorTest
     public void testDeleteWithLike()
     {
         assertThatThrownBy(super::testDeleteWithLike)
-                .hasStackTraceContaining("TrinoException: Unsupported delete");
+                .hasStackTraceContaining("TrinoException: This connector does not support modifying table rows");
     }
 
     @Test

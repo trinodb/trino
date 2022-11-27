@@ -51,6 +51,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -200,9 +201,10 @@ public class SapHanaClient
             TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
-            IdentifierMapping identifierMapping)
+            IdentifierMapping identifierMapping,
+            RemoteQueryModifier queryModifier)
     {
-        super(baseJdbcConfig, "\"", connectionFactory, queryBuilder, identifierMapping);
+        super(baseJdbcConfig, "\"", connectionFactory, queryBuilder, identifierMapping, queryModifier);
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
                 .build();
@@ -241,7 +243,7 @@ public class SapHanaClient
     }
 
     @Override
-    protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+    protected void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
     {
         String sql = format(
                 "CREATE TABLE %s AS (SELECT %s FROM %s WHERE 0 = 1)",
@@ -251,7 +253,7 @@ public class SapHanaClient
                         .collect(joining(", ")),
                 quoted(catalogName, schemaName, tableName));
         try {
-            execute(connection, sql);
+            execute(session, connection, sql);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -274,7 +276,7 @@ public class SapHanaClient
                     "ALTER TABLE %s ADD (%s)",
                     quoted(handle.asPlainTable().getRemoteTableName()),
                     this.getColumnDefinitionSql(session, column, columnName));
-            execute(connection, sql);
+            execute(session, connection, sql);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -303,7 +305,7 @@ public class SapHanaClient
                     quoted(handle.asPlainTable().getRemoteTableName()),
                     quoted(jdbcColumn.getColumnName()),
                     quoted(newColumnName));
-            execute(connection, sql);
+            execute(session, connection, sql);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -324,7 +326,7 @@ public class SapHanaClient
                     "RENAME TABLE %s TO %s",
                     quoted(catalogName, schemaName, tableName),
                     quoted(catalogName, newSchemaName, newTableName));
-            execute(connection, sql);
+            execute(session, connection, sql);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
