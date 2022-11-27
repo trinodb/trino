@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.oracle.OracleConfig;
 import io.trino.plugin.oracle.OracleSessionProperties;
@@ -74,9 +75,12 @@ public class TestStarburstOracleClient
             new JdbcStatisticsConfig(),
             new TableScanRedirection(new NoneRedirectionsProvider(), NOOP_LICENSE_MANAGER, new RedirectionStats()),
             new OracleConfig(),
-            session -> { throw new UnsupportedOperationException(); },
+            session -> {
+                throw new UnsupportedOperationException();
+            },
             new DefaultQueryBuilder(),
-            new DefaultIdentifierMapping());
+            new DefaultIdentifierMapping(),
+            RemoteQueryModifier.NONE);
 
     public static final ConnectorSession SESSION = TestingConnectorSession.builder()
             .setPropertyMetadata(ImmutableList.<PropertyMetadata<?>>builder()

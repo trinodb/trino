@@ -49,6 +49,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.oracle.OracleClient;
 import io.trino.plugin.oracle.OracleConfig;
@@ -120,9 +121,10 @@ public class StarburstOracleClient
             OracleConfig oracleConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
-            IdentifierMapping identifierMapping)
+            IdentifierMapping identifierMapping,
+            RemoteQueryModifier queryModifier)
     {
-        super(config, oracleConfig, connectionFactory, queryBuilder, identifierMapping);
+        super(config, oracleConfig, connectionFactory, queryBuilder, identifierMapping, queryModifier);
         synonymsEnabled = oracleConfig.isSynonymsEnabled();
         this.licenseManager = requireNonNull(licenseManager, "licenseManager is null");
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
