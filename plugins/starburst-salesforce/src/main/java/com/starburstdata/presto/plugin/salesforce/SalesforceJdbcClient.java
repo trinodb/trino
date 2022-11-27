@@ -23,6 +23,7 @@ import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -109,9 +110,10 @@ public class SalesforceJdbcClient
             @EnableWrites boolean enableWrites,
             IdentifierMapping identifierMapping,
             QueryBuilder queryBuilder,
-            Set<SystemTableProvider> systemTables)
+            Set<SystemTableProvider> systemTables,
+            RemoteQueryModifier queryModifier)
     {
-        super(baseJdbcConfig, "\"", connectionFactory, queryBuilder, identifierMapping);
+        super(baseJdbcConfig, "\"", connectionFactory, queryBuilder, identifierMapping, queryModifier);
         this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
         this.enableWrites = enableWrites;
         this.systemTables = requireNonNull(systemTables, "systemTables is null");

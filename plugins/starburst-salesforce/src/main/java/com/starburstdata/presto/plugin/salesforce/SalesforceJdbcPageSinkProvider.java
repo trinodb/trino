@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.salesforce;
 
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcPageSinkProvider;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
@@ -28,9 +29,9 @@ public class SalesforceJdbcPageSinkProvider
         extends JdbcPageSinkProvider
 {
     @Inject
-    public SalesforceJdbcPageSinkProvider(JdbcClient jdbcClient)
+    public SalesforceJdbcPageSinkProvider(JdbcClient jdbcClient, RemoteQueryModifier queryModifier)
     {
-        super(jdbcClient);
+        super(jdbcClient, queryModifier);
     }
 
     @Override
