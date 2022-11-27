@@ -28,6 +28,7 @@ import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.SliceReadFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
@@ -139,9 +140,10 @@ public class DynamoDbJdbcClient
             ConnectionFactory connectionFactory,
             IdentifierMapping identifierMapping,
             QueryBuilder queryBuilder,
+            RemoteQueryModifier queryModifier,
             @EnableWrites boolean enableWrites)
     {
-        super(baseJdbcConfig, "\"", connectionFactory, queryBuilder, identifierMapping);
+        super(baseJdbcConfig, "\"", connectionFactory, queryBuilder, identifierMapping, queryModifier);
         this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
         this.schemaDirectory = new File(requireNonNull(dynamoDbConfig, "dynamoDbConfig is null").getSchemaDirectory());
         this.isFirstKeyAsPrimaryKeyEnabled = dynamoDbConfig.isFirstColumnAsPrimaryKeyEnabled();
