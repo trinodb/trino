@@ -241,7 +241,17 @@ public final class StargateQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner stargateQueryRunner = createRemoteStarburstQueryRunner(Optional.empty());
+
+        DistributedQueryRunner stargateQueryRunner = StarburstDistributedQueryRunner.builder(testSessionBuilder()
+                        .setCatalog("unspecified_catalog")
+                        .setSchema("unspecified_schema")
+                        .build())
+                .setExtraProperties(Map.of("http-server.http.port", "8081"))
+                .setNodeCount(1)// 1 is perfectly enough until we do parallel Stargate connector
+                .build();
+
+        stargateQueryRunner.installPlugin(new TpchPlugin());
+        stargateQueryRunner.createCatalog("tpch", "tpch");
 
         addMemoryToRemoteStarburstQueryRunner(
                 stargateQueryRunner,
