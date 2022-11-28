@@ -45,8 +45,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.bigquery.Conversions.isSupportedType;
-import static io.trino.plugin.bigquery.Conversions.toColumnHandle;
+import static io.trino.plugin.bigquery.BigQueryType.isSupportedType;
+import static io.trino.plugin.bigquery.BigQueryType.toColumnHandle;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
