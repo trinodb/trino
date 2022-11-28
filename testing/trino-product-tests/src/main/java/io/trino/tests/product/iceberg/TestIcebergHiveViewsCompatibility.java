@@ -117,6 +117,66 @@ public class TestIcebergHiveViewsCompatibility
         }
     }
 
+    @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
+    public void testIcebergMaterializedViewHiveViewsCompatibility()
+    {
+        try {
+            cleanupMaterializedViews();
+
+            List<QueryAssert.Row> hivePreexistingTables = onTrino().executeQuery("SHOW TABLES FROM hive.default").rows().stream()
+                    .map(list -> row(list.toArray()))
+                    .collect(toList());
+            List<QueryAssert.Row> icebergPreexistingTables = onTrino().executeQuery("SHOW TABLES FROM iceberg.default").rows().stream()
+                    .map(list -> row(list.toArray()))
+                    .collect(toList());
+
+            //create base tables
+            onTrino().executeQuery("CREATE TABLE hive.default.hive_table AS SELECT 1 bee");
+            onTrino().executeQuery("CREATE TABLE iceberg.default.iceberg_table AS SELECT 2 snow");
+
+            //create views
+            onTrino().executeQuery("CREATE VIEW hive.default.hive_view AS SELECT * FROM hive.default.hive_table");
+            onTrino().executeQuery("CREATE VIEW iceberg.default.iceberg_view AS SELECT * FROM iceberg.default.iceberg_table");
+            onTrino().executeQuery("CREATE MATERIALIZED VIEW iceberg.default.iceberg_materialized_view AS SELECT * FROM iceberg.default.iceberg_table");
+
+            // select some random catalog so we are not biased towards iceberg.default during assertions
+            onTrino().executeQuery("USE tpch.tiny");
+
+            // both hive and iceberg catalogs should list all the tables and views.
+            ImmutableList<QueryAssert.Row> newlyCreated = ImmutableList.<QueryAssert.Row>builder()
+                    .add(row("hive_table"))
+                    .add(row("iceberg_table"))
+                    .add(row("hive_view"))
+                    .add(row("iceberg_view"))
+                    .add(row("iceberg_materialized_view"))
+                    .build();
+
+            assertThat(onTrino().executeQuery("SHOW TABLES FROM hive.default"))
+                    .contains(ImmutableList.<QueryAssert.Row>builder()
+                            .addAll(hivePreexistingTables)
+                            .addAll(newlyCreated)
+                            .build());
+
+            assertThat(onTrino().executeQuery("SHOW TABLES FROM iceberg.default"))
+                    .contains(ImmutableList.<QueryAssert.Row>builder()
+                            .addAll(icebergPreexistingTables)
+                            .addAll(newlyCreated)
+                            .build());
+
+            // try to access all views via hive catalog
+            assertThat(onTrino().executeQuery("SELECT * FROM hive.default.hive_view")).containsOnly(row(1));
+            assertThat(onTrino().executeQuery("SELECT * FROM hive.default.iceberg_view")).containsOnly(row(2));
+
+            // try to access all views + materialized view via iceberg catalog
+            assertThat(onTrino().executeQuery("SELECT * FROM iceberg.default.hive_view")).containsOnly(row(1));
+            assertThat(onTrino().executeQuery("SELECT * FROM iceberg.default.iceberg_view")).containsOnly(row(2));
+            assertThat(onTrino().executeQuery("SELECT * FROM iceberg.default.iceberg_materialized_view")).containsOnly(row(2));
+        }
+        finally {
+            cleanupMaterializedViews();
+        }
+    }
+
     private void cleanup()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS hive.default.hive_table");
@@ -131,5 +191,15 @@ public class TestIcebergHiveViewsCompatibility
         onTrino().executeQuery("DROP VIEW IF EXISTS iceberg.default.iceberg_view_unqualified_hive");
         onTrino().executeQuery("DROP VIEW IF EXISTS iceberg.default.iceberg_view_qualified_iceberg");
         onTrino().executeQuery("DROP VIEW IF EXISTS iceberg.default.iceberg_view_unqualified_iceberg");
+    }
+
+    private void cleanupMaterializedViews()
+    {
+        onTrino().executeQuery("DROP TABLE IF EXISTS hive.default.hive_table");
+        onTrino().executeQuery("DROP TABLE IF EXISTS iceberg.default.iceberg_table");
+
+        onTrino().executeQuery("DROP VIEW IF EXISTS hive.default.hive_view");
+        onTrino().executeQuery("DROP VIEW IF EXISTS iceberg.default.iceberg_view");
+        onTrino().executeQuery("DROP MATERIALIZED VIEW IF EXISTS iceberg.default.iceberg_materialized_view");
     }
 }

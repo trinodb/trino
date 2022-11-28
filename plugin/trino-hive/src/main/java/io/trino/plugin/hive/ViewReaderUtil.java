@@ -157,7 +157,8 @@ public final class ViewReaderUtil
     public static boolean canDecodeView(Table table)
     {
         // we can decode Hive or Presto view
-        return table.getTableType().equals(VIRTUAL_VIEW.name());
+        return table.getTableType().equals(VIRTUAL_VIEW.name()) &&
+                !isTrinoMaterializedView(table.getTableType(), table.getParameters());
     }
 
     public static String encodeViewData(ConnectorViewDefinition definition)
