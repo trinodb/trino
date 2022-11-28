@@ -149,7 +149,8 @@ public class SnowflakePageSourceProvider
                 stats,
                 parquetReaderConfig.toParquetReaderOptions()
                         .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
-                        .withUseColumnIndex(isParquetUseColumnIndex(session)),
+                        .withUseColumnIndex(isParquetUseColumnIndex(session))
+                        .withBatchColumnReaders(false),
                 Optional.empty());
 
         verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");

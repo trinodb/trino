@@ -316,7 +316,7 @@ public class TestSynapseConnectorTest
     public void testDeleteWithLike()
     {
         assertThatThrownBy(super::testDeleteWithLike)
-                .hasStackTraceContaining("TrinoException: Unsupported delete");
+                .hasStackTraceContaining("TrinoException: This connector does not support modifying table rows");
     }
 
     @Override
