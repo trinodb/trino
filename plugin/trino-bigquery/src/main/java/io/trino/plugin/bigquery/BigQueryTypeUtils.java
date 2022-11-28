@@ -32,8 +32,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.plugin.bigquery.BigQueryType.timestampToStringConverter;
-import static io.trino.plugin.bigquery.BigQueryType.toZonedDateTime;
+import static io.trino.plugin.bigquery.BigQueryTypeManager.timestampToStringConverter;
+import static io.trino.plugin.bigquery.BigQueryTypeManager.toZonedDateTime;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;

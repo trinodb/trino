@@ -80,10 +80,8 @@ import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.stream.Collectors.toList;
 
-public final class BigQueryType
+public final class BigQueryTypeManager
 {
-    private BigQueryType() {}
-
     private static final int[] NANO_FACTOR = {
             -1, // 0, no need to multiply
             100_000_000, // 1 digit after the dot
@@ -99,10 +97,10 @@ public final class BigQueryType
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("''HH:mm:ss.SSSSSS''");
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSSSS").withZone(UTC);
 
-    private static RowType.Field toRawTypeField(String name, Field field)
+    private RowType.Field toRawTypeField(String name, Field field)
     {
-        ColumnMapping columnMapping = convertToTrinoType(field).orElseThrow(() -> new IllegalArgumentException("Unsupported column " + field));
-        return RowType.field(name, field.getMode() == REPEATED ? new ArrayType(columnMapping.type()) : columnMapping.type());
+        Type trinoType = convertToTrinoType(field).orElseThrow(() -> new IllegalArgumentException("Unsupported column " + field)).type();
+        return RowType.field(name, field.getMode() == REPEATED ? new ArrayType(trinoType) : trinoType);
     }
 
     @VisibleForTesting
@@ -202,7 +200,7 @@ public final class BigQueryType
         return format("FROM_BASE64('%s')", Base64.getEncoder().encodeToString(slice.getBytes()));
     }
 
-    public static Field toField(String name, Type type, @Nullable String comment)
+    public Field toField(String name, Type type, @Nullable String comment)
     {
         if (type instanceof ArrayType) {
             Type elementType = ((ArrayType) type).getElementType();
@@ -211,7 +209,7 @@ public final class BigQueryType
         return toInnerField(name, type, false, comment);
     }
 
-    private static Field toInnerField(String name, Type type, boolean repeated, @Nullable String comment)
+    private Field toInnerField(String name, Type type, boolean repeated, @Nullable String comment)
     {
         Field.Builder builder;
         if (type instanceof RowType) {
@@ -226,7 +224,7 @@ public final class BigQueryType
         return builder.build();
     }
 
-    private static FieldList toFieldList(RowType rowType)
+    private FieldList toFieldList(RowType rowType)
     {
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (RowType.Field field : rowType.getFields()) {
@@ -237,7 +235,7 @@ public final class BigQueryType
         return FieldList.of(fields.build());
     }
 
-    private static StandardSQLTypeName toStandardSqlTypeName(Type type)
+    private StandardSQLTypeName toStandardSqlTypeName(Type type)
     {
         if (type == BooleanType.BOOLEAN) {
             return StandardSQLTypeName.BOOL;
@@ -312,7 +310,7 @@ public final class BigQueryType
         }
     }
 
-    public static Optional<ColumnMapping> toTrinoType(Field field)
+    public Optional<ColumnMapping> toTrinoType(Field field)
     {
         return convertToTrinoType(field)
                 .map(columnMapping -> field.getMode() == REPEATED ?
@@ -320,7 +318,7 @@ public final class BigQueryType
                         columnMapping);
     }
 
-    private static Optional<ColumnMapping> convertToTrinoType(Field field)
+    private Optional<ColumnMapping> convertToTrinoType(Field field)
     {
         switch (field.getType().getStandardType()) {
             case BOOL:
@@ -367,14 +365,14 @@ public final class BigQueryType
         }
     }
 
-    public static BigQueryColumnHandle toColumnHandle(Field field)
+    public BigQueryColumnHandle toColumnHandle(Field field)
     {
         FieldList subFields = field.getSubFields();
         List<BigQueryColumnHandle> subColumns = subFields == null ?
                 Collections.emptyList() :
                 subFields.stream()
-                        .filter(BigQueryType::isSupportedType)
-                        .map(BigQueryType::toColumnHandle)
+                        .filter(this::isSupportedType)
+                        .map(this::toColumnHandle)
                         .collect(Collectors.toList());
         ColumnMapping columnMapping = toTrinoType(field).orElseThrow(() -> new IllegalArgumentException("Unsupported type: " + field));
         return new BigQueryColumnHandle(
@@ -388,7 +386,7 @@ public final class BigQueryType
                 false);
     }
 
-    public static boolean isSupportedType(Field field)
+    public boolean isSupportedType(Field field)
     {
         LegacySQLTypeName type = field.getType();
         if (type == LegacySQLTypeName.BIGNUMERIC) {
