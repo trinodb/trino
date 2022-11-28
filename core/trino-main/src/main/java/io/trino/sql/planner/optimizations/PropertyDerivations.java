@@ -102,7 +102,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
 import static io.trino.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.coordinatorSingleStreamPartition;
@@ -688,13 +687,6 @@ public final class PropertyDerivations
                             ImmutableList.of(),
                             // only gathering local exchange preserves single stream property
                             node.getType() == GATHER ? Optional.of(ImmutableList.of()) : Optional.empty()));
-                }
-                else if (node.getOrderingScheme().isPresent() && node.getType() == GATHER) {
-                    // Local merging exchange uses passthrough distribution
-                    builder.global(partitionedOn(
-                            FIXED_PASSTHROUGH_DISTRIBUTION,
-                            ImmutableList.of(),
-                            Optional.of(ImmutableList.of())));
                 }
 
                 return builder.build();
