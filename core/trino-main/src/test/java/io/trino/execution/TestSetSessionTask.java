@@ -76,6 +76,7 @@ public class TestSetSessionTask
     private Metadata metadata;
     private PlannerContext plannerContext;
     private SessionPropertyManager sessionPropertyManager;
+    private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
     @BeforeClass
     public void setUp()
@@ -126,8 +127,6 @@ public class TestSetSessionTask
             throw new TrinoException(INVALID_SESSION_PROPERTY, MUST_BE_POSITIVE);
         }
     }
-
-    private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
