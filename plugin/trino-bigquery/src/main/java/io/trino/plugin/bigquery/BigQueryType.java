@@ -15,6 +15,7 @@ package io.trino.plugin.bigquery;
 
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldList;
+import com.google.cloud.bigquery.LegacySQLTypeName;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -48,10 +49,13 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.google.cloud.bigquery.Field.Mode.REPEATED;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_PRECISION;
@@ -361,5 +365,47 @@ public final class BigQueryType
             default:
                 return Optional.empty();
         }
+    }
+
+    public static BigQueryColumnHandle toColumnHandle(Field field)
+    {
+        FieldList subFields = field.getSubFields();
+        List<BigQueryColumnHandle> subColumns = subFields == null ?
+                Collections.emptyList() :
+                subFields.stream()
+                        .filter(BigQueryType::isSupportedType)
+                        .map(BigQueryType::toColumnHandle)
+                        .collect(Collectors.toList());
+        ColumnMapping columnMapping = toTrinoType(field).orElseThrow(() -> new IllegalArgumentException("Unsupported type: " + field));
+        return new BigQueryColumnHandle(
+                field.getName(),
+                columnMapping.type(),
+                field.getType().getStandardType(),
+                columnMapping.isPushdownSupported(),
+                getMode(field),
+                subColumns,
+                field.getDescription(),
+                false);
+    }
+
+    public static boolean isSupportedType(Field field)
+    {
+        LegacySQLTypeName type = field.getType();
+        if (type == LegacySQLTypeName.BIGNUMERIC) {
+            // Skip BIGNUMERIC without parameters because the precision (77) and scale (38) is too large
+            if (field.getPrecision() == null && field.getScale() == null) {
+                return false;
+            }
+            if (field.getPrecision() != null && field.getPrecision() > Decimals.MAX_PRECISION) {
+                return false;
+            }
+        }
+
+        return toTrinoType(field).isPresent();
+    }
+
+    private static Field.Mode getMode(Field field)
+    {
+        return firstNonNull(field.getMode(), Field.Mode.NULLABLE);
     }
 }
