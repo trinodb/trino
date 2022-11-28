@@ -397,8 +397,8 @@ public class BigQueryClient
         }
         return schema.getFields()
                 .stream()
-                .filter(Conversions::isSupportedType)
-                .map(Conversions::toColumnHandle)
+                .filter(BigQueryType::isSupportedType)
+                .map(BigQueryType::toColumnHandle)
                 .collect(toImmutableList());
     }
 
