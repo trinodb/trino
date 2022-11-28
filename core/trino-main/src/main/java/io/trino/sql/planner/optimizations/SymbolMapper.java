@@ -56,6 +56,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -214,16 +215,18 @@ public class SymbolMapper
             newFunctions.put(map(symbol), new WindowNode.Function(function.getResolvedFunction(), newArguments, newFrame, function.isIgnoreNulls()));
         });
 
+        SpecificationWithPreSortedPrefix newSpecification = mapAndDistinct(node.getSpecification(), node.getPreSortedOrderPrefix());
+
         return new WindowNode(
                 node.getId(),
                 source,
-                mapAndDistinct(node.getSpecification()),
+                newSpecification.specification(),
                 newFunctions.buildOrThrow(),
                 node.getHashSymbol().map(this::map),
                 node.getPrePartitionedInputs().stream()
                         .map(this::map)
                         .collect(toImmutableSet()),
-                node.getPreSortedOrderPrefix());
+                newSpecification.preSorted());
     }
 
     private WindowNode.Frame map(WindowNode.Frame frame)
@@ -240,6 +243,18 @@ public class SymbolMapper
                 frame.getOriginalEndValue());
     }
 
+    private SpecificationWithPreSortedPrefix mapAndDistinct(DataOrganizationSpecification specification, int preSorted)
+    {
+        Optional<OrderingSchemeWithPreSortedPrefix> newOrderingScheme = specification.getOrderingScheme()
+                .map(orderingScheme -> map(orderingScheme, preSorted));
+
+        return new SpecificationWithPreSortedPrefix(
+                new DataOrganizationSpecification(
+                        mapAndDistinct(specification.getPartitionBy()),
+                        newOrderingScheme.map(OrderingSchemeWithPreSortedPrefix::orderingScheme)),
+                newOrderingScheme.map(OrderingSchemeWithPreSortedPrefix::preSorted).orElse(preSorted));
+    }
+
     public DataOrganizationSpecification mapAndDistinct(DataOrganizationSpecification specification)
     {
         return new DataOrganizationSpecification(
@@ -249,6 +264,8 @@ public class SymbolMapper
 
     public PatternRecognitionNode map(PatternRecognitionNode node, PlanNode source)
     {
+        SpecificationWithPreSortedPrefix newSpecification = mapAndDistinct(node.getSpecification(), node.getPreSortedOrderPrefix());
+
         ImmutableMap.Builder<Symbol, WindowNode.Function> newFunctions = ImmutableMap.builder();
         node.getWindowFunctions().forEach((symbol, function) -> {
             List<Expression> newArguments = function.getArguments().stream()
@@ -271,12 +288,12 @@ public class SymbolMapper
         return new PatternRecognitionNode(
                 node.getId(),
                 source,
-                mapAndDistinct(node.getSpecification()),
+                newSpecification.specification(),
                 node.getHashSymbol().map(this::map),
                 node.getPrePartitionedInputs().stream()
                         .map(this::map)
                         .collect(toImmutableSet()),
-                node.getPreSortedOrderPrefix(),
+                newSpecification.preSorted(),
                 newFunctions.buildOrThrow(),
                 newMeasures.buildOrThrow(),
                 node.getCommonBaseFrame().map(this::map),
@@ -350,6 +367,29 @@ public class SymbolMapper
                 node.getPreSortedInputs().stream()
                         .map(this::map)
                         .collect(toImmutableList()));
+    }
+
+    public OrderingSchemeWithPreSortedPrefix map(OrderingScheme orderingScheme, int preSorted)
+    {
+        ImmutableList.Builder<Symbol> newSymbols = ImmutableList.builder();
+        ImmutableMap.Builder<Symbol, SortOrder> newOrderings = ImmutableMap.builder();
+        int newPreSorted = preSorted;
+
+        Set<Symbol> added = new HashSet<>(orderingScheme.getOrderBy().size());
+
+        for (int i = 0; i < orderingScheme.getOrderBy().size(); i++) {
+            Symbol symbol = orderingScheme.getOrderBy().get(i);
+            Symbol canonical = map(symbol);
+            if (added.add(canonical)) {
+                newSymbols.add(canonical);
+                newOrderings.put(canonical, orderingScheme.getOrdering(symbol));
+            }
+            else if (i < preSorted) {
+                newPreSorted--;
+            }
+        }
+
+        return new OrderingSchemeWithPreSortedPrefix(new OrderingScheme(newSymbols.build(), newOrderings.buildOrThrow()), newPreSorted);
     }
 
     public OrderingScheme map(OrderingScheme orderingScheme)
@@ -540,6 +580,24 @@ public class SymbolMapper
                 node.getCount(),
                 map(node.getOrderingScheme()),
                 node.getStep());
+    }
+
+    private record OrderingSchemeWithPreSortedPrefix(OrderingScheme orderingScheme, int preSorted)
+    {
+        private OrderingSchemeWithPreSortedPrefix(OrderingScheme orderingScheme, int preSorted)
+        {
+            this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
+            this.preSorted = preSorted;
+        }
+    }
+
+    private record SpecificationWithPreSortedPrefix(DataOrganizationSpecification specification, int preSorted)
+    {
+        private SpecificationWithPreSortedPrefix(DataOrganizationSpecification specification, int preSorted)
+        {
+            this.specification = requireNonNull(specification, "specification is null");
+            this.preSorted = preSorted;
+        }
     }
 
     public static Builder builder()
