@@ -1868,11 +1868,32 @@ public class PlanPrinter
             descriptor.put("properOutputs", format("[%s]", Joiner.on(", ").join(anonymize(node.getProperOutputs()))));
 
             node.getSpecification().ifPresent(specification -> {
-                descriptor.put("partitionBy", format("[%s]", Joiner.on(", ").join(anonymize(specification.getPartitionBy()))));
-                specification.getOrderingScheme().ifPresent(orderingScheme -> descriptor.put("orderBy: ", formatOrderingScheme(orderingScheme)));
+                if (!specification.getPartitionBy().isEmpty()) {
+                    List<Symbol> prePartitioned = specification.getPartitionBy().stream()
+                            .filter(node.getPrePartitioned()::contains)
+                            .collect(toImmutableList());
+
+                    List<Symbol> notPrePartitioned = specification.getPartitionBy().stream()
+                            .filter(column -> !node.getPrePartitioned().contains(column))
+                            .collect(toImmutableList());
+
+                    StringBuilder builder = new StringBuilder();
+                    if (!prePartitioned.isEmpty()) {
+                        builder.append(anonymize(prePartitioned).stream()
+                                .collect(joining(", ", "<", ">")));
+                        if (!notPrePartitioned.isEmpty()) {
+                            builder.append(", ");
+                        }
+                    }
+                    if (!notPrePartitioned.isEmpty()) {
+                        builder.append(Joiner.on(", ").join(anonymize(notPrePartitioned)));
+                    }
+                    descriptor.put("partitionBy", format("[%s]", builder));
+                }
+                specification.getOrderingScheme().ifPresent(orderingScheme -> descriptor.put("orderBy", formatOrderingScheme(orderingScheme, node.getPreSorted())));
             });
 
-            addNode(node, "TableFunctionProcessor", descriptor.buildOrThrow(), context.tag());
+            addNode(node, "TableFunctionProcessor", descriptor.put("hash", formatHash(node.getHashSymbol())).buildOrThrow(), context.tag());
 
             return processChildren(node, new Context());
         }
