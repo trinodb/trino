@@ -801,7 +801,7 @@ class StatementAnalyzer
             analysis.setUpdateTarget(tableName, Optional.of(table), Optional.empty());
             analyzeFiltersAndMasks(table, tableName, Optional.of(handle), analysis.getScope(table).getRelationType(), session.getIdentity().getUser());
 
-            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of());
+            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(), false);
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -3196,7 +3196,7 @@ class StatementAnalyzer
                             .map(column -> new OutputColumn(new Column(column.getName(), column.getType().toString()), ImmutableSet.of()))
                             .collect(toImmutableList())));
 
-            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(updatedColumnHandles));
+            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(updatedColumnHandles), true);
 
             return createAndAssignScope(update, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -3358,12 +3358,12 @@ class StatementAnalyzer
             analysis.setUpdateTarget(tableName, Optional.of(table), Optional.of(updatedColumns));
             List<List<ColumnHandle>> mergeCaseColumnHandles = buildCaseColumnLists(merge, dataColumnSchemas, allColumnHandles);
 
-            createMergeAnalysis(table, targetTableHandle, tableSchema, targetTableScope, joinScope, mergeCaseColumnHandles);
+            createMergeAnalysis(table, targetTableHandle, tableSchema, targetTableScope, joinScope, mergeCaseColumnHandles, true);
 
             return createAndAssignScope(merge, Optional.empty(), Field.newUnqualified("rows", BIGINT));
         }
 
-        private void createMergeAnalysis(Table table, TableHandle handle, TableSchema tableSchema, Scope tableScope, Scope joinScope, List<List<ColumnHandle>> updatedColumns)
+        private void createMergeAnalysis(Table table, TableHandle handle, TableSchema tableSchema, Scope tableScope, Scope joinScope, List<List<ColumnHandle>> updatedColumns, boolean createInsertLayout)
         {
             Optional<PartitioningHandle> updateLayout = metadata.getUpdateLayout(session, handle);
             Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, handle);
@@ -3385,7 +3385,7 @@ class StatementAnalyzer
             List<ColumnSchema> dataColumnSchemas = tableSchema.getColumns().stream()
                     .filter(column -> !column.isHidden())
                     .collect(toImmutableList());
-            Optional<TableLayout> insertLayout = metadata.getInsertLayout(session, handle);
+            Optional<TableLayout> insertLayout = createInsertLayout ? metadata.getInsertLayout(session, handle) : Optional.empty();
 
             ImmutableList.Builder<ColumnHandle> dataColumnHandlesBuilder = ImmutableList.builder();
             ImmutableSet.Builder<String> dataColumnNamesBuilder = ImmutableSet.builder();

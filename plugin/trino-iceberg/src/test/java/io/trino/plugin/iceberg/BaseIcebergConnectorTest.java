@@ -198,6 +198,17 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
+    @Test
+    public void testDeleteWithStructMemberPartitioning()
+    {
+        String tableName = "test_delete_all_" + randomNameSuffix();
+        assertUpdate(getSession(), "CREATE TABLE %s (parent row(child int))".formatted(tableName));
+        assertUpdate("INSERT INTO %s SELECT row(1)".formatted(tableName), 1);
+        assertUpdate(getSession(), "ALTER TABLE %s SET PROPERTIES partitioning = ARRAY['\"parent.child\"']".formatted(tableName));
+        assertUpdate("DELETE FROM " + tableName, 1);
+        assertUpdate(getSession(), "DROP TABLE " + tableName);
+    }
+
     @Override
     public void testAddAndDropColumnName(String columnName)
     {
