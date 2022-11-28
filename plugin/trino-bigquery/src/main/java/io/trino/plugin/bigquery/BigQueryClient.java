@@ -85,6 +85,7 @@ public class BigQueryClient
 
     private final BigQuery bigQuery;
     private final BigQueryLabelFactory labelFactory;
+    private final BigQueryTypeManager typeManager;
     private final ViewMaterializationCache materializationCache;
     private final boolean caseInsensitiveNameMatching;
     private final LoadingCache<String, List<Dataset>> remoteDatasetCache;
@@ -93,6 +94,7 @@ public class BigQueryClient
     public BigQueryClient(
             BigQuery bigQuery,
             BigQueryLabelFactory labelFactory,
+            BigQueryTypeManager typeManager,
             boolean caseInsensitiveNameMatching,
             ViewMaterializationCache materializationCache,
             Duration metadataCacheTtl,
@@ -100,6 +102,7 @@ public class BigQueryClient
     {
         this.bigQuery = requireNonNull(bigQuery, "bigQuery is null");
         this.labelFactory = requireNonNull(labelFactory, "labelFactory is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.materializationCache = requireNonNull(materializationCache, "materializationCache is null");
         this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
         this.remoteDatasetCache = EvictableCacheBuilder.newBuilder()
@@ -388,7 +391,7 @@ public class BigQueryClient
         return buildColumnHandles(tableInfo);
     }
 
-    public static List<BigQueryColumnHandle> buildColumnHandles(TableInfo tableInfo)
+    public List<BigQueryColumnHandle> buildColumnHandles(TableInfo tableInfo)
     {
         Schema schema = tableInfo.getDefinition().getSchema();
         if (schema == null) {
@@ -397,8 +400,8 @@ public class BigQueryClient
         }
         return schema.getFields()
                 .stream()
-                .filter(BigQueryType::isSupportedType)
-                .map(BigQueryType::toColumnHandle)
+                .filter(typeManager::isSupportedType)
+                .map(typeManager::toColumnHandle)
                 .collect(toImmutableList());
     }
 

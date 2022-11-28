@@ -99,7 +99,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.allAsList;
 import static io.trino.plugin.base.TemporaryTables.generateTemporaryTableName;
-import static io.trino.plugin.bigquery.BigQueryClient.buildColumnHandles;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_DATASET_ERROR;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_UNSUPPORTED_OPERATION;
@@ -107,7 +106,6 @@ import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_DATE;
 import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_TIME;
 import static io.trino.plugin.bigquery.BigQueryTableHandle.BigQueryPartitionType.INGESTION;
 import static io.trino.plugin.bigquery.BigQueryTableHandle.getPartitionType;
-import static io.trino.plugin.bigquery.BigQueryType.toField;
 import static io.trino.plugin.bigquery.BigQueryUtil.isWildcardTable;
 import static io.trino.plugin.bigquery.BigQueryUtil.quote;
 import static io.trino.plugin.bigquery.BigQueryUtil.quoted;
@@ -128,12 +126,14 @@ public class BigQueryMetadata
     private static final String VIEW_DEFINITION_SYSTEM_TABLE_SUFFIX = "$view_definition";
 
     private final BigQueryClientFactory bigQueryClientFactory;
+    private final BigQueryTypeManager typeManager;
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
     private final ListeningExecutorService executorService;
 
-    public BigQueryMetadata(BigQueryClientFactory bigQueryClientFactory, ListeningExecutorService executorService)
+    public BigQueryMetadata(BigQueryClientFactory bigQueryClientFactory, BigQueryTypeManager typeManager, ListeningExecutorService executorService)
     {
         this.bigQueryClientFactory = requireNonNull(bigQueryClientFactory, "bigQueryClientFactory is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.executorService = requireNonNull(executorService, "executorService is null");
     }
 
@@ -245,7 +245,7 @@ public class BigQueryMetadata
         }
 
         ImmutableList.Builder<BigQueryColumnHandle> columns = ImmutableList.builder();
-        columns.addAll(buildColumnHandles(tableInfo.get()));
+        columns.addAll(client.buildColumnHandles(tableInfo.get()));
         Optional<BigQueryPartitionType> partitionType = getPartitionType(tableInfo.get().getDefinition());
         if (partitionType.isPresent() && partitionType.get() == INGESTION) {
             columns.add(PARTITION_DATE.getColumnHandle());
@@ -485,8 +485,8 @@ public class BigQueryMetadata
         ImmutableList.Builder<String> columnsNames = ImmutableList.builderWithExpectedSize(columnSize);
         ImmutableList.Builder<Type> columnsTypes = ImmutableList.builderWithExpectedSize(columnSize);
         for (ColumnMetadata column : tableMetadata.getColumns()) {
-            fields.add(toField(column.getName(), column.getType(), column.getComment()));
-            tempFields.add(toField(column.getName(), column.getType(), column.getComment()));
+            fields.add(typeManager.toField(column.getName(), column.getType(), column.getComment()));
+            tempFields.add(typeManager.toField(column.getName(), column.getType(), column.getComment()));
             columnsNames.add(column.getName());
             columnsTypes.add(column.getType());
         }
@@ -509,7 +509,7 @@ public class BigQueryMetadata
         closer.register(() -> bigQueryClientFactory.create(session).dropTable(tableId));
 
         Optional<String> temporaryTableName = pageSinkIdColumn.map(column -> {
-            tempFields.add(toField(column.getName(), column.getType(), column.getComment()));
+            tempFields.add(typeManager.toField(column.getName(), column.getType(), column.getComment()));
             String tempTableName = generateTemporaryTableName(session);
             TableId tempTableId = createTable(client, projectId, remoteSchemaName, tempTableName, tempFields.build(), tableMetadata.getComment());
             closer.register(() -> bigQueryClientFactory.create(session).dropTable(tempTableId));
@@ -590,12 +590,12 @@ public class BigQueryMetadata
 
         for (ColumnHandle columnHandle : columns) {
             BigQueryColumnHandle column = (BigQueryColumnHandle) columnHandle;
-            tempFields.add(toField(column.getName(), column.getTrinoType(), column.getColumnMetadata().getComment()));
+            tempFields.add(typeManager.toField(column.getName(), column.getTrinoType(), column.getColumnMetadata().getComment()));
             columnNames.add(column.getName());
             columnTypes.add(column.getTrinoType());
         }
         ColumnMetadata pageSinkIdColumn = buildPageSinkIdColumn(columnNames.build());
-        tempFields.add(toField(pageSinkIdColumn.getName(), pageSinkIdColumn.getType(), pageSinkIdColumn.getComment()));
+        tempFields.add(typeManager.toField(pageSinkIdColumn.getName(), pageSinkIdColumn.getType(), pageSinkIdColumn.getComment()));
 
         BigQueryClient client = bigQueryClientFactory.create(session);
         String projectId = table.asPlainTable().getRemoteTableName().getProjectId();
@@ -631,7 +631,7 @@ public class BigQueryMetadata
                     targetTable.getProjectId(),
                     targetTable.getDatasetName(),
                     generateTemporaryTableName(session));
-            createTable(client, pageSinkTable.getProjectId(), pageSinkTable.getDatasetName(), pageSinkTable.getTableName(), ImmutableList.of(toField(pageSinkIdColumnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE, null)), Optional.empty());
+            createTable(client, pageSinkTable.getProjectId(), pageSinkTable.getDatasetName(), pageSinkTable.getTableName(), ImmutableList.of(typeManager.toField(pageSinkIdColumnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE, null)), Optional.empty());
             closer.register(() -> bigQueryClientFactory.create(session).dropTable(pageSinkTable.toTableId()));
 
             InsertAllRequest.Builder batch = InsertAllRequest.newBuilder(pageSinkTable.toTableId());
