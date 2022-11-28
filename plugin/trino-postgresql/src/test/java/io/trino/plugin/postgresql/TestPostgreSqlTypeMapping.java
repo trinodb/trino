@@ -858,7 +858,6 @@ public class TestPostgreSqlTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("ARRAY(bigint)", "ARRAY[]", new ArrayType(BIGINT), "CAST(ARRAY[] AS ARRAY(BIGINT))")
                 .addRoundTrip("ARRAY(boolean)", "NULL", new ArrayType(BOOLEAN), "CAST(NULL AS ARRAY(BOOLEAN))")
-                .addRoundTrip("ARRAY(integer)", "ARRAY[1, 2, 3, 4]", new ArrayType(INTEGER), "ARRAY[1, 2, 3, 4]")
                 .addRoundTrip("ARRAY(timestamp(3))", "ARRAY[]", new ArrayType(createTimestampType(3)), "CAST(ARRAY[] AS ARRAY(TIMESTAMP(3)))")
                 .addRoundTrip("ARRAY(timestamp(3) with time zone)", "ARRAY[]", new ArrayType(createTimestampWithTimeZoneType(3)), "CAST(ARRAY[] AS ARRAY(TIMESTAMP(3) WITH TIME ZONE))")
                 .execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAsSelect(sessionWithArrayAsArray(), "test_array_empty_or_nulls"))
