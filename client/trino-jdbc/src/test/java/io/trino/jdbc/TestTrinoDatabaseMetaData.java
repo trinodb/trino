@@ -671,6 +671,7 @@ public class TestTrinoDatabaseMetaData
                 assertEquals(rs.getString("TABLE_SCHEM"), "information_schema");
                 assertEquals(rs.getString("TABLE_NAME"), "tables");
                 assertEquals(rs.getString("COLUMN_NAME"), "table_name");
+                assertEquals(rs.getLong("NULLABLE"), DatabaseMetaData.columnNullable);
                 assertEquals(rs.getString("IS_NULLABLE"), "YES");
                 assertEquals(rs.getInt("DATA_TYPE"), Types.VARCHAR);
                 assertTrue(rs.next());
@@ -742,6 +743,7 @@ public class TestTrinoDatabaseMetaData
             try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "tiny", "supplier", "suppkey")) {
                 assertColumnMetadata(rs);
                 assertTrue(rs.next());
+                assertEquals(rs.getLong("NULLABLE"), DatabaseMetaData.columnNoNulls);
                 assertEquals(rs.getString("IS_NULLABLE"), "NO");
             }
         }

@@ -330,7 +330,7 @@ public class ColumnJdbcTable
                     // num_prec_radix
                     numPrecRadix(column.getType()),
                     // nullable
-                    DatabaseMetaData.columnNullableUnknown,
+                    column.isNullable() ? DatabaseMetaData.columnNullable : DatabaseMetaData.columnNoNulls,
                     // remarks
                     column.getComment(),
                     // column_def
