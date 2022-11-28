@@ -26,7 +26,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.bigquery.BigQueryType.convertToString;
+import static io.trino.plugin.bigquery.BigQueryTypeManager.convertToString;
 import static io.trino.plugin.bigquery.BigQueryUtil.quote;
 import static io.trino.plugin.bigquery.BigQueryUtil.toBigQueryColumnName;
 import static java.util.stream.Collectors.joining;
