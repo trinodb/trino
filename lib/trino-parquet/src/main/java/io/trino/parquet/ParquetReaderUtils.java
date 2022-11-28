@@ -13,12 +13,22 @@
  */
 package io.trino.parquet;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import org.apache.parquet.bytes.ByteBufferInputStream;
+import org.apache.parquet.column.Encoding;
+import org.apache.parquet.column.EncodingStats;
+import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
+
+import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
+import static org.apache.parquet.column.Encoding.BIT_PACKED;
+import static org.apache.parquet.column.Encoding.PLAIN_DICTIONARY;
+import static org.apache.parquet.column.Encoding.RLE;
 
 public final class ParquetReaderUtils
 {
@@ -156,5 +166,26 @@ public final class ParquetReaderUtils
             throw new ArithmeticException(format("Value %d exceeds byte range", value));
         }
         return (byte) value;
+    }
+
+    @SuppressWarnings("deprecation")
+    public static boolean isOnlyDictionaryEncodingPages(ColumnChunkMetaData columnMetaData)
+    {
+        // Files written with newer versions of Parquet libraries (e.g. parquet-mr 1.9.0) will have EncodingStats available
+        // Otherwise, fallback to v1 logic
+        EncodingStats stats = columnMetaData.getEncodingStats();
+        if (stats != null) {
+            return stats.hasDictionaryPages() && !stats.hasNonDictionaryEncodedPages();
+        }
+
+        Set<Encoding> encodings = columnMetaData.getEncodings();
+        if (encodings.contains(PLAIN_DICTIONARY)) {
+            // PLAIN_DICTIONARY was present, which means at least one page was
+            // dictionary-encoded and 1.0 encodings are used
+            // The only other allowed encodings are RLE and BIT_PACKED which are used for repetition or definition levels
+            return Sets.difference(encodings, ImmutableSet.of(PLAIN_DICTIONARY, RLE, BIT_PACKED)).isEmpty();
+        }
+
+        return false;
     }
 }

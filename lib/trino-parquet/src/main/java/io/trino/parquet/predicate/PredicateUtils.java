@@ -13,11 +13,9 @@
  */
 package io.trino.parquet.predicate;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.trino.parquet.DictionaryPage;
@@ -28,7 +26,6 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
-import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.format.DictionaryPageHeader;
 import org.apache.parquet.format.PageHeader;
@@ -52,6 +49,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
+import static io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -61,9 +59,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.parquet.column.Encoding.BIT_PACKED;
-import static org.apache.parquet.column.Encoding.PLAIN_DICTIONARY;
-import static org.apache.parquet.column.Encoding.RLE;
 
 public final class PredicateUtils
 {
@@ -306,28 +301,6 @@ public final class PredicateUtils
         catch (IOException e) {
             throw new ParquetDecodingException("Could not decode the dictionary for " + chunkMetaData.getPath(), e);
         }
-    }
-
-    @VisibleForTesting
-    @SuppressWarnings("deprecation")
-    static boolean isOnlyDictionaryEncodingPages(ColumnChunkMetaData columnMetaData)
-    {
-        // Files written with newer versions of Parquet libraries (e.g. parquet-mr 1.9.0) will have EncodingStats available
-        // Otherwise, fallback to v1 logic
-        EncodingStats stats = columnMetaData.getEncodingStats();
-        if (stats != null) {
-            return stats.hasDictionaryPages() && !stats.hasNonDictionaryEncodedPages();
-        }
-
-        Set<Encoding> encodings = columnMetaData.getEncodings();
-        if (encodings.contains(PLAIN_DICTIONARY)) {
-            // PLAIN_DICTIONARY was present, which means at least one page was
-            // dictionary-encoded and 1.0 encodings are used
-            // The only other allowed encodings are RLE and BIT_PACKED which are used for repetition or definition levels
-            return Sets.difference(encodings, ImmutableSet.of(PLAIN_DICTIONARY, RLE, BIT_PACKED)).isEmpty();
-        }
-
-        return false;
     }
 
     private record PageHeaderWithData(PageHeader pageHeader, Slice compressedData)
