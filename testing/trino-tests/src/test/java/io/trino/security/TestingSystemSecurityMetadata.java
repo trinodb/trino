@@ -259,4 +259,13 @@ class TestingSystemSecurityMetadata
 
     @Override
     public void tableDropped(Session session, CatalogSchemaTableName table) {}
+
+    @Override
+    public void columnCreated(Session session, CatalogSchemaTableName table, String column) {}
+
+    @Override
+    public void columnRenamed(Session session, CatalogSchemaTableName table, String oldColumn, String newColumn) {}
+
+    @Override
+    public void columnDropped(Session session, CatalogSchemaTableName table, String column) {}
 }
