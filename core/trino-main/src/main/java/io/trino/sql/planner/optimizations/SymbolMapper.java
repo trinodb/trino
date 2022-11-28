@@ -380,6 +380,8 @@ public class SymbolMapper
                 .map(mapping -> mapping.entrySet().stream()
                         .collect(toMap(entry -> map(entry.getKey()), entry -> map(entry.getValue()))));
 
+        Optional<SpecificationWithPreSortedPrefix> newSpecification = node.getSpecification().map(specification -> mapAndDistinct(specification, node.getPreSorted()));
+
         return new TableFunctionProcessorNode(
                 node.getId(),
                 node.getName(),
@@ -388,7 +390,12 @@ public class SymbolMapper
                 newPassThroughSpecifications,
                 newRequiredSymbols,
                 newMarkerSymbols,
-                node.getSpecification().map(this::mapAndDistinct), // TODO handle pre-partitioned, pre-sorted properly when we add them
+                newSpecification.map(SpecificationWithPreSortedPrefix::specification),
+                node.getPrePartitioned().stream()
+                        .map(this::map)
+                        .collect(toImmutableSet()),
+                newSpecification.map(SpecificationWithPreSortedPrefix::preSorted).orElse(node.getPreSorted()),
+                node.getHashSymbol().map(this::map),
                 node.getHandle());
     }
 

@@ -17,7 +17,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.TableFunctionHandle;
+import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 
@@ -25,7 +27,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -55,7 +59,10 @@ public class TableFunctionProcessorNode
     private final Optional<Map<Symbol, Symbol>> markerSymbols;
 
     // partitioning and ordering combined from sources
-    private final Optional<DataOrganizationSpecification> specification; // TODO add pre-partitioned, pre-sorted
+    private final Optional<DataOrganizationSpecification> specification;
+    private final Set<Symbol> prePartitioned;
+    private final int preSorted;
+    private final Optional<Symbol> hashSymbol;
 
     private final TableFunctionHandle handle;
 
@@ -69,6 +76,9 @@ public class TableFunctionProcessorNode
             @JsonProperty("requiredSymbols") List<List<Symbol>> requiredSymbols,
             @JsonProperty("markerSymbols") Optional<Map<Symbol, Symbol>> markerSymbols,
             @JsonProperty("specification") Optional<DataOrganizationSpecification> specification,
+            @JsonProperty("prePartitioned") Set<Symbol> prePartitioned,
+            @JsonProperty("preSorted") int preSorted,
+            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
             @JsonProperty("handle") TableFunctionHandle handle)
     {
         super(id);
@@ -81,6 +91,22 @@ public class TableFunctionProcessorNode
                 .collect(toImmutableList());
         this.markerSymbols = markerSymbols.map(ImmutableMap::copyOf);
         this.specification = requireNonNull(specification, "specification is null");
+        this.prePartitioned = ImmutableSet.copyOf(prePartitioned);
+        Set<Symbol> partitionBy = specification
+                .map(DataOrganizationSpecification::getPartitionBy)
+                .map(ImmutableSet::copyOf)
+                .orElse(ImmutableSet.of());
+        checkArgument(partitionBy.containsAll(prePartitioned), "all pre-partitioned symbols must be contained in the partitioning list");
+        this.preSorted = preSorted;
+        checkArgument(
+                specification
+                        .flatMap(DataOrganizationSpecification::getOrderingScheme)
+                        .map(OrderingScheme::getOrderBy)
+                        .map(List::size)
+                        .orElse(0) >= preSorted,
+                "the number of pre-sorted symbols cannot be greater than the number of all ordering symbols");
+        checkArgument(preSorted == 0 || partitionBy.equals(prePartitioned), "to specify pre-sorted symbols, it is required that all partitioning symbols are pre-partitioned");
+        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
         this.handle = requireNonNull(handle, "handle is null");
     }
 
@@ -127,6 +153,24 @@ public class TableFunctionProcessorNode
     }
 
     @JsonProperty
+    public Set<Symbol> getPrePartitioned()
+    {
+        return prePartitioned;
+    }
+
+    @JsonProperty
+    public int getPreSorted()
+    {
+        return preSorted;
+    }
+
+    @JsonProperty
+    public Optional<Symbol> getHashSymbol()
+    {
+        return hashSymbol;
+    }
+
+    @JsonProperty
     public TableFunctionHandle getHandle()
     {
         return handle;
@@ -164,6 +208,6 @@ public class TableFunctionProcessorNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newSources)
     {
-        return new TableFunctionProcessorNode(getId(), name, properOutputs, getOnlyElement(newSources), passThroughSpecifications, requiredSymbols, markerSymbols, specification, handle);
+        return new TableFunctionProcessorNode(getId(), name, properOutputs, getOnlyElement(newSources), passThroughSpecifications, requiredSymbols, markerSymbols, specification, prePartitioned, preSorted, hashSymbol, handle);
     }
 }
