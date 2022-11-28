@@ -101,7 +101,6 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base
-          ref: ${{ github.event.pull_request.head.sha }} # checkout PR HEAD commit instead of merge commit
       - name: Check Commits
         uses: trinodb/github-actions/block-commits@c2991972560c5219d9ae5fb68c0c9d687ffcdd10
         with:
@@ -109,11 +108,14 @@ jobs:
           action-fixup: none
       - name: Set matrix
         id: set-matrix
-        # The output from rev-list ends with a newline, so we have to filter out index -1 in jq since it's an empty string
-        # The HEAD commit of the PR (index -2) can be safely ignored since it's already compiled in other jobs
         run: |
-          export JQ_PIPELINE='split("\n") | .[0:-2] | map({base_ref: "${{ github.event.pull_request.base.ref }}", commit: .}) | select(length > 0) | {include: .}'
-          git rev-list refs/remotes/origin/${{ github.event.pull_request.base.ref }}..HEAD | jq --raw-input --slurp "$JQ_PIPELINE" > commit-matrix.json
+          # The output from rev-list ends with a newline, so we have to filter out index -1 in jq since it's an empty string
+          export JQ_PIPELINE='split("\n") | .[0:-1] | map({base_ref: "${{ github.event.pull_request.base.ref }}", commit: .}) | select(length > 0) | {include: .}'
+          
+          # The HEAD commit of the PR can be safely ignored since it's already compiled in other jobs
+          # This is achieved by adding a tilde (~) after the HEAD sha
+          git rev-list refs/remotes/origin/${{ github.event.pull_request.base.ref }}..${{ github.event.pull_request.head.sha }}~ | jq --raw-input --slurp "$JQ_PIPELINE" > commit-matrix.json
+          
           echo "Commit matrix: $(jq '.' commit-matrix.json)"
           echo "matrix=$(jq -c '.' commit-matrix.json)" >> $GITHUB_OUTPUT
 
