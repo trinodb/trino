@@ -36,11 +36,13 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
+import static io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages;
 
 public final class PageReader
 {
     private final CompressionCodecName codec;
     private final boolean hasDictionaryPage;
+    private final boolean hasOnlyDictionaryEncodedPages;
     private final boolean hasNoNulls;
     private final PeekingIterator<Page> compressedPages;
 
@@ -59,12 +61,13 @@ public final class PageReader
         // paths in FlatColumnReader.
         Statistics<?> columnStatistics = metadata.getStatistics();
         boolean hasNoNulls = columnStatistics != null && columnStatistics.getNumNulls() == 0;
+        boolean hasOnlyDictionaryEncodedPages = isOnlyDictionaryEncodingPages(metadata);
         ParquetColumnChunkIterator compressedPages = new ParquetColumnChunkIterator(
                 fileCreatedBy,
                 new ColumnChunkDescriptor(columnDescriptor, metadata),
                 columnChunk,
                 offsetIndex);
-        return new PageReader(metadata.getCodec(), compressedPages, compressedPages.hasDictionaryPage(), hasNoNulls);
+        return new PageReader(metadata.getCodec(), compressedPages, compressedPages.hasDictionaryPage(), hasOnlyDictionaryEncodedPages, hasNoNulls);
     }
 
     @VisibleForTesting
@@ -72,17 +75,24 @@ public final class PageReader
             CompressionCodecName codec,
             Iterator<? extends Page> compressedPages,
             boolean hasDictionaryPage,
+            boolean hasOnlyDictionaryEncodedPages,
             boolean hasNoNulls)
     {
         this.codec = codec;
         this.compressedPages = Iterators.peekingIterator(compressedPages);
         this.hasDictionaryPage = hasDictionaryPage;
+        this.hasOnlyDictionaryEncodedPages = hasOnlyDictionaryEncodedPages;
         this.hasNoNulls = hasNoNulls;
     }
 
     public boolean hasNoNulls()
     {
         return hasNoNulls;
+    }
+
+    public boolean hasOnlyDictionaryEncodedPages()
+    {
+        return hasOnlyDictionaryEncodedPages;
     }
 
     public DataPage readPage()

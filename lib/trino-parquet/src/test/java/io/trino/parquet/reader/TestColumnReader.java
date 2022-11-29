@@ -360,6 +360,7 @@ public class TestColumnReader
                 UNCOMPRESSED,
                 inputPages.iterator(),
                 dictionaryEncoded,
+                dictionaryEncoded,
                 false);
     }
 
