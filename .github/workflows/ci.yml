@@ -112,9 +112,15 @@ jobs:
           # The output from rev-list ends with a newline, so we have to filter out index -1 in jq since it's an empty string
           export JQ_PIPELINE='split("\n") | .[0:-1] | map({base_ref: "${{ github.event.pull_request.base.ref }}", commit: .}) | select(length > 0) | {include: .}'
           
-          # The HEAD commit of the PR can be safely ignored since it's already compiled in other jobs
-          # This is achieved by adding a tilde (~) after the HEAD sha
-          git rev-list refs/remotes/origin/${{ github.event.pull_request.base.ref }}..${{ github.event.pull_request.head.sha }}~ | jq --raw-input --slurp "$JQ_PIPELINE" > commit-matrix.json
+          # Make sure the PR branch contains the compile-commit composite job
+          if git merge-base --is-ancestor $( git rev-list HEAD -- .github/actions/compile-commit/action.yml | tail -n 1 ) ${{ github.event.pull_request.head.sha }}
+          then
+            # The HEAD commit of the PR can be safely ignored since it's already compiled in other jobs
+            # This is achieved by adding a tilde (~) after the HEAD sha
+            git rev-list refs/remotes/origin/${{ github.event.pull_request.base.ref }}..${{ github.event.pull_request.head.sha }}~ | jq --raw-input --slurp "$JQ_PIPELINE" > commit-matrix.json
+          else
+            echo -n '' > commit-matrix.json
+          fi
           
           echo "Commit matrix: $(jq '.' commit-matrix.json)"
           echo "matrix=$(jq -c '.' commit-matrix.json)" >> $GITHUB_OUTPUT
