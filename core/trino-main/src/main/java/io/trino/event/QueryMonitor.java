@@ -108,7 +108,7 @@ public class QueryMonitor
     private final JsonCodec<ExecutionFailureInfo> executionFailureInfoCodec;
     private final JsonCodec<StatsAndCosts> statsAndCostsCodec;
     private final EventListenerManager eventListenerManager;
-    private final String serverVersion;
+    private final NodeVersion serverVersion;
     private final String serverAddress;
     private final String environment;
     private final SessionPropertyManager sessionPropertyManager;
@@ -135,7 +135,7 @@ public class QueryMonitor
         this.operatorStatsCodec = requireNonNull(operatorStatsCodec, "operatorStatsCodec is null");
         this.statsAndCostsCodec = requireNonNull(statsAndCostsCodec, "statsAndCostsCodec is null");
         this.executionFailureInfoCodec = requireNonNull(executionFailureInfoCodec, "executionFailureInfoCodec is null");
-        this.serverVersion = nodeVersion.toString();
+        this.serverVersion = nodeVersion;
         this.serverAddress = nodeInfo.getExternalAddress();
         this.environment = nodeInfo.getEnvironment();
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -351,7 +351,7 @@ public class QueryMonitor
                 mergeSessionAndCatalogProperties(session),
                 session.getResourceEstimates(),
                 serverAddress,
-                serverVersion,
+                serverVersion.toString(),
                 environment,
                 queryType,
                 retryPolicy.toString());
@@ -366,7 +366,8 @@ public class QueryMonitor
                         queryInfo.getQueryStats(),
                         new ValuePrinter(metadata, functionManager, queryInfo.getSession().toSession(sessionPropertyManager)),
                         false,
-                        anonymizer));
+                        anonymizer,
+                        serverVersion));
             }
         }
         catch (Exception e) {
