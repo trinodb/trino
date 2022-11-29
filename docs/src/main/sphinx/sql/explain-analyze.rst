@@ -87,8 +87,9 @@ relevant plan nodes). Such statistics are useful when one wants to detect data a
                orderdate := orderdate:date:REGULAR
                Input: 1500000 rows (18.17MB), Filtered: 45.46%, Physical Input: 4.51MB
 
-When the ``VERBOSE`` option is used, some operators may report additional information.
-For example, the window function operator will output the following::
+When the ``VERBOSE`` option is used, Trino version is reported as well as
+some operators may report additional information. For example, the window
+function operator will output the following::
 
     EXPLAIN ANALYZE VERBOSE SELECT count(clerk) OVER() FROM orders
     WHERE orderdate > date '1995-01-01';

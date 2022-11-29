@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
+import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.cost.StatsAndCosts;
@@ -173,7 +174,8 @@ public final class TaskTestUtils
                 new DynamicFilterConfig(),
                 blockTypeOperators,
                 new TableExecuteContextManager(),
-                new ExchangeManagerRegistry());
+                new ExchangeManagerRegistry(),
+                new NodeVersion("test"));
     }
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<SplitAssignment> splitAssignments, OutputBuffers outputBuffers)

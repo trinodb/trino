@@ -31,6 +31,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.client.NodeVersion;
 import io.trino.collect.cache.NonEvictableCache;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFilterConfig;
@@ -423,6 +424,7 @@ public class LocalExecutionPlanner
     private final TableExecuteContextManager tableExecuteContextManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final PositionsAppenderFactory positionsAppenderFactory;
+    private final NodeVersion version;
 
     private final NonEvictableCache<FunctionKey, AccumulatorFactory> accumulatorFactoryCache = buildNonEvictableCache(CacheBuilder.newBuilder()
             .maximumSize(1000)
@@ -456,7 +458,8 @@ public class LocalExecutionPlanner
             DynamicFilterConfig dynamicFilterConfig,
             BlockTypeOperators blockTypeOperators,
             TableExecuteContextManager tableExecuteContextManager,
-            ExchangeManagerRegistry exchangeManagerRegistry)
+            ExchangeManagerRegistry exchangeManagerRegistry,
+            NodeVersion version)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
@@ -502,6 +505,7 @@ public class LocalExecutionPlanner
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.positionsAppenderFactory = new PositionsAppenderFactory(blockTypeOperators);
+        this.version = requireNonNull(version, "version is null");
     }
 
     public LocalExecutionPlan plan(
@@ -955,7 +959,8 @@ public class LocalExecutionPlanner
                     analyzeContext.getQueryPerformanceFetcher(),
                     metadata,
                     plannerContext.getFunctionManager(),
-                    node.isVerbose());
+                    node.isVerbose(),
+                    version);
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
 
