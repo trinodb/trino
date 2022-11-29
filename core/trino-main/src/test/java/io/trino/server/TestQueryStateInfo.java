@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.client.NodeVersion;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
 import io.trino.execution.QueryStats;
@@ -200,6 +201,7 @@ public class TestQueryStateInfo
                 Optional.empty(),
                 Optional.of(QueryType.SELECT),
                 RetryPolicy.NONE,
-                false);
+                false,
+                new NodeVersion("version"));
     }
 }

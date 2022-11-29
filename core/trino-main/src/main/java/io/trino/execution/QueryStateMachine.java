@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.client.NodeVersion;
 import io.trino.exchange.ExchangeInput;
 import io.trino.execution.QueryExecution.QueryOutputInfo;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -173,6 +174,8 @@ public class QueryStateMachine
     private final AtomicBoolean committed = new AtomicBoolean();
     private final AtomicBoolean consumed = new AtomicBoolean();
 
+    private final NodeVersion version;
+
     private QueryStateMachine(
             String query,
             Optional<String> preparedQuery,
@@ -184,7 +187,8 @@ public class QueryStateMachine
             Ticker ticker,
             Metadata metadata,
             WarningCollector warningCollector,
-            Optional<QueryType> queryType)
+            Optional<QueryType> queryType,
+            NodeVersion version)
     {
         this.query = requireNonNull(query, "query is null");
         this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
@@ -201,6 +205,7 @@ public class QueryStateMachine
         this.outputManager = new QueryOutputManager(executor);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
+        this.version = requireNonNull(version, "version is null");
     }
 
     /**
@@ -220,7 +225,8 @@ public class QueryStateMachine
             Metadata metadata,
             WarningCollector warningCollector,
             Optional<QueryType> queryType,
-            boolean faultTolerantExecutionExchangeEncryptionEnabled)
+            boolean faultTolerantExecutionExchangeEncryptionEnabled,
+            NodeVersion version)
     {
         return beginWithTicker(
                 existingTransactionId,
@@ -237,7 +243,8 @@ public class QueryStateMachine
                 metadata,
                 warningCollector,
                 queryType,
-                faultTolerantExecutionExchangeEncryptionEnabled);
+                faultTolerantExecutionExchangeEncryptionEnabled,
+                version);
     }
 
     static QueryStateMachine beginWithTicker(
@@ -255,7 +262,8 @@ public class QueryStateMachine
             Metadata metadata,
             WarningCollector warningCollector,
             Optional<QueryType> queryType,
-            boolean faultTolerantExecutionExchangeEncryptionEnabled)
+            boolean faultTolerantExecutionExchangeEncryptionEnabled,
+            NodeVersion version)
     {
         // if there is an existing transaction, activate it
         existingTransactionId.ifPresent(transactionId -> {
@@ -292,7 +300,8 @@ public class QueryStateMachine
                 ticker,
                 metadata,
                 warningCollector,
-                queryType);
+                queryType,
+                version);
         queryStateMachine.addStateChangeListener(newState -> {
             QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState);
             if (newState.isDone()) {
@@ -490,7 +499,8 @@ public class QueryStateMachine
                 Optional.of(resourceGroup),
                 queryType,
                 getRetryPolicy(session),
-                false);
+                false,
+                version);
     }
 
     private QueryStats getQueryStats(Optional<StageInfo> rootStage, List<StageInfo> allStages)
@@ -1218,7 +1228,8 @@ public class QueryStateMachine
                 queryInfo.getResourceGroupId(),
                 queryInfo.getQueryType(),
                 queryInfo.getRetryPolicy(),
-                true);
+                true,
+                version);
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 
