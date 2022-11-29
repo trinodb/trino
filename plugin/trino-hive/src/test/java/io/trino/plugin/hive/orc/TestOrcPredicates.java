@@ -27,6 +27,7 @@ import io.trino.plugin.hive.HivePageSourceProvider;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TableToPartitionMapping;
+import io.trino.plugin.hive.util.CustomSplitManager;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -237,7 +238,9 @@ public class TestOrcPredicates
                 Optional.empty(),
                 false,
                 NO_ACID_TRANSACTION,
-                columnMappings);
+                columnMappings,
+                ImmutableMap.of(),
+                new CustomSplitManager());
 
         assertTrue(pageSource.isPresent());
         return pageSource.get();

@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.airlift.compress.lzo.LzoCodec;
@@ -31,6 +32,7 @@ import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
+import io.trino.plugin.hive.util.CustomSplitManager;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
@@ -967,7 +969,9 @@ public class TestHiveFileFormats
                 Optional.empty(),
                 false,
                 NO_ACID_TRANSACTION,
-                columnMappings);
+                columnMappings,
+                ImmutableMap.of(),
+                new CustomSplitManager());
 
         return pageSource.get();
     }
@@ -1045,7 +1049,9 @@ public class TestHiveFileFormats
                 Optional.empty(),
                 false,
                 NO_ACID_TRANSACTION,
-                columnMappings);
+                columnMappings,
+                ImmutableMap.of(),
+                new CustomSplitManager());
 
         assertTrue(pageSource.isPresent());
 

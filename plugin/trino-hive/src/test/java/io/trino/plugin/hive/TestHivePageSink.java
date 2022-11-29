@@ -22,6 +22,7 @@ import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadata;
+import io.trino.plugin.hive.util.CustomSplitManager;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.SplitWeight;
@@ -263,7 +264,8 @@ public class TestHivePageSink
                 false,
                 Optional.empty(),
                 0,
-                SplitWeight.standard());
+                SplitWeight.standard(),
+                ImmutableMap.of());
         ConnectorTableHandle table = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
         HivePageSourceProvider provider = new HivePageSourceProvider(
                 TESTING_TYPE_MANAGER,
@@ -272,7 +274,8 @@ public class TestHivePageSink
                 getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT, config),
                 getDefaultHiveRecordCursorProviders(config, HDFS_ENVIRONMENT),
                 new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, config),
-                Optional.empty());
+                Optional.empty(),
+                new CustomSplitManager());
         return provider.createPageSource(transaction, getHiveSession(config), split, table, ImmutableList.copyOf(getColumnHandles()), DynamicFilter.EMPTY);
     }
 

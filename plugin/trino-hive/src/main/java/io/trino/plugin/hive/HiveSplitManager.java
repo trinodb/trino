@@ -27,6 +27,7 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.util.CustomSplitManager;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
@@ -113,6 +114,7 @@ public class HiveSplitManager
     private final CounterStat highMemorySplitSourceCounter;
     private final TypeManager typeManager;
     private final int maxPartitionsPerScan;
+    private final CustomSplitManager customSplitManager;
 
     @Inject
     public HiveSplitManager(
@@ -123,7 +125,8 @@ public class HiveSplitManager
             HdfsEnvironment hdfsEnvironment,
             ExecutorService executorService,
             VersionEmbedder versionEmbedder,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            CustomSplitManager customSplitManager)
     {
         this(
                 transactionManager,
@@ -141,7 +144,8 @@ public class HiveSplitManager
                 hiveConfig.getMaxSplitsPerSecond(),
                 hiveConfig.getRecursiveDirWalkerEnabled(),
                 typeManager,
-                hiveConfig.getMaxPartitionsPerScan());
+                hiveConfig.getMaxPartitionsPerScan(),
+                customSplitManager);
     }
 
     public HiveSplitManager(
@@ -160,7 +164,8 @@ public class HiveSplitManager
             @Nullable Integer maxSplitsPerSecond,
             boolean recursiveDfsWalkerEnabled,
             TypeManager typeManager,
-            int maxPartitionsPerScan)
+            int maxPartitionsPerScan,
+            CustomSplitManager customSplitManager)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
@@ -179,6 +184,7 @@ public class HiveSplitManager
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.maxPartitionsPerScan = maxPartitionsPerScan;
+        this.customSplitManager = requireNonNull(customSplitManager, "customSplitManager is null");
     }
 
     @Override
@@ -263,7 +269,8 @@ public class HiveSplitManager
                 metastore.getValidWriteIds(session, hiveTable)
                         .map(validTxnWriteIdList -> validTxnWriteIdList.getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName())),
                 hiveTable.getMaxScannedFileSize(),
-                maxPartitionsPerScan);
+                maxPartitionsPerScan,
+                customSplitManager);
 
         HiveSplitSource splitSource = HiveSplitSource.allAtOnce(
                 session,

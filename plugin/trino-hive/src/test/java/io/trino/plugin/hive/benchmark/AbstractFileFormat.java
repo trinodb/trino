@@ -31,6 +31,7 @@ import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.HiveTypeName;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.TableToPartitionMapping;
+import io.trino.plugin.hive.util.CustomSplitManager;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -130,7 +131,8 @@ public abstract class AbstractFileFormat
                 getHivePageSourceFactory(hdfsEnvironment).map(ImmutableSet::of).orElse(ImmutableSet.of()),
                 getHiveRecordCursorProvider(hdfsEnvironment).map(ImmutableSet::of).orElse(ImmutableSet.of()),
                 new GenericHiveRecordCursorProvider(hdfsEnvironment, new HiveConfig()),
-                Optional.empty());
+                Optional.empty(),
+                new CustomSplitManager());
 
         Properties schema = createSchema(getFormat(), schemaColumnNames, schemaColumnTypes);
 
@@ -156,7 +158,8 @@ public abstract class AbstractFileFormat
                 false,
                 Optional.empty(),
                 0,
-                SplitWeight.standard());
+                SplitWeight.standard(),
+                ImmutableMap.of());
 
         return factory.createPageSource(
                 TestingConnectorTransactionHandle.INSTANCE,
@@ -195,7 +198,9 @@ public abstract class AbstractFileFormat
                 readColumns,
                 TupleDomain.all(),
                 TESTING_TYPE_MANAGER,
-                false);
+                false,
+                ImmutableMap.of(),
+                new CustomSplitManager());
 
         checkState(recordCursorWithProjections.isPresent(), "readerPageSourceWithProjections is not present");
         checkState(recordCursorWithProjections.get().getProjectedReaderColumns().isEmpty(), "projection should not be required");

@@ -18,6 +18,7 @@ import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveRecordCursorProvider;
 import io.trino.plugin.hive.ReaderColumns;
+import io.trino.plugin.hive.util.CustomSplitManager;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
@@ -33,6 +34,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
@@ -73,7 +75,9 @@ public class S3SelectRecordCursorProvider
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             TypeManager typeManager,
-            boolean s3SelectPushdownEnabled)
+            boolean s3SelectPushdownEnabled,
+            Map<String, String> customSplitInfo,
+            CustomSplitManager customSplitManager)
     {
         if (!s3SelectPushdownEnabled) {
             return Optional.empty();

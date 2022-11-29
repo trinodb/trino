@@ -20,6 +20,7 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveRecordCursorProvider.ReaderRecordCursorWithProjections;
 import io.trino.plugin.hive.TestBackgroundHiveSplitLoader.TestingHdfsEnvironment;
+import io.trino.plugin.hive.util.CustomSplitManager;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.SortedRangeSet;
@@ -128,7 +129,9 @@ public class TestS3SelectRecordCursorProvider
                 readerColumns,
                 effectivePredicate,
                 TESTING_TYPE_MANAGER,
-                s3SelectPushdownEnabled);
+                s3SelectPushdownEnabled,
+                ImmutableMap.of(),
+                new CustomSplitManager());
     }
 
     private static Properties createTestingSchema()

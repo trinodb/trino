@@ -320,7 +320,8 @@ class HiveSplitSource
                         internalSplit.isS3SelectPushdownEnabled(),
                         internalSplit.getAcidInfo(),
                         numberOfProcessedSplits.getAndIncrement(),
-                        splitWeightProvider.weightForSplitSizeInBytes(splitBytes)));
+                        splitWeightProvider.weightForSplitSizeInBytes(splitBytes),
+                        internalSplit.getCustomSplitInfo()));
 
                 internalSplit.increaseStart(splitBytes);
 

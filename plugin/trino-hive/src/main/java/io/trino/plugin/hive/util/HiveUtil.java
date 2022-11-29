@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.util;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -108,6 +109,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Lists.newArrayList;
+import static com.google.common.collect.Lists.transform;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.hdfs.ConfigurationUtils.copy;
 import static io.trino.hdfs.ConfigurationUtils.toJobConf;
@@ -177,6 +179,7 @@ import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_IDS_CONF_STR;
+import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_NAMES_CONF_STR;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 
 public final class HiveUtil
@@ -227,7 +230,7 @@ public final class HiveUtil
     {
     }
 
-    public static RecordReader<?, ?> createRecordReader(Configuration configuration, Path path, long start, long length, Properties schema, List<HiveColumnHandle> columns)
+    public static RecordReader<?, ?> createRecordReader(Configuration configuration, Path path, long start, long length, Properties schema, List<HiveColumnHandle> columns, Map<String, String> customSplitInfo, CustomSplitManager customSplitManager)
     {
         // determine which hive columns we will read
         List<HiveColumnHandle> readColumns = columns.stream()
@@ -245,13 +248,26 @@ public final class HiveUtil
         configuration = copy(configuration);
         setReadColumns(configuration, readHiveColumnIndexes);
 
+        // Only propagate serialization schema configs by default
+        Predicate<String> schemaFilter = schemaProperty -> schemaProperty.startsWith("serialization.");
+
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, true);
         JobConf jobConf = toJobConf(configuration);
         FileSplit fileSplit = new FileSplit(path, start, length, (String[]) null);
 
-        // propagate serialization configuration to getRecordReader
+        if (!customSplitInfo.isEmpty()) {
+            fileSplit = customSplitManager.recreateSplitWithCustomInfo(fileSplit, customSplitInfo);
+
+            // Add additional column information for record reader
+            List<String> readHiveColumnNames = ImmutableList.copyOf(transform(readColumns, HiveColumnHandle::getName));
+            jobConf.set(READ_COLUMN_NAMES_CONF_STR, Joiner.on(',').join(readHiveColumnNames));
+
+            // Remove filter when using customSplitInfo as the record reader requires complete schema configs
+            schemaFilter = schemaProperty -> true;
+        }
+
         schema.stringPropertyNames().stream()
-                .filter(name -> name.startsWith("serialization."))
+                .filter(schemaFilter)
                 .forEach(name -> jobConf.set(name, schema.getProperty(name)));
 
         configureCompressionCodecs(jobConf);

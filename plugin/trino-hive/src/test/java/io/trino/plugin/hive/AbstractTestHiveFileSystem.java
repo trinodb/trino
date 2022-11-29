@@ -47,6 +47,7 @@ import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.security.SqlStandardAccessControlMetadata;
+import io.trino.plugin.hive.util.CustomSplitManager;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -234,7 +235,8 @@ public abstract class AbstractTestHiveFileSystem
                 config.getMaxSplitsPerSecond(),
                 config.getRecursiveDirWalkerEnabled(),
                 TESTING_TYPE_MANAGER,
-                config.getMaxPartitionsPerScan());
+                config.getMaxPartitionsPerScan(),
+                new CustomSplitManager());
         TypeOperators typeOperators = new TypeOperators();
         BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
         pageSinkProvider = new HivePageSinkProvider(
@@ -259,7 +261,8 @@ public abstract class AbstractTestHiveFileSystem
                 getDefaultHivePageSourceFactories(hdfsEnvironment, config),
                 getDefaultHiveRecordCursorProviders(config, hdfsEnvironment),
                 new GenericHiveRecordCursorProvider(hdfsEnvironment, config),
-                Optional.empty());
+                Optional.empty(),
+                new CustomSplitManager());
 
         onSetupComplete();
     }

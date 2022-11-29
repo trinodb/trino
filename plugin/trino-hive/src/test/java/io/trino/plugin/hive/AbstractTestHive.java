@@ -58,6 +58,7 @@ import io.trino.plugin.hive.orc.OrcPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.hive.rcfile.RcFilePageSource;
 import io.trino.plugin.hive.security.SqlStandardAccessControlMetadata;
+import io.trino.plugin.hive.util.CustomSplitManager;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -892,7 +893,8 @@ public abstract class AbstractTestHive
                 hiveConfig.getMaxSplitsPerSecond(),
                 false,
                 TESTING_TYPE_MANAGER,
-                hiveConfig.getMaxPartitionsPerScan());
+                hiveConfig.getMaxPartitionsPerScan(),
+                new CustomSplitManager());
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(hiveConfig, hdfsEnvironment),
                 new HdfsFileSystemFactory(hdfsEnvironment),
@@ -915,7 +917,8 @@ public abstract class AbstractTestHive
                 getDefaultHivePageSourceFactories(hdfsEnvironment, hiveConfig),
                 getDefaultHiveRecordCursorProviders(hiveConfig, hdfsEnvironment),
                 new GenericHiveRecordCursorProvider(hdfsEnvironment, hiveConfig),
-                Optional.empty());
+                Optional.empty(),
+                new CustomSplitManager());
         nodePartitioningProvider = new HiveNodePartitioningProvider(
                 new TestingNodeManager("fake-environment"),
                 TESTING_TYPE_MANAGER);

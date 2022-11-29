@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.spi.HostAddress;
@@ -22,6 +23,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
@@ -67,6 +69,7 @@ public class InternalHiveSplit
     private final boolean s3SelectPushdownEnabled;
     private final Optional<AcidInfo> acidInfo;
     private final BooleanSupplier partitionMatchSupplier;
+    private final Map<String, String> customSplitInfo;
 
     private long start;
     private int currentBlockIndex;
@@ -92,7 +95,8 @@ public class InternalHiveSplit
             Optional<BucketValidation> bucketValidation,
             boolean s3SelectPushdownEnabled,
             Optional<AcidInfo> acidInfo,
-            BooleanSupplier partitionMatchSupplier)
+            BooleanSupplier partitionMatchSupplier,
+            Map<String, String> customSplitInfo)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(end >= 0, "length must be positive");
@@ -110,6 +114,7 @@ public class InternalHiveSplit
         requireNonNull(bucketValidation, "bucketValidation is null");
         requireNonNull(acidInfo, "acidInfo is null");
         requireNonNull(partitionMatchSupplier, "partitionMatchSupplier is null");
+        requireNonNull(customSplitInfo, "customSplitInfo is null");
 
         this.partitionName = partitionName;
         this.path = path;
@@ -132,6 +137,7 @@ public class InternalHiveSplit
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.acidInfo = acidInfo;
         this.partitionMatchSupplier = partitionMatchSupplier;
+        this.customSplitInfo = ImmutableMap.copyOf(customSplitInfo);
     }
 
     public String getPath()
@@ -257,6 +263,11 @@ public class InternalHiveSplit
     public Optional<AcidInfo> getAcidInfo()
     {
         return acidInfo;
+    }
+
+    public Map<String, String> getCustomSplitInfo()
+    {
+        return customSplitInfo;
     }
 
     public BooleanSupplier getPartitionMatchSupplier()

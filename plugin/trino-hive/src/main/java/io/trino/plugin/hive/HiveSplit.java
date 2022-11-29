@@ -24,6 +24,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -64,6 +65,7 @@ public class HiveSplit
     private final Optional<AcidInfo> acidInfo;
     private final long splitNumber;
     private final SplitWeight splitWeight;
+    private final Map<String, String> customSplitInfo;
 
     @JsonCreator
     public HiveSplit(
@@ -88,7 +90,8 @@ public class HiveSplit
             @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
             @JsonProperty("acidInfo") Optional<AcidInfo> acidInfo,
             @JsonProperty("splitNumber") long splitNumber,
-            @JsonProperty("splitWeight") SplitWeight splitWeight)
+            @JsonProperty("splitWeight") SplitWeight splitWeight,
+            @JsonProperty("customSplitInfo") Map<String, String> customSplitInfo)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -106,6 +109,7 @@ public class HiveSplit
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(bucketValidation, "bucketValidation is null");
         requireNonNull(acidInfo, "acidInfo is null");
+        requireNonNull(customSplitInfo, "customSplitInfo is null");
 
         this.database = database;
         this.table = table;
@@ -129,6 +133,7 @@ public class HiveSplit
         this.acidInfo = acidInfo;
         this.splitNumber = splitNumber;
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
+        this.customSplitInfo = ImmutableMap.copyOf(customSplitInfo);
     }
 
     @JsonProperty
@@ -256,6 +261,12 @@ public class HiveSplit
     public Optional<AcidInfo> getAcidInfo()
     {
         return acidInfo;
+    }
+
+    @JsonProperty
+    public Map<String, String> getCustomSplitInfo()
+    {
+        return customSplitInfo;
     }
 
     @JsonProperty

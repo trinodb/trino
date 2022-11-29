@@ -85,7 +85,8 @@ public class TestHiveSplit
                 false,
                 Optional.of(acidInfo),
                 555534,
-                SplitWeight.fromProportion(2.0)); // some non-standard value
+                SplitWeight.fromProportion(2.0),  // some non-standard value
+                ImmutableMap.of("key", "value"));
 
         String json = codec.toJson(expected);
         HiveSplit actual = codec.fromJson(json);
@@ -108,5 +109,6 @@ public class TestHiveSplit
         assertEquals(actual.getAcidInfo().get(), expected.getAcidInfo().get());
         assertEquals(actual.getSplitNumber(), expected.getSplitNumber());
         assertEquals(actual.getSplitWeight(), expected.getSplitWeight());
+        assertEquals(actual.getCustomSplitInfo(), expected.getCustomSplitInfo());
     }
 }

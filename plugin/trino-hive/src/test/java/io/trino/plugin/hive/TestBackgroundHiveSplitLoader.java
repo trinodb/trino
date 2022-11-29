@@ -35,6 +35,7 @@ import io.trino.plugin.hive.fs.TrinoFileStatus;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.util.CustomSplitManager;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -557,7 +558,8 @@ public class TestBackgroundHiveSplitLoader
                 true,
                 Optional.empty(),
                 Optional.empty(),
-                100);
+                100,
+                new CustomSplitManager());
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
@@ -1178,7 +1180,8 @@ public class TestBackgroundHiveSplitLoader
                 true,
                 validWriteIds,
                 Optional.empty(),
-                100);
+                100,
+                new CustomSplitManager());
     }
 
     private BackgroundHiveSplitLoader backgroundHiveSplitLoader(
@@ -1221,7 +1224,8 @@ public class TestBackgroundHiveSplitLoader
                 true,
                 Optional.empty(),
                 Optional.empty(),
-                maxPartitions);
+                maxPartitions,
+                new CustomSplitManager());
     }
 
     private BackgroundHiveSplitLoader backgroundHiveSplitLoaderOfflinePartitions()
@@ -1248,7 +1252,8 @@ public class TestBackgroundHiveSplitLoader
                 true,
                 Optional.empty(),
                 Optional.empty(),
-                100);
+                100,
+                new CustomSplitManager());
     }
 
     private static Iterator<HivePartitionMetadata> createPartitionMetadataWithOfflinePartitions()

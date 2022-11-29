@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.util;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -70,6 +71,7 @@ public class InternalHiveSplitFactory
     private final boolean forceLocalScheduling;
     private final boolean s3SelectPushdownEnabled;
     private final Map<Integer, AtomicInteger> bucketStatementCounters = new ConcurrentHashMap<>();
+    private final CustomSplitManager customSplitManager;
 
     public InternalHiveSplitFactory(
             FileSystem fileSystem,
@@ -85,7 +87,8 @@ public class InternalHiveSplitFactory
             DataSize minimumTargetSplitSize,
             boolean forceLocalScheduling,
             boolean s3SelectPushdownEnabled,
-            Optional<Long> maxSplitFileSize)
+            Optional<Long> maxSplitFileSize,
+            CustomSplitManager customSplitManager)
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
@@ -101,6 +104,7 @@ public class InternalHiveSplitFactory
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.minimumTargetSplitSizeInBytes = minimumTargetSplitSize.toBytes();
         this.maxSplitFileSize = requireNonNull(maxSplitFileSize, "maxSplitFileSize is null");
+        this.customSplitManager = requireNonNull(customSplitManager, "customSplitManager is null");
         checkArgument(minimumTargetSplitSizeInBytes > 0, "minimumTargetSplitSize must be > 0, found: %s", minimumTargetSplitSize);
     }
 
@@ -124,13 +128,15 @@ public class InternalHiveSplitFactory
                 readBucketNumber,
                 tableBucketNumber,
                 splittable,
-                acidInfo);
+                acidInfo,
+                ImmutableMap.of());
     }
 
     public Optional<InternalHiveSplit> createInternalHiveSplit(FileSplit split)
             throws IOException
     {
         FileStatus file = fileSystem.getFileStatus(split.getPath());
+        Map<String, String> customSplitInfo =  customSplitManager.extractCustomSplitInfo(split);
         return createInternalHiveSplit(
                 split.getPath(),
                 BlockLocation.fromHiveBlockLocations(fileSystem.getFileBlockLocations(file, split.getStart(), split.getLength())),
@@ -141,7 +147,8 @@ public class InternalHiveSplitFactory
                 OptionalInt.empty(),
                 OptionalInt.empty(),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                customSplitInfo);
     }
 
     private Optional<InternalHiveSplit> createInternalHiveSplit(
@@ -155,7 +162,8 @@ public class InternalHiveSplitFactory
             OptionalInt readBucketNumber,
             OptionalInt tableBucketNumber,
             boolean splittable,
-            Optional<AcidInfo> acidInfo)
+            Optional<AcidInfo> acidInfo,
+            Map<String, String> customSplitInfo)
     {
         String pathString = path.toString();
         if (!pathMatchesPredicate(pathDomain, pathString)) {
@@ -221,7 +229,8 @@ public class InternalHiveSplitFactory
                 bucketValidation,
                 s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path),
                 acidInfo,
-                partitionMatchSupplier));
+                partitionMatchSupplier,
+                customSplitInfo));
     }
 
     private static void checkBlocks(Path path, List<InternalHiveBlock> blocks, long start, long length)

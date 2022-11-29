@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.stats.Distribution;
@@ -35,6 +36,7 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.hive.util.CustomSplitManager;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -585,7 +587,9 @@ public class TestOrcPageSourceMemoryTracking
                     Optional.empty(),
                     false,
                     NO_ACID_TRANSACTION,
-                    columnMappings).orElseThrow();
+                    columnMappings,
+                    ImmutableMap.of(),
+                    new CustomSplitManager()).orElseThrow();
         }
 
         public SourceOperator newTableScanOperator(DriverContext driverContext)

@@ -37,6 +37,8 @@ import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
 import io.trino.plugin.hive.s3select.S3SelectRecordCursorProvider;
 import io.trino.plugin.hive.s3select.TrinoS3ClientFactory;
+import io.trino.plugin.hive.util.CustomSplitManager;
+import io.trino.plugin.hive.util.CustomSplitConverter;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -128,6 +130,9 @@ public class HiveModule
         configBinder(binder).bindConfig(OrcWriterConfig.class);
         fileWriterFactoryBinder.addBinding().to(OrcFileWriterFactory.class).in(Scopes.SINGLETON);
         fileWriterFactoryBinder.addBinding().to(RcFileFileWriterFactory.class).in(Scopes.SINGLETON);
+
+        binder.bind(CustomSplitManager.class).in(Scopes.SINGLETON);
+        Multibinder<CustomSplitConverter> customSplitConverterBinder = newSetBinder(binder, CustomSplitConverter.class);
 
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);

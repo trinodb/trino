@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import io.airlift.units.DataSize;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.plugin.hive.util.CustomSplitManager;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -31,6 +32,7 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -72,7 +74,9 @@ public class GenericHiveRecordCursorProvider
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             TypeManager typeManager,
-            boolean s3SelectPushdownEnabled)
+            boolean s3SelectPushdownEnabled,
+            Map<String, String> customSplitInfo,
+            CustomSplitManager customSplitManager)
     {
         configuration.setInt(LineRecordReader.MAX_LINE_LENGTH, textMaxLineLengthBytes);
 
@@ -99,7 +103,9 @@ public class GenericHiveRecordCursorProvider
                     start,
                     length,
                     schema,
-                    readerColumns);
+                    readerColumns,
+                    customSplitInfo,
+                    customSplitManager);
 
             try {
                 return new GenericHiveRecordCursor<>(

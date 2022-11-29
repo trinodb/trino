@@ -30,6 +30,7 @@ import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcPageSource;
+import io.trino.plugin.hive.util.CustomSplitManager;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -104,6 +105,7 @@ public class HivePageSourceProvider
     private final Set<HivePageSourceFactory> pageSourceFactories;
     private final Set<HiveRecordCursorProvider> cursorProviders;
     private final Optional<OrcFileWriterFactory> orcFileWriterFactory;
+    private final CustomSplitManager customSplitManager;
 
     @Inject
     public HivePageSourceProvider(
@@ -113,9 +115,10 @@ public class HivePageSourceProvider
             Set<HivePageSourceFactory> pageSourceFactories,
             Set<HiveRecordCursorProvider> cursorProviders,
             GenericHiveRecordCursorProvider genericCursorProvider,
-            OrcFileWriterFactory orcFileWriterFactory)
+            OrcFileWriterFactory orcFileWriterFactory,
+            CustomSplitManager customSplitManager)
     {
-        this(typeManager, hdfsEnvironment, hiveConfig, pageSourceFactories, cursorProviders, genericCursorProvider, Optional.of(orcFileWriterFactory));
+        this(typeManager, hdfsEnvironment, hiveConfig, pageSourceFactories, cursorProviders, genericCursorProvider, Optional.of(orcFileWriterFactory), customSplitManager);
     }
 
     public HivePageSourceProvider(
@@ -125,7 +128,8 @@ public class HivePageSourceProvider
             Set<HivePageSourceFactory> pageSourceFactories,
             Set<HiveRecordCursorProvider> cursorProviders,
             GenericHiveRecordCursorProvider genericCursorProvider,
-            Optional<OrcFileWriterFactory> orcFileWriterFactory)
+            Optional<OrcFileWriterFactory> orcFileWriterFactory,
+            CustomSplitManager customSplitManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -136,6 +140,7 @@ public class HivePageSourceProvider
                 .add(genericCursorProvider) // generic should be last, as a fallback option
                 .build();
         this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
+        this.customSplitManager = requireNonNull(customSplitManager, "customSplitManager is null");
     }
 
     @Override
@@ -213,7 +218,9 @@ public class HivePageSourceProvider
                 hiveSplit.getAcidInfo(),
                 originalFile,
                 hiveTable.getTransaction(),
-                columnMappings);
+                columnMappings,
+                hiveSplit.getCustomSplitInfo(),
+                customSplitManager);
 
         if (pageSource.isPresent()) {
             ConnectorPageSource source = pageSource.get();
@@ -274,7 +281,9 @@ public class HivePageSourceProvider
             Optional<AcidInfo> acidInfo,
             boolean originalFile,
             AcidTransaction transaction,
-            List<ColumnMapping> columnMappings)
+            List<ColumnMapping> columnMappings,
+            Map<String, String> customSplitInfo,
+            CustomSplitManager customSplitManager)
     {
         if (effectivePredicate.isNone()) {
             return Optional.of(new EmptyPageSource());
@@ -338,7 +347,9 @@ public class HivePageSourceProvider
                     desiredColumns,
                     effectivePredicate,
                     typeManager,
-                    s3SelectPushdownEnabled);
+                    s3SelectPushdownEnabled,
+                    customSplitInfo,
+                    customSplitManager);
 
             if (readerWithProjections.isPresent()) {
                 RecordCursor delegate = readerWithProjections.get().getRecordCursor();

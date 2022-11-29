@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import io.trino.plugin.hive.util.CustomSplitManager;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.predicate.TupleDomain;
@@ -21,6 +22,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -39,7 +41,9 @@ public interface HiveRecordCursorProvider
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             TypeManager typeManager,
-            boolean s3SelectPushdownEnabled);
+            boolean s3SelectPushdownEnabled,
+            Map<String, String> customSplitInfo,
+            CustomSplitManager customSplitManager);
 
     /**
      * A wrapper class for

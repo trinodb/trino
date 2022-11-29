@@ -52,6 +52,7 @@ import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.s3.HiveS3Config;
 import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import io.trino.plugin.hive.security.SqlStandardAccessControlMetadata;
+import io.trino.plugin.hive.util.CustomSplitManager;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
@@ -180,7 +181,8 @@ public class S3SelectTestHelper
                 this.hiveConfig.getMaxSplitsPerSecond(),
                 this.hiveConfig.getRecursiveDirWalkerEnabled(),
                 TESTING_TYPE_MANAGER,
-                this.hiveConfig.getMaxPartitionsPerScan());
+                this.hiveConfig.getMaxPartitionsPerScan(),
+                new CustomSplitManager());
 
         pageSourceProvider = new HivePageSourceProvider(
                 TESTING_TYPE_MANAGER,
@@ -189,7 +191,8 @@ public class S3SelectTestHelper
                 getDefaultHivePageSourceFactories(hdfsEnvironment, this.hiveConfig),
                 getDefaultHiveRecordCursorProviders(this.hiveConfig, hdfsEnvironment),
                 new GenericHiveRecordCursorProvider(hdfsEnvironment, this.hiveConfig),
-                Optional.empty());
+                Optional.empty(),
+                new CustomSplitManager());
     }
 
     public S3SelectTestHelper(String host,

@@ -23,6 +23,7 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.hive.util.CustomSplitManager;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -137,7 +138,8 @@ public class TestNodeLocalDynamicSplitPruning
                 false,
                 Optional.empty(),
                 0,
-                SplitWeight.standard());
+                SplitWeight.standard(),
+                ImmutableMap.of());
 
         TableHandle tableHandle = new TableHandle(
                 TEST_CATALOG_HANDLE,
@@ -162,7 +164,8 @@ public class TestNodeLocalDynamicSplitPruning
                 getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT, hiveConfig),
                 getDefaultHiveRecordCursorProviders(hiveConfig, HDFS_ENVIRONMENT),
                 new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, hiveConfig),
-                Optional.empty());
+                Optional.empty(),
+                new CustomSplitManager());
 
         return provider.createPageSource(
                 transaction,
