@@ -60,7 +60,7 @@ Property name                              Description
 ``mongodb.max-connection-idle-time``       The maximum idle time of a pooled connection
 ``mongodb.connection-timeout``             The socket connect timeout
 ``mongodb.socket-timeout``                 The socket timeout
-``mongodb.ssl.enabled``                    Use TLS/SSL for connections to mongod/mongos
+``mongodb.tls.enabled``                    Use TLS/SSL for connections to mongod/mongos
 ``mongodb.read-preference``                The read preference
 ``mongodb.write-concern``                  The write concern
 ``mongodb.required-replica-set``           The required replica set name
@@ -161,10 +161,10 @@ The socket timeout in milliseconds. It is used for I/O socket read and write ope
 
 This property is optional; the default is ``0`` and means no timeout.
 
-``mongodb.ssl.enabled``
+``mongodb.tls.enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-This flag enables SSL connections to MongoDB servers.
+This flag enables TLS connections to MongoDB servers.
 
 This property is optional; the default is ``false``.
 
