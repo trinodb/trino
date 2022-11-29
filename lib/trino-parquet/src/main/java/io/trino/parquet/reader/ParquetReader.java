@@ -444,7 +444,7 @@ public class ParquetReader
         ColumnChunk columnChunk = columnReader.readPrimitive();
 
         // update max size per primitive column chunk
-        double bytesPerCell = ((double) columnChunk.getBlock().getSizeInBytes()) / batchSize;
+        double bytesPerCell = ((double) columnChunk.getMaxBlockSize()) / batchSize;
         double bytesPerCellDelta = bytesPerCell - maxBytesPerCell.getOrDefault(fieldId, 0.0);
         if (bytesPerCellDelta > 0) {
             // update batch size
