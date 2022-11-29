@@ -97,8 +97,8 @@ public final class BigQueryType
 
     private static RowType.Field toRawTypeField(String name, Field field)
     {
-        Type trinoType = convertToTrinoType(field).orElseThrow(() -> new IllegalArgumentException("Unsupported column " + field));
-        return RowType.field(name, field.getMode() == REPEATED ? new ArrayType(trinoType) : trinoType);
+        ColumnMapping columnMapping = convertToTrinoType(field).orElseThrow(() -> new IllegalArgumentException("Unsupported column " + field));
+        return RowType.field(name, field.getMode() == REPEATED ? new ArrayType(columnMapping.type()) : columnMapping.type());
     }
 
     @VisibleForTesting
@@ -274,96 +274,90 @@ public final class BigQueryType
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
-    public static Optional<String> convertToString(Type type, StandardSQLTypeName bigqueryType, Object value)
+    public static String convertToString(Type type, StandardSQLTypeName bigqueryType, Object value)
     {
-        if (type instanceof ArrayType) {
-            return Optional.empty();
-        }
         switch (bigqueryType) {
             case BOOL:
-                return Optional.of(simpleToStringConverter(value));
+                return simpleToStringConverter(value);
             case BYTES:
-                return Optional.of(bytesToStringConverter(value));
+                return bytesToStringConverter(value);
             case DATE:
-                return Optional.of(dateToStringConverter(value));
+                return dateToStringConverter(value);
             case DATETIME:
-                return Optional.of(datetimeToStringConverter(value)).map("'%s'"::formatted);
+                return "'%s'".formatted(datetimeToStringConverter(value));
             case FLOAT64:
-                return Optional.of(floatToStringConverter(value));
+                return floatToStringConverter(value);
             case INT64:
-                return Optional.of(simpleToStringConverter(value));
+                return simpleToStringConverter(value);
             case NUMERIC:
             case BIGNUMERIC:
                 String bigqueryTypeName = bigqueryType.name();
                 DecimalType decimalType = (DecimalType) type;
                 if (decimalType.isShort()) {
-                    return Optional.of(format("%s '%s'", bigqueryTypeName, Decimals.toString((long) value, ((DecimalType) type).getScale())));
+                    return format("%s '%s'", bigqueryTypeName, Decimals.toString((long) value, ((DecimalType) type).getScale()));
                 }
-                return Optional.of(format("%s '%s'", bigqueryTypeName, Decimals.toString((Int128) value, ((DecimalType) type).getScale())));
-            case ARRAY:
-            case STRUCT:
-            case GEOGRAPHY:
-                // Or throw an exception?
-                return Optional.empty();
+                return format("%s '%s'", bigqueryTypeName, Decimals.toString((Int128) value, ((DecimalType) type).getScale()));
             case STRING:
-                return Optional.of(stringToStringConverter(value));
+                return stringToStringConverter(value);
             case TIME:
-                return Optional.of(timeToStringConverter(value));
+                return timeToStringConverter(value);
             case TIMESTAMP:
-                return Optional.of(timestampToStringConverter(value)).map("'%s'"::formatted);
+                return "'%s'".formatted(timestampToStringConverter(value));
             default:
                 throw new IllegalArgumentException("Unsupported type: " + bigqueryType);
         }
     }
 
-    public static Optional<Type> toTrinoType(Field field)
+    public static Optional<ColumnMapping> toTrinoType(Field field)
     {
         return convertToTrinoType(field)
-                .map(type -> field.getMode() == REPEATED ? new ArrayType(type) : type);
+                .map(columnMapping -> field.getMode() == REPEATED ?
+                        new ColumnMapping(new ArrayType(columnMapping.type()), false) :
+                        columnMapping);
     }
 
-    private static Optional<Type> convertToTrinoType(Field field)
+    private static Optional<ColumnMapping> convertToTrinoType(Field field)
     {
         switch (field.getType().getStandardType()) {
             case BOOL:
-                return Optional.of(BooleanType.BOOLEAN);
+                return Optional.of(new ColumnMapping(BooleanType.BOOLEAN, true));
             case INT64:
-                return Optional.of(BigintType.BIGINT);
+                return Optional.of(new ColumnMapping(BigintType.BIGINT, true));
             case FLOAT64:
-                return Optional.of(DoubleType.DOUBLE);
+                return Optional.of(new ColumnMapping(DoubleType.DOUBLE, true));
             case NUMERIC:
             case BIGNUMERIC:
                 Long precision = field.getPrecision();
                 Long scale = field.getScale();
                 // Unsupported BIGNUMERIC types (precision > 38) are filtered in BigQueryClient.getColumns
                 if (precision != null && scale != null) {
-                    return Optional.of(createDecimalType(toIntExact(precision), toIntExact(scale)));
+                    return Optional.of(new ColumnMapping(createDecimalType(toIntExact(precision), toIntExact(scale)), true));
                 }
                 if (precision != null) {
-                    return Optional.of(createDecimalType(toIntExact(precision)));
+                    return Optional.of(new ColumnMapping(createDecimalType(toIntExact(precision)), true));
                 }
-                return Optional.of(createDecimalType(DEFAULT_NUMERIC_TYPE_PRECISION, DEFAULT_NUMERIC_TYPE_SCALE));
+                return Optional.of(new ColumnMapping(createDecimalType(DEFAULT_NUMERIC_TYPE_PRECISION, DEFAULT_NUMERIC_TYPE_SCALE), true));
             case STRING:
-                return Optional.of(createUnboundedVarcharType());
+                return Optional.of(new ColumnMapping(createUnboundedVarcharType(), true));
             case BYTES:
-                return Optional.of(VarbinaryType.VARBINARY);
+                return Optional.of(new ColumnMapping(VarbinaryType.VARBINARY, true));
             case DATE:
-                return Optional.of(DateType.DATE);
+                return Optional.of(new ColumnMapping(DateType.DATE, true));
             case DATETIME:
-                return Optional.of(TimestampType.TIMESTAMP_MICROS);
+                return Optional.of(new ColumnMapping(TimestampType.TIMESTAMP_MICROS, true));
             case TIME:
-                return Optional.of(TimeType.TIME_MICROS);
+                return Optional.of(new ColumnMapping(TimeType.TIME_MICROS, true));
             case TIMESTAMP:
-                return Optional.of(TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS);
+                return Optional.of(new ColumnMapping(TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS, true));
             case GEOGRAPHY:
-                return Optional.of(VarcharType.VARCHAR);
+                return Optional.of(new ColumnMapping(VarcharType.VARCHAR, false));
             case STRUCT:
                 // create the row
                 FieldList subTypes = field.getSubFields();
                 checkArgument(!subTypes.isEmpty(), "a record or struct must have sub-fields");
                 List<RowType.Field> fields = subTypes.stream().map(subField -> toRawTypeField(subField.getName(), subField)).collect(toList());
                 RowType rowType = RowType.from(fields);
-                return Optional.of(rowType);
+                return Optional.of(new ColumnMapping(rowType, false));
             default:
                 return Optional.empty();
         }
