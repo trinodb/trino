@@ -17,12 +17,8 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Multimap;
-import io.airlift.slice.Slice;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ChunkKey;
-import io.trino.parquet.ChunkReader;
 import io.trino.parquet.DiskRange;
 import io.trino.parquet.Field;
 import io.trino.parquet.GroupField;
@@ -65,7 +61,6 @@ import javax.annotation.Nullable;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -74,6 +69,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
 import static io.trino.parquet.ParquetWriteValidation.StatisticsValidation;
@@ -81,6 +77,7 @@ import static io.trino.parquet.ParquetWriteValidation.StatisticsValidation.creat
 import static io.trino.parquet.ParquetWriteValidation.WriteChecksumBuilder;
 import static io.trino.parquet.ParquetWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
 import static io.trino.parquet.reader.ListColumnReader.calculateCollectionOffsets;
+import static io.trino.parquet.reader.PageReader.createPageReader;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -125,8 +122,7 @@ public class ParquetReader
     private final ParquetReaderOptions options;
     private int maxBatchSize = MAX_VECTOR_LENGTH;
 
-    private AggregatedMemoryContext currentRowGroupMemoryContext;
-    private final Multimap<ChunkKey, ChunkReader> chunkReaders;
+    private final Map<ChunkKey, ChunkedInputStream> chunkReaders;
     private final List<Optional<ColumnIndexStore>> columnIndexStore;
     private final Optional<ParquetWriteValidation> writeValidation;
     private final Optional<WriteChecksumBuilder> writeChecksumBuilder;
@@ -176,7 +172,6 @@ public class ParquetReader
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
-        this.currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
         this.options = requireNonNull(options, "options is null");
         this.columnReaders = new HashMap<>();
         this.maxBytesPerCell = new HashMap<>();
@@ -241,15 +236,17 @@ public class ParquetReader
             }
         }
         this.codecMetrics = ImmutableMap.copyOf(codecMetrics);
-        this.chunkReaders = dataSource.planRead(ranges);
+        this.chunkReaders = dataSource.planRead(ranges, memoryContext).asMap().entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> new ChunkedInputStream(entry.getValue())));
     }
 
     @Override
     public void close()
             throws IOException
     {
-        freeCurrentRowGroupBuffers();
-        currentRowGroupMemoryContext.close();
+        for (ChunkedInputStream chunkedInputStream : chunkReaders.values()) {
+            chunkedInputStream.close();
+        }
         dataSource.close();
 
         if (writeChecksumBuilder.isPresent()) {
@@ -304,8 +301,6 @@ public class ParquetReader
     private boolean advanceToNextRowGroup()
             throws IOException
     {
-        currentRowGroupMemoryContext.close();
-        currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
         freeCurrentRowGroupBuffers();
 
         if (currentRowGroup >= 0 && rowGroupStatisticsValidation.isPresent()) {
@@ -342,11 +337,9 @@ public class ParquetReader
         }
 
         for (int column = 0; column < primitiveFields.size(); column++) {
-            Collection<ChunkReader> readers = chunkReaders.get(new ChunkKey(column, currentRowGroup));
-            if (readers != null) {
-                for (ChunkReader reader : readers) {
-                    reader.free();
-                }
+            ChunkedInputStream chunkedStream = chunkReaders.get(new ChunkKey(column, currentRowGroup));
+            if (chunkedStream != null) {
+                chunkedStream.close();
             }
         }
     }
@@ -437,8 +430,10 @@ public class ParquetReader
             if (rowRanges != null) {
                 offsetIndex = getFilteredOffsetIndex(rowRanges, currentRowGroup, currentBlockMetadata.getRowCount(), metadata.getPath());
             }
-            List<Slice> slices = allocateBlock(fieldId);
-            columnReader.setPageReader(createPageReader(slices, metadata, columnDescriptor, offsetIndex), Optional.ofNullable(rowRanges));
+            ChunkedInputStream columnChunkInputStream = chunkReaders.get(new ChunkKey(fieldId, currentRowGroup));
+            columnReader.setPageReader(
+                    createPageReader(columnChunkInputStream, metadata, columnDescriptor, offsetIndex, fileCreatedBy),
+                    Optional.ofNullable(rowRanges));
         }
         ColumnChunk columnChunk = columnReader.readPrimitive();
 
@@ -463,29 +458,6 @@ public class ParquetReader
         }
 
         return new Metrics(metrics.buildOrThrow());
-    }
-
-    private PageReader createPageReader(List<Slice> slices, ColumnChunkMetaData metadata, ColumnDescriptor columnDescriptor, OffsetIndex offsetIndex)
-            throws IOException
-    {
-        ColumnChunkDescriptor descriptor = new ColumnChunkDescriptor(columnDescriptor, metadata);
-        ParquetColumnChunk columnChunk = new ParquetColumnChunk(fileCreatedBy, descriptor, slices, offsetIndex);
-        return columnChunk.readAllPages();
-    }
-
-    private List<Slice> allocateBlock(int fieldId)
-            throws IOException
-    {
-        Collection<ChunkReader> readers = chunkReaders.get(new ChunkKey(fieldId, currentRowGroup));
-        List<Slice> slices = Lists.newArrayListWithExpectedSize(readers.size());
-        for (ChunkReader reader : readers) {
-            Slice slice = reader.read();
-            // todo this just an estimate and doesn't reflect actual retained memory
-            currentRowGroupMemoryContext.newLocalMemoryContext(ParquetReader.class.getSimpleName())
-                    .setBytes(slice.length());
-            slices.add(slice);
-        }
-        return slices;
     }
 
     private ColumnChunkMetaData getColumnChunkMetaData(BlockMetaData blockMetaData, ColumnDescriptor columnDescriptor)

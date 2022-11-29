@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV2;
-import io.trino.parquet.DictionaryPage;
+import io.trino.parquet.Page;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.decoders.ValueDecoders;
 import io.trino.parquet.reader.flat.FlatColumnReader;
@@ -38,7 +38,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -350,16 +349,14 @@ public class TestColumnReader
         else {
             encoder = new PlainValuesWriter(1000, 1000, HeapByteBufferAllocator.getInstance());
         }
-        LinkedList<DataPage> inputPages = new LinkedList<>(createDataPages(testingPages, encoder));
-        DictionaryPage dictionaryPage = null;
+        List<? extends Page> inputPages = createDataPages(testingPages, encoder);
         if (dictionaryEncoded) {
-            dictionaryPage = toTrinoDictionaryPage(encoder.toDictPageAndClose());
+            inputPages = ImmutableList.<Page>builder().add(toTrinoDictionaryPage(encoder.toDictPageAndClose())).addAll(inputPages).build();
         }
         return new PageReader(
                 UNCOMPRESSED,
-                inputPages,
-                dictionaryPage,
-                pagesRowCount(testingPages),
+                inputPages.iterator(),
+                dictionaryEncoded,
                 false);
     }
 

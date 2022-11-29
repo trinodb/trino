@@ -15,6 +15,7 @@ package io.trino.parquet;
 
 import com.google.common.collect.ListMultimap;
 import io.airlift.slice.Slice;
+import io.trino.memory.context.AggregatedMemoryContext;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -36,7 +37,7 @@ public interface ParquetDataSource
     Slice readFully(long position, int length)
             throws IOException;
 
-    <K> ListMultimap<K, ChunkReader> planRead(ListMultimap<K, DiskRange> diskRanges);
+    <K> ListMultimap<K, ChunkReader> planRead(ListMultimap<K, DiskRange> diskRanges, AggregatedMemoryContext memoryContext);
 
     @Override
     default void close()
