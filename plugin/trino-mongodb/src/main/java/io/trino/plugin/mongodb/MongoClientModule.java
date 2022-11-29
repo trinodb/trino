@@ -61,7 +61,7 @@ public class MongoClientModule
                 .applyToSocketSettings(builder -> builder
                         .connectTimeout(config.getConnectionTimeout(), MILLISECONDS)
                         .readTimeout(config.getSocketTimeout(), MILLISECONDS))
-                .applyToSslSettings(builder -> builder.enabled(config.getSslEnabled()));
+                .applyToSslSettings(builder -> builder.enabled(config.getTlsEnabled()));
 
         if (config.getRequiredReplicaSetName() != null) {
             options.applyToClusterSettings(builder -> builder.requiredReplicaSetName(config.getRequiredReplicaSetName()));
