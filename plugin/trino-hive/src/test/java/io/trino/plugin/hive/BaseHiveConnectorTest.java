@@ -4881,6 +4881,17 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE test_drop_column");
     }
 
+    @Override
+    public void testDropAndAddColumnWithSameName()
+    {
+        // TODO https://github.com/trinodb/trino/issues/15233 Hive connector can access old data after dropping and adding a column with same name
+        assertThatThrownBy(super::testDropAndAddColumnWithSameName)
+                .hasMessageContaining("""
+                        Actual rows (up to 100 of 1 extra rows shown, 1 rows in total):
+                            [1, 2]""");
+        throw new SkipException("TODO");
+    }
+
     @Test
     public void testAvroTypeValidation()
     {
