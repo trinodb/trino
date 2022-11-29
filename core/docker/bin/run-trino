@@ -5,7 +5,11 @@ set -xeuo pipefail
 function graceful_shutdown()
 {
     echo "Shutting down this worker gracefully"
-    curl -v -X PUT -d '"SHUTTING_DOWN"' -H "Content-type: application/json" http://localhost:8080/v1/info/state
+    curl -v -X PUT -d '"SHUTTING_DOWN"' \
+        -H "Content-type: application/json" \
+        --max-time 5 \
+        --retry 5 \
+        http://localhost:8080/v1/info/state
 }
 
 trap 'graceful_shutdown; wait $PID' SIGTERM
