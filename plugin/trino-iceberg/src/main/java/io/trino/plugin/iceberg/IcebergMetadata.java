@@ -254,6 +254,7 @@ import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
+import static org.apache.iceberg.types.TypeUtil.indexParents;
 import static org.apache.iceberg.util.SnapshotUtil.schemaFor;
 
 public class IcebergMetadata
@@ -737,6 +738,7 @@ public class IcebergMetadata
             return Optional.empty();
         }
 
+        validateNotPartitionedByNestedField(tableSchema, partitionSpec);
         Map<Integer, IcebergColumnHandle> columnById = getColumns(tableSchema, typeManager).stream()
                 .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
 
@@ -764,6 +766,7 @@ public class IcebergMetadata
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
         validateNotModifyingOldSnapshot(table, icebergTable);
+        validateNotPartitionedByNestedField(icebergTable.schema(), icebergTable.spec());
 
         beginTransaction(icebergTable);
 
@@ -1063,6 +1066,7 @@ public class IcebergMetadata
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
         validateNotModifyingOldSnapshot(table, icebergTable);
+        validateNotPartitionedByNestedField(icebergTable.schema(), icebergTable.spec());
 
         int tableFormatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
         if (tableFormatVersion > OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION) {
@@ -1469,7 +1473,9 @@ public class IcebergMetadata
                     .forEach(updatePartitionSpec::removeField);
         }
         else {
-            Set<PartitionField> partitionFields = ImmutableSet.copyOf(parsePartitionFields(schema, partitionColumns).fields());
+            PartitionSpec partitionSpec = parsePartitionFields(schema, partitionColumns);
+            validateNotPartitionedByNestedField(schema, partitionSpec);
+            Set<PartitionField> partitionFields = ImmutableSet.copyOf(partitionSpec.fields());
             difference(existingPartitionFields, partitionFields).stream()
                     .map(PartitionField::name)
                     .forEach(updatePartitionSpec::removeField);
@@ -1684,6 +1690,7 @@ public class IcebergMetadata
 
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
         validateNotModifyingOldSnapshot(table, icebergTable);
+        validateNotPartitionedByNestedField(icebergTable.schema(), icebergTable.spec());
 
         beginTransaction(icebergTable);
         return table.withRetryMode(retryMode);
@@ -1709,6 +1716,7 @@ public class IcebergMetadata
 
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
         validateNotModifyingOldSnapshot(table, icebergTable);
+        validateNotPartitionedByNestedField(icebergTable.schema(), icebergTable.spec());
 
         beginTransaction(icebergTable);
         return table.withRetryMode(retryMode)
@@ -1780,6 +1788,7 @@ public class IcebergMetadata
 
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
         validateNotModifyingOldSnapshot(table, icebergTable);
+        validateNotPartitionedByNestedField(icebergTable.schema(), icebergTable.spec());
 
         beginTransaction(icebergTable);
 
@@ -1807,6 +1816,16 @@ public class IcebergMetadata
     {
         if (table.getSnapshotId().isPresent() && (table.getSnapshotId().get() != icebergTable.currentSnapshot().snapshotId())) {
             throw new TrinoException(NOT_SUPPORTED, "Modifying old snapshot is not supported in Iceberg");
+        }
+    }
+
+    public static void validateNotPartitionedByNestedField(Schema schema, PartitionSpec partitionSpec)
+    {
+        Map<Integer, Integer> indexParents = indexParents(schema.asStruct());
+        for (PartitionField field : partitionSpec.fields()) {
+            if (indexParents.containsKey(field.sourceId())) {
+                throw new TrinoException(NOT_SUPPORTED, "Partitioning by nested field is unsupported: " + field.name());
+            }
         }
     }
 

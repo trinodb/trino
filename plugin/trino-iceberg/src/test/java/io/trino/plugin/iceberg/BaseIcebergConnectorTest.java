@@ -971,6 +971,20 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testCreatePartitionedTableWithNestedField()
+    {
+        assertQueryFails(
+                "CREATE TABLE test_partitioned_table_nested_field(parent ROW(child VARCHAR)) WITH (partitioning = ARRAY['\"parent.child\"'])",
+                "\\QPartitioning by nested field is unsupported: parent.child");
+        assertQueryFails(
+                "CREATE TABLE test_partitioned_table_nested_field(grandparent ROW(parent ROW(child VARCHAR))) WITH (partitioning = ARRAY['\"grandparent.parent.child\"'])",
+                "\\QPartitioning by nested field is unsupported: grandparent.parent.child");
+        assertQueryFails(
+                "CREATE TABLE test_partitioned_table_nested_field(grandparent ROW(parent ROW(child VARCHAR))) WITH (partitioning = ARRAY['\"grandparent.parent\"'])",
+                "\\QUnable to parse partitioning value: Cannot partition by non-primitive source field: struct<3: child: optional string>");
+    }
+
+    @Test
     public void testCreatePartitionedTableAs()
     {
         File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
