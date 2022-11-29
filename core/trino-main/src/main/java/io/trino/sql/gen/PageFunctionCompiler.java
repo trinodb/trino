@@ -123,7 +123,8 @@ public class PageFunctionCompiler
             projectionCache = buildNonEvictableCache(
                     CacheBuilder.newBuilder()
                             .recordStats()
-                            .maximumSize(expressionCacheSize),
+                            .maximumSize(expressionCacheSize)
+                            .softValues(),
                     CacheLoader.from(projection -> compileProjectionInternal(projection, Optional.empty())));
             projectionCacheStats = new CacheStatsMBean(projectionCache);
         }
@@ -136,7 +137,8 @@ public class PageFunctionCompiler
             filterCache = buildNonEvictableCache(
                     CacheBuilder.newBuilder()
                             .recordStats()
-                            .maximumSize(expressionCacheSize),
+                            .maximumSize(expressionCacheSize)
+                            .softValues(),
                     CacheLoader.from(filter -> compileFilterInternal(filter, Optional.empty())));
             filterCacheStats = new CacheStatsMBean(filterCache);
         }

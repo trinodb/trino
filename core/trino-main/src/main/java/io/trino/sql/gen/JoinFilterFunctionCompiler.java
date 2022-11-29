@@ -81,7 +81,8 @@ public class JoinFilterFunctionCompiler
         this.joinFilterFunctionFactories = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
                         .recordStats()
-                        .maximumSize(1000),
+                        .maximumSize(1000)
+                        .softValues(),
                 CacheLoader.from(key -> internalCompileFilterFunctionFactory(key.getFilter(), key.getLeftBlocksSize())));
     }
 

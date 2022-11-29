@@ -108,14 +108,16 @@ public class JoinCompiler
     private final NonEvictableLoadingCache<CacheKey, LookupSourceSupplierFactory> lookupSourceFactories = buildNonEvictableCache(
             CacheBuilder.newBuilder()
                     .recordStats()
-                    .maximumSize(1000),
+                    .maximumSize(1000)
+                    .softValues(),
             CacheLoader.from(key ->
                     internalCompileLookupSourceFactory(key.getTypes(), key.getOutputChannels(), key.getJoinChannels(), key.getSortChannel())));
 
     private final NonEvictableLoadingCache<CacheKey, Class<? extends PagesHashStrategy>> hashStrategies = buildNonEvictableCache(
             CacheBuilder.newBuilder()
                     .recordStats()
-                    .maximumSize(1000),
+                    .maximumSize(1000)
+                    .softValues(),
             CacheLoader.from(key ->
                     internalCompileHashStrategy(key.getTypes(), key.getOutputChannels(), key.getJoinChannels(), key.getSortChannel())));
 
