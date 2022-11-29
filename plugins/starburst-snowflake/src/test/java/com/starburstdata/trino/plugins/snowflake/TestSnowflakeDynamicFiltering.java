@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.starburstdata.trino.plugins.snowflake.dynamicfiltering.AbstractDynamicFilteringTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testng.services.ManageTestResources;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -27,8 +28,11 @@ import static io.trino.tpch.TpchTable.ORDERS;
 public class TestSnowflakeDynamicFiltering
         extends AbstractDynamicFilteringTest
 {
+    @ManageTestResources.Suppress(because = "Mock to remote server")
     protected final SnowflakeServer server = new SnowflakeServer();
+    @ManageTestResources.Suppress(because = "Used by mocks")
     protected final Closer closer = Closer.create();
+    @ManageTestResources.Suppress(because = "Mock to remote database")
     protected final TestDatabase testDatabase = closer.register(server.createDatabase("TEST"));
 
     @Override

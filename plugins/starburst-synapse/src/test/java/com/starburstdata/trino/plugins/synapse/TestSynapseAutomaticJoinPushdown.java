@@ -11,6 +11,7 @@ package com.starburstdata.trino.plugins.synapse;
 
 import io.trino.plugin.jdbc.BaseAutomaticJoinPushdownTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testng.services.ManageTestResources;
 
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,7 @@ import static java.lang.String.format;
 public class TestSynapseAutomaticJoinPushdown
         extends BaseAutomaticJoinPushdownTest
 {
+    @ManageTestResources.Suppress(because = "Mock to remote server")
     private SynapseServer synapseServer;
 
     @Override

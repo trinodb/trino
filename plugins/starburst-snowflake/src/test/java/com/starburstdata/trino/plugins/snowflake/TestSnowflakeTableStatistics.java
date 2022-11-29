@@ -12,6 +12,7 @@ package com.starburstdata.trino.plugins.snowflake;
 import com.google.common.io.Closer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testng.services.ManageTestResources;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -27,9 +28,12 @@ import static java.lang.String.format;
 public class TestSnowflakeTableStatistics
         extends AbstractTestQueryFramework
 {
+    @ManageTestResources.Suppress(because = "Mock to remote server")
     protected final SnowflakeServer server = new SnowflakeServer();
+    @ManageTestResources.Suppress(because = "Used by mocks")
     protected final Closer closer = Closer.create();
-    protected final TestDatabase testDatabase = closer.register(server.createDatabase("TEST"));
+    @ManageTestResources.Suppress(because = "Mock to remote database")
+    protected final TestDatabase testDatabase = closer.register(server.createTestDatabase());
 
     @Override
     protected QueryRunner createQueryRunner()

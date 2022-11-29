@@ -184,7 +184,7 @@ public class StarburstSynapseClient
                 "RENAME OBJECT %s TO %s",
                 quoted(catalogName, remoteSchemaName, remoteTableName),
                 newRemoteTableName);
-        execute(session, sql);
+        execute(session, connection, sql);
     }
 
     @Override

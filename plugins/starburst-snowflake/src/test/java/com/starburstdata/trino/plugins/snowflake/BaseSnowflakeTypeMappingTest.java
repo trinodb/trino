@@ -26,6 +26,7 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
+import io.trino.testng.services.ManageTestResources;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -59,9 +60,11 @@ public abstract class BaseSnowflakeTypeMappingTest
         extends AbstractTestQueryFramework
 {
     protected static final int MAX_VARCHAR = 16777216;
-
+    @ManageTestResources.Suppress(because = "Mock to remote server")
     protected final SnowflakeServer server = new SnowflakeServer();
+    @ManageTestResources.Suppress(because = "Used by mocks")
     protected final Closer closer = Closer.create();
+    @ManageTestResources.Suppress(because = "Mock to remote database")
     protected final TestDatabase testDatabase = closer.register(server.createTestDatabase());
 
     private LocalDateTime dateTimeBeforeEpoch;

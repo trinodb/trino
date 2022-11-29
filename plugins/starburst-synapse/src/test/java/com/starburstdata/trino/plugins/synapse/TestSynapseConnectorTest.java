@@ -17,6 +17,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import io.trino.testng.services.ManageTestResources;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -41,6 +42,7 @@ public class TestSynapseConnectorTest
         extends BaseSqlServerConnectorTest
 {
     public static final String CATALOG = "sqlserver";
+    @ManageTestResources.Suppress(because = "Mock to remote server")
     private SynapseServer synapseServer;
 
     @Override

@@ -11,6 +11,7 @@ package com.starburstdata.trino.plugins.synapse;
 
 import com.microsoft.sqlserver.jdbc.SQLServerException;
 import io.airlift.log.Logger;
+import io.trino.testng.services.ManageTestResources;
 import io.trino.tpch.TpchTable;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -28,6 +29,7 @@ import static java.util.stream.Collectors.toUnmodifiableSet;
 
 public class TestSynapseInstanceCleaner
 {
+    @ManageTestResources.Suppress(because = "Mock to remote server")
     private SynapseServer synapseServer;
 
     private static final int ERROR_OBJECT_NOT_FOUND = 3701;

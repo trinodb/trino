@@ -17,6 +17,8 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import io.trino.testng.services.ManageTestResources;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.jdbcBuilder;
@@ -32,7 +34,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestSnowflakeDatabasePrefixIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
-    private final SnowflakeServer server = new SnowflakeServer();
+    @ManageTestResources.Suppress(because = "Mock to remote server")
+    private SnowflakeServer server;
     private TestDatabase testDatabase;
     private String normalizedDatabaseName;
     private final SqlExecutor snowflakeExecutor = (sql) -> server.safeExecuteOnDatabase(testDatabase.getName(), sql);
@@ -41,6 +44,7 @@ public class TestSnowflakeDatabasePrefixIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        server = new SnowflakeServer();
         testDatabase = closeAfterClass(server.createTestDatabase());
         normalizedDatabaseName = testDatabase.getName().toLowerCase(ENGLISH);
 
@@ -50,6 +54,13 @@ public class TestSnowflakeDatabasePrefixIntegrationSmokeTest
                         "snowflake.database-prefix-for-schema.enabled", "true",
                         "snowflake.role", "test_role"))
                 .build();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanup()
+    {
+        server = null;
+        testDatabase = null;
     }
 
     @Test

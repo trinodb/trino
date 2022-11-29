@@ -21,6 +21,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.TestingSession;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import io.trino.testng.services.ManageTestResources;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -55,8 +56,11 @@ public abstract class BaseSnowflakeConnectorTest
         // Still most of the extra testcases defined in BaseJdbcConnectorTest are applicable to both.
         extends BaseJdbcConnectorTest
 {
+    @ManageTestResources.Suppress(because = "Mock to remote server")
     protected final SnowflakeServer server = new SnowflakeServer();
+    @ManageTestResources.Suppress(because = "Used by mocks")
     protected final Closer closer = Closer.create();
+    @ManageTestResources.Suppress(because = "Mock to remote database")
     protected final TestDatabase testDatabase = closer.register(server.createTestDatabase());
     protected final SqlExecutor snowflakeExecutor = (sql) -> server.safeExecuteOnDatabase(testDatabase.getName(), sql);
 

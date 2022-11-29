@@ -12,9 +12,11 @@ package com.starburstdata.trino.plugins.snowflake;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import io.trino.testng.services.ManageTestResources;
 import io.trino.tpch.TpchTable;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -75,12 +77,19 @@ public class TestSnowflakeInstanceCleaner
 
     public static final Collection<String> tableTypesToDrop = ImmutableList.of("BASE TABLE", "VIEW");
 
+    @ManageTestResources.Suppress(because = "Mock to remote server")
     private SnowflakeServer snowflakeServer;
 
     @BeforeClass
     public void setUp()
     {
         snowflakeServer = new SnowflakeServer();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanup()
+    {
+        snowflakeServer = null;
     }
 
     @Test

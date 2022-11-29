@@ -13,6 +13,7 @@ import io.trino.plugin.sqlserver.BaseSqlServerTypeMapping;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.testng.services.ManageTestResources;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
@@ -26,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestSynapseTypeMapping
         extends BaseSqlServerTypeMapping
 {
+    @ManageTestResources.Suppress(because = "Mock to remote server")
     protected final SynapseServer synapseServer = new SynapseServer();
 
     @Override
