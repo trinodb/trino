@@ -49,6 +49,7 @@ import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.bigquery.BigQueryClient.TABLE_TYPES;
+import static io.trino.plugin.bigquery.BigQueryClient.selectSql;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
 import static io.trino.plugin.bigquery.BigQuerySessionProperties.createDisposition;
 import static io.trino.plugin.bigquery.BigQuerySessionProperties.isQueryResultsCacheEnabled;
@@ -159,7 +160,7 @@ public class BigQuerySplitManager
             long numberOfRows;
             if (filter.isPresent()) {
                 // count the rows based on the filter
-                String sql = client.selectSql(remoteTableId, "COUNT(*)");
+                String sql = selectSql(remoteTableId, "COUNT(*)", filter);
                 TableResult result = client.query(sql, isQueryResultsCacheEnabled(session), createDisposition(session));
                 numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
             }

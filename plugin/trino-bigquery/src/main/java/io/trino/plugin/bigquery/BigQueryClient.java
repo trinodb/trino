@@ -320,7 +320,7 @@ public class BigQueryClient
         return selectSql(table, columns, filter);
     }
 
-    private static String selectSql(TableId table, String formattedColumns, Optional<String> filter)
+    public static String selectSql(TableId table, String formattedColumns, Optional<String> filter)
     {
         String tableName = fullTableName(table);
         String query = format("SELECT %s FROM `%s`", formattedColumns, tableName);
