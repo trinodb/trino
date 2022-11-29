@@ -23,6 +23,7 @@ import com.google.common.collect.Streams;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.client.NodeVersion;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
@@ -383,14 +384,16 @@ public class PlanPrinter
             Metadata metadata,
             FunctionManager functionManager,
             Session session,
-            boolean verbose)
+            boolean verbose,
+            NodeVersion version)
     {
         return textDistributedPlan(
                 outputStageInfo,
                 queryStats,
                 new ValuePrinter(metadata, functionManager, session),
                 verbose,
-                new NoOpAnonymizer());
+                new NoOpAnonymizer(),
+                version);
     }
 
     public static String textDistributedPlan(
@@ -398,7 +401,8 @@ public class PlanPrinter
             QueryStats queryStats,
             ValuePrinter valuePrinter,
             boolean verbose,
-            Anonymizer anonymizer)
+            Anonymizer anonymizer,
+            NodeVersion version)
     {
         List<StageInfo> allStages = getAllStages(Optional.of(outputStageInfo));
         Map<PlanNodeId, TableInfo> tableInfos = allStages.stream()
@@ -417,6 +421,10 @@ public class PlanPrinter
                 .getDynamicFilterDomainStats().stream()
                 .collect(toImmutableMap(DynamicFilterDomainStats::getDynamicFilterId, identity()));
         TypeProvider typeProvider = getTypeProvider(allFragments);
+
+        if (verbose) {
+            builder.append(format("Trino version: %s\n", version));
+        }
 
         for (StageInfo stageInfo : allStages) {
             builder.append(formatFragment(
