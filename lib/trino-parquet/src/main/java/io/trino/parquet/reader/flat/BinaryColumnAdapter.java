@@ -20,6 +20,7 @@ import io.trino.spi.block.VariableWidthBlock;
 
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetReaderUtils.castToByteNegate;
 
 public class BinaryColumnAdapter
@@ -50,6 +51,22 @@ public class BinaryColumnAdapter
     public Block createNullableBlock(boolean[] nulls, BinaryBuffer values)
     {
         return new VariableWidthBlock(values.getValueCount(), values.asSlice(), values.getOffsets(), Optional.of(nulls));
+    }
+
+    @Override
+    public Block createNullableDictionaryBlock(BinaryBuffer dictionary, int nonNullsCount)
+    {
+        checkArgument(
+                dictionary.getValueCount() == nonNullsCount + 1,
+                "Dictionary buffer size %s did not match the expected value of %s",
+                dictionary.getValueCount(),
+                nonNullsCount + 1);
+        boolean[] nulls = new boolean[nonNullsCount + 1];
+        nulls[nonNullsCount] = true;
+        // Overwrite the next after last position with an empty value. This will be used as null.
+        int[] offsets = dictionary.getOffsets();
+        offsets[nonNullsCount + 1] = offsets[nonNullsCount];
+        return new VariableWidthBlock(dictionary.getValueCount(), dictionary.asSlice(), offsets, Optional.of(nulls));
     }
 
     @Override

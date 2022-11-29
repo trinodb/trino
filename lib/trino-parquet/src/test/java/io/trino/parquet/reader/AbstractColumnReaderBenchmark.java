@@ -32,7 +32,6 @@ import org.openjdk.jmh.runner.options.WarmupMode;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -103,7 +102,7 @@ public abstract class AbstractColumnReaderBenchmark<VALUES>
             throws IOException
     {
         ColumnReader columnReader = ColumnReaderFactory.create(field, UTC, newSimpleAggregatedMemoryContext(), true);
-        columnReader.setPageReader(new PageReader(UNCOMPRESSED, new LinkedList<>(dataPages).iterator(), false, false), Optional.empty());
+        columnReader.setPageReader(new PageReader(UNCOMPRESSED, dataPages.iterator(), false, false, false), Optional.empty());
         int rowsRead = 0;
         while (rowsRead < dataPositions) {
             int remaining = dataPositions - rowsRead;
