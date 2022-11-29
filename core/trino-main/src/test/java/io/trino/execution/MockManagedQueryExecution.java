@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.client.NodeVersion;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
@@ -271,7 +272,8 @@ public class MockManagedQueryExecution
                 Optional.empty(),
                 Optional.empty(),
                 RetryPolicy.NONE,
-                false);
+                false,
+                new NodeVersion("test"));
     }
 
     @Override
