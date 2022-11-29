@@ -113,6 +113,8 @@ S3 configuration properties
     * - ``hive.s3.sts.region``
       - Optional override for the sts region given that IAM role based
         authentication via sts is used.
+    * - ``hive.s3.anonymous-requests.enabled``
+      - Access a public S3 bucket anonymously, rather than authenticating.
 
 .. _hive-s3-credentials:
 
@@ -146,6 +148,40 @@ as arguments. A custom credentials provider can be used to provide
 temporary credentials from STS (using ``STSSessionCredentialsProvider``),
 IAM role-based credentials (using ``STSAssumeRoleSessionCredentialsProvider``),
 or credentials for a specific use case (e.g., bucket/user specific credentials).
+
+Anonymous Access to Public S3 Buckets
+-------------------------------------
+
+You can configure the Hive connector to access a public S3 bucket by setting
+``hive.s3.anonymous-requests.enabled`` to ``true``. Note that the bucket
+policy must allow anonymous listing of the bucket contents and reading of
+objects within the bucket. For example:
+
+.. code-block:: json
+
+    {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "AllowPublicListObjectsInBucket",
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": "*"
+                },
+                "Action": "s3:ListBucket",
+                "Resource": "arn:aws:s3:::abc"
+            },
+            {
+                "Sid": "AllowPublicGetObject",
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": "*"
+                },
+                "Action": "s3:GetObject",
+                "Resource": "arn:aws:s3:::abc/*"
+            }
+        ]
+    }
 
 
 .. _hive-s3-security-mapping:

@@ -20,6 +20,7 @@ import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSSessionCredentials;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.AnonymousAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3Client;
@@ -76,6 +77,7 @@ import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACCESS_KEY;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACL_TYPE;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ANONYMOUS_REQUESTS_ENABLED;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_CREDENTIALS_PROVIDER;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENDPOINT;
@@ -962,5 +964,21 @@ public class TestTrinoS3FileSystem
             result.add(statuses.next());
         }
         return result;
+    }
+
+    @Test
+    public void testAnonymousAccess()
+            throws Exception
+    {
+        Configuration config = newEmptyConfiguration();
+
+        config.set(S3_ANONYMOUS_REQUESTS_ENABLED, "true");
+
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            AWSCredentialsProvider provider = getAwsCredentialsProvider(fs);
+            assertInstanceOf(provider, AWSStaticCredentialsProvider.class);
+            assertInstanceOf(provider.getCredentials(), AnonymousAWSCredentials.class);
+        }
     }
 }

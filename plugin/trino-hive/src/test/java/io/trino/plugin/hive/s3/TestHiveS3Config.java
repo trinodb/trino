@@ -79,7 +79,8 @@ public class TestHiveS3Config
                 .setS3ProxyPassword(null)
                 .setS3PreemptiveBasicProxyAuth(false)
                 .setS3StsEndpoint(null)
-                .setS3StsRegion(null));
+                .setS3StsRegion(null)
+                .setAnonymousRequestsEnabled(false));
     }
 
     @Test
@@ -131,6 +132,7 @@ public class TestHiveS3Config
                 .put("hive.s3.proxy.preemptive-basic-auth", "true")
                 .put("hive.s3.sts.endpoint", "http://minio:9000")
                 .put("hive.s3.sts.region", "eu-central-1")
+                .put("hive.s3.anonymous-requests.enabled", "true")
                 .buildOrThrow();
 
         HiveS3Config expected = new HiveS3Config()
@@ -175,7 +177,8 @@ public class TestHiveS3Config
                 .setS3ProxyPassword("test")
                 .setS3PreemptiveBasicProxyAuth(true)
                 .setS3StsEndpoint("http://minio:9000")
-                .setS3StsRegion("eu-central-1");
+                .setS3StsRegion("eu-central-1")
+                .setAnonymousRequestsEnabled(true);
 
         assertFullMapping(properties, expected);
     }
