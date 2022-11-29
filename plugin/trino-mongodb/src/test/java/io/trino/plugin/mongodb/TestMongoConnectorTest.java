@@ -24,6 +24,7 @@ import io.trino.sql.planner.plan.LimitNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.bson.Document;
@@ -43,6 +44,8 @@ import java.util.OptionalInt;
 
 import static com.mongodb.client.model.CollationCaseFirst.LOWER;
 import static com.mongodb.client.model.CollationStrength.PRIMARY;
+import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoClient;
+import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -53,11 +56,20 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 
-public abstract class BaseMongoConnectorTest
+public class TestMongoConnectorTest
         extends BaseConnectorTest
 {
-    protected MongoServer server;
-    protected MongoClient client;
+    private MongoServer server;
+    private MongoClient client;
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        server = new MongoServer();
+        client = createMongoClient(server);
+        return createMongoQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+    }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
