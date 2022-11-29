@@ -336,7 +336,6 @@ public class FlatColumnReader<BufferType>
         if (dictionaryPage != null) {
             dictionaryDecoder = getDictionaryDecoder(dictionaryPage, columnAdapter, decodersProvider.create(PLAIN, field));
         }
-        checkArgument(pageReader.getTotalValueCount() > 0, "page is empty");
         this.rowRanges = createRowRangesIterator(rowRanges);
     }
 

@@ -13,45 +13,71 @@
  */
 package io.trino.parquet.reader;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.PeekingIterator;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
+import io.trino.parquet.Page;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.internal.column.columnindex.OffsetIndex;
+
+import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.LinkedList;
+import java.util.Iterator;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
 
 public final class PageReader
 {
     private final CompressionCodecName codec;
-    private final long valueCount;
+    private final boolean hasDictionaryPage;
     private final boolean hasNoNulls;
-    private final LinkedList<DataPage> compressedPages;
-    private final DictionaryPage compressedDictionaryPage;
+    private final PeekingIterator<Page> compressedPages;
 
-    /**
-     * @param compressedPages This parameter will be mutated destructively as {@link DataPage} entries are removed as part of {@link #readPage()}. The caller
-     * should not retain a reference to this list after passing it in as a constructor argument.
-     */
-    public PageReader(CompressionCodecName codec,
-                      LinkedList<DataPage> compressedPages,
-                      DictionaryPage compressedDictionaryPage,
-                      long valueCount,
-                      boolean hasNoNulls)
+    private boolean dictionaryAlreadyRead;
+    private int dataPageReadCount;
+
+    public static PageReader createPageReader(
+            ChunkedInputStream columnChunk,
+            ColumnChunkMetaData metadata,
+            ColumnDescriptor columnDescriptor,
+            @Nullable OffsetIndex offsetIndex,
+            Optional<String> fileCreatedBy)
     {
-        this.codec = codec;
-        this.compressedPages = compressedPages;
-        this.compressedDictionaryPage = compressedDictionaryPage;
-        this.valueCount = valueCount;
-        this.hasNoNulls = hasNoNulls;
+        // Parquet schema may specify a column definition as OPTIONAL even though there are no nulls in the actual data.
+        // Row-group column statistics can be used to identify such cases and switch to faster non-nullable read
+        // paths in FlatColumnReader.
+        Statistics<?> columnStatistics = metadata.getStatistics();
+        boolean hasNoNulls = columnStatistics != null && columnStatistics.getNumNulls() == 0;
+        ParquetColumnChunkIterator compressedPages = new ParquetColumnChunkIterator(
+                fileCreatedBy,
+                new ColumnChunkDescriptor(columnDescriptor, metadata),
+                columnChunk,
+                offsetIndex);
+        return new PageReader(metadata.getCodec(), compressedPages, compressedPages.hasDictionaryPage(), hasNoNulls);
     }
 
-    public long getTotalValueCount()
+    @VisibleForTesting
+    public PageReader(
+            CompressionCodecName codec,
+            Iterator<? extends Page> compressedPages,
+            boolean hasDictionaryPage,
+            boolean hasNoNulls)
     {
-        return valueCount;
+        this.codec = codec;
+        this.compressedPages = Iterators.peekingIterator(compressedPages);
+        this.hasDictionaryPage = hasDictionaryPage;
+        this.hasNoNulls = hasNoNulls;
     }
 
     public boolean hasNoNulls()
@@ -61,10 +87,14 @@ public final class PageReader
 
     public DataPage readPage()
     {
-        if (compressedPages.isEmpty()) {
+        if (hasDictionaryPage) {
+            checkState(dictionaryAlreadyRead, "Dictionary has to be read first");
+        }
+        if (!compressedPages.hasNext()) {
             return null;
         }
-        DataPage compressedPage = compressedPages.removeFirst();
+        Page compressedPage = compressedPages.next();
+        dataPageReadCount++;
         try {
             if (compressedPage instanceof DataPageV1) {
                 DataPageV1 dataPageV1 = (DataPageV1) compressedPage;
@@ -104,10 +134,16 @@ public final class PageReader
 
     public DictionaryPage readDictionaryPage()
     {
-        if (compressedDictionaryPage == null) {
+        if (!hasDictionaryPage) {
             return null;
         }
         try {
+            checkState(!dictionaryAlreadyRead, "Dictionary was already read");
+            checkState(dataPageReadCount == 0, "Dictionary has to be read first but " + dataPageReadCount + " was read already");
+            dictionaryAlreadyRead = true;
+            Page firstPage = compressedPages.next();
+            checkArgument(firstPage instanceof DictionaryPage, "DictionaryPage has to be the first page in the column chunk but got %s", firstPage);
+            DictionaryPage compressedDictionaryPage = (DictionaryPage) firstPage;
             return new DictionaryPage(
                     decompress(codec, compressedDictionaryPage.getSlice(), compressedDictionaryPage.getUncompressedSize()),
                     compressedDictionaryPage.getDictionarySize(),
@@ -118,18 +154,28 @@ public final class PageReader
         }
     }
 
-    public DataPage getNextPage()
-    {
-        return compressedPages.getFirst();
-    }
-
     public boolean hasNext()
     {
-        return !compressedPages.isEmpty();
+        return compressedPages.hasNext();
+    }
+
+    public DataPage getNextPage()
+    {
+        verifyDictionaryPageRead();
+
+        return (DataPage) compressedPages.peek();
     }
 
     public void skipNextPage()
     {
-        compressedPages.removeFirst();
+        verifyDictionaryPageRead();
+        compressedPages.next();
+    }
+
+    private void verifyDictionaryPageRead()
+    {
+        if (hasDictionaryPage) {
+            checkArgument(dictionaryAlreadyRead, "Dictionary has to be read first");
+        }
     }
 }

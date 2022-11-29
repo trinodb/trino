@@ -18,6 +18,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
+import io.airlift.units.MinDataSize;
 import io.trino.parquet.ParquetReaderOptions;
 
 import javax.validation.constraints.Max;
@@ -90,6 +91,7 @@ public class ParquetReaderConfig
     }
 
     @NotNull
+    @MinDataSize("1MB")
     public DataSize getMaxBufferSize()
     {
         return options.getMaxBufferSize();

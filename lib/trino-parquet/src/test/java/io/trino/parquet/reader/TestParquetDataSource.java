@@ -15,10 +15,12 @@ package io.trino.parquet.reader;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ChunkReader;
 import io.trino.parquet.DiskRange;
 import io.trino.parquet.ParquetReaderOptions;
@@ -30,6 +32,7 @@ import java.util.stream.IntStream;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 
 public class TestParquetDataSource
 {
@@ -42,13 +45,15 @@ public class TestParquetDataSource
                 testingInput,
                 new ParquetReaderOptions().withMaxBufferSize(maxBufferSize));
 
-        ListMultimap<String, ChunkReader> chunkReaders = dataSource.planRead(ImmutableListMultimap.<String, DiskRange>builder()
-                .putAll("test", new DiskRange(0, 300), new DiskRange(400, 100), new DiskRange(700, 200))
-                .build());
+        ListMultimap<String, ChunkReader> chunkReaders = dataSource.planRead(
+                ImmutableListMultimap.<String, DiskRange>builder()
+                        .putAll("test", new DiskRange(0, 200), new DiskRange(400, 100), new DiskRange(700, 200))
+                        .build(),
+                newSimpleAggregatedMemoryContext());
         assertThat(chunkReaders.get("test"))
                 .map(ChunkReader::read)
                 .isEqualTo(ImmutableList.of(
-                        testingInput.slice(0, 300),
+                        testingInput.slice(0, 200),
                         testingInput.slice(400, 100),
                         testingInput.slice(700, 200)));
     }
@@ -57,9 +62,48 @@ public class TestParquetDataSource
     public Object[][] testPlanReadOrderingProvider()
     {
         return new Object[][] {
-                {DataSize.ofBytes(0)}, // All large ranges
                 {DataSize.ofBytes(200)}, // Mix of large and small ranges
                 {DataSize.ofBytes(100000000)}, // All small ranges
         };
+    }
+
+    @Test
+    public void testMemoryAccounting()
+            throws IOException
+    {
+        Slice testingInput = Slices.wrappedIntArray(IntStream.range(0, 1000).toArray());
+        TestingParquetDataSource dataSource = new TestingParquetDataSource(
+                testingInput,
+                new ParquetReaderOptions().withMaxBufferSize(DataSize.ofBytes(500)));
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
+        ListMultimap<String, ChunkReader> chunkReaders = dataSource.planRead(ImmutableListMultimap.<String, DiskRange>builder()
+                        .put("1", new DiskRange(0, 200))
+                        .put("2", new DiskRange(400, 100))
+                        .put("3", new DiskRange(700, 200))
+                        .build(),
+                memoryContext);
+
+        ChunkReader firstReader = Iterables.getOnlyElement(chunkReaders.get("1"));
+        ChunkReader secondReader = Iterables.getOnlyElement(chunkReaders.get("2"));
+        ChunkReader thirdReader = Iterables.getOnlyElement(chunkReaders.get("3"));
+        assertEquals(memoryContext.getBytes(), 0);
+        firstReader.read();
+        // first and second range are merged
+        assertEquals(memoryContext.getBytes(), 500);
+        firstReader.free();
+        // since the second reader is not freed, the memory is still retained
+        assertEquals(memoryContext.getBytes(), 500);
+        thirdReader.read();
+        // third reader is standalone so only retains its size
+        assertEquals(memoryContext.getBytes(), 700);
+        thirdReader.free();
+        // third reader is standalone, free releases the memory
+        assertEquals(memoryContext.getBytes(), 500);
+        secondReader.read();
+        // second reader is merged with the first, read only accesses already cached data
+        assertEquals(memoryContext.getBytes(), 500);
+        secondReader.free();
+        // both readers using merged reader are freed, all memory is released
+        assertEquals(memoryContext.getBytes(), 0);
     }
 }

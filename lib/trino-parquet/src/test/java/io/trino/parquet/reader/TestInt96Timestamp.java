@@ -33,7 +33,6 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -108,7 +107,7 @@ public class TestInt96Timestamp
         // Read and assert
         ColumnReader reader = ColumnReaderFactory.create(field, DateTimeZone.UTC, true);
         reader.setPageReader(
-                new PageReader(UNCOMPRESSED, new LinkedList<>(List.of(dataPage)), null, dataPage.getValueCount(), false),
+                new PageReader(UNCOMPRESSED, List.of(dataPage).iterator(), false, false),
                 Optional.empty());
         reader.prepareNextRead(valueCount);
         Block block = reader.readPrimitive().getBlock();

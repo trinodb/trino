@@ -13,12 +13,14 @@
  */
 package io.trino.parquet.reader.flat;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
+import io.trino.parquet.Page;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.ColumnReader;
@@ -549,7 +551,7 @@ public class TestFlatColumnReader
                 encoding,
                 encoding,
                 PLAIN));
-        return new PageReader(UNCOMPRESSED, pages, null, 1, false);
+        return new PageReader(UNCOMPRESSED, pages.iterator(), false, false);
     }
 
     private static PageReader getNullOnlyPageReaderMock()
@@ -567,7 +569,7 @@ public class TestFlatColumnReader
                 RLE,
                 RLE,
                 PLAIN));
-        return new PageReader(UNCOMPRESSED, pages, null, 1, false);
+        return new PageReader(UNCOMPRESSED, pages.iterator(), false, false);
     }
 
     private static PageReader getPageReaderMock(LinkedList<DataPage> dataPages, @Nullable DictionaryPage dictionaryPage)
@@ -577,13 +579,17 @@ public class TestFlatColumnReader
 
     private static PageReader getPageReaderMock(LinkedList<DataPage> dataPages, @Nullable DictionaryPage dictionaryPage, boolean hasNoNulls)
     {
+        if (dictionaryPage != null) {
+            return new PageReader(
+                    UNCOMPRESSED,
+                    ImmutableList.<Page>builder().add(dictionaryPage).addAll(dataPages).build().iterator(),
+                    true,
+                    hasNoNulls);
+        }
         return new PageReader(
                 UNCOMPRESSED,
-                dataPages,
-                dictionaryPage,
-                dataPages.stream()
-                        .mapToInt(DataPage::getValueCount)
-                        .sum(),
+                dataPages.iterator(),
+                false,
                 hasNoNulls);
     }
 
