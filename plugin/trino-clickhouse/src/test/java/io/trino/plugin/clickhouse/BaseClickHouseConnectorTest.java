@@ -105,6 +105,18 @@ public abstract class BaseClickHouseConnectorTest
     }
 
     @Override
+    public void testDropAndAddColumnWithSameName()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_add_column", "(x int NOT NULL, y int, z int) WITH (engine = 'MergeTree', order_by = ARRAY['x'])", ImmutableList.of("1,2,3"))) {
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN y");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3, NULL)");
+        }
+    }
+
+    @Override
     public void testAddAndDropColumnName(String columnName)
     {
         // TODO: Enable this test

@@ -30,7 +30,9 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Collation;
+import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
+import com.mongodb.client.model.Updates;
 import com.mongodb.client.result.DeleteResult;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -339,6 +341,9 @@ public class MongoSession
         MongoDatabase database = client.getDatabase(remoteSchemaName);
         MongoCollection<Document> schema = database.getCollection(schemaCollection);
         schema.findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
+
+        database.getCollection(remoteTableName)
+                .updateMany(Filters.empty(), Updates.unset(columnName));
 
         tableCache.invalidate(table.getSchemaTableName());
     }
