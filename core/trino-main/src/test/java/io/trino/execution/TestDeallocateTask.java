@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.client.NodeVersion;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
@@ -95,7 +96,8 @@ public class TestDeallocateTask
                 metadata,
                 WarningCollector.NOOP,
                 Optional.empty(),
-                true);
+                true,
+                new NodeVersion("test"));
         Deallocate deallocate = new Deallocate(new Identifier(statementName));
         new DeallocateTask().execute(deallocate, stateMachine, emptyList(), WarningCollector.NOOP);
         return stateMachine.getDeallocatedPreparedStatements();
