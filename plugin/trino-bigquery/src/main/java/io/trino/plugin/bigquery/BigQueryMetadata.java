@@ -69,6 +69,7 @@ import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
@@ -79,6 +80,7 @@ import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -782,13 +784,37 @@ public class BigQueryMetadata
 
         TupleDomain<ColumnHandle> oldDomain = bigQueryTableHandle.getConstraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        TupleDomain<ColumnHandle> remainingFilter;
+        if (newDomain.isNone()) {
+            remainingFilter = TupleDomain.all();
+        }
+        else {
+            Map<ColumnHandle, Domain> domains = newDomain.getDomains().orElseThrow();
+
+            Map<ColumnHandle, Domain> supported = new HashMap<>();
+            Map<ColumnHandle, Domain> unsupported = new HashMap<>();
+
+            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+                BigQueryColumnHandle columnHandle = (BigQueryColumnHandle) entry.getKey();
+                Domain domain = entry.getValue();
+                if (columnHandle.isPushdownSupported()) {
+                    supported.put(entry.getKey(), entry.getValue());
+                }
+                else {
+                    unsupported.put(columnHandle, domain);
+                }
+            }
+            newDomain = TupleDomain.withColumnDomains(supported);
+            remainingFilter = TupleDomain.withColumnDomains(unsupported);
+        }
+
         if (oldDomain.equals(newDomain)) {
             return Optional.empty();
         }
 
         BigQueryTableHandle updatedHandle = bigQueryTableHandle.withConstraint(newDomain);
 
-        return Optional.of(new ConstraintApplicationResult<>(updatedHandle, constraint.getSummary(), constraint.getExpression(), false));
+        return Optional.of(new ConstraintApplicationResult<>(updatedHandle, remainingFilter, constraint.getExpression(), false));
     }
 
     @Override

@@ -16,6 +16,7 @@ package io.trino.plugin.bigquery;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.spi.QueryId;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
@@ -108,6 +109,47 @@ public abstract class BaseBigQueryConnectorTest
                 .row("shippriority", "bigint", "", "")
                 .row("comment", "varchar", "", "")
                 .build();
+    }
+
+    @Test
+    @Override // Override because the regexp is different from the base test
+    public void testPredicateReflectedInExplain()
+    {
+        assertExplain(
+                "EXPLAIN SELECT name FROM nation WHERE nationkey = 42",
+                "nationkey", "bigint", "42");
+    }
+
+    @Test
+    public void testPredicatePushdown()
+    {
+        testPredicatePushdown("true", "true", true);
+        testPredicatePushdown("CAST(1 AS INT64)", "1", true);
+        testPredicatePushdown("CAST(0.1 AS FLOAT64)", "0.1", true);
+        testPredicatePushdown("NUMERIC '123'", "123", true);
+        testPredicatePushdown("'string'", "'string'", true);
+        testPredicatePushdown("b''", "x''", true);
+        testPredicatePushdown("DATE '2017-01-01'", "DATE '2017-01-01'", true);
+        testPredicatePushdown("TIME '12:34:56'", "TIME '12:34:56'", true);
+        testPredicatePushdown("TIMESTAMP '2018-04-01 02:13:55.123456 UTC'", "TIMESTAMP '2018-04-01 02:13:55.123456 UTC'", true);
+        testPredicatePushdown("DATETIME '2018-04-01 02:13:55.123'", "TIMESTAMP '2018-04-01 02:13:55.123'", true);
+
+        testPredicatePushdown("ST_GeogPoint(0, 0)", "'POINT(0 0)'", false);
+        testPredicatePushdown("[true]", "ARRAY[true]", false);
+        testPredicatePushdown("STRUCT('nested' AS x)", "ROW('nested')", false);
+    }
+
+    private void testPredicatePushdown(@Language("SQL") String inputLiteral, @Language("SQL") String predicateLiteral, boolean isPushdownSupported)
+    {
+        try (TestTable table = new TestTable(bigQuerySqlExecutor, "test.test_predicate_pushdown", "AS SELECT %s col".formatted(inputLiteral))) {
+            String query = "SELECT * FROM " + table.getName() + " WHERE col = " + predicateLiteral;
+            if (isPushdownSupported) {
+                assertThat(query(query)).isFullyPushedDown();
+            }
+            else {
+                assertThat(query(query)).isNotFullyPushedDown(FilterNode.class);
+            }
+        }
     }
 
     @Test

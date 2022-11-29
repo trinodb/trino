@@ -38,10 +38,12 @@ public final class Conversions
                         .filter(Conversions::isSupportedType)
                         .map(Conversions::toColumnHandle)
                         .collect(Collectors.toList());
+        ColumnMapping columnMapping = toTrinoType(field).orElseThrow(() -> new IllegalArgumentException("Unsupported type: " + field));
         return new BigQueryColumnHandle(
                 field.getName(),
-                toTrinoType(field).orElseThrow(() -> new IllegalArgumentException("Unsupported type: " + field)),
+                columnMapping.type(),
                 field.getType().getStandardType(),
+                columnMapping.isPushdownSupported(),
                 getMode(field),
                 field.getPrecision(),
                 field.getScale(),
