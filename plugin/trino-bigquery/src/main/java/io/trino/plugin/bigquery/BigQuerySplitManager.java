@@ -48,6 +48,7 @@ import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.bigquery.BigQueryClient.TABLE_TYPES;
+import static io.trino.plugin.bigquery.BigQueryClient.selectSql;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
 import static io.trino.plugin.bigquery.BigQuerySessionProperties.isSkipViewMaterialization;
 import static io.trino.plugin.bigquery.BigQueryUtil.isWildcardTable;
@@ -110,7 +111,7 @@ public class BigQuerySplitManager
         TableId remoteTableId = bigQueryTableHandle.asPlainTable().getRemoteTableName().toTableId();
         List<BigQuerySplit> splits = emptyProjectionIsRequired(bigQueryTableHandle.getProjectedColumns()) ?
                 createEmptyProjection(session, remoteTableId, actualParallelism, filter) :
-                readFromBigQuery(session, TableDefinition.Type.valueOf(bigQueryTableHandle.asPlainTable().getType()), remoteTableId, bigQueryTableHandle.getProjectedColumns(), actualParallelism, filter);
+                readFromBigQuery(session, TableDefinition.Type.valueOf(bigQueryTableHandle.asPlainTable().getType()), remoteTableId, bigQueryTableHandle.getProjectedColumns(), actualParallelism, tableConstraint);
         return new FixedSplitSource(splits);
     }
 
@@ -119,15 +120,15 @@ public class BigQuerySplitManager
         return projectedColumns.isPresent() && projectedColumns.get().isEmpty();
     }
 
-    private List<BigQuerySplit> readFromBigQuery(ConnectorSession session, TableDefinition.Type type, TableId remoteTableId, Optional<List<BigQueryColumnHandle>> projectedColumns, int actualParallelism, Optional<String> filter)
+    private List<BigQuerySplit> readFromBigQuery(ConnectorSession session, TableDefinition.Type type, TableId remoteTableId, Optional<List<BigQueryColumnHandle>> projectedColumns, int actualParallelism, TupleDomain<ColumnHandle> tableConstraint)
     {
         checkArgument(projectedColumns.isPresent() && projectedColumns.get().size() > 0, "Projected column is empty");
+        Optional<String> filter = BigQueryFilterQueryBuilder.buildFilter(tableConstraint);
 
         log.debug("readFromBigQuery(tableId=%s, projectedColumns=%s, actualParallelism=%s, filter=[%s])", remoteTableId, projectedColumns, actualParallelism, filter);
         List<BigQueryColumnHandle> columns = projectedColumns.get();
-        List<String> projectedColumnsNames = columns.stream()
-                .map(BigQueryColumnHandle::getName)
-                .collect(toImmutableList());
+        ImmutableList.Builder<String> projectedColumnsNames = ImmutableList.builder();
+        projectedColumnsNames.addAll(columns.stream().map(BigQueryColumnHandle::getName).toList());
 
         if (isWildcardTable(type, remoteTableId.getTable())) {
             // Storage API doesn't support reading wildcard tables
@@ -137,11 +138,16 @@ public class BigQuerySplitManager
             // Storage API doesn't support reading materialized views and external tables
             return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
         }
-        if (isSkipViewMaterialization(session) && type == VIEW) {
-            return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
+        if (type == VIEW) {
+            if (isSkipViewMaterialization(session)) {
+                return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
+            }
+            tableConstraint.getDomains().ifPresent(domains -> domains.keySet().stream()
+                    .map(column -> ((BigQueryColumnHandle) column).getName())
+                    .forEach(projectedColumnsNames::add));
         }
         ReadSessionCreator readSessionCreator = new ReadSessionCreator(bigQueryClientFactory, bigQueryReadClientFactory, viewEnabled, arrowSerializationEnabled, viewExpiration, maxReadRowsRetries);
-        ReadSession readSession = readSessionCreator.create(session, remoteTableId, projectedColumnsNames, filter, actualParallelism);
+        ReadSession readSession = readSessionCreator.create(session, remoteTableId, projectedColumnsNames.build(), filter, actualParallelism);
 
         return readSession.getStreamsList().stream()
                 .map(stream -> BigQuerySplit.forStream(stream.getName(), readSessionCreator.getSchemaAsString(readSession), columns, OptionalInt.of(stream.getSerializedSize())))
@@ -156,7 +162,7 @@ public class BigQuerySplitManager
             long numberOfRows;
             if (filter.isPresent()) {
                 // count the rows based on the filter
-                String sql = client.selectSql(remoteTableId, "COUNT(*)");
+                String sql = selectSql(remoteTableId, "COUNT(*)", filter);
                 TableResult result = client.executeQuery(session, sql);
                 numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
             }
