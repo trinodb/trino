@@ -40,7 +40,7 @@ public class TestMongoClientConfig
                 .setMaxWaitTime(120_000)
                 .setConnectionTimeout(10_000)
                 .setSocketTimeout(0)
-                .setSslEnabled(false)
+                .setTlsEnabled(false)
                 .setMaxConnectionIdleTime(0)
                 .setCursorBatchSize(0)
                 .setReadPreference(ReadPreferenceType.PRIMARY)
@@ -63,7 +63,7 @@ public class TestMongoClientConfig
                 .put("mongodb.max-wait-time", "120001")
                 .put("mongodb.connection-timeout", "9999")
                 .put("mongodb.socket-timeout", "1")
-                .put("mongodb.ssl.enabled", "true")
+                .put("mongodb.tls.enabled", "true")
                 .put("mongodb.max-connection-idle-time", "180000")
                 .put("mongodb.cursor-batch-size", "1")
                 .put("mongodb.read-preference", "NEAREST")
@@ -86,7 +86,7 @@ public class TestMongoClientConfig
                 .setMaxWaitTime(120_001)
                 .setConnectionTimeout(9_999)
                 .setSocketTimeout(1)
-                .setSslEnabled(true)
+                .setTlsEnabled(true)
                 .setMaxConnectionIdleTime(180_000)
                 .setCursorBatchSize(1)
                 .setReadPreference(ReadPreferenceType.NEAREST)
@@ -104,7 +104,7 @@ public class TestMongoClientConfig
         assertEquals(config.getMaxWaitTime(), expected.getMaxWaitTime());
         assertEquals(config.getConnectionTimeout(), expected.getConnectionTimeout());
         assertEquals(config.getSocketTimeout(), expected.getSocketTimeout());
-        assertEquals(config.getSslEnabled(), expected.getSslEnabled());
+        assertEquals(config.getTlsEnabled(), expected.getTlsEnabled());
         assertEquals(config.getMaxConnectionIdleTime(), expected.getMaxConnectionIdleTime());
         assertEquals(config.getCursorBatchSize(), expected.getCursorBatchSize());
         assertEquals(config.getReadPreference(), expected.getReadPreference());
