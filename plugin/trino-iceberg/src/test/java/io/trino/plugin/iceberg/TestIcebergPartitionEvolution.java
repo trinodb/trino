@@ -154,4 +154,15 @@ public class TestIcebergPartitionEvolution
         assertThat(monthPartitionedFiles).hasSize(2);
         assertUpdate("DROP TABLE " + tableName);
     }
+
+    @Test
+    public void testUnsupportedNestedFieldPartition()
+    {
+        String tableName = "test_unsupported_nested_field_partition_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(parent ROW(child VARCHAR))");
+        assertQueryFails(
+                "ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['\"parent.child\"']",
+                "Partitioning by nested field is unsupported: parent.child");
+        assertUpdate("DROP TABLE " + tableName);
+    }
 }
