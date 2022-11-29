@@ -19,7 +19,7 @@ import io.trino.testing.QueryRunner;
 import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoClient;
 import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 
-public class TestMongoConnectorTest
+public class TestMongoTempConnectorTest
         extends BaseMongoConnectorTest
 {
     @Override
