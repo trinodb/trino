@@ -56,6 +56,7 @@ public enum BigQueryPseudoColumn
                 trinoColumnName,
                 trinoType,
                 bigqueryType,
+                true,
                 Field.Mode.REQUIRED,
                 null,
                 null,
