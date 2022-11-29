@@ -29,6 +29,7 @@ import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.SingletonIdentityCacheMapping;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.ptf.ConnectorTableFunction;
@@ -120,9 +121,10 @@ public class SnowflakeJdbcClientModule
             JdbcStatisticsConfig statisticsConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
-            IdentifierMapping identifierMapping)
+            IdentifierMapping identifierMapping,
+            RemoteQueryModifier queryModifier)
     {
-        return new SnowflakeClient(config, snowflakeConfig, statisticsConfig, connectionFactory, distributedConnector, queryBuilder, identifierMapping);
+        return new SnowflakeClient(config, snowflakeConfig, statisticsConfig, connectionFactory, distributedConnector, queryBuilder, identifierMapping, queryModifier);
     }
 
     @Provides

@@ -55,6 +55,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -219,9 +220,10 @@ public class SnowflakeClient
             ConnectionFactory connectionFactory,
             boolean distributedConnector,
             QueryBuilder queryBuilder,
-            IdentifierMapping identifierMapping)
+            IdentifierMapping identifierMapping,
+            RemoteQueryModifier queryModifier)
     {
-        super(config, IDENTIFIER_QUOTE, connectionFactory, queryBuilder, identifierMapping);
+        super(config, IDENTIFIER_QUOTE, connectionFactory, queryBuilder, identifierMapping, queryModifier);
         this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
         this.distributedConnector = distributedConnector;
         this.databasePrefixForSchemaEnabled = requireNonNull(snowflakeConfig, "snowflakeConfig is null").getDatabasePrefixForSchemaEnabled();
@@ -282,7 +284,7 @@ public class SnowflakeClient
             return;
         }
         DatabaseSchemaName databaseSchema = parseDatabaseSchemaName(remoteSchemaName);
-        execute(connection, format("CREATE SCHEMA %s%s%s", quoted(databaseSchema.getDatabaseName()), DATABASE_SEPARATOR, quoted(databaseSchema.getSchemaName())));
+        execute(session, connection, format("CREATE SCHEMA %s%s%s", quoted(databaseSchema.getDatabaseName()), DATABASE_SEPARATOR, quoted(databaseSchema.getSchemaName())));
     }
 
     @Override
@@ -312,7 +314,7 @@ public class SnowflakeClient
     }
 
     @Override
-    public void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+    public void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
     {
         String catalog = catalogName;
         String schema = schemaName;
@@ -321,7 +323,7 @@ public class SnowflakeClient
             catalog = databaseSchema.getDatabaseName();
             schema = databaseSchema.getSchemaName();
         }
-        super.copyTableSchema(connection, catalog, schema, tableName, newTableName, columnNames);
+        super.copyTableSchema(session, connection, catalog, schema, tableName, newTableName, columnNames);
     }
 
     @Override

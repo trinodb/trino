@@ -30,6 +30,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
 import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.RewriteIn;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.sqlserver.ImplementAvgBigint;
 import io.trino.plugin.sqlserver.ImplementSqlServerCountBig;
@@ -98,9 +99,10 @@ public class StarburstSynapseClient
             JdbcStatisticsConfig statisticsConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
-            IdentifierMapping identifierMapping)
+            IdentifierMapping identifierMapping,
+            RemoteQueryModifier queryModifier)
     {
-        super(config, statisticsConfig, connectionFactory, queryBuilder, identifierMapping);
+        super(config, statisticsConfig, connectionFactory, queryBuilder, identifierMapping, queryModifier);
 
         // TODO: Remove once https://starburstdata.atlassian.net/browse/SEP-10133 is addressed
         // Explicitly copied from SQL Server to remove some connector expression rewrites since it's unsafe for varchars due to default case-insensitive collation of Synapse
@@ -182,7 +184,7 @@ public class StarburstSynapseClient
                 "RENAME OBJECT %s TO %s",
                 quoted(catalogName, remoteSchemaName, remoteTableName),
                 newRemoteTableName);
-        execute(connection, sql);
+        execute(session, sql);
     }
 
     @Override
