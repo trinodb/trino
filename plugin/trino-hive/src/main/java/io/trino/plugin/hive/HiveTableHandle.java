@@ -60,7 +60,7 @@ public class HiveTableHandle
     private final Optional<Long> maxScannedFileSize;
 
     @JsonCreator
-    public HiveTableHandle(
+    public static HiveTableHandle fromJsonForDeserializationOnly(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("partitionColumns") List<HiveColumnHandle> partitionColumns,
@@ -72,55 +72,21 @@ public class HiveTableHandle
             @JsonProperty("analyzePartitionValues") Optional<List<List<String>>> analyzePartitionValues,
             @JsonProperty("transaction") AcidTransaction transaction)
     {
-        this(
-                schemaName,
-                tableName,
-                Optional.empty(),
-                partitionColumns,
-                dataColumns,
-                Optional.empty(),
-                Optional.empty(),
-                compactEffectivePredicate,
-                enforcedConstraint,
-                bucketHandle,
-                bucketFilter,
-                analyzePartitionValues,
-                ImmutableSet.of(),
-                ImmutableSet.of(),
-                transaction,
-                false,
-                Optional.empty());
+        return builder()
+                .withSchemaName(schemaName)
+                .withTableName(tableName)
+                .withPartitionColumns(partitionColumns)
+                .withDataColumns(dataColumns)
+                .withCompactEffectivePredicate(compactEffectivePredicate)
+                .withEnforcedConstraint(enforcedConstraint)
+                .withBucketHandle(bucketHandle)
+                .withBucketFilter(bucketFilter)
+                .withAnalyzePartitionValues(analyzePartitionValues)
+                .withTransaction(transaction)
+                .build();
     }
 
-    public HiveTableHandle(
-            String schemaName,
-            String tableName,
-            Map<String, String> tableParameters,
-            List<HiveColumnHandle> partitionColumns,
-            List<HiveColumnHandle> dataColumns,
-            Optional<HiveBucketHandle> bucketHandle)
-    {
-        this(
-                schemaName,
-                tableName,
-                Optional.of(tableParameters),
-                partitionColumns,
-                dataColumns,
-                Optional.empty(),
-                Optional.empty(),
-                TupleDomain.all(),
-                TupleDomain.all(),
-                bucketHandle,
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableSet.of(),
-                ImmutableSet.of(),
-                NO_ACID_TRANSACTION,
-                false,
-                Optional.empty());
-    }
-
-    public HiveTableHandle(
+    private HiveTableHandle(
             String schemaName,
             String tableName,
             Optional<Map<String, String>> tableParameters,
@@ -157,116 +123,6 @@ public class HiveTableHandle
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.recordScannedFiles = recordScannedFiles;
         this.maxScannedFileSize = requireNonNull(maxSplitFileSize, "maxSplitFileSize is null");
-    }
-
-    public HiveTableHandle withAnalyzePartitionValues(List<List<String>> analyzePartitionValues)
-    {
-        return new HiveTableHandle(
-                schemaName,
-                tableName,
-                tableParameters,
-                partitionColumns,
-                dataColumns,
-                partitionNames,
-                partitions,
-                compactEffectivePredicate,
-                enforcedConstraint,
-                bucketHandle,
-                bucketFilter,
-                Optional.of(analyzePartitionValues),
-                constraintColumns,
-                projectedColumns,
-                transaction,
-                recordScannedFiles,
-                maxScannedFileSize);
-    }
-
-    public HiveTableHandle withTransaction(AcidTransaction transaction)
-    {
-        return new HiveTableHandle(
-                schemaName,
-                tableName,
-                tableParameters,
-                partitionColumns,
-                dataColumns,
-                partitionNames,
-                partitions,
-                compactEffectivePredicate,
-                enforcedConstraint,
-                bucketHandle,
-                bucketFilter,
-                analyzePartitionValues,
-                constraintColumns,
-                projectedColumns,
-                transaction,
-                recordScannedFiles,
-                maxScannedFileSize);
-    }
-
-    public HiveTableHandle withProjectedColumns(Set<ColumnHandle> projectedColumns)
-    {
-        return new HiveTableHandle(
-                schemaName,
-                tableName,
-                tableParameters,
-                partitionColumns,
-                dataColumns,
-                partitionNames,
-                partitions,
-                compactEffectivePredicate,
-                enforcedConstraint,
-                bucketHandle,
-                bucketFilter,
-                analyzePartitionValues,
-                constraintColumns,
-                projectedColumns,
-                transaction,
-                recordScannedFiles,
-                maxScannedFileSize);
-    }
-
-    public HiveTableHandle withRecordScannedFiles(boolean recordScannedFiles)
-    {
-        return new HiveTableHandle(
-                schemaName,
-                tableName,
-                tableParameters,
-                partitionColumns,
-                dataColumns,
-                partitionNames,
-                partitions,
-                compactEffectivePredicate,
-                enforcedConstraint,
-                bucketHandle,
-                bucketFilter,
-                analyzePartitionValues,
-                constraintColumns,
-                projectedColumns,
-                transaction,
-                recordScannedFiles,
-                maxScannedFileSize);
-    }
-
-    public HiveTableHandle withMaxScannedFileSize(Optional<Long> maxScannedFileSize)
-    {
-        return new HiveTableHandle(
-                schemaName,
-                tableName,
-                tableParameters,
-                partitionColumns,
-                dataColumns,
-                partitionNames,
-                partitions,
-                compactEffectivePredicate,
-                enforcedConstraint,
-                bucketHandle,
-                bucketFilter,
-                analyzePartitionValues,
-                constraintColumns,
-                projectedColumns,
-                transaction,
-                recordScannedFiles,
-                maxScannedFileSize);
     }
 
     @JsonProperty
@@ -486,5 +342,185 @@ public class HiveTableHandle
             }
         });
         return builder.toString();
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static Builder buildFrom(HiveTableHandle table)
+    {
+        return new Builder(table);
+    }
+
+    public static class Builder
+    {
+        private String schemaName;
+        private String tableName;
+        private Optional<Map<String, String>> tableParameters = Optional.empty();
+        private List<HiveColumnHandle> partitionColumns = ImmutableList.of();
+        private List<HiveColumnHandle> dataColumns = ImmutableList.of();
+        private Optional<List<String>> partitionNames = Optional.empty();
+        private Optional<List<HivePartition>> partitions = Optional.empty();
+        private TupleDomain<HiveColumnHandle> compactEffectivePredicate = TupleDomain.all();
+        private TupleDomain<ColumnHandle> enforcedConstraint = TupleDomain.all();
+        private Optional<HiveBucketHandle> bucketHandle = Optional.empty();
+        private Optional<HiveBucketFilter> bucketFilter = Optional.empty();
+        private Optional<List<List<String>>> analyzePartitionValues = Optional.empty();
+        private Set<ColumnHandle> constraintColumns = ImmutableSet.of();
+        private Set<ColumnHandle> projectedColumns = ImmutableSet.of();
+        private AcidTransaction transaction = NO_ACID_TRANSACTION;
+        private boolean recordScannedFiles;
+        private Optional<Long> maxScannedFileSize = Optional.empty();
+
+        private Builder()
+        {
+        }
+
+        private Builder(HiveTableHandle table)
+        {
+            this.schemaName = table.schemaName;
+            this.tableName = table.tableName;
+            this.tableParameters = table.tableParameters;
+            this.partitionColumns = table.partitionColumns;
+            this.dataColumns = table.dataColumns;
+            this.partitionNames = table.partitionNames;
+            this.partitions = table.partitions;
+            this.compactEffectivePredicate = table.compactEffectivePredicate;
+            this.enforcedConstraint = table.enforcedConstraint;
+            this.bucketHandle = table.bucketHandle;
+            this.bucketFilter = table.bucketFilter;
+            this.analyzePartitionValues = table.analyzePartitionValues;
+            this.constraintColumns = table.constraintColumns;
+            this.projectedColumns = table.projectedColumns;
+            this.transaction = table.transaction;
+            this.recordScannedFiles = table.recordScannedFiles;
+            this.maxScannedFileSize = table.maxScannedFileSize;
+        }
+
+        public Builder withSchemaName(String schemaName)
+        {
+            this.schemaName = schemaName;
+            return this;
+        }
+
+        public Builder withTableName(String tableName)
+        {
+            this.tableName = tableName;
+            return this;
+        }
+
+        public Builder withTableParameters(Optional<Map<String, String>> tableParameters)
+        {
+            this.tableParameters = tableParameters;
+            return this;
+        }
+
+        public Builder withPartitionColumns(List<HiveColumnHandle> partitionColumns)
+        {
+            this.partitionColumns = partitionColumns;
+            return this;
+        }
+
+        public Builder withDataColumns(List<HiveColumnHandle> dataColumns)
+        {
+            this.dataColumns = dataColumns;
+            return this;
+        }
+
+        public Builder withPartitionNames(Optional<List<String>> partitionNames)
+        {
+            this.partitionNames = partitionNames;
+            return this;
+        }
+
+        public Builder withPartitions(Optional<List<HivePartition>> partitions)
+        {
+            this.partitions = partitions;
+            return this;
+        }
+
+        public Builder withCompactEffectivePredicate(TupleDomain<HiveColumnHandle> compactEffectivePredicate)
+        {
+            this.compactEffectivePredicate = compactEffectivePredicate;
+            return this;
+        }
+
+        public Builder withEnforcedConstraint(TupleDomain<ColumnHandle> enforcedConstraint)
+        {
+            this.enforcedConstraint = enforcedConstraint;
+            return this;
+        }
+
+        public Builder withBucketHandle(Optional<HiveBucketHandle> bucketHandle)
+        {
+            this.bucketHandle = bucketHandle;
+            return this;
+        }
+
+        public Builder withBucketFilter(Optional<HiveBucketFilter> bucketFilter)
+        {
+            this.bucketFilter = bucketFilter;
+            return this;
+        }
+
+        public Builder withAnalyzePartitionValues(Optional<List<List<String>>> analyzePartitionValues)
+        {
+            this.analyzePartitionValues = analyzePartitionValues;
+            return this;
+        }
+
+        public Builder withConstraintColumns(Set<ColumnHandle> constraintColumns)
+        {
+            this.constraintColumns = constraintColumns;
+            return this;
+        }
+
+        public Builder withProjectedColumns(Set<ColumnHandle> projectedColumns)
+        {
+            this.projectedColumns = projectedColumns;
+            return this;
+        }
+
+        public Builder withTransaction(AcidTransaction transaction)
+        {
+            this.transaction = transaction;
+            return this;
+        }
+
+        public Builder withRecordScannedFiles(boolean recordScannedFiles)
+        {
+            this.recordScannedFiles = recordScannedFiles;
+            return this;
+        }
+
+        public Builder withMaxScannedFileSize(Optional<Long> maxScannedFileSize)
+        {
+            this.maxScannedFileSize = maxScannedFileSize;
+            return this;
+        }
+
+        public HiveTableHandle build()
+        {
+            return new HiveTableHandle(
+                    schemaName,
+                    tableName,
+                    tableParameters,
+                    partitionColumns,
+                    dataColumns,
+                    partitionNames,
+                    partitions,
+                    compactEffectivePredicate,
+                    enforcedConstraint,
+                    bucketHandle,
+                    bucketFilter,
+                    analyzePartitionValues,
+                    constraintColumns,
+                    projectedColumns,
+                    transaction,
+                    recordScannedFiles,
+                    maxScannedFileSize);
+        }
     }
 }

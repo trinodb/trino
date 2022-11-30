@@ -13,12 +13,8 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
-
-import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
 
@@ -29,7 +25,10 @@ public class TestHiveTableHandle
     @Test
     public void testRoundTrip()
     {
-        HiveTableHandle expected = new HiveTableHandle("schema", "table", ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
+        HiveTableHandle expected = HiveTableHandle.builder()
+                .withSchemaName("schema")
+                .withTableName("table")
+                .build();
 
         String json = codec.toJson(expected);
         HiveTableHandle actual = codec.fromJson(json);

@@ -482,13 +482,14 @@ public class HiveMetadata
 
         verifyOnline(tableName, Optional.empty(), getProtectMode(table), table.getParameters());
 
-        return new HiveTableHandle(
-                tableName.getSchemaName(),
-                tableName.getTableName(),
-                table.getParameters(),
-                getPartitionKeyColumnHandles(table, typeManager),
-                getRegularColumnHandles(table, typeManager, getTimestampPrecision(session)),
-                getHiveBucketHandle(session, table, typeManager));
+        return HiveTableHandle.builder()
+                .withSchemaName(tableName.getSchemaName())
+                .withTableName(tableName.getTableName())
+                .withTableParameters(Optional.of(table.getParameters()))
+                .withPartitionColumns(getPartitionKeyColumnHandles(table, typeManager))
+                .withDataColumns(getRegularColumnHandles(table, typeManager, getTimestampPrecision(session)))
+                .withBucketHandle(getHiveBucketHandle(session, table, typeManager))
+                .build();
     }
 
     @Override
@@ -514,7 +515,9 @@ public class HiveMetadata
                 }
             }
 
-            handle = handle.withAnalyzePartitionValues(list);
+            handle = HiveTableHandle.buildFrom(handle)
+                    .withAnalyzePartitionValues(Optional.of(list))
+                    .build();
             HivePartitionResult partitions = partitionManager.getPartitions(handle, list);
             handle = partitionManager.applyPartitionResult(handle, partitions, alwaysTrue());
         }
@@ -1886,7 +1889,9 @@ public class HiveMetadata
 
         HiveUpdateProcessor updateProcessor = new HiveUpdateProcessor(allDataColumns, hiveUpdatedColumns);
         AcidTransaction transaction = metastore.beginUpdate(session, table, updateProcessor);
-        HiveTableHandle updateHandle = hiveTableHandle.withTransaction(transaction);
+        HiveTableHandle updateHandle = HiveTableHandle.buildFrom(hiveTableHandle)
+                .withTransaction(transaction)
+                .build();
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), tableName);
@@ -1947,7 +1952,11 @@ public class HiveMetadata
         }
 
         HiveInsertTableHandle insertHandle = beginInsertOrMerge(session, tableHandle, retryMode, "Merging into", true);
-        return new HiveMergeTableHandle(hiveTableHandle.withTransaction(insertHandle.getTransaction()), insertHandle);
+        return new HiveMergeTableHandle(
+                HiveTableHandle.buildFrom(hiveTableHandle)
+                        .withTransaction(insertHandle.getTransaction())
+                        .build(),
+                insertHandle);
     }
 
     @Override
@@ -2420,9 +2429,10 @@ public class HiveMetadata
         return new BeginTableExecuteResult<>(
                 hiveExecuteHandle
                         .withWriteDeclarationId(writeDeclarationId),
-                hiveSourceTableHandle
+                HiveTableHandle.buildFrom(hiveSourceTableHandle)
                         .withMaxScannedFileSize(hiveExecuteHandle.getMaxScannedFileSize())
-                        .withRecordScannedFiles(true));
+                        .withRecordScannedFiles(true)
+                        .build());
     }
 
     @Override
@@ -2770,7 +2780,9 @@ public class HiveMetadata
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), handle.getSchemaTableName());
 
-        return handle.withTransaction(transaction);
+        return HiveTableHandle.buildFrom(handle)
+                .withTransaction(transaction)
+                .build();
     }
 
     @Override
@@ -3042,7 +3054,9 @@ public class HiveMetadata
                             ((HiveColumnHandle) assignment.getValue()).getType()))
                     .collect(toImmutableList());
             return Optional.of(new ProjectionApplicationResult<>(
-                    hiveTableHandle.withProjectedColumns(projectedColumns),
+                    HiveTableHandle.buildFrom(hiveTableHandle)
+                            .withProjectedColumns(projectedColumns)
+                            .build(),
                     projections,
                     assignmentsList,
                     false));
@@ -3089,7 +3103,9 @@ public class HiveMetadata
 
         List<Assignment> outputAssignments = ImmutableList.copyOf(newAssignments.values());
         return Optional.of(new ProjectionApplicationResult<>(
-                hiveTableHandle.withProjectedColumns(projectedColumnsBuilder.build()),
+                HiveTableHandle.buildFrom(hiveTableHandle)
+                        .withProjectedColumns(projectedColumnsBuilder.build())
+                        .build(),
                 newProjections,
                 outputAssignments,
                 false));
@@ -3213,29 +3229,16 @@ public class HiveMetadata
                 largerBucketCount % smallerBucketCount == 0 && Integer.bitCount(largerBucketCount / smallerBucketCount) == 1,
                 "The requested partitioning is not a valid alternative for the table layout");
 
-        return new HiveTableHandle(
-                hiveTable.getSchemaName(),
-                hiveTable.getTableName(),
-                hiveTable.getTableParameters(),
-                hiveTable.getPartitionColumns(),
-                hiveTable.getDataColumns(),
-                hiveTable.getPartitionNames(),
-                hiveTable.getPartitions(),
-                hiveTable.getCompactEffectivePredicate(),
-                hiveTable.getEnforcedConstraint(),
-                Optional.of(new HiveBucketHandle(
+        return HiveTableHandle.buildFrom(hiveTable)
+                .withBucketHandle(Optional.of(new HiveBucketHandle(
                         bucketHandle.getColumns(),
                         bucketHandle.getBucketingVersion(),
                         bucketHandle.getTableBucketCount(),
                         hivePartitioningHandle.getBucketCount(),
-                        bucketHandle.getSortedBy())),
-                hiveTable.getBucketFilter(),
-                hiveTable.getAnalyzePartitionValues(),
-                ImmutableSet.of(),
-                ImmutableSet.of(), // Projected columns is used only during optimization phase of planning
-                hiveTable.getTransaction(),
-                hiveTable.isRecordScannedFiles(),
-                hiveTable.getMaxScannedFileSize());
+                        bucketHandle.getSortedBy())))
+                .withConstraintColumns(ImmutableSet.of())
+                .withProjectedColumns(ImmutableSet.of()) // Projected columns is used only during optimization phase of planning
+                .build();
     }
 
     @VisibleForTesting
