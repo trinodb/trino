@@ -168,24 +168,16 @@ public class HivePartitionManager
             List<HiveColumnHandle> partitionColumns = partitions.getPartitionColumns();
             enforcedConstraint = partitions.getEffectivePredicate().filter((column, domain) -> partitionColumns.contains(column));
         }
-        return new HiveTableHandle(
-                handle.getSchemaName(),
-                handle.getTableName(),
-                handle.getTableParameters(),
-                ImmutableList.copyOf(partitions.getPartitionColumns()),
-                handle.getDataColumns(),
-                partitionNames,
-                partitionList,
-                partitions.getCompactEffectivePredicate(),
-                enforcedConstraint,
-                partitions.getBucketHandle(),
-                partitions.getBucketFilter(),
-                handle.getAnalyzePartitionValues(),
-                Sets.union(handle.getConstraintColumns(), constraint.getPredicateColumns().orElseGet(ImmutableSet::of)),
-                handle.getProjectedColumns(),
-                handle.getTransaction(),
-                handle.isRecordScannedFiles(),
-                handle.getMaxScannedFileSize());
+        return HiveTableHandle.buildFrom(handle)
+                .withPartitionColumns(ImmutableList.copyOf(partitions.getPartitionColumns()))
+                .withPartitionNames(partitionNames)
+                .withPartitions(partitionList)
+                .withCompactEffectivePredicate(partitions.getCompactEffectivePredicate())
+                .withEnforcedConstraint(enforcedConstraint)
+                .withBucketHandle(partitions.getBucketHandle())
+                .withBucketFilter(partitions.getBucketFilter())
+                .withConstraintColumns(Sets.union(handle.getConstraintColumns(), constraint.getPredicateColumns().orElseGet(ImmutableSet::of)))
+                .build();
     }
 
     public Iterator<HivePartition> getPartitions(SemiTransactionalHiveMetastore metastore, HiveTableHandle table)
