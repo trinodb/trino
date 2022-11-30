@@ -1,0 +1,12 @@
+final aggregation over ()
+    local exchange (GATHER, SINGLE, [])
+        remote exchange (GATHER, SINGLE, [])
+            partial aggregation over ()
+                join (INNER, PARTITIONED):
+                    remote exchange (REPARTITION, HASH, ["partkey"])
+                        local exchange (REPARTITION, ROUND_ROBIN, [])
+                            scan lineitem
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["partkey_0"])
+                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                scan part
