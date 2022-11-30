@@ -41,9 +41,25 @@ Implement the change.
 
 Create a Github [pull request](https://github.com/trinodb/trino/pulls) (PR).
 
-* Make sure the pull request passes the tests in CI.
+* Make sure the pull request passes the tests in the Continuous Integration
+  (CI) workflows.
 * If known, request a review from an expert in the area changed.  If unknown,
   ask for help on [Slack](https://trino.io/slack.html).
+
+There are some tests that use external services, like Google BigQuery, and require
+additional credentials. The Trino project cannot share these credentials with
+contributors, so it runs such tests in its CI workflows only on branches in the
+Trino repository, not in contributor forks.
+
+Trino project maintainers (members with write access to the repository) can
+schedule additional workflow runs after reviewing a PR and adding a comment
+like:
+```
+/test-with-secrets sha=<all-40-characters>
+```
+
+where the SHA argument should be the full 40 character git SHA of the head commit
+of the feature branch.
 
 ## Review
 
