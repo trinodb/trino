@@ -31,15 +31,24 @@ import java.util.Arrays;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.hive.metastore.recording.TestRecordingHiveMetastore.createJsonCodec;
+import static java.util.Objects.requireNonNull;
 
 public abstract class BaseHiveCostBasedPlanTest
         extends BaseCostBasedPlanTest
 {
+    private final String metadataDir;
+
+    protected BaseHiveCostBasedPlanTest(String metadataDir, boolean partitioned)
+    {
+        super(getSchema(metadataDir), partitioned);
+        this.metadataDir = requireNonNull(metadataDir, "metadataDir is null");
+    }
+
     @Override
     protected ConnectorFactory createConnectorFactory()
     {
         RecordingMetastoreConfig recordingConfig = new RecordingMetastoreConfig()
-                .setRecordingPath(getRecordingPath())
+                .setRecordingPath(getRecordingPath(metadataDir))
                 .setReplay(true);
         try {
             // The RecordingHiveMetastore loads the metadata files generated through HiveMetadataRecorder
@@ -55,10 +64,9 @@ public abstract class BaseHiveCostBasedPlanTest
         }
     }
 
-    @Override
-    protected String getSchema()
+    private static String getSchema(String metadataDir)
     {
-        String fileName = Paths.get(getRecordingPath()).getFileName().toString();
+        String fileName = Paths.get(getRecordingPath(metadataDir)).getFileName().toString();
         return fileName.split("\\.")[0];
     }
 
@@ -69,16 +77,16 @@ public abstract class BaseHiveCostBasedPlanTest
         // Nothing to do. Tables are populated using the recording.
     }
 
-    private String getRecordingPath()
+    private static String getRecordingPath(String metadataDir)
     {
-        URL resource = getClass().getResource(getMetadataDir());
+        URL resource = BaseHiveCostBasedPlanTest.class.getResource(metadataDir);
         if (resource == null) {
-            throw new RuntimeException("Hive metadata directory doesn't exist: " + getMetadataDir());
+            throw new RuntimeException("Hive metadata directory doesn't exist: " + metadataDir);
         }
 
         File[] files = new File(resource.getPath()).listFiles();
         if (files == null) {
-            throw new RuntimeException("Hive metadata recording file doesn't exist in directory: " + getMetadataDir());
+            throw new RuntimeException("Hive metadata recording file doesn't exist in directory: " + metadataDir);
         }
 
         return Arrays.stream(files)
@@ -86,6 +94,4 @@ public abstract class BaseHiveCostBasedPlanTest
                 .collect(onlyElement())
                 .getPath();
     }
-
-    protected abstract String getMetadataDir();
 }
