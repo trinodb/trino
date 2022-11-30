@@ -14,49 +14,50 @@
 
 package io.trino.sql.planner;
 
-import io.trino.tpch.TpchTable;
-
 import java.util.stream.Stream;
 
 /**
- * This class tests cost-based optimization rules related to joins. It contains unmodified TPC-H queries.
- * This class is using Iceberg connector un-partitioned TPC-H tables.
+ * This class tests cost-based optimization rules related to joins. It contains unmodified TPC-DS queries.
+ * This class is using Iceberg connector unpartitioned TPC-DS tables.
  */
-public class TestIcebergPartitionedTpchCostBasedPlan
+public class TestIcebergOrcTpcdsCostBasedPlan
         extends BaseIcebergCostBasedPlanTest
 {
     @Override
     protected String getSchema()
     {
         // For documentation purposes only
-        return "tpch_sf1000_orc_part";
+        return "tpcds_sf1000_orc";
     }
 
     @Override
     protected boolean isPartitioned()
     {
-        return true;
+        return false;
     }
 
     @Override
     protected void doPrepareTables()
     {
-        TpchTable.getTables().forEach(table -> {
+        io.trino.tpcds.Table.getBaseTables().forEach(table -> {
+            if (table == io.trino.tpcds.Table.DBGEN_VERSION) {
+                return;
+            }
             populateTableFromResource(
-                    table.getTableName(),
-                    "iceberg/tpch/sf1000/orc/partitioned/" + table.getTableName(),
-                    "iceberg-tpch-sf1000-ORC-part/" + table.getTableName());
+                    table.getName(),
+                    "iceberg/tpcds/sf1000/orc/unpartitioned/" + table.getName(),
+                    "iceberg-tpcds-sf1000-orc/" + table.getName());
         });
     }
 
     @Override
     protected Stream<String> getQueryResourcePaths()
     {
-        return TPCH_SQL_FILES.stream();
+        return TPCDS_SQL_FILES.stream();
     }
 
     public static void main(String[] args)
     {
-        new TestIcebergPartitionedTpchCostBasedPlan().generate();
+        new TestIcebergOrcTpcdsCostBasedPlan().generate();
     }
 }
