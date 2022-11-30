@@ -1808,10 +1808,20 @@ public abstract class AbstractTestParquetReader
             throws Exception
     {
         Iterable<byte[]> writeValues = limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), compose(AbstractTestParquetReader::stringToByteArray, Object::toString))), 30_000);
-        tester.testRoundTrip(javaByteArrayObjectInspector,
+        Iterable<SqlVarbinary> readValues = transform(writeValues, AbstractTestParquetReader::byteArrayToVarbinary);
+
+        tester.testRoundTrip(
+                javaByteArrayObjectInspector,
                 writeValues,
-                transform(writeValues, AbstractTestParquetReader::byteArrayToVarbinary),
+                readValues,
                 VARBINARY);
+
+        tester.testMaxReadBytes(
+                javaByteArrayObjectInspector,
+                writeValues,
+                readValues,
+                VARBINARY,
+                DataSize.ofBytes(1_000));
     }
 
     @Test
