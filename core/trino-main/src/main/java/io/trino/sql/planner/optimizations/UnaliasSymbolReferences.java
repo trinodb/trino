@@ -16,7 +16,6 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
@@ -338,16 +337,13 @@ public class UnaliasSymbolReferences
 
                 SymbolMapper inputMapper = symbolMapper(new HashMap<>(newSource.getMappings()));
                 TableArgumentProperties properties = node.getTableArgumentProperties().get(i);
-                ImmutableMultimap.Builder<String, Symbol> newColumnMapping = ImmutableMultimap.builder();
-                properties.getColumnMapping().entries().stream()
-                        .forEach(entry -> newColumnMapping.put(entry.getKey(), inputMapper.map(entry.getValue())));
                 Optional<DataOrganizationSpecification> newSpecification = properties.getSpecification().map(inputMapper::mapAndDistinct);
                 newTableArgumentProperties.add(new TableArgumentProperties(
                         properties.getArgumentName(),
-                        newColumnMapping.build(),
                         properties.isRowSemantics(),
                         properties.isPruneWhenEmpty(),
                         properties.isPassThroughColumns(),
+                        inputMapper.map(properties.getRequiredColumns()),
                         newSpecification));
             }
 

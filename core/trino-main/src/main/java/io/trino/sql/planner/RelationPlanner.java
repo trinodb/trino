@@ -16,7 +16,6 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import io.trino.Session;
@@ -352,18 +351,9 @@ class RelationPlanner
             RelationPlan sourcePlan = process(tableArgument.getRelation(), context);
             PlanBuilder sourcePlanBuilder = newPlanBuilder(sourcePlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
 
-            // map column names to symbols
-            // note: hidden columns are included in the mapping. They are present both in sourceDescriptor.allFields, and in sourcePlan.fieldMappings
-            // note: for an aliased relation or a CTE, the field names in the relation type are in the same case as specified in the alias.
-            //  quotes and canonicalization rules are not applied.
-            ImmutableMultimap.Builder<String, Symbol> columnMapping = ImmutableMultimap.builder();
-            RelationType sourceDescriptor = sourcePlan.getDescriptor();
-            for (int i = 0; i < sourceDescriptor.getAllFieldCount(); i++) {
-                Optional<String> name = sourceDescriptor.getFieldByIndex(i).getName();
-                if (name.isPresent()) {
-                    columnMapping.put(name.get(), sourcePlan.getSymbol(i));
-                }
-            }
+            List<Symbol> requiredColumns = functionAnalysis.getRequiredColumns().get(tableArgument.getArgumentName()).stream()
+                    .map(sourcePlan::getSymbol)
+                    .collect(toImmutableList());
 
             Optional<DataOrganizationSpecification> specification = Optional.empty();
 
@@ -394,10 +384,10 @@ class RelationPlanner
             sources.add(sourcePlanBuilder.getRoot());
             sourceProperties.add(new TableArgumentProperties(
                     tableArgument.getArgumentName(),
-                    columnMapping.build(),
                     tableArgument.isRowSemantics(),
                     tableArgument.isPruneWhenEmpty(),
                     tableArgument.isPassThroughColumns(),
+                    requiredColumns,
                     specification));
 
             // add output symbols passed from the table argument
