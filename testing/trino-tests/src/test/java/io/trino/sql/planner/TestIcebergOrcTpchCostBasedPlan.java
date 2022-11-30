@@ -27,7 +27,7 @@ public class TestIcebergOrcTpchCostBasedPlan
 {
     public TestIcebergOrcTpchCostBasedPlan()
     {
-        super("tpch_sf1000_orc", false);
+        super("tpch_sf1000_orc", "orc", false);
     }
 
     @Override

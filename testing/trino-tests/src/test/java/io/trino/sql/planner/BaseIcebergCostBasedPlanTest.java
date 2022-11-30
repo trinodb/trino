@@ -89,9 +89,9 @@ public abstract class BaseIcebergCostBasedPlanTest
     private FileHiveMetastore fileMetastore;
     private Map<String, String> connectorConfiguration;
 
-    protected BaseIcebergCostBasedPlanTest(String schemaName, boolean partitioned)
+    protected BaseIcebergCostBasedPlanTest(String schemaName, String fileFormatName, boolean partitioned)
     {
-        super(schemaName, partitioned);
+        super(schemaName, Optional.of(fileFormatName), partitioned);
     }
 
     @Override
