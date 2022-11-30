@@ -1,0 +1,100 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "a49571b6-b348-47f5-a26d-69577bbd0b8b",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-parquet-part/region",
+  "last-updated-ms" : 1663701759024,
+  "last-column-id" : 3,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "regionkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "comment",
+      "required" : false,
+      "type" : "string"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "regionkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "comment",
+      "required" : false,
+      "type" : "string"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.2.ndv" : "5",
+    "trino.stats.ndv.1.ndv" : "5",
+    "trino.stats.ndv.3.ndv" : "5",
+    "write.format.default" : "PARQUET"
+  },
+  "current-snapshot-id" : 6009178438198803734,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 6009178438198803734,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 6009178438198803734,
+    "timestamp-ms" : 1647972761298,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "2",
+      "added-records" : "5",
+      "added-files-size" : "1421",
+      "changed-partition-count" : "1",
+      "total-records" : "5",
+      "total-files-size" : "1421",
+      "total-data-files" : "2",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-parquet-part/region/metadata/snap-6009178438198803734-1-12a03294-b36a-4455-a41b-ee395d1a5a49.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1647972761298,
+    "snapshot-id" : 6009178438198803734
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1647972761298,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-parquet-part/region/metadata/00000-a508a689-03c3-411f-a2bf-eaa9a1d6e372.metadata.json"
+  } ]
+}
