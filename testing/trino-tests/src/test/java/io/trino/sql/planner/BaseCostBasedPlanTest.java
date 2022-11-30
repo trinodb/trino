@@ -42,6 +42,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -85,11 +86,13 @@ public abstract class BaseCostBasedPlanTest
     private static final String CATALOG_NAME = "local";
 
     private final String schemaName;
+    private final Optional<String> fileFormatName;
     private final boolean partitioned;
 
-    public BaseCostBasedPlanTest(String schemaName, boolean partitioned)
+    public BaseCostBasedPlanTest(String schemaName, Optional<String> fileFormatName, boolean partitioned)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.fileFormatName = requireNonNull(fileFormatName, "fileFormatName is null");
         this.partitioned = partitioned;
     }
 
@@ -137,9 +140,12 @@ public abstract class BaseCostBasedPlanTest
     {
         Path queryPath = Paths.get(queryResourcePath);
         String connectorName = getQueryRunner().getCatalogManager().getCatalog(CATALOG_NAME).orElseThrow().getConnectorName();
-        Path directory = queryPath.getParent()
-                .resolve(connectorName)
-                .resolve(partitioned ? "partitioned" : "unpartitioned");
+        Path directory = queryPath.getParent();
+        directory = directory.resolve(connectorName);
+        if (fileFormatName.isPresent()) {
+            directory = directory.resolve(fileFormatName.get());
+        }
+        directory = directory.resolve(partitioned ? "partitioned" : "unpartitioned");
         String planResourceName = queryPath.getFileName().toString().replaceAll("\\.sql$", ".plan.txt");
         return directory.resolve(planResourceName).toString();
     }
