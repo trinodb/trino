@@ -20,22 +20,22 @@ import java.util.stream.Stream;
 
 /**
  * This class tests cost-based optimization rules related to joins. It contains unmodified TPC-H queries.
- * This class is using Iceberg connector unpartitioned TPC-H tables.
+ * This class is using Iceberg connector un-partitioned TPC-H tables.
  */
-public class TestIcebergTpchCostBasedPlan
+public class TestIcebergOrcPartitionedTpchCostBasedPlan
         extends BaseIcebergCostBasedPlanTest
 {
     @Override
     protected String getSchema()
     {
         // For documentation purposes only
-        return "tpch_sf1000_orc";
+        return "tpch_sf1000_orc_part";
     }
 
     @Override
     protected boolean isPartitioned()
     {
-        return false;
+        return true;
     }
 
     @Override
@@ -44,8 +44,8 @@ public class TestIcebergTpchCostBasedPlan
         TpchTable.getTables().forEach(table -> {
             populateTableFromResource(
                     table.getTableName(),
-                    "iceberg/tpch/sf1000/orc/unpartitioned/" + table.getTableName(),
-                    "iceberg-tpch-sf1000-ORC/" + table.getTableName());
+                    "iceberg/tpch/sf1000/orc/partitioned/" + table.getTableName(),
+                    "iceberg-tpch-sf1000-ORC-part/" + table.getTableName());
         });
     }
 
@@ -57,6 +57,6 @@ public class TestIcebergTpchCostBasedPlan
 
     public static void main(String[] args)
     {
-        new TestIcebergTpchCostBasedPlan().generate();
+        new TestIcebergOrcPartitionedTpchCostBasedPlan().generate();
     }
 }
