@@ -135,10 +135,13 @@ public abstract class BaseCostBasedPlanTest
 
     private String getQueryPlanResourcePath(String queryResourcePath)
     {
+        Path queryPath = Paths.get(queryResourcePath);
         String connectorName = getQueryRunner().getCatalogManager().getCatalog(CATALOG_NAME).orElseThrow().getConnectorName();
-        String subDir = partitioned ? "partitioned" : "unpartitioned";
-        Path tempPath = Paths.get(queryResourcePath.replaceAll("\\.sql$", ".plan.txt"));
-        return Paths.get(tempPath.getParent().toString(), connectorName, subDir, tempPath.getFileName().toString()).toString();
+        Path directory = queryPath.getParent()
+                .resolve(connectorName)
+                .resolve(partitioned ? "partitioned" : "unpartitioned");
+        String planResourceName = queryPath.getFileName().toString().replaceAll("\\.sql$", ".plan.txt");
+        return directory.resolve(planResourceName).toString();
     }
 
     protected void generate()
