@@ -17,8 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.Multimap;
 import io.trino.metadata.TableFunctionHandle;
 import io.trino.spi.ptf.Argument;
 import io.trino.sql.planner.Symbol;
@@ -149,26 +147,26 @@ public class TableFunctionNode
     public static class TableArgumentProperties
     {
         private final String argumentName;
-        private final Multimap<String, Symbol> columnMapping;
         private final boolean rowSemantics;
         private final boolean pruneWhenEmpty;
         private final boolean passThroughColumns;
+        private final List<Symbol> requiredColumns;
         private final Optional<DataOrganizationSpecification> specification;
 
         @JsonCreator
         public TableArgumentProperties(
                 @JsonProperty("argumentName") String argumentName,
-                @JsonProperty("columnMapping") Multimap<String, Symbol> columnMapping,
                 @JsonProperty("rowSemantics") boolean rowSemantics,
                 @JsonProperty("pruneWhenEmpty") boolean pruneWhenEmpty,
                 @JsonProperty("passThroughColumns") boolean passThroughColumns,
+                @JsonProperty("requiredColumns") List<Symbol> requiredColumns,
                 @JsonProperty("specification") Optional<DataOrganizationSpecification> specification)
         {
             this.argumentName = requireNonNull(argumentName, "argumentName is null");
-            this.columnMapping = ImmutableMultimap.copyOf(columnMapping);
             this.rowSemantics = rowSemantics;
             this.pruneWhenEmpty = pruneWhenEmpty;
             this.passThroughColumns = passThroughColumns;
+            this.requiredColumns = ImmutableList.copyOf(requiredColumns);
             this.specification = requireNonNull(specification, "specification is null");
         }
 
@@ -176,12 +174,6 @@ public class TableFunctionNode
         public String getArgumentName()
         {
             return argumentName;
-        }
-
-        @JsonProperty
-        public Multimap<String, Symbol> getColumnMapping()
-        {
-            return columnMapping;
         }
 
         @JsonProperty
@@ -200,6 +192,12 @@ public class TableFunctionNode
         public boolean isPassThroughColumns()
         {
             return passThroughColumns;
+        }
+
+        @JsonProperty
+        public List<Symbol> getRequiredColumns()
+        {
+            return requiredColumns;
         }
 
         @JsonProperty

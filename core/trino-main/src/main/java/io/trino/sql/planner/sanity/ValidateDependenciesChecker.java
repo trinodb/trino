@@ -228,10 +228,10 @@ public final class ValidateDependenciesChecker
 
                 checkDependencies(
                         inputs,
-                        argumentProperties.getColumnMapping().values(),
-                        "Invalid node. Input symbols from source %s (%s) not in source plan output (%s)",
+                        argumentProperties.getRequiredColumns(),
+                        "Invalid node. Required input symbols from source %s (%s) not in source plan output (%s)",
                         argumentProperties.getArgumentName(),
-                        argumentProperties.getColumnMapping().values(),
+                        argumentProperties.getRequiredColumns(),
                         source.getOutputSymbols());
                 argumentProperties.getSpecification().ifPresent(specification -> {
                     checkDependencies(

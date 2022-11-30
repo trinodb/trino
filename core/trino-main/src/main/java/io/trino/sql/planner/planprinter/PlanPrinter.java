@@ -1821,6 +1821,9 @@ public class PlanPrinter
                                 .append(formatOrderingScheme(orderingScheme));
                     });
                 });
+                properties.append("required columns: [")
+                        .append(Joiner.on(", ").join(anonymize(argumentProperties.getRequiredColumns())))
+                        .append("]");
                 if (argumentProperties.isPruneWhenEmpty()) {
                     properties.append(", prune when empty");
                 }
