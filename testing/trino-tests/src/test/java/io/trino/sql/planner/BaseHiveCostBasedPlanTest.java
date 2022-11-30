@@ -28,6 +28,7 @@ import java.io.UncheckedIOException;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Optional;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.hive.metastore.recording.TestRecordingHiveMetastore.createJsonCodec;
@@ -40,7 +41,11 @@ public abstract class BaseHiveCostBasedPlanTest
 
     protected BaseHiveCostBasedPlanTest(String metadataDir, boolean partitioned)
     {
-        super(getSchema(metadataDir), partitioned);
+        super(
+                getSchema(metadataDir),
+                // In case of Hive connector, query plans do not currently depend on file format
+                Optional.empty(),
+                partitioned);
         this.metadataDir = requireNonNull(metadataDir, "metadataDir is null");
     }
 

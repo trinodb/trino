@@ -27,7 +27,7 @@ public class TestIcebergOrcPartitionedTpchCostBasedPlan
 {
     public TestIcebergOrcPartitionedTpchCostBasedPlan()
     {
-        super("tpch_sf1000_orc_part", true);
+        super("tpch_sf1000_orc_part", "orc", true);
     }
 
     @Override
