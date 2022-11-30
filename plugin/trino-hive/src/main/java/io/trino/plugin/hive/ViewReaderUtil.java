@@ -242,7 +242,7 @@ public final class ViewReaderUtil
 
         // Calcite does not provide correct type strings for non-primitive types.
         // We add custom code here to make it work. Goal is for calcite/coral to handle this
-        private String getTypeString(RelDataType type)
+        private static String getTypeString(RelDataType type)
         {
             switch (type.getSqlTypeName()) {
                 case ROW: {
@@ -264,13 +264,13 @@ public final class ViewReaderUtil
                 case MAP: {
                     RelDataType keyType = type.getKeyType();
                     RelDataType valueType = type.getValueType();
-                    return format("map(%s,%s)", getTypeString(keyType), getTypeString(valueType));
+                    return "map(" + getTypeString(keyType) + "," + getTypeString(valueType) + ")";
                 }
                 case ARRAY: {
-                    return format("array(%s)", getTypeString(type.getComponentType()));
+                    return "array(" + getTypeString(type.getComponentType()) + ")";
                 }
                 case DECIMAL: {
-                    return format("decimal(%s,%s)", type.getPrecision(), type.getScale());
+                    return "decimal(" + type.getPrecision() + "," + type.getScale() + ")";
                 }
                 default:
                     return type.getSqlTypeName().toString();
