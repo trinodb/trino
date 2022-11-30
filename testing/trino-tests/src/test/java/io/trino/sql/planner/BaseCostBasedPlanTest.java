@@ -84,12 +84,21 @@ public abstract class BaseCostBasedPlanTest
 
     private static final String CATALOG_NAME = "local";
 
+    private final String schemaName;
+    private final boolean partitioned;
+
+    public BaseCostBasedPlanTest(String schemaName, boolean partitioned)
+    {
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.partitioned = partitioned;
+    }
+
     @Override
     protected LocalQueryRunner createLocalQueryRunner()
     {
         SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(CATALOG_NAME)
-                .setSchema(getSchema())
+                .setSchema(schemaName)
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name());
@@ -104,8 +113,6 @@ public abstract class BaseCostBasedPlanTest
     }
 
     protected abstract ConnectorFactory createConnectorFactory();
-
-    protected abstract String getSchema();
 
     @BeforeClass
     public abstract void prepareTables()
@@ -129,12 +136,10 @@ public abstract class BaseCostBasedPlanTest
     private String getQueryPlanResourcePath(String queryResourcePath)
     {
         String connectorName = getQueryRunner().getCatalogManager().getCatalog(CATALOG_NAME).orElseThrow().getConnectorName();
-        String subDir = isPartitioned() ? "partitioned" : "unpartitioned";
+        String subDir = partitioned ? "partitioned" : "unpartitioned";
         Path tempPath = Paths.get(queryResourcePath.replaceAll("\\.sql$", ".plan.txt"));
         return Paths.get(tempPath.getParent().toString(), connectorName, subDir, tempPath.getFileName().toString()).toString();
     }
-
-    protected abstract boolean isPartitioned();
 
     protected void generate()
     {
