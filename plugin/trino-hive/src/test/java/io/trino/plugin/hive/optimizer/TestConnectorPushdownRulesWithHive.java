@@ -165,7 +165,10 @@ public class TestConnectorPushdownRulesWithHive
                 REGULAR,
                 Optional.empty());
 
-        HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
+        HiveTableHandle hiveTable = HiveTableHandle.builder()
+                .withSchemaName(SCHEMA_NAME)
+                .withTableName(tableName)
+                .build();
         TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, hiveTable, new HiveTransactionHandle(false));
 
         HiveColumnHandle fullColumn = partialColumn.getBaseColumn();
@@ -183,7 +186,9 @@ public class TestConnectorPushdownRulesWithHive
                         project(
                                 ImmutableMap.of("expr", expression("col")),
                                 tableScan(
-                                        hiveTable.withProjectedColumns(ImmutableSet.of(fullColumn))::equals,
+                                        HiveTableHandle.buildFrom(hiveTable)
+                                                .withProjectedColumns(ImmutableSet.of(fullColumn))
+                                                .build()::equals,
                                         TupleDomain.all(),
                                         ImmutableMap.of("col", fullColumn::equals))));
 
@@ -195,7 +200,9 @@ public class TestConnectorPushdownRulesWithHive
                                 p.tableScan(
                                         new TableHandle(
                                                 TEST_CATALOG_HANDLE,
-                                                hiveTable.withProjectedColumns(ImmutableSet.of(fullColumn)),
+                                                HiveTableHandle.buildFrom(hiveTable)
+                                                        .withProjectedColumns(ImmutableSet.of(fullColumn))
+                                                        .build(),
                                                 new HiveTransactionHandle(false)),
                                         ImmutableList.of(p.symbol("struct_of_int", baseType)),
                                         ImmutableMap.of(p.symbol("struct_of_int", baseType), fullColumn))))
@@ -214,7 +221,9 @@ public class TestConnectorPushdownRulesWithHive
                 .matches(project(
                         ImmutableMap.of("expr_deref", expression(new SymbolReference("struct_of_int#a"))),
                         tableScan(
-                                hiveTable.withProjectedColumns(ImmutableSet.of(partialColumn))::equals,
+                                HiveTableHandle.buildFrom(hiveTable)
+                                        .withProjectedColumns(ImmutableSet.of(partialColumn))
+                                        .build()::equals,
                                 TupleDomain.all(),
                                 ImmutableMap.of("struct_of_int#a", partialColumn::equals))));
 
@@ -229,7 +238,10 @@ public class TestConnectorPushdownRulesWithHive
 
         PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer());
 
-        HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
+        HiveTableHandle hiveTable = HiveTableHandle.builder()
+                .withSchemaName(SCHEMA_NAME)
+                .withTableName(tableName)
+                .build();
         TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, hiveTable, new HiveTransactionHandle(false));
 
         HiveColumnHandle column = createBaseColumn("a", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty());
@@ -261,7 +273,10 @@ public class TestConnectorPushdownRulesWithHive
 
         PruneTableScanColumns pruneTableScanColumns = new PruneTableScanColumns(tester().getMetadata());
 
-        HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
+        HiveTableHandle hiveTable = HiveTableHandle.builder()
+                .withSchemaName(SCHEMA_NAME)
+                .withTableName(tableName)
+                .build();
         TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, hiveTable, new HiveTransactionHandle(false));
 
         HiveColumnHandle columnA = createBaseColumn("a", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty());
@@ -284,7 +299,9 @@ public class TestConnectorPushdownRulesWithHive
                         strictProject(
                                 ImmutableMap.of("expr", expression("COLA")),
                                 tableScan(
-                                        hiveTable.withProjectedColumns(ImmutableSet.of(columnA))::equals,
+                                        HiveTableHandle.buildFrom(hiveTable)
+                                                .withProjectedColumns(ImmutableSet.of(columnA))
+                                                .build()::equals,
                                         TupleDomain.all(),
                                         ImmutableMap.of("COLA", columnA::equals))));
 
@@ -304,7 +321,10 @@ public class TestConnectorPushdownRulesWithHive
                 tester().getTypeAnalyzer(),
                 new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
-        HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
+        HiveTableHandle hiveTable = HiveTableHandle.builder()
+                .withSchemaName(SCHEMA_NAME)
+                .withTableName(tableName)
+                .build();
         TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, hiveTable, new HiveTransactionHandle(false));
 
         HiveColumnHandle bigintColumn = createBaseColumn("just_bigint", 1, toHiveType(BIGINT), BIGINT, REGULAR, Optional.empty());
@@ -341,7 +361,9 @@ public class TestConnectorPushdownRulesWithHive
                                 "column_ref", expression("just_bigint_0"),
                                 "negated_column_ref", expression("- just_bigint_0")),
                         tableScan(
-                                hiveTable.withProjectedColumns(ImmutableSet.of(bigintColumn))::equals,
+                                HiveTableHandle.buildFrom(hiveTable)
+                                        .withProjectedColumns(ImmutableSet.of(bigintColumn))
+                                        .build()::equals,
                                 TupleDomain.all(),
                                 ImmutableMap.of("just_bigint_0", bigintColumn::equals))));
 
@@ -365,7 +387,9 @@ public class TestConnectorPushdownRulesWithHive
                                 "expr_deref", expression(new SymbolReference("struct_of_bigint#a")),
                                 "expr_deref_2", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("struct_of_bigint#a"), new LongLiteral("2")))),
                         tableScan(
-                                hiveTable.withProjectedColumns(ImmutableSet.of(partialColumn))::equals,
+                                HiveTableHandle.buildFrom(hiveTable)
+                                        .withProjectedColumns(ImmutableSet.of(partialColumn))
+                                        .build()::equals,
                                 TupleDomain.all(),
                                 ImmutableMap.of("struct_of_bigint#a", partialColumn::equals))));
 
