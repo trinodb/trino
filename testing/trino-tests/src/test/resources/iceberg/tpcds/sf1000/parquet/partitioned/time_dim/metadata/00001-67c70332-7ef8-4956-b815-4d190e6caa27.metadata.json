@@ -1,0 +1,177 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "0eef8303-2dc1-4c78-aed2-51b10335cbc5",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/time_dim",
+  "last-updated-ms" : 1663713405115,
+  "last-column-id" : 10,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "t_time_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "t_time_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "t_time",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 4,
+      "name" : "t_hour",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 5,
+      "name" : "t_minute",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 6,
+      "name" : "t_second",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 7,
+      "name" : "t_am_pm",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 8,
+      "name" : "t_shift",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 9,
+      "name" : "t_sub_shift",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "t_meal_time",
+      "required" : false,
+      "type" : "string"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "t_time_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "t_time_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "t_time",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 4,
+      "name" : "t_hour",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 5,
+      "name" : "t_minute",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 6,
+      "name" : "t_second",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 7,
+      "name" : "t_am_pm",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 8,
+      "name" : "t_shift",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 9,
+      "name" : "t_sub_shift",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "t_meal_time",
+      "required" : false,
+      "type" : "string"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.10.ndv" : "4",
+    "trino.stats.ndv.2.ndv" : "87108",
+    "trino.stats.ndv.7.ndv" : "2",
+    "trino.stats.ndv.8.ndv" : "3",
+    "trino.stats.ndv.1.ndv" : "89157",
+    "trino.stats.ndv.3.ndv" : "89157",
+    "trino.stats.ndv.6.ndv" : "60",
+    "write.format.default" : "PARQUET",
+    "trino.stats.ndv.4.ndv" : "24",
+    "trino.stats.ndv.5.ndv" : "60",
+    "trino.stats.ndv.9.ndv" : "4"
+  },
+  "current-snapshot-id" : 4765156773063077910,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 4765156773063077910,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 4765156773063077910,
+    "timestamp-ms" : 1648081268208,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "6",
+      "added-records" : "86400",
+      "added-files-size" : "399121",
+      "changed-partition-count" : "1",
+      "total-records" : "86400",
+      "total-files-size" : "399121",
+      "total-data-files" : "6",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/time_dim/metadata/snap-4765156773063077910-1-c1b011b3-8b57-4dff-875c-4dd6db7ad6b4.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648081268208,
+    "snapshot-id" : 4765156773063077910
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1648081268208,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/time_dim/metadata/00000-4ecc5bd2-a935-4e10-aec1-38c13dfa54fc.metadata.json"
+  } ]
+}
