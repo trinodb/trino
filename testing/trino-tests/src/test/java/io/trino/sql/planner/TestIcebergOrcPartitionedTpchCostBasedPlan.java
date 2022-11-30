@@ -25,17 +25,9 @@ import java.util.stream.Stream;
 public class TestIcebergOrcPartitionedTpchCostBasedPlan
         extends BaseIcebergCostBasedPlanTest
 {
-    @Override
-    protected String getSchema()
+    public TestIcebergOrcPartitionedTpchCostBasedPlan()
     {
-        // For documentation purposes only
-        return "tpch_sf1000_orc_part";
-    }
-
-    @Override
-    protected boolean isPartitioned()
-    {
-        return true;
+        super("tpch_sf1000_orc_part", true);
     }
 
     @Override
