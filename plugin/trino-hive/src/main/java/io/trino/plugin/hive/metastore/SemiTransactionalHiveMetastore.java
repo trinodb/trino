@@ -77,8 +77,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -148,7 +150,7 @@ public class SemiTransactionalHiveMetastore
 
     private final HiveMetastoreClosure delegate;
     private final HdfsEnvironment hdfsEnvironment;
-    private final Executor renameExecutor;
+    private final Executor fileSystemExecutor;
     private final Executor dropExecutor;
     private final Executor updateExecutor;
     private final boolean skipDeletionForAlter;
@@ -186,7 +188,7 @@ public class SemiTransactionalHiveMetastore
     public SemiTransactionalHiveMetastore(
             HdfsEnvironment hdfsEnvironment,
             HiveMetastoreClosure delegate,
-            Executor renameExecutor,
+            Executor fileSystemExecutor,
             Executor dropExecutor,
             Executor updateExecutor,
             boolean skipDeletionForAlter,
@@ -198,7 +200,7 @@ public class SemiTransactionalHiveMetastore
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
-        this.renameExecutor = requireNonNull(renameExecutor, "renameExecutor is null");
+        this.fileSystemExecutor = requireNonNull(fileSystemExecutor, "fileSystemExecutor is null");
         this.dropExecutor = requireNonNull(dropExecutor, "dropExecutor is null");
         this.updateExecutor = requireNonNull(updateExecutor, "updateExecutor is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -1625,8 +1627,8 @@ public class SemiTransactionalHiveMetastore
                 }
             }
 
-            // Wait for all renames submitted for "INSERT_EXISTING" action to finish
-            committer.waitForAsyncRenames();
+            // Wait for all file system operations for "INSERT_EXISTING" and "ADD" action to finish
+            committer.waitForAsyncFileSystemOperations();
 
             // At this point, all file system operations, whether asynchronously issued or not, have completed successfully.
             // We are moving on to metastore operations now.
@@ -1640,15 +1642,14 @@ public class SemiTransactionalHiveMetastore
         catch (Throwable t) {
             log.warn("Rolling back due to metastore commit failure: %s", t.getMessage());
             try {
-                committer.cancelUnstartedAsyncRenames();
-
+                committer.cancelUnstartedAsyncFileSystemOperations();
                 committer.undoUpdateStatisticsOperations(transaction);
                 committer.undoAddPartitionOperations();
                 committer.undoAddTableOperations();
 
-                committer.waitForAsyncRenamesSuppressThrowables();
+                committer.waitForAsyncFileSystemOperationSuppressThrowable();
 
-                // fileRenameFutures must all come back before any file system cleanups are carried out.
+                // fileSystemFutures must all come back before any file system cleanups are carried out.
                 // Otherwise, files that should be deleted may be created after cleanup is done.
                 committer.executeCleanupTasksForAbort(declaredIntentionsToWrite);
 
@@ -1699,15 +1700,15 @@ public class SemiTransactionalHiveMetastore
 
     private class Committer
     {
-        private final AtomicBoolean fileRenameCancelled = new AtomicBoolean(false);
-        private final List<CompletableFuture<?>> fileRenameFutures = new ArrayList<>();
+        private final AtomicBoolean fileSystemOperationsCancelled = new AtomicBoolean(false);
+        private final List<CompletableFuture<?>> fileSystemOperationFutures = new ArrayList<>();
 
         // File system
         // For file system changes, only operations outside of writing paths (as specified in declared intentions to write)
         // need to MOVE_BACKWARD tasks scheduled. Files in writing paths are handled by rollbackShared().
         private final List<DirectoryDeletionTask> deletionTasksForFinish = new ArrayList<>();
-        private final List<DirectoryCleanUpTask> cleanUpTasksForAbort = new ArrayList<>();
         private final List<DirectoryRenameTask> renameTasksForAbort = new ArrayList<>();
+        private final Queue<DirectoryCleanUpTask> cleanUpTasksForAbort = new ConcurrentLinkedQueue<>();
 
         // Notify callback about changes on the schema tables / partitions
         private final Set<Table> tablesToInvalidate = new LinkedHashSet<>();
@@ -1873,7 +1874,7 @@ public class SemiTransactionalHiveMetastore
 
             if (!targetPath.equals(currentPath)) {
                 // if staging directory is used we cherry-pick files to be moved
-                asyncRename(hdfsEnvironment, renameExecutor, fileRenameCancelled, fileRenameFutures, context, currentPath, targetPath, tableAndMore.getFileNames().orElseThrow());
+                asyncRename(hdfsEnvironment, fileSystemExecutor, fileSystemOperationsCancelled, fileSystemOperationFutures, context, currentPath, targetPath, tableAndMore.getFileNames().orElseThrow());
             }
             else {
                 // if we inserted directly into table directory we need to remove extra output files which should not be part of the table
@@ -2017,7 +2018,7 @@ public class SemiTransactionalHiveMetastore
             Path currentPath = tableAndMore.getCurrentLocation().get();
             cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, false));
             if (!targetPath.equals(currentPath)) {
-                asyncRename(hdfsEnvironment, renameExecutor, fileRenameCancelled, fileRenameFutures, context, currentPath, targetPath, tableAndMore.getFileNames().get());
+                asyncRename(hdfsEnvironment, fileSystemExecutor, fileSystemOperationsCancelled, fileSystemOperationFutures, context, currentPath, targetPath, tableAndMore.getFileNames().get());
             }
             updateStatisticsOperations.add(new UpdateStatisticsOperation(
                     table.getSchemaTableName(),
@@ -2165,20 +2166,26 @@ public class SemiTransactionalHiveMetastore
                     partition.getSchemaTableName(),
                     ignored -> new PartitionAdder(partition.getDatabaseName(), partition.getTableName(), delegate, PARTITION_COMMIT_BATCH_SIZE));
 
-            if (pathExists(hdfsContext, hdfsEnvironment, currentPath)) {
-                if (!targetPath.equals(currentPath)) {
-                    renameDirectory(
-                            hdfsContext,
-                            hdfsEnvironment,
-                            currentPath,
-                            targetPath,
-                            () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(hdfsContext, targetPath, true)));
+            fileSystemOperationFutures.add(CompletableFuture.runAsync(() -> {
+                if (fileSystemOperationsCancelled.get()) {
+                    return;
                 }
-            }
-            else {
-                cleanUpTasksForAbort.add(new DirectoryCleanUpTask(hdfsContext, targetPath, true));
-                createDirectory(hdfsContext, hdfsEnvironment, targetPath);
-            }
+                if (pathExists(hdfsContext, hdfsEnvironment, currentPath)) {
+                    if (!targetPath.equals(currentPath)) {
+                        renameDirectory(
+                                hdfsContext,
+                                hdfsEnvironment,
+                                currentPath,
+                                targetPath,
+                                () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(hdfsContext, targetPath, true)));
+                    }
+                }
+                else {
+                    cleanUpTasksForAbort.add(new DirectoryCleanUpTask(hdfsContext, targetPath, true));
+                    createDirectory(hdfsContext, hdfsEnvironment, targetPath);
+                }
+            }, fileSystemExecutor));
+
             String partitionName = getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues());
             partitionAdder.addPartition(new PartitionWithStatistics(partition, partitionName, partitionAndMore.getStatisticsUpdate()));
         }
@@ -2195,7 +2202,7 @@ public class SemiTransactionalHiveMetastore
 
             if (!targetPath.equals(currentPath)) {
                 // if staging directory is used we cherry-pick files to be moved
-                asyncRename(hdfsEnvironment, renameExecutor, fileRenameCancelled, fileRenameFutures, hdfsContext, currentPath, targetPath, partitionAndMore.getFileNames());
+                asyncRename(hdfsEnvironment, fileSystemExecutor, fileSystemOperationsCancelled, fileSystemOperationFutures, hdfsContext, currentPath, targetPath, partitionAndMore.getFileNames());
             }
             else {
                 // if we inserted directly into partition directory we need to remove extra output files which should not be part of the table
@@ -2260,16 +2267,16 @@ public class SemiTransactionalHiveMetastore
             }
         }
 
-        private void waitForAsyncRenames()
+        private void waitForAsyncFileSystemOperations()
         {
-            for (CompletableFuture<?> fileRenameFuture : fileRenameFutures) {
-                getFutureValue(fileRenameFuture, TrinoException.class);
+            for (CompletableFuture<?> future : fileSystemOperationFutures) {
+                getFutureValue(future, TrinoException.class);
             }
         }
 
-        private void waitForAsyncRenamesSuppressThrowables()
+        private void waitForAsyncFileSystemOperationSuppressThrowable()
         {
-            for (CompletableFuture<?> future : fileRenameFutures) {
+            for (CompletableFuture<?> future : fileSystemOperationFutures) {
                 try {
                     future.get();
                 }
@@ -2282,9 +2289,9 @@ public class SemiTransactionalHiveMetastore
             }
         }
 
-        private void cancelUnstartedAsyncRenames()
+        private void cancelUnstartedAsyncFileSystemOperations()
         {
-            fileRenameCancelled.set(true);
+            fileSystemOperationsCancelled.set(true);
         }
 
         private void executeAddTableOperations(AcidTransaction transaction)
