@@ -26,6 +26,7 @@ import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.OrcFileOperationStats;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -74,7 +75,8 @@ public class OrcDeleteDeltaPageSource
     public static Optional<ConnectorPageSource> createOrcDeleteDeltaPageSource(
             TrinoInputFile inputFile,
             OrcReaderOptions options,
-            FileFormatDataSourceStats stats)
+            FileFormatDataSourceStats stats,
+            OrcFileOperationStats orcFileOperationStats)
     {
         OrcDataSource orcDataSource;
         String path = inputFile.location();
@@ -85,6 +87,7 @@ public class OrcDeleteDeltaPageSource
                     options,
                     inputFile,
                     stats);
+            orcFileOperationStats.getOpenStats().addNanos(((HdfsOrcDataSource) orcDataSource).getFileOpenTime());
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||

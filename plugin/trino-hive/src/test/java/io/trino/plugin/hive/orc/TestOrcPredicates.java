@@ -26,6 +26,7 @@ import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceProvider;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.OrcFileOperationStats;
 import io.trino.plugin.hive.TableToPartitionMapping;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -72,6 +73,7 @@ public class TestOrcPredicates
 {
     private static final int NUM_ROWS = 50000;
     private static final FileFormatDataSourceStats STATS = new FileFormatDataSourceStats();
+    private static final OrcFileOperationStats ORC_FILE_OPERATION_STATS = new OrcFileOperationStats();
 
     // Prepare test columns
     private static final TestColumn columnPrimitiveInteger = new TestColumn("column_primitive_integer", javaIntObjectInspector, 3, 3);
@@ -99,7 +101,7 @@ public class TestOrcPredicates
         file.delete();
         try {
             // Write data
-            OrcFileWriterFactory writerFactory = new OrcFileWriterFactory(TESTING_TYPE_MANAGER, new NodeVersion("test"), STATS, new OrcWriterOptions(), HDFS_FILE_SYSTEM_FACTORY);
+            OrcFileWriterFactory writerFactory = new OrcFileWriterFactory(TESTING_TYPE_MANAGER, new NodeVersion("test"), STATS, ORC_FILE_OPERATION_STATS, new OrcWriterOptions(), HDFS_FILE_SYSTEM_FACTORY);
             FileSplit split = createTestFileTrino(file.getAbsolutePath(), ORC, HiveCompressionCodec.NONE, columnsToWrite, session, NUM_ROWS, writerFactory);
 
             TupleDomain<TestColumn> testingPredicate;
@@ -163,7 +165,7 @@ public class TestOrcPredicates
             ConnectorSession session,
             FileSplit split)
     {
-        OrcPageSourceFactory readerFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, STATS, UTC);
+        OrcPageSourceFactory readerFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, STATS, ORC_FILE_OPERATION_STATS, UTC);
 
         Properties splitProperties = new Properties();
         splitProperties.setProperty(FILE_INPUT_FORMAT, ORC.getInputFormat());

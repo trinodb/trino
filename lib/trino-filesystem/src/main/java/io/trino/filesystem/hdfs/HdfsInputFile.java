@@ -36,6 +36,7 @@ class HdfsInputFile
     private final HdfsContext context;
     private final Path file;
     private Long length;
+    private Long fileOpenTime;
     private FileStatus status;
 
     public HdfsInputFile(String path, Long length, HdfsEnvironment environment, HdfsContext context)
@@ -53,7 +54,9 @@ class HdfsInputFile
             throws IOException
     {
         FileSystem fileSystem = environment.getFileSystem(context, file);
+        long fileOpenStart = System.nanoTime();
         FSDataInputStream input = environment.doAs(context.getIdentity(), () -> fileSystem.open(file));
+        fileOpenTime = System.nanoTime() - fileOpenStart;
         return new HdfsInput(input, this);
     }
 
@@ -86,6 +89,11 @@ class HdfsInputFile
     public String location()
     {
         return path;
+    }
+
+    long fileOpenTime()
+    {
+        return fileOpenTime;
     }
 
     private FileStatus lazyStatus()

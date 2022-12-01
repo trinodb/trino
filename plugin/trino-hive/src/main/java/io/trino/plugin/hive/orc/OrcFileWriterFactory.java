@@ -30,6 +30,7 @@ import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HiveFileWriterFactory;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.OrcFileOperationStats;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.StorageFormat;
@@ -84,6 +85,7 @@ public class OrcFileWriterFactory
     private final TypeManager typeManager;
     private final NodeVersion nodeVersion;
     private final FileFormatDataSourceStats readStats;
+    private final OrcFileOperationStats orcFileOperationStats;
     private final OrcWriterStats stats = new OrcWriterStats();
     private final OrcWriterOptions orcWriterOptions;
 
@@ -93,12 +95,14 @@ public class OrcFileWriterFactory
             TypeManager typeManager,
             NodeVersion nodeVersion,
             FileFormatDataSourceStats readStats,
+            OrcFileOperationStats orcFileOperationStats,
             OrcWriterConfig config)
     {
         this(
                 typeManager,
                 nodeVersion,
                 readStats,
+                orcFileOperationStats,
                 config.toOrcWriterOptions(),
                 fileSystemFactory);
     }
@@ -107,12 +111,14 @@ public class OrcFileWriterFactory
             TypeManager typeManager,
             NodeVersion nodeVersion,
             FileFormatDataSourceStats readStats,
+            OrcFileOperationStats orcFileOperationStats,
             OrcWriterOptions orcWriterOptions,
             TrinoFileSystemFactory fileSystemFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.readStats = requireNonNull(readStats, "readStats is null");
+        this.orcFileOperationStats = requireNonNull(orcFileOperationStats, "orcFileOperationStats is null");
         this.orcWriterOptions = requireNonNull(orcWriterOptions, "orcWriterOptions is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
@@ -168,12 +174,14 @@ public class OrcFileWriterFactory
                 validationInputFactory = Optional.of(() -> {
                     try {
                         TrinoInputFile inputFile = fileSystem.newInputFile(stringPath);
-                        return new HdfsOrcDataSource(
+                        HdfsOrcDataSource hdfsOrcDataSource = new HdfsOrcDataSource(
                                 new OrcDataSourceId(stringPath),
                                 inputFile.length(),
                                 new OrcReaderOptions(),
                                 inputFile,
                                 readStats);
+                        orcFileOperationStats.getOpenStats().addNanos(hdfsOrcDataSource.getFileOpenTime());
+                        return hdfsOrcDataSource;
                     }
                     catch (IOException e) {
                         throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);

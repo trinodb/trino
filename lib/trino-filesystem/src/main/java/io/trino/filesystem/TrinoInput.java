@@ -31,6 +31,8 @@ public interface TrinoInput
     int readTail(byte[] buffer, int bufferOffset, int bufferLength)
             throws IOException;
 
+    long getFileOpenTime();
+
     default Slice readFully(long position, int length)
             throws IOException
     {

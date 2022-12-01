@@ -169,9 +169,10 @@ public final class HiveTestUtils
     {
         TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment);
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
+        OrcFileOperationStats orcFileOperationStats = new OrcFileOperationStats();
         return ImmutableSet.<HivePageSourceFactory>builder()
                 .add(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, hdfsEnvironment, stats, hiveConfig))
-                .add(new OrcPageSourceFactory(new OrcReaderConfig(), fileSystemFactory, stats, hiveConfig))
+                .add(new OrcPageSourceFactory(new OrcReaderConfig(), fileSystemFactory, stats, orcFileOperationStats, hiveConfig))
                 .add(new ParquetPageSourceFactory(fileSystemFactory, stats, new ParquetReaderConfig(), hiveConfig))
                 .build();
     }
@@ -196,6 +197,7 @@ public final class HiveTestUtils
                 TESTING_TYPE_MANAGER,
                 new NodeVersion("test_version"),
                 new FileFormatDataSourceStats(),
+                new OrcFileOperationStats(),
                 new OrcWriterConfig());
     }
 

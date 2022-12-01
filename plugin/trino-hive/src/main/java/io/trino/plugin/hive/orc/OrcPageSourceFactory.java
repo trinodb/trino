@@ -38,6 +38,7 @@ import io.trino.plugin.hive.HiveColumnProjectionInfo;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.HiveUpdateProcessor;
+import io.trino.plugin.hive.OrcFileOperationStats;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.acid.AcidSchema;
@@ -124,6 +125,7 @@ public class OrcPageSourceFactory
     private final OrcReaderOptions orcReaderOptions;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final FileFormatDataSourceStats stats;
+    private final OrcFileOperationStats orcFileOperationStats;
     private final DateTimeZone legacyTimeZone;
     private final int domainCompactionThreshold;
 
@@ -132,12 +134,14 @@ public class OrcPageSourceFactory
             OrcReaderConfig config,
             TrinoFileSystemFactory fileSystemFactory,
             FileFormatDataSourceStats stats,
+            OrcFileOperationStats orcFileOperationStats,
             HiveConfig hiveConfig)
     {
         this(
                 config.toOrcReaderOptions(),
                 fileSystemFactory,
                 stats,
+                orcFileOperationStats,
                 hiveConfig.getOrcLegacyDateTimeZone(),
                 hiveConfig.getDomainCompactionThreshold());
     }
@@ -146,20 +150,23 @@ public class OrcPageSourceFactory
             OrcReaderOptions orcReaderOptions,
             TrinoFileSystemFactory fileSystemFactory,
             FileFormatDataSourceStats stats,
+            OrcFileOperationStats orcFileOperationStats,
             DateTimeZone legacyTimeZone)
     {
-        this(orcReaderOptions, fileSystemFactory, stats, legacyTimeZone, 0);
+        this(orcReaderOptions, fileSystemFactory, stats, orcFileOperationStats, legacyTimeZone, 0);
     }
 
     public OrcPageSourceFactory(
             OrcReaderOptions orcReaderOptions,
             TrinoFileSystemFactory fileSystemFactory,
             FileFormatDataSourceStats stats,
+            OrcFileOperationStats orcFileOperationStats,
             DateTimeZone legacyTimeZone,
             int domainCompactionThreshold)
     {
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.orcFileOperationStats = requireNonNull(orcFileOperationStats, "orcFileOperationStats is null");
         this.legacyTimeZone = legacyTimeZone;
         this.domainCompactionThreshold = domainCompactionThreshold;
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -260,6 +267,7 @@ public class OrcPageSourceFactory
                     options,
                     inputFile,
                     stats);
+            orcFileOperationStats.getOpenStats().addNanos(((HdfsOrcDataSource) orcDataSource).getFileOpenTime());
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
@@ -397,7 +405,7 @@ public class OrcPageSourceFactory
             Optional<OrcDeletedRows> deletedRows = acidInfo.map(info ->
                     new OrcDeletedRows(
                             path.getName(),
-                            new OrcDeleteDeltaPageSourceFactory(options, stats),
+                            new OrcDeleteDeltaPageSourceFactory(options, stats, orcFileOperationStats),
                             identity,
                             fileSystemFactory,
                             info,

@@ -194,7 +194,8 @@ public class TestOrcPageSourceMemoryTracking
         // feel free to change them if they break in the future
 
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
-        ConnectorPageSource pageSource = testPreparer.newPageSource(stats, useCache ? CACHED_SESSION : UNCACHED_SESSION);
+        OrcFileOperationStats orcFileOperationStats = new OrcFileOperationStats();
+        ConnectorPageSource pageSource = testPreparer.newPageSource(stats, orcFileOperationStats, useCache ? CACHED_SESSION : UNCACHED_SESSION);
 
         if (useCache) {
             // file is fully cached
@@ -333,6 +334,7 @@ public class TestOrcPageSourceMemoryTracking
                 .setPropertyMetadata(hiveSessionProperties.getSessionProperties())
                 .build();
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
+        OrcFileOperationStats orcFileOperationStats = new OrcFileOperationStats();
 
         // Build a table where every row gets larger, so we can test that the "batchSize" reduces
         int numColumns = 5;
@@ -349,7 +351,7 @@ public class TestOrcPageSourceMemoryTracking
         tempFile.delete();
 
         TestPreparer testPreparer = new TestPreparer(tempFile.getAbsolutePath(), testColumns, rowCount, rowCount);
-        ConnectorPageSource pageSource = testPreparer.newPageSource(stats, session);
+        ConnectorPageSource pageSource = testPreparer.newPageSource(stats, orcFileOperationStats, session);
 
         try {
             int positionCount = 0;
@@ -546,12 +548,12 @@ public class TestOrcPageSourceMemoryTracking
 
         public ConnectorPageSource newPageSource()
         {
-            return newPageSource(new FileFormatDataSourceStats(), UNCACHED_SESSION);
+            return newPageSource(new FileFormatDataSourceStats(), new OrcFileOperationStats(), UNCACHED_SESSION);
         }
 
-        public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session)
+        public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, OrcFileOperationStats orcFileOperationStats, ConnectorSession session)
         {
-            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, stats, UTC);
+            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, stats, orcFileOperationStats, UTC);
 
             List<HivePageSourceProvider.ColumnMapping> columnMappings = buildColumnMappings(
                     partitionName,

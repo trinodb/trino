@@ -107,6 +107,9 @@ public class HiveModule
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
 
+        binder.bind(OrcFileOperationStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(OrcFileOperationStats.class).withGeneratedName();
+
         binder.bind(TrinoFileSystemCacheStats.class).toInstance(TrinoFileSystemCache.INSTANCE.getFileSystemCacheStats());
         newExporter(binder).export(TrinoFileSystemCacheStats.class)
                 .as(generator -> generator.generatedNameOf(io.trino.plugin.hive.fs.TrinoFileSystemCache.class));

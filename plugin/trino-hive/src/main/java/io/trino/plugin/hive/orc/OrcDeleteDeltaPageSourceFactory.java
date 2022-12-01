@@ -16,6 +16,7 @@ package io.trino.plugin.hive.orc;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.OrcFileOperationStats;
 import io.trino.spi.connector.ConnectorPageSource;
 
 import java.util.Optional;
@@ -27,13 +28,16 @@ public class OrcDeleteDeltaPageSourceFactory
 {
     private final OrcReaderOptions options;
     private final FileFormatDataSourceStats stats;
+    private final OrcFileOperationStats orcFileOperationStats;
 
     public OrcDeleteDeltaPageSourceFactory(
             OrcReaderOptions options,
-            FileFormatDataSourceStats stats)
+            FileFormatDataSourceStats stats,
+            OrcFileOperationStats orcFileOperationStats)
     {
         this.options = requireNonNull(options, "options is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.orcFileOperationStats = requireNonNull(orcFileOperationStats, "orcFileOperationStats is null");
     }
 
     public Optional<ConnectorPageSource> createPageSource(TrinoInputFile inputFile)
@@ -41,6 +45,7 @@ public class OrcDeleteDeltaPageSourceFactory
         return createOrcDeleteDeltaPageSource(
                 inputFile,
                 options,
-                stats);
+                stats,
+                orcFileOperationStats);
     }
 }

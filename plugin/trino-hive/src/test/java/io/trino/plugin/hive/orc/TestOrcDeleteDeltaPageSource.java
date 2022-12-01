@@ -18,6 +18,7 @@ import com.google.common.io.Resources;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.OrcFileOperationStats;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.MaterializedResult;
@@ -45,7 +46,8 @@ public class TestOrcDeleteDeltaPageSource
         TrinoInputFile inputFile = HDFS_FILE_SYSTEM_FACTORY.create(ConnectorIdentity.ofUser("test")).newInputFile(deleteDeltaFile.toURI().toString());
         OrcDeleteDeltaPageSourceFactory pageSourceFactory = new OrcDeleteDeltaPageSourceFactory(
                 new OrcReaderOptions(),
-                new FileFormatDataSourceStats());
+                new FileFormatDataSourceStats(),
+                new OrcFileOperationStats());
 
         ConnectorPageSource pageSource = pageSourceFactory.createPageSource(inputFile).orElseThrow();
         MaterializedResult materializedRows = MaterializedResult.materializeSourceDataStream(SESSION, pageSource, ImmutableList.of(BIGINT, INTEGER, BIGINT));

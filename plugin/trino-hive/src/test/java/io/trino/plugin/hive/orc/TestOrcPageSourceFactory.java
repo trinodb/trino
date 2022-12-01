@@ -21,6 +21,7 @@ import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
+import io.trino.plugin.hive.OrcFileOperationStats;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -80,6 +81,7 @@ public class TestOrcPageSourceFactory
             new OrcReaderConfig(),
             new HdfsFileSystemFactory(HDFS_ENVIRONMENT),
             new FileFormatDataSourceStats(),
+            new OrcFileOperationStats(),
             new HiveConfig());
 
     @Test

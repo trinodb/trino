@@ -50,6 +50,11 @@ public class HdfsOrcDataSource
         this.stats = requireNonNull(stats, "stats is null");
     }
 
+    public long getFileOpenTime()
+    {
+        return input.getFileOpenTime();
+    }
+
     @Override
     public void close()
             throws IOException

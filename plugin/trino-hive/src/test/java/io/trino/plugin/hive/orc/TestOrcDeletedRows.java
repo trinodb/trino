@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.OrcFileOperationStats;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -153,7 +154,8 @@ public class TestOrcDeletedRows
     {
         OrcDeleteDeltaPageSourceFactory pageSourceFactory = new OrcDeleteDeltaPageSourceFactory(
                 new OrcReaderOptions(),
-                new FileFormatDataSourceStats());
+                new FileFormatDataSourceStats(),
+                new OrcFileOperationStats());
 
         OrcDeletedRows deletedRows = new OrcDeletedRows(
                 sourceFileName,

@@ -59,6 +59,12 @@ class HdfsInput
     }
 
     @Override
+    public long getFileOpenTime()
+    {
+        return ((HdfsInputFile) inputFile).fileOpenTime();
+    }
+
+    @Override
     public void close()
             throws IOException
     {
