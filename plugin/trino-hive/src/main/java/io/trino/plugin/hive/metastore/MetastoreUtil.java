@@ -160,8 +160,11 @@ public final class MetastoreUtil
                 schema.setProperty(param.getKey(), nullToEmpty(param.getValue()));
             }
         }
-
         schema.setProperty(SERIALIZATION_LIB, sd.getStorageFormat().getSerde());
+
+        if (sd.getStorageFormat().getSerde().equals(AvroSerDe.class.getName())) {
+            tableDataColumns = dataColumns;
+        }
 
         StringBuilder columnNameBuilder = new StringBuilder();
         StringBuilder columnTypeBuilder = new StringBuilder();
