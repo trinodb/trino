@@ -23,7 +23,8 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PageDeserializer;
+import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeUtil;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.SpillContext;
@@ -31,6 +32,7 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 
 import javax.annotation.concurrent.NotThreadSafe;
+import javax.crypto.SecretKey;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -58,7 +60,8 @@ public class FileSingleStreamSpiller
 
     private final FileHolder targetFile;
     private final Closer closer = Closer.create();
-    private final PagesSerde serde;
+    private final PageSerializer serializer;
+    private final PageDeserializer deserializer;
     private final SpillerStats spillerStats;
     private final SpillContext localSpillContext;
     private final LocalMemoryContext memoryContext;
@@ -72,7 +75,8 @@ public class FileSingleStreamSpiller
     private final Runnable fileSystemErrorHandler;
 
     public FileSingleStreamSpiller(
-            PagesSerde serde,
+            PageSerializer serializer,
+            PageDeserializer deserializer,
             ListeningExecutorService executor,
             Path spillPath,
             SpillerStats spillerStats,
@@ -80,7 +84,8 @@ public class FileSingleStreamSpiller
             LocalMemoryContext memoryContext,
             Runnable fileSystemErrorHandler)
     {
-        this.serde = requireNonNull(serde, "serde is null");
+        this.serializer = requireNonNull(serializer, "serializer is null");
+        this.deserializer = requireNonNull(deserializer, "deserializer is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.spillerStats = requireNonNull(spillerStats, "spillerStats is null");
         this.localSpillContext = spillContext.newLocalSpillContext();
@@ -141,7 +146,7 @@ public class FileSingleStreamSpiller
             while (pageIterator.hasNext()) {
                 Page page = pageIterator.next();
                 spilledPagesInMemorySize += page.getSizeInBytes();
-                Slice serializedPage = serde.serialize(page);
+                Slice serializedPage = serializer.serialize(page);
                 long pageSize = serializedPage.length();
                 localSpillContext.updateBytes(pageSize);
                 spillerStats.addToTotalSpilledBytes(pageSize);
@@ -161,7 +166,7 @@ public class FileSingleStreamSpiller
 
         try {
             InputStream input = closer.register(targetFile.newInputStream());
-            Iterator<Page> pages = PagesSerdeUtil.readPages(serde, input);
+            Iterator<Page> pages = PagesSerdeUtil.readPages(deserializer, input);
             return closeWhenExhausted(pages, input);
         }
         catch (IOException e) {

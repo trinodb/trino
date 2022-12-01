@@ -20,7 +20,7 @@ import io.trino.exchange.ExchangeDataSource;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.LazyExchangeDataSource;
 import io.trino.execution.TaskId;
-import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
@@ -113,7 +113,7 @@ public class ExchangeOperator
                     operatorContext,
                     sourceId,
                     exchangeDataSource,
-                    serdeFactory.createPagesSerde(driverContext.getSession().getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey)),
+                    serdeFactory.createDeserializer(driverContext.getSession().getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey)),
                     noMoreSplitsTracker,
                     operatorInstanceId);
             noMoreSplitsTracker.operatorAdded(operatorInstanceId);
@@ -136,7 +136,7 @@ public class ExchangeOperator
     private final OperatorContext operatorContext;
     private final PlanNodeId sourceId;
     private final ExchangeDataSource exchangeDataSource;
-    private final PagesSerde serde;
+    private final PageDeserializer deserializer;
     private final NoMoreSplitsTracker noMoreSplitsTracker;
     private final int operatorInstanceId;
 
@@ -146,14 +146,14 @@ public class ExchangeOperator
             OperatorContext operatorContext,
             PlanNodeId sourceId,
             ExchangeDataSource exchangeDataSource,
-            PagesSerde serde,
+            PageDeserializer deserializer,
             NoMoreSplitsTracker noMoreSplitsTracker,
             int operatorInstanceId)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.exchangeDataSource = requireNonNull(exchangeDataSource, "exchangeDataSource is null");
-        this.serde = requireNonNull(serde, "serde is null");
+        this.deserializer = requireNonNull(deserializer, "serializer is null");
         this.noMoreSplitsTracker = requireNonNull(noMoreSplitsTracker, "noMoreSplitsTracker is null");
         this.operatorInstanceId = operatorInstanceId;
 
@@ -238,7 +238,7 @@ public class ExchangeOperator
             return null;
         }
 
-        Page deserializedPage = serde.deserialize(page);
+        Page deserializedPage = deserializer.deserialize(page);
         operatorContext.recordNetworkInput(page.length(), deserializedPage.getPositionCount());
         operatorContext.recordProcessedInput(deserializedPage.getSizeInBytes(), deserializedPage.getPositionCount());
 

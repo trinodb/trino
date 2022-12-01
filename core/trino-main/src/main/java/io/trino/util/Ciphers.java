@@ -50,8 +50,16 @@ public class Ciphers
         return Slices.wrappedBuffer(key.getEncoded());
     }
 
-    public static SecretKey deserializeAesEncryptionKey(Slice key)
+    public static SecretKeySpec deserializeAesEncryptionKey(Slice key)
     {
         return new SecretKeySpec(key.byteArray(), key.byteArrayOffset(), key.length(), "AES");
+    }
+
+    public static boolean is256BitSecretKeySpec(SecretKey secretKey)
+    {
+        if (secretKey instanceof SecretKeySpec spec) {
+            return spec.getAlgorithm().equals("AES") && spec.getEncoded().length == AES_ENCRYPTION_KEY_BITS / 8;
+        }
+        return false;
     }
 }
