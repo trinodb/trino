@@ -249,7 +249,7 @@ public class RedshiftClient
         return Optional.empty();
     }
 
-    private WriteMapping legacyToWriteMapping(Type type)
+    private static WriteMapping legacyToWriteMapping(Type type)
     {
         // TODO (https://github.com/trinodb/trino/issues/497) Implement proper type mapping and add test
         // This method is copied from deprecated BaseJdbcClient.legacyToWriteMapping()
