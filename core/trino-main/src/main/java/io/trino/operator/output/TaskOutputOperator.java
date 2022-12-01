@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
@@ -106,6 +107,10 @@ public class TaskOutputOperator
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
         this.serializer = serdeFactory.createSerializer(operatorContext.getSession().getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey));
+
+        LocalMemoryContext memoryContext = operatorContext.localUserMemoryContext();
+        // memory footprint of serializer does not change over time
+        memoryContext.setBytes(serializer.getRetainedSizeInBytes());
     }
 
     @Override
