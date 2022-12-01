@@ -33,7 +33,9 @@ import io.trino.block.BlockAssertions;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
-import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PageDeserializer;
+import io.trino.execution.buffer.PagesSerdeFactory;
+import io.trino.execution.buffer.TestingPagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
@@ -47,6 +49,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -67,8 +70,7 @@ import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterrup
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertLessThan;
-import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
-import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
+import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
@@ -90,14 +92,14 @@ public class TestDirectExchangeClient
 {
     private ScheduledExecutorService scheduler;
     private ExecutorService pageBufferClientCallbackExecutor;
-
-    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
+    private PagesSerdeFactory serdeFactory;
 
     @BeforeClass
     public void setUp()
     {
         scheduler = newScheduledThreadPool(4, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
+        serdeFactory = new TestingPagesSerdeFactory();
     }
 
     @AfterClass(alwaysRun = true)
@@ -111,6 +113,7 @@ public class TestDirectExchangeClient
             pageBufferClientCallbackExecutor.shutdownNow();
             pageBufferClientCallbackExecutor = null;
         }
+        serdeFactory = null;
     }
 
     @Test
@@ -564,12 +567,13 @@ public class TestDirectExchangeClient
         exchangeClient.isBlocked().get(10, SECONDS);
 
         List<Page> pages = new ArrayList<>();
+        PageDeserializer deserializer = serdeFactory.createDeserializer(Optional.empty());
         while (!exchangeClient.isFinished()) {
             Slice page = exchangeClient.pollPage();
             if (page == null) {
                 break;
             }
-            pages.add(PAGES_SERDE.deserialize(page));
+            pages.add(deserializer.deserialize(page));
         }
 
         assertThat(pages).hasSize(2);
@@ -947,9 +951,9 @@ public class TestDirectExchangeClient
         return new Page(BlockAssertions.createLongSequenceBlock(0, size));
     }
 
-    private static Slice createSerializedPage(int size)
+    private Slice createSerializedPage(int size)
     {
-        return PAGES_SERDE.serialize(createPage(size));
+        return serdeFactory.createSerializer(Optional.empty()).serialize(createPage(size));
     }
 
     private static Slice getNextPage(DirectExchangeClient exchangeClient)
@@ -958,11 +962,11 @@ public class TestDirectExchangeClient
         return tryGetFutureValue(futurePage, 100, TimeUnit.SECONDS).orElse(null);
     }
 
-    private static void assertPageEquals(Slice actualPage, Page expectedPage)
+    private void assertPageEquals(Slice actualPage, Page expectedPage)
     {
         assertNotNull(actualPage);
         assertEquals(getSerializedPagePositionCount(actualPage), expectedPage.getPositionCount());
-        assertEquals(PAGES_SERDE.deserialize(actualPage).getChannelCount(), expectedPage.getChannelCount());
+        assertEquals(serdeFactory.createDeserializer(Optional.empty()).deserialize(actualPage).getChannelCount(), expectedPage.getChannelCount());
     }
 
     private static void assertStatus(

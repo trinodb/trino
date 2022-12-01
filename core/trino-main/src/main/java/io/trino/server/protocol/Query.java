@@ -40,7 +40,7 @@ import io.trino.execution.QueryManager;
 import io.trino.execution.QueryState;
 import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
-import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.DirectExchangeClientSupplier;
@@ -112,8 +112,7 @@ class Query
     private final ScheduledExecutorService timeoutExecutor;
 
     @GuardedBy("this")
-    private PagesSerde serde;
-
+    private PageDeserializer deserializer;
     private final boolean supportsParametricDateTime;
 
     @GuardedBy("this")
@@ -234,8 +233,8 @@ class Query
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
-        this.serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session))
-                .createPagesSerde(session.getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey));
+        deserializer = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session))
+                .createDeserializer(session.getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey));
     }
 
     public void cancel()
@@ -571,13 +570,13 @@ class Query
                     break;
                 }
 
-                Page page = serde.deserialize(serializedPage);
+                Page page = deserializer.deserialize(serializedPage);
                 bytes += page.getLogicalSizeInBytes();
                 resultBuilder.addPage(page);
             }
             if (exchangeDataSource.isFinished()) {
                 exchangeDataSource.close();
-                serde = null; // null to reclaim memory of PagesSerde which does not expose explicit lifecycle
+                deserializer = null; // null to reclaim memory of PagesSerde which does not expose explicit lifecycle
             }
         }
         catch (Throwable cause) {

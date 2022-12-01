@@ -33,7 +33,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.execution.TaskId;
-import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PagesSerdeUtil;
 import io.trino.server.remotetask.Backoff;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
@@ -423,7 +423,7 @@ public final class HttpPageBufferClient
                 // update client stats
                 if (!pages.isEmpty()) {
                     int pageCount = pages.size();
-                    long rowCount = pages.stream().mapToLong(PagesSerde::getSerializedPagePositionCount).sum();
+                    long rowCount = pages.stream().mapToLong(PagesSerdeUtil::getSerializedPagePositionCount).sum();
                     if (pagesAccepted) {
                         pagesReceived.addAndGet(pageCount);
                         rowsReceived.addAndGet(rowCount);

@@ -31,7 +31,6 @@ import java.util.concurrent.Future;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.trino.execution.buffer.BufferState.FINISHED;
-import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
@@ -42,7 +41,7 @@ public final class BufferTestUtils
 {
     private BufferTestUtils() {}
 
-    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
+    private static final PagesSerdeFactory PAGES_SERDE_FACTORY = new TestingPagesSerdeFactory();
     static final Duration NO_WAIT = new Duration(0, MILLISECONDS);
     static final Duration MAX_WAIT = new Duration(1, SECONDS);
     private static final DataSize BUFFERED_PAGE_SIZE = DataSize.ofBytes(serializePage(createPage(42)).getRetainedSize());
@@ -58,9 +57,10 @@ public final class BufferTestUtils
     {
         assertEquals(actual.getSerializedPages().size(), expected.getSerializedPages().size(), "page count");
         assertEquals(actual.getToken(), expected.getToken(), "token");
+        PageDeserializer deserializer = PAGES_SERDE_FACTORY.createDeserializer(Optional.empty());
         for (int i = 0; i < actual.getSerializedPages().size(); i++) {
-            Page actualPage = PAGES_SERDE.deserialize(actual.getSerializedPages().get(i));
-            Page expectedPage = PAGES_SERDE.deserialize(expected.getSerializedPages().get(i));
+            Page actualPage = deserializer.deserialize(actual.getSerializedPages().get(i));
+            Page expectedPage = deserializer.deserialize(expected.getSerializedPages().get(i));
             assertEquals(actualPage.getChannelCount(), expectedPage.getChannelCount());
             PageAssertions.assertPageEquals(types, actualPage, expectedPage);
         }
@@ -71,8 +71,9 @@ public final class BufferTestUtils
     {
         checkArgument(!pages.isEmpty(), "pages is empty");
         ImmutableList.Builder<Slice> builder = ImmutableList.builderWithExpectedSize(pages.size());
+        PageSerializer serializer = PAGES_SERDE_FACTORY.createSerializer(Optional.empty());
         for (Page p : pages) {
-            builder.add(PAGES_SERDE.serialize(p));
+            builder.add(serializer.serialize(p));
         }
         return new BufferResult(
                 bufferId,
@@ -89,7 +90,7 @@ public final class BufferTestUtils
 
     static Slice serializePage(Page page)
     {
-        return PAGES_SERDE.serialize(page);
+        return PAGES_SERDE_FACTORY.createSerializer(Optional.empty()).serialize(page);
     }
 
     static DataSize sizeOfPages(int count)

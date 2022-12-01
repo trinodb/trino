@@ -87,7 +87,7 @@ public class TestMergeOperator
         serdeFactory = new TestingPagesSerdeFactory();
 
         taskBuffers = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(TestingTaskBuffer::new));
-        httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), executor);
+        httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers, serdeFactory), executor);
         exchangeClientFactory = new DirectExchangeClientFactory(
                 new NodeInfo("test"),
                 new FeaturesConfig(),
