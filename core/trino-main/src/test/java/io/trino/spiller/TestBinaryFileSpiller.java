@@ -16,7 +16,7 @@ package io.trino.spiller;
 import com.google.common.collect.ImmutableList;
 import io.trino.FeaturesConfig;
 import io.trino.RowPagesBuilder;
-import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.spi.Page;
@@ -57,7 +57,7 @@ public class TestBinaryFileSpiller
     private SpillerStats spillerStats;
     private FileSingleStreamSpillerFactory singleStreamSpillerFactory;
     private SpillerFactory factory;
-    private PagesSerde pagesSerde;
+    private PageSerializer serializer;
     private AggregatedMemoryContext memoryContext;
 
     @BeforeClass(alwaysRun = true)
@@ -79,7 +79,7 @@ public class TestBinaryFileSpiller
         singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig, nodeSpillConfig);
         factory = new GenericSpillerFactory(singleStreamSpillerFactory);
         PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(blockEncodingSerde, nodeSpillConfig.isSpillCompressionEnabled());
-        pagesSerde = pagesSerdeFactory.createPagesSerde(Optional.empty());
+        serializer = pagesSerdeFactory.createSerializer(Optional.empty());
         memoryContext = newSimpleAggregatedMemoryContext();
     }
 
@@ -149,7 +149,7 @@ public class TestBinaryFileSpiller
         assertEquals(memoryContext.getBytes(), 0);
         for (List<Page> spill : spills) {
             spilledBytes += spill.stream()
-                    .mapToLong(page -> pagesSerde.serialize(page).length())
+                    .mapToLong(page -> serializer.serialize(page).length())
                     .sum();
             spiller.spill(spill.iterator()).get();
         }

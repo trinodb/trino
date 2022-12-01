@@ -13,15 +13,8 @@
  */
 package io.trino.execution.buffer;
 
-import io.airlift.slice.Slice;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
-import io.trino.spi.Page;
-import io.trino.spi.block.BlockEncodingSerde;
-
-import javax.crypto.SecretKey;
-
-import java.util.Optional;
 
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
@@ -34,34 +27,5 @@ public class TestingPagesSerdeFactory
     {
         // compression should be enabled in as many tests as possible
         super(BLOCK_ENCODING_SERDE, true);
-    }
-
-    public static PagesSerde testingPagesSerde()
-    {
-        return new SynchronizedPagesSerde(
-                BLOCK_ENCODING_SERDE,
-                true,
-                Optional.empty());
-    }
-
-    private static class SynchronizedPagesSerde
-            extends PagesSerde
-    {
-        public SynchronizedPagesSerde(BlockEncodingSerde blockEncodingSerde, boolean compressionEnabled, Optional<SecretKey> encryptionKey)
-        {
-            super(blockEncodingSerde, compressionEnabled, encryptionKey);
-        }
-
-        @Override
-        public synchronized Slice serialize(Page page)
-        {
-            return super.serialize(page);
-        }
-
-        @Override
-        public synchronized Page deserialize(Slice page)
-        {
-            return super.deserialize(page);
-        }
     }
 }

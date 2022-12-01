@@ -19,7 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.buffer.OutputBuffer;
-import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.PartitionFunction;
@@ -64,7 +64,7 @@ public class PagePartitioner
     private final int[] partitionChannels;
     @Nullable
     private final Block[] partitionConstantBlocks; // when null, no constants are present. Only non-null elements are constants
-    private final PagesSerde serde;
+    private final PageSerializer serializer;
     private final PageBuilder[] pageBuilders;
     private final PositionsAppenderPageBuilder[] positionsAppenders;
     private final boolean replicatesAnyRow;
@@ -105,7 +105,7 @@ public class PagePartitioner
         this.nullChannel = nullChannel.orElse(-1);
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
         this.sourceTypes = sourceTypes.toArray(new Type[0]);
-        this.serde = serdeFactory.createPagesSerde(exchangeEncryptionKey.map(Ciphers::deserializeAesEncryptionKey));
+        this.serializer = serdeFactory.createSerializer(exchangeEncryptionKey.map(Ciphers::deserializeAesEncryptionKey));
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
         //  Ensure partition channels align with constant arguments provided
@@ -516,7 +516,7 @@ public class PagePartitioner
         List<Page> split = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
         ImmutableList.Builder<Slice> builder = ImmutableList.builderWithExpectedSize(split.size());
         for (Page chunk : split) {
-            builder.add(serde.serialize(chunk));
+            builder.add(serializer.serialize(chunk));
         }
         return builder.build();
     }

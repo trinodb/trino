@@ -23,6 +23,8 @@ import static java.util.Objects.requireNonNull;
 
 public class PagesSerdeFactory
 {
+    private static final int SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES = 64 * 1024;
+
     private final BlockEncodingSerde blockEncodingSerde;
     private final boolean compressionEnabled;
 
@@ -32,8 +34,13 @@ public class PagesSerdeFactory
         this.compressionEnabled = compressionEnabled;
     }
 
-    public PagesSerde createPagesSerde(Optional<SecretKey> encryptionKey)
+    public PageSerializer createSerializer(Optional<SecretKey> encryptionKey)
     {
-        return new PagesSerde(blockEncodingSerde, compressionEnabled, encryptionKey);
+        return new PageSerializer(blockEncodingSerde, compressionEnabled, encryptionKey, SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES);
+    }
+
+    public PageDeserializer createDeserializer(Optional<SecretKey> encryptionKey)
+    {
+        return new PageDeserializer(blockEncodingSerde, compressionEnabled, encryptionKey, SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES);
     }
 }

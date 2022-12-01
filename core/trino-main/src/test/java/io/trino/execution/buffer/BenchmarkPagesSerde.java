@@ -35,6 +35,8 @@ import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.RunnerException;
 import org.testng.annotations.Test;
 
+import javax.crypto.SecretKey;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -61,9 +63,9 @@ public class BenchmarkPagesSerde
     public void serialize(BenchmarkData data, Blackhole blackhole)
     {
         Page[] pages = data.dataPages;
-        PagesSerde serde = data.serde;
+        PageSerializer serializer = data.serializer;
         for (int i = 0; i < pages.length; i++) {
-            blackhole.consume(serde.serialize(pages[i]));
+            blackhole.consume(serializer.serialize(pages[i]));
         }
     }
 
@@ -71,9 +73,9 @@ public class BenchmarkPagesSerde
     public void deserialize(BenchmarkData data, Blackhole blackhole)
     {
         Slice[] serializedPages = data.serializedPages;
-        PagesSerde serde = data.serde;
+        PageDeserializer deserializer = data.deserializer;
         for (int i = 0; i < serializedPages.length; i++) {
-            blackhole.consume(serde.deserialize(serializedPages[i]));
+            blackhole.consume(deserializer.deserialize(serializedPages[i]));
         }
     }
 
@@ -84,10 +86,10 @@ public class BenchmarkPagesSerde
         data.compressed = true;
         data.initialize();
         Slice[] serializedPages = data.serializedPages;
-        PagesSerde serde = data.serde;
+        PageDeserializer deserializer = data.deserializer;
         // Sanity test by deserializing and checking against the original pages
         for (int i = 0; i < serializedPages.length; i++) {
-            assertPageEquals(BenchmarkData.TYPES, serde.deserialize(serializedPages[i]), data.dataPages[i]);
+            assertPageEquals(BenchmarkData.TYPES, deserializer.deserialize(serializedPages[i]), data.dataPages[i]);
         }
     }
 
@@ -103,14 +105,18 @@ public class BenchmarkPagesSerde
         @Param("1000")
         private int randomSeed = 1000;
 
-        private PagesSerde serde;
+        private PageSerializer serializer;
+        private PageDeserializer deserializer;
         private Page[] dataPages;
         private Slice[] serializedPages;
 
         @Setup
         public void initialize()
         {
-            serde = createPagesSerde();
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), compressed);
+            Optional<SecretKey> encryptionKey = encrypted ? Optional.of(createRandomAesEncryptionKey()) : Optional.empty();
+            serializer = serdeFactory.createSerializer(encryptionKey);
+            deserializer = serdeFactory.createDeserializer(encryptionKey);
             dataPages = createPages();
             serializedPages = createSerializedPages();
         }
@@ -120,17 +126,11 @@ public class BenchmarkPagesSerde
             return dataPages;
         }
 
-        private PagesSerde createPagesSerde()
-        {
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), compressed);
-            return encrypted ? serdeFactory.createPagesSerde(Optional.of(createRandomAesEncryptionKey())) : serdeFactory.createPagesSerde(Optional.empty());
-        }
-
         private Slice[] createSerializedPages()
         {
             Slice[] result = new Slice[dataPages.length];
             for (int i = 0; i < result.length; i++) {
-                result[i] = serde.serialize(dataPages[i]);
+                result[i] = serializer.serialize(dataPages[i]);
             }
             return result;
         }
@@ -214,7 +214,7 @@ public class BenchmarkPagesSerde
         System.out.println("Page Size Max: " + Arrays.stream(data.dataPages).mapToLong(Page::getSizeInBytes).max().getAsLong());
         System.out.println("Page Size Sum: " + Arrays.stream(data.dataPages).mapToLong(Page::getSizeInBytes).sum());
         System.out.println("Page count: " + data.dataPages.length);
-        System.out.println("Compressed: " + Arrays.stream(data.serializedPages).filter(PagesSerde::isSerializedPageCompressed).count());
+        System.out.println("Compressed: " + Arrays.stream(data.serializedPages).filter(PagesSerdeUtil::isSerializedPageCompressed).count());
 
         benchmark(BenchmarkPagesSerde.class)
                 .withOptions(optionsBuilder -> optionsBuilder.jvmArgs("-Xms4g", "-Xmx4g"))
