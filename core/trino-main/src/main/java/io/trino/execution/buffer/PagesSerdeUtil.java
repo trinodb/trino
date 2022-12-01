@@ -53,6 +53,7 @@ public final class PagesSerdeUtil
     static final int SERIALIZED_PAGE_HEADER_SIZE = SERIALIZED_PAGE_COMPRESSED_SIZE_OFFSET + Integer.BYTES;
     static final String SERIALIZED_PAGE_CIPHER_NAME = "AES/CBC/PKCS5Padding";
     static final int SERIALIZED_PAGE_COMPRESSED_BLOCK_MASK = 1 << (Integer.SIZE - 1);
+    static final int ESTIMATED_AES_CIPHER_RETAINED_SIZE = 1024;
 
     /**
      * Special checksum value used to verify configuration consistency across nodes (all nodes need to have data integrity configured the same way).
