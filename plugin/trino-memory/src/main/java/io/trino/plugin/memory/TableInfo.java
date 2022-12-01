@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
@@ -88,8 +89,7 @@ public class TableInfo
     {
         return columns.stream()
                 .filter(column -> column.getHandle().equals(handle))
-                .findFirst()
-                .get();
+                .collect(onlyElement());
     }
 
     public Map<HostAddress, MemoryDataFragment> getDataFragments()

@@ -52,6 +52,7 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.plugin.jdbc.TestCachingJdbcClient.CachingJdbcCache.STATISTICS_CACHE;
 import static io.trino.plugin.jdbc.TestCachingJdbcClient.CachingJdbcCache.TABLE_HANDLES_BY_NAME_CACHE;
@@ -863,8 +864,7 @@ public class TestCachingJdbcClient
         return client.getColumns(SESSION, tableHandle)
                 .stream()
                 .filter(jdbcColumnHandle -> jdbcColumnHandle.getColumnMetadata().equals(columnMetadata))
-                .findAny()
-                .orElseThrow();
+                .collect(onlyElement());
     }
 
     private static ConnectorSession createSession(String sessionName)

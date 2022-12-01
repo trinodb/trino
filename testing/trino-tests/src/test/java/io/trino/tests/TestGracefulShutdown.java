@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.execution.QueryState.FINISHED;
 import static io.trino.memory.TestMemoryManager.createQueryRunner;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -121,8 +122,7 @@ public class TestGracefulShutdown
             TestingTrinoServer coordinator = queryRunner.getServers()
                     .stream()
                     .filter(TestingTrinoServer::isCoordinator)
-                    .findFirst()
-                    .get();
+                    .collect(onlyElement());
 
             assertThatThrownBy(coordinator.getGracefulShutdownHandler()::requestShutdown)
                     .isInstanceOf(UnsupportedOperationException.class)

@@ -43,6 +43,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
@@ -187,8 +188,7 @@ public class TestShardOrganizerUtil
         for (ShardInfo shard : shards) {
             ColumnStats temporalColumnStats = shard.getColumnStats().stream()
                     .filter(columnStats -> columnStats.getColumnId() == temporalColumn.getColumnId())
-                    .findFirst()
-                    .get();
+                    .collect(onlyElement());
 
             if (temporalColumnStats.getMin() == null || temporalColumnStats.getMax() == null) {
                 continue;
