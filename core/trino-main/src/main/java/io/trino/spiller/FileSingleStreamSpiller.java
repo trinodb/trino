@@ -25,6 +25,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PageSerializer;
+import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.PagesSerdeUtil;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.SpillContext;
@@ -42,6 +43,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -60,8 +62,8 @@ public class FileSingleStreamSpiller
 
     private final FileHolder targetFile;
     private final Closer closer = Closer.create();
-    private final PageSerializer serializer;
-    private final PageDeserializer deserializer;
+    private final PagesSerdeFactory serdeFactory;
+    private final Optional<SecretKey> encryptionKey;
     private final SpillerStats spillerStats;
     private final SpillContext localSpillContext;
     private final LocalMemoryContext memoryContext;
@@ -75,8 +77,8 @@ public class FileSingleStreamSpiller
     private final Runnable fileSystemErrorHandler;
 
     public FileSingleStreamSpiller(
-            PageSerializer serializer,
-            PageDeserializer deserializer,
+            PagesSerdeFactory serdeFactory,
+            Optional<SecretKey> encryptionKey,
             ListeningExecutorService executor,
             Path spillPath,
             SpillerStats spillerStats,
@@ -84,8 +86,8 @@ public class FileSingleStreamSpiller
             LocalMemoryContext memoryContext,
             Runnable fileSystemErrorHandler)
     {
-        this.serializer = requireNonNull(serializer, "serializer is null");
-        this.deserializer = requireNonNull(deserializer, "deserializer is null");
+        this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
+        this.encryptionKey = requireNonNull(encryptionKey, "encryptionKey is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.spillerStats = requireNonNull(spillerStats, "spillerStats is null");
         this.localSpillContext = spillContext.newLocalSpillContext();
@@ -142,6 +144,7 @@ public class FileSingleStreamSpiller
     private void writePages(Iterator<Page> pageIterator)
     {
         checkState(writable, "Spilling no longer allowed. The spiller has been made non-writable on first read for subsequent reads to be consistent");
+        PageSerializer serializer = serdeFactory.createSerializer(encryptionKey);
         try (SliceOutput output = new OutputStreamSliceOutput(targetFile.newOutputStream(APPEND), BUFFER_SIZE)) {
             while (pageIterator.hasNext()) {
                 Page page = pageIterator.next();
@@ -165,6 +168,7 @@ public class FileSingleStreamSpiller
         writable = false;
 
         try {
+            PageDeserializer deserializer = serdeFactory.createDeserializer(encryptionKey);
             InputStream input = closer.register(targetFile.newInputStream());
             Iterator<Page> pages = PagesSerdeUtil.readPages(deserializer, input);
             return closeWhenExhausted(pages, input);
