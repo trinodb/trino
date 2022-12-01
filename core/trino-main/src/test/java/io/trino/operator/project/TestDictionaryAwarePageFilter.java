@@ -29,11 +29,11 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 
+import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestDictionaryAwarePageFilter
 {
@@ -105,8 +105,8 @@ public class TestDictionaryAwarePageFilter
         // match some
         testFilter(createDictionaryBlockWithUnusedEntries(20, 100), DictionaryBlock.class);
 
-        // match none
-        testFilter(createDictionaryBlockWithUnusedEntries(20, 0), DictionaryBlock.class);
+        // match none, blockSize must be > 1 to actually create a DictionaryBlock
+        testFilter(createDictionaryBlockWithUnusedEntries(20, 2), DictionaryBlock.class);
 
         // match all
         testFilter(DictionaryBlock.create(100, createLongsBlock(4, 5, -1), new int[100]), DictionaryBlock.class);
@@ -120,21 +120,26 @@ public class TestDictionaryAwarePageFilter
 
         Block ineffectiveBlock = createDictionaryBlock(100, 20);
         Block effectiveBlock = createDictionaryBlock(10, 100);
+        Block anotherIneffectiveBlock = createDictionaryBlock(100, 25);
 
-        // function will always processes the first dictionary
+        // function will always process the first dictionary
         nestedFilter.setExpectedType(LongArrayBlock.class);
         testFilter(filter, ineffectiveBlock, true);
 
-        // last dictionary not effective, so dictionary processing is disabled
+        // last dictionary not effective and incoming dictionary is also ineffective, so dictionary processing is disabled
         nestedFilter.setExpectedType(DictionaryBlock.class);
-        testFilter(filter, effectiveBlock, true);
+        testFilter(filter, anotherIneffectiveBlock, true);
 
-        // last dictionary not effective, so dictionary processing is enabled again
+        for (int i = 0; i < 5; i++) {
+            // Increase usage count of large ineffective dictionary with multiple pages of small positions count
+            testFilter(filter, anotherIneffectiveBlock, true);
+        }
+        // last dictionary effective, so dictionary processing is enabled
         nestedFilter.setExpectedType(LongArrayBlock.class);
         testFilter(filter, ineffectiveBlock, true);
 
-        // last dictionary not effective, so dictionary processing is disabled again
-        nestedFilter.setExpectedType(DictionaryBlock.class);
+        // last dictionary not effective, but incoming dictionary is effective, so dictionary processing stays enabled
+        nestedFilter.setExpectedType(LongArrayBlock.class);
         testFilter(filter, effectiveBlock, true);
     }
 
@@ -286,6 +291,13 @@ public class TestDictionaryAwarePageFilter
                     selectedPositions.add(position);
                 }
             }
+
+            // verify the input block is the expected type (this is to assure that
+            // dictionary processing enabled and disabled as expected)
+            // this check is performed last so that dictionary processing that fails
+            // is not checked (only the fall back processing is checked)
+            assertInstanceOf(block, expectedType);
+
             if (selectedPositions.isEmpty()) {
                 return SelectedPositions.positionsRange(0, 0);
             }
@@ -297,12 +309,6 @@ public class TestDictionaryAwarePageFilter
                 selectedPositions.add(0, -1);
                 selectedPositions.add(-1);
             }
-
-            // verify the input block is the expected type (this is to assure that
-            // dictionary processing enabled and disabled as expected)
-            // this check is performed last so that dictionary processing that fails
-            // is not checked (only the fall back processing is checked)
-            assertTrue(expectedType.isInstance(block));
 
             return SelectedPositions.positionsList(selectedPositions.elements(), 3, selectedPositions.size() - 6);
         }
