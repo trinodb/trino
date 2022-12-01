@@ -101,7 +101,6 @@ public final class MetastoreUtil
                 table.getStorage(),
                 Optional.empty(),
                 table.getDataColumns(),
-                table.getDataColumns(),
                 table.getParameters(),
                 table.getDatabaseName(),
                 table.getTableName(),
@@ -115,7 +114,6 @@ public final class MetastoreUtil
                 partition.getStorage(),
                 Optional.of(table.getStorage()),
                 partition.getColumns(),
-                table.getDataColumns(),
                 table.getParameters(),
                 table.getDatabaseName(),
                 table.getTableName(),
@@ -126,7 +124,6 @@ public final class MetastoreUtil
             Storage sd,
             Optional<Storage> tableSd,
             List<Column> dataColumns,
-            List<Column> tableDataColumns,
             Map<String, String> parameters,
             String databaseName,
             String tableName,
@@ -167,7 +164,7 @@ public final class MetastoreUtil
         StringBuilder columnTypeBuilder = new StringBuilder();
         StringBuilder columnCommentBuilder = new StringBuilder();
         boolean first = true;
-        for (Column column : tableDataColumns) {
+        for (Column column : dataColumns) {
             if (!first) {
                 columnNameBuilder.append(",");
                 columnTypeBuilder.append(":");
