@@ -161,6 +161,7 @@ public class PagePartitioner
         for (PageBuilder pageBuilder : pageBuilders) {
             sizeInBytes += pageBuilder.getRetainedSizeInBytes();
         }
+        sizeInBytes += serializer.getRetainedSizeInBytes();
         return sizeInBytes;
     }
 

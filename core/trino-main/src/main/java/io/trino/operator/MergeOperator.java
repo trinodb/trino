@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.trino.exchange.DirectExchangeInput;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
@@ -147,6 +148,11 @@ public class MergeOperator
         this.comparator = requireNonNull(comparator, "comparator is null");
         this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
         this.outputTypes = requireNonNull(outputTypes, "outputTypes is null");
+
+        LocalMemoryContext memoryContext = operatorContext.newLocalUserMemoryContext(MergeOperator.class.getSimpleName());
+        // memory footprint of deserializer does not change over time
+        memoryContext.setBytes(deserializer.getRetainedSizeInBytes());
+        closer.register(memoryContext::close);
     }
 
     @Override

@@ -157,6 +157,10 @@ public class ExchangeOperator
         this.noMoreSplitsTracker = requireNonNull(noMoreSplitsTracker, "noMoreSplitsTracker is null");
         this.operatorInstanceId = operatorInstanceId;
 
+        LocalMemoryContext memoryContext = operatorContext.localUserMemoryContext();
+        // memory footprint of deserializer does not change over time
+        memoryContext.setBytes(deserializer.getRetainedSizeInBytes());
+
         operatorContext.setInfoSupplier(exchangeDataSource::getInfo);
     }
 
