@@ -205,7 +205,7 @@ public class TestMemoryConnectorTest
         assertEquals(result.getResult().getRowCount(), 615);
 
         OperatorStats probeStats = getScanOperatorStats(getDistributedQueryRunner(), result.getQueryId()).stream()
-                .findFirst().orElseThrow();
+                .findFirst().orElseThrow(); // there should be two: one for lineitem and one for supplier
         assertEquals(probeStats.getInputPositions(), 615);
         assertEquals(probeStats.getPhysicalInputPositions(), LINEITEM_COUNT);
     }

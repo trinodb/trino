@@ -71,6 +71,7 @@ import java.util.Map.Entry;
 import java.util.function.IntFunction;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static io.trino.parquet.ParquetTypeUtils.paddingBigInteger;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -847,8 +848,7 @@ public class TestingColumnReader
             Class<? extends Block> blockClass = BLOCK_CLASSES.entrySet().stream()
                     .filter(entry -> entry.getKey().getClass().isAssignableFrom(trinoType.getClass()))
                     .map(Entry::getValue)
-                    .findFirst()
-                    .orElseThrow();
+                    .collect(onlyElement());
             if (block.getClass() != RunLengthEncodedBlock.class && block.getClass() != DictionaryBlock.class) {
                 assertThat(block).isInstanceOf(blockClass);
             }

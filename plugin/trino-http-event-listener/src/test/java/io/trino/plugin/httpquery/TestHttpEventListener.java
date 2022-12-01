@@ -63,7 +63,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
@@ -467,8 +469,9 @@ public class TestHttpEventListener
         TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         trustManagerFactory.init(keyStore);
 
-        X509TrustManager x509TrustManager = (X509TrustManager) List.of(trustManagerFactory.getTrustManagers()).stream().filter(tm -> tm instanceof X509TrustManager)
-                .findFirst().get();
+        X509TrustManager x509TrustManager = (X509TrustManager) Stream.of(trustManagerFactory.getTrustManagers())
+                .filter(tm -> tm instanceof X509TrustManager)
+                .collect(onlyElement());
 
         KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
         keyManagerFactory.init(keyStore, "testing-ssl".toCharArray());

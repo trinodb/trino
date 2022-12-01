@@ -79,6 +79,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.immutableEntry;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.hdfs.ConfigurationUtils.toJobConf;
 import static io.trino.plugin.hive.HiveCompressionCodecs.selectCompressionCodec;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
@@ -503,8 +504,7 @@ public class HiveWriterFactory
         if (transaction.isMerge()) {
             OrcFileWriterFactory orcFileWriterFactory = (OrcFileWriterFactory) fileWriterFactories.stream()
                     .filter(factory -> factory instanceof OrcFileWriterFactory)
-                    .findFirst()
-                    .get();
+                    .collect(onlyElement());
             checkArgument(hiveRowtype.isPresent(), "rowTypes not present");
             RowIdSortingFileWriterMaker fileWriterMaker = (deleteWriter, deletePath) -> makeRowIdSortingWriter(deleteWriter, deletePath);
             hiveFileWriter = new MergeFileWriter(transaction, 0, bucketNumber, fileWriterMaker, path, orcFileWriterFactory, inputColumns, conf, session, typeManager, hiveRowtype.get());
