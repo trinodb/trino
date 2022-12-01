@@ -82,15 +82,7 @@ public class MongoClientModule
             });
         }
 
-        if (config.getConnectionUrl().isPresent()) {
-            options.applyConnectionString(new ConnectionString(config.getConnectionUrl().get()));
-        }
-        else {
-            options.applyToClusterSettings(builder -> builder.hosts(config.getSeeds()));
-            if (!config.getCredentials().isEmpty()) {
-                options.credential(config.getCredentials().get(0));
-            }
-        }
+        options.applyConnectionString(new ConnectionString(config.getConnectionUrl()));
 
         MongoClient client = MongoClients.create(options.build());
 
