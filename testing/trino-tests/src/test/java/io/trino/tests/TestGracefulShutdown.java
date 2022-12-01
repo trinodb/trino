@@ -83,11 +83,12 @@ public class TestGracefulShutdown
                         executor));
             }
 
+            @SuppressWarnings("resource")
             TestingTrinoServer worker = queryRunner.getServers()
                     .stream()
                     .filter(server -> !server.isCoordinator())
                     .findFirst()
-                    .get();
+                    .orElseThrow();
 
             SqlTaskManager taskManager = worker.getTaskManager();
 
@@ -116,6 +117,7 @@ public class TestGracefulShutdown
             throws Exception
     {
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, ImmutableMap.of())) {
+            @SuppressWarnings("resource")
             TestingTrinoServer coordinator = queryRunner.getServers()
                     .stream()
                     .filter(TestingTrinoServer::isCoordinator)
