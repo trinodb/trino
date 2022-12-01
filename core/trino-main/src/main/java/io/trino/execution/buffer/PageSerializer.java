@@ -16,6 +16,7 @@ package io.trino.execution.buffer;
 import com.google.common.base.VerifyException;
 import io.airlift.compress.Compressor;
 import io.airlift.compress.lz4.Lz4Compressor;
+import io.airlift.compress.lz4.Lz4RawCompressor;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -26,6 +27,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,8 +35,13 @@ import java.nio.charset.Charset;
 import java.security.GeneralSecurityException;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.SizeOf.sizeOfByteArray;
+import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static io.trino.execution.buffer.PageCodecMarker.COMPRESSED;
 import static io.trino.execution.buffer.PageCodecMarker.ENCRYPTED;
+import static io.trino.execution.buffer.PagesSerdeUtil.ESTIMATED_AES_CIPHER_RETAINED_SIZE;
 import static io.trino.execution.buffer.PagesSerdeUtil.SERIALIZED_PAGE_CIPHER_NAME;
 import static io.trino.execution.buffer.PagesSerdeUtil.SERIALIZED_PAGE_COMPRESSED_BLOCK_MASK;
 import static io.trino.execution.buffer.PagesSerdeUtil.SERIALIZED_PAGE_COMPRESSED_SIZE_OFFSET;
@@ -42,6 +49,7 @@ import static io.trino.execution.buffer.PagesSerdeUtil.SERIALIZED_PAGE_HEADER_SI
 import static io.trino.execution.buffer.PagesSerdeUtil.SERIALIZED_PAGE_UNCOMPRESSED_SIZE_OFFSET;
 import static io.trino.execution.buffer.PagesSerdeUtil.writeRawPage;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.util.Ciphers.is256BitSecretKeySpec;
 import static java.lang.Math.min;
 import static java.lang.Math.round;
 import static java.lang.Math.toIntExact;
@@ -63,6 +71,7 @@ public class PageSerializer
     {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         requireNonNull(encryptionKey, "encryptionKey is null");
+        encryptionKey.ifPresent(secretKey -> checkArgument(is256BitSecretKeySpec(secretKey), "encryptionKey is expected to be an instance of SecretKeySpec containing a 256bit key"));
         output = new SerializedPageOutput(
                 compressionEnabled ? Optional.of(new Lz4Compressor()) : Optional.empty(),
                 encryptionKey,
@@ -85,10 +94,13 @@ public class PageSerializer
             extends SliceOutput
     {
         private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SerializedPageOutput.class).instanceSize());
+        // TODO: implement getRetainedSizeInBytes in Lz4Compressor
+        private static final int COMPRESSOR_RETAINED_SIZE = toIntExact(ClassLayout.parseClass(Lz4Compressor.class).instanceSize() + sizeOfIntArray(Lz4RawCompressor.MAX_TABLE_SIZE));
+        private static final int ENCRYPTION_KEY_RETAINED_SIZE = toIntExact(ClassLayout.parseClass(SecretKeySpec.class).instanceSize() + sizeOfByteArray(256 / 8));
 
         private static final double MINIMUM_COMPRESSION_RATIO = 0.8;
 
-        private final Optional<Compressor> compressor;
+        private final Optional<Lz4Compressor> compressor;
         private final Optional<SecretKey> encryptionKey;
         private final int markers;
         private final Optional<Cipher> cipher;
@@ -97,7 +109,7 @@ public class PageSerializer
         private int uncompressedSize;
 
         private SerializedPageOutput(
-                Optional<Compressor> compressor,
+                Optional<Lz4Compressor> compressor,
                 Optional<SecretKey> encryptionKey,
                 int blockSizeInBytes)
         {
@@ -383,6 +395,9 @@ public class PageSerializer
         public long getRetainedSize()
         {
             long size = INSTANCE_SIZE;
+            size += sizeOf(compressor, compressor -> COMPRESSOR_RETAINED_SIZE);
+            size += sizeOf(encryptionKey, encryptionKey -> ENCRYPTION_KEY_RETAINED_SIZE);
+            size += sizeOf(cipher, cipher -> ESTIMATED_AES_CIPHER_RETAINED_SIZE);
             for (WriteBuffer buffer : buffers) {
                 if (buffer != null) {
                     size += buffer.getRetainedSizeInBytes();

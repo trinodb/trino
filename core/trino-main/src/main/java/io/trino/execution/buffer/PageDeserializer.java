@@ -28,6 +28,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -36,12 +37,16 @@ import java.security.GeneralSecurityException;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.SizeOf.sizeOfByteArray;
+import static io.trino.execution.buffer.PagesSerdeUtil.ESTIMATED_AES_CIPHER_RETAINED_SIZE;
 import static io.trino.execution.buffer.PagesSerdeUtil.SERIALIZED_PAGE_CIPHER_NAME;
 import static io.trino.execution.buffer.PagesSerdeUtil.SERIALIZED_PAGE_COMPRESSED_BLOCK_MASK;
 import static io.trino.execution.buffer.PagesSerdeUtil.SERIALIZED_PAGE_HEADER_SIZE;
 import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.PagesSerdeUtil.readRawPage;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.util.Ciphers.is256BitSecretKeySpec;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -62,6 +67,7 @@ public class PageDeserializer
     {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         requireNonNull(encryptionKey, "encryptionKey is null");
+        encryptionKey.ifPresent(secretKey -> checkArgument(is256BitSecretKeySpec(secretKey), "encryptionKey is expected to be an instance of SecretKeySpec containing a 256bit key"));
         input = new SerializedPageInput(
                 compressionEnabled ? Optional.of(new Lz4Decompressor()) : Optional.empty(),
                 encryptionKey,
@@ -85,14 +91,17 @@ public class PageDeserializer
             extends SliceInput
     {
         private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SerializedPageInput.class).instanceSize());
+        // TODO: implement getRetainedSizeInBytes in Lz4Decompressor
+        private static final int DECOMPRESSOR_RETAINED_SIZE = toIntExact(ClassLayout.parseClass(Lz4Decompressor.class).instanceSize());
+        private static final int ENCRYPTION_KEY_RETAINED_SIZE = toIntExact(ClassLayout.parseClass(SecretKeySpec.class).instanceSize() + sizeOfByteArray(256 / 8));
 
-        private final Optional<Decompressor> decompressor;
+        private final Optional<Lz4Decompressor> decompressor;
         private final Optional<SecretKey> encryptionKey;
         private final Optional<Cipher> cipher;
 
         private final ReadBuffer[] buffers;
 
-        private SerializedPageInput(Optional<Decompressor> decompressor, Optional<SecretKey> encryptionKey, int blockSizeInBytes)
+        private SerializedPageInput(Optional<Lz4Decompressor> decompressor, Optional<SecretKey> encryptionKey, int blockSizeInBytes)
         {
             this.decompressor = requireNonNull(decompressor, "decompressor is null");
             this.encryptionKey = requireNonNull(encryptionKey, "encryptionKey is null");
@@ -418,6 +427,9 @@ public class PageDeserializer
         public long getRetainedSize()
         {
             long size = INSTANCE_SIZE;
+            size += sizeOf(decompressor, compressor -> DECOMPRESSOR_RETAINED_SIZE);
+            size += sizeOf(encryptionKey, encryptionKey -> ENCRYPTION_KEY_RETAINED_SIZE);
+            size += sizeOf(cipher, cipher -> ESTIMATED_AES_CIPHER_RETAINED_SIZE);
             for (ReadBuffer input : buffers) {
                 if (input != null) {
                     size += input.getRetainedSizeInBytes();
