@@ -14,7 +14,6 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableMap;
-import com.mongodb.MongoCredential;
 import io.airlift.configuration.ConfigurationFactory;
 import org.testng.annotations.Test;
 
@@ -38,8 +37,6 @@ public class TestMongoClientConfig
                 .setConnectionUrl(null)
                 .setSchemaCollection("_schema")
                 .setCaseInsensitiveNameMatching(false)
-                .setSeeds("")
-                .setCredentials("")
                 .setMinConnectionsPerHost(0)
                 .setConnectionsPerHost(100)
                 .setMaxWaitTime(120_000)
@@ -68,9 +65,7 @@ public class TestMongoClientConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("mongodb.schema-collection", "_my_schema")
                 .put("mongodb.case-insensitive-name-matching", "true")
-                .put("mongodb.seeds", "")
                 .put("mongodb.connection-url", "mongodb://router1.example.com:27017,router2.example2.com:27017,router3.example3.com:27017/")
-                .put("mongodb.credentials", "username:password@collection")
                 .put("mongodb.min-connections-per-host", "1")
                 .put("mongodb.connections-per-host", "99")
                 .put("mongodb.max-wait-time", "120001")
@@ -95,9 +90,7 @@ public class TestMongoClientConfig
         MongoClientConfig expected = new MongoClientConfig()
                 .setSchemaCollection("_my_schema")
                 .setCaseInsensitiveNameMatching(true)
-                .setSeeds("")
                 .setConnectionUrl("mongodb://router1.example.com:27017,router2.example2.com:27017,router3.example3.com:27017/")
-                .setCredentials("username:password@collection")
                 .setMinConnectionsPerHost(1)
                 .setConnectionsPerHost(99)
                 .setMaxWaitTime(120_001)
@@ -117,9 +110,7 @@ public class TestMongoClientConfig
 
         assertEquals(config.getSchemaCollection(), expected.getSchemaCollection());
         assertEquals(config.isCaseInsensitiveNameMatching(), expected.isCaseInsensitiveNameMatching());
-        assertEquals(config.getSeeds(), expected.getSeeds());
         assertEquals(config.getConnectionUrl(), expected.getConnectionUrl());
-        assertEquals(config.getCredentials(), expected.getCredentials());
         assertEquals(config.getMinConnectionsPerHost(), expected.getMinConnectionsPerHost());
         assertEquals(config.getConnectionsPerHost(), expected.getConnectionsPerHost());
         assertEquals(config.getMaxWaitTime(), expected.getMaxWaitTime());
@@ -136,17 +127,6 @@ public class TestMongoClientConfig
         assertEquals(config.getWriteConcern(), expected.getWriteConcern());
         assertEquals(config.getRequiredReplicaSetName(), expected.getRequiredReplicaSetName());
         assertEquals(config.getImplicitRowFieldPrefix(), expected.getImplicitRowFieldPrefix());
-    }
-
-    @Test
-    public void testSpecialCharacterCredential()
-    {
-        MongoClientConfig config = new MongoClientConfig()
-                .setCredentials("username:P@ss:w0rd@database");
-
-        MongoCredential credential = config.getCredentials().get(0);
-        MongoCredential expected = MongoCredential.createCredential("username", "database", "P@ss:w0rd".toCharArray());
-        assertEquals(credential, expected);
     }
 
     @Test
