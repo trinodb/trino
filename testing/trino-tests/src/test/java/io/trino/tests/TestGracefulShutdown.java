@@ -37,6 +37,7 @@ import static io.trino.memory.TestMemoryManager.createQueryRunner;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -110,7 +111,7 @@ public class TestGracefulShutdown
         }
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
+    @Test
     public void testCoordinatorShutdown()
             throws Exception
     {
@@ -121,7 +122,9 @@ public class TestGracefulShutdown
                     .findFirst()
                     .get();
 
-            coordinator.getGracefulShutdownHandler().requestShutdown();
+            assertThatThrownBy(coordinator.getGracefulShutdownHandler()::requestShutdown)
+                    .isInstanceOf(UnsupportedOperationException.class)
+                    .hasMessage("Cannot shutdown coordinator");
         }
     }
 }
