@@ -111,7 +111,9 @@ class Query
     private final Executor resultsProcessorExecutor;
     private final ScheduledExecutorService timeoutExecutor;
 
-    private final PagesSerde serde;
+    @GuardedBy("this")
+    private PagesSerde serde;
+
     private final boolean supportsParametricDateTime;
 
     @GuardedBy("this")
@@ -232,7 +234,7 @@ class Query
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
-        serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session))
+        this.serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session))
                 .createPagesSerde(session.getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey));
     }
 
@@ -575,6 +577,7 @@ class Query
             }
             if (exchangeDataSource.isFinished()) {
                 exchangeDataSource.close();
+                serde = null; // null to reclaim memory of PagesSerde which does not expose explicit lifecycle
             }
         }
         catch (Throwable cause) {
