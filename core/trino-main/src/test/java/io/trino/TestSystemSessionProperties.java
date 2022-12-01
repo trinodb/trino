@@ -38,6 +38,7 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.planner.OptimizerConfig;
 import org.testng.annotations.Test;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.SystemSessionProperties.QUERY_MAX_RUN_TIME;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -88,7 +89,6 @@ public class TestSystemSessionProperties
     {
         return properties.getSessionProperties().stream()
                 .filter(p -> p.getName().equals(propertyName))
-                .findFirst()
-                .orElseThrow();
+                .collect(onlyElement());
     }
 }
