@@ -34,6 +34,7 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZonedDateTime;
 import java.util.Map;
@@ -56,13 +57,17 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static java.lang.Math.toIntExact;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
+import static java.time.temporal.TemporalAdjusters.lastDayOfYear;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class ConstraintExtractor
 {
+    private static final long MIDNIGHT_FRACTION_IN_PICOS = 999_999_000_000L;
+
     private ConstraintExtractor() {}
 
     public static ExtractionResult extractTupleDomain(Constraint constraint)
@@ -122,6 +127,21 @@ public final class ConstraintExtractor
                         call.getFunctionName(),
                         unit,
                         firstAsCall.getArguments().get(1),
+                        constant,
+                        assignments);
+            }
+
+            // firstArgument and secondArgument are similar, but might not be same in strict (integer vs bigint)
+            if (firstArgument instanceof Call firstAsCall &&
+                    firstAsCall.getFunctionName().equals(new FunctionName("year")) &&
+                    firstAsCall.getArguments().size() == 1 &&
+                    getOnlyElement(firstAsCall.getArguments()).getType() instanceof TimestampWithTimeZoneType &&
+                    secondArgument instanceof Constant constant &&
+                    // if types do no match, this cannot be a comparison function
+                    firstArgument.getType().equals(secondArgument.getType())) {
+                return unwrapYearInComparison(
+                        call.getFunctionName(),
+                        getOnlyElement(firstAsCall.getArguments()),
                         constant,
                         assignments);
             }
@@ -312,6 +332,72 @@ public final class ConstraintExtractor
                 return Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, start)), false));
             }
             return Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, end)), false));
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<TupleDomain<IcebergColumnHandle>> unwrapYearInComparison(
+            // upon invocation, we don't know if this really is a comparison
+            FunctionName functionName,
+            ConnectorExpression yearSource,
+            Constant constant,
+            Map<String, ColumnHandle> assignments)
+    {
+        if (!(yearSource instanceof Variable sourceVariable)) {
+            // Engine unwraps year in comparisons in UnwrapYearInComparison. Within a connector we can do more than
+            // engine only for source columns. We cannot draw many conclusions for intermediate expressions without
+            // knowing them well.
+            return Optional.empty();
+        }
+
+        if (constant.getValue() == null) {
+            // Comparisons with NULL should be simplified by the engine
+            return Optional.empty();
+        }
+
+        IcebergColumnHandle column = resolve(sourceVariable, assignments);
+        if (column.getType() instanceof TimestampWithTimeZoneType type) {
+            // Iceberg supports only timestamp(6) with time zone
+            checkArgument(type.getPrecision() == 6, "Unexpected type: %s", column.getType());
+
+            return unwrapYearInComparison(functionName, type, constant)
+                    .map(domain -> TupleDomain.withColumnDomains(ImmutableMap.of(column, domain)));
+        }
+
+        return Optional.empty();
+    }
+
+    private static Optional<Domain> unwrapYearInComparison(FunctionName functionName, Type argumentType, Constant constant)
+    {
+        checkArgument(constant.getValue() != null && argumentType.equals(TIMESTAMP_TZ_MICROS), "Unexpected constant: %s", constant);
+
+        // Normalized to UTC because for comparisons the zone is irrelevant
+        ZonedDateTime periodStart = ZonedDateTime.of(LocalDate.ofYearDay(toIntExact((Long) constant.getValue()), 1), LocalTime.MIDNIGHT, UTC);
+        ZonedDateTime periodEnd = periodStart.with(lastDayOfYear()).with(LocalTime.MAX);
+
+        LongTimestampWithTimeZone start = LongTimestampWithTimeZone.fromEpochSecondsAndFraction(periodStart.toEpochSecond(), 0, UTC_KEY);
+        LongTimestampWithTimeZone end = LongTimestampWithTimeZone.fromEpochSecondsAndFraction(periodEnd.toEpochSecond(), MIDNIGHT_FRACTION_IN_PICOS, UTC_KEY);
+
+        if (functionName.equals(EQUAL_OPERATOR_FUNCTION_NAME)) {
+            return Optional.of(Domain.create(ValueSet.ofRanges(Range.range(argumentType, start, true, end, false)), false));
+        }
+        if (functionName.equals(NOT_EQUAL_OPERATOR_FUNCTION_NAME)) {
+            return Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThan(argumentType, start), Range.greaterThanOrEqual(argumentType, end)), false));
+        }
+        if (functionName.equals(IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME)) {
+            return Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThan(argumentType, start), Range.greaterThanOrEqual(argumentType, end)), true));
+        }
+        if (functionName.equals(LESS_THAN_OPERATOR_FUNCTION_NAME)) {
+            return Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThan(argumentType, start)), false));
+        }
+        if (functionName.equals(LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME)) {
+            return Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThan(argumentType, end)), false));
+        }
+        if (functionName.equals(GREATER_THAN_OPERATOR_FUNCTION_NAME)) {
+            return Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(argumentType, end)), false));
+        }
+        if (functionName.equals(GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME)) {
+            return Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(argumentType, start)), false));
         }
         return Optional.empty();
     }
