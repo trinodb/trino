@@ -194,7 +194,8 @@ public class FileSystemExchange
             });
         }
         if (exchangeSourceHandlesCreationFuture != null) {
-            Futures.addCallback(exchangeSourceHandlesCreationFuture, new FutureCallback<>() {
+            Futures.addCallback(exchangeSourceHandlesCreationFuture, new FutureCallback<>()
+            {
                 @Override
                 public void onSuccess(List<ExchangeSourceHandle> exchangeSourceHandles)
                 {
