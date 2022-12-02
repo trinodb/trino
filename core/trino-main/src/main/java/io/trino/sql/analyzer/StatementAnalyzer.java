@@ -4419,11 +4419,17 @@ class StatementAnalyzer
                 // run view as view owner if set; otherwise, run as session user
                 Identity identity;
                 AccessControl viewAccessControl;
-                if (owner.isPresent() && !owner.get().getUser().equals(session.getIdentity().getUser())) {
+                if (owner.isPresent()) {
                     identity = Identity.from(owner.get())
                             .withGroups(groupProvider.getGroups(owner.get().getUser()))
                             .build();
-                    viewAccessControl = new ViewAccessControl(accessControl, session.getIdentity());
+                    if (owner.get().getUser().equals(session.getIdentity().getUser())) {
+                        // View owner does not need GRANT OPTION to grant access themselves
+                        viewAccessControl = accessControl;
+                    }
+                    else {
+                        viewAccessControl = new ViewAccessControl(accessControl, session.getIdentity());
+                    }
                 }
                 else {
                     identity = session.getIdentity();
