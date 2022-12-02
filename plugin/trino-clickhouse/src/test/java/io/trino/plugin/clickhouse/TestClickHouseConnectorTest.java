@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestClickHouseConnectorTest
         extends BaseClickHouseConnectorTest
@@ -32,20 +31,5 @@ public class TestClickHouseConnectorTest
                 ImmutableMap.of(),
                 ImmutableMap.of("clickhouse.map-string-as-varchar", "true"),
                 REQUIRED_TPCH_TABLES);
-    }
-
-    @Override
-    public void testCommentTable()
-    {
-        assertThatThrownBy(super::testCommentTable)
-                .hasMessageContaining("Code: 62, e.displayText() = DB::Exception: Syntax error");
-    }
-
-    @Override
-    public void testCommentTableSpecialCharacter(String comment)
-    {
-        // Table comment is unsupported in old ClickHouse version
-        assertThatThrownBy(() -> super.testCommentTableSpecialCharacter(comment))
-                .hasMessageMatching("(?s).* Syntax error: .* COMMENT .*");
     }
 }
