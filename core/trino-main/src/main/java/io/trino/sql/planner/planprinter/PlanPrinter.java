@@ -533,16 +533,21 @@ public class PlanPrinter
                                 formatDouble(outputBufferUtilization.get().getMax() * 100)));
             }
 
-            if (verbose) {
-                TDigest taskOutputDistribution = new TDigest();
-                stageInfo.get().getTasks().forEach(task -> taskOutputDistribution.add(task.getStats().getOutputDataSize().toBytes()));
-                TDigest taskInputDistribution = new TDigest();
-                stageInfo.get().getTasks().forEach(task -> taskInputDistribution.add(task.getStats().getProcessedInputDataSize().toBytes()));
+            TDigest taskOutputDistribution = new TDigest();
+            stageInfo.get().getTasks().forEach(task -> taskOutputDistribution.add(task.getStats().getOutputDataSize().toBytes()));
+            TDigest taskInputDistribution = new TDigest();
+            stageInfo.get().getTasks().forEach(task -> taskInputDistribution.add(task.getStats().getProcessedInputDataSize().toBytes()));
 
+            if (verbose) {
                 builder.append(indentString(1))
                         .append(format("Task output distribution: %s\n", formatSizeDistribution(taskOutputDistribution)));
                 builder.append(indentString(1))
                         .append(format("Task input distribution: %s\n", formatSizeDistribution(taskInputDistribution)));
+            }
+
+            if (taskInputDistribution.valueAt(0.99) > taskInputDistribution.valueAt(0.49) * 2) {
+                builder.append(indentString(1))
+                        .append("Amount of input data processed by the workers for this stage might be skewed\n");
             }
         }
 
