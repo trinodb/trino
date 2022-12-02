@@ -243,7 +243,8 @@ public final class Range
                 compareLowBound >= 0 ? this.lowInclusive : other.lowInclusive,
                 compareLowBound >= 0 ? this.lowValue : other.lowValue,
                 compareHighBound <= 0 ? this.highInclusive : other.highInclusive,
-                compareHighBound <= 0 ? this.highValue : other.highValue));
+                compareHighBound <= 0 ? this.highValue : other.highValue,
+                comparisonOperator));
     }
 
     public boolean overlaps(Range other)
@@ -284,7 +285,8 @@ public final class Range
                     this.lowValue,
                     // max of high bounds
                     compareHighBound <= 0 ? next.highInclusive : this.highInclusive,
-                    compareHighBound <= 0 ? next.highValue : this.highValue));
+                    compareHighBound <= 0 ? next.highValue : this.highValue,
+                    comparisonOperator));
         }
 
         return Optional.empty();
