@@ -24,7 +24,7 @@ import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.dictionary.Dictionary;
 import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
@@ -269,7 +269,7 @@ public class TupleDomainParquetPredicate
         }
 
         if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DATE) || type.equals(SMALLINT) || type.equals(TINYINT)) {
-            List<Range> ranges = new ArrayList<>(minimums.size());
+            SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
                 long min = asLong(minimums.get(i));
                 long max = asLong(maximums.get(i));
@@ -277,28 +277,28 @@ public class TupleDomainParquetPredicate
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
 
-                ranges.add(Range.range(type, min, true, max, true));
+                rangesBuilder.addRangeInclusive(min, max);
             }
 
-            return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
+            return Domain.create(rangesBuilder.build(), hasNullValue);
         }
 
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
-            List<Range> ranges = new ArrayList<>(minimums.size());
+            SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             if (decimalType.isShort()) {
                 for (int i = 0; i < minimums.size(); i++) {
                     Object min = minimums.get(i);
                     Object max = maximums.get(i);
 
                     long minValue = min instanceof Binary ? getShortDecimalValue(((Binary) min).getBytes()) : asLong(min);
-                    long maxValue = min instanceof Binary ? getShortDecimalValue(((Binary) max).getBytes()) : asLong(max);
+                    long maxValue = max instanceof Binary ? getShortDecimalValue(((Binary) max).getBytes()) : asLong(max);
 
                     if (isStatisticsOverflow(type, minValue, maxValue)) {
                         return Domain.create(ValueSet.all(type), hasNullValue);
                     }
 
-                    ranges.add(Range.range(type, minValue, true, maxValue, true));
+                    rangesBuilder.addRangeInclusive(minValue, maxValue);
                 }
             }
             else {
@@ -306,15 +306,15 @@ public class TupleDomainParquetPredicate
                     Int128 min = Int128.fromBigEndian(((Binary) minimums.get(i)).getBytes());
                     Int128 max = Int128.fromBigEndian(((Binary) maximums.get(i)).getBytes());
 
-                    ranges.add(Range.range(type, min, true, max, true));
+                    rangesBuilder.addRangeInclusive(min, max);
                 }
             }
 
-            return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
+            return Domain.create(rangesBuilder.build(), hasNullValue);
         }
 
         if (type.equals(REAL)) {
-            List<Range> ranges = new ArrayList<>(minimums.size());
+            SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
                 Float min = (Float) minimums.get(i);
                 Float max = (Float) maximums.get(i);
@@ -323,13 +323,13 @@ public class TupleDomainParquetPredicate
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
 
-                ranges.add(Range.range(type, (long) floatToRawIntBits(min), true, (long) floatToRawIntBits(max), true));
+                rangesBuilder.addRangeInclusive((long) floatToRawIntBits(min), (long) floatToRawIntBits(max));
             }
-            return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
+            return Domain.create(rangesBuilder.build(), hasNullValue);
         }
 
         if (type.equals(DOUBLE)) {
-            List<Range> ranges = new ArrayList<>(minimums.size());
+            SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
                 Double min = (Double) minimums.get(i);
                 Double max = (Double) maximums.get(i);
@@ -338,25 +338,25 @@ public class TupleDomainParquetPredicate
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
 
-                ranges.add(Range.range(type, min, true, max, true));
+                rangesBuilder.addRangeInclusive(min, max);
             }
-            return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
+            return Domain.create(rangesBuilder.build(), hasNullValue);
         }
 
         if (type instanceof VarcharType) {
-            List<Range> ranges = new ArrayList<>(minimums.size());
+            SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
                 Slice min = Slices.wrappedBuffer(((Binary) minimums.get(i)).toByteBuffer());
                 Slice max = Slices.wrappedBuffer(((Binary) maximums.get(i)).toByteBuffer());
-                ranges.add(Range.range(type, min, true, max, true));
+                rangesBuilder.addRangeInclusive(min, max);
             }
-            return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
+            return Domain.create(rangesBuilder.build(), hasNullValue);
         }
 
         if (type instanceof TimestampType) {
             if (column.getPrimitiveType().getPrimitiveTypeName().equals(INT96)) {
                 TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder((TimestampType) type, timeZone);
-                List<Object> values = new ArrayList<>(minimums.size());
+                SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
                 for (int i = 0; i < minimums.size(); i++) {
                     Object min = minimums.get(i);
                     Object max = maximums.get(i);
@@ -369,9 +369,9 @@ public class TupleDomainParquetPredicate
                         return Domain.create(ValueSet.all(type), hasNullValue);
                     }
 
-                    values.add(timestampEncoder.getTimestamp(decodeInt96Timestamp((Binary) min)));
+                    rangesBuilder.addValue(timestampEncoder.getTimestamp(decodeInt96Timestamp((Binary) min)));
                 }
-                return Domain.multipleValues(type, values, hasNullValue);
+                return Domain.create(rangesBuilder.build(), hasNullValue);
             }
             if (column.getPrimitiveType().getPrimitiveTypeName().equals(INT64)) {
                 LogicalTypeAnnotation logicalTypeAnnotation = column.getPrimitiveType().getLogicalTypeAnnotation();
@@ -387,19 +387,16 @@ public class TupleDomainParquetPredicate
                 }
                 TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder((TimestampType) type, DateTimeZone.UTC);
 
-                List<Range> ranges = new ArrayList<>(minimums.size());
+                SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
                 for (int i = 0; i < minimums.size(); i++) {
                     long min = (long) minimums.get(i);
                     long max = (long) maximums.get(i);
 
-                    ranges.add(Range.range(
-                            type,
+                    rangesBuilder.addRangeInclusive(
                             timestampEncoder.getTimestamp(decodeInt64Timestamp(min, timestampTypeAnnotation.getUnit())),
-                            true,
-                            timestampEncoder.getTimestamp(decodeInt64Timestamp(max, timestampTypeAnnotation.getUnit())),
-                            true));
+                            timestampEncoder.getTimestamp(decodeInt64Timestamp(max, timestampTypeAnnotation.getUnit())));
                 }
-                return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
+                return Domain.create(rangesBuilder.build(), hasNullValue);
             }
         }
 
