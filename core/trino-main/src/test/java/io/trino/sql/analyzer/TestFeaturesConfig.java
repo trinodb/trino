@@ -66,6 +66,10 @@ public class TestFeaturesConfig
                 .setHideInaccessibleColumns(false)
                 .setAllowSetViewAuthorization(false)
                 .setForceSpillingJoin(false)
+                .setQueryFusionEnabled(false)
+                .setQueryFusionForJoingbEnabled(true)
+                .setQueryFusionForGbjoingbEnabled(true)
+                .setQueryFusionForPushunionbelowjoinEnabled(true)
                 .setFaultTolerantExecutionExchangeEncryptionEnabled(true));
     }
 
@@ -102,6 +106,10 @@ public class TestFeaturesConfig
                 .put("hide-inaccessible-columns", "true")
                 .put("legacy.allow-set-view-authorization", "true")
                 .put("force-spilling-join-operator", "true")
+                .put("experimental.use-query-fusion", "true")
+                .put("experimental.use-query-fusion-for-joingb", "false")
+                .put("experimental.use-query-fusion-for-gbjoingb", "false")
+                .put("experimental.use-query-fusion-for-pushunionbelowjoin", "false")
                 .put("fault-tolerant-execution.exchange-encryption-enabled", "false")
                 .buildOrThrow();
 
@@ -135,6 +143,10 @@ public class TestFeaturesConfig
                 .setHideInaccessibleColumns(true)
                 .setAllowSetViewAuthorization(true)
                 .setForceSpillingJoin(true)
+                .setQueryFusionEnabled(true)
+                .setQueryFusionForJoingbEnabled(false)
+                .setQueryFusionForGbjoingbEnabled(false)
+                .setQueryFusionForPushunionbelowjoinEnabled(false)
                 .setFaultTolerantExecutionExchangeEncryptionEnabled(false);
         assertFullMapping(properties, expected);
     }

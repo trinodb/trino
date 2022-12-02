@@ -106,6 +106,11 @@ public class FeaturesConfig
     private boolean hideInaccessibleColumns;
     private boolean forceSpillingJoin;
 
+    private boolean queryFusionEnabled;
+    private boolean queryFusionForJoingbEnabled = true;
+    private boolean queryFusionForGbjoingbEnabled = true;
+    private boolean queryFusionForPushunionbelowjoinEnabled = true;
+
     private boolean faultTolerantExecutionExchangeEncryptionEnabled = true;
 
     public enum DataIntegrityVerification
@@ -498,6 +503,54 @@ public class FeaturesConfig
     public FeaturesConfig setForceSpillingJoin(boolean forceSpillingJoin)
     {
         this.forceSpillingJoin = forceSpillingJoin;
+        return this;
+    }
+
+    public boolean isQueryFusionEnabled()
+    {
+        return queryFusionEnabled;
+    }
+
+    @Config("experimental.use-query-fusion")
+    public FeaturesConfig setQueryFusionEnabled(boolean queryFusionEnabled)
+    {
+        this.queryFusionEnabled = queryFusionEnabled;
+        return this;
+    }
+
+    public boolean isQueryFusionForJoingbEnabled()
+    {
+        return queryFusionForJoingbEnabled;
+    }
+
+    @Config("experimental.use-query-fusion-for-joingb")
+    public FeaturesConfig setQueryFusionForJoingbEnabled(boolean queryFusionForJoingbEnabled)
+    {
+        this.queryFusionForJoingbEnabled = queryFusionForJoingbEnabled;
+        return this;
+    }
+
+    public boolean isQueryFusionForGbjoingbEnabled()
+    {
+        return queryFusionForGbjoingbEnabled;
+    }
+
+    @Config("experimental.use-query-fusion-for-gbjoingb")
+    public FeaturesConfig setQueryFusionForGbjoingbEnabled(boolean queryFusionForGbjoingbEnabled)
+    {
+        this.queryFusionForGbjoingbEnabled = queryFusionForGbjoingbEnabled;
+        return this;
+    }
+
+    public boolean isQueryFusionForPushunionbelowjoinEnabled()
+    {
+        return queryFusionForPushunionbelowjoinEnabled;
+    }
+
+    @Config("experimental.use-query-fusion-for-pushunionbelowjoin")
+    public FeaturesConfig setQueryFusionForPushunionbelowjoinEnabled(boolean queryFusionForPushunionbelowjoinEnabled)
+    {
+        this.queryFusionForPushunionbelowjoinEnabled = queryFusionForPushunionbelowjoinEnabled;
         return this;
     }
 

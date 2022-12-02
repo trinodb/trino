@@ -228,6 +228,7 @@ import io.trino.sql.planner.iterative.rule.TransformCorrelatedScalarSubquery;
 import io.trino.sql.planner.iterative.rule.TransformCorrelatedSingleRowSubqueryToProject;
 import io.trino.sql.planner.iterative.rule.TransformExistsApplyToCorrelatedJoin;
 import io.trino.sql.planner.iterative.rule.TransformFilteringSemiJoinToInnerJoin;
+import io.trino.sql.planner.iterative.rule.TransformSimpleCorrelatedGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import io.trino.sql.planner.iterative.rule.TransformUncorrelatedSubqueryToJoin;
 import io.trino.sql.planner.iterative.rule.UnwrapCastInComparison;
@@ -249,6 +250,7 @@ import io.trino.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
 import io.trino.sql.planner.optimizations.OptimizerStats;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.optimizations.PredicatePushDown;
+import io.trino.sql.planner.optimizations.SharedScanOptimizer;
 import io.trino.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import io.trino.sql.planner.optimizations.TransformQuantifiedComparisonApplyToCorrelatedJoin;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
@@ -507,6 +509,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.of(new TransformExistsApplyToCorrelatedJoin(plannerContext))),
                 new TransformQuantifiedComparisonApplyToCorrelatedJoin(metadata),
+                new TransformSimpleCorrelatedGlobalAggregation(plannerContext, typeAnalyzer),
                 new IterativeOptimizer(
                         plannerContext,
                         ruleStats,
@@ -578,6 +581,15 @@ public class PlanOptimizers
                                 .add(new InlineProjections(plannerContext, typeAnalyzer))
                                 .addAll(new PushFilterThroughCountAggregation(plannerContext).rules()) // must run after PredicatePushDown and after TransformFilteringSemiJoinToInnerJoin
                                 .build()));
+
+        builder.add(
+                new IterativeOptimizer(
+                        plannerContext,
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        ImmutableSet.of(new MultipleDistinctAggregationToMarkDistinct(taskCountEstimator, true))),
+                new SharedScanOptimizer(plannerContext, typeAnalyzer));
 
         // Perform redirection before CBO rules to ensure stats from destination connector are used
         // Perform redirection before agg, topN, limit, sample etc. push down into table scan as the destination connector may support a different set of push downs

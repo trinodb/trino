@@ -489,6 +489,50 @@ public class HiveTableHandle
                 projectedColumns);
     }
 
+    // This is mostly a clone of equals() method above, except that we don't compare projectedColumns
+    @Override
+    public boolean equalsForFusion(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        HiveTableHandle that = (HiveTableHandle) o;
+        return Objects.equals(schemaName, that.schemaName) &&
+                Objects.equals(tableName, that.tableName) &&
+                Objects.equals(tableParameters, that.tableParameters) &&
+                Objects.equals(partitionColumns, that.partitionColumns) &&
+                Objects.equals(partitionNames, that.partitionNames) &&
+                Objects.equals(partitions, that.partitions) &&
+                Objects.equals(compactEffectivePredicate, that.compactEffectivePredicate) &&
+                Objects.equals(enforcedConstraint, that.enforcedConstraint) &&
+                Objects.equals(bucketHandle, that.bucketHandle) &&
+                Objects.equals(bucketFilter, that.bucketFilter) &&
+                Objects.equals(analyzePartitionValues, that.analyzePartitionValues) &&
+                Objects.equals(transaction, that.transaction);
+    }
+
+    // This is mostly a clone of hashCode() method above, except that we don't include projectedColumns
+    @Override
+    public int hashCodeForFusion()
+    {
+        return Objects.hash(
+                schemaName,
+                tableName,
+                tableParameters,
+                partitionColumns,
+                partitionNames,
+                partitions,
+                compactEffectivePredicate,
+                enforcedConstraint,
+                bucketHandle,
+                bucketFilter,
+                analyzePartitionValues,
+                transaction);
+    }
+
     @Override
     public String toString()
     {

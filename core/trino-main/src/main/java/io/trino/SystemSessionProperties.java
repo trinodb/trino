@@ -198,6 +198,10 @@ public final class SystemSessionProperties
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
     public static final String FAULT_TOLERANT_EXECUTION_FORCE_PREFERRED_WRITE_PARTITIONING_ENABLED = "fault_tolerant_execution_force_preferred_write_partitioning_enabled";
     public static final String PAGE_PARTITIONING_BUFFER_POOL_SIZE = "page_partitioning_buffer_pool_size";
+    public static final String USE_QUERY_FUSION = "use_query_fusion";
+    public static final String USE_QUERY_FUSION_FOR_JOINGB = "use_query_fusion_for_joingb";
+    public static final String USE_QUERY_FUSION_FOR_GBJOINGB = "use_query_fusion_for_gbjoingb";
+    public static final String USE_QUERY_FUSION_FOR_PUSHUNIONBELOWJOIN = "use_query_fusion_for_pushunionbelowjoin";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1003,7 +1007,27 @@ public final class SystemSessionProperties
                 integerProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE,
                         "Maximum number of free buffers in the per task partitioned page buffer pool. Setting this to zero effectively disables the pool",
                         taskManagerConfig.getPagePartitioningBufferPoolSize(),
-                        true));
+                        true),
+                booleanProperty(
+                        USE_QUERY_FUSION,
+                        "Use query fusion",
+                        featuresConfig.isQueryFusionEnabled(),
+                        false),
+                booleanProperty(
+                        USE_QUERY_FUSION_FOR_JOINGB,
+                        "Use query fusion to transform join in the pattern of: Join(X, GB(X)) -> Window",
+                        featuresConfig.isQueryFusionForJoingbEnabled(),
+                        false),
+                booleanProperty(
+                        USE_QUERY_FUSION_FOR_GBJOINGB,
+                        "Use query fusion to transform join in the pattern of: Join(GB(X), GB(X)) -> GB",
+                        featuresConfig.isQueryFusionForGbjoingbEnabled(),
+                        false),
+                booleanProperty(
+                        USE_QUERY_FUSION_FOR_PUSHUNIONBELOWJOIN,
+                        "Use query fusion to push union below join, so that one common side can be merged",
+                        featuresConfig.isQueryFusionForPushunionbelowjoinEnabled(),
+                        false));
     }
 
     @Override
@@ -1798,5 +1822,25 @@ public final class SystemSessionProperties
     public static int getPagePartitioningBufferPoolSize(Session session)
     {
         return session.getSystemProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE, Integer.class);
+    }
+
+    public static boolean useQueryFusion(Session session)
+    {
+        return session.getSystemProperty(USE_QUERY_FUSION, Boolean.class);
+    }
+
+    public static boolean useQueryFusionForJoingb(Session session)
+    {
+        return session.getSystemProperty(USE_QUERY_FUSION_FOR_JOINGB, Boolean.class);
+    }
+
+    public static boolean useQueryFusionForGbjoingb(Session session)
+    {
+        return session.getSystemProperty(USE_QUERY_FUSION_FOR_GBJOINGB, Boolean.class);
+    }
+
+    public static boolean useQueryFusionForPushunionbelowjoin(Session session)
+    {
+        return session.getSystemProperty(USE_QUERY_FUSION_FOR_PUSHUNIONBELOWJOIN, Boolean.class);
     }
 }

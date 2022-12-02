@@ -390,7 +390,7 @@ public class ReorderJoins
             return chooseJoinOrder(nodes, outputSymbols);
         }
 
-        private static boolean isJoinEqualityCondition(Expression expression)
+        static boolean isJoinEqualityCondition(Expression expression)
         {
             return expression instanceof ComparisonExpression
                     && ((ComparisonExpression) expression).getOperator() == EQUAL
@@ -398,7 +398,7 @@ public class ReorderJoins
                     && ((ComparisonExpression) expression).getRight() instanceof SymbolReference;
         }
 
-        private static EquiJoinClause toEquiJoinClause(ComparisonExpression equality, Set<Symbol> leftSymbols)
+        static EquiJoinClause toEquiJoinClause(ComparisonExpression equality, Set<Symbol> leftSymbols)
         {
             Symbol leftSymbol = Symbol.from(equality.getLeft());
             Symbol rightSymbol = Symbol.from(equality.getRight());
@@ -476,8 +476,7 @@ public class ReorderJoins
     /**
      * This class represents a set of inner joins that can be executed in any order.
      */
-    @VisibleForTesting
-    static class MultiJoinNode
+    public static class MultiJoinNode
     {
         // Use a linked hash set to ensure optimizer is deterministic
         private final LinkedHashSet<PlanNode> sources;
@@ -576,6 +575,22 @@ public class ReorderJoins
                     .toMultiJoinNode();
         }
 
+        public static MultiJoinNode toLeftDeepMultiJoinNode(
+                PlannerContext plannerContext,
+                JoinNode joinNode,
+                Lookup lookup,
+                PlanNodeIdAllocator planNodeIdAllocator,
+                int joinLimit,
+                boolean pushProjectionsThroughJoin,
+                Session session,
+                TypeAnalyzer typeAnalyzer,
+                TypeProvider types)
+        {
+            // the number of sources is the number of joins + 1
+            return new JoinNodeFlattener(plannerContext, joinNode, lookup, planNodeIdAllocator, joinLimit + 1, pushProjectionsThroughJoin, session, typeAnalyzer, types, true)
+                    .toMultiJoinNode();
+        }
+
         private static class JoinNodeFlattener
         {
             private final PlannerContext plannerContext;
@@ -593,6 +608,9 @@ public class ReorderJoins
             // if projection was pushed through join during join graph flattening?
             private boolean pushedProjectionThroughJoin;
 
+            // Only traverse left trees.
+            private final boolean leftTreeOnly;
+
             JoinNodeFlattener(
                     PlannerContext plannerContext,
                     JoinNode node,
@@ -604,6 +622,21 @@ public class ReorderJoins
                     TypeAnalyzer typeAnalyzer,
                     TypeProvider types)
             {
+                this(plannerContext, node, lookup, planNodeIdAllocator, sourceLimit, pushProjectionsThroughJoin, session, typeAnalyzer, types, false);
+            }
+
+            JoinNodeFlattener(
+                    PlannerContext plannerContext,
+                    JoinNode node,
+                    Lookup lookup,
+                    PlanNodeIdAllocator planNodeIdAllocator,
+                    int sourceLimit,
+                    boolean pushProjectionsThroughJoin,
+                    Session session,
+                    TypeAnalyzer typeAnalyzer,
+                    TypeProvider types,
+                    boolean leftTreeOnly)
+            {
                 this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
                 requireNonNull(node, "node is null");
                 checkState(node.getType() == INNER, "join type must be INNER");
@@ -614,6 +647,7 @@ public class ReorderJoins
                 this.session = requireNonNull(session, "session is null");
                 this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
                 this.types = requireNonNull(types, "types is null");
+                this.leftTreeOnly = leftTreeOnly;
 
                 flattenNode(node, sourceLimit);
             }
@@ -652,7 +686,14 @@ public class ReorderJoins
 
                 // we set the left limit to limit - 1 to account for the node on the right
                 flattenNode(joinNode.getLeft(), limit - 1);
-                flattenNode(joinNode.getRight(), limit);
+
+                if (!leftTreeOnly) {
+                    flattenNode(joinNode.getRight(), limit);
+                }
+                else {
+                    sources.add(joinNode.getRight());
+                }
+
                 joinNode.getCriteria().stream()
                         .map(EquiJoinClause::toExpression)
                         .forEach(filters::add);
