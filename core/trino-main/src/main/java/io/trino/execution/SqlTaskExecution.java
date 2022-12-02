@@ -571,20 +571,33 @@ public class SqlTaskExecution
         {
             Driver driver = driverFactory.createDriver(driverContext);
 
-            if (partitionedSplit != null) {
-                // TableScanOperator requires partitioned split to be added before the first call to process
-                driver.updateSplitAssignment(new SplitAssignment(partitionedSplit.getPlanNodeId(), ImmutableSet.of(partitionedSplit), true));
+            try {
+                if (partitionedSplit != null) {
+                    // TableScanOperator requires partitioned split to be added before the first call to process
+                    driver.updateSplitAssignment(new SplitAssignment(partitionedSplit.getPlanNodeId(), ImmutableSet.of(partitionedSplit), true));
+                }
+
+                pendingCreations.decrementAndGet();
+                closeDriverFactoryIfFullyCreated();
+
+                if (driverFactory.getSourceId().isPresent() && partitionedSplit == null) {
+                    driverReferences.add(new WeakReference<>(driver));
+                    scheduleSplits();
+                }
+
+                return driver;
             }
-
-            pendingCreations.decrementAndGet();
-            closeDriverFactoryIfFullyCreated();
-
-            if (driverFactory.getSourceId().isPresent() && partitionedSplit == null) {
-                driverReferences.add(new WeakReference<>(driver));
-                scheduleSplits();
+            catch (Throwable failure) {
+                try {
+                    driver.close();
+                }
+                catch (Throwable closeFailure) {
+                    if (failure != closeFailure) {
+                        failure.addSuppressed(closeFailure);
+                    }
+                }
+                throw failure;
             }
-
-            return driver;
         }
 
         public void enqueueSplits(Set<ScheduledSplit> splits, boolean noMoreSplits)
