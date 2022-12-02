@@ -41,6 +41,7 @@ import org.apache.parquet.filter2.predicate.UserDefinedPredicate;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.ColumnIndex;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
+import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
@@ -665,21 +666,14 @@ public class TupleDomainParquetPredicate
 
         private Function<Integer, Object> getConverter(PrimitiveType primitiveType)
         {
-            switch (primitiveType.getPrimitiveTypeName()) {
-                case INT32:
-                    return (i) -> dictionary.decodeToInt(i);
-                case INT64:
-                    return (i) -> dictionary.decodeToLong(i);
-                case FLOAT:
-                    return (i) -> dictionary.decodeToFloat(i);
-                case DOUBLE:
-                    return (i) -> dictionary.decodeToDouble(i);
-                case FIXED_LEN_BYTE_ARRAY:
-                case BINARY:
-                case INT96:
-                default:
-                    return (i) -> dictionary.decodeToBinary(i);
-            }
+            return switch (primitiveType.getPrimitiveTypeName()) {
+                case BOOLEAN -> throw new ParquetDecodingException("Dictionary encoding does not support: " + primitiveType.getPrimitiveTypeName());
+                case INT32 -> (i) -> dictionary.decodeToInt(i);
+                case INT64 -> (i) -> dictionary.decodeToLong(i);
+                case FLOAT -> (i) -> dictionary.decodeToFloat(i);
+                case DOUBLE -> (i) -> dictionary.decodeToDouble(i);
+                case FIXED_LEN_BYTE_ARRAY, BINARY, INT96 -> (i) -> dictionary.decodeToBinary(i);
+            };
         }
     }
 
