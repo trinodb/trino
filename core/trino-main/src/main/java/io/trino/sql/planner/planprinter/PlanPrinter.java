@@ -495,20 +495,26 @@ public class PlanPrinter
                             stageStats.getOutputDataSize()));
             Optional<TDigestHistogram> outputBufferUtilization = stageInfo.get().getStageStats().getOutputBufferUtilization();
             if (verbose && outputBufferUtilization.isPresent()) {
+                TDigestHistogram utilization = outputBufferUtilization.get();
                 builder.append(indentString(1))
                         .append(format("Output buffer active time: %s, buffer utilization distribution (%%): {p01=%s, p05=%s, p10=%s, p25=%s, p50=%s, p75=%s, p90=%s, p95=%s, p99=%s, max=%s}\n",
-                                succinctNanos(outputBufferUtilization.get().getTotal()),
+                                succinctNanos(utilization.getTotal()),
                                 // scale ratio to percentages
-                                formatDouble(outputBufferUtilization.get().getP01() * 100),
-                                formatDouble(outputBufferUtilization.get().getP05() * 100),
-                                formatDouble(outputBufferUtilization.get().getP10() * 100),
-                                formatDouble(outputBufferUtilization.get().getP25() * 100),
-                                formatDouble(outputBufferUtilization.get().getP50() * 100),
-                                formatDouble(outputBufferUtilization.get().getP75() * 100),
-                                formatDouble(outputBufferUtilization.get().getP90() * 100),
-                                formatDouble(outputBufferUtilization.get().getP95() * 100),
-                                formatDouble(outputBufferUtilization.get().getP99() * 100),
-                                formatDouble(outputBufferUtilization.get().getMax() * 100)));
+                                formatDouble(utilization.getP01() * 100),
+                                formatDouble(utilization.getP05() * 100),
+                                formatDouble(utilization.getP10() * 100),
+                                formatDouble(utilization.getP25() * 100),
+                                formatDouble(utilization.getP50() * 100),
+                                formatDouble(utilization.getP75() * 100),
+                                formatDouble(utilization.getP90() * 100),
+                                formatDouble(utilization.getP95() * 100),
+                                formatDouble(utilization.getP99() * 100),
+                                formatDouble(utilization.getMax() * 100)));
+                if (utilization.getP50() > 1.0) {
+                    // Output buffer overutilization suggests that downstream task does not consume data fast enough
+                    builder.append(indentString(1))
+                            .append("Output buffer overutilized\n");
+                }
             }
         }
 
