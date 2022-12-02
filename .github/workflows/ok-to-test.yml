@@ -34,3 +34,19 @@ jobs:
         issue-type: pull-request
         commands: test-with-secrets
         permission: write
+
+# If someone with write access comments "/start-benchmarks" on a pull request, emit a repository_dispatch event
+# for workflow: https://github.com/starburstdata/benchmarks-gha/actions/workflows/start-benchmarks-command.yaml
+# which runs requested benchmarks
+    - name: Slash Command Dispatch Benchmarks
+      # fork of peter-evans/slash-command-dispatch
+      uses: trinodb/github-actions/slash-command-dispatch@2c3f458fcad343199d0e92badaaa6e9dd7993b2e
+      env:
+        TOKEN: ${{ steps.generate_token.outputs.token }}
+      with:
+        token: ${{ env.TOKEN }} # GitHub App installation access token
+        reaction-token: ${{ secrets.GITHUB_TOKEN }}
+        issue-type: pull-request
+        commands: start-benchmarks
+        repository: starburstdata/benchmarks-gha
+        permission: write
