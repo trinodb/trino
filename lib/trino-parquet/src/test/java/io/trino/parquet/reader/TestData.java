@@ -134,7 +134,7 @@ public final class TestData
         return propagateSignBit(r.nextInt(), 32 - bitWidth);
     }
 
-    private static long randomLong(Random r, int bitWidth)
+    public static long randomLong(Random r, int bitWidth)
     {
         checkArgument(bitWidth <= 64 && bitWidth > 0, "bit width must be in range 1 - 64 inclusive");
         if (bitWidth == 64) {

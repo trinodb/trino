@@ -41,6 +41,7 @@ import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
+import static io.trino.parquet.reader.decoders.ValueDecoders.getDictionaryDecoder;
 import static io.trino.parquet.reader.flat.RowRangesIterator.createRowRangesIterator;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -333,12 +334,7 @@ public class FlatColumnReader<BufferType>
 
         // For dictionary based encodings - https://github.com/apache/parquet-format/blob/master/Encodings.md
         if (dictionaryPage != null) {
-            int size = dictionaryPage.getDictionarySize();
-            BufferType dictionary = columnAdapter.createBuffer(size);
-            ValueDecoder<BufferType> plainValuesDecoder = decodersProvider.create(PLAIN, field);
-            plainValuesDecoder.init(new SimpleSliceInputStream(dictionaryPage.getSlice()));
-            plainValuesDecoder.read(dictionary, 0, size);
-            dictionaryDecoder = new DictionaryDecoder<>(dictionary, columnAdapter);
+            dictionaryDecoder = getDictionaryDecoder(dictionaryPage, columnAdapter, decodersProvider.create(PLAIN, field));
         }
         checkArgument(pageReader.getTotalValueCount() > 0, "page is empty");
         this.rowRanges = createRowRangesIterator(rowRanges);

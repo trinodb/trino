@@ -14,8 +14,10 @@
 package io.trino.parquet.reader;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.UnsafeSlice;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -61,6 +63,12 @@ public final class SimpleSliceInputStream
         return bytes;
     }
 
+    public void readBytes(Slice destination, int destinationIndex, int length)
+    {
+        slice.getBytes(offset, destination, destinationIndex, length);
+        offset += length;
+    }
+
     public void skip(int n)
     {
         offset += n;
@@ -87,5 +95,21 @@ public final class SimpleSliceInputStream
     public int getByteArrayOffset()
     {
         return offset + slice.byteArrayOffset();
+    }
+
+    public void ensureBytesAvailable(int bytes)
+    {
+        checkPositionIndexes(offset, offset + bytes, slice.length());
+    }
+
+    /**
+     * Always check if needed data is available with ensureBytesAvailable method.
+     * Failing to do so may result in instant JVM crash.
+     */
+    public int readIntUnsafe()
+    {
+        int value = UnsafeSlice.getIntUnchecked(slice, offset);
+        offset += Integer.BYTES;
+        return value;
     }
 }
