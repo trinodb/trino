@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import io.airlift.json.JsonCodec;
+import io.airlift.stats.TDigest;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
@@ -153,6 +154,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
+import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
 import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
@@ -530,6 +532,18 @@ public class PlanPrinter
                                 formatDouble(outputBufferUtilization.get().getP99() * 100),
                                 formatDouble(outputBufferUtilization.get().getMax() * 100)));
             }
+
+            if (verbose) {
+                TDigest taskOutputDistribution = new TDigest();
+                stageInfo.get().getTasks().forEach(task -> taskOutputDistribution.add(task.getStats().getOutputDataSize().toBytes()));
+                TDigest taskInputDistribution = new TDigest();
+                stageInfo.get().getTasks().forEach(task -> taskInputDistribution.add(task.getStats().getProcessedInputDataSize().toBytes()));
+
+                builder.append(indentString(1))
+                        .append(format("Task output distribution: %s\n", formatSizeDistribution(taskOutputDistribution)));
+                builder.append(indentString(1))
+                        .append(format("Task input distribution: %s\n", formatSizeDistribution(taskInputDistribution)));
+            }
         }
 
         PartitioningScheme partitioningScheme = fragment.getPartitioningScheme();
@@ -579,6 +593,22 @@ public class PlanPrinter
                 .append("\n");
 
         return builder.toString();
+    }
+
+    private static String formatSizeDistribution(TDigest digest)
+    {
+        return format("{count=%s, p01=%s, p05=%s, p10=%s, p25=%s, p50=%s, p75=%s, p90=%s, p95=%s, p99=%s, max=%s}",
+                formatDouble(digest.getCount()),
+                succinctBytes((long) digest.valueAt(0.01)),
+                succinctBytes((long) digest.valueAt(0.05)),
+                succinctBytes((long) digest.valueAt(0.10)),
+                succinctBytes((long) digest.valueAt(0.25)),
+                succinctBytes((long) digest.valueAt(0.50)),
+                succinctBytes((long) digest.valueAt(0.75)),
+                succinctBytes((long) digest.valueAt(0.90)),
+                succinctBytes((long) digest.valueAt(0.95)),
+                succinctBytes((long) digest.valueAt(0.99)),
+                succinctBytes((long) digest.getMax()));
     }
 
     private static TypeProvider getTypeProvider(List<PlanFragment> fragments)
