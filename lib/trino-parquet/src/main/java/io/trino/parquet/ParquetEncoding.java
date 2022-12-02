@@ -55,51 +55,33 @@ public enum ParquetEncoding
         @Override
         public ValuesReader getValuesReader(ColumnDescriptor descriptor, ValuesType valuesType)
         {
-            switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
-                case BOOLEAN:
-                    return new BooleanPlainValuesReader();
-                case BINARY:
-                    return new BinaryPlainValuesReader();
-                case FLOAT:
-                    return new FloatPlainValuesReader();
-                case DOUBLE:
-                    return new DoublePlainValuesReader();
-                case INT32:
-                    return new IntegerPlainValuesReader();
-                case INT64:
-                    return new LongPlainValuesReader();
-                case INT96:
-                    return new FixedLenByteArrayPlainValuesReader(INT96_TYPE_LENGTH);
-                case FIXED_LEN_BYTE_ARRAY:
-                    return new FixedLenByteArrayPlainValuesReader(descriptor.getPrimitiveType().getTypeLength());
-            }
-            throw new ParquetDecodingException("Plain values reader does not support: " + descriptor.getPrimitiveType().getPrimitiveTypeName());
+            return switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
+                case BOOLEAN -> new BooleanPlainValuesReader();
+                case BINARY -> new BinaryPlainValuesReader();
+                case FLOAT -> new FloatPlainValuesReader();
+                case DOUBLE -> new DoublePlainValuesReader();
+                case INT32 -> new IntegerPlainValuesReader();
+                case INT64 -> new LongPlainValuesReader();
+                case INT96 -> new FixedLenByteArrayPlainValuesReader(INT96_TYPE_LENGTH);
+                case FIXED_LEN_BYTE_ARRAY -> new FixedLenByteArrayPlainValuesReader(descriptor.getPrimitiveType().getTypeLength());
+            };
         }
 
         @Override
         public Dictionary initDictionary(ColumnDescriptor descriptor, DictionaryPage dictionaryPage)
                 throws IOException
         {
-            switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
-                case BOOLEAN:
-                    // No dictionary encoding for boolean
-                    break;
-                case BINARY:
-                    return new BinaryDictionary(dictionaryPage);
-                case FIXED_LEN_BYTE_ARRAY:
-                    return new BinaryDictionary(dictionaryPage, descriptor.getPrimitiveType().getTypeLength());
-                case INT96:
-                    return new BinaryDictionary(dictionaryPage, INT96_TYPE_LENGTH);
-                case INT64:
-                    return new LongDictionary(dictionaryPage);
-                case DOUBLE:
-                    return new DoubleDictionary(dictionaryPage);
-                case INT32:
-                    return new IntegerDictionary(dictionaryPage);
-                case FLOAT:
-                    return new FloatDictionary(dictionaryPage);
-            }
-            throw new ParquetDecodingException("Dictionary encoding does not support: " + descriptor.getPrimitiveType().getPrimitiveTypeName());
+            return switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
+                // No dictionary encoding for boolean
+                case BOOLEAN -> throw new ParquetDecodingException("Dictionary encoding does not support: " + descriptor.getPrimitiveType().getPrimitiveTypeName());
+                case BINARY -> new BinaryDictionary(dictionaryPage);
+                case FIXED_LEN_BYTE_ARRAY -> new BinaryDictionary(dictionaryPage, descriptor.getPrimitiveType().getTypeLength());
+                case INT96 -> new BinaryDictionary(dictionaryPage, INT96_TYPE_LENGTH);
+                case INT64 -> new LongDictionary(dictionaryPage);
+                case DOUBLE -> new DoubleDictionary(dictionaryPage);
+                case INT32 -> new IntegerDictionary(dictionaryPage);
+                case FLOAT -> new FloatDictionary(dictionaryPage);
+            };
         }
     },
 
@@ -198,17 +180,16 @@ public enum ParquetEncoding
 
     static int getMaxLevel(ColumnDescriptor descriptor, ValuesType valuesType)
     {
-        switch (valuesType) {
-            case REPETITION_LEVEL:
-                return descriptor.getMaxRepetitionLevel();
-            case DEFINITION_LEVEL:
-                return descriptor.getMaxDefinitionLevel();
-            case VALUES:
+        return switch (valuesType) {
+            case REPETITION_LEVEL -> descriptor.getMaxRepetitionLevel();
+            case DEFINITION_LEVEL -> descriptor.getMaxDefinitionLevel();
+            case VALUES -> {
                 if (descriptor.getPrimitiveType().getPrimitiveTypeName() == BOOLEAN) {
-                    return 1;
+                    yield 1;
                 }
-        }
-        throw new ParquetDecodingException("Unsupported values type: " + valuesType);
+                throw new ParquetDecodingException("Unsupported values type: " + valuesType);
+            }
+        };
     }
 
     public boolean usesDictionary()
