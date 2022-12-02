@@ -188,22 +188,20 @@ public class FileSystemExchange
             exchangeSourceHandlesCreationStarted = true;
             exchangeSourceHandlesCreationFuture = stats.getCreateExchangeSourceHandles().record(this::createExchangeSourceHandles);
         }
-        if (exchangeSourceHandlesCreationFuture != null) {
-            Futures.addCallback(exchangeSourceHandlesCreationFuture, new FutureCallback<>()
+        Futures.addCallback(exchangeSourceHandlesCreationFuture, new FutureCallback<>()
+        {
+            @Override
+            public void onSuccess(List<ExchangeSourceHandle> exchangeSourceHandles)
             {
-                @Override
-                public void onSuccess(List<ExchangeSourceHandle> exchangeSourceHandles)
-                {
-                    exchangeSourceHandlesFuture.complete(exchangeSourceHandles);
-                }
+                exchangeSourceHandlesFuture.complete(exchangeSourceHandles);
+            }
 
-                @Override
-                public void onFailure(Throwable throwable)
-                {
-                    exchangeSourceHandlesFuture.completeExceptionally(throwable);
-                }
-            }, directExecutor());
-        }
+            @Override
+            public void onFailure(Throwable throwable)
+            {
+                exchangeSourceHandlesFuture.completeExceptionally(throwable);
+            }
+        }, directExecutor());
     }
 
     private ListenableFuture<List<ExchangeSourceHandle>> createExchangeSourceHandles()
