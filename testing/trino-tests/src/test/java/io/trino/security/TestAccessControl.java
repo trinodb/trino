@@ -16,11 +16,14 @@ package io.trino.security;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Key;
+import com.google.inject.Scopes;
 import io.airlift.testing.Assertions;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.plugin.base.security.ForwardingSystemAccessControl;
@@ -56,9 +59,11 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
@@ -95,6 +100,7 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -104,6 +110,7 @@ public class TestAccessControl
         extends AbstractTestQueryFramework
 {
     private final AtomicReference<SystemAccessControl> systemAccessControl = new AtomicReference<>(new DefaultSystemAccessControl());
+    private TestingSystemSecurityMetadata systemSecurityMetadata;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -114,6 +121,12 @@ public class TestAccessControl
                 .setSchema("default")
                 .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+                .setAdditionalModule(binder -> {
+                    newOptionalBinder(binder, SystemSecurityMetadata.class)
+                            .setBinding()
+                            .to(TestingSystemSecurityMetadata.class)
+                            .in(Scopes.SINGLETON);
+                })
                 .setNodeCount(1)
                 .setSystemAccessControl(new ForwardingSystemAccessControl() {
                     @Override
@@ -197,6 +210,7 @@ public class TestAccessControl
         for (String tableName : ImmutableList.of("orders", "nation", "region", "lineitem")) {
             queryRunner.execute(format("CREATE TABLE %1$s AS SELECT * FROM tpch.tiny.%1$s WITH NO DATA", tableName));
         }
+        systemSecurityMetadata = (TestingSystemSecurityMetadata) queryRunner.getCoordinator().getInstance(Key.get(SystemSecurityMetadata.class));
         return queryRunner;
     }
 
@@ -204,6 +218,8 @@ public class TestAccessControl
     public void reset()
     {
         systemAccessControl.set(new DefaultSystemAccessControl());
+        requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null")
+                .reset();
         getQueryRunner().getAccessControl().reset();
         getQueryRunner().getGroupProvider().reset();
     }
@@ -355,6 +371,88 @@ public class TestAccessControl
         assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW " + nestedViewName);
         assertAccessAllowed(viewOwnerSession, "DROP VIEW " + columnAccessViewName);
         assertAccessAllowed(viewOwnerSession, "DROP VIEW " + invokerViewName);
+    }
+
+    @Test
+    public void testViewOwnersRoleGrants()
+    {
+        String viewOwner = "view_owner";
+        TrinoPrincipal viewOwnerPrincipal = new TrinoPrincipal(USER, viewOwner);
+        String viewName = "test_view_column_access_" + randomNameSuffix();
+
+        systemSecurityMetadata.grantRoles(getSession(), Set.of("view_owner_role"), Set.of(viewOwnerPrincipal), false, Optional.empty());
+        systemSecurityMetadata.setViewOwner(
+                getSession(),
+                new CatalogSchemaTableName("blackhole", "default", viewName),
+                viewOwnerPrincipal);
+
+        Session viewOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.forUser(viewOwner)
+                        .withEnabledRoles(Set.of("view_owner_role"))
+                        .build())
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW " + viewName + " AS SELECT * FROM orders",
+                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        // whenever view_owner_role_without_access is granted to test_view_access_owner, the view cannot be queried
+        getQueryRunner().getAccessControl()
+                .denyIdentityTable((identity, table) -> !(identity.getEnabledRoles().contains("view_owner_role_without_access") && "orders".equals(table)));
+
+        systemSecurityMetadata.grantRoles(getSession(), Set.of("view_owner_role_without_access"), Set.of(viewOwnerPrincipal), false, Optional.empty());
+        assertThatThrownBy(() -> getQueryRunner().execute(viewOwnerSession,
+                "SELECT * FROM " + viewName))
+                .hasMessageMatching("Access Denied: Cannot select from columns \\[.*] in table or view \\w+\\.\\w+\\.orders");
+
+        systemSecurityMetadata.revokeRoles(getSession(), Set.of("view_owner_role_without_access"), Set.of(viewOwnerPrincipal), false, Optional.empty());
+        getQueryRunner().execute(viewOwnerSession, "SELECT * FROM " + viewName);
+
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW " + viewName);
+    }
+
+    @Test
+    public void testJoinBaseTableWithView()
+    {
+        String viewOwner = "view_owner";
+        TrinoPrincipal viewOwnerPrincipal = new TrinoPrincipal(USER, viewOwner);
+        String viewName = "test_join_base_table_with_view_" + randomNameSuffix();
+
+        systemSecurityMetadata.grantRoles(getSession(), Set.of("view_owner_role"), Set.of(viewOwnerPrincipal), false, Optional.empty());
+        systemSecurityMetadata.setViewOwner(
+                getSession(),
+                new CatalogSchemaTableName("blackhole", "default", viewName),
+                viewOwnerPrincipal);
+
+        Session viewOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.forUser(viewOwner)
+                        .withEnabledRoles(Set.of("view_owner_role"))
+                        .build())
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW " + viewName + " AS SELECT * FROM orders",
+                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        // view_owner_role_without_access is granted to view_owner, that role deny access to the base table
+        getQueryRunner().getAccessControl()
+                .denyIdentityTable((identity, table) -> !(identity.getEnabledRoles().contains("view_owner_role_without_access") && "orders".equals(table)));
+        systemSecurityMetadata.grantRoles(getSession(), Set.of("view_owner_role_without_access"), Set.of(viewOwnerPrincipal), false, Optional.empty());
+        String errorMessage = "Access Denied: Cannot select from columns \\[.*] in table or view \\w+\\.\\w+\\.orders";
+
+        getQueryRunner().execute(viewOwnerSession, "SELECT * FROM orders");
+        assertThatThrownBy(() -> getQueryRunner().execute(viewOwnerSession, "SELECT * FROM " + viewName))
+                .hasMessageMatching(errorMessage);
+        assertThatThrownBy(() -> getQueryRunner().execute(viewOwnerSession, "SELECT * FROM orders, " + viewName))
+                .hasMessageMatching(errorMessage);
+        assertThatThrownBy(() -> getQueryRunner().execute(viewOwnerSession, "SELECT * FROM %s, orders".formatted(viewName)))
+                .hasMessageMatching(errorMessage);
+
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW " + viewName);
     }
 
     @Test
