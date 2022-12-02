@@ -201,9 +201,11 @@ public class TestAccessControl
     }
 
     @BeforeMethod
-    public void resetSystemAccessControl()
+    public void reset()
     {
         systemAccessControl.set(new DefaultSystemAccessControl());
+        getQueryRunner().getAccessControl().reset();
+        getQueryRunner().getGroupProvider().reset();
     }
 
     @Test
@@ -337,22 +339,14 @@ public class TestAccessControl
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
 
         // verify that groups are set inside access control
-        executeExclusively(() -> {
-            try {
-                // require view owner to be in a group to access table
-                getQueryRunner().getAccessControl().denyIdentityTable((identity, table) -> identity.getGroups().contains("testgroup") || !"orders".equals(table));
-                assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "SELECT * FROM " + columnAccessViewName))
-                        .hasMessageMatching("Access Denied: View owner does not have sufficient privileges: View owner 'test_view_access_owner' cannot create view that selects from \\w+.\\w+.orders");
+        // require view owner to be in a group to access table
+        getQueryRunner().getAccessControl().denyIdentityTable((identity, table) -> identity.getGroups().contains("testgroup") || !"orders".equals(table));
+        assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "SELECT * FROM " + columnAccessViewName))
+                .hasMessageMatching("Access Denied: View owner does not have sufficient privileges: View owner 'test_view_access_owner' cannot create view that selects from \\w+.\\w+.orders");
 
-                // verify view can be queried when owner is in group
-                getQueryRunner().getGroupProvider().setUserGroups(ImmutableMap.of(viewOwnerSession.getUser(), ImmutableSet.of("testgroup")));
-                getQueryRunner().execute(getSession(), "SELECT * FROM " + columnAccessViewName);
-            }
-            finally {
-                getQueryRunner().getAccessControl().reset();
-                getQueryRunner().getGroupProvider().reset();
-            }
-        });
+        // verify view can be queried when owner is in group
+        getQueryRunner().getGroupProvider().setUserGroups(ImmutableMap.of(viewOwnerSession.getUser(), ImmutableSet.of("testgroup")));
+        getQueryRunner().execute(getSession(), "SELECT * FROM " + columnAccessViewName);
 
         // change access denied exception to view
         assertAccessDenied("SHOW CREATE VIEW " + nestedViewName, "Cannot show create table for .*test_nested_view_column_access.*", privilege(nestedViewName, SHOW_CREATE_TABLE));
@@ -599,26 +593,19 @@ public class TestAccessControl
     public void testDescribe()
     {
         assertAccessDenied("DESCRIBE orders", "Cannot show columns of table default.orders", privilege("orders", SHOW_COLUMNS));
-        executeExclusively(() -> {
-            try {
-                getQueryRunner().getAccessControl().deny(privilege("orders.orderkey", SELECT_COLUMN));
-                assertQuery(
-                        "DESCRIBE orders",
-                        "VALUES " +
-                                // orderkey column is filtered
-                                "('custkey', 'bigint', '', '')," +
-                                "('orderstatus', 'varchar(1)', '', '')," +
-                                "('totalprice', 'double', '', '')," +
-                                "('orderdate', 'date', '', '')," +
-                                "('orderpriority', 'varchar(15)', '', '')," +
-                                "('clerk', 'varchar(15)', '', '')," +
-                                "('shippriority', 'integer', '', '')," +
-                                "('comment', 'varchar(79)', '', '')");
-            }
-            finally {
-                getQueryRunner().getAccessControl().reset();
-            }
-        });
+        getQueryRunner().getAccessControl().deny(privilege("orders.orderkey", SELECT_COLUMN));
+        assertQuery(
+                "DESCRIBE orders",
+                "VALUES " +
+                        // orderkey column is filtered
+                        "('custkey', 'bigint', '', '')," +
+                        "('orderstatus', 'varchar(1)', '', '')," +
+                        "('totalprice', 'double', '', '')," +
+                        "('orderdate', 'date', '', '')," +
+                        "('orderpriority', 'varchar(15)', '', '')," +
+                        "('clerk', 'varchar(15)', '', '')," +
+                        "('shippriority', 'integer', '', '')," +
+                        "('comment', 'varchar(79)', '', '')");
     }
 
     @Test
@@ -627,26 +614,19 @@ public class TestAccessControl
         String viewName = "describe_orders_view" + randomNameSuffix();
         assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM orders");
         assertAccessDenied("DESCRIBE " + viewName, "Cannot show columns of table default.*", privilege(viewName, SHOW_COLUMNS));
-        executeExclusively(() -> {
-            try {
-                getQueryRunner().getAccessControl().deny(privilege(viewName + ".orderkey", SELECT_COLUMN));
-                assertQuery(
-                        "DESCRIBE " + viewName,
-                        "VALUES " +
-                                // orderkey column is filtered
-                                "('custkey', 'bigint', '', '')," +
-                                "('orderstatus', 'varchar(1)', '', '')," +
-                                "('totalprice', 'double', '', '')," +
-                                "('orderdate', 'date', '', '')," +
-                                "('orderpriority', 'varchar(15)', '', '')," +
-                                "('clerk', 'varchar(15)', '', '')," +
-                                "('shippriority', 'integer', '', '')," +
-                                "('comment', 'varchar(79)', '', '')");
-            }
-            finally {
-                getQueryRunner().getAccessControl().reset();
-            }
-        });
+        getQueryRunner().getAccessControl().deny(privilege(viewName + ".orderkey", SELECT_COLUMN));
+        assertQuery(
+                "DESCRIBE " + viewName,
+                "VALUES " +
+                        // orderkey column is filtered
+                        "('custkey', 'bigint', '', '')," +
+                        "('orderstatus', 'varchar(1)', '', '')," +
+                        "('totalprice', 'double', '', '')," +
+                        "('orderdate', 'date', '', '')," +
+                        "('orderpriority', 'varchar(15)', '', '')," +
+                        "('clerk', 'varchar(15)', '', '')," +
+                        "('shippriority', 'integer', '', '')," +
+                        "('comment', 'varchar(79)', '', '')");
         assertUpdate("DROP VIEW " + viewName);
     }
 
@@ -706,119 +686,68 @@ public class TestAccessControl
     @Test
     public void testSystemMetadataAnalyzePropertiesFilteringValues()
     {
-        executeExclusively(() -> {
-            try {
-                getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
-                assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.analyze_properties");
-            }
-            finally {
-                getQueryRunner().getAccessControl().reset();
-            }
-        });
+        getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
+        assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.analyze_properties");
     }
 
     @Test
     public void testSystemMetadataMaterializedViewPropertiesFilteringValues()
     {
-        executeExclusively(() -> {
-            try {
-                getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
-                assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.materialized_view_properties");
-            }
-            finally {
-                getQueryRunner().getAccessControl().reset();
-            }
-        });
+        getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
+        assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.materialized_view_properties");
     }
 
     @Test
     public void testSystemMetadataSchemaPropertiesFilteringValues()
     {
-        executeExclusively(() -> {
-            try {
-                getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
-                assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.schema_properties");
-            }
-            finally {
-                getQueryRunner().getAccessControl().reset();
-            }
-        });
+        getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
+        assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.schema_properties");
     }
 
     @Test
     public void testSystemMetadataTablePropertiesFilteringValues()
     {
-        executeExclusively(() -> {
-            try {
-                getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("blackhole") && !catalog.equals("mock"));
-                assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.table_properties");
-            }
-            finally {
-                getQueryRunner().getAccessControl().reset();
-            }
-        });
+        getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("blackhole") && !catalog.equals("mock"));
+        assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.table_properties");
     }
 
     @Test
     public void testSystemMetadataColumnPropertiesFilteringValues()
     {
-        executeExclusively(() -> {
-            try {
-                getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
-                assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.column_properties");
-            }
-            finally {
-                getQueryRunner().getAccessControl().reset();
-            }
-        });
+        getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
+        assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.column_properties");
     }
 
     @Test
     public void testUseStatementAccessControl()
     {
-        executeExclusively(() -> {
-            Session session = testSessionBuilder()
-                    .setCatalog(Optional.empty())
-                    .setSchema(Optional.empty())
-                    .build();
-            getQueryRunner().execute(session, "USE tpch.tiny");
-            assertThatThrownBy(() -> getQueryRunner().execute("USE not_exists_catalog.tiny"))
-                    .hasMessageMatching("Catalog does not exist: not_exists_catalog");
-            assertThatThrownBy(() -> getQueryRunner().execute("USE tpch.not_exists_schema"))
-                    .hasMessageMatching("Schema does not exist: tpch.not_exists_schema");
-        });
+        Session session = testSessionBuilder()
+                .setCatalog(Optional.empty())
+                .setSchema(Optional.empty())
+                .build();
+        getQueryRunner().execute(session, "USE tpch.tiny");
+        assertThatThrownBy(() -> getQueryRunner().execute("USE not_exists_catalog.tiny"))
+                .hasMessageMatching("Catalog does not exist: not_exists_catalog");
+        assertThatThrownBy(() -> getQueryRunner().execute("USE tpch.not_exists_schema"))
+                .hasMessageMatching("Schema does not exist: tpch.not_exists_schema");
     }
 
     @Test
     public void testUseStatementAccessControlWithDeniedCatalog()
     {
-        executeExclusively(() -> {
-            try {
-                getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("tpch"));
-                assertThatThrownBy(() -> getQueryRunner().execute("USE tpch.tiny"))
-                        .hasMessageMatching("Access Denied: Cannot access catalog tpch");
-                assertThatThrownBy(() -> getQueryRunner().execute("USE tpch.not_exists_schema"))
-                        .hasMessageMatching("Access Denied: Cannot access catalog tpch");
-            }
-            finally {
-                getQueryRunner().getAccessControl().reset();
-            }
-        });
+        getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("tpch"));
+        assertThatThrownBy(() -> getQueryRunner().execute("USE tpch.tiny"))
+                .hasMessageMatching("Access Denied: Cannot access catalog tpch");
+        assertThatThrownBy(() -> getQueryRunner().execute("USE tpch.not_exists_schema"))
+                .hasMessageMatching("Access Denied: Cannot access catalog tpch");
     }
 
     @Test
     public void testUseStatementAccessControlWithDeniedSchema()
     {
-        executeExclusively(() -> {
-            try {
-                getQueryRunner().getAccessControl().denySchemas(schema -> !schema.equals("tiny"));
-                assertThatThrownBy(() -> getQueryRunner().execute("USE tpch.tiny"))
-                        .hasMessageMatching("Access Denied: Cannot access schema: tpch.tiny");
-            }
-            finally {
-                getQueryRunner().getAccessControl().reset();
-            }
-        });
+        getQueryRunner().getAccessControl().denySchemas(schema -> !schema.equals("tiny"));
+        assertThatThrownBy(() -> getQueryRunner().execute("USE tpch.tiny"))
+                .hasMessageMatching("Access Denied: Cannot access schema: tpch.tiny");
     }
 
     @Test
