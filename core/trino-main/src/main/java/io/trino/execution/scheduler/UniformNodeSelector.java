@@ -49,6 +49,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.scheduler.NodeScheduler.calculateLowWatermark;
+import static io.trino.execution.scheduler.NodeScheduler.filterNodes;
 import static io.trino.execution.scheduler.NodeScheduler.getAllNodes;
 import static io.trino.execution.scheduler.NodeScheduler.randomizedNodes;
 import static io.trino.execution.scheduler.NodeScheduler.selectDistributionNodes;
@@ -132,12 +133,15 @@ public class UniformNodeSelector
         NodeMap nodeMap = this.nodeMap.get().get();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
-        ResettableRandomizedIterator<InternalNode> randomCandidates = randomizedNodes(nodeMap, includeCoordinator, ImmutableSet.of());
         Set<InternalNode> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
         // splitsToBeRedistributed becomes true only when splits go through locality-based assignment
         boolean splitsToBeRedistributed = false;
         Set<Split> remainingSplits = new HashSet<>();
+
+        List<InternalNode> filteredNodes = filterNodes(nodeMap, includeCoordinator, ImmutableSet.of());
+        ResettableRandomizedIterator<InternalNode> randomCandidates = new ResettableRandomizedIterator<>(filteredNodes);
+        Set<InternalNode> schedulableNodes = new HashSet<>(filteredNodes);
 
         // optimizedLocalScheduling enables prioritized assignment of splits to local nodes when splits contain locality information
         if (optimizedLocalScheduling) {
@@ -194,12 +198,18 @@ public class UniformNodeSelector
                 assignmentStats.addAssignedSplit(chosenNode, split.getSplitWeight());
             }
             else {
+                candidateNodes.forEach(schedulableNodes::remove);
                 if (split.isRemotelyAccessible()) {
                     splitWaitingForAnyNode = true;
                 }
                 // Exact node set won't matter, if a split is waiting for any node
                 else if (!splitWaitingForAnyNode) {
                     blockedExactNodes.addAll(candidateNodes);
+                }
+
+                if (splitWaitingForAnyNode && schedulableNodes.isEmpty()) {
+                    // All nodes assigned, no need to test if we can assign new split
+                    break;
                 }
             }
         }

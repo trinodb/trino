@@ -87,11 +87,15 @@ public class NodeScheduler
 
     public static ResettableRandomizedIterator<InternalNode> randomizedNodes(NodeMap nodeMap, boolean includeCoordinator, Set<InternalNode> excludedNodes)
     {
-        ImmutableList<InternalNode> nodes = nodeMap.getNodesByHostAndPort().values().stream()
+        return new ResettableRandomizedIterator<>(filterNodes(nodeMap, includeCoordinator, excludedNodes));
+    }
+
+    public static List<InternalNode> filterNodes(NodeMap nodeMap, boolean includeCoordinator, Set<InternalNode> excludedNodes)
+    {
+        return nodeMap.getNodesByHostAndPort().values().stream()
                 .filter(node -> includeCoordinator || !nodeMap.getCoordinatorNodeIds().contains(node.getNodeIdentifier()))
                 .filter(node -> !excludedNodes.contains(node))
                 .collect(toImmutableList());
-        return new ResettableRandomizedIterator<>(nodes);
     }
 
     public static List<InternalNode> selectExactNodes(NodeMap nodeMap, List<HostAddress> hosts, boolean includeCoordinator)
