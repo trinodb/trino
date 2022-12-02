@@ -187,11 +187,6 @@ public class FileSystemExchange
             // input is ready, create exchange source handles
             exchangeSourceHandlesCreationStarted = true;
             exchangeSourceHandlesCreationFuture = stats.getCreateExchangeSourceHandles().record(this::createExchangeSourceHandles);
-            exchangeSourceHandlesFuture.whenComplete((value, failure) -> {
-                if (exchangeSourceHandlesFuture.isCancelled()) {
-                    exchangeSourceHandlesFuture.cancel(true);
-                }
-            });
         }
         if (exchangeSourceHandlesCreationFuture != null) {
             Futures.addCallback(exchangeSourceHandlesCreationFuture, new FutureCallback<>()
