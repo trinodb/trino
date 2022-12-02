@@ -23,26 +23,13 @@ import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
-import org.openjdk.jmh.annotations.Fork;
-import org.openjdk.jmh.annotations.Measurement;
-import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.Warmup;
 
 import static io.trino.parquet.reader.TestData.longToBytes;
 import static io.trino.parquet.reader.TestData.unscaledRandomShortDecimalSupplier;
 import static java.lang.Math.toIntExact;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 
-@State(Scope.Thread)
-@OutputTimeUnit(SECONDS)
-@Measurement(iterations = 15, time = 500, timeUnit = MILLISECONDS)
-@Warmup(iterations = 5, time = 500, timeUnit = MILLISECONDS)
-@Fork(2)
 public class BenchmarkShortDecimalColumnReader
         extends AbstractColumnReaderBenchmark<long[]>
 {
