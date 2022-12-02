@@ -153,3 +153,4 @@ to split and then count the number of comma-separated values in a column::
         )
       );
 
+.. include:: query-function-escaping-quotes.fragment

@@ -365,6 +365,7 @@ For example, select the top 10 percent of nations by population::
         )
       );
 
+.. include:: query-function-escaping-quotes.fragment
 
 Performance
 -----------

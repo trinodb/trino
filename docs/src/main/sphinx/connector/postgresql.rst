@@ -392,6 +392,7 @@ when using window functions::
         )
       );
 
+.. include:: query-function-escaping-quotes.fragment
 
 Performance
 -----------

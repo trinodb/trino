@@ -343,6 +343,8 @@ For example, group and concatenate all employee IDs by manager ID::
         )
       );
 
+.. include:: query-function-escaping-quotes.fragment
+
 FAQ
 ---
 

@@ -1,0 +1,5 @@
+.. note::
+
+  If your query statement includes characters in quotes, you must escape the
+  quote with two single quotes ``''`` instead of a double quote ``"`` to prevent
+  the parser from ending the string.

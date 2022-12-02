@@ -532,3 +532,5 @@ For example, get all rows where ``regionkey`` field is 0::
           filter => '{ regionkey: 0 }'
         )
       );
+
+.. include:: query-function-escaping-quotes.fragment

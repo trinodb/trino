@@ -177,3 +177,4 @@ For example, select the top 10 nations by population::
         )
       );
 
+.. include:: query-function-escaping-quotes.fragment

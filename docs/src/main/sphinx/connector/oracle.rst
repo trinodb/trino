@@ -476,6 +476,8 @@ As a practical example, you can use the
         )
       );
 
+.. include:: query-function-escaping-quotes.fragment
+
 Performance
 -----------
 

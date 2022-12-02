@@ -344,6 +344,12 @@ For example, group and concatenate all employee IDs by manager ID::
         )
       );
 
+.. note::
+
+  If your query statement includes characters in quotes, you must escape the
+  quote with two single quotes ``''`` instead of a double quote ``"`` to prevent
+  the parser from ending the string.
+
 Performance
 -----------
 

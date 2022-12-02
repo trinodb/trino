@@ -310,6 +310,8 @@ As an example, select the age of employees by using ``TIMESTAMPDIFF`` and
         )
       );
 
+.. include:: query-function-escaping-quotes.fragment
+
 Performance
 -----------
 
