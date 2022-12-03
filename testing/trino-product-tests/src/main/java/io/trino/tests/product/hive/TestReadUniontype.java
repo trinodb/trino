@@ -268,6 +268,93 @@ public class TestReadUniontype
         }
     }
 
+    /**
+     * When reading AVRO file, Trino needs the schema information from Hive metastore to deserialize Avro files.
+     * Therefore, when an ALTER table was issued in which the hive metastore changed the schema into an incompatible format,
+     * from Union to Struct or from Struct to Union in this case, Trino could not read those Avro files using the modified Hive metastore schema.
+     * However, when reading ORC files, Trino does not need schema information from Hive metastore to deserialize ORC files.
+     * Therefore, it can read ORC files even after changing the schema.
+     */
+    @Test(groups = SMOKE)
+    public void testORCUnionToStructSchemaEvolution()
+    {
+        // According to testing results, the Hive INSERT queries here only work in Hive 1.2
+        if (getHiveVersionMajor() != 1 || getHiveVersionMinor() != 2) {
+            throw new SkipException("This test can only be run with Hive 1.2 (default config)");
+        }
+        String tableReadUnionAsStruct = "test_read_union_as_struct_" + randomNameSuffix();
+
+        onHive().executeQuery("SET hive.exec.dynamic.partition.mode = nonstrict");
+        onHive().executeQuery("SET hive.exec.dynamic.partition=true");
+
+        onHive().executeQuery(format(
+                "CREATE TABLE %s(" +
+                        "c1 UNIONTYPE<STRUCT<a:STRING,b:STRING>, STRUCT<c:STRING,d:STRING>>) " +
+                        "PARTITIONED BY (p INT) STORED AS %s",
+                tableReadUnionAsStruct,
+                "ORC"));
+
+        onHive().executeQuery(format("INSERT INTO TABLE %s PARTITION(p) " +
+                        "SELECT CREATE_UNION(1, NAMED_STRUCT('a', 'a1', 'b', 'b1'), NAMED_STRUCT('c', 'ignores', 'd', 'ignore')), 999 FROM (SELECT 1) t",
+                tableReadUnionAsStruct));
+
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN c1 c1 " +
+                        " STRUCT<tag:INT, field0:STRUCT<a:STRING, b:STRING>, field1:STRUCT<c:STRING, d:STRING>>",
+                tableReadUnionAsStruct));
+
+        onHive().executeQuery(format("INSERT INTO TABLE %s PARTITION(p) " +
+                        "SELECT NAMED_STRUCT('tag', 0, 'field0', NAMED_STRUCT('a', 'a11', 'b', 'b1b'), 'field1', NAMED_STRUCT('c', 'ignores', 'd', 'ignores')), 100 FROM (SELECT 1) t",
+                tableReadUnionAsStruct));
+        // using dereference
+        QueryResult selectAllResult = onTrino().executeQuery(format("SELECT c1.field0 FROM hive.default.%s", tableReadUnionAsStruct));
+        // the first insert didn't add value to field0, since the tag is 1 during inserting
+        assertThat(selectAllResult.column(1)).containsExactlyInAnyOrder(null, Row.builder().addField("a", "a11").addField("b", "b1b").build());
+    }
+
+    /**
+     * When reading AVRO file, Trino needs the schema information from Hive metastore to deserialize Avro files.
+     * Therefore, when an ALTER table was issued in which the hive metastore changed the schema into an incompatible format,
+     * from Union to Struct or from Struct to Union in this case, Trino could not read those Avro files using the modified Hive metastore schema.
+     * However, when reading ORC files, Trino does not need schema information from Hive metastore to deserialize ORC files.
+     * Therefore, it can read ORC files even after changing the schema.
+     */
+    @Test(groups = SMOKE)
+    public void testORCStructToUnionSchemaEvolution()
+    {
+        // According to testing results, the Hive INSERT queries here only work in Hive 1.2
+        if (getHiveVersionMajor() != 1 || getHiveVersionMinor() != 2) {
+            throw new SkipException("This test can only be run with Hive 1.2 (default config)");
+        }
+        String tableReadStructAsUnion = "test_read_struct_as_union_" + randomNameSuffix();
+
+        onHive().executeQuery("SET hive.exec.dynamic.partition.mode = nonstrict");
+        onHive().executeQuery("SET hive.exec.dynamic.partition=true");
+
+        onHive().executeQuery(format(
+                "CREATE TABLE %s(" +
+                        "c1 STRUCT<tag:TINYINT, field0:STRUCT<a:STRING, b:STRING>, field1:STRUCT<c:STRING, d:STRING>>) " +
+                        "PARTITIONED BY (p INT) STORED AS %s",
+                tableReadStructAsUnion,
+                "ORC"));
+
+        onHive().executeQuery(format("INSERT INTO TABLE %s PARTITION(p) " +
+                        "SELECT NAMED_STRUCT('tag', 0Y, 'field0', NAMED_STRUCT('a', 'a11', 'b', 'b1b'), 'field1', NAMED_STRUCT('c', 'ignores', 'd', 'ignores')), 100 FROM (SELECT 1) t",
+                tableReadStructAsUnion));
+
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN c1 c1 " +
+                        " UNIONTYPE<STRUCT<a:STRING,b:STRING>, STRUCT<c:STRING,d:STRING>>",
+                tableReadStructAsUnion));
+
+        onHive().executeQuery(format("INSERT INTO TABLE %s PARTITION(p) " +
+                        "SELECT CREATE_UNION(1, NAMED_STRUCT('a', 'a1', 'b', 'b1'), NAMED_STRUCT('c', 'ignores', 'd', 'ignore')), 999 from (SELECT 1) t",
+                tableReadStructAsUnion));
+
+        // using dereference
+        QueryResult selectAllResult = onTrino().executeQuery(format("SELECT c1.field0 FROM hive.default.%s", tableReadStructAsUnion));
+        // the second insert didn't add value to field0, since the tag is 1 during inserting
+        assertThat(selectAllResult.column(1)).containsExactlyInAnyOrder(null, Row.builder().addField("a", "a11").addField("b", "b1b").build());
+    }
+
     @Test(groups = SMOKE)
     public void testReadOrcUniontypeWithCheckpoint()
     {
