@@ -26,7 +26,7 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
-import io.trino.plugin.jdbc.RetryingConnectionFactory;
+import io.trino.plugin.jdbc.RetryingConnectionCondition;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.ptf.ConnectorTableFunction;
@@ -54,6 +54,7 @@ public class OracleClientModule
         configBinder(binder).bindConfig(OracleConfig.class);
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(ORACLE_MAX_LIST_EXPRESSIONS);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, RetryingConnectionCondition.class).setBinding().toInstance(OracleClientModule::isRetryableException);
     }
 
     @Provides
@@ -76,12 +77,11 @@ public class OracleClientModule
                     oracleConfig.getInactiveConnectionTimeout());
         }
 
-        return new RetryingConnectionFactory(new DriverConnectionFactory(
+        return new DriverConnectionFactory(
                 new OracleDriver(),
                 config.getConnectionUrl(),
                 connectionProperties,
-                credentialProvider),
-                OracleClientModule::isRetryableException);
+                credentialProvider);
     }
 
     static boolean isRetryableException(Throwable exception)

@@ -94,7 +94,7 @@ public class JdbcModule
                 QueryConfig::isRetryOpeningConnection,
                 innerBinder -> {
                     innerBinder.bind(ConnectionFactory.class).annotatedWith(ForRetryJdbc.class).to(RetryingConnectionFactory.class);
-                    innerBinder.bind(RetryingConnectionCondition.class).toInstance(RetryingConnectionFactory::isRetryableException);
+                    newOptionalBinder(innerBinder, RetryingConnectionCondition.class);
                 },
                 innerBinder -> innerBinder.bind(ConnectionFactory.class).annotatedWith(ForRetryJdbc.class).to(Key.get(ConnectionFactory.class, ForBaseJdbc.class)).in(Scopes.SINGLETON)));
 

@@ -29,7 +29,7 @@ public class TestQueryConfig
     {
         assertRecordedDefaults(recordDefaults(QueryConfig.class)
                 .setReuseConnection(true)
-                .setRetryOpeningConnection(false));
+                .setRetryOpeningConnection(true));
     }
 
     @Test
@@ -37,12 +37,12 @@ public class TestQueryConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.reuse-connection", "false")
-                .put("query.retry-opening-connection", "true")
+                .put("query.retry-opening-connection", "false")
                 .buildOrThrow();
 
         QueryConfig expected = new QueryConfig()
                 .setReuseConnection(false)
-                .setRetryOpeningConnection(true);
+                .setRetryOpeningConnection(false);
 
         assertFullMapping(properties, expected);
     }

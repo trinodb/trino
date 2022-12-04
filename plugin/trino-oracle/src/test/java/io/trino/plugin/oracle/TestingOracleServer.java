@@ -37,6 +37,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
@@ -124,7 +125,7 @@ public class TestingOracleServer
                 new OracleDriver(),
                 new BaseJdbcConfig().setConnectionUrl(connectionUrl),
                 StaticCredentialProvider.of(username, password));
-        return new RetryingConnectionFactory(connectionFactory, OracleClientModule::isRetryableException);
+        return new RetryingConnectionFactory(connectionFactory, Optional.of(OracleClientModule::isRetryableException));
     }
 
     @Override

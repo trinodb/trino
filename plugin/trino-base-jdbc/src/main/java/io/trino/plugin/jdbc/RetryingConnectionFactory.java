@@ -24,6 +24,7 @@ import net.jodah.failsafe.RetryPolicy;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLTransientException;
+import java.util.Optional;
 
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.time.temporal.ChronoUnit.SECONDS;
@@ -36,16 +37,18 @@ public class RetryingConnectionFactory
     private final ConnectionFactory delegate;
 
     @Inject
-    public RetryingConnectionFactory(@ForBaseJdbc ConnectionFactory delegate, RetryingConnectionCondition condition)
+    public RetryingConnectionFactory(@ForBaseJdbc ConnectionFactory delegate, Optional<RetryingConnectionCondition> condition)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         requireNonNull(condition, "condition is null");
+
+        System.out.println("RetryingConnectionFactory condition: " + condition);
 
         this.retryPolicy = new RetryPolicy<>()
                 .withMaxDuration(java.time.Duration.of(30, SECONDS))
                 .withMaxAttempts(5)
                 .withBackoff(50, 5_000, MILLIS, 4)
-                .handleIf(condition::isRetryable)
+                .handleIf(condition.orElseGet(() -> RetryingConnectionFactory::isRetryableException)::isRetryable)
                 .abortOn(TrinoException.class);
     }
 

@@ -19,7 +19,7 @@ import io.airlift.configuration.ConfigDescription;
 public class QueryConfig
 {
     private boolean reuseConnection = true;
-    private boolean retryOpeningConnection;
+    private boolean retryOpeningConnection = true;
 
     public boolean isReuseConnection()
     {

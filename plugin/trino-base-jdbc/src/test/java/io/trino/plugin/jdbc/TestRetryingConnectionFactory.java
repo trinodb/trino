@@ -23,6 +23,7 @@ import java.sql.SQLException;
 import java.sql.SQLTransientException;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.reflect.Reflection.newProxy;
@@ -52,7 +53,7 @@ public class TestRetryingConnectionFactory
             throws Exception
     {
         MockConnectorFactory mock = new MockConnectorFactory(RETURN);
-        ConnectionFactory factory = new RetryingConnectionFactory(mock, RetryingConnectionFactory::isRetryableException);
+        ConnectionFactory factory = new RetryingConnectionFactory(mock, Optional.of(RetryingConnectionFactory::isRetryableException));
         assertNotNull(factory.openConnection(SESSION));
         assertEquals(mock.getCallCount(), 1);
     }
@@ -61,7 +62,7 @@ public class TestRetryingConnectionFactory
     public void testRetryAndStopOnTrinoException()
     {
         MockConnectorFactory mock = new MockConnectorFactory(THROW_SQL_TRANSIENT_EXCEPTION, THROW_TRINO_EXCEPTION);
-        ConnectionFactory factory = new RetryingConnectionFactory(mock, RetryingConnectionFactory::isRetryableException);
+        ConnectionFactory factory = new RetryingConnectionFactory(mock, Optional.of(RetryingConnectionFactory::isRetryableException));
         assertThatThrownBy(() -> factory.openConnection(SESSION))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Testing Trino exception");
@@ -72,7 +73,7 @@ public class TestRetryingConnectionFactory
     public void testRetryAndStopOnSqlException()
     {
         MockConnectorFactory mock = new MockConnectorFactory(THROW_SQL_TRANSIENT_EXCEPTION, THROW_SQL_EXCEPTION);
-        ConnectionFactory factory = new RetryingConnectionFactory(mock, RetryingConnectionFactory::isRetryableException);
+        ConnectionFactory factory = new RetryingConnectionFactory(mock, Optional.of(RetryingConnectionFactory::isRetryableException));
         assertThatThrownBy(() -> factory.openConnection(SESSION))
                 .isInstanceOf(SQLException.class)
                 .hasMessage("Testing sql exception");
@@ -83,7 +84,7 @@ public class TestRetryingConnectionFactory
     public void testNullPointerException()
     {
         MockConnectorFactory mock = new MockConnectorFactory(THROW_NPE);
-        ConnectionFactory factory = new RetryingConnectionFactory(mock, RetryingConnectionFactory::isRetryableException);
+        ConnectionFactory factory = new RetryingConnectionFactory(mock, Optional.of(RetryingConnectionFactory::isRetryableException));
         assertThatThrownBy(() -> factory.openConnection(SESSION))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("Testing NPE");
@@ -95,7 +96,7 @@ public class TestRetryingConnectionFactory
             throws Exception
     {
         MockConnectorFactory mock = new MockConnectorFactory(THROW_SQL_TRANSIENT_EXCEPTION, RETURN);
-        ConnectionFactory factory = new RetryingConnectionFactory(mock, RetryingConnectionFactory::isRetryableException);
+        ConnectionFactory factory = new RetryingConnectionFactory(mock, Optional.of(RetryingConnectionFactory::isRetryableException));
         assertNotNull(factory.openConnection(SESSION));
         assertEquals(mock.getCallCount(), 2);
     }
@@ -105,7 +106,7 @@ public class TestRetryingConnectionFactory
             throws Exception
     {
         MockConnectorFactory mock = new MockConnectorFactory(THROW_WRAPPED_SQL_TRANSIENT_EXCEPTION, RETURN);
-        ConnectionFactory factory = new RetryingConnectionFactory(mock, RetryingConnectionFactory::isRetryableException);
+        ConnectionFactory factory = new RetryingConnectionFactory(mock, Optional.of(RetryingConnectionFactory::isRetryableException));
         assertNotNull(factory.openConnection(SESSION));
         assertEquals(mock.getCallCount(), 2);
     }
