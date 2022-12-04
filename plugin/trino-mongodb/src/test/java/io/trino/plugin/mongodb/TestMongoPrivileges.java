@@ -46,6 +46,12 @@ public class TestMongoPrivileges
     }
 
     @Test
+    public void testSchemasVisibility()
+    {
+        assertQuery("SHOW SCHEMAS FROM mongodb", "VALUES 'information_schema','%s'".formatted(TEST_DATABASE));
+    }
+
+    @Test
     public void testTablesVisibility()
     {
         assertQuery("SHOW TABLES FROM mongodb." + TEST_DATABASE, "VALUES '%s'".formatted(TEST_COLLECTION.toLowerCase(Locale.ENGLISH)));
