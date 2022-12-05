@@ -126,7 +126,7 @@ public final class IcebergQueryRunner
                 }
 
                 queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
-                schemaInitializer.orElse(SchemaInitializer.builder().build()).accept(queryRunner);
+                schemaInitializer.orElseGet(() -> SchemaInitializer.builder().build()).accept(queryRunner);
 
                 return queryRunner;
             }

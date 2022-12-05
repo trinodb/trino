@@ -111,7 +111,7 @@ public final class PartitionProjection
                                         table.getPartitionColumns().stream()
                                                 .map(column -> column.getName()).collect(Collectors.toList()),
                                         partitionValues))
-                                .orElse(format("%s/%s/", table.getStorage().getLocation(), partitionName)))
+                                .orElseGet(() -> format("%s/%s/", table.getStorage().getLocation(), partitionName)))
                         .setBucketProperty(table.getStorage().getBucketProperty())
                         .setSerdeParameters(table.getStorage().getSerdeParameters()))
                 .build();

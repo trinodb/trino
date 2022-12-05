@@ -101,7 +101,7 @@ public class StatsCalculatorAssertion
                             noLookup(),
                             transactionSession,
                             types,
-                            tableStatsProvider.orElse(new CachingTableStatsProvider(metadata, session)));
+                            tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(metadata, session)));
                 });
         statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate));
         return this;
@@ -116,7 +116,7 @@ public class StatsCalculatorAssertion
                 noLookup(),
                 session,
                 types,
-                tableStatsProvider.orElse(new CachingTableStatsProvider(metadata, session)));
+                tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(metadata, session)));
         checkState(statsEstimate.isPresent(), "Expected stats estimates to be present");
         statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate.get()));
         return this;

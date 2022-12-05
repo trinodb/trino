@@ -211,7 +211,7 @@ public class TestingConnectorSession
                     traceToken,
                     timeZoneKey,
                     locale,
-                    start.orElse(Instant.now()),
+                    start.orElseGet(Instant::now),
                     propertyMetadatas,
                     propertyValues);
         }

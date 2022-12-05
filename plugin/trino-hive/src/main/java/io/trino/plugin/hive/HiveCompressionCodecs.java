@@ -26,7 +26,7 @@ public final class HiveCompressionCodecs
         HiveCompressionOption compressionOption = HiveSessionProperties.getCompressionCodec(session);
         return HiveStorageFormat.getHiveStorageFormat(storageFormat)
                 .map(format -> selectCompressionCodec(compressionOption, format))
-                .orElse(selectCompressionCodecForUnknownStorageFormat(compressionOption));
+                .orElseGet(() -> selectCompressionCodecForUnknownStorageFormat(compressionOption));
     }
 
     public static HiveCompressionCodec selectCompressionCodec(ConnectorSession session, HiveStorageFormat storageFormat)

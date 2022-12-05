@@ -214,7 +214,7 @@ public final class TestingKafka
         try (KafkaProducer<K, V> producer = createProducer(extraProducerProperties)) {
             Future<RecordMetadata> future = recordStream.map(record -> send(producer, record))
                     .reduce((first, second) -> second)
-                    .orElse(Futures.immediateFuture(null));
+                    .orElseGet(() -> Futures.immediateFuture(null));
             producer.flush();
             return future.get();
         }
