@@ -297,7 +297,7 @@ public final class ParquetTypeUtils
             if (bytes[i] != expectedValue) {
                 throw new TrinoException(NOT_SUPPORTED, format(
                         "Could not read unscaled value %s into %s from column %s",
-                        new BigInteger(bytes),
+                        new BigInteger(bytes, offset, length + Long.BYTES),
                         trinoType,
                         descriptor));
             }

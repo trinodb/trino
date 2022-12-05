@@ -244,6 +244,7 @@ public final class PlainValueDecoders
         private final int typeLength;
         private final DecimalType decimalType;
         private final ColumnDescriptor descriptor;
+        private final ShortDecimalFixedWidthByteArrayBatchDecoder decimalValueDecoder;
 
         private SimpleSliceInputStream input;
 
@@ -254,6 +255,7 @@ public final class PlainValueDecoders
             this.descriptor = requireNonNull(descriptor, "descriptor is null");
             this.typeLength = descriptor.getPrimitiveType().getTypeLength();
             checkArgument(typeLength > 0 && typeLength <= 16, "Expected column %s to have type length in range (1-16)", descriptor);
+            this.decimalValueDecoder = new ShortDecimalFixedWidthByteArrayBatchDecoder(Math.min(typeLength, Long.BYTES));
         }
 
         @Override
@@ -266,17 +268,16 @@ public final class PlainValueDecoders
         public void read(long[] values, int offset, int length)
         {
             input.ensureBytesAvailable(typeLength * length);
-            int extraBytesLength = 0;
-            int bytesLength = typeLength;
-            if (typeLength > Long.BYTES) {
-                extraBytesLength = typeLength - Long.BYTES;
-                bytesLength = Long.BYTES;
+            if (typeLength <= Long.BYTES) {
+                decimalValueDecoder.getShortDecimalValues(input, values, offset, length);
+                return;
             }
+            int extraBytesLength = typeLength - Long.BYTES;
             byte[] inputBytes = input.getByteArray();
             int inputBytesOffset = input.getByteArrayOffset();
             for (int i = offset; i < offset + length; i++) {
                 checkBytesFitInShortDecimal(inputBytes, inputBytesOffset, extraBytesLength, decimalType, descriptor);
-                values[i] = getShortDecimalValue(inputBytes, inputBytesOffset + extraBytesLength, bytesLength);
+                values[i] = getShortDecimalValue(inputBytes, inputBytesOffset + extraBytesLength, Long.BYTES);
                 inputBytesOffset += typeLength;
             }
             input.skip(length * typeLength);

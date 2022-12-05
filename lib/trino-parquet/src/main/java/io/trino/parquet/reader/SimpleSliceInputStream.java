@@ -49,6 +49,13 @@ public final class SimpleSliceInputStream
         return slice.getByte(offset++);
     }
 
+    public short readShort()
+    {
+        short value = slice.getShort(offset);
+        offset += Short.BYTES;
+        return value;
+    }
+
     public long readLong()
     {
         long value = slice.getLong(offset);
@@ -111,5 +118,43 @@ public final class SimpleSliceInputStream
         int value = UnsafeSlice.getIntUnchecked(slice, offset);
         offset += Integer.BYTES;
         return value;
+    }
+
+    /**
+     * Always check if needed data is available with ensureBytesAvailable method.
+     * Failing to do so may result in instant JVM crash.
+     */
+    public long readLongUnsafe()
+    {
+        long value = UnsafeSlice.getLongUnchecked(slice, offset);
+        offset += Long.BYTES;
+        return value;
+    }
+
+    /**
+     * Always check if needed data is available with ensureBytesAvailable method.
+     * Failing to do so may result in instant JVM crash.
+     */
+    public byte getByteUnsafe(int index)
+    {
+        return UnsafeSlice.getByteUnchecked(slice, offset + index);
+    }
+
+    /**
+     * Always check if needed data is available with ensureBytesAvailable method.
+     * Failing to do so may result in instant JVM crash.
+     */
+    public int getIntUnsafe(int index)
+    {
+        return UnsafeSlice.getIntUnchecked(slice, offset + index);
+    }
+
+    /**
+     * Always check if needed data is available with ensureBytesAvailable method.
+     * Failing to do so may result in instant JVM crash.
+     */
+    public long getLongUnsafe(int index)
+    {
+        return UnsafeSlice.getLongUnchecked(slice, offset + index);
     }
 }
