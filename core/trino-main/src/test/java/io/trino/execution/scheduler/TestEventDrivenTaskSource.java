@@ -395,7 +395,7 @@ public class TestEventDrivenTaskSource
         Multimaps.asMap(splits).forEach(((planNodeId, connectorSplits) -> splitSources.put(planNodeId, new TestingSplitSource(executor, connectorSplits))));
         splitSources.putAll(failingSplitSources);
 
-        EventDrivenTaskSource.Callback taskSourceCallback = failingCallback.orElse(new TestingTaskSourceCallback());
+        EventDrivenTaskSource.Callback taskSourceCallback = failingCallback.orElseGet(TestingTaskSourceCallback::new);
         int partitionCount = getPartitionCount(sourceHandles.values(), splits.values());
         FaultTolerantPartitioningScheme partitioningScheme = createPartitioningScheme(partitionCount);
         AtomicLong getSplitInvocations = new AtomicLong();

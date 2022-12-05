@@ -226,7 +226,7 @@ public class DeltaLakeSplitManager
     {
         return effectivePredicate.getDomains()
                 .flatMap(domains -> Optional.ofNullable(domains.get(pathColumnHandle())))
-                .orElse(Domain.all(pathColumnHandle().getType()));
+                .orElseGet(() -> Domain.all(pathColumnHandle().getType()));
     }
 
     private static boolean pathMatchesPredicate(Domain pathDomain, String path)

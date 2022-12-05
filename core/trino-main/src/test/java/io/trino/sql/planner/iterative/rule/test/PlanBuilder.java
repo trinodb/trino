@@ -499,7 +499,7 @@ public class PlanBuilder
         {
             checkState(groupingSets != null, "No grouping sets defined; use globalGrouping/groupingKeys method");
             return new AggregationNode(
-                    nodeId.orElse(idAllocator.getNextId()),
+                    nodeId.orElseGet(idAllocator::getNextId),
                     source,
                     assignments,
                     groupingSets,

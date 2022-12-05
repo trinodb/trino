@@ -157,7 +157,7 @@ public class TaskExecutionStats
         {
             ExecutionFailureInfo failureInfo = info.getTaskStatus().getFailures().stream()
                     .findFirst()
-                    .orElse(toFailure(new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason")));
+                    .orElseGet(() -> toFailure(new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason")));
             ErrorType errorType = Optional.ofNullable(failureInfo.getErrorCode()).map(ErrorCode::getType).orElse(INTERNAL_ERROR);
             TaskStats stats = info.getStats();
             switch (errorType) {

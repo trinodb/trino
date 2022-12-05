@@ -231,6 +231,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.time.Instant.EPOCH;
 import static java.util.Collections.emptyIterator;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableMap;
@@ -2287,8 +2288,8 @@ public class DeltaLakeMetadata
         Optional<Instant> filesModifiedAfter = Optional.empty();
         if (filesModifiedAfterFromProperties.isPresent() || alreadyAnalyzedModifiedTimeMax.isPresent()) {
             filesModifiedAfter = Optional.of(Comparators.max(
-                    filesModifiedAfterFromProperties.orElse(Instant.ofEpochMilli(0)),
-                    alreadyAnalyzedModifiedTimeMax.orElse(Instant.ofEpochMilli(0))));
+                    filesModifiedAfterFromProperties.orElse(EPOCH),
+                    alreadyAnalyzedModifiedTimeMax.orElse(EPOCH)));
         }
 
         Optional<Set<String>> analyzeColumnNames = DeltaLakeAnalyzeProperties.getColumnNames(analyzeProperties);

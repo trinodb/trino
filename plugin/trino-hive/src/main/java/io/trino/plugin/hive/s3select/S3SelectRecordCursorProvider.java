@@ -93,7 +93,7 @@ public class S3SelectRecordCursorProvider
 
         List<HiveColumnHandle> readerColumns = projectedReaderColumns
                 .map(readColumns -> readColumns.get().stream().map(HiveColumnHandle.class::cast).collect(toImmutableList()))
-                .orElse(ImmutableList.copyOf(columns));
+                .orElseGet(() -> ImmutableList.copyOf(columns));
         // Query is not going to filter any data, no need to use S3 Select
         if (!hasFilters(schema, effectivePredicate, readerColumns)) {
             return Optional.empty();
