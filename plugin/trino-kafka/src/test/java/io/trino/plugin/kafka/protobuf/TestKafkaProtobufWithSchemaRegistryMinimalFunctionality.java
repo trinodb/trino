@@ -39,7 +39,6 @@ import java.util.Map;
 
 import static com.google.protobuf.Descriptors.FieldDescriptor.JavaType.ENUM;
 import static com.google.protobuf.Descriptors.FieldDescriptor.JavaType.STRING;
-import static io.airlift.units.Duration.succinctDuration;
 import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
 import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY;
 import static io.trino.decoder.protobuf.ProtobufRowDecoderFactory.DEFAULT_MESSAGE;
@@ -55,7 +54,6 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -170,10 +168,13 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
                 messages.stream(),
                 producerProperties());
 
-        // Any operation which performs schema parsing leads to failure so we cannot use #waitUntilTableExists
-        assertQueryFailsEventually("SELECT * FROM " + toDoubleQuoted(topic),
-                "\\Qstatement is too large (stack overflow during analysis)\\E",
-                succinctDuration(2, SECONDS));
+        waitUntilTableExists(topic);
+        assertQueryFails("SELECT * FROM " + toDoubleQuoted(topic),
+                "Protobuf schema containing fields with self-reference are not supported because they cannot be mapped to a Trino type: " +
+                        "io.trino.protobuf.schema.recursive_value_one: io.trino.protobuf.RecursiveValue > " +
+                        "io.trino.protobuf.RecursiveValue.struct_value: io.trino.protobuf.RecursiveStruct > " +
+                        "io.trino.protobuf.RecursiveStruct.fields: io.trino.protobuf.RecursiveStruct.FieldsEntry > " +
+                        "io.trino.protobuf.RecursiveStruct.FieldsEntry.value: io.trino.protobuf.RecursiveValue");
     }
 
     @Test
