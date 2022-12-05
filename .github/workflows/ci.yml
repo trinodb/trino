@@ -793,22 +793,22 @@ jobs:
               config: hdp3
             - suite: suite-delta-lake-databricks73
               ignore exclusion if: >-
-                ${{ secrets.DATABRICKS_TOKEN != '' }}
+                ${{ secrets.TMP_NEW_DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks91
               config: hdp3
             - suite: suite-delta-lake-databricks91
               ignore exclusion if: >-
-                ${{ secrets.DATABRICKS_TOKEN != '' }}
+                ${{ secrets.TMP_NEW_DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks104
               config: hdp3
             - suite: suite-delta-lake-databricks104
               ignore exclusion if: >-
-                ${{ secrets.DATABRICKS_TOKEN != '' }}
+                ${{ secrets.TMP_NEW_DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks113
               config: hdp3
             - suite: suite-delta-lake-databricks113
               ignore exclusion if: >-
-                ${{ secrets.DATABRICKS_TOKEN != '' }}
+                ${{ secrets.TMP_NEW_DATABRICKS_TOKEN != '' }}
 
           ignore exclusion if:
             # Do not use this property outside of the matrix configuration.
@@ -966,12 +966,12 @@ jobs:
           AWS_REGION: us-east-2
           TRINO_AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           TRINO_AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
-          DATABRICKS_73_JDBC_URL: ${{ secrets.DATABRICKS_73_JDBC_URL }}
-          DATABRICKS_91_JDBC_URL: ${{ secrets.DATABRICKS_91_JDBC_URL }}
-          DATABRICKS_104_JDBC_URL: ${{ secrets.DATABRICKS_104_JDBC_URL }}
-          DATABRICKS_113_JDBC_URL: ${{ secrets.DATABRICKS_113_JDBC_URL }}
+          DATABRICKS_73_JDBC_URL: ${{ secrets.TMP_NEW_DATABRICKS_73_JDBC_URL }}
+          DATABRICKS_91_JDBC_URL: ${{ secrets.TMP_NEW_DATABRICKS_91_JDBC_URL }}
+          DATABRICKS_104_JDBC_URL: ${{ secrets.TMP_NEW_DATABRICKS_104_JDBC_URL }}
+          DATABRICKS_113_JDBC_URL: ${{ secrets.TMP_NEW_DATABRICKS_113_JDBC_URL }}
           DATABRICKS_LOGIN: token
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_TOKEN: ${{ secrets.TMP_NEW_DATABRICKS_TOKEN }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
           GCP_STORAGE_BUCKET: trino-ci-test-us-east
         run: |
