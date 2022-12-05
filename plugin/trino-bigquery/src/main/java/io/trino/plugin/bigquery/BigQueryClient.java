@@ -189,7 +189,7 @@ public class BigQueryClient
 
     public String getProjectId()
     {
-        String projectId = configProjectId.orElse(bigQuery.getOptions().getProjectId());
+        String projectId = configProjectId.orElseGet(() -> bigQuery.getOptions().getProjectId());
         checkState(projectId.toLowerCase(ENGLISH).equals(projectId), "projectId must be lowercase but it's " + projectId);
         return projectId;
     }

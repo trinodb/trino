@@ -61,7 +61,7 @@ public final class PolymorphicScalarFunctionBuilder
     public PolymorphicScalarFunctionBuilder signature(Signature signature)
     {
         this.signature = requireNonNull(signature, "signature is null");
-        this.hidden = Optional.of(hidden.orElse(isOperator(signature)));
+        this.hidden = Optional.of(hidden.orElseGet(() -> isOperator(signature)));
         return this;
     }
 
