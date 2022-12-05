@@ -70,6 +70,7 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.column.Encoding.RLE;
+import static org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter;
 import static org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainDoubleDictionaryValuesWriter;
 import static org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainFixedLenArrayDictionaryValuesWriter;
 import static org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainFloatDictionaryValuesWriter;
@@ -346,12 +347,13 @@ public abstract class AbstractValueDecodersTest
             return switch (typeName) {
                 case BOOLEAN -> new BooleanPlainValuesWriter();
                 case FIXED_LEN_BYTE_ARRAY -> new FixedLenByteArrayPlainValuesWriter(typeLength.orElseThrow(), MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
-                case INT32, INT64, DOUBLE, FLOAT -> new PlainValuesWriter(MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
+                case BINARY, INT32, INT64, DOUBLE, FLOAT -> new PlainValuesWriter(MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
                 default -> throw new IllegalArgumentException("PLAIN encoding writer is not supported for type " + typeName);
             };
         }
         if (encoding.equals(RLE_DICTIONARY) || encoding.equals(PLAIN_DICTIONARY)) {
             return switch (typeName) {
+                case BINARY -> new PlainBinaryDictionaryValuesWriter(MAX_VALUE, RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
                 case FIXED_LEN_BYTE_ARRAY -> new PlainFixedLenArrayDictionaryValuesWriter(MAX_VALUE, typeLength.orElseThrow(), RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
                 case INT32 -> new PlainIntegerDictionaryValuesWriter(MAX_VALUE, RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
                 case INT64 -> new PlainLongDictionaryValuesWriter(MAX_VALUE, RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
