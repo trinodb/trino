@@ -243,7 +243,9 @@ public class LogicalPlanner
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
             for (PlanOptimizer optimizer : planOptimizers) {
                 root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector, tableStatsProvider);
-                requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
+                if (root == null) {
+                    throw new NullPointerException(optimizer.getClass().getName() + " returned a null plan");
+                }
 
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("%s:\n%s", optimizer.getClass().getName(), PlanPrinter.textLogicalPlan(
@@ -542,9 +544,7 @@ public class LogicalPlanner
 
     private Expression createNullNotAllowedFailExpression(String columnName, Type type)
     {
-        return new Cast(failFunction(metadata, session, CONSTRAINT_VIOLATION, format(
-                "NULL value not allowed for NOT NULL column: %s",
-                columnName)), toSqlType(type));
+        return new Cast(failFunction(metadata, session, CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + columnName), toSqlType(type));
     }
 
     private static Function<Expression, Expression> failIfPredicateIsNotMet(Metadata metadata, Session session, ErrorCodeSupplier errorCode, String errorMessage)

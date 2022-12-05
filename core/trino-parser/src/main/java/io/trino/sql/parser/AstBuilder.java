@@ -3468,7 +3468,9 @@ class AstBuilder
                         }
                         else {
                             char currentCodePoint = (char) codePoint;
-                            check(!Character.isSurrogate(currentCodePoint), format("Invalid escaped character: %s. Escaped character is a surrogate. Use '\\+123456' instead.", currentEscapedCode), context);
+                            if (Character.isSurrogate(currentCodePoint)) {
+                                throw parseError(format("Invalid escaped character: %s. Escaped character is a surrogate. Use '\\+123456' instead.", currentEscapedCode), context);
+                            }
                             unicodeStringBuilder.append(currentCodePoint);
                         }
                         state = UnicodeDecodeState.EMPTY;
