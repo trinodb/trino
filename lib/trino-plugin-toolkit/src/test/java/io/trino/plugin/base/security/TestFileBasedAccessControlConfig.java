@@ -14,11 +14,14 @@
 package io.trino.plugin.base.security;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.ConfigurationException;
-import io.airlift.configuration.ConfigurationFactory;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 import org.testng.annotations.Test;
 
+import javax.validation.constraints.NotNull;
+
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,9 +31,10 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
+import static io.airlift.testing.ValidationAssertions.assertValidates;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestFileBasedAccessControlConfig
 {
@@ -64,24 +68,38 @@ public class TestFileBasedAccessControlConfig
     public void testValidation()
             throws IOException
     {
-        Path securityConfigFile = Files.createTempFile(null, null);
+        File securityConfigFile = Files.createTempFile(null, null).toFile();
 
-        assertThatThrownBy(() -> newInstance(ImmutableMap.of(SECURITY_REFRESH_PERIOD, "1ms")))
-                .isInstanceOf(ConfigurationException.class)
-                .hasMessageContaining("security.config-file: may not be null ");
+        assertFailsValidation(
+                new FileBasedAccessControlConfig()
+                    .setRefreshPeriod(Duration.valueOf("1ms")),
+                "configFile",
+                "may not be null",
+                NotNull.class);
 
-        assertThatThrownBy(() -> newInstance(ImmutableMap.of(
-                SECURITY_CONFIG_FILE, securityConfigFile.toString(),
-                SECURITY_REFRESH_PERIOD, "1us")))
-                .isInstanceOf(ConfigurationException.class)
-                .hasMessageContaining("Invalid configuration property security.refresh-period");
+        assertFailsValidation(
+                new FileBasedAccessControlConfig()
+                    .setRefreshPeriod(Duration.valueOf("1ms"))
+                    .setConfigFile(new File("not_existing_file")),
+                "configFile",
+                "file does not exist: not_existing_file",
+                FileExists.class);
 
-        newInstance(ImmutableMap.of(SECURITY_CONFIG_FILE, securityConfigFile.toString()));
-    }
+        assertFailsValidation(
+                new FileBasedAccessControlConfig()
+                    .setRefreshPeriod(Duration.valueOf("0ms"))
+                    .setConfigFile(securityConfigFile),
+                "refreshPeriod",
+                "must be greater than or equal to 1ms",
+                MinDuration.class);
 
-    private static FileBasedAccessControlConfig newInstance(Map<String, String> properties)
-    {
-        ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
-        return configurationFactory.build(FileBasedAccessControlConfig.class);
+        assertValidates(
+                new FileBasedAccessControlConfig()
+                    .setConfigFile(securityConfigFile));
+
+        assertValidates(
+                new FileBasedAccessControlConfig()
+                    .setConfigFile(securityConfigFile)
+                    .setRefreshPeriod(Duration.valueOf("1ms")));
     }
 }
