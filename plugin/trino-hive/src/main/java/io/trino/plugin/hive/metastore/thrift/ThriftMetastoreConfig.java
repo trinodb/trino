@@ -50,6 +50,7 @@ public class ThriftMetastoreConfig
     private File truststorePath;
     private String trustStorePassword;
     private boolean assumeCanonicalPartitionKeys;
+    private int writeStatisticsThreads = 20;
 
     @NotNull
     public Duration getMetastoreTimeout()
@@ -295,6 +296,20 @@ public class ThriftMetastoreConfig
     public ThriftMetastoreConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
     {
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        return this;
+    }
+
+    @Min(1)
+    public int getWriteStatisticsThreads()
+    {
+        return writeStatisticsThreads;
+    }
+
+    @Config("hive.metastore.thrift.write-statistics-threads")
+    @ConfigDescription("Number of threads for parallel statistics writes")
+    public ThriftMetastoreConfig setWriteStatisticsThreads(int writeStatisticsThreads)
+    {
+        this.writeStatisticsThreads = writeStatisticsThreads;
         return this;
     }
 }
