@@ -919,7 +919,9 @@ public final class SortedRangeSet
         List<Range> ranges = getRanges().getOrderedRanges();
         Type type = getType();
 
-        Range typeRange = type.getRange().map(range -> Range.range(type, range.getMin(), true, range.getMax(), true)).orElse(Range.all(type));
+        Range typeRange = type.getRange()
+                .map(range -> Range.range(type, range.getMin(), true, range.getMax(), true))
+                .orElseGet(() -> Range.all(type));
 
         List<Object> result = new ArrayList<>();
         for (Range range : ranges) {
