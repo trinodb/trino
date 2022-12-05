@@ -56,6 +56,13 @@ public final class SimpleSliceInputStream
         return value;
     }
 
+    public int readInt()
+    {
+        int value = slice.getInt(offset);
+        offset += Integer.BYTES;
+        return value;
+    }
+
     public long readLong()
     {
         long value = slice.getLong(offset);
