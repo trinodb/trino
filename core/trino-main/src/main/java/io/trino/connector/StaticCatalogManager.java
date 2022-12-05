@@ -22,6 +22,7 @@ import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
+import io.trino.server.ForStartup;
 import io.trino.spi.TrinoException;
 
 import javax.annotation.PreDestroy;
@@ -37,8 +38,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -49,6 +52,7 @@ import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.util.Executors.executeUntilFailure;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -61,13 +65,14 @@ public class StaticCatalogManager
 
     private final CatalogFactory catalogFactory;
     private final List<CatalogProperties> catalogProperties;
+    private final Executor executor;
 
     private final ConcurrentMap<String, CatalogConnector> catalogs = new ConcurrentHashMap<>();
 
     private final AtomicReference<State> state = new AtomicReference<>(State.CREATED);
 
     @Inject
-    public StaticCatalogManager(CatalogFactory catalogFactory, StaticCatalogManagerConfig config)
+    public StaticCatalogManager(CatalogFactory catalogFactory, StaticCatalogManagerConfig config, @ForStartup Executor executor)
     {
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         List<String> disabledCatalogs = firstNonNull(config.getDisabledCatalogs(), ImmutableList.of());
@@ -95,6 +100,7 @@ public class StaticCatalogManager
             catalogProperties.add(new CatalogProperties(createRootCatalogHandle(catalogName), connectorName, ImmutableMap.copyOf(properties)));
         }
         this.catalogProperties = catalogProperties.build();
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
     private static List<File> listCatalogFiles(File catalogsDirectory)
@@ -133,13 +139,18 @@ public class StaticCatalogManager
             return;
         }
 
-        for (CatalogProperties catalog : catalogProperties) {
-            String catalogName = catalog.getCatalogHandle().getCatalogName();
-            log.info("-- Loading catalog %s --", catalogName);
-            CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
-            catalogs.put(catalogName, newCatalog);
-            log.info("-- Added catalog %s using connector %s --", catalogName, catalog.getConnectorName());
-        }
+        executeUntilFailure(
+                executor,
+                catalogProperties.stream()
+                        .map(catalog -> (Callable<?>) () -> {
+                            String catalogName = catalog.getCatalogHandle().getCatalogName();
+                            log.info("-- Loading catalog %s --", catalogName);
+                            CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
+                            catalogs.put(catalogName, newCatalog);
+                            log.info("-- Added catalog %s using connector %s --", catalogName, catalog.getConnectorName());
+                            return null;
+                        })
+                        .collect(toImmutableList()));
     }
 
     @Override
