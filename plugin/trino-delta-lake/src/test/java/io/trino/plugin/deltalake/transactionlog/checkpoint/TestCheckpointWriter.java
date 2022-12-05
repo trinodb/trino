@@ -454,8 +454,7 @@ public class TestCheckpointWriter
         ImmutableMap.Builder<String, Object> comparableStats = ImmutableMap.builder();
         for (String key : stats.keySet()) {
             Object statsValue = stats.get(key);
-            if (statsValue instanceof RowBlock) {
-                RowBlock rowBlock = (RowBlock) statsValue;
+            if (statsValue instanceof RowBlock rowBlock) {
                 ColumnarRow columnarRow = toColumnarRow(rowBlock);
                 int size = columnarRow.getFieldCount();
                 ImmutableList<Long> logicalSizes = IntStream.range(0, size)
@@ -464,8 +463,8 @@ public class TestCheckpointWriter
                         .collect(toImmutableList());
                 comparableStats.put(key, logicalSizes);
             }
-            else if (statsValue instanceof Slice) {
-                comparableStats.put(key, ((Slice) statsValue).toStringUtf8());
+            else if (statsValue instanceof Slice slice) {
+                comparableStats.put(key, slice.toStringUtf8());
             }
             else {
                 comparableStats.put(key, statsValue);

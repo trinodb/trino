@@ -254,8 +254,7 @@ public final class DeltaLakeSchemaSupport
         if (type instanceof VarcharType) {
             return Optional.of("string");
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             return Optional.of(String.format("decimal(%s,%s)", decimalType.getPrecision(), decimalType.getScale()));
         }
         return Optional.ofNullable(PRIMITIVE_TYPE_MAPPING.get(type));
@@ -288,14 +287,12 @@ public final class DeltaLakeSchemaSupport
             validateType(rootType, ((ArrayType) type).getElementType());
         }
 
-        if (type instanceof MapType) {
-            MapType mapType = (MapType) type;
+        if (type instanceof MapType mapType) {
             validateType(rootType, mapType.getKeyType());
             validateType(rootType, mapType.getValueType());
         }
 
-        if (type instanceof RowType) {
-            RowType rowType = (RowType) type;
+        if (type instanceof RowType rowType) {
             rowType.getFields().forEach(field -> validateType(rootType, field.getType()));
         }
     }
