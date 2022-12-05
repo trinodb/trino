@@ -226,7 +226,8 @@ public final class Range
                 compareLowBound <= 0 ? this.lowInclusive : other.lowInclusive,
                 compareLowBound <= 0 ? this.lowValue : other.lowValue,
                 compareHighBound >= 0 ? this.highInclusive : other.highInclusive,
-                compareHighBound >= 0 ? this.highValue : other.highValue);
+                compareHighBound >= 0 ? this.highValue : other.highValue,
+                comparisonOperator);
     }
 
     public Optional<Range> intersect(Range other)
