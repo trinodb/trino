@@ -18,6 +18,7 @@ import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirection
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.DecimalModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcWriteConfig;
@@ -70,6 +71,7 @@ public class SalesforceModule
                 }));
 
         install(new JdbcTableScanRedirectionModule());
+        install(new DecimalModule());
 
         // Set the connection URL to some value as it is a required property in the JdbcModule
         // The actual connection URL is set via the SalesforceConnectionFactory

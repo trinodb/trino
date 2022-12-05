@@ -13,8 +13,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import com.starburstdata.presto.plugin.salesforce.testing.datatype.SalesforceCreateAndInsertDataSetup;
 import com.starburstdata.presto.plugin.salesforce.testing.datatype.SqlDataTypeTest;
+import com.starburstdata.presto.plugin.salesforce.testing.sql.SalesforceTestTable;
 import io.trino.Session;
 import io.trino.spi.type.DateType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.VarcharType;
@@ -27,6 +29,7 @@ import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -34,9 +37,17 @@ import java.time.ZoneId;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.salesforce.SalesforceConfig.SalesforceAuthenticationType.OAUTH_JWT;
+import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
+import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_DEFAULT_SCALE;
+import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_MAPPING;
+import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_ROUNDING_MODE;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static java.lang.String.format;
+import static java.math.RoundingMode.DOWN;
+import static java.math.RoundingMode.HALF_UP;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_DATE;
 import static java.util.Objects.requireNonNull;
@@ -46,6 +57,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 // We instead use static test names with no random suffix to avoid creating and deleting many tables and hitting this limit, which caused builds to fail
 // These tables are created if they don't exist and truncated when the test is closed as well as initially to ensure there is no data
 // Custom objects can be deleted by hand in Salesforce using the Object Manager
+@Test(singleThreaded = true) // Decimal tests share the same table
 public class TestSalesforceTypeMapping
         extends AbstractTestQueryFramework
 {
@@ -94,6 +106,142 @@ public class TestSalesforceTypeMapping
                 .addRoundTrip("double", "1.0E17", DoubleType.DOUBLE, "1.0E17")
                 .addRoundTrip("double", "NULL", DoubleType.DOUBLE, "CAST(NULL as DOUBLE)")
                 .execute(getQueryRunner(), salesforceCreateAndInsert("test_double"));
+    }
+
+    @Test
+    public void testDecimal()
+    {
+        // Note: The decimal test cases only work because the table's data types were changed in Salesforce after the initial run
+        // The 'Currency' data type in Salesforce is the only thing the driver returns as a decimal, and there is no way to
+        // create a table with a 'Currency' data type using the JDBC driver
+
+        // If the table gets deleted, this test case will fail until someone goes into the Salesforce Object Manager and manually
+        // edits each column to change the data type to a Currency type
+        // Object Manager -> test_decimal -> Fields & Relationships -> for each col_*:
+        //   Edit -> Change Field Type -> Currency -> Next -> Save
+        // Note the max precision for Salesforce is 18
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(3, 0)", "CAST('193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('193' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('19' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('19' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('-193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('-193' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 1)", "CAST('10.0' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('10.0' AS decimal(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST('10.1' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('10.1' AS decimal(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST('-10.1' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('-10.1' AS decimal(3, 1))")
+                .addRoundTrip("decimal(4, 2)", "CAST('2' AS decimal(4, 2))", createDecimalType(4, 2), "CAST('2' AS decimal(4, 2))")
+                .addRoundTrip("decimal(4, 2)", "CAST('2.3' AS decimal(4, 2))", createDecimalType(4, 2), "CAST('2.3' AS decimal(4, 2))")
+                .addRoundTrip("decimal(16, 2)", "CAST('2' AS decimal(16, 2))", createDecimalType(16, 2), "CAST('2' AS decimal(16, 2))")
+                .addRoundTrip("decimal(16, 2)", "CAST('2.3' AS decimal(16, 2))", createDecimalType(16, 2), "CAST('2.3' AS decimal(16, 2))")
+                .addRoundTrip("decimal(16, 2)", "CAST('123456789.3' AS decimal(16, 2))", createDecimalType(16, 2), "CAST('123456789.3' AS decimal(16, 2))")
+                .addRoundTrip("decimal(14, 4)", "CAST('1234567890.31' AS decimal(14, 4))", createDecimalType(14, 4), "CAST('1234567890.31' AS decimal(14, 4))")
+                .addRoundTrip("decimal(13, 5)", "CAST('31415926.38327' AS decimal(13, 5))", createDecimalType(13, 5), "CAST('31415926.38327' AS decimal(13, 5))")
+                .addRoundTrip("decimal(13, 5)", "CAST('-31415926.38327' AS decimal(13, 5))", createDecimalType(13, 5), "CAST('-31415926.38327' AS decimal(13, 5))")
+                // Note that some large values like '271828182845904523' don't get stored correctly
+                // Salesforce UI says 271828182845904500 but the JDBC driver says 271828182845904512
+                // Choosing 271828182845904512 because the test case passes. Feels great.
+                .addRoundTrip("decimal(18, 0)", "CAST('271828182845904512' AS decimal(18, 0))", createDecimalType(18, 0), "CAST('271828182845904512' AS decimal(18, 0))")
+                .addRoundTrip("decimal(18, 0)", "CAST('-271828182845904512' AS decimal(18, 0))", createDecimalType(18, 0), "CAST('-271828182845904512' AS decimal(18, 0))")
+                .addRoundTrip("decimal(3, 0)", "NULL", createDecimalType(3, 0), "CAST(NULL AS decimal(3, 0))")
+                .addRoundTrip("decimal(18, 0)", "NULL", createDecimalType(18, 0), "CAST(NULL AS decimal(18, 0))")
+                .execute(getQueryRunner(), salesforceCreateAndInsert("test_decimal"));
+    }
+
+    @Test
+    public void testDecimalWithRoundingModeHalfUp()
+    {
+        DecimalType expectedType = createDecimalType(38, 0);
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(3, 0)", "CAST('193' AS decimal(3, 0))", expectedType, "CAST('193' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('19' AS decimal(3, 0))", expectedType, "CAST('19' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('-193' AS decimal(3, 0))", expectedType, "CAST('-193' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 1)", "CAST('10.0' AS decimal(3, 1))", expectedType, "CAST('10' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 1)", "CAST('10.1' AS decimal(3, 1))", expectedType, "CAST('10' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 1)", "CAST('-10.1' AS decimal(3, 1))", expectedType, "CAST('-10' AS decimal(38, 0))")
+                .addRoundTrip("decimal(4, 2)", "CAST('2' AS decimal(4, 2))", expectedType, "CAST('2' AS decimal(38, 0))")
+                .addRoundTrip("decimal(4, 2)", "CAST('2.7' AS decimal(4, 2))", expectedType, "CAST('3' AS decimal(38, 0))")
+                .addRoundTrip("decimal(16, 2)", "CAST('2' AS decimal(16, 2))", expectedType, "CAST('2' AS decimal(38, 0))")
+                .addRoundTrip("decimal(16, 2)", "CAST('2.7' AS decimal(16, 2))", expectedType, "CAST('3' AS decimal(38, 0))")
+                .addRoundTrip("decimal(16, 2)", "CAST('123456789.3' AS decimal(16, 2))", expectedType, "CAST('123456789' AS decimal(38, 0))")
+                .addRoundTrip("decimal(14, 4)", "CAST('1234567890.31' AS decimal(14, 4))", expectedType, "CAST('1234567890' AS decimal(38, 0))")
+                .addRoundTrip("decimal(13, 5)", "CAST('31415926.38327' AS decimal(13, 5))", expectedType, "CAST('31415926' AS decimal(38, 0))")
+                .addRoundTrip("decimal(13, 5)", "CAST('-31415926.58527' AS decimal(13, 5))", expectedType, "CAST('-31415927' AS decimal(38, 0))")
+                .addRoundTrip("decimal(18, 0)", "CAST('271828182845904512' AS decimal(18, 0))", expectedType, "CAST('271828182845904512' AS decimal(38, 0))")
+                .addRoundTrip("decimal(18, 0)", "CAST('-271828182845904512' AS decimal(18, 0))", expectedType, "CAST('-271828182845904512' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 0)", "NULL", expectedType, "CAST(NULL AS decimal(38, 0))")
+                .addRoundTrip("decimal(18, 0)", "NULL", expectedType, "CAST(NULL AS decimal(38, 0))")
+                .execute(getQueryRunner(), sessionWithDecimalMappingAllowOverflow(HALF_UP, 0), salesforceCreateAndInsert("test_decimal"));
+    }
+
+    @Test
+    public void testDecimalWithRoundingModeHalfUpScale2()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(3, 0)", "CAST('193' AS decimal(3, 0))", createDecimalType(38, 0), "CAST('193' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('19' AS decimal(3, 0))", createDecimalType(38, 0), "CAST('19' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('-193' AS decimal(3, 0))", createDecimalType(38, 0), "CAST('-193' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 1)", "CAST('10.0' AS decimal(3, 1))", createDecimalType(38, 1), "CAST('10.0' AS decimal(38, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST('10.1' AS decimal(3, 1))", createDecimalType(38, 1), "CAST('10.1' AS decimal(38, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST('-10.1' AS decimal(3, 1))", createDecimalType(38, 1), "CAST('-10.1' AS decimal(38, 1))")
+                .addRoundTrip("decimal(4, 2)", "CAST('2' AS decimal(4, 2))", createDecimalType(38, 2), "CAST('2' AS decimal(38, 2))")
+                .addRoundTrip("decimal(4, 2)", "CAST('2.7' AS decimal(4, 2))", createDecimalType(38, 2), "CAST('2.7' AS decimal(38, 2))")
+                .addRoundTrip("decimal(16, 2)", "CAST('2' AS decimal(16, 2))", createDecimalType(38, 2), "CAST('2' AS decimal(38, 2))")
+                .addRoundTrip("decimal(16, 2)", "CAST('2.7' AS decimal(16, 2))", createDecimalType(38, 2), "CAST('2.7' AS decimal(38, 2))")
+                .addRoundTrip("decimal(16, 2)", "CAST('123456789.3' AS decimal(16, 2))", createDecimalType(38, 2), "CAST('123456789.3' AS decimal(38, 2))")
+                .addRoundTrip("decimal(14, 4)", "CAST('1234567890.31' AS decimal(14, 4))", createDecimalType(38, 2), "CAST('1234567890.31' AS decimal(38, 2))")
+                .addRoundTrip("decimal(13, 5)", "CAST('31415926.58327' AS decimal(13, 5))", createDecimalType(38, 2), "CAST('31415926.58' AS decimal(38, 2))")
+                .addRoundTrip("decimal(13, 5)", "CAST('-31415926.58527' AS decimal(13, 5))", createDecimalType(38, 2), "CAST('-31415926.59' AS decimal(38, 2))")
+                .addRoundTrip("decimal(18, 0)", "CAST('271828182845904512' AS decimal(18, 0))", createDecimalType(38, 0), "CAST('271828182845904512' AS decimal(38, 0))")
+                .addRoundTrip("decimal(18, 0)", "CAST('-271828182845904512' AS decimal(18, 0))", createDecimalType(38, 0), "CAST('-271828182845904512' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 0)", "NULL", createDecimalType(38, 0), "CAST(NULL AS decimal(38, 0))")
+                .addRoundTrip("decimal(18, 0)", "NULL", createDecimalType(38, 0), "CAST(NULL AS decimal(38, 0))")
+                .execute(getQueryRunner(), sessionWithDecimalMappingAllowOverflow(HALF_UP, 2), salesforceCreateAndInsert("test_decimal"));
+    }
+
+    @Test
+    public void testDecimalWithRoundingModeRoundDown()
+    {
+        DecimalType expectedType = createDecimalType(38, 0);
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(3, 0)", "CAST('193' AS decimal(3, 0))", expectedType, "CAST('193' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('19' AS decimal(3, 0))", expectedType, "CAST('19' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('-193' AS decimal(3, 0))", expectedType, "CAST('-193' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 1)", "CAST('10.0' AS decimal(3, 1))", expectedType, "CAST('10' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 1)", "CAST('10.1' AS decimal(3, 1))", expectedType, "CAST('10' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 1)", "CAST('-10.1' AS decimal(3, 1))", expectedType, "CAST('-10' AS decimal(38, 0))")
+                .addRoundTrip("decimal(4, 2)", "CAST('2' AS decimal(4, 2))", expectedType, "CAST('2' AS decimal(38, 0))")
+                .addRoundTrip("decimal(4, 2)", "CAST('2.7' AS decimal(4, 2))", expectedType, "CAST('2' AS decimal(38, 0))")
+                .addRoundTrip("decimal(16, 2)", "CAST('2' AS decimal(16, 2))", expectedType, "CAST('2' AS decimal(38, 0))")
+                .addRoundTrip("decimal(16, 2)", "CAST('2.7' AS decimal(16, 2))", expectedType, "CAST('2' AS decimal(38, 0))")
+                .addRoundTrip("decimal(16, 2)", "CAST('123456789.3' AS decimal(16, 2))", expectedType, "CAST('123456789' AS decimal(38, 0))")
+                .addRoundTrip("decimal(14, 4)", "CAST('1234567890.31' AS decimal(14, 4))", expectedType, "CAST('1234567890' AS decimal(38, 0))")
+                .addRoundTrip("decimal(13, 5)", "CAST('31415926.58327' AS decimal(13, 5))", expectedType, "CAST('31415926' AS decimal(38, 0))")
+                .addRoundTrip("decimal(13, 5)", "CAST('-31415926.58327' AS decimal(13, 5))", expectedType, "CAST('-31415926' AS decimal(38, 0))")
+                .addRoundTrip("decimal(18, 0)", "CAST('271828182845904512' AS decimal(18, 0))", expectedType, "CAST('271828182845904512' AS decimal(38, 0))")
+                .addRoundTrip("decimal(18, 0)", "CAST('-271828182845904512' AS decimal(18, 0))", expectedType, "CAST('-271828182845904512' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 0)", "NULL", expectedType, "CAST(NULL AS decimal(38, 0))")
+                .addRoundTrip("decimal(18, 0)", "NULL", expectedType, "CAST(NULL AS decimal(38, 0))")
+                .execute(getQueryRunner(), sessionWithDecimalMappingAllowOverflow(DOWN, 0), salesforceCreateAndInsert("test_decimal"));
+    }
+
+    @Test
+    public void testDecimalWithRoundingModeUnnecessary()
+    {
+        // We use the test table here to ensure the test_decimal table is empty before and after the test case runs
+        try (SalesforceTestTable ignored = new SalesforceTestTable(jdbcUrl, "test_decimal", "")) {
+            assertUpdate("INSERT INTO test_decimal__c (col_7__c) VALUES (CAST('2.7' AS decimal(4, 2)))", 1);
+
+            assertQueryFails(sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
+                    "SELECT col_7__c FROM test_decimal__c",
+                    "Rounding necessary");
+        }
+    }
+
+    private Session sessionWithDecimalMappingAllowOverflow(RoundingMode roundingMode, int scale)
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("salesforce", DECIMAL_MAPPING, ALLOW_OVERFLOW.name())
+                .setCatalogSessionProperty("salesforce", DECIMAL_ROUNDING_MODE, roundingMode.name())
+                .setCatalogSessionProperty("salesforce", DECIMAL_DEFAULT_SCALE, Integer.toString(scale))
+                .build();
     }
 
     @Test

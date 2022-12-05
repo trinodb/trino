@@ -18,7 +18,6 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
-import io.trino.plugin.jdbc.PredicatePushdownController;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
@@ -32,7 +31,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
@@ -42,6 +40,7 @@ import io.trino.spi.type.VarcharType;
 
 import javax.inject.Inject;
 
+import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -58,19 +57,25 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.MoreCollectors.toOptional;
+import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
+import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
+import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
+import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMappingUsingSqlDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingSqlDate;
-import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeWriteFunctionUsingSqlTime;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMappingUsingSqlTimestampWithRounding;
@@ -83,14 +88,17 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.Decimals.MAX_PRECISION;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeType.TIME_SECONDS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
@@ -283,9 +291,11 @@ public class SalesforceJdbcClient
             case Types.DECIMAL:
                 int decimalDigits = typeHandle.getRequiredDecimalDigits();
                 int precision = typeHandle.getRequiredColumnSize() + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
-                if (precision > Decimals.MAX_PRECISION) {
-                    return Optional.empty();
+                if (getDecimalRounding(session) == ALLOW_OVERFLOW) {
+                    int scale = min(decimalDigits, getDecimalDefaultScale(session));
+                    return Optional.of(decimalColumnMapping(createDecimalType(MAX_PRECISION, scale), getDecimalRoundingMode(session)));
                 }
+
                 return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
             case Types.VARCHAR:
                 return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
@@ -403,6 +413,29 @@ public class SalesforceJdbcClient
         }
     }
 
+    private static ColumnMapping decimalColumnMapping(DecimalType decimalType)
+    {
+        return decimalColumnMapping(decimalType, UNNECESSARY);
+    }
+
+    private static ColumnMapping decimalColumnMapping(DecimalType decimalType, RoundingMode roundingMode)
+    {
+        if (decimalType.isShort()) {
+            checkArgument(roundingMode == UNNECESSARY, "Round mode is not supported for short decimal, map the type to long decimal instead");
+            return ColumnMapping.longMapping(
+                    decimalType,
+                    shortDecimalReadFunction(decimalType),
+                    shortDecimalWriteFunction(decimalType),
+                    DISABLE_PUSHDOWN);
+        }
+
+        return ColumnMapping.objectMapping(
+                decimalType,
+                longDecimalReadFunction(decimalType, roundingMode),
+                longDecimalWriteFunction(decimalType),
+                DISABLE_PUSHDOWN);
+    }
+
     /**
      * Copy of {@link io.trino.plugin.jdbc.StandardColumnMappings#timeColumnMappingUsingSqlTime} but using second precision
      */
@@ -415,7 +448,7 @@ public class SalesforceJdbcClient
                     return toLocalTime(time).toNanoOfDay() * PICOSECONDS_PER_NANOSECOND;
                 },
                 timeWriteFunctionUsingSqlTime(),
-                PredicatePushdownController.DISABLE_PUSHDOWN);
+                DISABLE_PUSHDOWN);
     }
 
     private static LocalTime toLocalTime(Time sqlTime)
