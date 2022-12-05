@@ -339,6 +339,46 @@
                     </ignoredResourcePatterns>
                 </configuration>
             </plugin>
+            <!-- TODO: Instead of using this plugin to generate classes we should invoke the parser directly (https://github.com/trinodb/trino/issues/16039) -->
+            <plugin>
+                <groupId>com.github.os72</groupId>
+                <artifactId>protoc-jar-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>generate-test-sources</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <protocVersion>${dep.protobuf.version}</protocVersion>
+                            <addSources>none</addSources>
+                            <inputDirectories>
+                                <include>src/test/resources/protobuf-sources</include>
+                            </inputDirectories>
+                            <outputDirectory>target/generated-test-sources/</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>add-test-sources</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>add-test-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${basedir}/target/generated-test-sources</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 </project>
