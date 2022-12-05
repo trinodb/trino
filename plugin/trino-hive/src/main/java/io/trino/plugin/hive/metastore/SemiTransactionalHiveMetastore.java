@@ -137,7 +137,7 @@ public class SemiTransactionalHiveMetastore
         implements SqlStandardAccessControlMetadataMetastore
 {
     private static final Logger log = Logger.get(SemiTransactionalHiveMetastore.class);
-    private static final int PARTITION_COMMIT_BATCH_SIZE = 8;
+    private static final int PARTITION_COMMIT_BATCH_SIZE = 20;
     private static final Pattern DELTA_DIRECTORY_MATCHER = Pattern.compile("(delete_)?delta_[\\d]+_[\\d]+_[\\d]+$");
 
     private static final RetryDriver DELETE_RETRY = RetryDriver.retry()
