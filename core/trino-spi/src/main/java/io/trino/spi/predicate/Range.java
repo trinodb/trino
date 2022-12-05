@@ -91,7 +91,7 @@ public final class Range
         }
     }
 
-    protected static MethodHandle getComparisonOperator(Type type)
+    static MethodHandle getComparisonOperator(Type type)
     {
         // choice of placing unordered values first or last does not matter for this code
         return TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));

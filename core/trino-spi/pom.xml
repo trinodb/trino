@@ -224,6 +224,15 @@
                                     <code>java.method.removed</code>
                                     <old>method boolean io.trino.spi.connector.MaterializedViewFreshness::isMaterializedViewFresh()</old>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method java.lang.invoke.MethodHandle io.trino.spi.predicate.Range::getComparisonOperator(io.trino.spi.type.Type)</old>
+                                    <new>method java.lang.invoke.MethodHandle io.trino.spi.predicate.Range::getComparisonOperator(io.trino.spi.type.Type)</new>
+                                    <oldVisibility>protected</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                    <justification>It was not accessible outside of SPI anyway</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
