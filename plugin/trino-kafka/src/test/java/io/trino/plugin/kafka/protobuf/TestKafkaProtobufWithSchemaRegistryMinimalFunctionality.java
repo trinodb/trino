@@ -140,6 +140,34 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
                 "Insert is not supported for schema registry based tables");
     }
 
+    @Test
+    public void testUnsupportedNestedDataTypes()
+            throws Exception
+    {
+        String topic = "topic-unsupported-nested";
+        assertNotExists(topic);
+
+        UnsupportedNestedTypes.schema message = UnsupportedNestedTypes.schema.newBuilder()
+                .setNestedValueOne(UnsupportedNestedTypes.NestedValue.newBuilder().setStringValue("Value1").build())
+                .build();
+
+        ImmutableList.Builder<ProducerRecord<DynamicMessage, UnsupportedNestedTypes.schema>> producerRecordBuilder = ImmutableList.builder();
+        producerRecordBuilder.add(new ProducerRecord<>(topic, createKeySchema(0, getKeySchema()), message));
+        List<ProducerRecord<DynamicMessage, UnsupportedNestedTypes.schema>> messages = producerRecordBuilder.build();
+        testingKafka.sendMessages(
+                messages.stream(),
+                ImmutableMap.of(
+                        SCHEMA_REGISTRY_URL_CONFIG, testingKafka.getSchemaRegistryConnectString(),
+                        KEY_SERIALIZER_CLASS_CONFIG, KafkaProtobufSerializer.class.getName(),
+                        VALUE_SERIALIZER_CLASS_CONFIG, KafkaProtobufSerializer.class.getName()));
+
+        // any call to kafka topic will trigger schema parsing what's get exceptional failure,
+        // so  here is waiting for some time period and invoke query
+        Thread.sleep(2000);
+        assertQueryFails("SELECT * FROM " + toDoubleQuoted(topic),
+                "statement is too large \\(stack overflow during analysis\\)");
+    }
+
     private Map<String, String> producerProperties()
     {
         return ImmutableMap.of(

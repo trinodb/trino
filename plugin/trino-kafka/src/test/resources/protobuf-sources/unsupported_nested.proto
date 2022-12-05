@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package io.trino.protobuf;
+
+option java_package = "io.trino.plugin.kafka.protobuf";
+option java_outer_classname = "UnsupportedNestedTypes";
+
+message schema {
+    NestedValue nested_value_one = 1;
+}
+
+message NestedStruct {
+    map<string, NestedValue> fields = 1;
+}
+
+message NestedValue {
+    string string_value = 1;
+    NestedStruct struct_value = 2;
+    NestedListValue list_value = 3;
+}
+
+message NestedListValue {
+    repeated NestedValue values = 1;
+}
