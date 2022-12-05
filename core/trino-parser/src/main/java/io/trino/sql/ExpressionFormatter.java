@@ -169,9 +169,9 @@ public final class ExpressionFormatter
         @Override
         protected String visitRow(Row node, Void context)
         {
-            return "ROW (" + Joiner.on(", ").join(node.getItems().stream()
+            return node.getItems().stream()
                     .map(child -> process(child, context))
-                    .collect(toList())) + ")";
+                    .collect(joining(", ", "ROW (", ")"));
         }
 
         @Override
@@ -298,11 +298,9 @@ public final class ExpressionFormatter
         @Override
         protected String visitArray(Array node, Void context)
         {
-            ImmutableList.Builder<String> valueStrings = ImmutableList.builder();
-            for (Expression value : node.getValues()) {
-                valueStrings.add(formatSql(value));
-            }
-            return "ARRAY[" + Joiner.on(",").join(valueStrings.build()) + "]";
+            return node.getValues().stream()
+                    .map(SqlFormatter::formatSql)
+                    .collect(joining(",", "ARRAY[", "]"));
         }
 
         @Override
@@ -993,9 +991,9 @@ public final class ExpressionFormatter
 
         private String joinExpressions(List<Expression> expressions)
         {
-            return Joiner.on(", ").join(expressions.stream()
-                    .map((e) -> process(e, null))
-                    .iterator());
+            return expressions.stream()
+                    .map(e -> process(e, null))
+                    .collect(joining(", "));
         }
 
         /**
@@ -1095,9 +1093,9 @@ public final class ExpressionFormatter
 
     public static String formatSortItems(List<SortItem> sortItems)
     {
-        return Joiner.on(", ").join(sortItems.stream()
+        return sortItems.stream()
                 .map(sortItemFormatterFunction())
-                .iterator());
+                .collect(joining(", "));
     }
 
     private static String formatWindow(Window window)
@@ -1220,9 +1218,7 @@ public final class ExpressionFormatter
 
     static String formatGroupBy(List<GroupingElement> groupingElements)
     {
-        ImmutableList.Builder<String> resultStrings = ImmutableList.builder();
-
-        for (GroupingElement groupingElement : groupingElements) {
+        return groupingElements.stream().map(groupingElement -> {
             String result = "";
             if (groupingElement instanceof SimpleGroupBy) {
                 List<Expression> columns = groupingElement.getExpressions();
@@ -1234,20 +1230,19 @@ public final class ExpressionFormatter
                 }
             }
             else if (groupingElement instanceof GroupingSets) {
-                result = format("GROUPING SETS (%s)", Joiner.on(", ").join(
-                        ((GroupingSets) groupingElement).getSets().stream()
-                                .map(ExpressionFormatter::formatGroupingSet)
-                                .iterator()));
+                result = ((GroupingSets) groupingElement).getSets().stream()
+                        .map(ExpressionFormatter::formatGroupingSet)
+                        .collect(joining(", ", "GROUPING SETS (", ")"));
             }
             else if (groupingElement instanceof Cube) {
-                result = format("CUBE %s", formatGroupingSet(groupingElement.getExpressions()));
+                result = "CUBE " + formatGroupingSet(groupingElement.getExpressions());
             }
             else if (groupingElement instanceof Rollup) {
-                result = format("ROLLUP %s", formatGroupingSet(groupingElement.getExpressions()));
+                result = "ROLLUP " + formatGroupingSet(groupingElement.getExpressions());
             }
-            resultStrings.add(result);
-        }
-        return Joiner.on(", ").join(resultStrings.build());
+            return result;
+        })
+        .collect(joining(", "));
     }
 
     private static boolean isAsciiPrintable(int codePoint)
@@ -1257,9 +1252,9 @@ public final class ExpressionFormatter
 
     private static String formatGroupingSet(List<Expression> groupingSet)
     {
-        return format("(%s)", Joiner.on(", ").join(groupingSet.stream()
+        return groupingSet.stream()
                 .map(ExpressionFormatter::formatExpression)
-                .iterator()));
+                .collect(joining(", ", "(", ")"));
     }
 
     private static Function<SortItem, String> sortItemFormatterFunction()
