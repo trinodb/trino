@@ -184,8 +184,7 @@ public class DeltaLakeParquetStatisticsUtils
         if (type == DOUBLE) {
             return value;
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             if (decimalType.isShort()) {
                 return Decimals.toString((long) value, decimalType.getScale());
             }
