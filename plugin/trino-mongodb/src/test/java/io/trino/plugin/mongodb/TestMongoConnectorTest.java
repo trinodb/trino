@@ -783,6 +783,18 @@ public class TestMongoConnectorTest
     }
 
     @Test
+    public void testNativeQueryCaseNonLowercaseColumn()
+    {
+        String tableName = "test_non_lowercase_column" + randomNameSuffix();
+        client.getDatabase("test").getCollection(tableName)
+                .insertOne(new Document("TestColumn", 1));
+
+        assertQuery(
+                "SELECT * FROM TABLE(mongodb.system.query(database => 'test', collection => '" + tableName + "', filter => '{\"TestColumn\": 1}'))",
+                "VALUES 1");
+    }
+
+    @Test
     public void testNativeQueryInvalidArgument()
     {
         assertQueryFails(

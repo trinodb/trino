@@ -168,7 +168,7 @@ public class MongoMetadata
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (MongoColumnHandle columnHandle : columns) {
-            columnHandles.put(columnHandle.getName(), columnHandle);
+            columnHandles.put(columnHandle.getName().toLowerCase(ENGLISH), columnHandle);
         }
         return columnHandles.buildOrThrow();
     }
