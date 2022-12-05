@@ -283,7 +283,7 @@ public final class StatementUtils
             if (genericInterface instanceof ParameterizedType parameterizedInterface) {
                 if (parameterizedInterface.getRawType().equals(expectedInterfaceType)) {
                     Type actualStatementType = parameterizedInterface.getActualTypeArguments()[0];
-                    checkArgument(actualStatementType.equals(statementType), format("Expected %s statement type to be %s", statementType.getSimpleName(), taskType.getSimpleName()));
+                    checkArgument(actualStatementType.equals(statementType), "Expected %s statement type to be %s", statementType.getSimpleName(), taskType.getSimpleName());
                     return;
                 }
             }
