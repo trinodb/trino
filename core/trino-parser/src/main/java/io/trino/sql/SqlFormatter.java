@@ -154,7 +154,6 @@ import static io.trino.sql.ExpressionFormatter.formatSkipTo;
 import static io.trino.sql.ExpressionFormatter.formatStringLiteral;
 import static io.trino.sql.ExpressionFormatter.formatWindowSpecification;
 import static io.trino.sql.RowPatternFormatter.formatPattern;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -1343,10 +1342,9 @@ public final class SqlFormatter
             builder.append(formatName(node.getName()));
 
             node.getColumnAliases().ifPresent(columnAliases -> {
-                String columnList = columnAliases.stream()
+                builder.append(columnAliases.stream()
                         .map(SqlFormatter::formatName)
-                        .collect(joining(", "));
-                builder.append(format("( %s )", columnList));
+                        .collect(joining(", ", "( ", " )")));
             });
 
             node.getComment().ifPresent(comment -> builder
@@ -1469,7 +1467,7 @@ public final class SqlFormatter
                     return principal.getName().toString();
                 case USER:
                 case ROLE:
-                    return format("%s %s", type.name(), principal.getName());
+                    return type.name() + " " + principal.getName();
             }
             throw new IllegalArgumentException("Unsupported principal type: " + type);
         }
