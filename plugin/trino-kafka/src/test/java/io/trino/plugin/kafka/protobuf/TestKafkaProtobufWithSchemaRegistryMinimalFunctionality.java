@@ -36,6 +36,7 @@ import java.util.Map;
 
 import static com.google.protobuf.Descriptors.FieldDescriptor.JavaType.ENUM;
 import static com.google.protobuf.Descriptors.FieldDescriptor.JavaType.STRING;
+import static io.airlift.units.Duration.succinctDuration;
 import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
 import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY;
 import static io.trino.decoder.protobuf.ProtobufRowDecoderFactory.DEFAULT_MESSAGE;
@@ -45,6 +46,7 @@ import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
 import static org.testng.Assert.assertTrue;
@@ -138,6 +140,30 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
         assertQueryFails(
                 format("INSERT INTO %s (col_1, col_2, col_3) VALUES ('Trino', 14, 1.4)", toDoubleQuoted(topic)),
                 "Insert is not supported for schema registry based tables");
+    }
+
+    @Test
+    public void testUnsupportedRecursiveDataTypes()
+            throws Exception
+    {
+        String topic = "topic-unsupported-recursive";
+        assertNotExists(topic);
+
+        UnsupportedRecursiveTypes.schema message = UnsupportedRecursiveTypes.schema.newBuilder()
+                .setRecursiveValueOne(UnsupportedRecursiveTypes.RecursiveValue.newBuilder().setStringValue("Value1").build())
+                .build();
+
+        ImmutableList.Builder<ProducerRecord<DynamicMessage, UnsupportedRecursiveTypes.schema>> producerRecordBuilder = ImmutableList.builder();
+        producerRecordBuilder.add(new ProducerRecord<>(topic, createKeySchema(0, getKeySchema()), message));
+        List<ProducerRecord<DynamicMessage, UnsupportedRecursiveTypes.schema>> messages = producerRecordBuilder.build();
+        testingKafka.sendMessages(
+                messages.stream(),
+                producerProperties());
+
+        // Any operation which performs schema parsing leads to failure so we cannot use #waitUntilTableExists
+        assertQueryFailsEventually("SELECT * FROM " + toDoubleQuoted(topic),
+                "\\Qstatement is too large (stack overflow during analysis)\\E",
+                succinctDuration(2, SECONDS));
     }
 
     private Map<String, String> producerProperties()
