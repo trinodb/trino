@@ -156,8 +156,7 @@ public class CheckpointSchemaManager
 
     private static RowType.Field buildNullCountType(Optional<String> columnName, Type columnType)
     {
-        if (columnType instanceof RowType) {
-            RowType rowType = (RowType) columnType;
+        if (columnType instanceof RowType rowType) {
             if (columnName.isPresent()) {
                 return RowType.field(
                         columnName.get(),
