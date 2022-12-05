@@ -88,7 +88,6 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_AGGREGATE;
@@ -117,7 +116,7 @@ class AggregationAnalyzer
     // fields and expressions in the group by clause
     private final Set<FieldId> groupingFields;
     private final Set<ScopeAware<Expression>> expressions;
-    private final Map<NodeRef<Expression>, FieldId> columnReferences;
+    private final Map<NodeRef<Expression>, ResolvedField> columnReferences;
 
     private final Session session;
     private final Metadata metadata;
@@ -175,14 +174,15 @@ class AggregationAnalyzer
                 .map(expression -> scopeAwareKey(expression, analysis, sourceScope))
                 .collect(toImmutableSet());
 
-        this.columnReferences = analysis.getColumnReferenceFields()
-                .entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getFieldId()));
+        // No defensive copy here for performance reasons.
+        // Copying this map may lead to quadratic time complexity
+        this.columnReferences = analysis.getColumnReferenceFields();
 
         this.groupingFields = groupByExpressions.stream()
                 .map(NodeRef::of)
                 .filter(columnReferences::containsKey)
                 .map(columnReferences::get)
+                .map(ResolvedField::getFieldId)
                 .collect(toImmutableSet());
 
         this.groupingFields.forEach(fieldId -> {
@@ -393,13 +393,17 @@ class AggregationAnalyzer
                                     .map(NodeRef::of)
                                     .map(columnReferences::get)
                                     .filter(Objects::nonNull)
+                                    .map(ResolvedField::getFieldId)
                                     .collect(toImmutableList());
                             for (Expression sortKey : sortKeys) {
-                                if (!node.getArguments().contains(sortKey) && !fieldIds.contains(columnReferences.get(NodeRef.of(sortKey)))) {
-                                    throw semanticException(
-                                            EXPRESSION_NOT_IN_DISTINCT,
-                                            sortKey,
-                                            "For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
+                                if (!node.getArguments().contains(sortKey)) {
+                                    ResolvedField field = columnReferences.get(NodeRef.of(sortKey));
+                                    if (field == null || !fieldIds.contains(field.getFieldId())) {
+                                        throw semanticException(
+                                                EXPRESSION_NOT_IN_DISTINCT,
+                                                sortKey,
+                                                "For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
+                                    }
                                 }
                             }
                         }
@@ -571,8 +575,7 @@ class AggregationAnalyzer
 
         private boolean isGroupingKey(Expression node)
         {
-            FieldId fieldId = columnReferences.get(NodeRef.of(node));
-            requireNonNull(fieldId, () -> "No FieldId for " + node);
+            FieldId fieldId = requireNonNull(columnReferences.get(NodeRef.of(node)), () -> "No field for " + node).getFieldId();
 
             if (orderByScope.isPresent() && isFieldFromScope(fieldId, orderByScope.get())) {
                 return true;
@@ -588,7 +591,7 @@ class AggregationAnalyzer
                 return true;
             }
 
-            FieldId fieldId = requireNonNull(columnReferences.get(NodeRef.<Expression>of(node)), "No FieldId for FieldReference");
+            FieldId fieldId = requireNonNull(columnReferences.get(NodeRef.of(node)), () -> "No field for " + node).getFieldId();
             boolean inGroup = groupingFields.contains(fieldId);
             if (!inGroup) {
                 Field field = sourceScope.getRelationType().getFieldByIndex(node.getFieldIndex());
