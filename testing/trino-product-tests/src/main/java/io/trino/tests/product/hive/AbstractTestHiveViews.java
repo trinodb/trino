@@ -44,6 +44,8 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HIVE_ICEBERG_REDIRECTIONS;
 import static io.trino.tests.product.TestGroups.HIVE_VIEWS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_READING_FROM_HIVE_ISSUE;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_READING_FROM_HIVE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -312,7 +314,7 @@ public abstract class AbstractTestHiveViews
      * Test view containing IF, IN, LIKE, BETWEEN, CASE, COALESCE, operators, delimited and non-delimited columns, an inline comment
      */
     @Test(groups = HIVE_VIEWS)
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/7535", match = "FAILED: Execution Error, return code 2 from org.apache.hadoop.hive.ql.exec.mr.MapRedTask")
+    @Flaky(issue = ERROR_READING_FROM_HIVE_ISSUE, match = ERROR_READING_FROM_HIVE_MATCH)
     public void testRichSqlSyntax()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS view_with_rich_syntax");
@@ -506,6 +508,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = ERROR_READING_FROM_HIVE_ISSUE, match = ERROR_READING_FROM_HIVE_MATCH)
     public void testUnionAllViews()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS union_helper");
@@ -541,6 +544,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = ERROR_READING_FROM_HIVE_ISSUE, match = ERROR_READING_FROM_HIVE_MATCH)
     public void testUnionDistinctViews()
     {
         if (getHiveVersionMajor() < 1 || (getHiveVersionMajor() == 1 && getHiveVersionMinor() < 2)) {
