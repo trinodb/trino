@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.hdfs.HdfsContext;
@@ -86,6 +87,7 @@ import org.apache.thrift.TException;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -95,6 +97,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -153,6 +157,7 @@ public class ThriftHiveMetastore
     private final boolean translateHiveViews;
     private final boolean assumeCanonicalPartitionKeys;
     private final ThriftMetastoreStats stats;
+    private final ExecutorService writeStatisticsExecutor;
 
     public ThriftHiveMetastore(
             Optional<ConnectorIdentity> identity,
@@ -167,7 +172,8 @@ public class ThriftHiveMetastore
             boolean deleteFilesOnDrop,
             boolean translateHiveViews,
             boolean assumeCanonicalPartitionKeys,
-            ThriftMetastoreStats stats)
+            ThriftMetastoreStats stats,
+            ExecutorService writeStatisticsExecutor)
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -182,6 +188,7 @@ public class ThriftHiveMetastore
         this.translateHiveViews = translateHiveViews;
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         this.stats = requireNonNull(stats, "stats is null");
+        this.writeStatisticsExecutor = requireNonNull(writeStatisticsExecutor, "writeStatisticsExecutor is null");
     }
 
     @VisibleForTesting
@@ -1106,8 +1113,30 @@ public class ThriftHiveMetastore
                 .map(ThriftMetastoreUtil::toMetastoreApiPartition)
                 .collect(toImmutableList());
         addPartitionsWithoutStatistics(databaseName, tableName, partitions);
+
+        List<Future<?>> updateStatisticsFutures = new ArrayList<>();
         for (PartitionWithStatistics partitionWithStatistics : partitionsWithStatistics) {
-            storePartitionColumnStatistics(databaseName, tableName, partitionWithStatistics.getPartitionName(), partitionWithStatistics);
+            updateStatisticsFutures.add(writeStatisticsExecutor.submit(() ->
+                    storePartitionColumnStatistics(
+                            databaseName,
+                            tableName,
+                            partitionWithStatistics.getPartitionName(),
+                            partitionWithStatistics)));
+        }
+
+        try {
+            updateStatisticsFutures.forEach(MoreFutures::getFutureValue);
+        }
+        catch (Throwable failure) {
+            try {
+                updateStatisticsFutures.forEach(future -> future.cancel(true));
+            }
+            catch (RuntimeException e) {
+                if (failure != e) {
+                    failure.addSuppressed(e);
+                }
+            }
+            throw failure;
         }
     }
 

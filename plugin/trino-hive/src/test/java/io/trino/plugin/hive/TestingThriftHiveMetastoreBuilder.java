@@ -40,6 +40,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 
 public final class TestingThriftHiveMetastoreBuilder
 {
@@ -119,7 +120,8 @@ public final class TestingThriftHiveMetastoreBuilder
                 new HiveMetastoreConfig().isHideDeltaLakeTables(),
                 hiveConfig.isTranslateHiveViews(),
                 thriftMetastoreConfig,
-                hdfsEnvironment);
+                hdfsEnvironment,
+                newFixedThreadPool(thriftMetastoreConfig.getWriteStatisticsThreads()));
         return metastoreFactory.createMetastore(Optional.empty());
     }
 }
