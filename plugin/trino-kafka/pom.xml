@@ -138,6 +138,11 @@
             <artifactId>kafka-clients</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.pcollections</groupId>
+            <artifactId>pcollections</artifactId>
+        </dependency>
+
         <!-- used by tests but also needed transitively -->
         <dependency>
             <groupId>io.airlift</groupId>

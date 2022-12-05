@@ -172,11 +172,13 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
                         KEY_SERIALIZER_CLASS_CONFIG, KafkaProtobufSerializer.class.getName(),
                         VALUE_SERIALIZER_CLASS_CONFIG, KafkaProtobufSerializer.class.getName()));
 
-        // any call to kafka topic will trigger schema parsing what's get exceptional failure,
-        // so  here is waiting for some time period and invoke query
-        Thread.sleep(2000);
+        waitUntilTableExists(topic);
         assertQueryFails("SELECT * FROM " + toDoubleQuoted(topic),
-                "statement is too large \\(stack overflow during analysis\\)");
+                "Cannot parse registry schema for nested object with the same object reference: " +
+                        "io.trino.protobuf.NestedValue > " +
+                        "io.trino.protobuf.NestedStruct > " +
+                        "io.trino.protobuf.NestedStruct.FieldsEntry > " +
+                        "io.trino.protobuf.NestedValue");
     }
 
     @Test
