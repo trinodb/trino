@@ -173,7 +173,18 @@ public abstract class AbstractDistributedEngineOnlyQueries
         assertExplain(
                 "explain select name from nation where abs(nationkey) = 22",
                 Pattern.quote("abs(\"nationkey\")"),
-                "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}");
+                "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}",
+                "Trino version: .*");
+    }
+
+    @Test
+    public void testExplainDistributed()
+    {
+        assertExplain(
+                "explain (type distributed) select name from nation where abs(nationkey) = 22",
+                Pattern.quote("abs(\"nationkey\")"),
+                "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}",
+                "Trino version: .*");
     }
 
     // explain analyze can only run on coordinator
@@ -182,7 +193,8 @@ public abstract class AbstractDistributedEngineOnlyQueries
     {
         assertExplainAnalyze(
                 noJoinReordering(BROADCAST),
-                "EXPLAIN ANALYZE SELECT * FROM (SELECT nationkey, regionkey FROM nation GROUP BY nationkey, regionkey) a, nation b WHERE a.regionkey = b.regionkey");
+                "EXPLAIN ANALYZE SELECT * FROM (SELECT nationkey, regionkey FROM nation GROUP BY nationkey, regionkey) a, nation b WHERE a.regionkey = b.regionkey",
+                "Trino version: .*");
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
                 "Left \\(probe\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*",

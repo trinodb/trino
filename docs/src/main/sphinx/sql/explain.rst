@@ -57,6 +57,7 @@ Process the supplied query statement and create a logical plan in text format::
 
                                                        Query Plan
     -----------------------------------------------------------------------------------------------------------------
+     Trino version: version
      Output[regionkey, _col1]
      │   Layout: [regionkey:bigint, count:bigint]
      │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
@@ -364,6 +365,7 @@ explicitly shows the data exchange between workers::
 
                                                   Query Plan
     ------------------------------------------------------------------------------------------------------
+     Trino version: version
      Fragment 0 [SINGLE]
          Output layout: [regionkey, count]
          Output partitioning: SINGLE []
