@@ -72,10 +72,10 @@ public class BenchmarkPlanner
     {
         @Param({"OPTIMIZED", "CREATED"})
         private Stage stage = OPTIMIZED;
-
-        private LocalQueryRunner queryRunner;
         @Param
         private Queries queries = TPCH;
+
+        private LocalQueryRunner queryRunner;
         private Session session;
 
         @Setup
@@ -133,6 +133,20 @@ public class BenchmarkPlanner
                 IntStream.range(0, 5000)
                         .mapToObj(Integer::toString)
                         .collect(joining(", ", "(", ")")))),
+        // 86k columns present in the query with 500 group bys
+        GROUP_BY_WITH_MANY_REFERENCED_COLUMNS(() -> ImmutableList.of("WITH " + IntStream.rangeClosed(0, 500)
+                .mapToObj(i -> """
+                        t%s AS (
+                        SELECT * FROM lineitem a
+                        JOIN tiny.lineitem b ON a.l_orderkey = b.l_orderkey
+                        JOIN sf10.lineitem c ON a.l_orderkey = c.l_orderkey
+                        JOIN sf100.lineitem d ON a.l_orderkey = d.l_orderkey
+                        JOIN sf1000.lineitem e ON a.l_orderkey = e.l_orderkey
+                        WHERE a.l_orderkey = (SELECT max(o_orderkey) FROM orders GROUP BY o_orderkey))
+                        """
+                        .formatted(i))
+                .collect(joining(",")) +
+                "SELECT 1 FROM lineitem")),
         /**/;
 
         private final Supplier<List<String>> queries;
