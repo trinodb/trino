@@ -15,7 +15,6 @@ package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.trino.sql.tree.QualifiedName;
 
 import javax.annotation.concurrent.Immutable;
@@ -104,7 +103,7 @@ public class RelationType
      */
     public Collection<Field> getAllFields()
     {
-        return ImmutableSet.copyOf(allFields);
+        return allFields;
     }
 
     /**
