@@ -551,7 +551,6 @@
                             <executable>${java.home}/bin/java</executable>
                             <arguments>
                                 <argument>-DoutputDirectory=benchmark_outputs</argument>
-                                <argument>-Dmyproperty=myvalue</argument>
                                 <argument>-classpath</argument>
                                 <classpath />
                                 <argument>io.trino.benchmark.BenchmarkSuite</argument>
