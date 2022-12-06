@@ -17,12 +17,11 @@ import com.google.common.primitives.Bytes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.type.Decimals;
+import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 import java.util.function.IntFunction;
 
@@ -62,7 +61,7 @@ public final class TestData
 
     public static boolean[] generateMixedData(Random r, int size, int maxGroupSize)
     {
-        List<Boolean> mixedList = new ArrayList<>();
+        BooleanArrayList mixedList = new BooleanArrayList(size);
         while (mixedList.size() < size) {
             boolean isGroup = r.nextBoolean();
             int groupSize = r.nextInt(maxGroupSize);
@@ -79,9 +78,7 @@ public final class TestData
             }
         }
         boolean[] result = new boolean[size];
-        for (int i = 0; i < size; i++) {
-            result[i] = mixedList.get(i);
-        }
+        mixedList.getElements(0, result, 0, size);
         return result;
     }
 
