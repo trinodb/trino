@@ -1338,8 +1338,11 @@ public class AccessControlManager
 
     private List<SystemAccessControl> getSystemAccessControls()
     {
-        return Optional.ofNullable(systemAccessControls.get())
-                .orElse(ImmutableList.of(new InitializingSystemAccessControl()));
+        List<SystemAccessControl> accessControls = systemAccessControls.get();
+        if (accessControls != null) {
+            return accessControls;
+        }
+        return ImmutableList.of(new InitializingSystemAccessControl());
     }
 
     private ConnectorSecurityContext toConnectorSecurityContext(String catalogName, SecurityContext securityContext)
