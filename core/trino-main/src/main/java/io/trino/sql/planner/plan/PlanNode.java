@@ -16,9 +16,11 @@ package io.trino.sql.planner.plan;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.google.common.collect.ImmutableSet;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -91,6 +93,11 @@ public abstract class PlanNode
     public abstract List<PlanNode> getSources();
 
     public abstract List<Symbol> getOutputSymbols();
+
+    public Set<Symbol> getOutputSymbolsSet()
+    {
+        return ImmutableSet.copyOf(getOutputSymbols());
+    }
 
     public abstract PlanNode replaceChildren(List<PlanNode> newChildren);
 

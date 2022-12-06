@@ -22,6 +22,7 @@ import io.trino.sql.planner.Symbol;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -49,6 +50,12 @@ public class ProjectNode
 
     @Override
     public List<Symbol> getOutputSymbols()
+    {
+        return ImmutableList.copyOf(assignments.getOutputs());
+    }
+
+    @Override
+    public Set<Symbol> getOutputSymbolsSet()
     {
         return assignments.getOutputs();
     }

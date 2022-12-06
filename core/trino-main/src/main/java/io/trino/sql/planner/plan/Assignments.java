@@ -15,7 +15,6 @@ package io.trino.sql.planner.plan;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.trino.Session;
@@ -30,7 +29,6 @@ import io.trino.sql.tree.SymbolReference;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -102,9 +100,9 @@ public class Assignments
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
     }
 
-    public List<Symbol> getOutputs()
+    public Set<Symbol> getOutputs()
     {
-        return ImmutableList.copyOf(assignments.keySet());
+        return assignments.keySet();
     }
 
     @JsonProperty("assignments")

@@ -70,7 +70,7 @@ public abstract class SetOperationNode
         // Make sure each source positionally corresponds to their Symbol values in the Multimap
         for (int i = 0; i < sources.size(); i++) {
             for (Collection<Symbol> expectedInputs : this.outputToInputs.asMap().values()) {
-                checkArgument(sources.get(i).getOutputSymbols().contains(Iterables.get(expectedInputs, i)), "Source does not provide required symbols");
+                checkArgument(sources.get(i).getOutputSymbolsSet().contains(Iterables.get(expectedInputs, i)), "Source does not provide required symbols");
             }
         }
     }
