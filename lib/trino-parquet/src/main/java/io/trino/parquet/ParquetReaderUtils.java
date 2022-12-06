@@ -74,6 +74,22 @@ public final class ParquetReaderUtils
     }
 
     /**
+     * Propagate the sign bit in values that are shorter than 8 bytes.
+     * <p>
+     * When the value of less than 8 bytes in put into a long variable, the padding bytes on the
+     * left side of the number should be all zeros for a positive number or all ones for negatives.
+     * This method does this padding using signed bit shift operator without branches.
+     *
+     * @param value Value to trim
+     * @param bitsToPad Number of bits to pad
+     * @return Value with correct padding
+     */
+    public static long propagateSignBit(long value, int bitsToPad)
+    {
+        return value << bitsToPad >> bitsToPad;
+    }
+
+    /**
      * Method simulates a cast from boolean to byte value. Despite using
      * a ternary (?) operator, the just-in-time compiler usually figures out
      * that this is a cast and turns that into a no-op.
