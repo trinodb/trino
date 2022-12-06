@@ -16,6 +16,7 @@ package io.trino.parquet.reader;
 import com.google.common.primitives.Bytes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.parquet.ParquetReaderUtils;
 import io.trino.spi.type.Decimals;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -140,23 +141,7 @@ public final class TestData
         if (bitWidth == 64) {
             return r.nextLong();
         }
-        return propagateSignBit(r.nextLong(), 64 - bitWidth);
-    }
-
-    /**
-     * Propagate the sign bit in values that are shorter than 8 bytes.
-     * <p>
-     * When the value of less than 8 bytes in put into a long variable, the padding bytes on the
-     * left side of the number should be all zeros for a positive number or all ones for negatives.
-     * This method does this padding using signed bit shift operator without branches.
-     *
-     * @param value Value to trim
-     * @param bitsToPad Number of bits to pad
-     * @return Value with correct padding
-     */
-    private static long propagateSignBit(long value, int bitsToPad)
-    {
-        return value << bitsToPad >> bitsToPad;
+        return ParquetReaderUtils.propagateSignBit(r.nextLong(), 64 - bitWidth);
     }
 
     private static int propagateSignBit(int value, int bitsToPad)
