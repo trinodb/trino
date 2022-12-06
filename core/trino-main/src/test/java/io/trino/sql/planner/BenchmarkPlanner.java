@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.sql.planner.LogicalPlanner.Stage;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.tpch.Customer;
 import org.intellij.lang.annotations.Language;
@@ -68,8 +69,8 @@ public class BenchmarkPlanner
     @State(Scope.Benchmark)
     public static class BenchmarkData
     {
-        @Param({"optimized", "created"})
-        private String stage = OPTIMIZED.toString();
+        @Param({"OPTIMIZED", "CREATED"})
+        private Stage stage = OPTIMIZED;
 
         private LocalQueryRunner queryRunner;
         private List<String> queries;
@@ -125,9 +126,8 @@ public class BenchmarkPlanner
     public List<Plan> planQueries(BenchmarkData benchmarkData)
     {
         return benchmarkData.queryRunner.inTransaction(transactionSession -> {
-            LogicalPlanner.Stage stage = LogicalPlanner.Stage.valueOf(benchmarkData.stage.toUpperCase(ENGLISH));
             return benchmarkData.queries.stream()
-                    .map(query -> benchmarkData.queryRunner.createPlan(transactionSession, query, stage, false, WarningCollector.NOOP))
+                    .map(query -> benchmarkData.queryRunner.createPlan(transactionSession, query, benchmarkData.stage, false, WarningCollector.NOOP))
                     .collect(toImmutableList());
         });
     }
