@@ -115,14 +115,11 @@ public final class TestData
 
     public static int randomInt(Random r, int bitWidth)
     {
-        checkArgument(bitWidth <= 32 && bitWidth >= 0, "bit width must be in range 0 - 32 inclusive");
+        checkArgument(bitWidth <= 32 && bitWidth > 0, "bit width must be in range 1 - 32 inclusive");
         if (bitWidth == 32) {
             return r.nextInt();
         }
-        else if (bitWidth == 31) {
-            return r.nextInt() & ((1 << 31) - 1);
-        }
-        return r.nextInt(1 << bitWidth);
+        return propagateSignBit(r.nextInt(), 32 - bitWidth);
     }
 
     private static long randomLong(Random r, int bitWidth)
@@ -146,6 +143,11 @@ public final class TestData
      * @return Value with correct padding
      */
     private static long propagateSignBit(long value, int bitsToPad)
+    {
+        return value << bitsToPad >> bitsToPad;
+    }
+
+    private static int propagateSignBit(int value, int bitsToPad)
     {
         return value << bitsToPad >> bitsToPad;
     }
