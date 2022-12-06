@@ -24,6 +24,7 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
+import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogServiceProviderModule;
 import io.trino.connector.ConnectorServicesProvider;
@@ -1117,7 +1118,8 @@ public class LocalQueryRunner
                 plannerContext,
                 statementAnalyzerFactory,
                 statsCalculator,
-                costCalculator);
+                costCalculator,
+                new NodeVersion("test"));
     }
 
     private AnalyzerFactory createAnalyzerFactory(QueryExplainerFactory queryExplainerFactory)

@@ -41,6 +41,7 @@ relevant plan nodes). Such statistics are useful when one wants to detect data a
 
                                               Query Plan
     -----------------------------------------------------------------------------------------------
+    Trino version: version
     Fragment 1 [HASH]
         CPU: 22.58ms, Scheduled: 96.72ms, Blocked 46.21s (Input: 23.06s, Output: 0.00ns), Input: 1000 rows (37.11kB); per task: avg.: 1000.00 std.dev.: 0.00, Output: 1000 rows (28.32kB)
         Output layout: [clerk, count]
@@ -87,9 +88,8 @@ relevant plan nodes). Such statistics are useful when one wants to detect data a
                orderdate := orderdate:date:REGULAR
                Input: 1500000 rows (18.17MB), Filtered: 45.46%, Physical Input: 4.51MB
 
-When the ``VERBOSE`` option is used, Trino version is reported as well as
-some operators may report additional information. For example, the window
-function operator will output the following::
+When the ``VERBOSE`` option is used, some operators may report additional information.
+For example, the window function operator will output the following::
 
     EXPLAIN ANALYZE VERBOSE SELECT count(clerk) OVER() FROM orders
     WHERE orderdate > date '1995-01-01';
