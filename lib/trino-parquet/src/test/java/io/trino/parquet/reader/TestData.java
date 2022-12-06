@@ -23,6 +23,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.math.BigInteger;
+import java.util.Objects;
 import java.util.Random;
 import java.util.function.IntFunction;
 
@@ -142,6 +143,36 @@ public final class TestData
             return r.nextLong();
         }
         return ParquetReaderUtils.propagateSignBit(r.nextLong(), 64 - bitWidth);
+    }
+
+    public static byte[][] randomBinaryData(int size, int minLength, int maxLength)
+    {
+        Random random = new Random(Objects.hash(size, minLength, maxLength));
+        byte[][] data = new byte[size][];
+        for (int i = 0; i < size; i++) {
+            int length = random.nextInt(maxLength - minLength + 1) + minLength;
+            byte[] value = new byte[length];
+            random.nextBytes(value);
+            data[i] = value;
+        }
+
+        return data;
+    }
+
+    public static byte[][] randomAsciiData(int size, int minLength, int maxLength)
+    {
+        Random random = new Random(Objects.hash(size, minLength, maxLength));
+        byte[][] data = new byte[size][];
+        for (int i = 0; i < size; i++) {
+            int length = random.nextInt(maxLength - minLength + 1) + minLength;
+            byte[] value = new byte[length];
+            for (int j = 0; j < length; j++) {
+                value[j] = (byte) random.nextInt(128);
+            }
+            data[i] = value;
+        }
+
+        return data;
     }
 
     private static int propagateSignBit(int value, int bitsToPad)
