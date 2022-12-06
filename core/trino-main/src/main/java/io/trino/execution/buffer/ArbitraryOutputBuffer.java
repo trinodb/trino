@@ -116,7 +116,7 @@ public class ArbitraryOutputBuffer
     {
         // do not grab lock to acquire outputBuffers to avoid delaying TaskStatus response
         return OutputBufferStatus.builder(outputBuffers.getVersion())
-                .setOverutilized(memoryManager.getUtilization() >= 0.5 || !stateMachine.getState().canAddPages())
+                .setOverutilized(memoryManager.getUtilization() >= 0.5 && stateMachine.getState().canAddPages())
                 .build();
     }
 
