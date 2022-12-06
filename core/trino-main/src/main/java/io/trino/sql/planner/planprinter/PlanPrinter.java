@@ -364,9 +364,25 @@ public class PlanPrinter
             int level,
             boolean verbose)
     {
+        return textLogicalPlan(plan, types, metadata, functionManager, estimatedStatsAndCosts, session, level, verbose, Optional.empty());
+    }
+
+    public static String textLogicalPlan(
+            PlanNode plan,
+            TypeProvider types,
+            Metadata metadata,
+            FunctionManager functionManager,
+            StatsAndCosts estimatedStatsAndCosts,
+            Session session,
+            int level,
+            boolean verbose,
+            Optional<NodeVersion> version)
+    {
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
         ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
-        return new PlanPrinter(
+        StringBuilder builder = new StringBuilder();
+        version.ifPresent(v -> builder.append(format("Trino version: %s\n", v)));
+        builder.append(new PlanPrinter(
                 plan,
                 types,
                 tableInfoSupplier,
@@ -375,7 +391,8 @@ public class PlanPrinter
                 estimatedStatsAndCosts,
                 Optional.empty(),
                 new NoOpAnonymizer())
-                .toText(verbose, level);
+                .toText(verbose, level));
+        return builder.toString();
     }
 
     public static String textDistributedPlan(
@@ -422,9 +439,7 @@ public class PlanPrinter
                 .collect(toImmutableMap(DynamicFilterDomainStats::getDynamicFilterId, identity()));
         TypeProvider typeProvider = getTypeProvider(allFragments);
 
-        if (verbose) {
-            builder.append(format("Trino version: %s\n", version));
-        }
+        builder.append(format("Trino version: %s\n", version));
 
         for (StageInfo stageInfo : allStages) {
             builder.append(formatFragment(
@@ -442,12 +457,13 @@ public class PlanPrinter
         return builder.toString();
     }
 
-    public static String textDistributedPlan(SubPlan plan, Metadata metadata, FunctionManager functionManager, Session session, boolean verbose)
+    public static String textDistributedPlan(SubPlan plan, Metadata metadata, FunctionManager functionManager, Session session, boolean verbose, NodeVersion version)
     {
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
         ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
         StringBuilder builder = new StringBuilder();
         TypeProvider typeProvider = getTypeProvider(plan.getAllFragments());
+        builder.append(format("Trino version: %s\n", version));
         for (PlanFragment fragment : plan.getAllFragments()) {
             builder.append(formatFragment(
                     tableInfoSupplier,
