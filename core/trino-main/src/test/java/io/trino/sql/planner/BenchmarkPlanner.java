@@ -147,6 +147,14 @@ public class BenchmarkPlanner
                         .formatted(i))
                 .collect(joining(",")) +
                 "SELECT 1 FROM lineitem")),
+        // Union of ten selects with 2000 columns each
+        LARGE_UNION(() -> ImmutableList.of(IntStream.rangeClosed(0, 10)
+                .mapToObj(i -> "SELECT " +
+                        IntStream.rangeClosed(0, 2000)
+                                .mapToObj(j -> "l_orderkey c" + j)
+                                .collect(joining(","))
+                        + " FROM lineitem")
+                .collect(joining(" UNION ")))),
         /**/;
 
         private final Supplier<List<String>> queries;
