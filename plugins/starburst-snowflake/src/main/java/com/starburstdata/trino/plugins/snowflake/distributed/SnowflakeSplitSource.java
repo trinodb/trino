@@ -288,24 +288,25 @@ public class SnowflakeSplitSource
     private ConnectorSplitSource getHiveSplitSource()
     {
         SchemaTableName schemaTableName = new SchemaTableName("dummy_schema", "dummy_table");
-        HiveTableHandle tableLayoutHandle = new HiveTableHandle(
-                schemaTableName.getSchemaName(),
-                schemaTableName.getTableName(),
-                Optional.of(ImmutableMap.of()),
-                ImmutableList.of(),
-                getHiveColumnHandles(columns),
-                Optional.empty(),
-                Optional.of(ImmutableList.of(new HivePartition(schemaTableName))),
-                all(),
-                none(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableSet.of(),
-                ImmutableSet.of(),
-                NO_ACID_TRANSACTION,
-                false,
-                Optional.empty());
+        HiveTableHandle tableLayoutHandle = HiveTableHandle.builder()
+                .withSchemaName(schemaTableName.getSchemaName())
+                .withTableName(schemaTableName.getTableName())
+                .withTableParameters(Optional.of(ImmutableMap.of()))
+                .withPartitionColumns(ImmutableList.of())
+                .withDataColumns(getHiveColumnHandles(columns))
+                .withPartitionNames(Optional.empty())
+                .withPartitions(Optional.of(ImmutableList.of(new HivePartition(schemaTableName))))
+                .withCompactEffectivePredicate(all())
+                .withEnforcedConstraint(none())
+                .withBucketHandle(Optional.empty())
+                .withBucketFilter(Optional.empty())
+                .withAnalyzePartitionValues(Optional.empty())
+                .withConstraintColumns(ImmutableSet.of())
+                .withProjectedColumns(ImmutableSet.of())
+                .withTransaction(NO_ACID_TRANSACTION)
+                .withRecordScannedFiles(false)
+                .withMaxScannedFileSize(Optional.empty())
+                .build();
 
         ConnectorTransactionHandle transactionHandle = new HiveTransactionHandle(false);
         return getHiveSplitManager(transactionHandle).getSplits(
