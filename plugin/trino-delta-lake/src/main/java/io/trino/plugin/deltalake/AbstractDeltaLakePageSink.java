@@ -25,6 +25,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriterOptions;
+import io.trino.plugin.deltalake.DataFileInfo.DataFileType;
 import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
@@ -199,6 +200,8 @@ public abstract class AbstractDeltaLakePageSink
             ImmutableList.Builder<Type> dataColumnTypes);
 
     protected abstract String getPathPrefix();
+
+    protected abstract DataFileType getDataFileType();
 
     @Override
     public long getCompletedBytes()
@@ -375,7 +378,8 @@ public abstract class AbstractDeltaLakePageSink
                     getRelativeFilePath(partitionName, fileName),
                     partitionValues,
                     stats,
-                    dataColumnHandles);
+                    dataColumnHandles,
+                    getDataFileType());
 
             writers.set(writerIndex, writer);
             memoryUsage += writer.getMemoryUsage();

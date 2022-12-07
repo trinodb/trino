@@ -21,19 +21,26 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.OptionalInt;
 
-import static io.trino.plugin.deltalake.DataFileInfo.DataFileType.DATA;
+import static io.trino.plugin.deltalake.DataFileInfo.DataFileType.CHANGE_DATA_FEED;
+import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
-public class DeltaLakePageSink
+public class DeltaLakeCdfPageSink
         extends AbstractDeltaLakePageSink
 {
-    public DeltaLakePageSink(
+    public static final String CHANGE_TYPE_COLUMN_NAME = "_change_type";
+    public static final String CHANGE_DATA_FOLDER_NAME = "_change_data";
+
+    public DeltaLakeCdfPageSink(
             List<DeltaLakeColumnHandle> inputColumns,
             List<String> originalPartitionColumns,
             PageIndexerFactory pageIndexerFactory,
             TrinoFileSystemFactory fileSystemFactory,
             int maxOpenWriters,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
+            String outputPath,
             String tableLocation,
             ConnectorSession session,
             DeltaLakeWriterStats stats,
@@ -47,36 +54,44 @@ public class DeltaLakePageSink
                 maxOpenWriters,
                 dataFileInfoCodec,
                 tableLocation,
-                tableLocation,
+                outputPath,
                 session,
                 stats,
                 trinoVersion);
     }
 
     @Override
-    protected void processSynthesizedColumn(DeltaLakeColumnHandle column)
-    {
-        throw new IllegalStateException("Unexpected column type: " + column.getColumnType());
-    }
+    protected void processSynthesizedColumn(DeltaLakeColumnHandle column) {}
 
     @Override
     protected void addSpecialColumns(
             List<DeltaLakeColumnHandle> inputColumns,
             ImmutableList.Builder<DeltaLakeColumnHandle> dataColumnHandles,
-            ImmutableList.Builder<Integer> dataColumnsInputIndex,
+            ImmutableList.Builder<Integer> dataColumnsInputIndices,
             ImmutableList.Builder<String> dataColumnNames,
             ImmutableList.Builder<Type> dataColumnTypes)
-    {}
+    {
+        dataColumnHandles.add(new DeltaLakeColumnHandle(
+                CHANGE_TYPE_COLUMN_NAME,
+                VARCHAR,
+                OptionalInt.empty(),
+                CHANGE_TYPE_COLUMN_NAME,
+                VARCHAR,
+                REGULAR));
+        dataColumnsInputIndices.add(inputColumns.size());
+        dataColumnNames.add(CHANGE_TYPE_COLUMN_NAME);
+        dataColumnTypes.add(VARCHAR);
+    }
 
     @Override
     protected String getPathPrefix()
     {
-        return "";
+        return CHANGE_DATA_FOLDER_NAME + "/";
     }
 
     @Override
     protected DataFileInfo.DataFileType getDataFileType()
     {
-        return DATA;
+        return CHANGE_DATA_FEED;
     }
 }

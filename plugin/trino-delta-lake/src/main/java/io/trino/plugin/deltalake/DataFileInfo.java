@@ -23,9 +23,16 @@ import static java.util.Objects.requireNonNull;
 
 public class DataFileInfo
 {
+    public enum DataFileType
+    {
+        DATA,
+        CHANGE_DATA_FEED,
+    }
+
     private final String path;
     private final List<String> partitionValues;
     private final long size;
+    private final DataFileType dataFileType;
     private final long creationTime;
     private final DeltaLakeJsonFileStatistics statistics;
 
@@ -34,12 +41,14 @@ public class DataFileInfo
             @JsonProperty("path") String path,
             @JsonProperty("size") long size,
             @JsonProperty("creationTime") long creationTime,
+            @JsonProperty("fileType") DataFileType dataFileType,
             @JsonProperty("partitionValues") List<String> partitionValues,
             @JsonProperty("statistics") DeltaLakeJsonFileStatistics statistics)
     {
         this.path = path;
         this.size = size;
         this.creationTime = creationTime;
+        this.dataFileType = requireNonNull(dataFileType, "dataFileType is null");
         this.partitionValues = partitionValues;
         this.statistics = requireNonNull(statistics, "statistics is null");
     }
@@ -66,6 +75,12 @@ public class DataFileInfo
     public long getCreationTime()
     {
         return creationTime;
+    }
+
+    @JsonProperty
+    public DataFileType getDataFileType()
+    {
+        return dataFileType;
     }
 
     @JsonProperty
