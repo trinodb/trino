@@ -34,21 +34,21 @@ public class TestExpressionFormatter
         // positive
         assertFormattedExpression(
                 new IntervalLiteral("2", POSITIVE, HOUR),
-                "INTERVAL  '2' HOUR");
+                "INTERVAL '2' HOUR");
         // negative
         assertFormattedExpression(
                 new IntervalLiteral("2", NEGATIVE, HOUR),
-                "INTERVAL -  '2' HOUR");
+                "INTERVAL -'2' HOUR");
 
         // from .. to
         assertFormattedExpression(
                 new IntervalLiteral("2", POSITIVE, HOUR, Optional.of(SECOND)),
-                "INTERVAL  '2' HOUR TO SECOND");
+                "INTERVAL '2' HOUR TO SECOND");
 
         // negative from .. to
         assertFormattedExpression(
                 new IntervalLiteral("2", NEGATIVE, HOUR, Optional.of(SECOND)),
-                "INTERVAL -  '2' HOUR TO SECOND");
+                "INTERVAL -'2' HOUR TO SECOND");
     }
 
     private void assertFormattedExpression(Expression expression, String expected)
