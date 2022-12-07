@@ -18,19 +18,23 @@ import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.DynamicMessage;
+import com.google.protobuf.Timestamp;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.confluent.kafka.serializers.protobuf.KafkaProtobufSerializer;
 import io.confluent.kafka.serializers.subject.RecordNameStrategy;
 import io.confluent.kafka.serializers.subject.TopicRecordNameStrategy;
 import io.trino.plugin.kafka.schema.confluent.KafkaWithConfluentSchemaRegistryQueryRunner;
+import io.trino.spi.type.SqlTimestamp;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.errors.SerializationException;
 import org.testng.annotations.Test;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -42,13 +46,20 @@ import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.VALUE_
 import static io.trino.decoder.protobuf.ProtobufRowDecoderFactory.DEFAULT_MESSAGE;
 import static io.trino.decoder.protobuf.ProtobufUtils.getFileDescriptor;
 import static io.trino.decoder.protobuf.ProtobufUtils.getProtoFile;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static java.lang.Math.floorDiv;
 import static java.lang.Math.multiplyExact;
+import static java.lang.StrictMath.floorMod;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -164,6 +175,73 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
         assertQueryFailsEventually("SELECT * FROM " + toDoubleQuoted(topic),
                 "\\Qstatement is too large (stack overflow during analysis)\\E",
                 succinctDuration(2, SECONDS));
+    }
+
+    @Test
+    public void testSchemaWithImportDataTypes()
+            throws Exception
+    {
+        String topic = "topic-schema-with-import";
+        assertNotExists(topic);
+
+        Descriptor descriptor = getDescriptor("structural_datatypes.proto");
+
+        Timestamp timestamp = getTimestamp(sqlTimestampOf(3, LocalDateTime.parse("2020-12-12T15:35:45.923")));
+        DynamicMessage message = buildDynamicMessage(
+                descriptor,
+                ImmutableMap.<String, Object>builder()
+                        .put("list", ImmutableList.of("Search"))
+                        .put("map", ImmutableList.of(buildDynamicMessage(
+                                descriptor.findFieldByName("map").getMessageType(),
+                                ImmutableMap.of("key", "Key1", "value", "Value1"))))
+                        .put("row", ImmutableMap.<String, Object>builder()
+                                .put("string_column", "Trino")
+                                .put("integer_column", 1)
+                                .put("long_column", 493857959588286460L)
+                                .put("double_column", 3.14159265358979323846)
+                                .put("float_column", 3.14f)
+                                .put("boolean_column", true)
+                                .put("number_column", descriptor.findEnumTypeByName("Number").findValueByName("ONE"))
+                                .put("timestamp_column", timestamp)
+                                .put("bytes_column", "Trino".getBytes(UTF_8))
+                                .buildOrThrow())
+                        .buildOrThrow());
+
+        ImmutableList.Builder<ProducerRecord<DynamicMessage, DynamicMessage>> producerRecordBuilder = ImmutableList.builder();
+        producerRecordBuilder.add(new ProducerRecord<>(topic, createKeySchema(0, getKeySchema()), message));
+        List<ProducerRecord<DynamicMessage, DynamicMessage>> messages = producerRecordBuilder.build();
+        assertThatThrownBy(() -> testingKafka.sendMessages(
+                messages.stream(),
+                producerProperties()))
+                .isInstanceOf(SerializationException.class)
+                .hasMessage("Error serializing Protobuf message")
+                .getCause()
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("Cannot invoke \"com.squareup.wire.schema.internal.parser.ProtoFileElement.getImports()\" because \"protoFileElement\" is null");
+    }
+
+    private DynamicMessage buildDynamicMessage(Descriptor descriptor, Map<String, Object> data)
+    {
+        DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
+        for (Map.Entry<String, Object> entry : data.entrySet()) {
+            FieldDescriptor fieldDescriptor = descriptor.findFieldByName(entry.getKey());
+            if (entry.getValue() instanceof Map<?, ?>) {
+                builder.setField(fieldDescriptor, buildDynamicMessage(fieldDescriptor.getMessageType(), (Map<String, Object>) entry.getValue()));
+            }
+            else {
+                builder.setField(fieldDescriptor, entry.getValue());
+            }
+        }
+
+        return builder.build();
+    }
+
+    protected static Timestamp getTimestamp(SqlTimestamp sqlTimestamp)
+    {
+        return Timestamp.newBuilder()
+                .setSeconds(floorDiv(sqlTimestamp.getEpochMicros(), MICROSECONDS_PER_SECOND))
+                .setNanos(floorMod(sqlTimestamp.getEpochMicros(), MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND)
+                .build();
     }
 
     private Map<String, String> producerProperties()
