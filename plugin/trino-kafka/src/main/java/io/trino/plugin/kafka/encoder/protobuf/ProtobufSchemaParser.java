@@ -98,7 +98,7 @@ public class ProtobufSchemaParser
     private Type getTypeForMessage(FieldDescriptor fieldDescriptor)
     {
         Descriptor descriptor = fieldDescriptor.getMessageType();
-        if (fieldDescriptor.getMessageType().getFullName().equals(TIMESTAMP_TYPE_NAME)) {
+        if (descriptor.getFullName().equals(TIMESTAMP_TYPE_NAME)) {
             return createTimestampType(6);
         }
         if (fieldDescriptor.isMapField()) {
@@ -108,7 +108,7 @@ public class ProtobufSchemaParser
                     typeManager.getTypeOperators());
         }
         return RowType.from(
-                fieldDescriptor.getMessageType().getFields().stream()
+                descriptor.getFields().stream()
                         .map(field -> RowType.field(field.getName(), getType(field)))
                         .collect(toImmutableList()));
     }
