@@ -214,6 +214,7 @@ import io.trino.sql.tree.With;
 import io.trino.sql.tree.WithQuery;
 import io.trino.sql.tree.ZeroOrMoreQuantifier;
 import io.trino.sql.tree.ZeroOrOneQuantifier;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -4334,7 +4335,7 @@ public class TestSqlParser
      * @deprecated use {@link ParserAssert#statement(String)} instead
      */
     @Deprecated
-    private static void assertStatement(String query, Statement expected)
+    private static void assertStatement(@Language("SQL") String query, Statement expected)
     {
         assertParsed(query, expected, SQL_PARSER.createStatement(query, new ParsingOptions()));
         assertFormattedSql(SQL_PARSER, expected);
@@ -4344,7 +4345,7 @@ public class TestSqlParser
      * @deprecated use {@link ParserAssert#expression(String)} instead
      */
     @Deprecated
-    private static void assertExpression(String expression, Expression expected)
+    private static void assertExpression(@Language("SQL") String expression, Expression expected)
     {
         requireNonNull(expression, "expression is null");
         requireNonNull(expected, "expected is null");
