@@ -360,6 +360,11 @@ public class TestSqlParser
         assertGenericLiteral("foo");
     }
 
+    private static void assertGenericLiteral(String type)
+    {
+        assertExpression(type + " 'abc'", new GenericLiteral(type, "abc"));
+    }
+
     @Test
     public void testBinaryLiteral()
     {
@@ -373,11 +378,6 @@ public class TestSqlParser
         assertInvalidExpression("X 'a b'", "Spaces are not allowed.*");
         assertInvalidExpression("X'a b c'", "Binary literal must contain an even number of digits.*");
         assertInvalidExpression("X'a z'", "Binary literal can only contain hexadecimal digits.*");
-    }
-
-    public static void assertGenericLiteral(String type)
-    {
-        assertExpression(type + " 'abc'", new GenericLiteral(type, "abc"));
     }
 
     @Test
