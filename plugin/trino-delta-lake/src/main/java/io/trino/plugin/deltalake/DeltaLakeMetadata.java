@@ -40,6 +40,7 @@ import io.trino.plugin.deltalake.statistics.DeltaLakeColumnStatistics;
 import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
 import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.CdfFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry.Format;
@@ -155,6 +156,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.toOptional;
+import static io.trino.plugin.deltalake.DataFileInfo.DataFileType.DATA;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.MERGE_ROW_ID_TYPE;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.ROW_ID_COLUMN_NAME;
@@ -179,7 +181,6 @@ import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMe
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_VALUE;
 import static io.trino.plugin.deltalake.procedure.DeltaLakeTableProcedureId.OPTIMIZE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.APPEND_ONLY_CONFIGURATION_KEY;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.changeDataFeedEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractColumnMetadata;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
@@ -250,6 +251,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.partitioningBy;
 
 public class DeltaLakeMetadata
         implements ConnectorMetadata
@@ -1447,9 +1449,6 @@ public class DeltaLakeMetadata
             throw new TrinoException(NOT_SUPPORTED, "Writing to tables with CHECK constraints is not supported");
         }
         checkUnsupportedGeneratedColumns(handle.getMetadataEntry());
-        if (changeDataFeedEnabled(handle.getMetadataEntry())) {
-            throw new TrinoException(NOT_SUPPORTED, "Writing to tables with Change Data Feed enabled is not supported");
-        }
         checkSupportedWriterVersion(session, handle.getSchemaTableName());
 
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle);
@@ -1478,13 +1477,20 @@ public class DeltaLakeMetadata
                 .flatMap(Optional::stream)
                 .collect(toImmutableList());
 
-        List<DataFileInfo> newFiles = mergeResults.stream()
+        List<DataFileInfo> allFiles = mergeResults.stream()
                 .map(DeltaLakeMergeResult::getNewFile)
                 .flatMap(Optional::stream)
                 .collect(toImmutableList());
 
+        Map<Boolean, List<DataFileInfo>> splitted = allFiles.stream()
+                .collect(partitioningBy(dataFile -> dataFile.getDataFileType() == DATA));
+
+        List<DataFileInfo> newFiles = ImmutableList.copyOf(splitted.get(true));
+
+        List<DataFileInfo> cdfFiles = ImmutableList.copyOf(splitted.get(false));
+
         if (handle.isRetriesEnabled()) {
-            cleanExtraOutputFilesForUpdate(session, handle.getLocation(), newFiles);
+            cleanExtraOutputFilesForUpdate(session, handle.getLocation(), allFiles);
         }
 
         Optional<Long> checkpointInterval = handle.getMetadataEntry().getCheckpointInterval();
@@ -1522,6 +1528,10 @@ public class DeltaLakeMetadata
 
             long writeTimestamp = Instant.now().toEpochMilli();
 
+            if (!cdfFiles.isEmpty()) {
+                appendCdfFileEntries(transactionLogWriter, cdfFiles, handle.getMetadataEntry().getOriginalPartitionColumns());
+            }
+
             for (String file : oldFiles) {
                 transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(file, writeTimestamp, true));
             }
@@ -1537,9 +1547,30 @@ public class DeltaLakeMetadata
         catch (IOException | RuntimeException e) {
             if (!writeCommitted) {
                 // TODO perhaps it should happen in a background thread (https://github.com/trinodb/trino/issues/12011)
-                cleanupFailedWrite(session, tableLocation, newFiles);
+                cleanupFailedWrite(session, tableLocation, allFiles);
             }
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
+        }
+    }
+
+    private static void appendCdfFileEntries(
+            TransactionLogWriter transactionLogWriter,
+            List<DataFileInfo> cdfFilesInfos,
+            List<String> partitionColumnNames)
+    {
+        for (DataFileInfo info : cdfFilesInfos) {
+            // using Hashmap because partition values can be null
+            Map<String, String> partitionValues = new HashMap<>();
+            for (int i = 0; i < partitionColumnNames.size(); i++) {
+                partitionValues.put(partitionColumnNames.get(i), info.getPartitionValues().get(i));
+            }
+            partitionValues = unmodifiableMap(partitionValues);
+
+            transactionLogWriter.appendCdfFileEntry(
+                    new CdfFileEntry(
+                            toUriFormat(info.getPath()),
+                            partitionValues,
+                            info.getSize()));
         }
     }
 
