@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DriverContext;
 import io.trino.operator.HashArraySizeSupplier;
-import io.trino.operator.HashCollisionsCounter;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
@@ -174,8 +173,6 @@ public class HashBuilderOperator
     private final PagesIndex index;
     private final HashArraySizeSupplier hashArraySizeSupplier;
 
-    private final HashCollisionsCounter hashCollisionsCounter;
-
     private State state = State.CONSUMING_INPUT;
     private Optional<ListenableFuture<Void>> lookupSourceNotNeeded = Optional.empty();
     @Nullable
@@ -211,9 +208,6 @@ public class HashBuilderOperator
         this.outputChannels = outputChannels;
         this.hashChannels = hashChannels;
         this.preComputedHashChannel = preComputedHashChannel;
-
-        this.hashCollisionsCounter = new HashCollisionsCounter(operatorContext);
-        operatorContext.setInfoSupplier(hashCollisionsCounter);
 
         this.hashArraySizeSupplier = requireNonNull(hashArraySizeSupplier, "hashArraySizeSupplier is null");
     }
@@ -336,7 +330,6 @@ public class HashBuilderOperator
     private LookupSourceSupplier buildLookupSource()
     {
         LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.of(outputChannels), hashArraySizeSupplier);
-        hashCollisionsCounter.recordHashCollision(partition.getHashCollisions(), partition.getExpectedHashCollisions());
         checkState(lookupSourceSupplier == null, "lookupSourceSupplier is already set");
         this.lookupSourceSupplier = partition;
         return partition;

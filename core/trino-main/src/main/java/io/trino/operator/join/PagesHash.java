@@ -22,10 +22,6 @@ public interface PagesHash
 
     long getInMemorySizeInBytes();
 
-    long getHashCollisions();
-
-    double getExpectedHashCollisions();
-
     int getAddressIndex(int position, Page hashChannelsPage);
 
     int getAddressIndex(int rightPosition, Page hashChannelsPage, long rawHash);
