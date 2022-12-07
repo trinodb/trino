@@ -2582,15 +2582,11 @@ public class TestSalesforceConnectorTest
                 .setSystemProperty("optimize_hash_generation", "false")
                 .build();
 
-        PlanMatchPattern partitionedJoinOverTableScans = node(JoinNode.class,
-                exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPARTITION,
-                        node(TableScanNode.class)),
-                exchange(ExchangeNode.Scope.LOCAL, ExchangeNode.Type.REPARTITION,
-                        exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPARTITION,
-                                node(TableScanNode.class))));
-
         assertThat(query(noJoinPushdown, "SELECT r.name__c, n.name__c FROM nation__c n JOIN region__c r ON n.regionkey__c = r.regionkey__c"))
-                .isNotFullyPushedDown(partitionedJoinOverTableScans);
+                .isNotFullyPushedDown(
+                        node(JoinNode.class,
+                                anyTree(node(TableScanNode.class)),
+                                anyTree(node(TableScanNode.class))));
     }
 
     /**
