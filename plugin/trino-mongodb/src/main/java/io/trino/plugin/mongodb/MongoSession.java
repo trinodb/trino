@@ -18,6 +18,7 @@ import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.common.primitives.Primitives;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
@@ -68,7 +69,6 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -82,6 +82,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.spi.HostAddress.fromParts;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -663,17 +664,13 @@ public class MongoSession
     }
 
     private Set<String> getTableMetadataNames(String schemaName)
-            throws TableNotFoundException
     {
-        HashSet<String> names = new HashSet<>();
         try (MongoCursor<Document> cursor = client.getDatabase(schemaName).getCollection(schemaCollection)
                 .find().projection(new Document(TABLE_NAME_KEY, true)).iterator()) {
-            while (cursor.hasNext()) {
-                names.add((cursor.next()).getString(TABLE_NAME_KEY));
-            }
+            return Streams.stream(cursor)
+                    .map(document -> document.getString(TABLE_NAME_KEY))
+                    .collect(toImmutableSet());
         }
-
-        return names;
     }
 
     private void createTableMetadata(RemoteTableName remoteSchemaTableName, List<MongoColumnHandle> columns, Optional<String> tableComment)
