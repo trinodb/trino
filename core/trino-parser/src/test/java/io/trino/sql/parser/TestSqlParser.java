@@ -3410,11 +3410,6 @@ public class TestSqlParser
                 new CreateMaterializedView(location, QualifiedName.of("catalog", "schema", "matview"), query2,
                         true, false, new ArrayList<>(), Optional.of("A simple materialized view")));
 
-        assertStatement("CREATE OR REPLACE MATERIALIZED VIEW catalog.schema.matview COMMENT 'A simple materialized view'" +
-                        " AS SELECT * FROM catalog2.schema2.tab",
-                new CreateMaterializedView(location, QualifiedName.of("catalog", "schema", "matview"), query2,
-                        true, false, new ArrayList<>(), Optional.of("A simple materialized view")));
-
         List<Property> properties = ImmutableList.of(new Property(new Identifier("partitioned_by"),
                 new Array(ImmutableList.of(new StringLiteral("dateint")))));
 
