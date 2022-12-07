@@ -53,6 +53,7 @@ public class TestDbResourceGroupConfig
                 .setConfigDbUser("trino_admin")
                 .setConfigDbPassword("trino_admin_pass")
                 .setMaxRefreshInterval(new Duration(1, MINUTES))
+                .setRefreshInterval(new Duration(2, MINUTES))
                 .setExactMatchSelectorEnabled(true);
 
         assertFullMapping(properties, expected);
