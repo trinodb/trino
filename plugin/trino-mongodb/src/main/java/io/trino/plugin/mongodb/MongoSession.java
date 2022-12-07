@@ -665,13 +665,12 @@ public class MongoSession
     private Set<String> getTableMetadataNames(String schemaName)
             throws TableNotFoundException
     {
-        MongoDatabase db = client.getDatabase(schemaName);
-        MongoCursor<Document> cursor = db.getCollection(schemaCollection)
-                .find().projection(new Document(TABLE_NAME_KEY, true)).iterator();
-
         HashSet<String> names = new HashSet<>();
-        while (cursor.hasNext()) {
-            names.add((cursor.next()).getString(TABLE_NAME_KEY));
+        try (MongoCursor<Document> cursor = client.getDatabase(schemaName).getCollection(schemaCollection)
+                .find().projection(new Document(TABLE_NAME_KEY, true)).iterator()) {
+            while (cursor.hasNext()) {
+                names.add((cursor.next()).getString(TABLE_NAME_KEY));
+            }
         }
 
         return names;
