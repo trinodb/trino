@@ -218,7 +218,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -3397,41 +3396,207 @@ public class TestSqlParser
     @Test
     public void testCreateMaterializedView()
     {
-        Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
+        // basic
+        assertThat(statement("CREATE MATERIALIZED VIEW a AS SELECT * FROM t"))
+                .isEqualTo(new CreateMaterializedView(
+                        Optional.of(new NodeLocation(1, 1)),
+                        QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 26), "a", false))),
+                        new Query(
+                                new NodeLocation(1, 31),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        new NodeLocation(1, 31),
+                                        new Select(
+                                                new NodeLocation(1, 31),
+                                                false,
+                                                ImmutableList.of(new AllColumns(new NodeLocation(1, 38), Optional.empty(), ImmutableList.of()))),
+                                        Optional.of(new Table(
+                                                new NodeLocation(1, 45),
+                                                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 45), "t", false))))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        false,
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
 
-        Optional<NodeLocation> location = Optional.empty();
+        // OR REPLACE, COMMENT
+        assertThat(statement("CREATE OR REPLACE MATERIALIZED VIEW catalog.schema.matview COMMENT 'A simple materialized view'" +
+                " AS SELECT * FROM catalog2.schema2.tab"))
+                .isEqualTo(new CreateMaterializedView(
+                        Optional.of(new NodeLocation(1, 1)),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(new NodeLocation(1, 37), "catalog", false),
+                                new Identifier(new NodeLocation(1, 45), "schema", false),
+                                new Identifier(new NodeLocation(1, 52), "matview", false))),
+                        new Query(
+                                new NodeLocation(1, 100),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        new NodeLocation(1, 100),
+                                        new Select(
+                                                new NodeLocation(1, 100),
+                                                false,
+                                                ImmutableList.of(new AllColumns(new NodeLocation(1, 107), Optional.empty(), ImmutableList.of()))),
+                                        Optional.of(new Table(
+                                                new NodeLocation(1, 114),
+                                                QualifiedName.of(ImmutableList.of(
+                                                        new Identifier(new NodeLocation(1, 114), "catalog2", false),
+                                                        new Identifier(new NodeLocation(1, 123), "schema2", false),
+                                                        new Identifier(new NodeLocation(1, 131), "tab", false))))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        true,
+                        false,
+                        ImmutableList.of(),
+                        Optional.of("A simple materialized view")));
 
-        assertStatement("CREATE MATERIALIZED VIEW a AS SELECT * FROM t", new CreateMaterializedView(location,
-                QualifiedName.of("a"), query, false, false, new ArrayList<>(), Optional.empty()));
+        // OR REPLACE, COMMENT, WITH properties
+        assertThat(statement("CREATE OR REPLACE MATERIALIZED VIEW catalog.schema.matview COMMENT 'A simple materialized view'" +
+                "WITH (partitioned_by = ARRAY ['dateint'])" +
+                " AS SELECT * FROM catalog2.schema2.tab"))
+                .isEqualTo(new CreateMaterializedView(
+                        Optional.of(new NodeLocation(1, 1)),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(new NodeLocation(1, 37), "catalog", false),
+                                new Identifier(new NodeLocation(1, 45), "schema", false),
+                                new Identifier(new NodeLocation(1, 52), "matview", false))),
+                        new Query(
+                                new NodeLocation(1, 141),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        new NodeLocation(1, 141),
+                                        new Select(
+                                                new NodeLocation(1, 141),
+                                                false,
+                                                ImmutableList.of(new AllColumns(new NodeLocation(1, 148), Optional.empty(), ImmutableList.of()))),
+                                        Optional.of(new Table(
+                                                new NodeLocation(1, 155),
+                                                QualifiedName.of(ImmutableList.of(
+                                                        new Identifier(new NodeLocation(1, 155), "catalog2", false),
+                                                        new Identifier(new NodeLocation(1, 164), "schema2", false),
+                                                        new Identifier(new NodeLocation(1, 172), "tab", false))))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        true,
+                        false,
+                        ImmutableList.of(new Property(
+                                new NodeLocation(1, 102),
+                                new Identifier(new NodeLocation(1, 102), "partitioned_by", false),
+                                new Array(
+                                        new NodeLocation(1, 119),
+                                        ImmutableList.of(new StringLiteral(new NodeLocation(1, 126), "dateint"))))),
+                        Optional.of("A simple materialized view")));
 
-        Query query2 = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("catalog2", "schema2", "tab")));
-        assertStatement("CREATE OR REPLACE MATERIALIZED VIEW catalog.schema.matview COMMENT 'A simple materialized view'" +
-                        " AS SELECT * FROM catalog2.schema2.tab",
-                new CreateMaterializedView(location, QualifiedName.of("catalog", "schema", "matview"), query2,
-                        true, false, new ArrayList<>(), Optional.of("A simple materialized view")));
-
-        List<Property> properties = ImmutableList.of(new Property(new Identifier("partitioned_by"),
-                new Array(ImmutableList.of(new StringLiteral("dateint")))));
-
-        assertStatement("CREATE OR REPLACE MATERIALIZED VIEW catalog.schema.matview COMMENT 'A simple materialized view'" +
-                        "WITH (partitioned_by = ARRAY ['dateint'])" +
-                        " AS SELECT * FROM catalog2.schema2.tab",
-                new CreateMaterializedView(location, QualifiedName.of("catalog", "schema", "matview"), query2,
-                        true, false, properties, Optional.of("A simple materialized view")));
-
-        Query query3 = new Query(Optional.of(new With(false, ImmutableList.of(
-                new WithQuery(identifier("a"), simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), Optional.of(ImmutableList.of(identifier("t"), identifier("u")))),
-                new WithQuery(identifier("b"), simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("a"))), Optional.empty())))),
-                new Table(QualifiedName.of("b")),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
-
-        assertStatement("CREATE OR REPLACE MATERIALIZED VIEW catalog.schema.matview COMMENT 'A partitioned materialized view' " +
-                        "WITH (partitioned_by = ARRAY ['dateint'])" +
-                        " AS WITH a (t, u) AS (SELECT * FROM x), b AS (SELECT * FROM a) TABLE b",
-                new CreateMaterializedView(location, QualifiedName.of("catalog", "schema", "matview"), query3,
-                        true, false, properties, Optional.of("A partitioned materialized view")));
+        // OR REPLACE, COMMENT, WITH properties, view text containing WITH clause
+        assertThat(statement("CREATE OR REPLACE MATERIALIZED VIEW catalog.schema.matview COMMENT 'A partitioned materialized view' " +
+                "WITH (partitioned_by = ARRAY ['dateint'])" +
+                " AS WITH a (t, u) AS (SELECT * FROM x), b AS (SELECT * FROM a) TABLE b"))
+                .isEqualTo(new CreateMaterializedView(
+                        Optional.of(new NodeLocation(1, 1)),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(new NodeLocation(1, 37), "catalog", false),
+                                new Identifier(new NodeLocation(1, 45), "schema", false),
+                                new Identifier(new NodeLocation(1, 52), "matview", false))),
+                        new Query(
+                                new NodeLocation(1, 147),
+                                Optional.of(new With(
+                                        new NodeLocation(1, 147),
+                                        false,
+                                        ImmutableList.of(
+                                                new WithQuery(
+                                                        new NodeLocation(1, 152),
+                                                        new Identifier(new NodeLocation(1, 152), "a", false),
+                                                        new Query(
+                                                                new NodeLocation(1, 165),
+                                                                Optional.empty(),
+                                                                new QuerySpecification(
+                                                                        new NodeLocation(1, 165),
+                                                                        new Select(
+                                                                                new NodeLocation(1, 165),
+                                                                                false,
+                                                                                ImmutableList.of(new AllColumns(new NodeLocation(1, 172), Optional.empty(), ImmutableList.of()))),
+                                                                        Optional.of(new Table(
+                                                                                new NodeLocation(1, 179),
+                                                                                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 179), "x", false))))),
+                                                                        Optional.empty(),
+                                                                        Optional.empty(),
+                                                                        Optional.empty(),
+                                                                        ImmutableList.of(),
+                                                                        Optional.empty(),
+                                                                        Optional.empty(),
+                                                                        Optional.empty()),
+                                                                Optional.empty(),
+                                                                Optional.empty(),
+                                                                Optional.empty()),
+                                                        Optional.of(ImmutableList.of(
+                                                                new Identifier(new NodeLocation(1, 155), "t", false),
+                                                                new Identifier(new NodeLocation(1, 158), "u", false)))),
+                                                new WithQuery(
+                                                        new NodeLocation(1, 183),
+                                                        new Identifier(new NodeLocation(1, 183), "b", false),
+                                                        new Query(
+                                                                new NodeLocation(1, 189),
+                                                                Optional.empty(),
+                                                                new QuerySpecification(
+                                                                        new NodeLocation(1, 189),
+                                                                        new Select(
+                                                                                new NodeLocation(1, 189),
+                                                                                false,
+                                                                                ImmutableList.of(new AllColumns(new NodeLocation(1, 196), Optional.empty(), ImmutableList.of()))),
+                                                                        Optional.of(new Table(
+                                                                                new NodeLocation(1, 203),
+                                                                                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 203), "a", false))))),
+                                                                        Optional.empty(),
+                                                                        Optional.empty(),
+                                                                        Optional.empty(),
+                                                                        ImmutableList.of(),
+                                                                        Optional.empty(),
+                                                                        Optional.empty(),
+                                                                        Optional.empty()),
+                                                                Optional.empty(),
+                                                                Optional.empty(),
+                                                                Optional.empty()),
+                                                        Optional.empty())))),
+                                new Table(
+                                        new NodeLocation(1, 206),
+                                        QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 212), "b", false)))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        true,
+                        false,
+                        ImmutableList.of(new Property(
+                                new NodeLocation(1, 108),
+                                new Identifier(new NodeLocation(1, 108), "partitioned_by", false),
+                                new Array(
+                                        new NodeLocation(1, 125),
+                                        ImmutableList.of(new StringLiteral(new NodeLocation(1, 132), "dateint"))))),
+                        Optional.of("A partitioned materialized view")));
     }
 
     @Test
