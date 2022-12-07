@@ -31,6 +31,7 @@ public class SheetsConfig
     private String metadataSheetId;
     private int sheetsDataMaxCacheSize = 1000;
     private Duration sheetsDataExpireAfterWrite = new Duration(5, TimeUnit.MINUTES);
+    private Duration readTimeout = new Duration(20, TimeUnit.SECONDS); // 20s is the default timeout of com.google.api.client.http.HttpRequest
 
     @NotNull
     @FileExists
@@ -90,6 +91,19 @@ public class SheetsConfig
     public SheetsConfig setSheetsDataExpireAfterWrite(Duration sheetsDataExpireAfterWriteMinutes)
     {
         this.sheetsDataExpireAfterWrite = sheetsDataExpireAfterWriteMinutes;
+        return this;
+    }
+
+    @MinDuration("0ms")
+    public Duration getReadTimeout()
+    {
+        return readTimeout;
+    }
+
+    @Config("gsheets.read-timeout")
+    public SheetsConfig setReadTimeout(Duration readTimeout)
+    {
+        this.readTimeout = readTimeout;
         return this;
     }
 }

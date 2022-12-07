@@ -15,6 +15,7 @@ package io.trino.plugin.google.sheets;
 
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.sheets.v4.Sheets;
@@ -27,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.VarcharType;
@@ -52,6 +54,7 @@ import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_BAD_CREDENTIA
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_METASTORE_ERROR;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_TABLE_LOAD_ERROR;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_UNKNOWN_TABLE_ERROR;
+import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -82,7 +85,7 @@ public class SheetsClient
         this.credentialsFilePath = config.getCredentialsFilePath();
 
         try {
-            this.sheetsService = new Sheets.Builder(newTrustedTransport(), JSON_FACTORY, getCredentials()).setApplicationName(APPLICATION_NAME).build();
+            this.sheetsService = new Sheets.Builder(newTrustedTransport(), JSON_FACTORY, setTimeout(getCredentials(), config.getReadTimeout())).setApplicationName(APPLICATION_NAME).build();
         }
         catch (GeneralSecurityException | IOException e) {
             throw new TrinoException(SHEETS_BAD_CREDENTIALS_ERROR, e);
@@ -229,5 +232,14 @@ public class SheetsClient
     private static CacheBuilder<Object, Object> newCacheBuilder(long expiresAfterWriteMillis, long maximumSize)
     {
         return CacheBuilder.newBuilder().expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS).maximumSize(maximumSize);
+    }
+
+    private static HttpRequestInitializer setTimeout(HttpRequestInitializer requestInitializer, Duration readTimeout)
+    {
+        requireNonNull(readTimeout, "readTimeout is null");
+        return httpRequest -> {
+            requestInitializer.initialize(httpRequest);
+            httpRequest.setReadTimeout(toIntExact(readTimeout.toMillis()));
+        };
     }
 }
