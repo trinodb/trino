@@ -45,8 +45,8 @@ public class CreateMaterializedView
         this.query = requireNonNull(query, "query is null");
         this.replace = replace;
         this.notExists = notExists;
-        this.properties = properties;
-        this.comment = comment;
+        this.properties = ImmutableList.copyOf(requireNonNull(properties, "properties is null"));
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     public QualifiedName getName()
