@@ -25,7 +25,7 @@ public class TestStarburstSqlServerTableScanRedirection
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        sqlServer = new TestingSqlServer();
+        sqlServer = closeAfterClass(new TestingSqlServer());
         return createStarburstSqlServerQueryRunner(
                 sqlServer,
                 true,

@@ -49,6 +49,8 @@ public class TestStarburstSqlServerPlugin
             throws Exception
     {
         closeAll(kdcServer, propertiesLock);
+        this.propertiesLock = null;
+        this.kdcServer = null;
     }
 
     @Test

@@ -33,7 +33,7 @@ public class TestSqlServerImpersonation
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        sqlServer = new TestingSqlServer();
+        sqlServer = closeAfterClass(new TestingSqlServer());
         return createStarburstSqlServerQueryRunner(
                 sqlServer,
                 session -> createSession(ALICE_USER),
