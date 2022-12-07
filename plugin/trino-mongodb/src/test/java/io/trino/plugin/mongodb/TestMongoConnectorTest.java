@@ -51,6 +51,7 @@ import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -780,6 +781,17 @@ public class TestMongoConnectorTest
     {
         assertThat(query("SELECT name FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'region', filter => '{}'))"))
                 .matches("SELECT name FROM region");
+    }
+
+    @Test
+    public void testNativeQueryWithCaseInSensitiveNameMatch()
+    {
+        String tableName = "Test_Case_Insensitive" + randomNameSuffix();
+        String schemaName = "Test_Case_Insensitive_Schema" + randomNameSuffix();
+        client.getDatabase(schemaName).getCollection(tableName).insertOne(new Document("field", "hello"));
+
+        assertThat(query("SELECT * FROM TABLE(mongodb.system.query(database => '" + schemaName.toLowerCase(ENGLISH) + "', collection => '" + tableName.toLowerCase(ENGLISH) + "', filter => '{}'))"))
+                .matches("VALUES CAST('hello' AS VARCHAR)");
     }
 
     @Test
