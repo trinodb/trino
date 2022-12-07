@@ -28,9 +28,8 @@ Examples
 In the example below, you can see the CPU time spent in each stage, as well as the relative
 cost of each plan node in the stage. Note that the relative cost of the plan nodes is based on
 wall time, which may or may not be correlated to CPU time. For each plan node you can see
-some additional statistics (e.g: average input per node instance, average number of hash collisions for
-relevant plan nodes). Such statistics are useful when one wants to detect data anomalies for a query
-(skewness, abnormal hash collisions).
+some additional statistics (e.g: average input per node instance). Such statistics are useful
+when one wants to detect data anomalies for a query (e.g: skewness).
 
 .. code-block:: sql
 
@@ -56,7 +55,6 @@ relevant plan nodes). Such statistics are useful when one wants to detect data a
            │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: 0B}
            │   CPU: 8.00ms (3.51%), Scheduled: 22.00ms (5.28%), Blocked: 0.00ns (0.00%), Output: 1000 rows (37.11kB)
            │   Input avg.: 15.63 rows, Input std.dev.: 24.36%
-           │   Collisions avg.: 0.00 (0.00% est.), Collisions std.dev.: ?%
            │   count := count("count_0")
            └─ LocalExchange[partitioning = HASH, hashColumn = [$hashvalue], arguments = ["clerk"]]
               │   Layout: [clerk:varchar(15), count_0:bigint, $hashvalue:bigint]
@@ -76,7 +74,6 @@ relevant plan nodes). Such statistics are useful when one wants to detect data a
         │   Layout: [clerk:varchar(15), $hashvalue_2:bigint, count_0:bigint]
         │   CPU: 30.00ms (13.16%), Scheduled: 30.00ms (7.19%), Blocked: 0.00ns (0.00%), Output: 1000 rows (37.11kB)
         │   Input avg.: 818058.00 rows, Input std.dev.: 0.00%
-        │   Collisions avg.: 8247.00 (25415.23% est.), Collisions std.dev.: 0.00%
         │   count_0 := count(*)
         └─ ScanFilterProject[table = hive:sf1:orders, filterPredicate = ("orderdate" > DATE '1995-01-01')]
                Layout: [clerk:varchar(15), $hashvalue_2:bigint]

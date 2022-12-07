@@ -30,7 +30,6 @@ import java.util.TreeMap;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
@@ -145,7 +144,6 @@ public class TextRenderer
         printMetrics(output, "connector metrics:", BasicOperatorStats::getConnectorMetrics, nodeStats);
         printMetrics(output, "metrics:", BasicOperatorStats::getMetrics, nodeStats);
         printDistributions(output, nodeStats);
-        printCollisions(output, nodeStats);
 
         if (nodeStats instanceof WindowPlanNodeStats) {
             printWindowOperatorStats(output, ((WindowPlanNodeStats) nodeStats).getWindowOperatorStats());
@@ -190,32 +188,6 @@ public class TextRenderer
                     "Input avg.: %s rows, Input std.dev.: %s%%\n",
                     formatDouble(inputAverage),
                     formatDouble(100.0d * inputStdDevs.get(operator) / inputAverage)));
-        }
-    }
-
-    private void printCollisions(StringBuilder output, PlanNodeStats stats)
-    {
-        if (!(stats instanceof HashCollisionPlanNodeStats)) {
-            return;
-        }
-
-        HashCollisionPlanNodeStats collisionStats = (HashCollisionPlanNodeStats) stats;
-        Map<String, Double> hashCollisionsAverages = collisionStats.getOperatorHashCollisionsAverages();
-        verify(hashCollisionsAverages.keySet().size() == 1, "Multiple hash collision operator stats %s", hashCollisionsAverages);
-
-        double hashCollisionsAverage = getOnlyElement(hashCollisionsAverages.values());
-        double hashCollisionsStdDev = getOnlyElement(collisionStats.getOperatorHashCollisionsStdDevs().values());
-        double expectedHashCollisionsAverage = getOnlyElement(collisionStats.getOperatorExpectedCollisionsAverages().values());
-        double hashCollisionsStdDevRatio = hashCollisionsStdDev / hashCollisionsAverage;
-
-        if (expectedHashCollisionsAverage != 0.0d) {
-            double hashCollisionsRatio = hashCollisionsAverage / expectedHashCollisionsAverage;
-            output.append(format(Locale.US, "Collisions avg.: %s (%s%% est.), Collisions std.dev.: %s%%\n",
-                    formatDouble(hashCollisionsAverage), formatDouble(hashCollisionsRatio * 100.0d), formatDouble(hashCollisionsStdDevRatio * 100.0d)));
-        }
-        else {
-            output.append(format(Locale.US, "Collisions avg.: %s, Collisions std.dev.: %s%%\n",
-                    formatDouble(hashCollisionsAverage), formatDouble(hashCollisionsStdDevRatio * 100.0d)));
         }
     }
 

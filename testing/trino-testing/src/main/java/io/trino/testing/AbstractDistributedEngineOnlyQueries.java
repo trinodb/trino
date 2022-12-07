@@ -198,20 +198,14 @@ public abstract class AbstractDistributedEngineOnlyQueries
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
                 "Left \\(probe\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*",
-                "Right \\(build\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*",
-                "Collisions avg\\.: .* \\(.* est\\.\\), Collisions std\\.dev\\.: .*");
+                "Right \\(build\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*");
         assertExplainAnalyze(
                 Session.builder(getSession())
                         .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                         .build(),
                 "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
                 "Left \\(probe\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*",
-                "Right \\(build\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*",
-                "Collisions avg\\.: .* \\(.* est\\.\\), Collisions std\\.dev\\.: .*");
-
-        assertExplainAnalyze(
-                "EXPLAIN ANALYZE SELECT nationkey FROM nation GROUP BY nationkey",
-                "Collisions avg\\.: .* \\(.* est\\.\\), Collisions std\\.dev\\.: .*");
+                "Right \\(build\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*");
 
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",

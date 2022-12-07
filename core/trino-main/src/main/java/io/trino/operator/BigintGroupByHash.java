@@ -39,7 +39,6 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.type.TypeUtils.NULL_HASH_CODE;
-import static io.trino.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 import static java.lang.Math.min;
@@ -75,8 +74,6 @@ public class BigintGroupByHash
 
     private int nextGroupId;
     private DictionaryLookBack dictionaryLookBack;
-    private long hashCollisions;
-    private double expectedHashCollisions;
 
     // reserve enough memory before rehash
     private final UpdateMemory updateMemory;
@@ -114,18 +111,6 @@ public class BigintGroupByHash
                 sizeOf(values) +
                 sizeOf(valuesByGroupId) +
                 preallocatedMemoryInBytes;
-    }
-
-    @Override
-    public long getHashCollisions()
-    {
-        return hashCollisions;
-    }
-
-    @Override
-    public double getExpectedHashCollisions()
-    {
-        return expectedHashCollisions + estimateNumberOfHashCollisions(getGroupCount(), hashCapacity);
     }
 
     @Override
@@ -259,7 +244,6 @@ public class BigintGroupByHash
 
             // increment position and mask to handle wrap around
             hashPosition = (hashPosition + 1) & mask;
-            hashCollisions++;
         }
 
         return addNewGroup(hashPosition, value);
@@ -298,8 +282,6 @@ public class BigintGroupByHash
         }
         preallocatedMemoryInBytes = 0;
 
-        expectedHashCollisions += estimateNumberOfHashCollisions(getGroupCount(), hashCapacity);
-
         int newMask = newCapacity - 1;
         long[] newValues = new long[newCapacity];
         int[] newGroupIds = new int[newCapacity];
@@ -315,7 +297,6 @@ public class BigintGroupByHash
                 // find an empty slot for the address
                 while (newGroupIds[hashPosition] != -1) {
                     hashPosition = (hashPosition + 1) & newMask;
-                    hashCollisions++;
                 }
 
                 // record the mapping
