@@ -37,7 +37,8 @@ public class TestSheetsConfig
                 .setCredentialsFilePath(null)
                 .setMetadataSheetId(null)
                 .setSheetsDataMaxCacheSize(1000)
-                .setSheetsDataExpireAfterWrite(new Duration(5, TimeUnit.MINUTES)));
+                .setSheetsDataExpireAfterWrite(new Duration(5, TimeUnit.MINUTES))
+                .setReadTimeout(new Duration(20, TimeUnit.SECONDS)));
     }
 
     @Test
@@ -51,13 +52,15 @@ public class TestSheetsConfig
                 .put("gsheets.metadata-sheet-id", "foo_bar_sheet_id#Sheet1")
                 .put("gsheets.max-data-cache-size", "2000")
                 .put("gsheets.data-cache-ttl", "10m")
+                .put("gsheets.read-timeout", "1m")
                 .buildOrThrow();
 
         SheetsConfig expected = new SheetsConfig()
                 .setCredentialsFilePath(credentialsFile.toString())
                 .setMetadataSheetId("foo_bar_sheet_id#Sheet1")
                 .setSheetsDataMaxCacheSize(2000)
-                .setSheetsDataExpireAfterWrite(new Duration(10, TimeUnit.MINUTES));
+                .setSheetsDataExpireAfterWrite(new Duration(10, TimeUnit.MINUTES))
+                .setReadTimeout(new Duration(1, TimeUnit.MINUTES));
 
         assertFullMapping(properties, expected);
     }
