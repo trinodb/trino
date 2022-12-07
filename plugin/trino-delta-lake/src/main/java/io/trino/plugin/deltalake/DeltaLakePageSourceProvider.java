@@ -25,6 +25,7 @@ import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
+import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.ReaderPageSource;
@@ -64,12 +65,16 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Streams.concat;
 import static io.trino.plugin.deltalake.DeltaHiveTypeTranslator.toHiveType;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.ROW_ID_COLUMN_NAME;
+import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockRowCount;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetOptimizedReaderEnabled;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.changeDataFeedEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnMappingMode;
 import static io.trino.plugin.hive.HiveSessionProperties.isParquetUseColumnIndex;
@@ -136,15 +141,29 @@ public class DeltaLakePageSourceProvider
             return new EmptyPageSource();
         }
 
-        List<DeltaLakeColumnHandle> deltaLakeColumns = columns.stream()
-                .map(DeltaLakeColumnHandle.class::cast)
-                .collect(toImmutableList());
-
         Map<String, Optional<String>> partitionKeys = split.getPartitionKeys();
 
+        MetadataEntry metadataEntry = table.getMetadataEntry();
+        boolean isCDFEnabled = changeDataFeedEnabled(metadataEntry);
+
+        List<DeltaLakeColumnHandle> relevantColumns = columns.stream()
+                .map(DeltaLakeColumnHandle.class::cast)
+                .collect(toImmutableList());
+        List<DeltaLakeColumnHandle> columnsToRead;
+        if (isCDFEnabled) {
+            columnsToRead = concat(
+                    extractSchema(metadataEntry, typeManager).stream()
+                            .map(metadata -> new DeltaLakeColumnHandle(metadata.getName(), metadata.getType(), metadata.getFieldId(), metadata.getPhysicalName(), metadata.getPhysicalColumnType(), partitionKeys.containsKey(metadata.getName()) ? PARTITION_KEY : REGULAR)),
+                    relevantColumns.stream().filter(column -> column.getColumnType().equals(SYNTHESIZED)))
+                    .collect(toImmutableList());
+        }
+        else {
+            columnsToRead = relevantColumns;
+        }
+
         List<String> partitionValues = new ArrayList<>();
-        if (deltaLakeColumns.stream().anyMatch(column -> column.getName().equals(ROW_ID_COLUMN_NAME))) {
-            for (DeltaLakeColumnMetadata column : extractSchema(table.getMetadataEntry(), typeManager)) {
+        if (columnsToRead.stream().anyMatch(column -> column.getName().equals(ROW_ID_COLUMN_NAME))) {
+            for (DeltaLakeColumnMetadata column : extractSchema(metadataEntry, typeManager)) {
                 Optional<String> value = partitionKeys.get(column.getName());
                 if (value != null) {
                     partitionValues.add(value.orElse(null));
@@ -158,10 +177,10 @@ public class DeltaLakePageSourceProvider
                 .withUseColumnIndex(isParquetUseColumnIndex(session))
                 .withBatchColumnReaders(isParquetOptimizedReaderEnabled(session));
 
-        ColumnMappingMode columnMappingMode = getColumnMappingMode(table.getMetadataEntry());
+        ColumnMappingMode columnMappingMode = getColumnMappingMode(metadataEntry);
         Map<Integer, String> parquetFieldIdToName = columnMappingMode == ColumnMappingMode.ID ? loadParquetIdAndNameMapping(inputFile, options) : ImmutableMap.of();
 
-        List<DeltaLakeColumnHandle> regularColumns = deltaLakeColumns.stream()
+        List<DeltaLakeColumnHandle> regularColumns = columnsToRead.stream()
                 .filter(column -> (column.getColumnType() == REGULAR) || column.getName().equals(ROW_ID_COLUMN_NAME))
                 .collect(toImmutableList());
 
@@ -183,7 +202,7 @@ public class DeltaLakePageSourceProvider
         if (table.getWriteType().isPresent()) {
             return new DeltaLakeUpdatablePageSource(
                     table,
-                    deltaLakeColumns,
+                    columnsToRead,
                     partitionKeys,
                     split.getPath(),
                     split.getFileSize(),
@@ -197,7 +216,8 @@ public class DeltaLakePageSourceProvider
                     parquetReaderOptions,
                     parquetPredicate,
                     typeManager,
-                    updateResultJsonCodec);
+                    updateResultJsonCodec,
+                    isCDFEnabled);
         }
 
         ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
@@ -215,14 +235,16 @@ public class DeltaLakePageSourceProvider
         verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
 
         return new DeltaLakePageSource(
-                deltaLakeColumns,
+                relevantColumns,
+                columnsToRead,
                 missingColumnNames.build(),
                 partitionKeys,
                 partitionValues,
                 pageSource.get(),
                 split.getPath(),
                 split.getFileSize(),
-                split.getFileModifiedTime());
+                split.getFileModifiedTime(),
+                isCDFEnabled);
     }
 
     public Map<Integer, String> loadParquetIdAndNameMapping(TrinoInputFile inputFile, ParquetReaderOptions options)

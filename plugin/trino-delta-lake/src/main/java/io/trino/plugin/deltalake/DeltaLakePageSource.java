@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.spi.Page;
@@ -32,8 +33,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
@@ -43,6 +47,8 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.FILE_SIZE_TYPE;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.PATH_COLUMN_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.PATH_TYPE;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.ROW_ID_COLUMN_NAME;
+import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_DATA;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -61,23 +67,28 @@ public class DeltaLakePageSource
     private final Block pathBlock;
     private final Block partitionsBlock;
     private final ConnectorPageSource delegate;
+    private List<DeltaLakeColumnHandle> notSynthesizedColumn;
+    private Set<Integer> missingIndexes;
+    private boolean isCDFEnabled;
 
     public DeltaLakePageSource(
-            List<DeltaLakeColumnHandle> columns,
+            List<DeltaLakeColumnHandle> relevantColumns,
+            List<DeltaLakeColumnHandle> allColumns,
             Set<String> missingColumnNames,
             Map<String, Optional<String>> partitionKeys,
             List<String> partitionValues,
             ConnectorPageSource delegate,
             String path,
             long fileSize,
-            long fileModifiedTime)
+            long fileModifiedTime,
+            boolean isCDFEnabled)
     {
-        int size = columns.size();
+        int size = relevantColumns.size();
         requireNonNull(partitionKeys, "partitionKeys is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
 
         this.prefilledBlocks = new Block[size];
-        this.delegateIndexes = new int[size];
+        this.delegateIndexes = new int[allColumns.size()];
 
         int outputIndex = 0;
         int delegateIndex = 0;
@@ -86,7 +97,9 @@ public class DeltaLakePageSource
         Block pathBlock = null;
         Block partitionsBlock = null;
 
-        for (DeltaLakeColumnHandle column : columns) {
+        Set<String> relevantColumnNames = relevantColumns.stream().map(DeltaLakeColumnHandle::getName).collect(toImmutableSet());
+
+        for (DeltaLakeColumnHandle column : allColumns) {
             if (partitionKeys.containsKey(column.getPhysicalName())) {
                 Type type = column.getType();
                 Object prefilledValue = deserializePartitionValue(column, partitionKeys.get(column.getPhysicalName()));
@@ -117,16 +130,25 @@ public class DeltaLakePageSource
                 prefilledBlocks[outputIndex] = Utils.nativeValueToBlock(column.getType(), null);
                 delegateIndexes[outputIndex] = -1;
             }
+            else if (!relevantColumnNames.contains(column.getName())) {
+                delegateIndexes[outputIndex] = -1;
+                delegateIndex++;
+            }
             else {
                 delegateIndexes[outputIndex] = delegateIndex;
                 delegateIndex++;
             }
             outputIndex++;
         }
-
+        missingIndexes = IntStream.range(0, allColumns.size())
+                .filter(i -> !relevantColumnNames.contains(allColumns.get(i).getName()))
+                .boxed()
+                .collect(toImmutableSet());
         this.rowIdIndex = rowIdIndex;
         this.pathBlock = pathBlock;
         this.partitionsBlock = partitionsBlock;
+        this.notSynthesizedColumn = allColumns.stream().filter(column -> !column.getColumnType().equals(SYNTHESIZED)).collect(toImmutableList());
+        this.isCDFEnabled = isCDFEnabled;
     }
 
     @Override
@@ -163,16 +185,22 @@ public class DeltaLakePageSource
             }
             int batchSize = dataPage.getPositionCount();
             Block[] blocks = new Block[prefilledBlocks.length];
-            for (int i = 0; i < prefilledBlocks.length; i++) {
-                if (prefilledBlocks[i] != null) {
-                    blocks[i] = RunLengthEncodedBlock.create(prefilledBlocks[i], batchSize);
+            int inputIndexId = 0;
+            int targetIndexId = 0;
+            while (targetIndexId < blocks.length) {
+                if (!missingIndexes.contains(inputIndexId)) {
+                    if (inputIndexId < prefilledBlocks.length && prefilledBlocks[inputIndexId] != null) {
+                        blocks[targetIndexId] = RunLengthEncodedBlock.create(prefilledBlocks[inputIndexId], batchSize);
+                    }
+                    else if (inputIndexId == rowIdIndex) {
+                        blocks[targetIndexId] = createRowIdBlock(dataPage.getBlock(delegateIndexes[inputIndexId]), dataPage);
+                    }
+                    else {
+                        blocks[targetIndexId] = dataPage.getBlock(delegateIndexes[inputIndexId]);
+                    }
+                    targetIndexId++;
                 }
-                else if (i == rowIdIndex) {
-                    blocks[i] = createRowIdBlock(dataPage.getBlock(delegateIndexes[i]));
-                }
-                else {
-                    blocks[i] = dataPage.getBlock(delegateIndexes[i]);
-                }
+                inputIndexId++;
             }
             return new Page(batchSize, blocks);
         }
@@ -183,15 +211,35 @@ public class DeltaLakePageSource
         }
     }
 
-    private Block createRowIdBlock(Block rowIndexBlock)
+    private Block createRowIdBlock(Block rowIndexBlock, Page page)
     {
         int positions = rowIndexBlock.getPositionCount();
-        Block[] fields = {
-                RunLengthEncodedBlock.create(pathBlock, positions),
-                rowIndexBlock,
-                RunLengthEncodedBlock.create(partitionsBlock, positions),
-        };
-        return RowBlock.fromFieldBlocks(positions, Optional.empty(), fields);
+        ImmutableList.Builder<Block> rowIdBlocksBuilder = ImmutableList.builder();
+        rowIdBlocksBuilder.add(RunLengthEncodedBlock.create(pathBlock, positions));
+        rowIdBlocksBuilder.add(rowIndexBlock);
+        rowIdBlocksBuilder.add(RunLengthEncodedBlock.create(partitionsBlock, positions));
+        Block necessaryColumns = RowBlock.fromFieldBlocks(positions, Optional.empty(), rowIdBlocksBuilder.build().toArray(new Block[0]));
+        ImmutableList.Builder<Block> blocks = ImmutableList.builder();
+        blocks.add(necessaryColumns);
+        if (isCDFEnabled) {
+            Block dataColumns = getCurrentColumnsBlock(page);
+            blocks.add(dataColumns);
+        }
+        return RowBlock.fromFieldBlocks(positions, Optional.empty(), blocks.build().toArray(new Block[0]));
+    }
+
+    private Block getCurrentColumnsBlock(Page page)
+    {
+        Block[] allCurrentColumns = new Block[notSynthesizedColumn.size()];
+        for (int i = 0; i < notSynthesizedColumn.size(); i++) {
+            if (notSynthesizedColumn.get(i).getColumnType().equals(REGULAR)) {
+                allCurrentColumns[i] = page.getBlock(i);
+            }
+            else {
+                allCurrentColumns[i] = prefilledBlocks[i];
+            }
+        }
+        return RowBlock.fromFieldBlocks(page.getPositionCount(), Optional.empty(), allCurrentColumns);
     }
 
     @Override

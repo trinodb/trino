@@ -18,6 +18,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.deltalake.procedure.DeltaLakeTableExecuteHandle;
 import io.trino.plugin.deltalake.procedure.DeltaTableOptimizeHandle;
+import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -35,6 +36,15 @@ import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
+import java.util.List;
+import java.util.Set;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
+import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.changeDataFeedEnabled;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakePageSinkProvider
@@ -155,6 +165,40 @@ public class DeltaLakePageSinkProvider
                 stats,
                 tableHandle.getLocation(),
                 pageSink,
-                tableHandle.getInputColumns());
+                tableHandle.getInputColumns(),
+                () -> createCDFPageSink(merge, session),
+                changeDataFeedEnabled(tableHandle.getMetadataEntry()));
+    }
+
+    private DeltaLakeCDFPageSink createCDFPageSink(
+            DeltaLakeMergeTableHandle mergeTableHandle,
+            ConnectorSession session)
+    {
+        MetadataEntry metadataEntry = mergeTableHandle.getTableHandle().getMetadataEntry();
+        Set<String> partitionKeys = mergeTableHandle.getTableHandle().getMetadataEntry().getOriginalPartitionColumns().stream().collect(toImmutableSet());
+        List<DeltaLakeColumnHandle> allColumns = extractSchema(metadataEntry, typeManager).stream()
+                .map(metadata -> new DeltaLakeColumnHandle(
+                        metadata.getName(),
+                        metadata.getType(),
+                        metadata.getFieldId(),
+                        metadata.getPhysicalName(),
+                        metadata.getPhysicalColumnType(),
+                        partitionKeys.contains(metadata.getName()) ? PARTITION_KEY : REGULAR))
+                .collect(toImmutableList());
+
+        return new DeltaLakeCDFPageSink(
+                allColumns,
+                metadataEntry.getOriginalPartitionColumns(),
+                pageIndexerFactory,
+                hdfsEnvironment,
+                fileSystemFactory,
+                maxPartitionsPerWriter,
+                dataFileInfoCodec,
+                mergeTableHandle.getTableHandle().getLocation() + "/_change_data/",
+                mergeTableHandle.getTableHandle().getLocation(),
+                session,
+                stats,
+                typeManager,
+                trinoVersion);
     }
 }

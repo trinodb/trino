@@ -21,6 +21,8 @@ import java.util.stream.IntStream;
 
 import static io.trino.spi.connector.ConnectorMergeSink.DELETE_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.INSERT_OPERATION_NUMBER;
+import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_DELETE_OPERATION_NUMBER;
+import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_INSERT_OPERATION_NUMBER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -79,11 +81,11 @@ public final class MergePage
         for (int position = 0; position < positionCount; position++) {
             int operation = toIntExact(TINYINT.getLong(operationBlock, position));
             switch (operation) {
-                case DELETE_OPERATION_NUMBER:
+                case DELETE_OPERATION_NUMBER, UPDATE_DELETE_OPERATION_NUMBER:
                     deletePositions[deletePositionCount] = position;
                     deletePositionCount++;
                     break;
-                case INSERT_OPERATION_NUMBER:
+                case INSERT_OPERATION_NUMBER, UPDATE_INSERT_OPERATION_NUMBER:
                     insertPositions[insertPositionCount] = position;
                     insertPositionCount++;
                     break;

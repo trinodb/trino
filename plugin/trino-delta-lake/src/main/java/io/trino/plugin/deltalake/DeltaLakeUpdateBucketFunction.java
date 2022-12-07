@@ -33,7 +33,7 @@ public class DeltaLakeUpdateBucketFunction
     @Override
     public int getBucket(Page page, int position)
     {
-        Block row = page.getBlock(0).getObject(position, Block.class);
+        Block row = page.getBlock(0).getObject(position, Block.class).getObject(0, Block.class);
         Slice value = VARCHAR.getSlice(row, 0); // file path field of row ID
         return (value.hashCode() & Integer.MAX_VALUE) % bucketCount;
     }

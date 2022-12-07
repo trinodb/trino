@@ -30,7 +30,9 @@ import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -55,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Verify.verify;
@@ -62,15 +65,19 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressionCodec;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.connector.MergePage.createDeleteAndInsertPages;
+import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Math.toIntExact;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -91,7 +98,11 @@ public class DeltaLakeMergeSink
     private final String rootTableLocation;
     private final ConnectorPageSink insertPageSink;
     private final List<DeltaLakeColumnHandle> dataColumns;
+    private final List<DeltaLakeColumnHandle> nonSynthesizedColumns;
     private final int tableColumnCount;
+    private final Supplier<DeltaLakeCDFPageSink> cdfPageSinkSupplier;
+    private DeltaLakeCDFPageSink cdfPageSink;
+    private final boolean isCDFEnabled;
     private final Map<Slice, FileDeletion> fileDeletions = new HashMap<>();
 
     public DeltaLakeMergeSink(
@@ -104,7 +115,9 @@ public class DeltaLakeMergeSink
             DeltaLakeWriterStats writerStats,
             String rootTableLocation,
             ConnectorPageSink insertPageSink,
-            List<DeltaLakeColumnHandle> tableColumns)
+            List<DeltaLakeColumnHandle> tableColumns,
+            Supplier<DeltaLakeCDFPageSink> cdfPageSinkSupplier,
+            boolean isCDFEnabled)
     {
         this.session = requireNonNull(session, "session is null");
         this.fileSystem = fileSystemFactory.create(session);
@@ -120,6 +133,11 @@ public class DeltaLakeMergeSink
         this.dataColumns = tableColumns.stream()
                 .filter(column -> column.getColumnType() == REGULAR)
                 .collect(toImmutableList());
+        this.nonSynthesizedColumns = tableColumns.stream()
+                .filter(column -> column.getColumnType() != SYNTHESIZED)
+                .collect(toImmutableList());
+        this.cdfPageSinkSupplier = requireNonNull(cdfPageSinkSupplier);
+        this.isCDFEnabled = isCDFEnabled;
     }
 
     @Override
@@ -129,13 +147,42 @@ public class DeltaLakeMergeSink
 
         mergePage.getInsertionsPage().ifPresent(insertPageSink::appendPage);
 
+        if (isCDFEnabled && mergePage.getInsertionsPage().isPresent() && isUpdateOperation(page)) {
+            if (cdfPageSink == null) {
+                cdfPageSink = cdfPageSinkSupplier.get();
+            }
+            Page insertionPage = mergePage.getInsertionsPage().get();
+            Block[] cdfPostUpdateBlocks = new Block[nonSynthesizedColumns.size() + 1];
+            for (int i = 0; i < nonSynthesizedColumns.size(); i++) {
+                cdfPostUpdateBlocks[i] = insertionPage.getBlock(i);
+            }
+            cdfPostUpdateBlocks[nonSynthesizedColumns.size()] = RunLengthEncodedBlock.create(
+                    nativeValueToBlock(VARCHAR, utf8Slice("update_postimage")), insertionPage.getPositionCount());
+            cdfPageSink.appendPage(new Page(insertionPage.getPositionCount(), cdfPostUpdateBlocks));
+        }
+
         mergePage.getDeletionsPage().ifPresent(deletions -> {
             ColumnarRow rowIdRow = toColumnarRow(deletions.getBlock(deletions.getChannelCount() - 1));
+            ColumnarRow rowIdNecessaryFields = toColumnarRow(rowIdRow.getField(0));
+            if (isCDFEnabled && isUpdateOperation(page)) {
+                if (cdfPageSink == null) {
+                    cdfPageSink = cdfPageSinkSupplier.get();
+                }
 
-            for (int position = 0; position < rowIdRow.getPositionCount(); position++) {
-                Slice filePath = VARCHAR.getSlice(rowIdRow.getField(0), position);
-                long rowPosition = BIGINT.getLong(rowIdRow.getField(1), position);
-                Slice partitions = VARCHAR.getSlice(rowIdRow.getField(2), position);
+                Block[] cdfPreUpdateBlocks = new Block[nonSynthesizedColumns.size() + 1];
+                ColumnarRow preUpdateRows = toColumnarRow(rowIdRow.getField(1));
+                for (int i = 0; i < preUpdateRows.getFieldCount(); i++) {
+                    cdfPreUpdateBlocks[i] = preUpdateRows.getField(i);
+                }
+                cdfPreUpdateBlocks[nonSynthesizedColumns.size()] = RunLengthEncodedBlock.create(
+                        nativeValueToBlock(VARCHAR, utf8Slice("update_preimage")), deletions.getPositionCount());
+                cdfPageSink.appendPage(new Page(deletions.getPositionCount(), cdfPreUpdateBlocks));
+            }
+
+            for (int position = 0; position < rowIdNecessaryFields.getPositionCount(); position++) {
+                Slice filePath = VARCHAR.getSlice(rowIdNecessaryFields.getField(0), position);
+                long rowPosition = BIGINT.getLong(rowIdNecessaryFields.getField(1), position);
+                Slice partitions = VARCHAR.getSlice(rowIdNecessaryFields.getField(2), position);
 
                 List<String> partitionValues = PARTITIONS_CODEC.fromJson(partitions.toStringUtf8());
 
@@ -144,6 +191,20 @@ public class DeltaLakeMergeSink
                 deletion.rowsToDelete().addLong(rowPosition);
             }
         });
+    }
+
+    private boolean isUpdateOperation(Page page)
+    {
+        int channelCount = page.getChannelCount();
+        int i = 0;
+        while (i < page.getPositionCount()) {
+            int operationType = toIntExact(TINYINT.getLong(page.getBlock(channelCount - 2), i));
+            if (operationType == UPDATE_INSERT_OPERATION_NUMBER || operationType == UPDATE_DELETE_OPERATION_NUMBER) {
+                return true;
+            }
+            i++;
+        }
+        return false;
     }
 
     @Override
@@ -158,6 +219,16 @@ public class DeltaLakeMergeSink
                 .map(mergeResultJsonCodec::toJsonBytes)
                 .map(Slices::wrappedBuffer)
                 .forEach(fragments::add);
+
+        if (isCDFEnabled && cdfPageSink != null) {
+            cdfPageSink.finish().join().stream()
+                    .map(Slice::getBytes)
+                    .map(dataFileInfoCodec::fromJson)
+                    .map(info -> new DeltaLakeMergeResult(Optional.empty(), Optional.of(info)))
+                    .map(mergeResultJsonCodec::toJsonBytes)
+                    .map(Slices::wrappedBuffer)
+                    .forEach(fragments::add);
+        }
 
         fileDeletions.forEach((path, deletion) ->
                 fragments.addAll(rewriteFile(new Path(path.toStringUtf8()), deletion)));
@@ -336,6 +407,14 @@ public class DeltaLakeMergeSink
         public LongBitmapDataProvider rowsToDelete()
         {
             return rowsToDelete;
+        }
+    }
+
+    @Override
+    public void abort()
+    {
+        if (cdfPageSink != null) {
+            cdfPageSink.abort();
         }
     }
 }

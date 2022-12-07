@@ -215,7 +215,7 @@ public class KuduPageSink
             for (int position = 0; position < page.getPositionCount(); position++) {
                 long operation = TINYINT.getLong(operationBlock, position);
 
-                if (operation == DELETE_OPERATION_NUMBER || operation == UPDATE_OPERATION_NUMBER) {
+                if (operation == DELETE_OPERATION_NUMBER || operation == UPDATE_OPERATION_NUMBER || operation == UPDATE_DELETE_OPERATION_NUMBER) {
                     Delete delete = table.newDelete();
                     Slice deleteRowId = VARBINARY.getSlice(rowIds, position);
                     RowHelper.copyPrimaryKey(schema, KeyEncoderAccessor.decodePrimaryKey(schema, deleteRowId.getBytes()), delete.getRow());
@@ -227,7 +227,7 @@ public class KuduPageSink
                     }
                 }
 
-                if (operation == INSERT_OPERATION_NUMBER || operation == UPDATE_OPERATION_NUMBER) {
+                if (operation == INSERT_OPERATION_NUMBER || operation == UPDATE_OPERATION_NUMBER || operation == UPDATE_INSERT_OPERATION_NUMBER) {
                     Insert insert = table.newInsert();
                     PartialRow insertRow = insert.getRow();
                     int insertStart = 0;
