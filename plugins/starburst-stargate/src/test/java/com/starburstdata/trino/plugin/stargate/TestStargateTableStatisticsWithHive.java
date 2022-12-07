@@ -18,6 +18,7 @@ import io.trino.testing.QueryAssertions;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -73,6 +74,13 @@ public class TestStargateTableStatisticsWithHive
     {
         executeInRemoteStarburst("CREATE TABLE nation_partitioned(nationkey BIGINT, name VARCHAR, comment VARCHAR, regionkey BIGINT) WITH (partitioned_by = ARRAY['regionkey'])");
         executeInRemoteStarburst("INSERT INTO nation_partitioned SELECT nationkey, name, comment, regionkey FROM tpch.tiny.nation");
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void closeTemporaryFiles()
+    {
+        remoteStarburst = null;
+        h2QueryRunner = null;
     }
 
     @Override

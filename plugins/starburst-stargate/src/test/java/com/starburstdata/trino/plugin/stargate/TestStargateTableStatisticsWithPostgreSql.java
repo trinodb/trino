@@ -21,6 +21,7 @@ import io.trino.testing.sql.TestTable;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
 import org.testng.SkipException;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -79,6 +80,13 @@ public class TestStargateTableStatisticsWithPostgreSql
         gatherStats("orders");
         gatherStats("nation");
         gatherStats("region");
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        remoteStarburst = null;
+        h2QueryRunner = null;
     }
 
     @Override

@@ -17,6 +17,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
@@ -155,5 +156,11 @@ public abstract class BaseStargateConnectorTest
                 // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
                 .build();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        remoteStarburst = null;
     }
 }

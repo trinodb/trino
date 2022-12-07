@@ -18,6 +18,7 @@ import io.trino.testing.sql.SqlExecutor;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
 import org.testng.SkipException;
+import org.testng.annotations.AfterClass;
 
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,12 @@ public class TestStargateAutomaticJoinPushdown
     private TestingPostgreSqlServer postgreSqlServer;
     private DistributedQueryRunner remoteStarburst;
     private Session remoteSession;
+
+    @AfterClass
+    public void cleanup()
+    {
+        remoteStarburst = null;
+    }
 
     @Override
     protected QueryRunner createQueryRunner() throws Exception
