@@ -374,11 +374,11 @@ public final class ExpressionFormatter
             if (literalFormatter.isPresent()) {
                 return literalFormatter.get().apply(node);
             }
-            String sign = (node.getSign() == IntervalLiteral.Sign.NEGATIVE) ? "- " : "";
+            String sign = (node.getSign() == IntervalLiteral.Sign.NEGATIVE) ? "-" : "";
             StringBuilder builder = new StringBuilder()
                     .append("INTERVAL ")
                     .append(sign)
-                    .append(" '").append(node.getValue()).append("' ")
+                    .append("'").append(node.getValue()).append("' ")
                     .append(node.getStartField());
 
             if (node.getEndField().isPresent()) {
