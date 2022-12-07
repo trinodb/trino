@@ -12,6 +12,7 @@ package com.starburstdata.presto.plugin.saphana;
 import com.starburstdata.presto.testing.testcontainers.SapHanaDockerInitializer;
 import com.starburstdata.presto.testing.testcontainers.SapHanaJdbcContainer;
 import io.airlift.log.Logger;
+import io.trino.testing.ResourcePresence;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import net.jodah.failsafe.Timeout;
@@ -116,5 +117,11 @@ public final class TestingSapHanaServer
     public String getPassword()
     {
         return dockerContainer.getPassword();
+    }
+
+    @ResourcePresence
+    public boolean isRunning()
+    {
+        return dockerContainer.getContainerId() != null;
     }
 }
