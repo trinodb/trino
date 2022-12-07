@@ -607,6 +607,7 @@ public final class Session
             this.remoteUserAddress = session.remoteUserAddress.orElse(null);
             this.userAgent = session.userAgent.orElse(null);
             this.clientInfo = session.clientInfo.orElse(null);
+            this.clientCapabilities = ImmutableSet.copyOf(session.clientCapabilities);
             this.clientTags = ImmutableSet.copyOf(session.clientTags);
             this.start = session.start;
             this.systemProperties.putAll(session.systemProperties);
