@@ -14,6 +14,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -219,5 +220,11 @@ public class TestDynamoDbNestedAttributeTypeMapping
                                 "c", AttributeValue.builder().ss("def", "ghi").build()
                         )).build()
                 )).build());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        dynamoDbClient = null;
     }
 }
