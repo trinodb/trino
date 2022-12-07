@@ -90,18 +90,6 @@ public class JoinHashSupplier
     }
 
     @Override
-    public long getHashCollisions()
-    {
-        return pagesHash.getHashCollisions();
-    }
-
-    @Override
-    public double getExpectedHashCollisions()
-    {
-        return pagesHash.getExpectedHashCollisions();
-    }
-
-    @Override
     public long checksum()
     {
         return positionLinks.map(PositionLinks.Factory::checksum).orElse(0L);

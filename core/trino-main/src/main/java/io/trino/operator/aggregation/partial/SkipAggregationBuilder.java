@@ -17,7 +17,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.CompletedWork;
 import io.trino.operator.GroupByIdBlock;
-import io.trino.operator.HashCollisionsCounter;
 import io.trino.operator.Work;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.aggregation.AggregatorFactory;
@@ -100,12 +99,6 @@ public class SkipAggregationBuilder
         if (currentPage != null) {
             memoryContext.setBytes(currentPage.getSizeInBytes());
         }
-    }
-
-    @Override
-    public void recordHashCollisions(HashCollisionsCounter hashCollisionsCounter)
-    {
-        // no op
     }
 
     @Override
