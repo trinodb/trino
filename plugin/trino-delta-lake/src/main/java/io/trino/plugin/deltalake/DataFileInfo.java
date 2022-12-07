@@ -28,6 +28,7 @@ public class DataFileInfo
     private final long size;
     private final long creationTime;
     private final DeltaLakeJsonFileStatistics statistics;
+    private final boolean cdfData;
 
     @JsonCreator
     public DataFileInfo(
@@ -35,13 +36,15 @@ public class DataFileInfo
             @JsonProperty("size") long size,
             @JsonProperty("creationTime") long creationTime,
             @JsonProperty("partitionValues") List<String> partitionValues,
-            @JsonProperty("statistics") DeltaLakeJsonFileStatistics statistics)
+            @JsonProperty("statistics") DeltaLakeJsonFileStatistics statistics,
+            @JsonProperty("cdfData") boolean cdfData)
     {
         this.path = path;
         this.size = size;
         this.creationTime = creationTime;
         this.partitionValues = partitionValues;
         this.statistics = requireNonNull(statistics, "statistics is null");
+        this.cdfData = cdfData;
     }
 
     @JsonProperty
@@ -72,5 +75,11 @@ public class DataFileInfo
     public DeltaLakeJsonFileStatistics getStatistics()
     {
         return statistics;
+    }
+
+    @JsonProperty("cdfData")
+    public boolean isCdfData()
+    {
+        return cdfData;
     }
 }

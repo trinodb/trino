@@ -141,7 +141,8 @@ public class DeltaLakeUpdatablePageSource
             ParquetReaderOptions parquetReaderOptions,
             TupleDomain<HiveColumnHandle> parquetPredicate,
             TypeManager typeManager,
-            JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec)
+            JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec,
+            boolean cdfEnabled)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.queryColumns = requireNonNull(queryColumns, "queryColumns is null");
@@ -225,13 +226,15 @@ public class DeltaLakeUpdatablePageSource
 
         this.pageSourceDelegate = new DeltaLakePageSource(
                 delegatedColumns,
+                delegatedColumns,
                 ImmutableSet.of(),
                 partitionKeys,
                 ImmutableList.of(),
                 parquetPageSource.get(),
                 path,
                 fileSize,
-                fileModifiedTime);
+                fileModifiedTime,
+                cdfEnabled);
 
         Path updatedFileLocation = getPathForNewFile();
         try {

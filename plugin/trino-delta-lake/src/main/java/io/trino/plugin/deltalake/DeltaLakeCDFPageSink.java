@@ -25,13 +25,24 @@ import io.trino.spi.type.TypeManager;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.OptionalInt;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
-public class DeltaLakePageSink
+public class DeltaLakeCDFPageSink
         extends AbstractDeltaLakePageSink
 {
-    public DeltaLakePageSink(
+    public static final String CHANGE_TYPE_COLUMN_NAME = "_change_type";
+    public static final String CHANGE_DATA_FOLDER_NAME = "_change_data/";
+
+    private final String tableLocation;
+
+    private final ImmutableList.Builder<DataFileInfo> dataFileInfos = ImmutableList.builder();
+
+    public DeltaLakeCDFPageSink(
             List<DeltaLakeColumnHandle> inputColumns,
             List<String> originalPartitionColumns,
             PageIndexerFactory pageIndexerFactory,
@@ -40,6 +51,7 @@ public class DeltaLakePageSink
             int maxOpenWriters,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             String outputPath,
+            String tableLocation,
             ConnectorSession session,
             DeltaLakeWriterStats stats,
             TypeManager typeManager,
@@ -58,13 +70,12 @@ public class DeltaLakePageSink
                 stats,
                 typeManager,
                 trinoVersion);
+
+        this.tableLocation = tableLocation;
     }
 
     @Override
-    protected void processSynthesizedColumn(DeltaLakeColumnHandle column)
-    {
-        throw new IllegalStateException("Unexpected column type: " + column.getColumnType());
-    }
+    protected void processSynthesizedColumn(DeltaLakeColumnHandle column) {}
 
     @Override
     protected void addSpecialColumns(
@@ -72,29 +83,45 @@ public class DeltaLakePageSink
             ImmutableList.Builder<DeltaLakeColumnHandle> dataColumnHandles,
             ImmutableList.Builder<Integer> dataColumnsInputIndex,
             ImmutableList.Builder<String> dataColumnNames,
-            ImmutableList.Builder<Type> dataColumnTypes) {}
+            ImmutableList.Builder<Type> dataColumnTypes)
+    {
+        dataColumnHandles.add(new DeltaLakeColumnHandle(
+                CHANGE_TYPE_COLUMN_NAME,
+                VARCHAR,
+                OptionalInt.empty(),
+                CHANGE_TYPE_COLUMN_NAME,
+                VARCHAR,
+                REGULAR));
+        dataColumnsInputIndex.add(inputColumns.size());
+        dataColumnNames.add(CHANGE_TYPE_COLUMN_NAME);
+        dataColumnTypes.add(VARCHAR);
+    }
 
     @Override
     protected String getRootTableLocation()
     {
-        return outputPath;
+        return tableLocation;
     }
 
     @Override
     protected String getPartitionPrefixPath()
     {
-        return "";
+        return CHANGE_DATA_FOLDER_NAME;
     }
 
     @Override
     protected Collection<Slice> buildResult()
     {
-        return dataFileSlices.build();
+        List<DataFileInfo> dataFilesInfo = dataFileInfos.build();
+        return dataFilesInfo.stream()
+                .map(file -> new DataFileInfo(file.getPath(), file.getSize(), file.getCreationTime(), file.getPartitionValues(), file.getStatistics(), true))
+                .map(dataFileInfo -> wrappedBuffer(dataFileInfoCodec.toJsonBytes(dataFileInfo)))
+                .collect(toImmutableList());
     }
 
     @Override
     protected void collectDataFileInfo(DataFileInfo dataFileInfo)
     {
-        dataFileSlices.add(wrappedBuffer(dataFileInfoCodec.toJsonBytes(dataFileInfo)));
+        dataFileInfos.add(dataFileInfo);
     }
 }

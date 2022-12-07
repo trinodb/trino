@@ -30,12 +30,13 @@ import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.MergePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
@@ -55,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Verify.verify;
@@ -62,15 +64,19 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressionCodec;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
-import static io.trino.spi.connector.MergePage.createDeleteAndInsertPages;
+import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -91,7 +97,11 @@ public class DeltaLakeMergeSink
     private final String rootTableLocation;
     private final ConnectorPageSink insertPageSink;
     private final List<DeltaLakeColumnHandle> dataColumns;
+    private final List<DeltaLakeColumnHandle> nonSynthesizedColumns;
     private final int tableColumnCount;
+    private final Supplier<DeltaLakeCDFPageSink> cdfPageSinkSupplier;
+    private DeltaLakeCDFPageSink cdfPageSink;
+    private final boolean cdfEnabled;
     private final Map<Slice, FileDeletion> fileDeletions = new HashMap<>();
 
     public DeltaLakeMergeSink(
@@ -104,7 +114,9 @@ public class DeltaLakeMergeSink
             DeltaLakeWriterStats writerStats,
             String rootTableLocation,
             ConnectorPageSink insertPageSink,
-            List<DeltaLakeColumnHandle> tableColumns)
+            List<DeltaLakeColumnHandle> tableColumns,
+            Supplier<DeltaLakeCDFPageSink> cdfPageSinkSupplier,
+            boolean cdfEnabled)
     {
         this.session = requireNonNull(session, "session is null");
         this.fileSystem = fileSystemFactory.create(session);
@@ -120,30 +132,159 @@ public class DeltaLakeMergeSink
         this.dataColumns = tableColumns.stream()
                 .filter(column -> column.getColumnType() == REGULAR)
                 .collect(toImmutableList());
+        this.nonSynthesizedColumns = tableColumns.stream()
+                .filter(column -> column.getColumnType() != SYNTHESIZED)
+                .collect(toImmutableList());
+        this.cdfPageSinkSupplier = requireNonNull(cdfPageSinkSupplier);
+        this.cdfEnabled = cdfEnabled;
     }
 
     @Override
     public void storeMergedRows(Page page)
     {
-        MergePage mergePage = createDeleteAndInsertPages(page, tableColumnCount);
+        DeltaLakeMergePage mergePage = createPages(page, tableColumnCount);
 
         mergePage.getInsertionsPage().ifPresent(insertPageSink::appendPage);
+        mergePage.getUpdateInsertionsPage().ifPresent(insertPageSink::appendPage);
 
-        mergePage.getDeletionsPage().ifPresent(deletions -> {
-            ColumnarRow rowIdRow = toColumnarRow(deletions.getBlock(deletions.getChannelCount() - 1));
+        processInsertions(mergePage.getInsertionsPage(), "insert");
+        processInsertions(mergePage.getUpdateInsertionsPage(), "update_postimage");
 
-            for (int position = 0; position < rowIdRow.getPositionCount(); position++) {
-                Slice filePath = VARCHAR.getSlice(rowIdRow.getField(0), position);
-                long rowPosition = BIGINT.getLong(rowIdRow.getField(1), position);
-                Slice partitions = VARCHAR.getSlice(rowIdRow.getField(2), position);
+        mergePage.getDeletionsPage().ifPresent(deletions -> processDeletion(deletions, "delete"));
+        mergePage.getUpdateDeletionsPage().ifPresent(deletions -> processDeletion(deletions, "update_preimage"));
+    }
 
-                List<String> partitionValues = PARTITIONS_CODEC.fromJson(partitions.toStringUtf8());
-
-                FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, x -> new FileDeletion(partitionValues));
-
-                deletion.rowsToDelete().addLong(rowPosition);
+    private void processInsertions(Optional<Page> optionalInsertionPage, String cdfOperation)
+    {
+        if (cdfEnabled && optionalInsertionPage.isPresent()) {
+            if (cdfPageSink == null) {
+                cdfPageSink = cdfPageSinkSupplier.get();
             }
-        });
+            Page updateInsertionsPage = optionalInsertionPage.get();
+            Block[] cdfPostUpdateBlocks = new Block[nonSynthesizedColumns.size() + 1];
+            for (int i = 0; i < nonSynthesizedColumns.size(); i++) {
+                cdfPostUpdateBlocks[i] = updateInsertionsPage.getBlock(i);
+            }
+            cdfPostUpdateBlocks[nonSynthesizedColumns.size()] = RunLengthEncodedBlock.create(
+                    nativeValueToBlock(VARCHAR, utf8Slice(cdfOperation)), updateInsertionsPage.getPositionCount());
+            cdfPageSink.appendPage(new Page(updateInsertionsPage.getPositionCount(), cdfPostUpdateBlocks));
+        }
+    }
+
+    private void processDeletion(Page deletions, String cdfOperation)
+    {
+        ColumnarRow rowIdRow = toColumnarRow(deletions.getBlock(deletions.getChannelCount() - 1));
+        ColumnarRow rowIdNecessaryFields = toColumnarRow(rowIdRow.getField(0));
+        if (cdfEnabled) {
+            if (cdfPageSink == null) {
+                cdfPageSink = cdfPageSinkSupplier.get();
+            }
+
+            Block[] cdfPreUpdateBlocks = new Block[nonSynthesizedColumns.size() + 1];
+            ColumnarRow preUpdateRows = toColumnarRow(rowIdRow.getField(1));
+            for (int i = 0; i < preUpdateRows.getFieldCount(); i++) {
+                cdfPreUpdateBlocks[i] = preUpdateRows.getField(i);
+            }
+            cdfPreUpdateBlocks[nonSynthesizedColumns.size()] = RunLengthEncodedBlock.create(
+                    nativeValueToBlock(VARCHAR, utf8Slice(cdfOperation)), deletions.getPositionCount());
+            cdfPageSink.appendPage(new Page(deletions.getPositionCount(), cdfPreUpdateBlocks));
+        }
+
+        for (int position = 0; position < rowIdNecessaryFields.getPositionCount(); position++) {
+            Slice filePath = VARCHAR.getSlice(rowIdNecessaryFields.getField(0), position);
+            long rowPosition = BIGINT.getLong(rowIdNecessaryFields.getField(1), position);
+            Slice partitions = VARCHAR.getSlice(rowIdNecessaryFields.getField(2), position);
+
+            List<String> partitionValues = PARTITIONS_CODEC.fromJson(partitions.toStringUtf8());
+
+            FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, x -> new FileDeletion(partitionValues));
+
+            deletion.rowsToDelete().addLong(rowPosition);
+        }
+    }
+
+    private DeltaLakeMergePage createPages(Page inputPage, int dataColumnCount)
+    {
+        int inputChannelCount = inputPage.getChannelCount();
+        if (inputChannelCount != dataColumnCount + 2) {
+            throw new IllegalArgumentException(format("inputPage channelCount (%s) == dataColumns size (%s) + 2", inputChannelCount, dataColumnCount));
+        }
+
+        int positionCount = inputPage.getPositionCount();
+        if (positionCount <= 0) {
+            throw new IllegalArgumentException("positionCount should be > 0, but is " + positionCount);
+        }
+        Block operationBlock = inputPage.getBlock(inputChannelCount - 2);
+        int[] deletePositions = new int[positionCount];
+        int[] insertPositions = new int[positionCount];
+        int[] updateInsertPositions = new int[positionCount];
+        int[] updateDeletePositions = new int[positionCount];
+        int deletePositionCount = 0;
+        int insertPositionCount = 0;
+        int updateInsertPositionCount = 0;
+        int updateDeletePositionCount = 0;
+
+        for (int position = 0; position < positionCount; position++) {
+            int operation = toIntExact(TINYINT.getLong(operationBlock, position));
+            switch (operation) {
+                case DELETE_OPERATION_NUMBER:
+                    deletePositions[deletePositionCount] = position;
+                    deletePositionCount++;
+                    break;
+                case INSERT_OPERATION_NUMBER:
+                    insertPositions[insertPositionCount] = position;
+                    insertPositionCount++;
+                    break;
+                case UPDATE_INSERT_OPERATION_NUMBER:
+                    updateInsertPositions[updateInsertPositionCount] = position;
+                    updateInsertPositionCount++;
+                    break;
+                case UPDATE_DELETE_OPERATION_NUMBER:
+                    updateDeletePositions[updateDeletePositionCount] = position;
+                    updateDeletePositionCount++;
+                    break;
+                default:
+                    throw new IllegalArgumentException("Invalid merge operation: " + operation);
+            }
+        }
+        Optional<Page> deletePage = Optional.empty();
+        if (deletePositionCount > 0) {
+            int[] columns = new int[dataColumnCount + 1];
+            for (int i = 0; i < dataColumnCount; i++) {
+                columns[i] = i;
+            }
+            columns[dataColumnCount] = dataColumnCount + 1; // row ID channel
+            deletePage = Optional.of(inputPage
+                    .getColumns(columns)
+                    .getPositions(deletePositions, 0, deletePositionCount));
+        }
+
+        Optional<Page> insertPage = Optional.empty();
+        if (insertPositionCount > 0) {
+            insertPage = Optional.of(inputPage
+                    .getColumns(IntStream.range(0, dataColumnCount).toArray())
+                    .getPositions(insertPositions, 0, insertPositionCount));
+        }
+
+        Optional<Page> updateInsertPage = Optional.empty();
+        if (updateInsertPositionCount > 0) {
+            updateInsertPage = Optional.of(inputPage
+                    .getColumns(IntStream.range(0, dataColumnCount).toArray())
+                    .getPositions(updateInsertPositions, 0, updateInsertPositionCount));
+        }
+
+        Optional<Page> updateDeletePage = Optional.empty();
+        if (updateDeletePositionCount > 0) {
+            int[] columns = new int[dataColumnCount + 1];
+            for (int i = 0; i < dataColumnCount; i++) {
+                columns[i] = i;
+            }
+            columns[dataColumnCount] = dataColumnCount + 1; // row ID channel
+            updateDeletePage = Optional.of(inputPage
+                    .getColumns(columns)
+                    .getPositions(updateDeletePositions, 0, updateDeletePositionCount));
+        }
+        return new DeltaLakeMergePage(deletePage, insertPage, updateInsertPage, updateDeletePage);
     }
 
     @Override
@@ -158,6 +299,16 @@ public class DeltaLakeMergeSink
                 .map(mergeResultJsonCodec::toJsonBytes)
                 .map(Slices::wrappedBuffer)
                 .forEach(fragments::add);
+
+        if (cdfEnabled && cdfPageSink != null) {
+            cdfPageSink.finish().join().stream()
+                    .map(Slice::getBytes)
+                    .map(dataFileInfoCodec::fromJson)
+                    .map(info -> new DeltaLakeMergeResult(Optional.empty(), Optional.of(info)))
+                    .map(mergeResultJsonCodec::toJsonBytes)
+                    .map(Slices::wrappedBuffer)
+                    .forEach(fragments::add);
+        }
 
         fileDeletions.forEach((path, deletion) ->
                 fragments.addAll(rewriteFile(new Path(path.toStringUtf8()), deletion)));
@@ -316,6 +467,14 @@ public class DeltaLakeMergeSink
                 Optional.empty());
     }
 
+    @Override
+    public void abort()
+    {
+        if (cdfPageSink != null) {
+            cdfPageSink.abort();
+        }
+    }
+
     private static class FileDeletion
     {
         private final List<String> partitionValues;
@@ -336,6 +495,42 @@ public class DeltaLakeMergeSink
         public LongBitmapDataProvider rowsToDelete()
         {
             return rowsToDelete;
+        }
+    }
+
+    private static class DeltaLakeMergePage
+    {
+        private final Optional<Page> deletionsPage;
+        private final Optional<Page> insertionsPage;
+        private final Optional<Page> updateInsertionsPage;
+        private final Optional<Page> updateDeletionsPage;
+
+        public DeltaLakeMergePage(Optional<Page> deletionsPage, Optional<Page> insertionsPage, Optional<Page> updateInsertionsPage, Optional<Page> updateDeletionsPage)
+        {
+            this.deletionsPage = deletionsPage;
+            this.insertionsPage = insertionsPage;
+            this.updateInsertionsPage = updateInsertionsPage;
+            this.updateDeletionsPage = updateDeletionsPage;
+        }
+
+        public Optional<Page> getDeletionsPage()
+        {
+            return deletionsPage;
+        }
+
+        public Optional<Page> getInsertionsPage()
+        {
+            return insertionsPage;
+        }
+
+        public Optional<Page> getUpdateInsertionsPage()
+        {
+            return updateInsertionsPage;
+        }
+
+        public Optional<Page> getUpdateDeletionsPage()
+        {
+            return updateDeletionsPage;
         }
     }
 }

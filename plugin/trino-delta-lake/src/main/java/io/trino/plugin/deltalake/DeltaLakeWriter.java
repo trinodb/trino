@@ -176,7 +176,8 @@ public class DeltaLakeWriter
                 getWrittenBytes(),
                 creationTime,
                 partitionValues,
-                readStatistics(fileSystem, rootTableLocation, dataColumnNames, dataColumnTypes, relativeFilePath, rowCount));
+                readStatistics(fileSystem, rootTableLocation, dataColumnNames, dataColumnTypes, relativeFilePath, rowCount),
+                false);
     }
 
     private static DeltaLakeJsonFileStatistics readStatistics(

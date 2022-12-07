@@ -39,6 +39,7 @@ import io.trino.plugin.deltalake.statistics.DeltaLakeColumnStatistics;
 import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
 import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.CDFFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry.Format;
@@ -242,6 +243,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.partitioningBy;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
@@ -1539,7 +1541,26 @@ public class DeltaLakeMetadata
     @Override
     public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return new DeltaLakeColumnHandle(ROW_ID_COLUMN_NAME, MERGE_ROW_ID_TYPE, OptionalInt.empty(), ROW_ID_COLUMN_NAME, MERGE_ROW_ID_TYPE, SYNTHESIZED);
+        DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
+        boolean cdfEnabled = changeDataFeedEnabled(handle.getMetadataEntry());
+        ImmutableList.Builder<RowType.Field> rowIdFields = ImmutableList.builder();
+        rowIdFields.add(RowType.field("necessary_columns", MERGE_ROW_ID_TYPE));
+        if (cdfEnabled) {
+            List<RowType.Field> allColumns = extractSchema(handle.getMetadataEntry(), typeManager).stream()
+                    .map(column -> toColumnHandle(
+                            column.getColumnMetadata(),
+                            column.getFieldId(),
+                            column.getPhysicalName(),
+                            column.getPhysicalColumnType(),
+                            handle.getMetadataEntry().getCanonicalPartitionColumns()))
+                    .map(column -> RowType.field(column.getName(), column.getType()))
+                    .collect(toImmutableList());
+
+            RowType dataRowType = RowType.from(allColumns);
+            rowIdFields.add(RowType.field("data_columns", dataRowType));
+        }
+        Type type = RowType.rowType(rowIdFields.build().toArray(new RowType.Field[0]));
+        return new DeltaLakeColumnHandle(ROW_ID_COLUMN_NAME, type, OptionalInt.empty(), ROW_ID_COLUMN_NAME, type, SYNTHESIZED);
     }
 
     @Override
@@ -1569,9 +1590,6 @@ public class DeltaLakeMetadata
             throw new TrinoException(NOT_SUPPORTED, "Writing to tables with CHECK constraints is not supported");
         }
         checkUnsupportedGeneratedColumns(handle.getMetadataEntry());
-        if (changeDataFeedEnabled(handle.getMetadataEntry())) {
-            throw new TrinoException(NOT_SUPPORTED, "Writing to tables with Change Data Feed enabled is not supported");
-        }
         checkSupportedWriterVersion(session, handle.getSchemaTableName());
 
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle);
@@ -1600,13 +1618,19 @@ public class DeltaLakeMetadata
                 .flatMap(Optional::stream)
                 .collect(toImmutableList());
 
-        List<DataFileInfo> newFiles = mergeResults.stream()
+        List<DataFileInfo> allFiles = mergeResults.stream()
                 .map(DeltaLakeMergeResult::getNewFile)
                 .flatMap(Optional::stream)
                 .collect(toImmutableList());
 
+        Map<Boolean, List<DataFileInfo>> splitted = allFiles.stream().collect(partitioningBy(DataFileInfo::isCdfData));
+
+        List<DataFileInfo> newFiles = ImmutableList.copyOf(splitted.get(false));
+
+        List<DataFileInfo> cdfFiles = ImmutableList.copyOf(splitted.get(true));
+
         if (handle.isRetriesEnabled()) {
-            cleanExtraOutputFilesForUpdate(session, handle.getLocation(), newFiles);
+            cleanExtraOutputFilesForUpdate(session, handle.getLocation(), allFiles);
         }
 
         Optional<Long> checkpointInterval = handle.getMetadataEntry().getCheckpointInterval();
@@ -1644,6 +1668,10 @@ public class DeltaLakeMetadata
 
             long writeTimestamp = Instant.now().toEpochMilli();
 
+            if (!cdfFiles.isEmpty()) {
+                appendCDFFileEntries(transactionLogWriter, cdfFiles, handle.getMetadataEntry().getOriginalPartitionColumns());
+            }
+
             for (String file : oldFiles) {
                 transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(file, writeTimestamp, true));
             }
@@ -1659,9 +1687,30 @@ public class DeltaLakeMetadata
         catch (IOException | RuntimeException e) {
             if (!writeCommitted) {
                 // TODO perhaps it should happen in a background thread (https://github.com/trinodb/trino/issues/12011)
-                cleanupFailedWrite(session, tableLocation, newFiles);
+                cleanupFailedWrite(session, tableLocation, allFiles);
             }
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
+        }
+    }
+
+    private static void appendCDFFileEntries(
+            TransactionLogWriter transactionLogWriter,
+            List<DataFileInfo> cdfFilesInfos,
+            List<String> partitionColumnNames)
+    {
+        for (DataFileInfo info : cdfFilesInfos) {
+            // using Hashmap because partition values can be null
+            Map<String, String> partitionValues = new HashMap<>();
+            for (int i = 0; i < partitionColumnNames.size(); i++) {
+                partitionValues.put(partitionColumnNames.get(i), info.getPartitionValues().get(i));
+            }
+            partitionValues = unmodifiableMap(partitionValues);
+
+            transactionLogWriter.appendCDFFileEntry(
+                    new CDFFileEntry(
+                            toUriFormat(info.getPath()),
+                            partitionValues,
+                            info.getSize()));
         }
     }
 
