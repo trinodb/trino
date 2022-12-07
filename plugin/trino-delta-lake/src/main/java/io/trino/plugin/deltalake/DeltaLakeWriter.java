@@ -22,6 +22,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.reader.MetadataReader;
+import io.trino.plugin.deltalake.DataFileInfo.DataFileType;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.FileWriter;
@@ -77,6 +78,7 @@ public class DeltaLakeWriter
 
     private long rowCount;
     private long inputSizeInBytes;
+    private DataFileType dataFileType;
 
     public DeltaLakeWriter(
             TrinoFileSystem fileSystem,
@@ -85,7 +87,8 @@ public class DeltaLakeWriter
             String relativeFilePath,
             List<String> partitionValues,
             DeltaLakeWriterStats stats,
-            List<DeltaLakeColumnHandle> columnHandles)
+            List<DeltaLakeColumnHandle> columnHandles,
+            DataFileType dataFileType)
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.fileWriter = requireNonNull(fileWriter, "fileWriter is null");
@@ -103,6 +106,7 @@ public class DeltaLakeWriter
             }
         }
         this.timestampColumnIndices = timestampColumnIndices.build();
+        this.dataFileType = dataFileType;
     }
 
     @Override
@@ -175,6 +179,7 @@ public class DeltaLakeWriter
                 relativeFilePath,
                 getWrittenBytes(),
                 creationTime,
+                dataFileType,
                 partitionValues,
                 readStatistics(fileSystem, rootTableLocation, dataColumnNames, dataColumnTypes, relativeFilePath, rowCount));
     }
