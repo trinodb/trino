@@ -354,12 +354,10 @@ public class HivePageSource
             return Optional.of(new MapCoercer(typeManager, fromHiveType, toHiveType));
         }
         if (isRowType(fromType) && isRowType(toType)) {
-            if (fromHiveType.getCategory() == ObjectInspector.Category.UNION || toHiveType.getCategory() == ObjectInspector.Category.UNION) {
-                HiveType fromHiveTypeStruct = HiveType.toHiveType(fromType);
-                HiveType toHiveTypeStruct = HiveType.toHiveType(toType);
-                return Optional.of(new StructCoercer(typeManager, fromHiveTypeStruct, toHiveTypeStruct));
-            }
-            return Optional.of(new StructCoercer(typeManager, fromHiveType, toHiveType));
+            HiveType fromHiveTypeStruct = (fromHiveType.getCategory() == ObjectInspector.Category.UNION) ? HiveType.toHiveType(fromType) : fromHiveType;
+            HiveType toHiveTypeStruct = (toHiveType.getCategory() == ObjectInspector.Category.UNION) ? HiveType.toHiveType(toType) : toHiveType;
+
+            return Optional.of(new StructCoercer(typeManager, fromHiveTypeStruct, toHiveTypeStruct));
         }
 
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
