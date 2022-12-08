@@ -23,6 +23,10 @@ import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -444,5 +448,35 @@ public abstract class BaseMySqlConnectorTest
                 // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
                 .build();
+    }
+
+    @Test
+    public void verifyMySqlJdbcDriverNegativeDateHandling()
+            throws Exception
+    {
+        LocalDate negativeDate = LocalDate.of(-1, 1, 1);
+        try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.verify_negative_date", "(dt DATE)")) {
+            // Direct insert to database fails due to validation on database side
+            assertThatThrownBy(() -> onRemoteDatabase().execute("INSERT INTO " + table.getName() + " VALUES (DATE '" + negativeDate + "')"))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageMatching(".*\\QIncorrect DATE value: '" + negativeDate + "'\\E");
+
+            // Insert via prepared statement succeeds but writes incorrect value due to bug in driver
+            try (Connection connection = mySqlServer.createConnection();
+                    PreparedStatement insert = connection.prepareStatement("INSERT INTO " + table.getName() + " VALUES (?)")) {
+                insert.setObject(1, negativeDate);
+                int affectedRows = insert.executeUpdate();
+                assertThat(affectedRows).isEqualTo(1);
+            }
+
+            try (Connection connection = mySqlServer.createConnection();
+                    ResultSet resultSet = connection.createStatement().executeQuery("SELECT dt FROM " + table.getName())) {
+                while (resultSet.next()) {
+                    LocalDate dateReadBackFromMySql = resultSet.getObject(1, LocalDate.class);
+                    assertThat(dateReadBackFromMySql).isNotEqualTo(negativeDate);
+                    assertThat(dateReadBackFromMySql.toString()).isEqualTo("0002-01-01");
+                }
+            }
+        }
     }
 }
