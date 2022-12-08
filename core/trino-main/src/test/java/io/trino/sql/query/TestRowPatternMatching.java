@@ -1531,4 +1531,21 @@ public class TestRowPatternMatching
                 "                ) AS m"))
                 .matches("VALUES (VARCHAR 'B'), ('B'), ('B'), ('B'), ('B'), ('B'), ('B'), ('B'), ('LAST') ");
     }
+
+    @Test
+    public void testProperties()
+    {
+        assertThat(assertions.query("""
+                WITH
+                    t(a, b) AS (VALUES (1, 1)),
+                    u AS (SELECT * FROM t WHERE b = 1)
+                SELECT *
+                FROM u
+                  MATCH_RECOGNIZE (
+                   PARTITION BY a
+                   PATTERN (X)
+                   DEFINE X AS (b = 1))
+                """))
+                .matches("VALUES 1");
+    }
 }
