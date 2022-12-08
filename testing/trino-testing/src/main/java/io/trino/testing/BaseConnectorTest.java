@@ -1017,12 +1017,12 @@ public abstract class BaseConnectorTest
                 "SELECT table_name, table_type FROM information_schema.tables " +
                         "WHERE table_schema = '" + view.getSchemaName() + "'"))
                 .skippingTypesCheck()
-                .containsAll("VALUES ('" + view.getObjectName() + "', 'BASE TABLE')"); // TODO table_type should probably be "* VIEW"
+                .containsAll("VALUES ('" + view.getObjectName() + "', 'MATERIALIZED VIEW')");
         // information_schema.tables with table_name filter
         assertQuery(
                 "SELECT table_name, table_type FROM information_schema.tables " +
                         "WHERE table_schema = '" + view.getSchemaName() + "' and table_name = '" + view.getObjectName() + "'",
-                "VALUES ('" + view.getObjectName() + "', 'BASE TABLE')");
+                "VALUES ('" + view.getObjectName() + "', 'MATERIALIZED VIEW')");
 
         // system.jdbc.tables without filter
         assertThat(query("SELECT table_schem, table_name, table_type FROM system.jdbc.tables"))
