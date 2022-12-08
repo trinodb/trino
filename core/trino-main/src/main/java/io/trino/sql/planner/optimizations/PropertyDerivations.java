@@ -340,7 +340,8 @@ public final class PropertyDerivations
                                 .forEach(localProperties::add));
             }
 
-            return ActualProperties.builderFrom(properties)
+            return ActualProperties.builder()
+                    // TODO: which global properties should be propagated?
                     .local(LocalProperties.normalizeAndPrune(localProperties.build()))
                     .build();
         }
