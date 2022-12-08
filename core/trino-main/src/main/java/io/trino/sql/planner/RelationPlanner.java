@@ -347,7 +347,7 @@ class RelationPlanner
 
         outputSymbols.addAll(properOutputs);
 
-         // process sources in order of argument declarations
+        // process sources in order of argument declarations
         for (TableArgumentAnalysis tableArgument : functionAnalysis.getTableArgumentAnalyses()) {
             RelationPlan sourcePlan = process(tableArgument.getRelation(), context);
             PlanBuilder sourcePlanBuilder = newPlanBuilder(sourcePlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
