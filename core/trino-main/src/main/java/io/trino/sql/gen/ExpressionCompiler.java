@@ -17,8 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.CompilationException;
 import io.airlift.jmx.CacheStatsMBean;
 import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.metadata.FunctionManager;
@@ -40,13 +40,13 @@ import java.util.OptionalInt;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.relational.Expressions.constant;
@@ -81,7 +81,15 @@ public class ExpressionCompiler
 
     public Supplier<CursorProcessor> compileCursorProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, Object uniqueKey)
     {
-        Class<? extends CursorProcessor> cursorProcessor = cursorProcessors.getUnchecked(new CacheKey(filter, projections, uniqueKey));
+        Class<? extends CursorProcessor> cursorProcessor;
+        try {
+            cursorProcessor = cursorProcessors.getUnchecked(new CacheKey(filter, projections, uniqueKey));
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
+            throw e;
+        }
+
         return () -> {
             try {
                 return cursorProcessor.getConstructor().newInstance();
@@ -131,12 +139,7 @@ public class ExpressionCompiler
     private <T> Class<? extends T> compile(Optional<RowExpression> filter, List<RowExpression> projections, BodyCompiler bodyCompiler, Class<? extends T> superType)
     {
         // create filter and project page iterator class
-        try {
-            return compileProcessor(filter.orElse(constant(true, BOOLEAN)), projections, bodyCompiler, superType);
-        }
-        catch (CompilationException e) {
-            throw new TrinoException(COMPILER_ERROR, e.getCause());
-        }
+        return compileProcessor(filter.orElse(constant(true, BOOLEAN)), projections, bodyCompiler, superType);
     }
 
     private <T> Class<? extends T> compileProcessor(
