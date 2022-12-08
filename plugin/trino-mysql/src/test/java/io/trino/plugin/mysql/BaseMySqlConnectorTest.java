@@ -254,13 +254,13 @@ public abstract class BaseMySqlConnectorTest
     @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
-        return format("Failed to insert data: Data truncation: Incorrect date value: '%s' for column 'dt' at row 1", date);
+        return format("Failed to insert data: Data truncation: Incorrect datetime value: '%s'", date);
     }
 
     @Override
     protected String errorMessageForInsertNegativeDate(String date)
     {
-        return format("Failed to insert data: Data truncation: Incorrect date value: '%s' for column 'dt' at row 1", date);
+        return format("Failed to insert data: Data truncation: Incorrect datetime value: '%s'", date);
     }
 
     @Override
@@ -376,6 +376,21 @@ public abstract class BaseMySqlConnectorTest
         // override because MySQL succeeds in preparing query, and then fails because of no metadata available
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
                 .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
+    }
+
+    @Test
+    public void testNativeQueryWithClause()
+    {
+        // MySQL JDBC driver < 8.0.29 didn't return metadata when the query contained a WITH clause
+        assertQuery(
+                    """
+                    SELECT * FROM TABLE(mysql.system.query(query => '
+                    WITH t AS (SELECT DISTINCT custkey FROM tpch.orders)
+                    SELECT custkey, name FROM tpch.customer
+                    WHERE custkey = 1
+                    '))
+                    """,
+                "VALUES (1, 'Customer#000000001')");
     }
 
     private String getLongInClause(int start, int length)

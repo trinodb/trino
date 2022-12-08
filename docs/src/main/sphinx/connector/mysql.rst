@@ -40,14 +40,12 @@ to the MySQL JDBC driver. The supported parameters for the URL are
 available in the `MySQL Developer Guide
 <https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-configuration-properties.html>`_.
 
-For example, the following ``connection-url`` allows you to
-configure the JDBC driver to interpret time values based on UTC as a timezone on
-the server, and serves as a `workaround for a known issue
-<https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-usagenotes-known-issues-limitations.html>`_.
+For example, the following ``connection-url`` allows you to require encrypted
+connections to the MySQL server:
 
 .. code-block:: text
 
-    connection-url=jdbc:mysql://example.net:3306?serverTimezone=UTC
+    connection-url=jdbc:mysql://example.net:3306?sslMode=REQUIRED
 
 The ``connection-user`` and ``connection-password`` are typically required and
 determine the user credentials for the connection, often a service user. You can

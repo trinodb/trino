@@ -17,7 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
-import com.mysql.jdbc.Driver;
+import com.mysql.cj.jdbc.Driver;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
@@ -73,6 +73,11 @@ public class MySqlClientModule
         connectionProperties.setProperty("characterEncoding", "utf8");
         connectionProperties.setProperty("tinyInt1isBit", "false");
         connectionProperties.setProperty("rewriteBatchedStatements", "true");
+
+        // See "Solution 2a" at https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-time-instants.html - these properties are required to preserve point-in-time when operating with MySQL TIMESTAMP types
+        connectionProperties.setProperty("preserveInstants", "true");
+        connectionProperties.setProperty("connectionTimeZone", "SERVER");
+
         if (mySqlConfig.isAutoReconnect()) {
             connectionProperties.setProperty("autoReconnect", String.valueOf(mySqlConfig.isAutoReconnect()));
             connectionProperties.setProperty("maxReconnects", String.valueOf(mySqlConfig.getMaxReconnects()));
