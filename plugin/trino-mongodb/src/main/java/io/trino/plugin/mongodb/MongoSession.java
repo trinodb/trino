@@ -85,6 +85,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.spi.HostAddress.fromParts;
+import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -359,6 +360,12 @@ public class MongoSession
         RemoteTableName remoteSchemaTableName = toRemoteSchemaTableName(schemaTableName);
         String remoteSchemaName = remoteSchemaTableName.getDatabaseName();
         String remoteTableName = remoteSchemaTableName.getCollectionName();
+        if (!schemaExists(remoteSchemaName)) {
+            throw new SchemaNotFoundException(remoteSchemaName);
+        }
+        if (!collectionExists(client.getDatabase(remoteSchemaName), remoteTableName)) {
+            throw new TableNotFoundException(schemaTableName);
+        }
 
         Document tableMeta = getTableMetadata(remoteSchemaName, remoteTableName);
 
@@ -397,6 +404,18 @@ public class MongoSession
     private static Optional<String> getComment(Document doc)
     {
         return Optional.ofNullable(doc.getString(COMMENT_KEY));
+    }
+
+    private boolean schemaExists(String schemaName)
+    {
+        Optional<String> remoteSchema = ImmutableList.copyOf(listDatabaseNames()).stream().filter(schemaName::equalsIgnoreCase).findFirst();
+
+        //Since MongoDB's database is not exposed prior to collection creation, there is no need to strictly check schema existence.
+        if (remoteSchema.isEmpty() || caseInsensitiveNameMatching) {
+            return true;
+        }
+        //If case-sensitive name matching is applied, the existing DB name must be exactly same.
+        return schemaName.equals(remoteSchema.get());
     }
 
     public MongoCollection<Document> getCollection(RemoteTableName remoteTableName)
@@ -649,12 +668,25 @@ public class MongoSession
 
     public boolean collectionExists(MongoDatabase db, String collectionName)
     {
+        //Use when case-insensitive matching
+        List<String> remoteSchemaTableNames = new ArrayList<>();
         for (String name : listCollectionNames(db.getName())) {
-            if (name.equalsIgnoreCase(collectionName)) {
+            if (!caseInsensitiveNameMatching && name.equals(collectionName)) {
                 return true;
             }
+            else if (caseInsensitiveNameMatching && name.equalsIgnoreCase(collectionName)) {
+                remoteSchemaTableNames.add(name);
+            }
         }
-        return false;
+
+        if (remoteSchemaTableNames.isEmpty()) {
+            return false;
+        }
+        else if (remoteSchemaTableNames.size() == 1) {
+            return true;
+        }
+        throw new TrinoException(AMBIGUOUS_NAME, format("Found ambiguous collections in MongoDB when looking up '%s' : %s",
+                    collectionName.toLowerCase(ENGLISH), remoteSchemaTableNames.stream().sorted().collect(Collectors.joining(","))));
     }
 
     private boolean indexExists(MongoCollection<Document> schemaCollection)

@@ -23,6 +23,8 @@ import org.bson.Document;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoClient;
 import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -119,6 +121,19 @@ public class TestMongoCaseInsensitiveMapping
         assertUpdate("DROP TABLE nonlowercaseschema.test_collection");
         assertUpdate("DROP TABLE test_database.test_collection");
         assertUpdate("DROP TABLE nonlowercaseschema.nonlowercaseview");
+    }
+
+    @Test
+    public void testSelectAmbiguousTableName()
+    {
+        List<String> caseInsensitiveSameCollections = ImmutableList.of("AmbiCol", "AMBICOL", "ambicol");
+
+        for (String collection : caseInsensitiveSameCollections) {
+            client.getDatabase("tpch").getCollection(collection).insertOne(new Document("a", "b"));
+        }
+
+        assertQueryFails("SELECT * FROM ambicol",
+                "Found ambiguous collections in MongoDB when looking up 'ambicol' : AMBICOL,AmbiCol,ambicol");
     }
 
     @Test

@@ -51,6 +51,7 @@ import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -289,6 +290,19 @@ public class TestMongoConnectorTest
     {
         assertThatThrownBy(super::testDeleteWithSubquery)
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
+    }
+
+    @Test
+    public void testDescribeTableWithNonLowercaseTableNames()
+    {
+        String schemaName = "test" + randomNameSuffix();
+        String tableName = "Test" + randomNameSuffix();
+        String schemaTableName = schemaName + "." + tableName.toLowerCase(ENGLISH);
+        client.getDatabase(schemaName).getCollection(tableName).insertOne(new Document("test", "aaa"));
+
+        assertQueryFails(
+                "DESC mongodb." + schemaTableName,
+                "line 1:1: Table 'mongodb." + schemaTableName + "' does not exist");
     }
 
     @Override
@@ -545,6 +559,60 @@ public class TestMongoConnectorTest
                 "VALUES (9, NULL, 1), (9, 'ffffffffffffffffffffffff', 1), (12, 'ffffffffffffffffffffffff', 2), (12, '000000000000000000000000', 1), (15, NULL, 1)");
 
         assertUpdate("DROP TABLE tmp_objectid");
+    }
+
+    @Test
+    public void testShowTablesWithNonLowercaseTableNames()
+    {
+        String schemaName = "test" + randomNameSuffix();
+
+        for (String collection : ImmutableList.of("collection1", "collection2", "Collection3", "COLLECTION4")) {
+            client.getDatabase(schemaName).getCollection(collection).insertOne(new Document("test", "aaa"));
+        }
+
+        assertQuery("SHOW TABLES IN mongodb." + schemaName,
+                "VALUES ('collection1'), ('collection2'), ('collection3'), ('collection4')");
+    }
+
+    @Test
+    public void testSelectNonLowercaseSchemaName()
+    {
+        String schemaName = "Test_Schema" + randomNameSuffix();
+        String lowerCasedSchemaName = schemaName.toLowerCase(ENGLISH);
+        String tableName = "test_collection" + randomNameSuffix();
+        String schemaTableName = lowerCasedSchemaName + "." + tableName;
+        client.getDatabase(schemaName).getCollection(tableName).insertOne(new Document("test", "aaa"));
+
+        assertQueryFails(
+                "SELECT * FROM mongodb." + schemaTableName,
+                "Schema " + lowerCasedSchemaName + " not found");
+    }
+
+    @Test
+    public void testSelectNonLowercaseSchemaAndTableName()
+    {
+        String schemaName = "Test_Schema" + randomNameSuffix();
+        String lowerCasedSchemaName = schemaName.toLowerCase(ENGLISH);
+        String tableName = "Test_Collection" + randomNameSuffix();
+        String schemaTableName = lowerCasedSchemaName + "." + tableName;
+        client.getDatabase(schemaName).getCollection(tableName).insertOne(new Document("test", "aaa"));
+
+        assertQueryFails(
+                "SELECT * FROM mongodb." + schemaTableName,
+                "Schema " + lowerCasedSchemaName + " not found");
+    }
+
+    @Test
+    public void testSelectNonLowercaseTableName()
+    {
+        String schemaName = "test_schema" + randomNameSuffix();
+        String tableName = "Test_Collection" + randomNameSuffix();
+        String schemaTableName = schemaName + "." + tableName.toLowerCase(ENGLISH);
+        client.getDatabase(schemaName).getCollection(tableName).insertOne(new Document("test", "aaa"));
+
+        assertQueryFails(
+                "SELECT * FROM mongodb." + schemaTableName,
+                "line 1:15: Table 'mongodb." + schemaTableName + "' does not exist");
     }
 
     @Test
