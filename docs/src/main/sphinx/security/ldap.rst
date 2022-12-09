@@ -110,7 +110,7 @@ Property                           Description
 ``ldap.ignore-referrals``          Ignore referrals to other LDAP servers while
                                    performing search queries. Defaults to ``false``.
 ``ldap.cache-ttl``                 LDAP cache duration. Defaults to ``1h``.
-``ldap.timeout.connect``        Timeout for establishing an LDAP connection.
+``ldap.timeout.connect``           Timeout for establishing an LDAP connection.
 ``ldap.timeout.read``              Timeout for reading data from an LDAP connection.
 ================================== ======================================================
 
