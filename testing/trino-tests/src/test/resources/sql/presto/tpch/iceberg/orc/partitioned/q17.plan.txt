@@ -7,17 +7,15 @@ final aggregation over ()
                         final aggregation over (partkey_5)
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["partkey_5"])
-                                    local exchange (REPARTITION, ROUND_ROBIN, [])
-                                        partial aggregation over (partkey_5)
-                                            scan lineitem
+                                    partial aggregation over (partkey_5)
+                                        scan lineitem
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["partkey"])
-                                local exchange (REPARTITION, ROUND_ROBIN, [])
-                                    join (INNER, REPLICATED):
-                                        scan lineitem
-                                        local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                scan part
+                                join (INNER, REPLICATED):
+                                    scan lineitem
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan part
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPLICATE, BROADCAST, [])
                             single aggregation over ()

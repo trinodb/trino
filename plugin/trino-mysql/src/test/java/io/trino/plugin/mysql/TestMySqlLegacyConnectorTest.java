@@ -122,7 +122,7 @@ public class TestMySqlLegacyConnectorTest
 
             assertThat(query("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
                     .matches("VALUES (BIGINT '7', BIGINT '7')")
-                    .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
+                    .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
         }
     }
 

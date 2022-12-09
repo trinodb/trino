@@ -6,19 +6,16 @@ local exchange (GATHER, SINGLE, [])
                     partial aggregation over (acctbal, address, comment_7, custkey_6, name, name_12, phone)
                         join (INNER, PARTITIONED):
                             remote exchange (REPARTITION, HASH, ["orderkey"])
-                                local exchange (REPARTITION, ROUND_ROBIN, [])
-                                    scan lineitem
+                                scan lineitem
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["orderkey_0"])
                                     join (INNER, REPLICATED):
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, ["custkey_6"])
-                                                local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                    scan customer
+                                                scan customer
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["custkey"])
-                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                        scan orders
+                                                    scan orders
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 scan nation

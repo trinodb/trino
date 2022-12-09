@@ -3,50 +3,46 @@ local exchange (GATHER, SINGLE, [])
         final aggregation over (d_week_seq, i_item_desc, w_warehouse_name)
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPARTITION, HASH, ["d_week_seq", "i_item_desc", "w_warehouse_name"])
-                    local exchange (REPARTITION, ROUND_ROBIN, [])
-                        partial aggregation over (d_week_seq, i_item_desc, w_warehouse_name)
-                            join (RIGHT, PARTITIONED):
-                                remote exchange (REPARTITION, HASH, ["cr_item_sk"])
-                                    local exchange (REPARTITION, ROUND_ROBIN, [])
-                                        scan catalog_returns
-                                local exchange (GATHER, SINGLE, [])
-                                    join (LEFT, REPLICATED):
-                                        join (INNER, PARTITIONED):
-                                            remote exchange (REPARTITION, HASH, ["inv_item_sk"])
-                                                local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                    join (INNER, REPLICATED):
-                                                        join (INNER, REPLICATED):
-                                                            scan inventory
-                                                            local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPLICATE, BROADCAST, [])
+                    partial aggregation over (d_week_seq, i_item_desc, w_warehouse_name)
+                        join (RIGHT, PARTITIONED):
+                            remote exchange (REPARTITION, HASH, ["cr_item_sk"])
+                                scan catalog_returns
+                            local exchange (GATHER, SINGLE, [])
+                                join (LEFT, REPLICATED):
+                                    join (INNER, PARTITIONED):
+                                        remote exchange (REPARTITION, HASH, ["inv_item_sk"])
+                                            join (INNER, REPLICATED):
+                                                join (INNER, REPLICATED):
+                                                    scan inventory
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            join (INNER, REPLICATED):
+                                                                join (INNER, REPLICATED):
                                                                     join (INNER, REPLICATED):
                                                                         join (INNER, REPLICATED):
                                                                             join (INNER, REPLICATED):
-                                                                                join (INNER, REPLICATED):
-                                                                                    join (INNER, REPLICATED):
-                                                                                        scan catalog_sales
-                                                                                        local exchange (GATHER, SINGLE, [])
-                                                                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                scan date_dim
-                                                                                    local exchange (GATHER, SINGLE, [])
-                                                                                        remote exchange (REPLICATE, BROADCAST, [])
-                                                                                            scan household_demographics
+                                                                                scan catalog_sales
                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                                                        scan customer_demographics
+                                                                                        scan date_dim
                                                                             local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                                    scan date_dim
+                                                                                    scan household_demographics
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                                scan date_dim
-                                                        local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan warehouse
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["i_item_sk"])
-                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                        scan item
+                                                                                scan customer_demographics
+                                                                    local exchange (GATHER, SINGLE, [])
+                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                            scan date_dim
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                        scan date_dim
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        scan warehouse
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                scan promotion
+                                            remote exchange (REPARTITION, HASH, ["i_item_sk"])
+                                                scan item
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan promotion

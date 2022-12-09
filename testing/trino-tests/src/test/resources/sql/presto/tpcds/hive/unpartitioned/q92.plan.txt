@@ -7,25 +7,23 @@ final aggregation over ()
                         final aggregation over (ws_item_sk_9)
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["ws_item_sk_9"])
-                                    local exchange (REPARTITION, ROUND_ROBIN, [])
-                                        partial aggregation over (ws_item_sk_9)
-                                            join (INNER, REPLICATED):
-                                                scan web_sales
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan date_dim
-                        local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["ws_item_sk"])
-                                local exchange (REPARTITION, ROUND_ROBIN, [])
-                                    join (INNER, REPLICATED):
+                                    partial aggregation over (ws_item_sk_9)
                                         join (INNER, REPLICATED):
                                             scan web_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan item
+                                                    scan date_dim
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["ws_item_sk"])
+                                join (INNER, REPLICATED):
+                                    join (INNER, REPLICATED):
+                                        scan web_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan date_dim
+                                                scan item
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan date_dim
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPLICATE, BROADCAST, [])
                             single aggregation over ()
