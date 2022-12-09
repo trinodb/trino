@@ -71,6 +71,8 @@ statement
         RENAME COLUMN (IF EXISTS)? from=identifier TO to=identifier    #renameColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP COLUMN (IF EXISTS)? column=qualifiedName                  #dropColumn
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ALTER COLUMN columnName=identifier SET DATA TYPE type          #setColumnType
     | ALTER TABLE tableName=qualifiedName SET AUTHORIZATION principal  #setTableAuthorization
     | ALTER TABLE tableName=qualifiedName
         SET PROPERTIES propertyAssignments                             #setTableProperties

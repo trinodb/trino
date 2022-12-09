@@ -191,6 +191,7 @@ import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
+import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
@@ -703,6 +704,17 @@ class AstBuilder
                 (ColumnDefinition) visit(context.columnDefinition()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
+    }
+
+    @Override
+    public Node visitSetColumnType(SqlBaseParser.SetColumnTypeContext context)
+    {
+        return new SetColumnType(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.columnName),
+                (DataType) visit(context.type()),
+                context.EXISTS() != null);
     }
 
     @Override
