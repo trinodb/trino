@@ -104,33 +104,25 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
             typeOf(ExchangeNode.class)
                     .with(scope().equalTo(REMOTE))
                     .with(source().matching(
-                            typeOf(ProjectNode.class)
-                                    .with(source().matching(
-                                            typeOf(ExchangeNode.class)
-                                                    .with(scope().equalTo(LOCAL))
-                                                    .with(source().matching(
-                                                            // PushPartialAggregationThroughExchange adds a projection. However, it can be removed if RemoveRedundantIdentityProjections is run in the mean-time.
-                                                            typeOf(ProjectNode.class).capturedAs(PROJECTION)
-                                                                    .with(source().matching(
-                                                                            typeOf(AggregationNode.class).capturedAs(AGGREGATION)
-                                                                                    .with(step().equalTo(AggregationNode.Step.PARTIAL))
-                                                                                    .with(nonEmpty(groupingColumns()))
-                                                                                    .with(source().matching(
-                                                                                            typeOf(GroupIdNode.class).capturedAs(GROUP_ID)))))))))));
-
-    private static final Pattern<ExchangeNode> WITHOUT_PROJECTION =
-            // If there was no exchange here, adding new exchanges could break property derivations logic of AddExchanges, AddLocalExchanges
-            typeOf(ExchangeNode.class)
-                    .with(scope().equalTo(REMOTE))
-                    .with(source().matching(
-                            typeOf(ExchangeNode.class)
-                                    .with(scope().equalTo(LOCAL))
+                            // PushPartialAggregationThroughExchange adds a projection. However, it can be removed if RemoveRedundantIdentityProjections is run in the mean-time.
+                            typeOf(ProjectNode.class).capturedAs(PROJECTION)
                                     .with(source().matching(
                                             typeOf(AggregationNode.class).capturedAs(AGGREGATION)
                                                     .with(step().equalTo(AggregationNode.Step.PARTIAL))
                                                     .with(nonEmpty(groupingColumns()))
                                                     .with(source().matching(
                                                             typeOf(GroupIdNode.class).capturedAs(GROUP_ID)))))));
+
+    private static final Pattern<ExchangeNode> WITHOUT_PROJECTION =
+            // If there was no exchange here, adding new exchanges could break property derivations logic of AddExchanges, AddLocalExchanges
+            typeOf(ExchangeNode.class)
+                    .with(scope().equalTo(REMOTE))
+                    .with(source().matching(
+                            typeOf(AggregationNode.class).capturedAs(AGGREGATION)
+                                    .with(step().equalTo(AggregationNode.Step.PARTIAL))
+                                    .with(nonEmpty(groupingColumns()))
+                                    .with(source().matching(
+                                            typeOf(GroupIdNode.class).capturedAs(GROUP_ID)))));
 
     private static final double GROUPING_SETS_SYMBOL_REQUIRED_FREQUENCY = 0.5;
     private static final double ANTI_SKEWNESS_MARGIN = 3;

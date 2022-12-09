@@ -4,15 +4,13 @@ remote exchange (GATHER, SINGLE, [])
             final aggregation over (orderpriority)
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["orderpriority"])
-                        local exchange (REPARTITION, ROUND_ROBIN, [])
-                            partial aggregation over (orderpriority)
-                                join (INNER, REPLICATED):
-                                    scan orders
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
-                                            final aggregation over (orderkey_0)
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, ["orderkey_0"])
-                                                        local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                            partial aggregation over (orderkey_0)
-                                                                scan lineitem
+                        partial aggregation over (orderpriority)
+                            join (INNER, REPLICATED):
+                                scan orders
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        final aggregation over (orderkey_0)
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPARTITION, HASH, ["orderkey_0"])
+                                                    partial aggregation over (orderkey_0)
+                                                        scan lineitem

@@ -452,13 +452,13 @@ public abstract class BaseJdbcConnectorTest
                 withMarkDistinct,
                 "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation",
                 hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
-                node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(ProjectNode.class, node(TableScanNode.class)))))));
+                node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(ProjectNode.class, node(TableScanNode.class))))));
         // distinct aggregation and a non-distinct aggregation
         assertConditionallyPushedDown(
                 withMarkDistinct,
                 "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation",
                 hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
-                node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(ProjectNode.class, node(TableScanNode.class)))))));
+                node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(ProjectNode.class, node(TableScanNode.class))))));
 
         Session withoutMarkDistinct = Session.builder(getSession())
                 .setSystemProperty(USE_MARK_DISTINCT, "false")
@@ -563,7 +563,7 @@ public abstract class BaseJdbcConnectorTest
 
                 assertThat(query("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
                         .matches("VALUES (BIGINT '7', BIGINT '7')")
-                        .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
+                        .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
             }
             else {
                 // Single count(DISTINCT ...) can be pushed even down even if SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT == false as GROUP BY
@@ -580,7 +580,7 @@ public abstract class BaseJdbcConnectorTest
                         getSession(),
                         "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName(),
                         hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
-                        node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(ProjectNode.class, node(TableScanNode.class)))))));
+                        node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(ProjectNode.class, node(TableScanNode.class))))));
             }
         }
     }
@@ -974,7 +974,7 @@ public abstract class BaseJdbcConnectorTest
                 .isNotFullyPushedDown(
                         node(TopNNode.class, // FINAL TopN
                                 anyTree(node(JoinNode.class,
-                                        node(ExchangeNode.class, node(ExchangeNode.class, node(ProjectNode.class, node(TableScanNode.class)))), // no PARTIAL TopN
+                                        node(ExchangeNode.class, node(ProjectNode.class, node(TableScanNode.class))), // no PARTIAL TopN
                                         anyTree(node(TableScanNode.class))))));
     }
 
@@ -1127,6 +1127,7 @@ public abstract class BaseJdbcConnectorTest
                 // Disable optimized hash generation so that expected plans in case of no pushdown remain "simple"
                 .setSystemProperty("optimize_hash_generation", "false")
                 .build();
+
         assertThat(query(noJoinPushdown, "SELECT r.name, n.name FROM nation n JOIN region r ON n.regionkey = r.regionkey"))
                 .joinIsNotFullyPushedDown();
     }

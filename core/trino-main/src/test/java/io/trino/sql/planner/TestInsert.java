@@ -153,8 +153,7 @@ public class TestInsert
                         node(TableWriterNode.class,
                                 exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                                exchange(LOCAL, REPARTITION,
-                                                        values("column1", "column2")))
+                                                values("column1", "column2"))
                                                 .with(exchangeWithoutSystemPartitioning()))
                                         .with(exchangeWithoutSystemPartitioning()))));
     }
@@ -216,8 +215,7 @@ public class TestInsert
                         node(TableWriterNode.class,
                                 exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                                exchange(LOCAL, REPARTITION,
-                                                        values("column1", "column2")))
+                                                values("column1", "column2"))
                                                 .with(exchangeWithoutSystemPartitioning()))
                                         .with(exchangeWithoutSystemPartitioning()))));
     }

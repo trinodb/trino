@@ -3,22 +3,21 @@ local exchange (GATHER, SINGLE, [])
         final aggregation over (cc_name, sm_type, substr$gid)
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPARTITION, HASH, ["cc_name", "sm_type", "substr$gid"])
-                    local exchange (REPARTITION, ROUND_ROBIN, [])
-                        partial aggregation over (cc_name, sm_type, substr$gid)
+                    partial aggregation over (cc_name, sm_type, substr$gid)
+                        join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        join (INNER, REPLICATED):
-                                            scan catalog_sales
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan date_dim
+                                        scan catalog_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan warehouse
+                                                scan date_dim
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
-                                            scan ship_mode
+                                            scan warehouse
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        scan call_center
+                                        scan ship_mode
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    scan call_center
