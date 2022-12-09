@@ -100,7 +100,6 @@ For example, the window function operator will output the following::
                │   Layout: [clerk:varchar(15), count:bigint]
                │   CPU: 157.00ms (53.40%), Scheduled: 158.00ms (37.71%), Blocked: 0.00ns (0.00%), Output: 818058 rows (22.62MB)
                │   metrics:
-               │     'Blocked time distribution (s)' = {count=1.00, p01=0.00, p05=0.00, p10=0.00, p25=0.00, p50=0.00, p75=0.00, p90=0.00, p95=0.00, p99=0.00, min=0.00, max=0.00}
                │     'CPU time distribution (s)' = {count=1.00, p01=0.16, p05=0.16, p10=0.16, p25=0.16, p50=0.16, p75=0.16, p90=0.16, p95=0.16, p99=0.16, min=0.16, max=0.16}
                │     'Input rows distribution' = {count=1.00, p01=818058.00, p05=818058.00, p10=818058.00, p25=818058.00, p50=818058.00, p75=818058.00, p90=818058.00, p95=818058.00, p99=818058.00, min=818058.00, max=818058.00}
                │     'Scheduled time distribution (s)' = {count=1.00, p01=0.16, p05=0.16, p10=0.16, p25=0.16, p50=0.16, p75=0.16, p90=0.16, p95=0.16, p99=0.16, min=0.16, max=0.16}
