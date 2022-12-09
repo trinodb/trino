@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 
@@ -30,6 +31,7 @@ import java.util.TreeMap;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
@@ -161,13 +163,25 @@ public class TextRenderer
         Map<String, String> translatedOperatorTypes = translateOperatorTypes(stats.getOperatorTypes());
         for (String operator : translatedOperatorTypes.keySet()) {
             String translatedOperatorType = translatedOperatorTypes.get(operator);
-            Metrics metrics = metricsGetter.apply(stats.getOperatorStats().get(operator));
-            if (metrics.getMetrics().isEmpty()) {
+            Map<String, Metric<?>> metrics = metricsGetter.apply(stats.getOperatorStats().get(operator)).getMetrics();
+
+            // filter out empty distributions
+            metrics = metrics.entrySet().stream()
+                    .filter(entry -> {
+                        if (!(entry.getValue() instanceof TDigestHistogram histogram)) {
+                            return true;
+                        }
+
+                        return histogram.getMin() != 0. || histogram.getMax() != 0.;
+                    })
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+            if (metrics.isEmpty()) {
                 continue;
             }
 
             output.append(translatedOperatorType + label).append("\n");
-            Map<String, Metric<?>> sortedMap = new TreeMap<>(metrics.getMetrics());
+            Map<String, Metric<?>> sortedMap = new TreeMap<>(metrics);
             sortedMap.forEach((name, metric) -> output.append(format("  '%s' = %s\n", name, metric)));
         }
     }
