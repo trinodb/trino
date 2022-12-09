@@ -13,7 +13,6 @@
  */
 package io.trino.sql.tree;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
@@ -63,7 +62,7 @@ public class QualifiedName
         this.parts = originalParts.stream()
                 .map(QualifiedName::mapIdentifier)
                 .collect(toImmutableList());
-        this.name = Joiner.on(".").join(parts);
+        this.name = String.join(".", parts);
 
         if (originalParts.size() == 1) {
             this.prefix = Optional.empty();
