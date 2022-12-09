@@ -86,7 +86,7 @@ public class HiveTableHandle
                 .build();
     }
 
-    private HiveTableHandle(
+    protected HiveTableHandle(
             String schemaName,
             String tableName,
             Optional<Map<String, String>> tableParameters,
