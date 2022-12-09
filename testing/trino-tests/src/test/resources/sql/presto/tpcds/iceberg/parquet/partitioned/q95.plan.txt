@@ -9,41 +9,35 @@ final aggregation over ()
                                 join (INNER, PARTITIONED, can skip output duplicates):
                                     join (INNER, PARTITIONED, can skip output duplicates):
                                         remote exchange (REPARTITION, HASH, ["ws_order_number_100"])
-                                            local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                scan web_sales
+                                            scan web_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["wr_order_number"])
-                                                local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                    scan web_returns
+                                                scan web_returns
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["ws_order_number_136"])
-                                            local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                scan web_sales
+                                            scan web_sales
                     join (INNER, PARTITIONED):
                         final aggregation over (ws_order_number_22)
                             local exchange (GATHER, SINGLE, [])
                                 partial aggregation over (ws_order_number_22)
                                     join (INNER, PARTITIONED, can skip output duplicates):
                                         remote exchange (REPARTITION, HASH, ["ws_order_number_22"])
-                                            local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                scan web_sales
+                                            scan web_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["ws_order_number_58"])
-                                                local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                    scan web_sales
+                                                scan web_sales
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["ws_order_number"])
-                                local exchange (REPARTITION, ROUND_ROBIN, [])
+                                join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
-                                            join (INNER, REPLICATED):
-                                                scan web_sales
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan customer_address
+                                            scan web_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan date_dim
+                                                    scan customer_address
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan web_site
+                                                scan date_dim
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan web_site

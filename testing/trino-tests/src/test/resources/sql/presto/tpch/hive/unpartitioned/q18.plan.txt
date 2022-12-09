@@ -5,24 +5,20 @@ local exchange (GATHER, SINGLE, [])
                 partial aggregation over (custkey_0, name, orderdate, orderkey_5, totalprice)
                     join (INNER, PARTITIONED):
                         remote exchange (REPARTITION, HASH, ["orderkey_5"])
-                            local exchange (REPARTITION, ROUND_ROBIN, [])
-                                scan lineitem
+                            scan lineitem
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["orderkey"])
                                 join (INNER, PARTITIONED):
                                     remote exchange (REPARTITION, HASH, ["custkey_0"])
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, ["orderkey"])
-                                                local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                    scan orders
+                                                scan orders
                                             single aggregation over (orderkey_10)
                                                 final aggregation over (orderkey_10)
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, ["orderkey_10"])
-                                                            local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                                partial aggregation over (orderkey_10)
-                                                                    scan lineitem
+                                                            partial aggregation over (orderkey_10)
+                                                                scan lineitem
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["custkey"])
-                                            local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                scan customer
+                                            scan customer

@@ -4,22 +4,18 @@ remote exchange (GATHER, SINGLE, [])
             final aggregation over (brand, size, type)
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["brand", "size", "type"])
-                        local exchange (REPARTITION, ROUND_ROBIN, [])
-                            partial aggregation over (brand, size, type)
-                                final aggregation over (brand, size, suppkey, type)
-                                    local exchange (GATHER, SINGLE, [])
-                                        partial aggregation over (brand, size, suppkey, type)
-                                            semijoin (PARTITIONED):
-                                                remote exchange (REPARTITION, HASH, ["suppkey"])
-                                                    join (INNER, PARTITIONED):
-                                                        remote exchange (REPARTITION, HASH, ["partkey"])
-                                                            local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                                scan partsupp
-                                                        local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPARTITION, HASH, ["partkey_0"])
-                                                                local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                                    scan part
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, ["suppkey_5"])
-                                                        local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                            scan supplier
+                        partial aggregation over (brand, size, type)
+                            final aggregation over (brand, size, suppkey, type)
+                                local exchange (GATHER, SINGLE, [])
+                                    partial aggregation over (brand, size, suppkey, type)
+                                        semijoin (PARTITIONED):
+                                            remote exchange (REPARTITION, HASH, ["suppkey"])
+                                                join (INNER, PARTITIONED):
+                                                    remote exchange (REPARTITION, HASH, ["partkey"])
+                                                        scan partsupp
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPARTITION, HASH, ["partkey_0"])
+                                                            scan part
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPARTITION, HASH, ["suppkey_5"])
+                                                    scan supplier
