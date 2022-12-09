@@ -59,9 +59,12 @@ public class QualifiedName
     private QualifiedName(List<Identifier> originalParts)
     {
         this.originalParts = originalParts;
-        this.parts = originalParts.stream()
-                .map(QualifiedName::mapIdentifier)
-                .collect(toImmutableList());
+        // Iteration instead of stream for performance reasons
+        ImmutableList.Builder partsBuilder = ImmutableList.builderWithExpectedSize(originalParts.size());
+        for (Identifier identifier : originalParts) {
+            partsBuilder.add(mapIdentifier(identifier));
+        }
+        this.parts = partsBuilder.build();
         this.name = String.join(".", parts);
 
         if (originalParts.size() == 1) {
