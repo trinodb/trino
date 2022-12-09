@@ -66,7 +66,6 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
 public class FeaturesConfig
 {
     @VisibleForTesting
-    static final String SPILL_ENABLED = "spill-enabled";
     public static final String SPILLER_SPILL_PATH = "spiller-spill-path";
 
     private boolean legacyUpdateDeleteImplementation;
@@ -225,7 +224,7 @@ public class FeaturesConfig
         return spillEnabled;
     }
 
-    @Config(SPILL_ENABLED)
+    @Config("spill-enabled")
     @LegacyConfig("experimental.spill-enabled")
     public FeaturesConfig setSpillEnabled(boolean spillEnabled)
     {
@@ -251,7 +250,7 @@ public class FeaturesConfig
         return spillerSpillPaths;
     }
 
-    @Config(SPILLER_SPILL_PATH)
+    @Config("spiller-spill-path")
     @LegacyConfig("experimental.spiller-spill-path")
     public FeaturesConfig setSpillerSpillPaths(String spillPaths)
     {
