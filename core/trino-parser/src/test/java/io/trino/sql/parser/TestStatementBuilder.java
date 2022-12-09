@@ -219,6 +219,9 @@ public class TestStatementBuilder
 
         printStatement("alter table a.b.c drop column x");
 
+        printStatement("alter table foo alter column x set data type bigint");
+        printStatement("alter table a.b.c alter column x set data type bigint");
+
         printStatement("alter materialized view foo set properties a='1'");
         printStatement("alter materialized view a.b.c set properties a=true, b=123, c='x'");
         printStatement("alter materialized view a.b.c set properties a=default, b=123");
