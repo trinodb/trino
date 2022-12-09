@@ -104,7 +104,7 @@ public class IcebergTableHandle
                 .build();
     }
 
-    private IcebergTableHandle(
+    protected IcebergTableHandle(
             String schemaName,
             String tableName,
             TableType tableType,
