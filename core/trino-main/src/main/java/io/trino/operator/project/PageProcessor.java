@@ -342,13 +342,15 @@ public class PageProcessor
                 }
                 else {
                     if (pageProjectWork == null) {
-                        Page inputPage = projection.getInputChannels().getInputChannels(page);
-                        expressionProfiler.start();
-                        pageProjectWork = projection.project(session, yieldSignal, inputPage, positionsBatch);
-                        long projectionTimeNanos = expressionProfiler.stop(positionsBatch.size());
-                        metrics.recordProjectionTime(projectionTimeNanos);
+                        pageProjectWork = projection.project(session, yieldSignal, projection.getInputChannels().getInputChannels(page), positionsBatch);
                     }
-                    if (!pageProjectWork.process()) {
+
+                    expressionProfiler.start();
+                    boolean finished = pageProjectWork.process();
+                    long projectionTimeNanos = expressionProfiler.stop(positionsBatch.size());
+                    metrics.recordProjectionTime(projectionTimeNanos);
+
+                    if (!finished) {
                         return ProcessBatchResult.processBatchYield();
                     }
                     previouslyComputedResults[i] = pageProjectWork.getResult();
