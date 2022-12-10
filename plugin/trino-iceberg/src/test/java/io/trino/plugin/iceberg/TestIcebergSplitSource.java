@@ -62,8 +62,8 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
-import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.tpch.TpchTable.NATION;
@@ -118,16 +118,24 @@ public class TestIcebergSplitSource
         long startMillis = System.currentTimeMillis();
         SchemaTableName schemaTableName = new SchemaTableName("tpch", "nation");
         Table nationTable = catalog.loadTable(SESSION, schemaTableName);
-        IcebergTableHandle tableHandle = IcebergTableHandle.builder()
-                .withSchemaName(schemaTableName.getSchemaName())
-                .withTableName(schemaTableName.getTableName())
-                .withTableType(DATA)
-                .withTableSchemaJson(SchemaParser.toJson(nationTable.schema()))
-                .withPartitionSpecJson(Optional.of(PartitionSpecParser.toJson(nationTable.spec())))
-                .withFormatVersion(1)
-                .withTableLocation(nationTable.location())
-                .withStorageProperties(nationTable.properties())
-                .build();
+        IcebergTableHandle tableHandle = new IcebergTableHandle(
+                schemaTableName.getSchemaName(),
+                schemaTableName.getTableName(),
+                TableType.DATA,
+                Optional.empty(),
+                SchemaParser.toJson(nationTable.schema()),
+                Optional.of(PartitionSpecParser.toJson(nationTable.spec())),
+                1,
+                TupleDomain.all(),
+                TupleDomain.all(),
+                ImmutableSet.of(),
+                Optional.empty(),
+                nationTable.location(),
+                nationTable.properties(),
+                NO_RETRIES,
+                ImmutableList.of(),
+                false,
+                Optional.empty());
 
         try (IcebergSplitSource splitSource = new IcebergSplitSource(
                 HDFS_ENVIRONMENT,

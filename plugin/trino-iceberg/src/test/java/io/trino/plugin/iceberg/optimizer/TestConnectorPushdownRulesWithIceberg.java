@@ -72,6 +72,7 @@ import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.STRUCT;
 import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule.HIDE_DELTA_LAKE_TABLES_IN_ICEBERG;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
@@ -165,16 +166,24 @@ public class TestConnectorPushdownRulesWithIceberg
                 BIGINT,
                 Optional.empty());
 
-        IcebergTableHandle icebergTable = IcebergTableHandle.builder()
-                .withSchemaName(SCHEMA_NAME)
-                .withTableName(tableName)
-                .withTableType(DATA)
-                .withSnapshotId(Optional.of(1L))
-                .withTableSchemaJson("")
-                .withPartitionSpecJson(Optional.of(""))
-                .withFormatVersion(1)
-                .withTableLocation("")
-                .build();
+        IcebergTableHandle icebergTable = new IcebergTableHandle(
+                SCHEMA_NAME,
+                tableName,
+                DATA,
+                Optional.of(1L),
+                "",
+                Optional.of(""),
+                1,
+                TupleDomain.all(),
+                TupleDomain.all(),
+                ImmutableSet.of(),
+                Optional.empty(),
+                "",
+                ImmutableMap.of(),
+                NO_RETRIES,
+                ImmutableList.of(),
+                false,
+                Optional.empty());
         TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, icebergTable, new HiveTransactionHandle(false));
 
         IcebergColumnHandle fullColumn = partialColumn.getBaseColumn();
@@ -192,9 +201,7 @@ public class TestConnectorPushdownRulesWithIceberg
                         project(
                                 ImmutableMap.of("expr", expression("col")),
                                 tableScan(
-                                        IcebergTableHandle.buildFrom(icebergTable)
-                                                .withProjectedColumns(ImmutableSet.of(fullColumn))
-                                                .build()::equals,
+                                        icebergTable.withProjectedColumns(ImmutableSet.of(fullColumn))::equals,
                                         TupleDomain.all(),
                                         ImmutableMap.of("col", fullColumn::equals))));
 
@@ -206,9 +213,7 @@ public class TestConnectorPushdownRulesWithIceberg
                                 p.tableScan(
                                         new TableHandle(
                                                 TEST_CATALOG_HANDLE,
-                                                IcebergTableHandle.buildFrom(icebergTable)
-                                                        .withProjectedColumns(ImmutableSet.of(fullColumn))
-                                                        .build(),
+                                                icebergTable.withProjectedColumns(ImmutableSet.of(fullColumn)),
                                                 new HiveTransactionHandle(false)),
                                         ImmutableList.of(p.symbol("struct_of_int", baseType)),
                                         ImmutableMap.of(p.symbol("struct_of_int", baseType), fullColumn))))
@@ -227,9 +232,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 .matches(project(
                         ImmutableMap.of("expr_deref", expression(new SymbolReference("struct_of_int#a"))),
                         tableScan(
-                                IcebergTableHandle.buildFrom(icebergTable)
-                                        .withProjectedColumns(ImmutableSet.of(partialColumn))
-                                        .build()::equals,
+                                icebergTable.withProjectedColumns(ImmutableSet.of(partialColumn))::equals,
                                 TupleDomain.all(),
                                 ImmutableMap.of("struct_of_int#a", partialColumn::equals))));
 
@@ -245,16 +248,24 @@ public class TestConnectorPushdownRulesWithIceberg
 
         PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer());
 
-        IcebergTableHandle icebergTable = IcebergTableHandle.builder()
-                .withSchemaName(SCHEMA_NAME)
-                .withTableName(tableName)
-                .withTableType(DATA)
-                .withSnapshotId(Optional.of(snapshotId))
-                .withTableSchemaJson("")
-                .withPartitionSpecJson(Optional.of(""))
-                .withFormatVersion(1)
-                .withTableLocation("")
-                .build();
+        IcebergTableHandle icebergTable = new IcebergTableHandle(
+                SCHEMA_NAME,
+                tableName,
+                DATA,
+                Optional.of(snapshotId),
+                "",
+                Optional.of(""),
+                1,
+                TupleDomain.all(),
+                TupleDomain.all(),
+                ImmutableSet.of(),
+                Optional.empty(),
+                "",
+                ImmutableMap.of(),
+                NO_RETRIES,
+                ImmutableList.of(),
+                false,
+                Optional.empty());
         TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, icebergTable, new HiveTransactionHandle(false));
 
         IcebergColumnHandle column = new IcebergColumnHandle(primitiveColumnIdentity(1, "a"), INTEGER, ImmutableList.of(), INTEGER, Optional.empty());
@@ -286,15 +297,24 @@ public class TestConnectorPushdownRulesWithIceberg
 
         PruneTableScanColumns pruneTableScanColumns = new PruneTableScanColumns(tester().getMetadata());
 
-        IcebergTableHandle icebergTable = IcebergTableHandle.builder()
-                .withSchemaName(SCHEMA_NAME)
-                .withTableName(tableName)
-                .withTableType(DATA)
-                .withTableSchemaJson("")
-                .withPartitionSpecJson(Optional.of(""))
-                .withFormatVersion(1)
-                .withTableLocation("")
-                .build();
+        IcebergTableHandle icebergTable = new IcebergTableHandle(
+                SCHEMA_NAME,
+                tableName,
+                DATA,
+                Optional.empty(),
+                "",
+                Optional.of(""),
+                1,
+                TupleDomain.all(),
+                TupleDomain.all(),
+                ImmutableSet.of(),
+                Optional.empty(),
+                "",
+                ImmutableMap.of(),
+                NO_RETRIES,
+                ImmutableList.of(),
+                false,
+                Optional.empty());
         TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, icebergTable, new HiveTransactionHandle(false));
 
         IcebergColumnHandle columnA = new IcebergColumnHandle(primitiveColumnIdentity(0, "a"), INTEGER, ImmutableList.of(), INTEGER, Optional.empty());
@@ -317,9 +337,7 @@ public class TestConnectorPushdownRulesWithIceberg
                         strictProject(
                                 ImmutableMap.of("expr", expression("COLA")),
                                 tableScan(
-                                        IcebergTableHandle.buildFrom(icebergTable)
-                                                .withProjectedColumns(ImmutableSet.of(columnA))
-                                                .build()::equals,
+                                        icebergTable.withProjectedColumns(ImmutableSet.of(columnA))::equals,
                                         TupleDomain.all(),
                                         ImmutableMap.of("COLA", columnA::equals))));
 
@@ -339,16 +357,24 @@ public class TestConnectorPushdownRulesWithIceberg
                 tester().getTypeAnalyzer(),
                 new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
-        IcebergTableHandle icebergTable = IcebergTableHandle.builder()
-                .withSchemaName(SCHEMA_NAME)
-                .withTableName(tableName)
-                .withTableType(DATA)
-                .withSnapshotId(Optional.of(1L))
-                .withTableSchemaJson("")
-                .withPartitionSpecJson(Optional.of(""))
-                .withFormatVersion(1)
-                .withTableLocation("")
-                .build();
+        IcebergTableHandle icebergTable = new IcebergTableHandle(
+                SCHEMA_NAME,
+                tableName,
+                DATA,
+                Optional.of(1L),
+                "",
+                Optional.of(""),
+                1,
+                TupleDomain.all(),
+                TupleDomain.all(),
+                ImmutableSet.of(),
+                Optional.empty(),
+                "",
+                ImmutableMap.of(),
+                NO_RETRIES,
+                ImmutableList.of(),
+                false,
+                Optional.empty());
         TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, icebergTable, new HiveTransactionHandle(false));
 
         IcebergColumnHandle bigintColumn = new IcebergColumnHandle(primitiveColumnIdentity(1, "just_bigint"), BIGINT, ImmutableList.of(), BIGINT, Optional.empty());
@@ -379,9 +405,7 @@ public class TestConnectorPushdownRulesWithIceberg
                                 "column_ref", expression("just_bigint_0"),
                                 "negated_column_ref", expression("- just_bigint_0")),
                         tableScan(
-                                IcebergTableHandle.buildFrom(icebergTable)
-                                        .withProjectedColumns(ImmutableSet.of(bigintColumn))
-                                        .build()::equals,
+                                icebergTable.withProjectedColumns(ImmutableSet.of(bigintColumn))::equals,
                                 TupleDomain.all(),
                                 ImmutableMap.of("just_bigint_0", bigintColumn::equals))));
 
@@ -405,9 +429,7 @@ public class TestConnectorPushdownRulesWithIceberg
                                 "expr_deref", expression(new SymbolReference("struct_of_bigint#a")),
                                 "expr_deref_2", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("struct_of_bigint#a"), new LongLiteral("2")))),
                         tableScan(
-                                IcebergTableHandle.buildFrom(icebergTable)
-                                        .withProjectedColumns(ImmutableSet.of(partialColumn))
-                                        .build()::equals,
+                                icebergTable.withProjectedColumns(ImmutableSet.of(partialColumn))::equals,
                                 TupleDomain.all(),
                                 ImmutableMap.of("struct_of_bigint#a", partialColumn::equals))));
 
