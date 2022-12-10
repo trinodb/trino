@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.DecimalModule;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
@@ -46,6 +47,7 @@ public class RedshiftClientModule
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
 
         install(new DecimalModule());
+        install(new JdbcJoinPushdownSupportModule());
     }
 
     @Singleton
