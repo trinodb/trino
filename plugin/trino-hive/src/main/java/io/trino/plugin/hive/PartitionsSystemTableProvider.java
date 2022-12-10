@@ -86,15 +86,13 @@ public class PartitionsSystemTableProvider
             return Optional.empty();
         }
         verifyOnline(sourceTableName, Optional.empty(), getProtectMode(sourceTable), sourceTable.getParameters());
-
-        HiveTableHandle sourceTableHandle = HiveTableHandle.builder()
-                .withSchemaName(sourceTableName.getSchemaName())
-                .withTableName(sourceTableName.getTableName())
-                .withTableParameters(Optional.of(sourceTable.getParameters()))
-                .withPartitionColumns(getPartitionKeyColumnHandles(sourceTable, typeManager))
-                .withDataColumns(getRegularColumnHandles(sourceTable, typeManager, getTimestampPrecision(session)))
-                .withBucketHandle(getHiveBucketHandle(session, sourceTable, typeManager))
-                .build();
+        HiveTableHandle sourceTableHandle = new HiveTableHandle(
+                sourceTableName.getSchemaName(),
+                sourceTableName.getTableName(),
+                sourceTable.getParameters(),
+                getPartitionKeyColumnHandles(sourceTable, typeManager),
+                getRegularColumnHandles(sourceTable, typeManager, getTimestampPrecision(session)),
+                getHiveBucketHandle(session, sourceTable, typeManager));
 
         List<HiveColumnHandle> partitionColumns = sourceTableHandle.getPartitionColumns();
         if (partitionColumns.isEmpty()) {

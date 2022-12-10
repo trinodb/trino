@@ -164,9 +164,8 @@ public class TestHiveProjectionPushdownIntoTableScan
         assertPlan(
                 "SELECT col0.x expr_x, col0.y expr_y FROM " + testTable,
                 any(tableScan(
-                        HiveTableHandle.buildFrom((HiveTableHandle) tableHandle.get().getConnectorHandle())
-                                .withProjectedColumns(ImmutableSet.of(columnX, columnY))
-                                .build()::equals,
+                        ((HiveTableHandle) tableHandle.get().getConnectorHandle())
+                                .withProjectedColumns(ImmutableSet.of(columnX, columnY))::equals,
                         TupleDomain.all(),
                         ImmutableMap.of("col0#x", columnX::equals, "col0#y", columnY::equals))));
 
@@ -227,9 +226,8 @@ public class TestHiveProjectionPushdownIntoTableScan
                                         .right(
                                                 anyTree(
                                                         tableScan(
-                                                                HiveTableHandle.buildFrom((HiveTableHandle) tableHandle.get().getConnectorHandle())
-                                                                        .withProjectedColumns(ImmutableSet.of(column1Handle))
-                                                                        .build()::equals,
+                                                                ((HiveTableHandle) tableHandle.get().getConnectorHandle())
+                                                                        .withProjectedColumns(ImmutableSet.of(column1Handle))::equals,
                                                                 TupleDomain.all(),
                                                                 ImmutableMap.of("s_expr_1", column1Handle::equals))))))));
     }

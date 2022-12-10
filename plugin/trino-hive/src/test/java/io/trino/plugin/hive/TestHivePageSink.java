@@ -265,10 +265,7 @@ public class TestHivePageSink
                 Optional.empty(),
                 0,
                 SplitWeight.standard());
-        ConnectorTableHandle table = HiveTableHandle.builder()
-                .withSchemaName(SCHEMA_NAME)
-                .withTableName(TABLE_NAME)
-                .build();
+        ConnectorTableHandle table = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
         HivePageSourceProvider provider = new HivePageSourceProvider(
                 TESTING_TYPE_MANAGER,
                 HDFS_ENVIRONMENT,

@@ -141,17 +141,18 @@ public class TestNodeLocalDynamicSplitPruning
 
         TableHandle tableHandle = new TableHandle(
                 TEST_CATALOG_HANDLE,
-                HiveTableHandle.builder()
-                        .withSchemaName(SCHEMA_NAME)
-                        .withTableName(TABLE_NAME)
-                        .withDataColumns(ImmutableList.of(BUCKET_HIVE_COLUMN_HANDLE))
-                        .withBucketHandle(Optional.of(new HiveBucketHandle(
+                new HiveTableHandle(
+                        SCHEMA_NAME,
+                        TABLE_NAME,
+                        ImmutableMap.of(),
+                        ImmutableList.of(),
+                        ImmutableList.of(BUCKET_HIVE_COLUMN_HANDLE),
+                        Optional.of(new HiveBucketHandle(
                                 ImmutableList.of(BUCKET_HIVE_COLUMN_HANDLE),
                                 BUCKETING_V1,
                                 20,
                                 20,
-                                ImmutableList.of())))
-                        .build(),
+                                ImmutableList.of()))),
                 transaction);
 
         HivePageSourceProvider provider = new HivePageSourceProvider(

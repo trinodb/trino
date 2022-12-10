@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.benchmark;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.GenericHiveRecordCursorProvider;
@@ -159,12 +160,8 @@ public abstract class AbstractFileFormat
 
         return factory.createPageSource(
                 TestingConnectorTransactionHandle.INSTANCE,
-                session,
-                split,
-                HiveTableHandle.builder()
-                        .withSchemaName("schema_name")
-                        .withTableName("table_name")
-                        .build(),
+                session, split,
+                new HiveTableHandle("schema_name", "table_name", ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty()),
                 readColumns,
                 DynamicFilter.EMPTY);
     }
