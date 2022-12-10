@@ -710,10 +710,7 @@ public abstract class AbstractTestHive
         tablePartitionSchemaChangeNonCanonical = new SchemaTableName(database, "trino_test_partition_schema_change_non_canonical");
         tableBucketEvolution = new SchemaTableName(database, "trino_test_bucket_evolution");
 
-        invalidTableHandle = HiveTableHandle.builder()
-                .withSchemaName(database)
-                .withTableName(INVALID_TABLE)
-                .build();
+        invalidTableHandle = new HiveTableHandle(database, INVALID_TABLE, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
 
         dsColumn = createBaseColumn("ds", -1, HIVE_STRING, VARCHAR, PARTITION_KEY, Optional.empty());
         fileFormatColumn = createBaseColumn("file_format", -1, HIVE_STRING, VARCHAR, PARTITION_KEY, Optional.empty());
@@ -3719,9 +3716,7 @@ public abstract class AbstractTestHive
             // Extra columns handles in HiveTableHandle should get pruned
             projectionResult = metadata.applyProjection(
                     session,
-                    HiveTableHandle.buildFrom((HiveTableHandle) tableHandle)
-                            .withProjectedColumns(ImmutableSet.copyOf(columnHandles))
-                            .build(),
+                    ((HiveTableHandle) tableHandle).withProjectedColumns(ImmutableSet.copyOf(columnHandles)),
                     inputProjections,
                     inputAssignments);
             assertProjectionResult(projectionResult, false, inputProjections, expectedAssignments);
