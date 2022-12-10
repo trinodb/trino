@@ -32,7 +32,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -85,26 +84,27 @@ public class IcebergTableHandle
             @JsonProperty("retryMode") RetryMode retryMode,
             @JsonProperty("updatedColumns") List<IcebergColumnHandle> updatedColumns)
     {
-        return builder()
-                .withSchemaName(schemaName)
-                .withTableName(tableName)
-                .withTableType(tableType)
-                .withSnapshotId(snapshotId)
-                .withTableSchemaJson(tableSchemaJson)
-                .withPartitionSpecJson(partitionSpecJson)
-                .withFormatVersion(formatVersion)
-                .withUnenforcedPredicate(unenforcedPredicate)
-                .withEnforcedPredicate(enforcedPredicate)
-                .withProjectedColumns(projectedColumns)
-                .withNameMappingJson(nameMappingJson)
-                .withTableLocation(tableLocation)
-                .withStorageProperties(storageProperties)
-                .withRetryMode(retryMode)
-                .withUpdatedColumns(updatedColumns)
-                .build();
+        return new IcebergTableHandle(
+                schemaName,
+                tableName,
+                tableType,
+                snapshotId,
+                tableSchemaJson,
+                partitionSpecJson,
+                formatVersion,
+                unenforcedPredicate,
+                enforcedPredicate,
+                projectedColumns,
+                nameMappingJson,
+                tableLocation,
+                storageProperties,
+                retryMode,
+                updatedColumns,
+                false,
+                Optional.empty());
     }
 
-    private IcebergTableHandle(
+    public IcebergTableHandle(
             String schemaName,
             String tableName,
             TableType tableType,
@@ -254,6 +254,94 @@ public class IcebergTableHandle
         return new SchemaTableName(schemaName, tableName + "$" + tableType.name().toLowerCase(Locale.ROOT));
     }
 
+    public IcebergTableHandle withProjectedColumns(Set<IcebergColumnHandle> projectedColumns)
+    {
+        return new IcebergTableHandle(
+                schemaName,
+                tableName,
+                tableType,
+                snapshotId,
+                tableSchemaJson,
+                partitionSpecJson,
+                formatVersion,
+                unenforcedPredicate,
+                enforcedPredicate,
+                projectedColumns,
+                nameMappingJson,
+                tableLocation,
+                storageProperties,
+                retryMode,
+                updatedColumns,
+                recordScannedFiles,
+                maxScannedFileSize);
+    }
+
+    public IcebergTableHandle withRetryMode(RetryMode retryMode)
+    {
+        return new IcebergTableHandle(
+                schemaName,
+                tableName,
+                tableType,
+                snapshotId,
+                tableSchemaJson,
+                partitionSpecJson,
+                formatVersion,
+                unenforcedPredicate,
+                enforcedPredicate,
+                projectedColumns,
+                nameMappingJson,
+                tableLocation,
+                storageProperties,
+                retryMode,
+                updatedColumns,
+                recordScannedFiles,
+                maxScannedFileSize);
+    }
+
+    public IcebergTableHandle withUpdatedColumns(List<IcebergColumnHandle> updatedColumns)
+    {
+        return new IcebergTableHandle(
+                schemaName,
+                tableName,
+                tableType,
+                snapshotId,
+                tableSchemaJson,
+                partitionSpecJson,
+                formatVersion,
+                unenforcedPredicate,
+                enforcedPredicate,
+                projectedColumns,
+                nameMappingJson,
+                tableLocation,
+                storageProperties,
+                retryMode,
+                updatedColumns,
+                recordScannedFiles,
+                maxScannedFileSize);
+    }
+
+    public IcebergTableHandle forOptimize(boolean recordScannedFiles, DataSize maxScannedFileSize)
+    {
+        return new IcebergTableHandle(
+                schemaName,
+                tableName,
+                tableType,
+                snapshotId,
+                tableSchemaJson,
+                partitionSpecJson,
+                formatVersion,
+                unenforcedPredicate,
+                enforcedPredicate,
+                projectedColumns,
+                nameMappingJson,
+                tableLocation,
+                storageProperties,
+                retryMode,
+                updatedColumns,
+                recordScannedFiles,
+                Optional.of(maxScannedFileSize));
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -306,185 +394,5 @@ public class IcebergTableHandle
                     .collect(joining(", ", "[", "]")));
         }
         return builder.toString();
-    }
-
-    public static Builder builder()
-    {
-        return new Builder();
-    }
-
-    public static Builder buildFrom(IcebergTableHandle table)
-    {
-        return new Builder(table);
-    }
-
-    public static class Builder
-    {
-        private String schemaName;
-        private String tableName;
-        private TableType tableType;
-        private Optional<Long> snapshotId = Optional.empty();
-        private String tableSchemaJson;
-        private Optional<String> partitionSpecJson = Optional.empty();
-        private int formatVersion;
-        private String tableLocation;
-        private Map<String, String> storageProperties = emptyMap();
-        private RetryMode retryMode = RetryMode.NO_RETRIES;
-        private List<IcebergColumnHandle> updatedColumns = ImmutableList.of();
-        private TupleDomain<IcebergColumnHandle> unenforcedPredicate = TupleDomain.all();
-        private TupleDomain<IcebergColumnHandle> enforcedPredicate = TupleDomain.all();
-        private Set<IcebergColumnHandle> projectedColumns = ImmutableSet.of();
-        private Optional<String> nameMappingJson = Optional.empty();
-        private boolean recordScannedFiles;
-        private Optional<DataSize> maxScannedFileSize = Optional.empty();
-
-        private Builder()
-        {
-        }
-
-        private Builder(IcebergTableHandle table)
-        {
-            this.schemaName = table.schemaName;
-            this.tableName = table.tableName;
-            this.tableType = table.tableType;
-            this.snapshotId = table.snapshotId;
-            this.tableSchemaJson = table.tableSchemaJson;
-            this.partitionSpecJson = table.partitionSpecJson;
-            this.formatVersion = table.formatVersion;
-            this.tableLocation = table.tableLocation;
-            this.storageProperties = table.storageProperties;
-            this.retryMode = table.retryMode;
-            this.updatedColumns = table.updatedColumns;
-            this.unenforcedPredicate = table.unenforcedPredicate;
-            this.enforcedPredicate = table.enforcedPredicate;
-            this.projectedColumns = table.projectedColumns;
-            this.nameMappingJson = table.nameMappingJson;
-            this.recordScannedFiles = table.recordScannedFiles;
-            this.maxScannedFileSize = table.maxScannedFileSize;
-        }
-
-        public Builder withSchemaName(String schemaName)
-        {
-            this.schemaName = schemaName;
-            return this;
-        }
-
-        public Builder withTableName(String tableName)
-        {
-            this.tableName = tableName;
-            return this;
-        }
-
-        public Builder withTableType(TableType tableType)
-        {
-            this.tableType = tableType;
-            return this;
-        }
-
-        public Builder withSnapshotId(Optional<Long> snapshotId)
-        {
-            this.snapshotId = snapshotId;
-            return this;
-        }
-
-        public Builder withTableSchemaJson(String tableSchemaJson)
-        {
-            this.tableSchemaJson = tableSchemaJson;
-            return this;
-        }
-
-        public Builder withPartitionSpecJson(Optional<String> partitionSpecJson)
-        {
-            this.partitionSpecJson = partitionSpecJson;
-            return this;
-        }
-
-        public Builder withFormatVersion(int formatVersion)
-        {
-            this.formatVersion = formatVersion;
-            return this;
-        }
-
-        public Builder withTableLocation(String tableLocation)
-        {
-            this.tableLocation = tableLocation;
-            return this;
-        }
-
-        public Builder withStorageProperties(Map<String, String> storageProperties)
-        {
-            this.storageProperties = storageProperties;
-            return this;
-        }
-
-        public Builder withRetryMode(RetryMode retryMode)
-        {
-            this.retryMode = retryMode;
-            return this;
-        }
-
-        public Builder withUpdatedColumns(List<IcebergColumnHandle> updatedColumns)
-        {
-            this.updatedColumns = updatedColumns;
-            return this;
-        }
-
-        public Builder withUnenforcedPredicate(TupleDomain<IcebergColumnHandle> unenforcedPredicate)
-        {
-            this.unenforcedPredicate = unenforcedPredicate;
-            return this;
-        }
-
-        public Builder withEnforcedPredicate(TupleDomain<IcebergColumnHandle> enforcedPredicate)
-        {
-            this.enforcedPredicate = enforcedPredicate;
-            return this;
-        }
-
-        public Builder withProjectedColumns(Set<IcebergColumnHandle> projectedColumns)
-        {
-            this.projectedColumns = projectedColumns;
-            return this;
-        }
-
-        public Builder withNameMappingJson(Optional<String> nameMappingJson)
-        {
-            this.nameMappingJson = nameMappingJson;
-            return this;
-        }
-
-        public Builder withRecordScannedFiles(boolean recordScannedFiles)
-        {
-            this.recordScannedFiles = recordScannedFiles;
-            return this;
-        }
-
-        public Builder withMaxScannedFileSize(Optional<DataSize> maxScannedFileSize)
-        {
-            this.maxScannedFileSize = maxScannedFileSize;
-            return this;
-        }
-
-        public IcebergTableHandle build()
-        {
-            return new IcebergTableHandle(
-                    schemaName,
-                    tableName,
-                    tableType,
-                    snapshotId,
-                    tableSchemaJson,
-                    partitionSpecJson,
-                    formatVersion,
-                    unenforcedPredicate,
-                    enforcedPredicate,
-                    projectedColumns,
-                    nameMappingJson,
-                    tableLocation,
-                    storageProperties,
-                    retryMode,
-                    updatedColumns,
-                    recordScannedFiles,
-                    maxScannedFileSize);
-        }
     }
 }

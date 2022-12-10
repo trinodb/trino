@@ -42,6 +42,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -178,17 +179,24 @@ public class TestIcebergNodeLocalDynamicSplitPruning
         String tablePath = filePath.substring(0, filePath.lastIndexOf("/"));
         TableHandle tableHandle = new TableHandle(
                 TEST_CATALOG_HANDLE,
-                IcebergTableHandle.builder()
-                        .withSchemaName(SCHEMA_NAME)
-                        .withTableName(TABLE_NAME)
-                        .withTableType(TableType.DATA)
-                        .withTableSchemaJson(SchemaParser.toJson(TABLE_SCHEMA))
-                        .withPartitionSpecJson(Optional.of(PartitionSpecParser.toJson(PartitionSpec.unpartitioned())))
-                        .withFormatVersion(2)
-                        .withUnenforcedPredicate(TupleDomain.withColumnDomains(ImmutableMap.of(KEY_ICEBERG_COLUMN_HANDLE, Domain.singleValue(INTEGER, (long) KEY_COLUMN_VALUE))))
-                        .withProjectedColumns(ImmutableSet.of(KEY_ICEBERG_COLUMN_HANDLE))
-                        .withTableLocation(tablePath)
-                        .build(),
+                new IcebergTableHandle(
+                        SCHEMA_NAME,
+                        TABLE_NAME,
+                        TableType.DATA,
+                        Optional.empty(),
+                        SchemaParser.toJson(TABLE_SCHEMA),
+                        Optional.of(PartitionSpecParser.toJson(PartitionSpec.unpartitioned())),
+                        2,
+                        TupleDomain.withColumnDomains(ImmutableMap.of(KEY_ICEBERG_COLUMN_HANDLE, Domain.singleValue(INTEGER, (long) KEY_COLUMN_VALUE))),
+                        TupleDomain.all(),
+                        ImmutableSet.of(KEY_ICEBERG_COLUMN_HANDLE),
+                        Optional.empty(),
+                        tablePath,
+                        ImmutableMap.of(),
+                        RetryMode.NO_RETRIES,
+                        ImmutableList.of(),
+                        false,
+                        Optional.empty()),
                 transaction);
 
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();

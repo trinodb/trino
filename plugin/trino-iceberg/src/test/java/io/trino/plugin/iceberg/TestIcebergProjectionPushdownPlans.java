@@ -166,9 +166,7 @@ public class TestIcebergProjectionPushdownPlans
         assertPlan(
                 "SELECT col0.x expr_x, col0.y expr_y FROM " + testTable,
                 any(tableScan(
-                        equalTo(IcebergTableHandle.buildFrom((IcebergTableHandle) tableHandle.get().getConnectorHandle())
-                                .withProjectedColumns(Set.of(columnX, columnY))
-                                .build()),
+                        equalTo(((IcebergTableHandle) tableHandle.get().getConnectorHandle()).withProjectedColumns(Set.of(columnX, columnY))),
                         TupleDomain.all(),
                         ImmutableMap.of("col0#x", equalTo(columnX), "col0#y", equalTo(columnY)))));
 
@@ -234,9 +232,7 @@ public class TestIcebergProjectionPushdownPlans
                                         .right(
                                                 anyTree(
                                                         tableScan(
-                                                                equalTo(IcebergTableHandle.buildFrom((IcebergTableHandle) tableHandle.get().getConnectorHandle())
-                                                                        .withProjectedColumns(Set.of(column1Handle))
-                                                                        .build()),
+                                                                equalTo(((IcebergTableHandle) tableHandle.get().getConnectorHandle()).withProjectedColumns(Set.of(column1Handle))),
                                                                 TupleDomain.all(),
                                                                 ImmutableMap.of("s_expr_1", equalTo(column1Handle)))))))));
     }
