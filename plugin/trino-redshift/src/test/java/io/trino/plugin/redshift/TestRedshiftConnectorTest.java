@@ -29,8 +29,10 @@ import java.util.OptionalInt;
 
 import static io.trino.plugin.redshift.RedshiftQueryRunner.TEST_SCHEMA;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.createRedshiftQueryRunner;
+import static io.trino.plugin.redshift.RedshiftQueryRunner.executeInRedshift;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -175,6 +177,77 @@ public class TestRedshiftConnectorTest
             assertUpdate("DELETE FROM " + table.getName(), "SELECT count(*) FROM nation WHERE nationkey > 15");
             assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation WHERE false");
         }
+    }
+
+    @Test(dataProvider = "testCaseColumnNamesDataProvider")
+    public void testCaseColumnNames(String tableName)
+    {
+        try {
+            assertUpdate(
+                    "CREATE TABLE " + TEST_SCHEMA + "." + tableName +
+                            " AS SELECT " +
+                            "  custkey AS CASE_UNQUOTED_UPPER, " +
+                            "  name AS case_unquoted_lower, " +
+                            "  address AS cASe_uNQuoTeD_miXED, " +
+                            "  nationkey AS \"CASE_QUOTED_UPPER\", " +
+                            "  phone AS \"case_quoted_lower\"," +
+                            "  acctbal AS \"CasE_QuoTeD_miXED\" " +
+                            "FROM customer",
+                    1500);
+            gatherStats(tableName);
+            assertQuery(
+                    "SHOW STATS FOR " + TEST_SCHEMA + "." + tableName,
+                    "VALUES " +
+                            "('case_unquoted_upper', NULL, 1485, 0, null, null, null)," +
+                            "('case_unquoted_lower', 33000, 1470, 0, null, null, null)," +
+                            "('case_unquoted_mixed', 42000, 1500, 0, null, null, null)," +
+                            "('case_quoted_upper', NULL, 25, 0, null, null, null)," +
+                            "('case_quoted_lower', 28500, 1483, 0, null, null, null)," +
+                            "('case_quoted_mixed', NULL, 1483, 0, null, null, null)," +
+                            "(null, null, null, null, 1500, null, null)");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    private static void gatherStats(String tableName)
+    {
+        executeInRedshift(handle -> {
+            handle.execute("ANALYZE VERBOSE " + TEST_SCHEMA + "." + tableName);
+            for (int i = 0; i < 5; i++) {
+                long actualCount = handle.createQuery("SELECT count(*) FROM " + TEST_SCHEMA + "." + tableName)
+                        .mapTo(Long.class)
+                        .one();
+                long estimatedCount = handle.createQuery("""
+                                SELECT reltuples FROM pg_class
+                                WHERE relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = :schema)
+                                AND relname = :table_name
+                                """)
+                        .bind("schema", TEST_SCHEMA)
+                        .bind("table_name", tableName.toLowerCase(ENGLISH).replace("\"", ""))
+                        .mapTo(Long.class)
+                        .one();
+                if (actualCount == estimatedCount) {
+                    return;
+                }
+                handle.execute("ANALYZE VERBOSE " + TEST_SCHEMA + "." + tableName);
+            }
+            throw new IllegalStateException("Stats not gathered"); // for small test tables reltuples should be exact
+        });
+    }
+
+    @DataProvider
+    public Object[][] testCaseColumnNamesDataProvider()
+    {
+        return new Object[][] {
+                {"TEST_STATS_MIXED_UNQUOTED_UPPER_" + randomNameSuffix()},
+                {"test_stats_mixed_unquoted_lower_" + randomNameSuffix()},
+                {"test_stats_mixed_uNQuoTeD_miXED_" + randomNameSuffix()},
+                {"\"TEST_STATS_MIXED_QUOTED_UPPER_" + randomNameSuffix() + "\""},
+                {"\"test_stats_mixed_quoted_lower_" + randomNameSuffix() + "\""},
+                {"\"test_stats_mixed_QuoTeD_miXED_" + randomNameSuffix() + "\""}
+        };
     }
 
     @Override
