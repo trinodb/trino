@@ -24,10 +24,12 @@ import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.trino.plugin.redshift.RedshiftQueryRunner.TEST_SCHEMA;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.createRedshiftQueryRunner;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestRedshiftConnectorTest
@@ -137,45 +139,39 @@ public class TestRedshiftConnectorTest
     }
 
     @Override
-    public void testCreateSchemaWithLongName()
+    protected OptionalInt maxSchemaNameLength()
     {
-        throw new SkipException("Long name checks not implemented");
+        return OptionalInt.of(127);
     }
 
     @Override
-    public void testRenameSchemaToLongName()
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
-        throw new SkipException("Long name checks not implemented");
+        assertThat(e).hasMessage("Schema name must be shorter than or equal to '127' characters but got '128'");
     }
 
     @Override
-    public void testCreateTableWithLongTableName()
+    protected OptionalInt maxTableNameLength()
     {
-        throw new SkipException("Long name checks not implemented");
+        return OptionalInt.of(127);
     }
 
     @Override
-    public void testRenameTableToLongTableName()
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        throw new SkipException("Long name checks not implemented");
+        assertThat(e).hasMessage("Table name must be shorter than or equal to '127' characters but got '128'");
     }
 
     @Override
-    public void testCreateTableWithLongColumnName()
+    protected OptionalInt maxColumnNameLength()
     {
-        throw new SkipException("Long name checks not implemented");
+        return OptionalInt.of(127);
     }
 
     @Override
-    public void testAlterTableAddLongColumnName()
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
     {
-        throw new SkipException("Long name checks not implemented");
-    }
-
-    @Override
-    public void testAlterTableRenameColumnToLongName()
-    {
-        throw new SkipException("Long name checks not implemented");
+        assertThat(e).hasMessage("Column name must be shorter than or equal to '127' characters but got '128'");
     }
 
     @Override
