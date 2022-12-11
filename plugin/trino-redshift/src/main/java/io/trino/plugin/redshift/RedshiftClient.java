@@ -13,6 +13,10 @@
  */
 package io.trino.plugin.redshift;
 
+import com.amazon.redshift.jdbc.RedshiftPreparedStatement;
+import com.amazon.redshift.util.RedshiftObject;
+import com.google.common.base.CharMatcher;
+import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -20,33 +24,58 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.ObjectReadFunction;
+import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.SliceWriteFunction;
+import io.trino.plugin.jdbc.StandardColumnMappings;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.Chars;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import javax.inject.Inject;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
+import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.charReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMappingUsingSqlDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingSqlDate;
@@ -57,6 +86,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
@@ -68,29 +98,97 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryReadFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.CharType.createCharType;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.LongTimestampWithTimeZone.fromEpochSecondsAndFraction;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.TIME_MICROS;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.math.RoundingMode.UNNECESSARY;
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.util.Objects.requireNonNull;
 
 public class RedshiftClient
         extends BaseJdbcClient
 {
+    /**
+     * Redshift does not handle values larger than 64 bits for
+     * {@code DECIMAL(19, s)}. It supports the full range of values for all
+     * other precisions.
+     *
+     * @see <a href="https://docs.aws.amazon.com/redshift/latest/dg/r_Numeric_types201.html#r_Numeric_types201-decimal-or-numeric-type">
+     * Redshift documentation</a>
+     */
+    private static final int REDSHIFT_DECIMAL_CUTOFF_PRECISION = 19;
+
+    static final int REDSHIFT_MAX_DECIMAL_PRECISION = 38;
+
+    /**
+     * Maximum size of a {@link BigInteger} storing a Redshift {@code DECIMAL}
+     * with precision {@link #REDSHIFT_DECIMAL_CUTOFF_PRECISION}.
+     */
+    // actual value is 63
+    private static final int REDSHIFT_DECIMAL_CUTOFF_BITS = BigInteger.valueOf(Long.MAX_VALUE).bitLength();
+
+    /**
+     * Maximum size of a Redshift CHAR column.
+     *
+     * @see <a href="https://docs.aws.amazon.com/redshift/latest/dg/r_Character_types.html">
+     * Redshift documentation</a>
+     */
+    private static final int REDSHIFT_MAX_CHAR = 4096;
+
+    /**
+     * Maximum size of a Redshift VARCHAR column.
+     *
+     * @see <a href="https://docs.aws.amazon.com/redshift/latest/dg/r_Character_types.html">
+     * Redshift documentation</a>
+     */
+    static final int REDSHIFT_MAX_VARCHAR = 65535;
+
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyy-MM-dd[ G]");
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = new DateTimeFormatterBuilder()
+            .appendPattern("yyy-MM-dd HH:mm:ss")
+            .optionalStart()
+            .appendFraction(NANO_OF_SECOND, 0, 6, true)
+            .optionalEnd()
+            .appendPattern("[ G]")
+            .toFormatter();
+    private static final OffsetDateTime REDSHIFT_MIN_SUPPORTED_TIMESTAMP_TZ = OffsetDateTime.of(-4712, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC);
+
     @Inject
     public RedshiftClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping, RemoteQueryModifier queryModifier)
     {
@@ -162,7 +260,96 @@ public class RedshiftClient
     }
 
     @Override
-    public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle type)
+    {
+        Optional<ColumnMapping> mapping = getForcedMappingToVarchar(type);
+        if (mapping.isPresent()) {
+            return mapping;
+        }
+
+        if ("time".equals(type.getJdbcTypeName().orElse(""))) {
+            return Optional.of(ColumnMapping.longMapping(
+                    TIME_MICROS,
+                    RedshiftClient::readTime,
+                    RedshiftClient::writeTime));
+        }
+
+        switch (type.getJdbcType()) {
+            case Types.BIT: // Redshift uses this for booleans
+                return Optional.of(booleanColumnMapping());
+
+            // case Types.TINYINT: -- Redshift doesn't support tinyint
+            case Types.SMALLINT:
+                return Optional.of(smallintColumnMapping());
+            case Types.INTEGER:
+                return Optional.of(integerColumnMapping());
+            case Types.BIGINT:
+                return Optional.of(bigintColumnMapping());
+
+            case Types.REAL:
+                return Optional.of(realColumnMapping());
+            case Types.DOUBLE:
+                return Optional.of(doubleColumnMapping());
+
+            case Types.NUMERIC: {
+                int precision = type.getRequiredColumnSize();
+                int scale = type.getRequiredDecimalDigits();
+                DecimalType decimalType = createDecimalType(precision, scale);
+                if (precision == REDSHIFT_DECIMAL_CUTOFF_PRECISION) {
+                    return Optional.of(ColumnMapping.objectMapping(
+                            decimalType,
+                            longDecimalReadFunction(decimalType),
+                            writeDecimalAtRedshiftCutoff(scale)));
+                }
+                return Optional.of(decimalColumnMapping(decimalType, UNNECESSARY));
+            }
+
+            case Types.CHAR:
+                CharType charType = createCharType(type.getRequiredColumnSize());
+                return Optional.of(ColumnMapping.sliceMapping(
+                        charType,
+                        charReadFunction(charType),
+                        RedshiftClient::writeChar));
+
+            case Types.VARCHAR: {
+                int length = type.getRequiredColumnSize();
+                return Optional.of(varcharColumnMapping(
+                        length < VarcharType.MAX_LENGTH
+                                ? createVarcharType(length)
+                                : createUnboundedVarcharType(),
+                        true));
+            }
+
+            case Types.LONGVARBINARY:
+                return Optional.of(ColumnMapping.sliceMapping(
+                        VARBINARY,
+                        varbinaryReadFunction(),
+                        varbinaryWriteFunction()));
+
+            case Types.DATE:
+                return Optional.of(ColumnMapping.longMapping(
+                        DATE,
+                        RedshiftClient::readDate,
+                        RedshiftClient::writeDate));
+
+            case Types.TIMESTAMP:
+                return Optional.of(ColumnMapping.longMapping(
+                        TIMESTAMP_MICROS,
+                        RedshiftClient::readTimestamp,
+                        RedshiftClient::writeShortTimestamp));
+
+            case Types.TIMESTAMP_WITH_TIMEZONE:
+                return Optional.of(ColumnMapping.objectMapping(
+                        TIMESTAMP_TZ_MICROS,
+                        longTimestampWithTimeZoneReadFunction(),
+                        longTimestampWithTimeZoneWriteFunction()));
+        }
+
+        // Fall back to default behavior
+        return legacyToColumnMapping(session, type);
+    }
+
+    private Optional<ColumnMapping> legacyToColumnMapping(ConnectorSession session, JdbcTypeHandle typeHandle)
     {
         Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
         if (mapping.isPresent()) {
@@ -181,6 +368,99 @@ public class RedshiftClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
+        if (BOOLEAN.equals(type)) {
+            return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
+        }
+        if (TINYINT.equals(type)) {
+            // Redshift doesn't have tinyint
+            return WriteMapping.longMapping("smallint", tinyintWriteFunction());
+        }
+        if (SMALLINT.equals(type)) {
+            return WriteMapping.longMapping("smallint", smallintWriteFunction());
+        }
+        if (INTEGER.equals(type)) {
+            return WriteMapping.longMapping("integer", integerWriteFunction());
+        }
+        if (BIGINT.equals(type)) {
+            return WriteMapping.longMapping("bigint", bigintWriteFunction());
+        }
+        if (REAL.equals(type)) {
+            return WriteMapping.longMapping("real", realWriteFunction());
+        }
+        if (DOUBLE.equals(type)) {
+            return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
+        }
+
+        if (type instanceof DecimalType decimal) {
+            if (decimal.getPrecision() == REDSHIFT_DECIMAL_CUTOFF_PRECISION) {
+                // See doc for REDSHIFT_DECIMAL_CUTOFF_PRECISION
+                return WriteMapping.objectMapping(
+                        format("decimal(%s, %s)", decimal.getPrecision(), decimal.getScale()),
+                        writeDecimalAtRedshiftCutoff(decimal.getScale()));
+            }
+            String name = format("decimal(%s, %s)", decimal.getPrecision(), decimal.getScale());
+            return decimal.isShort()
+                    ? WriteMapping.longMapping(name, shortDecimalWriteFunction(decimal))
+                    : WriteMapping.objectMapping(name, longDecimalWriteFunction(decimal));
+        }
+
+        if (type instanceof CharType) {
+            // Redshift has no unbounded text/binary types, so if a CHAR is too
+            // large for Redshift, we write as VARCHAR. If too large for that,
+            // we use the largest VARCHAR Redshift supports.
+            int size = ((CharType) type).getLength();
+            if (size <= REDSHIFT_MAX_CHAR) {
+                return WriteMapping.sliceMapping(
+                        format("char(%d)", size),
+                        RedshiftClient::writeChar);
+            }
+            int redshiftVarcharWidth = min(size, REDSHIFT_MAX_VARCHAR);
+            return WriteMapping.sliceMapping(
+                    format("varchar(%d)", redshiftVarcharWidth),
+                    (statement, index, value) -> writeCharAsVarchar(statement, index, value, redshiftVarcharWidth));
+        }
+
+        if (type instanceof VarcharType) {
+            // Redshift has no unbounded text/binary types, so if a VARCHAR is
+            // larger than Redshift's limit, we make it that big instead.
+            int size = ((VarcharType) type).getLength()
+                    .filter(n -> n <= REDSHIFT_MAX_VARCHAR)
+                    .orElse(REDSHIFT_MAX_VARCHAR);
+            return WriteMapping.sliceMapping(format("varchar(%d)", size), varcharWriteFunction());
+        }
+
+        if (VARBINARY.equals(type)) {
+            return WriteMapping.sliceMapping("varbyte", varbinaryWriteFunction());
+        }
+
+        if (DATE.equals(type)) {
+            return WriteMapping.longMapping("date", RedshiftClient::writeDate);
+        }
+
+        if (type instanceof TimeType) {
+            return WriteMapping.longMapping("time", RedshiftClient::writeTime);
+        }
+
+        if (type instanceof TimestampType) {
+            if (((TimestampType) type).isShort()) {
+                return WriteMapping.longMapping(
+                        "timestamp",
+                        RedshiftClient::writeShortTimestamp);
+            }
+            return WriteMapping.objectMapping(
+                    "timestamp",
+                    LongTimestamp.class,
+                    RedshiftClient::writeLongTimestamp);
+        }
+
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            if (timestampWithTimeZoneType.getPrecision() <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
+                return WriteMapping.longMapping("timestamptz", shortTimestampWithTimeZoneWriteFunction());
+            }
+            return WriteMapping.objectMapping("timestamptz", longTimestampWithTimeZoneWriteFunction());
+        }
+
+        // Fall back to legacy behavior
         return legacyToWriteMapping(type);
     }
 
@@ -214,9 +494,168 @@ public class RedshiftClient
         return "'" + value.replace("'", "''").replace("\\", "\\\\") + "'";
     }
 
+    private static ObjectReadFunction longTimestampWithTimeZoneReadFunction()
+    {
+        return ObjectReadFunction.of(
+                LongTimestampWithTimeZone.class,
+                (resultSet, columnIndex) -> {
+                    // Redshift does not store zone information in "timestamp with time zone" data type
+                    OffsetDateTime offsetDateTime = resultSet.getObject(columnIndex, OffsetDateTime.class);
+                    return fromEpochSecondsAndFraction(
+                            offsetDateTime.toEpochSecond(),
+                            (long) offsetDateTime.getNano() * PICOSECONDS_PER_NANOSECOND,
+                            UTC_KEY);
+                });
+    }
+
+    private static LongWriteFunction shortTimestampWithTimeZoneWriteFunction()
+    {
+        return (statement, index, value) -> {
+            // Redshift does not store zone information in "timestamp with time zone" data type
+            long millisUtc = unpackMillisUtc(value);
+            long epochSeconds = floorDiv(millisUtc, MILLISECONDS_PER_SECOND);
+            int nanosOfSecond = floorMod(millisUtc, MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND;
+            OffsetDateTime offsetDateTime = OffsetDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds, nanosOfSecond), UTC_KEY.getZoneId());
+            verifySupportedTimestampWithTimeZone(offsetDateTime);
+            statement.setObject(index, offsetDateTime);
+        };
+    }
+
+    private static ObjectWriteFunction longTimestampWithTimeZoneWriteFunction()
+    {
+        return ObjectWriteFunction.of(
+                LongTimestampWithTimeZone.class,
+                (statement, index, value) -> {
+                    // Redshift does not store zone information in "timestamp with time zone" data type
+                    long epochSeconds = floorDiv(value.getEpochMillis(), MILLISECONDS_PER_SECOND);
+                    long nanosOfSecond = ((long) floorMod(value.getEpochMillis(), MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND) +
+                            (value.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND);
+                    OffsetDateTime offsetDateTime = OffsetDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds, nanosOfSecond), UTC_KEY.getZoneId());
+                    verifySupportedTimestampWithTimeZone(offsetDateTime);
+                    statement.setObject(index, offsetDateTime);
+                });
+    }
+
+    private static void verifySupportedTimestampWithTimeZone(OffsetDateTime value)
+    {
+        if (value.isBefore(REDSHIFT_MIN_SUPPORTED_TIMESTAMP_TZ)) {
+            DateTimeFormatter format = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSSSS");
+            throw new TrinoException(
+                    INVALID_ARGUMENTS,
+                    format("Minimum timestamp with time zone in Redshift is %s: %s", REDSHIFT_MIN_SUPPORTED_TIMESTAMP_TZ.format(format), value.format(format)));
+        }
+    }
+
+    /**
+     * Decimal write function for precision {@link #REDSHIFT_DECIMAL_CUTOFF_PRECISION}.
+     * Ensures that values fit in 8 bytes.
+     */
+    private static ObjectWriteFunction writeDecimalAtRedshiftCutoff(int scale)
+    {
+        return ObjectWriteFunction.of(
+                Int128.class,
+                (statement, index, decimal) -> {
+                    BigInteger unscaled = decimal.toBigInteger();
+                    if (unscaled.bitLength() > REDSHIFT_DECIMAL_CUTOFF_BITS) {
+                        throw new TrinoException(JDBC_NON_TRANSIENT_ERROR, format(
+                                "Value out of range for Redshift DECIMAL(%d, %d)",
+                                REDSHIFT_DECIMAL_CUTOFF_PRECISION,
+                                scale));
+                    }
+                    MathContext precision = new MathContext(REDSHIFT_DECIMAL_CUTOFF_PRECISION);
+                    statement.setBigDecimal(index, new BigDecimal(unscaled, scale, precision));
+                });
+    }
+
+    /**
+     * Like {@link StandardColumnMappings#charWriteFunction}, but restrict to
+     * ASCII because Redshift only allows ASCII in {@code CHAR} values.
+     */
+    private static void writeChar(PreparedStatement statement, int index, Slice slice)
+            throws SQLException
+    {
+        String value = slice.toStringUtf8();
+        if (!CharMatcher.ascii().matchesAllOf(value)) {
+            throw new TrinoException(
+                    JDBC_NON_TRANSIENT_ERROR,
+                    format("Value for Redshift CHAR must be ASCII, but found '%s'", value));
+        }
+        statement.setString(index, slice.toStringAscii());
+    }
+
+    /**
+     * Like {@link StandardColumnMappings#charWriteFunction}, but pads
+     * the value with spaces to simulate {@code CHAR} semantics.
+     */
+    private static void writeCharAsVarchar(PreparedStatement statement, int index, Slice slice, int columnLength)
+            throws SQLException
+    {
+        // Redshift counts varchar size limits in UTF-8 bytes, so this may make the string longer than
+        // the limit, but Redshift also truncates extra trailing spaces, so that doesn't cause any problems.
+        statement.setString(index, Chars.padSpaces(slice, columnLength).toStringUtf8());
+    }
+
+    private static void writeDate(PreparedStatement statement, int index, long day)
+            throws SQLException
+    {
+        statement.setObject(index, new RedshiftObject("date", DATE_FORMATTER.format(LocalDate.ofEpochDay(day))));
+    }
+
+    private static long readDate(ResultSet results, int index)
+            throws SQLException
+    {
+        // Reading date as string to workaround issues around julian->gregorian calendar switch
+        return LocalDate.parse(results.getString(index), DATE_FORMATTER).toEpochDay();
+    }
+
+    /**
+     * Write time with microsecond precision
+     */
+    private static void writeTime(PreparedStatement statement, int index, long picos)
+            throws SQLException
+    {
+        statement.setObject(index, LocalTime.ofNanoOfDay((roundDiv(picos, PICOSECONDS_PER_MICROSECOND) % MICROSECONDS_PER_DAY) * NANOSECONDS_PER_MICROSECOND));
+    }
+
+    /**
+     * Read a time value with microsecond precision
+     */
+    private static long readTime(ResultSet results, int index)
+            throws SQLException
+    {
+        return results.getObject(index, LocalTime.class).toNanoOfDay() * PICOSECONDS_PER_NANOSECOND;
+    }
+
+    private static void writeShortTimestamp(PreparedStatement statement, int index, long epochMicros)
+            throws SQLException
+    {
+        statement.setObject(index, new RedshiftObject("timestamp", DATE_TIME_FORMATTER.format(StandardColumnMappings.fromTrinoTimestamp(epochMicros))));
+    }
+
+    private static void writeLongTimestamp(PreparedStatement statement, int index, Object value)
+            throws SQLException
+    {
+        LongTimestamp timestamp = (LongTimestamp) value;
+        long epochMicros = timestamp.getEpochMicros();
+        if (timestamp.getPicosOfMicro() >= PICOSECONDS_PER_MICROSECOND / 2) {
+            epochMicros += 1; // Add one micro if picos round up
+        }
+        statement.setObject(index, new RedshiftObject("timestamp", DATE_TIME_FORMATTER.format(StandardColumnMappings.fromTrinoTimestamp(epochMicros))));
+    }
+
+    private static long readTimestamp(ResultSet results, int index)
+            throws SQLException
+    {
+        return StandardColumnMappings.toTrinoTimestamp(TIMESTAMP_MICROS, results.getObject(index, LocalDateTime.class));
+    }
+
+    private static SliceWriteFunction varbinaryWriteFunction()
+    {
+        return (statement, index, value) -> statement.unwrap(RedshiftPreparedStatement.class).setVarbyte(index, value.getBytes());
+    }
+
     private static Optional<ColumnMapping> legacyDefaultColumnMapping(JdbcTypeHandle typeHandle)
     {
-        // TODO (https://github.com/trinodb/trino/issues/497) Implement proper type mapping and add test
         // This method is copied from deprecated StandardColumnMappings.legacyDefaultColumnMapping()
         switch (typeHandle.getJdbcType()) {
             case Types.BIT:
@@ -282,7 +721,6 @@ public class RedshiftClient
 
     private static WriteMapping legacyToWriteMapping(Type type)
     {
-        // TODO (https://github.com/trinodb/trino/issues/497) Implement proper type mapping and add test
         // This method is copied from deprecated BaseJdbcClient.legacyToWriteMapping()
         if (type == BOOLEAN) {
             return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
