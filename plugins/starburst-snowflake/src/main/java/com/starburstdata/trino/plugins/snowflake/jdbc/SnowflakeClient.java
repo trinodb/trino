@@ -823,13 +823,13 @@ public class SnowflakeClient
         try (Connection connection = connectionFactory.openConnection(session);
                 Handle handle = Jdbi.open(connection)) {
             Long rowCount = handle.createQuery("" +
-                    "SELECT (" + // Verify we do not ignore second result row, should there be any
-                    "  SELECT ROW_COUNT " +
-                    "  FROM information_schema.tables " +
-                    "  WHERE table_catalog = :table_catalog " +
-                    "  AND table_schema = :table_schema " +
-                    "  AND table_name = :table_name " +
-                    ")")
+                            "SELECT (" + // Verify we do not ignore second result row, should there be any
+                            "  SELECT ROW_COUNT " +
+                            "  FROM information_schema.tables " +
+                            "  WHERE table_catalog = :table_catalog " +
+                            "  AND table_schema = :table_schema " +
+                            "  AND table_name = :table_name " +
+                            ")")
                     .bind("table_catalog", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_schema", remoteTableName.getSchemaName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
