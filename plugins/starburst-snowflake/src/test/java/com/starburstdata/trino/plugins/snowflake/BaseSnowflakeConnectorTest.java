@@ -31,6 +31,7 @@ import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -837,5 +838,63 @@ public abstract class BaseSnowflakeConnectorTest
         assertThat(e).hasMessageMatching(
                 "SQL compilation error: Non-nullable column 'C_VARCHAR' cannot be added to non-empty table " +
                         "'TEST_ADD_NOTNULL_.*' unless it has a non-null default value\\.");
+    }
+
+    @Test
+    public void testIsNullExpressionPredicatePushdown()
+    {
+        // Simple predicate that can be represented as TupleDomain - expected to pass
+        assertThat(query("SELECT nationkey FROM nation WHERE name IS NULL")).isFullyPushedDown();
+
+        assertThat(query("SELECT nationkey FROM nation WHERE name IS NULL OR regionkey = 4")).isFullyPushedDown();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_is_null_predicate_pushdown",
+                "(a_int integer, a_varchar varchar(1))",
+                List.of(
+                        "1, 'A'",
+                        "2, 'B'",
+                        "1, NULL",
+                        "2, NULL"))) {
+            assertThat(query("SELECT a_int FROM " + table.getName() + " WHERE a_varchar IS NULL OR a_int = 1")).isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testIsNotNullPredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE name IS NOT NULL OR regionkey = 4")).isFullyPushedDown();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_is_not_null_predicate_pushdown",
+                "(a_int integer, a_varchar varchar(1))",
+                List.of(
+                        "1, 'A'",
+                        "2, 'B'",
+                        "1, NULL",
+                        "2, NULL"))) {
+            assertThat(query("SELECT a_int FROM " + table.getName() + " WHERE a_varchar IS NOT NULL OR a_int = 1")).isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testNotExpressionPushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE NOT(name = 'A')")).isFullyPushedDown();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_is_not_predicate_pushdown",
+                "(a_int integer, a_varchar varchar(2))",
+                List.of(
+                        "1, 'Aa'",
+                        "2, 'Bb'",
+                        "1, NULL",
+                        "2, NULL"))) {
+            assertThat(query("SELECT a_int FROM " + table.getName() + " WHERE NOT(a_varchar = 'Aa') OR a_int = 2")).isFullyPushedDown();
+            assertThat(query("SELECT a_int FROM " + table.getName() + " WHERE NOT(a_varchar = 'Aa' OR a_int = 2)")).isFullyPushedDown();
+        }
     }
 }
