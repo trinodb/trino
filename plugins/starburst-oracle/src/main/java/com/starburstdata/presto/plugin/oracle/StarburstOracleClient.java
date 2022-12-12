@@ -236,10 +236,10 @@ public class StarburstOracleClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session, JdbcSplit split)
+    public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
             throws SQLException
     {
-        Connection connection = super.getConnection(session, split);
+        Connection connection = super.getConnection(session, split, tableHandle);
         try {
             // We cannot return unwrapped connection as it won't return to connection pool upon close
             connection.unwrap(OracleConnection.class)
