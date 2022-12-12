@@ -59,7 +59,6 @@ public final class SystemSessionProperties
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
     public static final String JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR = "join_multi_clause_independence_factor";
-    public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String MAX_HASH_PARTITION_COUNT = "max_hash_partition_count";
     public static final String MIN_HASH_PARTITION_COUNT = "min_hash_partition_count";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
@@ -240,11 +239,6 @@ public final class SystemSessionProperties
                         false,
                         value -> validateDoubleRange(value, JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, 0.0, 1.0),
                         value -> value),
-                booleanProperty(
-                        DISTRIBUTED_INDEX_JOIN,
-                        "Distribute index joins on join keys instead of executing inline",
-                        optimizerConfig.isDistributedIndexJoinsEnabled(),
-                        false),
                 integerProperty(
                         MAX_HASH_PARTITION_COUNT,
                         "Maximum number of partitions for distributed joins and aggregations",
@@ -943,11 +937,6 @@ public final class SystemSessionProperties
     public static double getJoinMultiClauseIndependenceFactor(Session session)
     {
         return session.getSystemProperty(JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, Double.class);
-    }
-
-    public static boolean isDistributedIndexJoinEnabled(Session session)
-    {
-        return session.getSystemProperty(DISTRIBUTED_INDEX_JOIN, Boolean.class);
     }
 
     public static int getMaxHashPartitionCount(Session session)
