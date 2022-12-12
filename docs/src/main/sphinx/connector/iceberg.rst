@@ -403,6 +403,7 @@ TABLE </sql/create-table>` syntax. Optionally specify the
     WITH (
         format = 'PARQUET',
         partitioning = ARRAY['c1', 'c2'],
+        sorted_by = ARRAY['c3'],
         location = 's3://my-bucket/a/path/'
     );
 
@@ -571,6 +572,7 @@ The following table properties can be updated after a table is created:
 * ``format``
 * ``format_version``
 * ``partitioning``
+* ``sorted_by``
 
 For example, to update a table from v1 of the Iceberg specification to v2:
 
@@ -792,6 +794,46 @@ In this example, the table is partitioned by the month of ``order_date``, a hash
         customer VARCHAR,
         country VARCHAR)
     WITH (partitioning = ARRAY['month(order_date)', 'bucket(account_number, 10)', 'country'])
+
+Sorted tables
+-------------
+
+The connector supports sorted files as a performance improvement. Data is
+sorted during writes within each file based on the specified array of one
+or more columns.
+
+Sorting is particularly beneficial when the sorted columns show a
+high cardinality and are used as a filter for selective reads.
+
+The sort order is configured with the ``sorted_by`` table property.
+Specify an array of one or more columns to use for sorting
+when creating the table. The following example configures the
+``order_date`` column of the ``orders`` table in the ``customers``
+schema in the ``example`` catalog::
+
+    CREATE TABLE example.customers.orders (
+        order_id BIGINT,
+        order_date DATE,
+        account_number BIGINT,
+        customer VARCHAR,
+        country VARCHAR)
+    WITH (sorted_by = ARRAY['order_date'])
+
+Sorting can be combined with partitioning on the same column. For example::
+
+    CREATE TABLE example.customers.orders (
+        order_id BIGINT,
+        order_date DATE,
+        account_number BIGINT,
+        customer VARCHAR,
+        country VARCHAR)
+    WITH (
+        partitioning = ARRAY['month(order_date)'],
+        sorted_by = ARRAY['order_date']
+    )
+
+You can disable sorted writing with the session property
+``sorted_writing_enabled`` set to ``false``.
 
 Rolling back to a previous snapshot
 -----------------------------------
