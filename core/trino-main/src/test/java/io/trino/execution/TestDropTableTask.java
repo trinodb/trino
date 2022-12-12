@@ -36,7 +36,7 @@ public class TestDropTableTask
     @Test
     public void testDropExistingTable()
     {
-        QualifiedObjectName tableName = qualifiedObjectName("not_existing_table");
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
         assertThat(metadata.getTableHandle(testSession, tableName)).isPresent();
 
