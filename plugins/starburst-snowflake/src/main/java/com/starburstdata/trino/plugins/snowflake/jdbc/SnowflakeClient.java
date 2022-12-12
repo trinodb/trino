@@ -373,7 +373,7 @@ public class SnowflakeClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session, JdbcSplit split)
+    public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
             throws SQLException
     {
         return connectionFactory.openConnection(session);
