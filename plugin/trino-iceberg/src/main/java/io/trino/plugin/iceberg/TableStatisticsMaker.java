@@ -118,7 +118,7 @@ public class TableStatisticsMaker
                     .build();
         }
 
-        Map<Integer, Long> ndvs = readNdvs(icebergTable);
+        Map<Integer, Long> ndvs = readNdvs();
 
         ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();
         double recordCount = summary.getRecordCount();
@@ -174,7 +174,7 @@ public class TableStatisticsMaker
         return new TableStatistics(Estimate.of(recordCount), columnHandleBuilder.buildOrThrow());
     }
 
-    private Map<Integer, Long> readNdvs(Table icebergTable)
+    private Map<Integer, Long> readNdvs()
     {
         if (!isExtendedStatisticsEnabled(session)) {
             return ImmutableMap.of();
