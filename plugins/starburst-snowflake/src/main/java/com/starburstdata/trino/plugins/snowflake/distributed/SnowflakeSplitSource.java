@@ -69,6 +69,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.starburstdata.trino.plugins.snowflake.distributed.HiveUtils.getHdfsEnvironment;
@@ -88,6 +89,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
 import static net.snowflake.client.jdbc.internal.snowflake.common.core.SqlState.CONNECTION_DOES_NOT_EXIST;
 import static net.snowflake.client.jdbc.internal.snowflake.common.core.SqlState.CONNECTION_EXCEPTION;
 import static net.snowflake.client.jdbc.internal.snowflake.common.core.SqlState.DATA_EXCEPTION;
@@ -227,7 +229,7 @@ public class SnowflakeSplitSource
                             columns,
                             ImmutableMap.of(),
                             jdbcTableHandle.getConstraint(),
-                            Optional.empty());
+                            getAdditionalPredicate(jdbcTableHandle.getConstraintExpressions(), Optional.empty()));
                     preparedQuery = client.applyQueryTransformations(jdbcTableHandle, preparedQuery);
                     preparedQuery = preparedQuery.transformQuery(sql -> copyIntoStage(sql, stageName));
                     try (PreparedStatement statement = queryBuilder.prepareStatement(client, session, connection, preparedQuery)) {
@@ -254,6 +256,17 @@ public class SnowflakeSplitSource
                 throw new TrinoException(JDBC_ERROR, exception);
             }
         }));
+    }
+
+    protected static Optional<String> getAdditionalPredicate(List<String> constraintExpressions, Optional<String> splitPredicate)
+    {
+        if (constraintExpressions.isEmpty() && splitPredicate.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(
+                Stream.concat(constraintExpressions.stream(), splitPredicate.stream())
+                        .collect(joining(") AND (", "(", ")")));
     }
 
     private <T> CheckedSupplier<T> measureExportAttemptTime(Callable<T> supplier)
