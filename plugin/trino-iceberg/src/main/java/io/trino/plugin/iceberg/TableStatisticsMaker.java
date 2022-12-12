@@ -74,10 +74,12 @@ public class TableStatisticsMaker
     private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle)
     {
         if (tableHandle.getSnapshotId().isEmpty()) {
+            // No snapshot, so no data.
             return TableStatistics.builder()
                     .setRowCount(Estimate.of(0))
                     .build();
         }
+        long snapshotId = tableHandle.getSnapshotId().get();
 
         TupleDomain<IcebergColumnHandle> enforcedPredicate = tableHandle.getEnforcedPredicate();
 
@@ -99,7 +101,7 @@ public class TableStatisticsMaker
 
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(enforcedPredicate))
-                .useSnapshot(tableHandle.getSnapshotId().get())
+                .useSnapshot(snapshotId)
                 .includeColumnStats();
 
         IcebergStatistics.Builder icebergStatisticsBuilder = new IcebergStatistics.Builder(columns, typeManager);
