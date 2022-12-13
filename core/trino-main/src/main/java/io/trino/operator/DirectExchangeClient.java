@@ -148,7 +148,8 @@ public class DirectExchangeClient
                     buffer.getSpilledBytes(),
                     noMoreLocations,
                     pageBufferClientStatus,
-                    new TDigestHistogram(TDigest.copyOf(requestDuration)));
+                    new TDigestHistogram(TDigest.copyOf(requestDuration)),
+                    new TDigestHistogram(TDigest.copyOf(buffer.getBufferUtilization())));
         }
     }
 

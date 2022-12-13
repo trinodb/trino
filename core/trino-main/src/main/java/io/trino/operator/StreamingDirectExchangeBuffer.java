@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.trino.execution.TaskId;
 import io.trino.spi.TrinoException;
@@ -61,6 +62,8 @@ public class StreamingDirectExchangeBuffer
     private Throwable failure;
     @GuardedBy("this")
     private boolean closed;
+    @GuardedBy("this")
+    private final TDigest bufferUtilization = new TDigest();
 
     public StreamingDirectExchangeBuffer(Executor executor, DataSize bufferCapacity)
     {
@@ -85,6 +88,7 @@ public class StreamingDirectExchangeBuffer
         Slice page = bufferedPages.poll();
         if (page != null) {
             bufferRetainedSizeInBytes -= page.getRetainedSize();
+            recordBufferUtilization();
             checkState(bufferRetainedSizeInBytes >= 0, "unexpected bufferRetainedSizeInBytes: %s", bufferRetainedSizeInBytes);
         }
         // if buffer is empty block future calls
@@ -92,6 +96,12 @@ public class StreamingDirectExchangeBuffer
             blocked = SettableFuture.create();
         }
         return page;
+    }
+
+    private synchronized void recordBufferUtilization()
+    {
+        checkState(bufferCapacityInBytes > 0, "The buffer size must be greater than 0");
+        bufferUtilization.add(bufferRetainedSizeInBytes * 1.0 / bufferCapacityInBytes);
     }
 
     @Override
@@ -118,6 +128,7 @@ public class StreamingDirectExchangeBuffer
             checkState(activeTasks.contains(taskId), "taskId is not active: %s", taskId);
             bufferedPages.addAll(pages);
             bufferRetainedSizeInBytes += pagesRetainedSizeInBytes;
+            recordBufferUtilization();
             maxBufferRetainedSizeInBytes = max(maxBufferRetainedSizeInBytes, bufferRetainedSizeInBytes);
             unblockIfNecessary(blocked);
         }
@@ -211,6 +222,12 @@ public class StreamingDirectExchangeBuffer
     public int getSpilledPageCount()
     {
         return 0;
+    }
+
+    @Override
+    public synchronized TDigest getBufferUtilization()
+    {
+        return TDigest.copyOf(bufferUtilization);
     }
 
     @Override

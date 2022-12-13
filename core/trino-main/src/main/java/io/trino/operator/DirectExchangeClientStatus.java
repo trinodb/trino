@@ -37,6 +37,7 @@ public class DirectExchangeClientStatus
     private final boolean noMoreLocations;
     private final List<PageBufferClientStatus> pageBufferClientStatuses;
     private final TDigestHistogram requestDuration;
+    private final TDigestHistogram bufferUtilization;
 
     @JsonCreator
     public DirectExchangeClientStatus(
@@ -49,7 +50,8 @@ public class DirectExchangeClientStatus
             @JsonProperty("spilledBytes") long spilledBytes,
             @JsonProperty("noMoreLocations") boolean noMoreLocations,
             @JsonProperty("pageBufferClientStatuses") List<PageBufferClientStatus> pageBufferClientStatuses,
-            @JsonProperty("requestDuration") TDigestHistogram requestDuration)
+            @JsonProperty("requestDuration") TDigestHistogram requestDuration,
+            @JsonProperty("bufferUtilization") TDigestHistogram bufferUtilization)
     {
         this.bufferedBytes = bufferedBytes;
         this.maxBufferedBytes = maxBufferedBytes;
@@ -61,6 +63,7 @@ public class DirectExchangeClientStatus
         this.noMoreLocations = noMoreLocations;
         this.pageBufferClientStatuses = ImmutableList.copyOf(requireNonNull(pageBufferClientStatuses, "pageBufferClientStatuses is null"));
         this.requestDuration = requireNonNull(requestDuration, "requestsDuration is null");
+        this.bufferUtilization = requireNonNull(bufferUtilization, "bufferUtilization is null");
     }
 
     @JsonProperty
@@ -97,6 +100,12 @@ public class DirectExchangeClientStatus
     public int getSpilledPages()
     {
         return spilledPages;
+    }
+
+    @JsonProperty
+    public TDigestHistogram getBufferUtilization()
+    {
+        return bufferUtilization;
     }
 
     @JsonProperty
@@ -143,6 +152,7 @@ public class DirectExchangeClientStatus
                 .add("noMoreLocations", noMoreLocations)
                 .add("pageBufferClientStatuses", pageBufferClientStatuses)
                 .add("requestDuration", requestDuration)
+                .add("bufferUtilization", bufferUtilization)
                 .toString();
     }
 
@@ -159,7 +169,8 @@ public class DirectExchangeClientStatus
                 spilledBytes + other.spilledBytes,
                 noMoreLocations && other.noMoreLocations, // if at least one has some locations, mergee has some too
                 ImmutableList.of(), // pageBufferClientStatuses may be long, so we don't want to combine the lists
-                requestDuration.mergeWith(other.requestDuration)); // this is correct as long as all clients have the same shape of histogram
+                requestDuration.mergeWith(other.requestDuration), // this is correct as long as all clients have the same shape of histogram
+                bufferUtilization.mergeWith(other.bufferUtilization)); // this is correct as long as all clients have the same shape of histogram
     }
 
     private static long mergeAvgs(long value1, long count1, long value2, long count2)

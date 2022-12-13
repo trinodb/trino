@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
+import io.airlift.stats.TDigest;
 import io.trino.execution.TaskId;
 
 import java.io.Closeable;
@@ -57,6 +58,8 @@ public interface DirectExchangeBuffer
     long getSpilledBytes();
 
     int getSpilledPageCount();
+
+    TDigest getBufferUtilization();
 
     @Override
     void close();
