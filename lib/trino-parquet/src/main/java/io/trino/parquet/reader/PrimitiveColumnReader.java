@@ -204,7 +204,7 @@ public abstract class PrimitiveColumnReader
      * 100  │  p5  │      │      │
      *      └──────┴──────┴──────┘
      * </pre>
-     *
+     * <p>
      * The pages 1, 2, 3 in col1 are skipped so we have to skip the rows [20, 79]. Because page 1 in col2 contains values
      * only for the rows [40, 79] we skip this entire page as well. To synchronize the row reading we have to skip the
      * values (and the related rl and dl) for the rows [20, 39] in the end of the page 0 for col2. Similarly, we have to
