@@ -31,7 +31,7 @@ import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.ParquetWriteValidation;
 import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.predicate.Predicate;
+import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.FilteredOffsetIndex.OffsetRange;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
@@ -162,7 +162,7 @@ public class ParquetReader
             AggregatedMemoryContext memoryContext,
             ParquetReaderOptions options,
             Function<Exception, RuntimeException> exceptionTransform,
-            Optional<Predicate> parquetPredicate,
+            Optional<TupleDomainParquetPredicate> parquetPredicate,
             List<Optional<ColumnIndexStore>> columnIndexStore,
             Optional<ParquetWriteValidation> writeValidation)
             throws IOException
