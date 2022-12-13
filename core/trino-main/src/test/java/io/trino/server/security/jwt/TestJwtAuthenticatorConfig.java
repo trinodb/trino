@@ -36,6 +36,7 @@ public class TestJwtAuthenticatorConfig
                 .setRequiredIssuer(null)
                 .setPrincipalField("sub")
                 .setUserMappingPattern(null)
+                .setGroupsField(null)
                 .setUserMappingFile(null));
     }
 
@@ -53,6 +54,7 @@ public class TestJwtAuthenticatorConfig
                 .put("http-server.authentication.jwt.principal-field", "some-field")
                 .put("http-server.authentication.jwt.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.jwt.user-mapping.file", userMappingFile.toString())
+                .put("http-server.authentication.jwt.groups-field", "some-group-field")
                 .buildOrThrow();
 
         JwtAuthenticatorConfig expected = new JwtAuthenticatorConfig()
@@ -61,6 +63,7 @@ public class TestJwtAuthenticatorConfig
                 .setRequiredIssuer("some-issuer")
                 .setPrincipalField("some-field")
                 .setUserMappingPattern("(.*)@something")
+                .setGroupsField("some-group-field")
                 .setUserMappingFile(userMappingFile.toFile());
 
         assertFullMapping(properties, expected);

@@ -13,6 +13,7 @@
  */
 package io.trino.server.security.jwt;
 
+import com.google.common.collect.ImmutableSet;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.JwtParserBuilder;
@@ -28,6 +29,7 @@ import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import static io.jsonwebtoken.Claims.AUDIENCE;
@@ -42,6 +44,7 @@ public class JwtAuthenticator
     private final String principalField;
     private final UserMapping userMapping;
     private final Optional<String> requiredAudience;
+    private final Optional<String> groupsField;
 
     @Inject
     public JwtAuthenticator(JwtAuthenticatorConfig config, @ForJwt SigningKeyResolver signingKeyResolver)
@@ -57,6 +60,7 @@ public class JwtAuthenticator
         }
         this.jwtParser = jwtParser.build();
         userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
+        groupsField = config.getGroupsField();
     }
 
     @Override
@@ -70,9 +74,13 @@ public class JwtAuthenticator
         if (principal.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(Identity.forUser(userMapping.mapUser(principal.get()))
-                .withPrincipal(new BasicPrincipal(principal.get()))
-                .build());
+        Identity.Builder builder = Identity.forUser(userMapping.mapUser(principal.get()));
+        builder.withPrincipal(new BasicPrincipal(principal.get()));
+        if (groupsField.isPresent()) {
+            groupsField.flatMap(field -> Optional.ofNullable((List<String>) claims.get(field)))
+                    .ifPresent(groups -> builder.withGroups(ImmutableSet.copyOf(groups)));
+        }
+        return Optional.of(builder.build());
     }
 
     private void validateAudience(Claims claims)

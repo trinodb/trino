@@ -30,6 +30,7 @@ public class JwtAuthenticatorConfig
     private String principalField = "sub";
     private Optional<String> userMappingPattern = Optional.empty();
     private Optional<File> userMappingFile = Optional.empty();
+    private Optional<String> groupsField = Optional.empty();
 
     @NotNull
     public String getKeyFile()
@@ -106,5 +107,17 @@ public class JwtAuthenticatorConfig
     {
         this.userMappingFile = Optional.ofNullable(userMappingFile);
         return this;
+    }
+
+    @Config("http-server.authentication.jwt.groups-field")
+    public JwtAuthenticatorConfig setGroupsField(String groupsField)
+    {
+        this.groupsField = Optional.ofNullable(groupsField);
+        return this;
+    }
+
+    public Optional<String> getGroupsField()
+    {
+        return groupsField;
     }
 }

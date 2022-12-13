@@ -109,6 +109,8 @@ The following configuration properties are available:
      - The path to a JSON file that contains a set of
        :doc:`user mapping rules </security/user-mapping>` for this
        authentication system.
+   * - ``http-server.authentication.jwt.groups-field``
+     - Array-based field in the access token used to list group information for a user.
 
 Use the ``http-server.authentication.jwt.key-file`` property to specify
 either:
