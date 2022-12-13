@@ -3745,18 +3745,4 @@ class AstBuilder
         }
         throw new IllegalArgumentException("Unsupported query period range type: " + token.getText());
     }
-
-    private static Trim.Specification toTrimSpecification(String functionName)
-    {
-        requireNonNull(functionName, "functionName is null");
-        switch (functionName) {
-            case "trim":
-                return Trim.Specification.BOTH;
-            case "ltrim":
-                return Trim.Specification.LEADING;
-            case "rtrim":
-                return Trim.Specification.TRAILING;
-        }
-        throw new IllegalArgumentException("Unsupported trim specification: " + functionName);
-    }
 }
