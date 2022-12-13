@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
@@ -120,6 +121,26 @@ public class TestStreamingDirectExchangeBuffer
         assertTrue(buffer.isFinished());
         assertTrue(buffer.isBlocked().isDone());
         assertNull(buffer.pollPage());
+    }
+
+    @Test
+    public void testBufferUtilization()
+    {
+        StreamingDirectExchangeBuffer buffer = new StreamingDirectExchangeBuffer(directExecutor(), DataSize.of(1, KILOBYTE));
+        buffer.addTask(TASK_0);
+        buffer.addPages(TASK_0, ImmutableList.of(Slices.wrappedBuffer(new byte[128])));
+        buffer.addPages(TASK_0, ImmutableList.of(Slices.wrappedBuffer(new byte[128])));
+        buffer.addPages(TASK_0, ImmutableList.of(Slices.wrappedBuffer(new byte[512])));
+        buffer.addPages(TASK_0, ImmutableList.of(Slices.wrappedBuffer(new byte[512])));
+
+        assertEquals(buffer.getBufferUtilization().getCount(), 4.0);
+        assertEquals(buffer.getBufferUtilization().valueAt(0.25), 0.375);
+
+        buffer.pollPage();
+        buffer.pollPage();
+
+        assertEquals(buffer.getBufferUtilization().getCount(), 6.0);
+        assertEquals(buffer.getBufferUtilization().valueAt(0.25), 0.375);
     }
 
     @Test
