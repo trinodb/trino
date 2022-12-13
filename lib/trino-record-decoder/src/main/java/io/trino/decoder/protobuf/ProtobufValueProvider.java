@@ -17,6 +17,8 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors.EnumValueDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.DynamicMessage;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.util.JsonFormat;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.decoder.FieldValueProvider;
@@ -48,6 +50,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
@@ -137,6 +140,15 @@ public class ProtobufValueProvider
 
         if (type instanceof VarbinaryType && value instanceof ByteString) {
             return Slices.wrappedBuffer(((ByteString) value).toByteArray());
+        }
+
+        if (type.getBaseName().equals(JSON) && value instanceof DynamicMessage) {
+            try {
+                return utf8Slice(JsonFormat.printer().print(((DynamicMessage) value)));
+            }
+            catch (InvalidProtocolBufferException e) {
+                throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, e);
+            }
         }
 
         throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));

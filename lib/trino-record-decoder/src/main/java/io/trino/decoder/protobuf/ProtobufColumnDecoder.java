@@ -44,6 +44,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static java.util.Objects.requireNonNull;
 
 public class ProtobufColumnDecoder
@@ -106,6 +107,11 @@ public class ProtobufColumnDecoder
             }
             return true;
         }
+
+        if (type.getBaseName().equals(JSON)) {
+            return true;
+        }
+
         return false;
     }
 

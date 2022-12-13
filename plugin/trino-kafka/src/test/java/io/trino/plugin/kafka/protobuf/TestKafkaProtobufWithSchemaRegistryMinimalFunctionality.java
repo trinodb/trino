@@ -19,6 +19,7 @@ import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Timestamp;
+import com.google.protobuf.Value;
 import io.confluent.kafka.serializers.protobuf.KafkaProtobufSerializer;
 import io.confluent.kafka.serializers.subject.RecordNameStrategy;
 import io.confluent.kafka.serializers.subject.TopicRecordNameStrategy;
@@ -179,6 +180,49 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
                         "io.trino.protobuf.NestedStruct > " +
                         "io.trino.protobuf.NestedStruct.FieldsEntry > " +
                         "io.trino.protobuf.NestedValue");
+    }
+
+    @Test
+    public void testBuildInProtobufValueType()
+            throws Exception
+    {
+        String topic = "topic-struct-value";
+        assertNotExists(topic);
+
+        StructValueType.schema nullValue = StructValueType.schema.newBuilder()
+                .setStructValueOne(Value.newBuilder().setNullValueValue(0).build())
+                .build();
+        StructValueType.schema numberValue = StructValueType.schema.newBuilder()
+                .setStructValueOne(Value.newBuilder().setNumberValue(42.42).build())
+                .build();
+        StructValueType.schema stringValue = StructValueType.schema.newBuilder()
+                .setStructValueOne(Value.newBuilder().setStringValue("value string").build())
+                .build();
+        StructValueType.schema boolValue = StructValueType.schema.newBuilder()
+                .setStructValueOne(Value.newBuilder().setBoolValue(false).build())
+                .build();
+
+        ImmutableList.Builder<ProducerRecord<DynamicMessage, StructValueType.schema>> producerRecordBuilder = ImmutableList.builder();
+        producerRecordBuilder.add(new ProducerRecord<>(topic, createKeySchema(1, getKeySchema()), nullValue));
+        producerRecordBuilder.add(new ProducerRecord<>(topic, createKeySchema(2, getKeySchema()), numberValue));
+        producerRecordBuilder.add(new ProducerRecord<>(topic, createKeySchema(3, getKeySchema()), stringValue));
+        producerRecordBuilder.add(new ProducerRecord<>(topic, createKeySchema(4, getKeySchema()), boolValue));
+
+        List<ProducerRecord<DynamicMessage, StructValueType.schema>> messages = producerRecordBuilder.build();
+        testingKafka.sendMessages(
+                messages.stream(),
+                ImmutableMap.of(
+                        SCHEMA_REGISTRY_URL_CONFIG, testingKafka.getSchemaRegistryConnectString(),
+                        KEY_SERIALIZER_CLASS_CONFIG, KafkaProtobufSerializer.class.getName(),
+                        VALUE_SERIALIZER_CLASS_CONFIG, KafkaProtobufSerializer.class.getName()));
+
+        waitUntilTableExists(topic);
+        assertQuery(format("SELECT struct_value_one FROM %s", toDoubleQuoted(topic)),
+                "VALUES " +
+                        "('null')," +
+                        "('42.42')," +
+                        "('\"value string\"')," +
+                        "('false')");
     }
 
     @Test

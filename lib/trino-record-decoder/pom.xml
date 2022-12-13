@@ -55,6 +55,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java-util</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.squareup.wire</groupId>
             <artifactId>wire-schema</artifactId>
         </dependency>

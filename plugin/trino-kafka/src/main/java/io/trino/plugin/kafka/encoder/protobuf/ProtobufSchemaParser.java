@@ -28,6 +28,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
 import org.pcollections.Empty;
 import org.pcollections.PSet;
 
@@ -42,6 +43,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -105,6 +107,10 @@ public class ProtobufSchemaParser
         Descriptor descriptor = fieldDescriptor.getMessageType();
         if (descriptor.getFullName().equals(TIMESTAMP_TYPE_NAME)) {
             return createTimestampType(6);
+        }
+
+        if (descriptor.getFullName().equals("google.protobuf.Value")) {
+            return typeManager.getType(new TypeSignature(JSON));
         }
 
         if (processedMessages.contains(descriptor.getFullName())) {

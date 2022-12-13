@@ -357,6 +357,7 @@
                         <configuration>
                             <protocVersion>${dep.protobuf.version}</protocVersion>
                             <addSources>none</addSources>
+                            <includeMavenTypes>direct</includeMavenTypes>
                             <inputDirectories>
                                 <include>src/test/resources/protobuf-sources</include>
                             </inputDirectories>
