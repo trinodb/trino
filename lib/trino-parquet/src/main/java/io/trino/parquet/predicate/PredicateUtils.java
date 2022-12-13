@@ -139,8 +139,12 @@ public final class PredicateUtils
             DateTimeZone timeZone)
             throws IOException
     {
+        if (block.getRowCount() == 0) {
+            return false;
+        }
         Map<ColumnDescriptor, Statistics<?>> columnStatistics = getStatistics(block, descriptorsByPath);
-        Optional<List<ColumnDescriptor>> candidateColumns = parquetPredicate.getIndexLookupCandidates(block.getRowCount(), columnStatistics, dataSource.getId());
+        Map<ColumnDescriptor, Long> columnValueCounts = getColumnValueCounts(block, descriptorsByPath);
+        Optional<List<ColumnDescriptor>> candidateColumns = parquetPredicate.getIndexLookupCandidates(columnValueCounts, columnStatistics, dataSource.getId());
         if (candidateColumns.isEmpty()) {
             return false;
         }
@@ -153,7 +157,7 @@ public final class PredicateUtils
         TupleDomainParquetPredicate indexPredicate = new TupleDomainParquetPredicate(parquetTupleDomain, candidateColumns.get(), timeZone);
 
         // Page stats is finer grained but relatively more expensive, so we do the filtering after above block filtering.
-        if (columnIndexStore.isPresent() && !indexPredicate.matches(block.getRowCount(), columnIndexStore.get(), dataSource.getId())) {
+        if (columnIndexStore.isPresent() && !indexPredicate.matches(columnValueCounts, columnIndexStore.get(), dataSource.getId())) {
             return false;
         }
 
@@ -179,6 +183,18 @@ public final class PredicateUtils
             }
         }
         return statistics.buildOrThrow();
+    }
+
+    private static Map<ColumnDescriptor, Long> getColumnValueCounts(BlockMetaData blockMetadata, Map<List<String>, ColumnDescriptor> descriptorsByPath)
+    {
+        ImmutableMap.Builder<ColumnDescriptor, Long> columnValueCounts = ImmutableMap.builder();
+        for (ColumnChunkMetaData columnMetaData : blockMetadata.getColumns()) {
+            ColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
+            if (descriptor != null) {
+                columnValueCounts.put(descriptor, columnMetaData.getValueCount());
+            }
+        }
+        return columnValueCounts.buildOrThrow();
     }
 
     private static boolean dictionaryPredicatesMatch(
