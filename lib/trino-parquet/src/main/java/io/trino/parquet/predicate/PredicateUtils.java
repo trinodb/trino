@@ -113,7 +113,7 @@ public final class PredicateUtils
         return new BigDecimal(format("+%s.%s", "9".repeat(decimalType.getPrecision() - decimalType.getScale()), "9".repeat(decimalType.getScale())));
     }
 
-    public static Predicate buildPredicate(
+    public static TupleDomainParquetPredicate buildPredicate(
             MessageType requestedSchema,
             TupleDomain<ColumnDescriptor> parquetTupleDomain,
             Map<List<String>, ColumnDescriptor> descriptorsByPath,
@@ -130,7 +130,7 @@ public final class PredicateUtils
     }
 
     public static boolean predicateMatches(
-            Predicate parquetPredicate,
+            TupleDomainParquetPredicate parquetPredicate,
             BlockMetaData block,
             ParquetDataSource dataSource,
             Map<List<String>, ColumnDescriptor> descriptorsByPath,
@@ -150,7 +150,7 @@ public final class PredicateUtils
         // Perform column index and dictionary lookups only for the subset of columns where it can be useful.
         // This prevents unnecessary filesystem reads and decoding work when the predicate on a column comes from
         // file-level min/max stats or more generally when the predicate selects a range equal to or wider than row-group min/max.
-        Predicate indexPredicate = new TupleDomainParquetPredicate(parquetTupleDomain, candidateColumns.get(), timeZone);
+        TupleDomainParquetPredicate indexPredicate = new TupleDomainParquetPredicate(parquetTupleDomain, candidateColumns.get(), timeZone);
 
         // Page stats is finer grained but relatively more expensive, so we do the filtering after above block filtering.
         if (columnIndexStore.isPresent() && !indexPredicate.matches(block.getRowCount(), columnIndexStore.get(), dataSource.getId())) {
@@ -182,7 +182,7 @@ public final class PredicateUtils
     }
 
     private static boolean dictionaryPredicatesMatch(
-            Predicate parquetPredicate,
+            TupleDomainParquetPredicate parquetPredicate,
             BlockMetaData blockMetadata,
             ParquetDataSource dataSource,
             Map<List<String>, ColumnDescriptor> descriptorsByPath,
