@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.lang.Math.toIntExact;
@@ -299,6 +300,15 @@ public abstract class AbstractParquetDataSource
             if (referenceCount == 0) {
                 data = null;
             }
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("range", range)
+                    .add("referenceCount", referenceCount)
+                    .toString();
         }
     }
 }
