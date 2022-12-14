@@ -216,9 +216,9 @@ import static io.trino.plugin.iceberg.IcebergUtil.newCreateTableTransaction;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromMetadata;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
-import static io.trino.plugin.iceberg.TableStatisticsMaker.TRINO_STATS_COLUMN_ID_PATTERN;
-import static io.trino.plugin.iceberg.TableStatisticsMaker.TRINO_STATS_NDV_FORMAT;
-import static io.trino.plugin.iceberg.TableStatisticsMaker.TRINO_STATS_PREFIX;
+import static io.trino.plugin.iceberg.TableStatisticsReader.TRINO_STATS_COLUMN_ID_PATTERN;
+import static io.trino.plugin.iceberg.TableStatisticsReader.TRINO_STATS_NDV_FORMAT;
+import static io.trino.plugin.iceberg.TableStatisticsReader.TRINO_STATS_PREFIX;
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
@@ -2285,7 +2285,7 @@ public class IcebergMetadata
                         originalHandle.getMaxScannedFileSize()),
                 handle -> {
                     Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
-                    return TableStatisticsMaker.getTableStatistics(typeManager, session, handle, icebergTable);
+                    return TableStatisticsReader.getTableStatistics(typeManager, session, handle, icebergTable);
                 });
     }
 

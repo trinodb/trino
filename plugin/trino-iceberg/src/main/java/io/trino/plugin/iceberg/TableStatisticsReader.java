@@ -48,7 +48,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
-public class TableStatisticsMaker
+public class TableStatisticsReader
 {
     public static final String TRINO_STATS_PREFIX = "trino.stats.ndv.";
     public static final String TRINO_STATS_NDV_FORMAT = TRINO_STATS_PREFIX + "%d.ndv";
@@ -59,7 +59,7 @@ public class TableStatisticsMaker
     private final ConnectorSession session;
     private final Table icebergTable;
 
-    private TableStatisticsMaker(TypeManager typeManager, ConnectorSession session, Table icebergTable)
+    private TableStatisticsReader(TypeManager typeManager, ConnectorSession session, Table icebergTable)
     {
         this.typeManager = typeManager;
         this.session = session;
@@ -68,7 +68,7 @@ public class TableStatisticsMaker
 
     public static TableStatistics getTableStatistics(TypeManager typeManager, ConnectorSession session, IcebergTableHandle tableHandle, Table icebergTable)
     {
-        return new TableStatisticsMaker(typeManager, session, icebergTable).makeTableStatistics(tableHandle);
+        return new TableStatisticsReader(typeManager, session, icebergTable).makeTableStatistics(tableHandle);
     }
 
     private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle)
