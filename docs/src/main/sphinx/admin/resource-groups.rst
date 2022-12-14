@@ -72,9 +72,11 @@ Property name                                    Description                    
 
 ``resource-groups.config-db-password``           Password for database user to connect with.                 ``none``
 
-``resource-groups.max-refresh-interval``         Time period for which the cluster will continue to accept   ``1h``
-                                                 queries after refresh failures cause configuration to
-                                                 become stale.
+``resource-groups.max-refresh-interval``         The maximum time period for which the cluster will          ``1h``
+                                                 continue to accept queries after refresh failures,
+                                                 causing configuration to become stale.
+
+``resource-groups.refresh-interval``             How often the cluster reloads from the database             ``1s``
 
 ``resource-groups.exact-match-selector-enabled`` Setting this flag enables usage of an additional            ``false``
                                                  ``exact_match_source_selectors`` table to configure
