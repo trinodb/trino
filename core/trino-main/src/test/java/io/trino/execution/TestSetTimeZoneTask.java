@@ -79,9 +79,8 @@ public class TestSetTimeZoneTask
                 Optional.empty());
         executeSetTimeZone(setTimeZone, stateMachine);
 
-        Map<String, String> setSessionProperties = stateMachine.getSetSessionProperties();
-        assertThat(setSessionProperties).hasSize(1);
-        assertEquals(setSessionProperties.get(TIME_ZONE_ID), "America/Bahia_Banderas");
+        assertThat(stateMachine.getResetSessionProperties()).hasSize(1);
+        assertThat(stateMachine.getResetSessionProperties()).contains(TIME_ZONE_ID);
     }
 
     @Test
