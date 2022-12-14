@@ -34,7 +34,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -387,12 +386,6 @@ public class AccumuloMetadata
                 handle.getScanAuthorizations());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), false));
-    }
-
-    @Override
-    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle handle)
-    {
-        return new ConnectorTableProperties();
     }
 
     private void checkNoRollback()
