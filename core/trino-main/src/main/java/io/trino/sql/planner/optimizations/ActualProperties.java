@@ -149,14 +149,6 @@ public class ActualProperties
         return global.isEffectivelySingleStream(constants.keySet());
     }
 
-    /**
-     * @return true if repartitioning on the keys will yield some difference
-     */
-    public boolean isStreamRepartitionEffective(Collection<Symbol> keys)
-    {
-        return global.isStreamRepartitionEffective(keys, constants.keySet());
-    }
-
     public ActualProperties translate(Function<Symbol, Optional<Symbol>> translator)
     {
         return builder()
@@ -468,14 +460,6 @@ public class ActualProperties
         private boolean isEffectivelySingleStream(Set<Symbol> constants)
         {
             return streamPartitioning.isPresent() && streamPartitioning.get().isEffectivelySinglePartition(constants) && !nullsAndAnyReplicated;
-        }
-
-        /**
-         * @return true if repartitioning on the keys will yield some difference
-         */
-        private boolean isStreamRepartitionEffective(Collection<Symbol> keys, Set<Symbol> constants)
-        {
-            return (streamPartitioning.isEmpty() || streamPartitioning.get().isRepartitionEffective(keys, constants)) && !nullsAndAnyReplicated;
         }
 
         private Global translate(Partitioning.Translator translator)
