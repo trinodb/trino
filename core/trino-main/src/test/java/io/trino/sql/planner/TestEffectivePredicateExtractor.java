@@ -171,7 +171,6 @@ public class TestEffectivePredicateExtractor
                             ((PredicatedTableHandle) handle.getConnectorHandle()).getPredicate(),
                             Optional.empty(),
                             Optional.empty(),
-                            Optional.empty(),
                             ImmutableList.of()));
         }
     };

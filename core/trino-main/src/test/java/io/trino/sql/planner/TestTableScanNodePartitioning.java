@@ -190,7 +190,6 @@ public class TestTableScanNodePartitioning
                                 TupleDomain.all(),
                                 Optional.of(new ConnectorTablePartitioning(PARTITIONING_HANDLE, ImmutableList.of(COLUMN_HANDLE_A))),
                                 Optional.empty(),
-                                Optional.empty(),
                                 ImmutableList.of());
                     }
                     if (tableName.equals(SINGLE_BUCKET_TABLE)) {
@@ -198,14 +197,12 @@ public class TestTableScanNodePartitioning
                                 TupleDomain.all(),
                                 Optional.of(new ConnectorTablePartitioning(SINGLE_BUCKET_HANDLE, ImmutableList.of(COLUMN_HANDLE_A))),
                                 Optional.empty(),
-                                Optional.empty(),
                                 ImmutableList.of());
                     }
                     if (tableName.equals(FIXED_PARTITIONED_TABLE)) {
                         return new ConnectorTableProperties(
                                 TupleDomain.all(),
                                 Optional.of(new ConnectorTablePartitioning(FIXED_PARTITIONING_HANDLE, ImmutableList.of(COLUMN_HANDLE_A))),
-                                Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of());
                     }

@@ -93,7 +93,6 @@ public class TestPartialTopNWithPresortedInput
                                 TupleDomain.all(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.empty(),
                                 ImmutableList.of(new SortingProperty<>(columnHandleA, ASC_NULLS_FIRST)));
                     }
                     else if (tableHandle.getTableName().equals(nestedField)) {
