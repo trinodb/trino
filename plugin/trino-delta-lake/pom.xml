@@ -175,6 +175,11 @@
         </dependency>
 
         <dependency>
+            <groupId>org.antlr</groupId>
+            <artifactId>antlr4-runtime</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-api</artifactId>
         </dependency>
@@ -439,6 +444,11 @@
                         <ignoredDependency>org.apache.iceberg:iceberg-api</ignoredDependency>
                     </ignoredNonTestScopedDependencies>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.antlr</groupId>
+                <artifactId>antlr4-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>
