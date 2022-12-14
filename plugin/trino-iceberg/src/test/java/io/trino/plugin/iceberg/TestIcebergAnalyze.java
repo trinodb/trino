@@ -18,8 +18,6 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import java.util.Map;
-
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_TABLE_PROCEDURE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -38,7 +36,6 @@ public class TestIcebergAnalyze
             throws Exception
     {
         return IcebergQueryRunner.builder()
-                .setIcebergProperties(Map.of("iceberg.experimental.extended-statistics.enabled", "true"))
                 .setInitialTables(NATION)
                 .build();
     }
