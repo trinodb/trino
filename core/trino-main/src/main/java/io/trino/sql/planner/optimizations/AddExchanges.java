@@ -361,8 +361,7 @@ public class AddExchanges
 
             PlanWithProperties child = node.getSource().accept(this, preferredChildProperties);
 
-            if (child.getProperties().isSingleNode() ||
-                    !isStreamPartitionedOn(child.getProperties(), node.getDistinctSymbols())) {
+            if (child.getProperties().isSingleNode() || !isNodePartitionedOn(child.getProperties(), node.getDistinctSymbols())) {
                 child = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
