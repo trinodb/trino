@@ -361,4 +361,6 @@ The connector supports pushdown for a number of operations:
 * :func:`min`
 * :func:`sum`
 
+.. include:: pushdown-correctness-behavior.fragment
+
 .. include:: no-pushdown-text-type.fragment
