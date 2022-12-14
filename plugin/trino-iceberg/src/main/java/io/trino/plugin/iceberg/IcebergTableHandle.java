@@ -160,6 +160,7 @@ public class IcebergTableHandle
         return tableType;
     }
 
+    // Empty only when reading from a table that has no snapshots yet.
     @JsonProperty
     public Optional<Long> getSnapshotId()
     {
