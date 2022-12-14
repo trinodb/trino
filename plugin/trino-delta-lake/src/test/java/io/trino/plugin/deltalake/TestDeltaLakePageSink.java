@@ -138,23 +138,12 @@ public class TestDeltaLakePageSink
     private void writeToBlock(BlockBuilder blockBuilder, LineItemColumn column, LineItem lineItem)
     {
         switch (column.getType().getBase()) {
-            case IDENTIFIER:
-                BIGINT.writeLong(blockBuilder, column.getIdentifier(lineItem));
-                break;
-            case INTEGER:
-                INTEGER.writeLong(blockBuilder, column.getInteger(lineItem));
-                break;
-            case DATE:
-                DATE.writeLong(blockBuilder, column.getDate(lineItem));
-                break;
-            case DOUBLE:
-                DOUBLE.writeDouble(blockBuilder, column.getDouble(lineItem));
-                break;
-            case VARCHAR:
-                createUnboundedVarcharType().writeSlice(blockBuilder, Slices.utf8Slice(column.getString(lineItem)));
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported type " + column.getType());
+            case IDENTIFIER -> BIGINT.writeLong(blockBuilder, column.getIdentifier(lineItem));
+            case INTEGER -> INTEGER.writeLong(blockBuilder, column.getInteger(lineItem));
+            case DATE -> DATE.writeLong(blockBuilder, column.getDate(lineItem));
+            case DOUBLE -> DOUBLE.writeDouble(blockBuilder, column.getDouble(lineItem));
+            case VARCHAR -> createUnboundedVarcharType().writeSlice(blockBuilder, Slices.utf8Slice(column.getString(lineItem)));
+            default -> throw new IllegalArgumentException("Unsupported type " + column.getType());
         }
     }
 
@@ -203,19 +192,12 @@ public class TestDeltaLakePageSink
 
     private static Type getTrinoType(TpchColumnType type)
     {
-        switch (type.getBase()) {
-            case IDENTIFIER:
-                return BIGINT;
-            case INTEGER:
-                return INTEGER;
-            case DATE:
-                return DATE;
-            case DOUBLE:
-                return DOUBLE;
-            case VARCHAR:
-                return createUnboundedVarcharType();
-            default:
-                throw new UnsupportedOperationException();
-        }
+        return switch (type.getBase()) {
+            case IDENTIFIER -> BIGINT;
+            case INTEGER -> INTEGER;
+            case DATE -> DATE;
+            case DOUBLE -> DOUBLE;
+            case VARCHAR -> createUnboundedVarcharType();
+        };
     }
 }
