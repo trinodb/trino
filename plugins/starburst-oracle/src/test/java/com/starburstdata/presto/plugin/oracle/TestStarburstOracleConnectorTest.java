@@ -9,7 +9,6 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
@@ -186,7 +185,7 @@ public class TestStarburstOracleConnectorTest
                 onRemoteDatabase(),
                 getUser() + ".test_predicate_pushdown_timestamp",
                 "(t_timestamp TIMESTAMP, t_timestamp3_with_tz TIMESTAMP(3) WITH TIME ZONE, t_timestamp_with_tz TIMESTAMP WITH TIME ZONE, dummy_col VARCHAR(12))",
-                ImmutableList.of(Joiner.on(", ").join(values)))) {
+                ImmutableList.of(String.join(", ", values)))) {
             assertThat(query(format(
                     "SELECT dummy_col FROM %s WHERE t_timestamp = %s",
                     table.getName(),
