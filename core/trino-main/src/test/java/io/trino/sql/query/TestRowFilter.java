@@ -626,7 +626,7 @@ public class TestRowFilter
     }
 
     /**
-     * Like {@link #testInsert()} ()} but using the MERGE statement.
+     * Like {@link #testInsert()} but using the MERGE statement.
      */
     @Test
     public void testMergeInsert()
