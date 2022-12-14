@@ -59,8 +59,8 @@ public class GlueMetastoreModule
                 .setDefault().toProvider(DefaultGlueMetastoreTableFilterProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
-        binder.bind(HiveMetastoreFactory.class)
-                .annotatedWith(RawHiveMetastoreFactory.class)
+        newOptionalBinder(binder, Key.get(HiveMetastoreFactory.class, RawHiveMetastoreFactory.class))
+                .setDefault()
                 .to(GlueHiveMetastoreFactory.class)
                 .in(Scopes.SINGLETON);
 
