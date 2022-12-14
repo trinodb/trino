@@ -38,7 +38,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Float.intBitsToFloat;
@@ -131,16 +130,11 @@ public final class PinotQueryBuilder
         String predicateArgument = pinotColumnHandle.isAggregate() ? pinotColumnHandle.getExpression() : quoteIdentifier(pinotColumnHandle.getColumnName());
         ValueSet valueSet = domain.getValues();
         if (valueSet.isNone()) {
-            verify(!domain.isNullAllowed(), "IS NULL is not supported due to different null handling semantics. See https://docs.pinot.apache.org/developers/advanced/null-value-support");
+            if (domain.isNullAllowed()) {
+                return Optional.of(format("%s IS NULL", predicateArgument));
+            }
             return Optional.of(format("(%s != %s)", predicateArgument, predicateArgument));
         }
-        if (valueSet.isAll()) {
-            verify(domain.isNullAllowed(), "IS NOT NULL is not supported due to different null handling semantics. See https://docs.pinot.apache.org/developers/advanced/null-value-support");
-            // Pinot does not support "1 = 1" syntax: see https://github.com/apache/pinot/issues/10600
-            // As a workaround, skip adding always true to conjuncts
-            return Optional.empty();
-        }
-        verify(!domain.getValues().getRanges().getOrderedRanges().isEmpty() && !domain.isNullAllowed(), "IS NULL is not supported due to different null handling semantics. See https://docs.pinot.apache.org/developers/advanced/null-value-support");
         List<String> disjuncts = new ArrayList<>();
         List<Object> singleValues = new ArrayList<>();
         boolean invertPredicate = false;
@@ -152,22 +146,26 @@ public final class PinotQueryBuilder
             }
         }
         for (Range range : valueSet.getRanges().getOrderedRanges()) {
-            checkState(!range.isAll()); // Already checked
             if (range.isSingleValue()) {
                 singleValues.add(convertValue(range.getType(), range.getSingleValue()));
             }
             else {
                 List<String> rangeConjuncts = new ArrayList<>();
+                if (range.isAll()) {
+                    rangeConjuncts.add(format("%s IS NOT NULL", predicateArgument));
+                }
                 if (!range.isLowUnbounded()) {
                     rangeConjuncts.add(toConjunct(predicateArgument, range.isLowInclusive() ? ">=" : ">", convertValue(range.getType(), range.getLowBoundedValue())));
                 }
                 if (!range.isHighUnbounded()) {
                     rangeConjuncts.add(toConjunct(predicateArgument, range.isHighInclusive() ? "<=" : "<", convertValue(range.getType(), range.getHighBoundedValue())));
                 }
-                // If rangeConjuncts is null, then the range was ALL, which is not supported in pql
-                checkState(!rangeConjuncts.isEmpty());
                 disjuncts.add("(" + Joiner.on(" AND ").join(rangeConjuncts) + ")");
             }
+        }
+        // No ranges means the predicate is a null check
+        if (singleValues.isEmpty() && disjuncts.isEmpty()) {
+            disjuncts.add(format("%s IS NULL", predicateArgument));
         }
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {

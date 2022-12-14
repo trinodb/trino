@@ -53,7 +53,6 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import org.apache.pinot.spi.data.Schema;
@@ -320,18 +319,9 @@ public class PinotMetadata
         return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, constraint.getExpression(), false));
     }
 
-    // IS NULL and IS NOT NULL are handled differently in Pinot, pushing down would lead to inconsistent results.
-    // See https://docs.pinot.apache.org/developers/advanced/null-value-support for more info.
     private boolean isFilterPushdownUnsupported(Domain domain)
     {
-        ValueSet valueSet = domain.getValues();
-        boolean isNotNull = valueSet.isAll() && !domain.isNullAllowed();
-        boolean isUnsupportedAlwaysFalse = domain.isNone() && !SUPPORTS_ALWAYS_FALSE.contains(domain.getType());
-        boolean isInOrNull = !valueSet.getRanges().getOrderedRanges().isEmpty() && domain.isNullAllowed();
-        return isNotNull ||
-                domain.isOnlyNull() ||
-                isUnsupportedAlwaysFalse ||
-                isInOrNull;
+        return domain.isNone() && !SUPPORTS_ALWAYS_FALSE.contains(domain.getType());
     }
 
     @Override
