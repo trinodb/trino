@@ -28,7 +28,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
-import org.jdbi.v3.core.HandleCallback;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
 
@@ -51,8 +50,8 @@ public final class RedshiftQueryRunner
 {
     private static final Logger log = Logger.get(RedshiftQueryRunner.class);
     private static final String JDBC_ENDPOINT = requireSystemProperty("test.redshift.jdbc.endpoint");
-    static final String JDBC_USER = requireSystemProperty("test.redshift.jdbc.user");
-    static final String JDBC_PASSWORD = requireSystemProperty("test.redshift.jdbc.password");
+    private static final String JDBC_USER = requireSystemProperty("test.redshift.jdbc.user");
+    private static final String JDBC_PASSWORD = requireSystemProperty("test.redshift.jdbc.password");
     private static final String S3_TPCH_TABLES_ROOT = requireSystemProperty("test.redshift.s3.tpch.tables.root");
     private static final String IAM_ROLE = requireSystemProperty("test.redshift.iam.role");
 
@@ -60,7 +59,7 @@ public final class RedshiftQueryRunner
     private static final String TEST_CATALOG = "redshift";
     static final String TEST_SCHEMA = "test_schema";
 
-    static final String JDBC_URL = "jdbc:redshift://" + JDBC_ENDPOINT + TEST_DATABASE;
+    private static final String JDBC_URL = "jdbc:redshift://" + JDBC_ENDPOINT + TEST_DATABASE;
 
     private static final String CONNECTOR_NAME = "redshift";
     private static final String TPCH_CATALOG = "tpch";
@@ -165,16 +164,10 @@ public final class RedshiftQueryRunner
         executeInRedshift(handle -> handle.execute(sql, parameters));
     }
 
-    public static <E extends Exception> void executeInRedshift(HandleConsumer<E> consumer)
+    private static <E extends Exception> void executeInRedshift(HandleConsumer<E> consumer)
             throws E
     {
-        executeWithRedshift(consumer.asCallback());
-    }
-
-    public static <T, E extends Exception> T executeWithRedshift(HandleCallback<T, E> callback)
-            throws E
-    {
-        return Jdbi.create(JDBC_URL, JDBC_USER, JDBC_PASSWORD).withHandle(callback);
+        Jdbi.create(JDBC_URL, JDBC_USER, JDBC_PASSWORD).withHandle(consumer.asCallback());
     }
 
     private static synchronized void provisionTables(Session session, QueryRunner queryRunner, Iterable<TpchTable<?>> tables)

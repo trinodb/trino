@@ -21,7 +21,6 @@ import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
 import org.testng.SkipException;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -29,7 +28,6 @@ import java.util.OptionalInt;
 
 import static io.trino.plugin.redshift.RedshiftQueryRunner.TEST_SCHEMA;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.createRedshiftQueryRunner;
-import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -101,6 +99,9 @@ public class TestRedshiftConnectorTest
                 return Optional.empty();
             }
         }
+        if ("tinyint".equals(typeName) || typeName.startsWith("time") || "varbinary".equals(typeName)) {
+            return Optional.empty();
+        }
         return Optional.of(dataMappingTestSetup);
     }
 
@@ -116,39 +117,6 @@ public class TestRedshiftConnectorTest
         assertCreateTableAsSelect(
                 "SELECT CAST('\u2603' AS VARCHAR) unicode",
                 "SELECT 1");
-    }
-
-    @Test(dataProvider = "redshiftTypeToTrinoTypes")
-    public void testReadFromLateBindingView(String redshiftType, String trinoType)
-    {
-        try (TestView view = new TestView(onRemoteDatabase(), TEST_SCHEMA + ".late_schema_binding", "SELECT CAST(NULL AS %s) AS value WITH NO SCHEMA BINDING".formatted(redshiftType))) {
-            assertThat(query("SELECT value, true FROM %s WHERE value IS NULL".formatted(view.getName())))
-                    .projected(1)
-                    .containsAll("VALUES (true)");
-
-            assertThat(query("SHOW COLUMNS FROM %s LIKE 'value'".formatted(view.getName())))
-                    .projected(1)
-                    .skippingTypesCheck()
-                    .containsAll("VALUES ('%s')".formatted(trinoType));
-        }
-    }
-
-    @DataProvider
-    public Object[][] redshiftTypeToTrinoTypes()
-    {
-        return new Object[][] {
-                {"SMALLINT", "smallint"},
-                {"INTEGER", "integer"},
-                {"BIGINT", "bigint"},
-                {"DECIMAL", "decimal(18,0)"},
-                {"REAL", "real"},
-                {"DOUBLE PRECISION", "double"},
-                {"BOOLEAN", "boolean"},
-                {"CHAR(1)", "char(1)"},
-                {"VARCHAR(1)", "varchar(1)"},
-                {"TIME", "time(6)"},
-                {"TIMESTAMP", "timestamp(6)"},
-                {"TIMESTAMPTZ", "timestamp(6) with time zone"}};
     }
 
     @Override
@@ -217,30 +185,5 @@ public class TestRedshiftConnectorTest
     public void testAddNotNullColumnToNonEmptyTable()
     {
         throw new SkipException("Redshift ALTER TABLE ADD COLUMN defined as NOT NULL must have a non-null default expression");
-    }
-
-    private static class TestView
-            implements AutoCloseable
-    {
-        private final String name;
-        private final SqlExecutor executor;
-
-        public TestView(SqlExecutor executor, String namePrefix, String viewDefinition)
-        {
-            this.executor = executor;
-            this.name = namePrefix + "_" + randomNameSuffix();
-            executor.execute("CREATE OR REPLACE VIEW " + name + " AS " + viewDefinition);
-        }
-
-        @Override
-        public void close()
-        {
-            executor.execute("DROP VIEW " + name);
-        }
-
-        public String getName()
-        {
-            return name;
-        }
     }
 }
