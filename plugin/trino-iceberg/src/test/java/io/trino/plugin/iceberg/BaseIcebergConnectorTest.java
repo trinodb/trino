@@ -3121,8 +3121,8 @@ public abstract class BaseIcebergConnectorTest
     {
         Session defaultSession = getSession();
         String catalog = defaultSession.getCatalog().orElseThrow();
-        Session extendedStatisticsEnabled = Session.builder(defaultSession)
-                .setCatalogSessionProperty(catalog, EXTENDED_STATISTICS_ENABLED, "true")
+        Session extendedStatisticsDisabled = Session.builder(defaultSession)
+                .setCatalogSessionProperty(catalog, EXTENDED_STATISTICS_ENABLED, "false")
                 .build();
         String tableName = "test_basic_analyze";
 
@@ -3154,22 +3154,22 @@ public abstract class BaseIcebergConnectorTest
 
         // initially, no NDV information
         assertThat(query(defaultSession, "SHOW STATS FOR " + tableName)).skippingTypesCheck().matches(statsWithoutNdv);
-        assertThat(query(extendedStatisticsEnabled, "SHOW STATS FOR " + tableName)).skippingTypesCheck().matches(statsWithoutNdv);
+        assertThat(query(extendedStatisticsDisabled, "SHOW STATS FOR " + tableName)).skippingTypesCheck().matches(statsWithoutNdv);
 
-        // ANALYZE needs to be enabled. This is because it currently stores additional statistics in a Trino-specific format and the format will change.
+        // ANALYZE can be disabled.
         assertQueryFails(
-                defaultSession,
+                extendedStatisticsDisabled,
                 "ANALYZE " + tableName,
-                "\\QAnalyze is not enabled. You can enable analyze using iceberg.experimental.extended-statistics.enabled config or experimental_extended_statistics_enabled catalog session property");
+                "\\QAnalyze is not enabled. You can enable analyze using iceberg.extended-statistics.enabled config or extended_statistics_enabled catalog session property");
 
         // ANALYZE the table
-        assertUpdate(extendedStatisticsEnabled, "ANALYZE " + tableName);
+        assertUpdate(defaultSession, "ANALYZE " + tableName);
         // After ANALYZE, NDV information present
-        assertThat(query(extendedStatisticsEnabled, "SHOW STATS FOR " + tableName))
+        assertThat(query(defaultSession, "SHOW STATS FOR " + tableName))
                 .skippingTypesCheck()
                 .matches(statsWithNdv);
-        // NDV information is not present in a session with extended statistics not enabled
-        assertThat(query(defaultSession, "SHOW STATS FOR " + tableName))
+        // NDV information is not present in a session with extended statistics disabled
+        assertThat(query(extendedStatisticsDisabled, "SHOW STATS FOR " + tableName))
                 .skippingTypesCheck()
                 .matches(statsWithoutNdv);
 

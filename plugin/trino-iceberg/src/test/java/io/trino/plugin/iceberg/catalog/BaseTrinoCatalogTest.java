@@ -16,8 +16,10 @@ package io.trino.plugin.iceberg.catalog;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergMetadata;
+import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -107,7 +109,8 @@ public abstract class BaseTrinoCatalogTest
                     catalog,
                     connectorIdentity -> {
                         throw new UnsupportedOperationException();
-                    });
+                    },
+                    new TableStatisticsWriter(new NodeVersion("test-version")));
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")

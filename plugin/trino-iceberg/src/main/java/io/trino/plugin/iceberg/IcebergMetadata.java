@@ -119,12 +119,14 @@ import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.UpdatePartitionSpec;
 import org.apache.iceberg.UpdateProperties;
+import org.apache.iceberg.UpdateStatistics;
 import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.Term;
@@ -217,7 +219,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.schemaFromMetadata;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.plugin.iceberg.TableStatisticsReader.TRINO_STATS_COLUMN_ID_PATTERN;
-import static io.trino.plugin.iceberg.TableStatisticsReader.TRINO_STATS_NDV_FORMAT;
 import static io.trino.plugin.iceberg.TableStatisticsReader.TRINO_STATS_PREFIX;
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
@@ -271,7 +272,7 @@ public class IcebergMetadata
     public static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
     public static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
 
-    private static final String NUMBER_OF_DISTINCT_VALUES_NAME = "NUMBER_OF_DISTINCT_VALUES";
+    public static final String NUMBER_OF_DISTINCT_VALUES_NAME = "NUMBER_OF_DISTINCT_VALUES";
     private static final FunctionName NUMBER_OF_DISTINCT_VALUES_FUNCTION = new FunctionName(IcebergThetaSketchForStats.NAME);
 
     private static final Integer DELETE_BATCH_SIZE = 1000;
@@ -280,6 +281,7 @@ public class IcebergMetadata
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final TrinoCatalog catalog;
     private final TrinoFileSystemFactory fileSystemFactory;
+    private final TableStatisticsWriter tableStatisticsWriter;
 
     private final Map<IcebergTableHandle, TableStatistics> tableStatisticsCache = new ConcurrentHashMap<>();
 
@@ -289,12 +291,14 @@ public class IcebergMetadata
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
             TrinoCatalog catalog,
-            TrinoFileSystemFactory fileSystemFactory)
+            TrinoFileSystemFactory fileSystemFactory,
+            TableStatisticsWriter tableStatisticsWriter)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.tableStatisticsWriter = requireNonNull(tableStatisticsWriter, "tableStatisticsWriter is null");
     }
 
     @Override
@@ -1193,6 +1197,11 @@ public class IcebergMetadata
 
         Table icebergTable = catalog.loadTable(session, executeHandle.getSchemaTableName());
         beginTransaction(icebergTable);
+        UpdateStatistics updateStatistics = transaction.updateStatistics();
+        for (StatisticsFile statisticsFile : icebergTable.statisticsFiles()) {
+            updateStatistics.removeStatistics(statisticsFile.snapshotId());
+        }
+        updateStatistics.commit();
         UpdateProperties updateProperties = transaction.updateProperties();
         for (String key : transaction.table().properties().keySet()) {
             if (key.startsWith(TRINO_STATS_PREFIX)) {
@@ -1578,9 +1587,10 @@ public class IcebergMetadata
 
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         checkArgument(handle.getTableType() == DATA, "Cannot analyze non-DATA table: %s", handle.getTableType());
-        Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
-        if (handle.getSnapshotId().isPresent() && (handle.getSnapshotId().get() != icebergTable.currentSnapshot().snapshotId())) {
-            throw new TrinoException(NOT_SUPPORTED, "Cannot analyze old snapshot %s".formatted(handle.getSnapshotId().get()));
+
+        if (handle.getSnapshotId().isEmpty()) {
+            // No snapshot, table is empty
+            return new ConnectorAnalyzeMetadata(tableHandle, TableStatisticsMetadata.empty());
         }
 
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle);
@@ -1627,13 +1637,36 @@ public class IcebergMetadata
     @Override
     public void finishStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
     {
-        UpdateProperties updateProperties = transaction.updateProperties();
-        Map<String, Integer> columnNameToId = transaction.table().schema().columns().stream()
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        Table table = transaction.table();
+        if (handle.getSnapshotId().isEmpty()) {
+            // No snapshot, table is empty
+            verify(
+                    computedStatistics.isEmpty(),
+                    "Unexpected computed statistics that cannot be attached to a snapshot because none exists: %s",
+                    computedStatistics);
+
+            // TODO (https://github.com/trinodb/trino/issues/15397): remove support for Trino-specific statistics properties
+            // Drop all stats. Empty table needs none
+            UpdateProperties updateProperties = transaction.updateProperties();
+            table.properties().keySet().stream()
+                    .filter(key -> key.startsWith(TRINO_STATS_PREFIX))
+                    .forEach(updateProperties::remove);
+            updateProperties.commit();
+
+            transaction.commitTransaction();
+            transaction = null;
+        }
+        long snapshotId = handle.getSnapshotId().orElseThrow();
+
+        Map<String, Integer> columnNameToId = table.schema().columns().stream()
                 .collect(toImmutableMap(nestedField -> nestedField.name().toLowerCase(ENGLISH), Types.NestedField::fieldId));
         Set<Integer> columnIds = ImmutableSet.copyOf(columnNameToId.values());
 
+        // TODO (https://github.com/trinodb/trino/issues/15397): remove support for Trino-specific statistics properties
         // Drop stats for obsolete columns
-        transaction.table().properties().keySet().stream()
+        UpdateProperties updateProperties = transaction.updateProperties();
+        table.properties().keySet().stream()
                 .filter(key -> {
                     if (!key.startsWith(TRINO_STATS_PREFIX)) {
                         return false;
@@ -1645,7 +1678,9 @@ public class IcebergMetadata
                     return !columnIds.contains(Integer.parseInt(matcher.group("columnId")));
                 })
                 .forEach(updateProperties::remove);
+        updateProperties.commit();
 
+        ImmutableMap.Builder<Integer, CompactSketch> ndvSketches = ImmutableMap.builder();
         for (ComputedStatistics computedStatistic : computedStatistics) {
             verify(computedStatistic.getGroupingColumns().isEmpty() && computedStatistic.getGroupingValues().isEmpty(), "Unexpected grouping");
             verify(computedStatistic.getTableStatistics().isEmpty(), "Unexpected table statistics");
@@ -1657,8 +1692,7 @@ public class IcebergMetadata
                             "Column not found in table: [%s]",
                             statisticMetadata.getColumnName());
                     CompactSketch sketch = DataSketchStateSerializer.deserialize(entry.getValue(), 0);
-                    // TODO: store whole sketch to support updates, see also https://github.com/apache/iceberg-docs/pull/69
-                    updateProperties.set(TRINO_STATS_NDV_FORMAT.formatted(columnId), Long.toString((long) sketch.getEstimate()));
+                    ndvSketches.put(columnId, sketch);
                 }
                 else {
                     throw new UnsupportedOperationException("Unsupported statistic: " + statisticMetadata);
@@ -1666,7 +1700,15 @@ public class IcebergMetadata
             }
         }
 
-        updateProperties.commit();
+        StatisticsFile statisticsFile = tableStatisticsWriter.writeStatisticsFile(
+                session,
+                table,
+                snapshotId,
+                ndvSketches.buildOrThrow());
+        transaction.updateStatistics()
+                .setStatistics(snapshotId, statisticsFile)
+                .commit();
+
         transaction.commitTransaction();
         transaction = null;
     }
