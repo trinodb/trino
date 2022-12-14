@@ -145,7 +145,7 @@ public abstract class BaseIcebergCostBasedPlanTest
                 .put(EXTENDED_STATISTICS_CONFIG, "true")
                 .buildOrThrow();
 
-        return new IcebergConnectorFactory()
+        return new IcebergConnectorFactory("iceberg")
         {
             @Override
             public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)

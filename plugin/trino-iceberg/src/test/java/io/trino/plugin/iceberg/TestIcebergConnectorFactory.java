@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 
 public class TestIcebergConnectorFactory
 {
@@ -44,7 +45,16 @@ public class TestIcebergConnectorFactory
 
     private static void createConnector(Map<String, String> config)
     {
-        ConnectorFactory factory = new IcebergConnectorFactory();
+        ConnectorFactory factory = new IcebergConnectorFactory("iceberg");
+        factory.create("test", config, new TestingConnectorContext());
+    }
+
+    @Test
+    public void testCustomConnectorName()
+    {
+        Map<String, String> config = ImmutableMap.of("hive.metastore.uri", "thrift://localhost:1234");
+        ConnectorFactory factory = new IcebergConnectorFactory("customized-iceberg", IcebergConnectorFactory.EmptyModule.class);
+        assertEquals(factory.getName(), "customized-iceberg");
         factory.create("test", config, new TestingConnectorContext());
     }
 }

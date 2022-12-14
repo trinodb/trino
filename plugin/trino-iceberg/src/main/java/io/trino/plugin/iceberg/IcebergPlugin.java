@@ -27,7 +27,7 @@ public class IcebergPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new IcebergConnectorFactory());
+        return ImmutableList.of(new IcebergConnectorFactory("iceberg"));
     }
 
     @Override
