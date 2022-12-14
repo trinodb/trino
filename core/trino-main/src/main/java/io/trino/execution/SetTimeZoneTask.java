@@ -35,7 +35,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
-import java.util.TimeZone;
+import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.SystemSessionProperties.TIME_ZONE_ID;
@@ -76,11 +76,14 @@ public class SetTimeZoneTask
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
-        String timeZoneId = statement.getTimeZone()
-                .map(timeZone -> getTimeZoneId(timeZone, statement, stateMachine, parameters, warningCollector))
-                .orElse(TimeZone.getDefault().getID());
-        stateMachine.addSetSessionProperties(TIME_ZONE_ID, timeZoneId);
-
+        Optional<String> timeZoneId = statement.getTimeZone()
+                .map(timeZone -> getTimeZoneId(timeZone, statement, stateMachine, parameters, warningCollector));
+        if (timeZoneId.isPresent()) {
+            stateMachine.addSetSessionProperties(TIME_ZONE_ID, timeZoneId.get());
+        }
+        else {
+            stateMachine.addResetSessionProperties(TIME_ZONE_ID);
+        }
         return immediateVoidFuture();
     }
 
