@@ -48,7 +48,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
@@ -372,13 +371,6 @@ public class BigQueryMetadata
             }
         }
         return columns.buildOrThrow();
-    }
-
-    @Override
-    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
-    {
-        log.debug("getTableProperties(session=%s, prefix=%s)", session, table);
-        return new ConnectorTableProperties();
     }
 
     @Override
