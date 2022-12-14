@@ -82,31 +82,18 @@ public final class GeometrySerde
     {
         GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
         switch (type) {
-            case POINT:
-                writePoint(output, geometry);
-                return;
-            case MULTI_POINT:
-                writeSimpleGeometry(output, GeometrySerializationType.MULTI_POINT, geometry);
-                return;
-            case LINE_STRING:
-                writeSimpleGeometry(output, GeometrySerializationType.LINE_STRING, geometry);
-                return;
-            case MULTI_LINE_STRING:
-                writeSimpleGeometry(output, GeometrySerializationType.MULTI_LINE_STRING, geometry);
-                return;
-            case POLYGON:
-                writeSimpleGeometry(output, GeometrySerializationType.POLYGON, geometry);
-                return;
-            case MULTI_POLYGON:
-                writeSimpleGeometry(output, GeometrySerializationType.MULTI_POLYGON, geometry);
-                return;
-            case GEOMETRY_COLLECTION: {
+            case POINT -> writePoint(output, geometry);
+            case MULTI_POINT -> writeSimpleGeometry(output, GeometrySerializationType.MULTI_POINT, geometry);
+            case LINE_STRING -> writeSimpleGeometry(output, GeometrySerializationType.LINE_STRING, geometry);
+            case MULTI_LINE_STRING -> writeSimpleGeometry(output, GeometrySerializationType.MULTI_LINE_STRING, geometry);
+            case POLYGON -> writeSimpleGeometry(output, GeometrySerializationType.POLYGON, geometry);
+            case MULTI_POLYGON -> writeSimpleGeometry(output, GeometrySerializationType.MULTI_POLYGON, geometry);
+            case GEOMETRY_COLLECTION -> {
                 verify(geometry instanceof OGCConcreteGeometryCollection);
                 writeGeometryCollection(output, (OGCConcreteGeometryCollection) geometry);
-                return;
             }
+            default -> throw new IllegalArgumentException("Unexpected type: " + type);
         }
-        throw new IllegalArgumentException("Unexpected type: " + type);
     }
 
     private static void writeGeometryCollection(DynamicSliceOutput output, OGCGeometryCollection collection)
@@ -175,21 +162,12 @@ public final class GeometrySerde
 
     private static OGCGeometry readGeometry(BasicSliceInput input, Slice inputSlice, GeometrySerializationType type, int length)
     {
-        switch (type) {
-            case POINT:
-                return readPoint(input);
-            case MULTI_POINT:
-            case LINE_STRING:
-            case MULTI_LINE_STRING:
-            case POLYGON:
-            case MULTI_POLYGON:
-                return readSimpleGeometry(input, inputSlice, type, length);
-            case GEOMETRY_COLLECTION:
-                return readGeometryCollection(input, inputSlice);
-            case ENVELOPE:
-                return createFromEsriGeometry(readEnvelope(input), false);
-        }
-        throw new IllegalArgumentException("Unexpected type: " + type);
+        return switch (type) {
+            case POINT -> readPoint(input);
+            case MULTI_POINT, LINE_STRING, MULTI_LINE_STRING, POLYGON, MULTI_POLYGON -> readSimpleGeometry(input, inputSlice, type, length);
+            case GEOMETRY_COLLECTION -> readGeometryCollection(input, inputSlice);
+            case ENVELOPE -> createFromEsriGeometry(readEnvelope(input), false);
+        };
     }
 
     private static OGCConcreteGeometryCollection readGeometryCollection(BasicSliceInput input, Slice inputSlice)
@@ -286,21 +264,12 @@ public final class GeometrySerde
 
     private static Envelope getEnvelope(BasicSliceInput input, GeometrySerializationType type, int length)
     {
-        switch (type) {
-            case POINT:
-                return getPointEnvelope(input);
-            case MULTI_POINT:
-            case LINE_STRING:
-            case MULTI_LINE_STRING:
-            case POLYGON:
-            case MULTI_POLYGON:
-                return getSimpleGeometryEnvelope(input, length);
-            case GEOMETRY_COLLECTION:
-                return getGeometryCollectionOverallEnvelope(input);
-            case ENVELOPE:
-                return readEnvelope(input);
-        }
-        throw new IllegalArgumentException("Unexpected type: " + type);
+        return switch (type) {
+            case POINT -> getPointEnvelope(input);
+            case MULTI_POINT, LINE_STRING, MULTI_LINE_STRING, POLYGON, MULTI_POLYGON -> getSimpleGeometryEnvelope(input, length);
+            case GEOMETRY_COLLECTION -> getGeometryCollectionOverallEnvelope(input);
+            case ENVELOPE -> readEnvelope(input);
+        };
     }
 
     private static Envelope getGeometryCollectionOverallEnvelope(BasicSliceInput input)
