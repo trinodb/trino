@@ -526,6 +526,8 @@ with the following functions:
 * :func:`covar_samp()`
 * :func:`covar_pop()`
 
+.. include:: pushdown-correctness-behavior.fragment
+
 .. include:: join-pushdown-enabled-false.fragment
 
 .. _oracle-predicate-pushdown:

@@ -418,6 +418,8 @@ The connector supports pushdown for a number of operations:
 * :func:`var_pop`
 * :func:`var_samp`
 
+.. include:: pushdown-correctness-behavior.fragment
+
 .. include:: join-pushdown-enabled-true.fragment
 
 .. include:: no-pushdown-text-type.fragment
