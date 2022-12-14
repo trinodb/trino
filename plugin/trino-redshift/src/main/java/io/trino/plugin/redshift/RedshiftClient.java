@@ -35,7 +35,6 @@ import io.trino.spi.type.VarcharType;
 import javax.inject.Inject;
 
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -129,36 +128,6 @@ public class RedshiftClient
         PreparedStatement statement = connection.prepareStatement(sql);
         statement.setFetchSize(1000);
         return statement;
-    }
-
-    @Override
-    protected void verifySchemaName(DatabaseMetaData databaseMetadata, String schemaName)
-            throws SQLException
-    {
-        // Redshift truncates schema name to 127 chars silently
-        if (schemaName.length() > databaseMetadata.getMaxSchemaNameLength()) {
-            throw new TrinoException(NOT_SUPPORTED, "Schema name must be shorter than or equal to '%d' characters but got '%d'".formatted(databaseMetadata.getMaxSchemaNameLength(), schemaName.length()));
-        }
-    }
-
-    @Override
-    protected void verifyTableName(DatabaseMetaData databaseMetadata, String tableName)
-            throws SQLException
-    {
-        // Redshift truncates table name to 127 chars silently
-        if (tableName.length() > databaseMetadata.getMaxTableNameLength()) {
-            throw new TrinoException(NOT_SUPPORTED, "Table name must be shorter than or equal to '%d' characters but got '%d'".formatted(databaseMetadata.getMaxTableNameLength(), tableName.length()));
-        }
-    }
-
-    @Override
-    protected void verifyColumnName(DatabaseMetaData databaseMetadata, String columnName)
-            throws SQLException
-    {
-        // Redshift truncates table name to 127 chars silently
-        if (columnName.length() > databaseMetadata.getMaxColumnNameLength()) {
-            throw new TrinoException(NOT_SUPPORTED, "Column name must be shorter than or equal to '%d' characters but got '%d'".formatted(databaseMetadata.getMaxColumnNameLength(), columnName.length()));
-        }
     }
 
     @Override
