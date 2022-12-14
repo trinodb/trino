@@ -765,7 +765,6 @@ public abstract class AbstractTestHive
                         fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("textfile")), Range.equal(createUnboundedVarcharType(), utf8Slice("sequencefile")), Range.equal(createUnboundedVarcharType(), utf8Slice("rctext")), Range.equal(createUnboundedVarcharType(), utf8Slice("rcbinary"))), false),
                         dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 1L), Range.equal(INTEGER, 2L), Range.equal(INTEGER, 3L), Range.equal(INTEGER, 4L)), false))),
                 Optional.empty(),
-                Optional.empty(),
                 Optional.of(new DiscretePredicates(partitionColumns, ImmutableList.of(
                         TupleDomain.withColumnDomains(ImmutableMap.of(
                                 dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("2012-12-29"))), false),
@@ -1356,7 +1355,6 @@ public abstract class AbstractTestHive
             assertEquals(actual.getColumns(), expected.getColumns());
             assertEqualsIgnoreOrder(actual.getPredicates(), expected.getPredicates());
         });
-        assertEquals(actualProperties.getStreamPartitioningColumns(), expectedProperties.getStreamPartitioningColumns());
         assertEquals(actualProperties.getLocalProperties(), expectedProperties.getLocalProperties());
     }
 

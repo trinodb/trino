@@ -118,7 +118,7 @@ public class PhoenixMetadata
                         .collect(toImmutableList()))
                 .orElse(ImmutableList.of());
 
-        return new ConnectorTableProperties(TupleDomain.all(), Optional.empty(), Optional.empty(), Optional.empty(), sortingProperties);
+        return new ConnectorTableProperties(TupleDomain.all(), Optional.empty(), Optional.empty(), sortingProperties);
     }
 
     @Override
