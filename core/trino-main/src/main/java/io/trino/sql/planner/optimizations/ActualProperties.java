@@ -141,12 +141,9 @@ public class ActualProperties
                 session);
     }
 
-    /**
-     * @return true if all the data will effectively land in a single stream
-     */
-    public boolean isEffectivelySingleStream()
+    public boolean isEffectivelySinglePartition()
     {
-        return global.isEffectivelySingleStream(constants.keySet());
+        return global.isEffectivelySinglePartition(constants.keySet());
     }
 
     public ActualProperties translate(Function<Symbol, Optional<Symbol>> translator)
@@ -454,12 +451,9 @@ public class ActualProperties
             return streamPartitioning.isPresent() && streamPartitioning.get().isPartitionedOnExactly(columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
         }
 
-        /**
-         * @return true if all the data will effectively land in a single stream
-         */
-        private boolean isEffectivelySingleStream(Set<Symbol> constants)
+        private boolean isEffectivelySinglePartition(Set<Symbol> constants)
         {
-            return streamPartitioning.isPresent() && streamPartitioning.get().isEffectivelySinglePartition(constants) && !nullsAndAnyReplicated;
+            return nodePartitioning.isPresent() && nodePartitioning.get().isEffectivelySinglePartition(constants) && !nullsAndAnyReplicated;
         }
 
         private Global translate(Partitioning.Translator translator)
