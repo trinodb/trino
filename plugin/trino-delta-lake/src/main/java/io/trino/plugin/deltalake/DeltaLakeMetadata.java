@@ -1683,12 +1683,9 @@ public class DeltaLakeMetadata
             throw new IllegalArgumentException("Unknown procedure '" + procedureName + "'");
         }
 
-        switch (procedureId) {
-            case OPTIMIZE:
-                return getTableHandleForOptimize(tableHandle, executeProperties, retryMode);
-        }
-
-        throw new IllegalArgumentException("Unknown procedure: " + procedureId);
+        return switch (procedureId) {
+            case OPTIMIZE -> getTableHandleForOptimize(tableHandle, executeProperties, retryMode);
+        };
     }
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(DeltaLakeTableHandle tableHandle, Map<String, Object> executeProperties, RetryMode retryMode)

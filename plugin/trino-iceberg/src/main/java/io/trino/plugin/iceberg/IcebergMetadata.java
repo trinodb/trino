@@ -392,14 +392,10 @@ public class IcebergMetadata
     private static long getSnapshotIdFromVersion(Table table, ConnectorTableVersion version)
     {
         io.trino.spi.type.Type versionType = version.getVersionType();
-        switch (version.getPointerType()) {
-            case TEMPORAL:
-                return getTemporalSnapshotIdFromVersion(table, version, versionType);
-
-            case TARGET_ID:
-                return getTargetSnapshotIdFromVersion(table, version, versionType);
-        }
-        throw new TrinoException(NOT_SUPPORTED, "Version pointer type is not supported: " + version.getPointerType());
+        return switch (version.getPointerType()) {
+            case TEMPORAL -> getTemporalSnapshotIdFromVersion(table, version, versionType);
+            case TARGET_ID -> getTargetSnapshotIdFromVersion(table, version, versionType);
+        };
     }
 
     private static long getTargetSnapshotIdFromVersion(Table table, ConnectorTableVersion version, io.trino.spi.type.Type versionType)
@@ -954,18 +950,12 @@ public class IcebergMetadata
             throw new IllegalArgumentException("Unknown procedure '" + procedureName + "'");
         }
 
-        switch (procedureId) {
-            case OPTIMIZE:
-                return getTableHandleForOptimize(tableHandle, executeProperties, retryMode);
-            case DROP_EXTENDED_STATS:
-                return getTableHandleForDropExtendedStats(session, tableHandle);
-            case EXPIRE_SNAPSHOTS:
-                return getTableHandleForExpireSnapshots(session, tableHandle, executeProperties);
-            case REMOVE_ORPHAN_FILES:
-                return getTableHandleForRemoveOrphanFiles(session, tableHandle, executeProperties);
-        }
-
-        throw new IllegalArgumentException("Unknown procedure: " + procedureId);
+        return switch (procedureId) {
+            case OPTIMIZE -> getTableHandleForOptimize(tableHandle, executeProperties, retryMode);
+            case DROP_EXTENDED_STATS -> getTableHandleForDropExtendedStats(session, tableHandle);
+            case EXPIRE_SNAPSHOTS -> getTableHandleForExpireSnapshots(session, tableHandle, executeProperties);
+            case REMOVE_ORPHAN_FILES -> getTableHandleForRemoveOrphanFiles(session, tableHandle, executeProperties);
+        };
     }
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(IcebergTableHandle tableHandle, Map<String, Object> executeProperties, RetryMode retryMode)
