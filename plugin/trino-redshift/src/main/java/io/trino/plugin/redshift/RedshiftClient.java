@@ -27,7 +27,6 @@ import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
-import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.StandardColumnMappings;
@@ -69,12 +68,8 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.function.BiFunction;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
-import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -232,27 +227,6 @@ public class RedshiftClient
         PreparedStatement statement = connection.prepareStatement(sql);
         statement.setFetchSize(1000);
         return statement;
-    }
-
-    @Override
-    public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
-    {
-        checkArgument(handle.isNamedRelation(), "Unable to delete from synthetic table: %s", handle);
-        checkArgument(handle.getLimit().isEmpty(), "Unable to delete when limit is set: %s", handle);
-        checkArgument(handle.getSortOrder().isEmpty(), "Unable to delete when sort order is set: %s", handle);
-        try (Connection connection = connectionFactory.openConnection(session)) {
-            verify(connection.getAutoCommit());
-            PreparedQuery preparedQuery = queryBuilder.prepareDeleteQuery(this, session, connection, handle.getRequiredNamedRelation(), handle.getConstraint(), Optional.empty());
-            try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery)) {
-                int affectedRowsCount = preparedStatement.executeUpdate();
-                // connection.getAutoCommit() == true is not enough to make DELETE effective and explicit commit is required
-                connection.commit();
-                return OptionalLong.of(affectedRowsCount);
-            }
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
     }
 
     @Override

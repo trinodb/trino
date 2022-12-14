@@ -54,6 +54,7 @@ public class TestRedshiftConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_DELETE:
             case SUPPORTS_AGGREGATION_PUSHDOWN:
             case SUPPORTS_JOIN_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN:
@@ -151,33 +152,6 @@ public class TestRedshiftConnectorTest
     }
 
     @Override
-    public void testDelete()
-    {
-        // The base tests is very slow because Redshift CTAS is really slow, so use a smaller test
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_", "AS SELECT * FROM nation")) {
-            // delete without matching any rows
-            assertUpdate("DELETE FROM " + table.getName() + " WHERE nationkey < 0", 0);
-
-            // delete with a predicate that optimizes to false
-            assertUpdate("DELETE FROM " + table.getName() + " WHERE nationkey > 5 AND nationkey < 4", 0);
-
-            // delete successive parts of the table
-            assertUpdate("DELETE FROM " + table.getName() + " WHERE nationkey <= 5", "SELECT count(*) FROM nation WHERE nationkey <= 5");
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation WHERE nationkey > 5");
-
-            assertUpdate("DELETE FROM " + table.getName() + " WHERE nationkey <= 10", "SELECT count(*) FROM nation WHERE nationkey > 5 AND nationkey <= 10");
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation WHERE nationkey > 10");
-
-            assertUpdate("DELETE FROM " + table.getName() + " WHERE nationkey <= 15", "SELECT count(*) FROM nation WHERE nationkey > 10 AND nationkey <= 15");
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation WHERE nationkey > 15");
-
-            // delete remaining
-            assertUpdate("DELETE FROM " + table.getName(), "SELECT count(*) FROM nation WHERE nationkey > 15");
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation WHERE false");
-        }
-    }
-
-    @Override
     @Test
     public void testReadMetadataWithRelationsConcurrentModifications()
     {
@@ -236,13 +210,6 @@ public class TestRedshiftConnectorTest
     protected SqlExecutor onRemoteDatabase()
     {
         return RedshiftQueryRunner::executeInRedshift;
-    }
-
-    @Override
-    public void testDeleteWithLike()
-    {
-        assertThatThrownBy(super::testDeleteWithLike)
-                .hasStackTraceContaining("TrinoException: This connector does not support modifying table rows");
     }
 
     @Test
