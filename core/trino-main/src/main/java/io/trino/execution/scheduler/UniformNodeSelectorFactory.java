@@ -61,7 +61,8 @@ public class UniformNodeSelectorFactory
     private final int minCandidates;
     private final boolean includeCoordinator;
     private final long maxSplitsWeightPerNode;
-    private final long maxPendingSplitsWeightPerTask;
+    private final long minPendingSplitsWeightPerTask;
+    private final long maxAdjustedPendingSplitsWeightPerTask;
     private final SplitsBalancingPolicy splitsBalancingPolicy;
     private final boolean optimizedLocalScheduling;
     private final NodeTaskMap nodeTaskMap;
@@ -90,10 +91,13 @@ public class UniformNodeSelectorFactory
         this.optimizedLocalScheduling = config.getOptimizedLocalScheduling();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         int maxSplitsPerNode = config.getMaxSplitsPerNode();
-        int maxPendingSplitsPerTask = config.getMaxPendingSplitsPerTask();
-        checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
+        int minPendingSplitsPerTask = config.getMinPendingSplitsPerTask();
+        int maxAdjustedPendingSplitsWeightPerTask = config.getMaxAdjustedPendingSplitsWeightPerTask();
+        checkArgument(maxSplitsPerNode >= minPendingSplitsPerTask, "maxSplitsPerNode must be > minPendingSplitsPerTask");
+        checkArgument(maxAdjustedPendingSplitsWeightPerTask >= minPendingSplitsPerTask, "maxPendingSplitsPerTask must be >= minPendingSplitsPerTask");
         this.maxSplitsWeightPerNode = SplitWeight.rawValueForStandardSplitCount(maxSplitsPerNode);
-        this.maxPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(maxPendingSplitsPerTask);
+        this.minPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(minPendingSplitsPerTask);
+        this.maxAdjustedPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(maxAdjustedPendingSplitsWeightPerTask);
         this.nodeMapMemoizationDuration = nodeMapMemoizationDuration;
     }
 
@@ -121,7 +125,8 @@ public class UniformNodeSelectorFactory
                 nodeMap,
                 minCandidates,
                 maxSplitsWeightPerNode,
-                maxPendingSplitsWeightPerTask,
+                minPendingSplitsWeightPerTask,
+                maxAdjustedPendingSplitsWeightPerTask,
                 getMaxUnacknowledgedSplitsPerTask(session),
                 splitsBalancingPolicy,
                 optimizedLocalScheduling);

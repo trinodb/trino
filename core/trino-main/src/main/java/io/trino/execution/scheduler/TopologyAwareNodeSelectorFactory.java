@@ -63,7 +63,7 @@ public class TopologyAwareNodeSelectorFactory
     private final int minCandidates;
     private final boolean includeCoordinator;
     private final long maxSplitsWeightPerNode;
-    private final long maxPendingSplitsWeightPerTask;
+    private final long minPendingSplitsWeightPerTask;
     private final NodeTaskMap nodeTaskMap;
 
     private final List<CounterStat> placementCounters;
@@ -87,10 +87,10 @@ public class TopologyAwareNodeSelectorFactory
         this.includeCoordinator = schedulerConfig.isIncludeCoordinator();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         int maxSplitsPerNode = schedulerConfig.getMaxSplitsPerNode();
-        int maxPendingSplitsPerTask = schedulerConfig.getMaxPendingSplitsPerTask();
-        checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
+        int minPendingSplitsPerTask = schedulerConfig.getMinPendingSplitsPerTask();
+        checkArgument(maxSplitsPerNode >= minPendingSplitsPerTask, "maxSplitsPerNode must be > minPendingSplitsPerTask");
         this.maxSplitsWeightPerNode = SplitWeight.rawValueForStandardSplitCount(maxSplitsPerNode);
-        this.maxPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(maxPendingSplitsPerTask);
+        this.minPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(minPendingSplitsPerTask);
 
         Builder<CounterStat> placementCounters = ImmutableList.builder();
         ImmutableMap.Builder<String, CounterStat> placementCountersByName = ImmutableMap.builder();
@@ -133,7 +133,7 @@ public class TopologyAwareNodeSelectorFactory
                 nodeMap,
                 minCandidates,
                 maxSplitsWeightPerNode,
-                maxPendingSplitsWeightPerTask,
+                minPendingSplitsWeightPerTask,
                 getMaxUnacknowledgedSplitsPerTask(session),
                 placementCounters,
                 networkTopology);

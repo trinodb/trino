@@ -157,7 +157,7 @@ public class NodeScheduler
             NodeMap nodeMap,
             NodeTaskMap nodeTaskMap,
             long maxSplitsWeightPerNode,
-            long maxPendingSplitsWeightPerTask,
+            long minPendingSplitsWeightPerTask,
             int maxUnacknowledgedSplitsPerTask,
             Set<Split> splits,
             List<RemoteTask> existingTasks,
@@ -173,7 +173,7 @@ public class NodeScheduler
             SplitWeight splitWeight = split.getSplitWeight();
 
             // if node is full, don't schedule now, which will push back on the scheduling of splits
-            if (canAssignSplitToDistributionNode(assignmentStats, node, maxSplitsWeightPerNode, maxPendingSplitsWeightPerTask, maxUnacknowledgedSplitsPerTask, splitWeight)) {
+            if (canAssignSplitToDistributionNode(assignmentStats, node, maxSplitsWeightPerNode, minPendingSplitsWeightPerTask, maxUnacknowledgedSplitsPerTask, splitWeight)) {
                 assignments.put(node, split);
                 assignmentStats.addAssignedSplit(node, splitWeight);
             }
@@ -182,15 +182,15 @@ public class NodeScheduler
             }
         }
 
-        ListenableFuture<Void> blocked = toWhenHasSplitQueueSpaceFuture(blockedNodes, existingTasks, calculateLowWatermark(maxPendingSplitsWeightPerTask));
+        ListenableFuture<Void> blocked = toWhenHasSplitQueueSpaceFuture(blockedNodes, existingTasks, calculateLowWatermark(minPendingSplitsWeightPerTask));
         return new SplitPlacementResult(blocked, ImmutableMultimap.copyOf(assignments));
     }
 
-    private static boolean canAssignSplitToDistributionNode(NodeAssignmentStats assignmentStats, InternalNode node, long maxSplitsWeightPerNode, long maxPendingSplitsWeightPerTask, int maxUnacknowledgedSplitsPerTask, SplitWeight splitWeight)
+    private static boolean canAssignSplitToDistributionNode(NodeAssignmentStats assignmentStats, InternalNode node, long maxSplitsWeightPerNode, long minPendingSplitsWeightPerTask, int maxUnacknowledgedSplitsPerTask, SplitWeight splitWeight)
     {
         return assignmentStats.getUnacknowledgedSplitCountForStage(node) < maxUnacknowledgedSplitsPerTask &&
                 (canAssignSplitBasedOnWeight(assignmentStats.getTotalSplitsWeight(node), maxSplitsWeightPerNode, splitWeight) ||
-                        canAssignSplitBasedOnWeight(assignmentStats.getQueuedSplitsWeightForStage(node), maxPendingSplitsWeightPerTask, splitWeight));
+                        canAssignSplitBasedOnWeight(assignmentStats.getQueuedSplitsWeightForStage(node), minPendingSplitsWeightPerTask, splitWeight));
     }
 
     public static boolean canAssignSplitBasedOnWeight(long currentWeight, long weightLimit, SplitWeight splitWeight)
@@ -200,9 +200,9 @@ public class NodeScheduler
         return addExact(currentWeight, splitWeight.getRawValue()) <= weightLimit || (currentWeight == 0 && weightLimit > 0);
     }
 
-    public static long calculateLowWatermark(long maxPendingSplitsWeightPerTask)
+    public static long calculateLowWatermark(long minPendingSplitsWeightPerTask)
     {
-        return (long) Math.ceil(maxPendingSplitsWeightPerTask * 0.5);
+        return (long) Math.ceil(minPendingSplitsWeightPerTask * 0.5);
     }
 
     public static ListenableFuture<Void> toWhenHasSplitQueueSpaceFuture(Set<InternalNode> blockedNodes, List<RemoteTask> existingTasks, long weightSpaceThreshold)
