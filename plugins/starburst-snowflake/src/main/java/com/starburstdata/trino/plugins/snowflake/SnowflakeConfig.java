@@ -20,6 +20,8 @@ public class SnowflakeConfig
     private Optional<String> database = Optional.empty();
     private Optional<String> role = Optional.empty();
     private boolean databasePrefixForSchemaEnabled;
+    // disabled by default for some time
+    private boolean experimentalPushdownEnabled;
 
     public Optional<String> getWarehouse()
     {
@@ -70,6 +72,19 @@ public class SnowflakeConfig
     public SnowflakeConfig setDatabasePrefixForSchemaEnabled(boolean databasePrefixForSchemaEnabled)
     {
         this.databasePrefixForSchemaEnabled = databasePrefixForSchemaEnabled;
+        return this;
+    }
+
+    public boolean isExperimentalPushdownEnabled()
+    {
+        return experimentalPushdownEnabled;
+    }
+
+    @Config("snowflake.experimental-pushdown.enabled")
+    @ConfigDescription("Enable some experimental pushdowns")
+    public SnowflakeConfig setExperimentalPushdownEnabled(boolean experimentalPushdownEnabled)
+    {
+        this.experimentalPushdownEnabled = experimentalPushdownEnabled;
         return this;
     }
 }

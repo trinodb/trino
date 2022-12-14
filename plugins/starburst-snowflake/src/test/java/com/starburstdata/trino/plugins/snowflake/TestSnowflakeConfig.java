@@ -27,7 +27,8 @@ public class TestSnowflakeConfig
                 .setWarehouse(null)
                 .setDatabase(null)
                 .setRole(null)
-                .setDatabasePrefixForSchemaEnabled(false));
+                .setDatabasePrefixForSchemaEnabled(false)
+                .setExperimentalPushdownEnabled(false));
     }
 
     @Test
@@ -38,13 +39,15 @@ public class TestSnowflakeConfig
                 .put("snowflake.database", "database")
                 .put("snowflake.role", "role")
                 .put("snowflake.database-prefix-for-schema.enabled", "true")
+                .put("snowflake.experimental-pushdown.enabled", "true")
                 .buildOrThrow();
 
         SnowflakeConfig expected = new SnowflakeConfig()
                 .setWarehouse("warehouse")
                 .setDatabase("database")
                 .setRole("role")
-                .setDatabasePrefixForSchemaEnabled(true);
+                .setDatabasePrefixForSchemaEnabled(true)
+                .setExperimentalPushdownEnabled(true);
 
         assertFullMapping(properties, expected);
     }

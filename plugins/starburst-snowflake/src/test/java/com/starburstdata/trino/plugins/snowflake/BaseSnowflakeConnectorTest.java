@@ -15,6 +15,7 @@ import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
@@ -896,5 +897,187 @@ public abstract class BaseSnowflakeConnectorTest
             assertThat(query("SELECT a_int FROM " + table.getName() + " WHERE NOT(a_varchar = 'Aa') OR a_int = 2")).isFullyPushedDown();
             assertThat(query("SELECT a_int FROM " + table.getName() + " WHERE NOT(a_varchar = 'Aa' OR a_int = 2)")).isFullyPushedDown();
         }
+    }
+
+    @Test
+    public void testJsonExtractScalarPushdown()
+    {
+        try (TestTable table = new TestTable(snowflakeExecutor, TEST_SCHEMA + ".test_json_extract_scalar_pushdown", jsonExtractPushdownTestTableDefinition())) {
+            // verify that it's not enabled without the session property
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.boolean') = 'true'"))
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            Session experimentalPushdownEnabled = Session.builder(getSession())
+                    .setCatalogSessionProperty("snowflake", "experimental_pushdown_enabled", "true")
+                    .build();
+
+            // json_extract_scalar returns NULL for JSON null or non-existent paths
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.nonexistent') IS NULL"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.null') IS NULL"))
+                    .isFullyPushedDown();
+
+            // scalar types
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.boolean') = 'true'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.number_1') = '123'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.number_2') = '3.14'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.number_3') = '12345678901234567890123456789012345678'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.string_1') = 'a string'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.string_2') = 'Bag full of 💰'"))
+                    .isFullyPushedDown();
+
+            // json_extract_scalar returns NULL for non-scalar types
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.object') IS NULL"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.array_1') IS NULL"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.array_2') IS NULL"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.array_3') IS NULL"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.array_4') IS NULL"))
+                    .isFullyPushedDown();
+
+            // array/object subscript
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.object.key') = 'value'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.array_1[0]') IS NULL"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.array_2[0]') = '1'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.array_3[0]') = 'one'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.array_4[0]') = '1'"))
+                    .isFullyPushedDown();
+
+            // nested array/object
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.store.book[0].contributors[0][1]') = 'Levine'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.store.bicycle.price') = '19.95'"))
+                    .isFullyPushedDown();
+
+            // paths with special characters and bracket notation paths
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.store.book[0][\"special$character\"]') = 'true'"))
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testJsonExtractPushdown()
+    {
+        try (TestTable table = new TestTable(snowflakeExecutor, TEST_SCHEMA + ".test_json_extract_pushdown", jsonExtractPushdownTestTableDefinition())) {
+            // verify that it's not enabled without the session property
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.all_types.boolean') = JSON 'true'"))
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            Session experimentalPushdownEnabled = Session.builder(getSession())
+                    .setCatalogSessionProperty("snowflake", "experimental_pushdown_enabled", "true")
+                    .build();
+
+            // json_extract returns NULL for non-existent paths
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.all_types.nonexistent') IS NULL"))
+                    .isFullyPushedDown();
+            // json_extract returns JSON 'null' for JSON null
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.all_types.null') = JSON 'null'"))
+                    .isFullyPushedDown();
+
+            // scalar types
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.all_types.boolean') = JSON 'true'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.all_types.number_1') = JSON '123'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.all_types.number_2') = JSON '3.14'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.all_types.number_3') = JSON '12345678901234567890123456789012345678'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.all_types.string_1') = JSON '\"a string\"'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.all_types.string_2') = JSON '\"Bag full of 💰\"'"))
+                    .isFullyPushedDown();
+
+            // non-scalar types
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.all_types.object') = JSON '{\"key_2\": \"value_2\", \"key_1\": \"value_1\"}'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.all_types.array_1') = JSON '[]'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.all_types.array_2') = JSON '[1, 2]'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.all_types.array_3') = JSON '[\"one\", \"two\"]'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.all_types.array_4') = JSON '[1, \"two\"]'"))
+                    .isFullyPushedDown();
+
+            // array subscript
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.all_types.array_2[1]') = JSON '2'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.store.book[0]') = JSON '{\"author\":\"Nigel Rees\",\"contributors\":[[\"Adam\",\"Levine\"],[\"Bob\",\"Strong\"]],\"special$character\":true}'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.store.book[0].author') = JSON '\"Nigel Rees\"'"))
+                    .isFullyPushedDown();
+
+            // nested array/object
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.store.book[0].contributors[0][1]') = JSON '\"Levine\"'"))
+                    .isFullyPushedDown();
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.store.bicycle') = JSON '{\"color\":\"red\", \"price\":19.95}'"))
+                    .isFullyPushedDown();
+
+            // paths with special characters and bracket notation paths
+            assertThat(query(experimentalPushdownEnabled, "SELECT id FROM " + table.getName() + " WHERE json_extract(json_data, '$.store.book[0][\"special$character\"]') = JSON 'true'"))
+                    .isFullyPushedDown();
+        }
+    }
+
+    private static String jsonExtractPushdownTestTableDefinition()
+    {
+        // Snowflake doesn't allow using `parse_json` in VALUES of INSERT statement so we need to wrap it inside a SELECT
+        return """
+                (id VARCHAR, json_data VARIANT)
+                AS SELECT id, parse_json(json_data) AS json_data
+                FROM VALUES
+                    ('row 1', '{
+                           "store": {
+                             "book": [
+                               {
+                                 "author": "Nigel Rees",
+                                 "special$character": true,
+                                 "contributors": [
+                                   ["Adam", "Levine"],
+                                   ["Bob", "Strong"]
+                                 ]
+                               },
+                               {
+                                 "author": "Evelyn Waugh"
+                               }
+                             ],
+                             "bicycle": {
+                               "color": "red",
+                               "price": 19.95
+                             }
+                           },
+                           "all_types": {
+                             "null": null,
+                             "boolean": true,
+                             "number_1": 123,
+                             "number_2": 3.14,
+                             "number_3": 12345678901234567890123456789012345678,
+                             "string_1": "a string",
+                             "string_2": "Bag full of 💰",
+                             "object": {
+                                "key_1": "value_1",
+                                "key_2": "value_2"
+                             },
+                             "array_1": [],
+                             "array_2": [1, 2],
+                             "array_3": ["one", "two"],
+                             "array_4": [1, "two"]
+                           }
+                         }'
+                    ) t(id, json_data)
+                """;
     }
 }

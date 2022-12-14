@@ -15,6 +15,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.starburstdata.trino.plugins.snowflake.SnowflakeConfig;
+import com.starburstdata.trino.plugins.snowflake.SnowflakeSessionProperties;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.configuration.ConfigBinder;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
@@ -33,6 +34,7 @@ import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.type.TypeManager;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 
 import javax.inject.Qualifier;
@@ -88,6 +90,7 @@ public class SnowflakeJdbcClientModule
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(SNOWFLAKE_MAX_LIST_EXPRESSIONS);
 
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
+        bindSessionPropertiesProvider(binder, SnowflakeSessionProperties.class);
         bindSessionPropertiesProvider(binder, SnowflakeJdbcSessionProperties.class);
 
         install(new CredentialProviderModule());
@@ -123,10 +126,11 @@ public class SnowflakeJdbcClientModule
             JdbcStatisticsConfig statisticsConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
+            TypeManager typeManager,
             IdentifierMapping identifierMapping,
             RemoteQueryModifier queryModifier)
     {
-        return new SnowflakeClient(config, snowflakeConfig, statisticsConfig, connectionFactory, distributedConnector, queryBuilder, identifierMapping, queryModifier);
+        return new SnowflakeClient(config, snowflakeConfig, statisticsConfig, connectionFactory, distributedConnector, queryBuilder, typeManager, identifierMapping, queryModifier);
     }
 
     @Provides

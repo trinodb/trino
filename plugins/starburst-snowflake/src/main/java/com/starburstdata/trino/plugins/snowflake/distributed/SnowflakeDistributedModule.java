@@ -16,6 +16,7 @@ import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import com.starburstdata.trino.plugins.snowflake.SnowflakeSessionProperties;
 import com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeJdbcClientModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.CatalogName;
@@ -66,6 +67,7 @@ public class SnowflakeDistributedModule
     {
         newOptionalBinder(binder, ConnectorAccessControl.class);
         newSetBinder(binder, Procedure.class);
+        bindSessionPropertiesProvider(binder, SnowflakeSessionProperties.class);
         bindSessionPropertiesProvider(binder, SnowflakeDistributedSessionProperties.class);
 
         newOptionalBinder(binder, Key.get(JdbcMetadataFactory.class, ForSnowflake.class))

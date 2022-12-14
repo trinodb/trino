@@ -83,6 +83,8 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.jdbi.v3.core.Handle;
@@ -153,6 +155,7 @@ import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -211,6 +214,8 @@ public class SnowflakeClient
 
     private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
+    private final Type jsonType;
+    private final Type jsonPathType;
     private final boolean statisticsEnabled;
     private final boolean distributedConnector;
     private final boolean databasePrefixForSchemaEnabled;
@@ -222,10 +227,13 @@ public class SnowflakeClient
             ConnectionFactory connectionFactory,
             boolean distributedConnector,
             QueryBuilder queryBuilder,
+            TypeManager typeManager,
             IdentifierMapping identifierMapping,
             RemoteQueryModifier queryModifier)
     {
         super(config, IDENTIFIER_QUOTE, connectionFactory, queryBuilder, identifierMapping, queryModifier);
+        this.jsonType = typeManager.getType(new TypeSignature(JSON));
+        this.jsonPathType = typeManager.getType(new TypeSignature("JsonPath"));
         this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
         this.distributedConnector = distributedConnector;
         this.databasePrefixForSchemaEnabled = requireNonNull(snowflakeConfig, "snowflakeConfig is null").getDatabasePrefixForSchemaEnabled();
@@ -234,6 +242,10 @@ public class SnowflakeClient
                 .addStandardRules(this::quoted)
                 // TODO allow all comparison operators for numeric types
                 .add(new RewriteComparison(ImmutableSet.of(RewriteComparison.ComparisonOperator.EQUAL, RewriteComparison.ComparisonOperator.NOT_EQUAL)))
+                .add(new RewriteJsonConstant(jsonType))
+                .add(new RewriteJsonPath(jsonPathType))
+                .add(new RewriteJsonExtract(jsonType))
+                .add(new RewriteJsonExtractScalar())
                 .map("$not($is_null(value))").to("value IS NOT NULL")
                 .map("$not(value: boolean)").to("NOT value")
                 .map("$is_null(value)").to("value IS NULL")
