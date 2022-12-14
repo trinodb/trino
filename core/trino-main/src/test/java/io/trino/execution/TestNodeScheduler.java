@@ -114,8 +114,9 @@ public class TestNodeScheduler
 
         nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setMaxSplitsPerNode(20)
-                .setIncludeCoordinator(false)
-                .setMaxPendingSplitsPerTask(10);
+                .setMinPendingSplitsPerTask(10)
+                .setMaxAdjustedPendingSplitsWeightPerTask(100)
+                .setIncludeCoordinator(false);
 
         nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap));
         // contents of taskMap indicate the node-task map for the current stage
@@ -187,7 +188,7 @@ public class TestNodeScheduler
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setMaxSplitsPerNode(25)
                 .setIncludeCoordinator(false)
-                .setMaxPendingSplitsPerTask(20);
+                .setMinPendingSplitsPerTask(20);
 
         TestNetworkTopology topology = new TestNetworkTopology();
         NodeSelectorFactory nodeSelectorFactory = new TopologyAwareNodeSelectorFactory(topology, nodeManager, nodeSchedulerConfig, nodeTaskMap, getNetworkTopologyConfig());
@@ -785,7 +786,7 @@ public class TestNodeScheduler
             TaskId taskId = new TaskId(new StageId("test", 1), task, 0);
             task++;
             MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, ImmutableList.copyOf(assignments1.get(node)), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
-            remoteTask.startSplits(20);
+            remoteTask.startSplits(15); // 15 running, 5 queued, no maxSplitWeightPerNode adjustment
             nodeTaskMap.addTask(node, remoteTask);
             taskMap.put(node, remoteTask);
         }
@@ -800,7 +801,7 @@ public class TestNodeScheduler
                     .build());
         }
         unassignedSplits = Sets.difference(unassignedSplits, new HashSet<>(assignments2.values()));
-        assertEquals(unassignedSplits.size(), 10);
+        assertEquals(unassignedSplits.size(), 20); // 30 (unassignedSplits) - (10 (maxPendingSplitsPerTask) - 5(queued)) * 2 (nodes))
 
         Multimap<InternalNode, Split> assignments3 = nodeSelector.computeAssignments(unassignedSplits, ImmutableList.copyOf(taskMap.values())).getAssignments();
         assertTrue(assignments3.isEmpty());
