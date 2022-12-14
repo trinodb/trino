@@ -188,7 +188,7 @@ public class BenchmarkNodeScheduler
                     .setMaxSplitsPerNode(MAX_SPLITS_PER_NODE)
                     .setIncludeCoordinator(false)
                     .setNodeSchedulerPolicy(policy)
-                    .setMaxPendingSplitsPerTask(MAX_PENDING_SPLITS_PER_TASK_PER_NODE);
+                    .setMinPendingSplitsPerTask(MAX_PENDING_SPLITS_PER_TASK_PER_NODE);
         }
 
         private NodeSelectorFactory getNodeSelectorFactory(InternalNodeManager nodeManager, NodeTaskMap nodeTaskMap)
