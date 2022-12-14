@@ -285,6 +285,8 @@ following sections.
 Pushdown
 ^^^^^^^^
 
+.. include:: pushdown-correctness-behavior.fragment
+
 .. _redis-predicate-pushdown:
 
 Predicate pushdown support

@@ -241,3 +241,5 @@ A ``count(distint)`` pushdown may cause Pinot to run a full table scan with
 significant performance impact. If you encounter this problem, you can disable
 it with the catalog property ``pinot.count-distinct-pushdown.enabled`` or the
 catalog session property ``count_distinct_pushdown_enabled``.
+
+.. include:: pushdown-correctness-behavior.fragment
