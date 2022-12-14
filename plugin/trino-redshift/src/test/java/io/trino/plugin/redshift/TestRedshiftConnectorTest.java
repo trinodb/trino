@@ -13,9 +13,7 @@
  */
 package io.trino.plugin.redshift;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -26,18 +24,12 @@ import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.TEST_SCHEMA;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.createRedshiftQueryRunner;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.executeInRedshift;
-import static io.trino.plugin.redshift.RedshiftQueryRunner.executeWithRedshift;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -64,6 +56,12 @@ public class TestRedshiftConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_AGGREGATION_PUSHDOWN:
+            case SUPPORTS_JOIN_PUSHDOWN:
+            case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
+                return false;
+
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
@@ -75,18 +73,6 @@ public class TestRedshiftConnectorTest
                 return false;
 
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
-                return false;
-
-            case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
-                return true;
-
-            case SUPPORTS_JOIN_PUSHDOWN:
-            case SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY:
-                return true;
-            case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
-            case SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN:
                 return false;
 
             default:
@@ -225,35 +211,6 @@ public class TestRedshiftConnectorTest
         }
     }
 
-    /**
-     * Tries to create situation where Redshift would decide to materialize a temporary table for query sent to it by us.
-     * Such temporary table requires that our Connection is not read-only.
-     */
-    @Test
-    public void testComplexPushdownThatMayElicitTemporaryTable()
-    {
-        int subqueries = 10;
-        String subquery = "SELECT custkey, count(*) c FROM orders GROUP BY custkey";
-        StringBuilder sql = new StringBuilder();
-        sql.append(format(
-                "SELECT t0.custkey, %s c_sum ",
-                IntStream.range(0, subqueries)
-                        .mapToObj(i -> format("t%s.c", i))
-                        .collect(Collectors.joining("+"))));
-        sql.append(format("FROM (%s) t0 ", subquery));
-        for (int i = 1; i < subqueries; i++) {
-            sql.append(format("JOIN (%s) t%s ON t0.custkey = t%s.custkey ", subquery, i, i));
-        }
-        sql.append("WHERE t0.custkey = 1045 OR rand() = 42");
-
-        Session forceJoinPushdown = Session.builder(getSession())
-                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
-                .build();
-
-        assertThat(query(forceJoinPushdown, sql.toString()))
-                .matches(format("SELECT max(custkey), count(*) * %s FROM tpch.tiny.orders WHERE custkey = 1045", subqueries));
-    }
-
     private static void gatherStats(String tableName)
     {
         executeInRedshift(handle -> {
@@ -294,241 +251,6 @@ public class TestRedshiftConnectorTest
     }
 
     @Override
-    public void testCountDistinctWithStringTypes()
-    {
-        // cannot test using generic method as Redshift does not allow non-ASCII characters in CHAR values.
-        assertThatThrownBy(super::testCountDistinctWithStringTypes).hasMessageContaining("Value for Redshift CHAR must be ASCII, but found 'ą'");
-
-        List<String> rows = Stream.of("a", "b", "A", "B", " a ", "a", "b", " b ")
-                .map(value -> format("'%1$s', '%1$s'", value))
-                .collect(toImmutableList());
-        String tableName = "distinct_strings" + randomNameSuffix();
-
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, tableName, "(t_char CHAR(5), t_varchar VARCHAR(5))", rows)) {
-            // Single count(DISTINCT ...) can be pushed even down even if SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT == false as GROUP BY
-            assertThat(query("SELECT count(DISTINCT t_varchar) FROM " + testTable.getName()))
-                    .matches("VALUES BIGINT '6'")
-                    .isFullyPushedDown();
-
-            // Single count(DISTINCT ...) can be pushed down even if SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT == false as GROUP BY
-            assertThat(query("SELECT count(DISTINCT t_char) FROM " + testTable.getName()))
-                    .matches("VALUES BIGINT '6'")
-                    .isFullyPushedDown();
-
-            assertThat(query("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
-                    .matches("VALUES (BIGINT '6', BIGINT '6')")
-                    .isFullyPushedDown();
-        }
-    }
-
-    @Override
-    public void testAggregationPushdown()
-    {
-        throw new SkipException("tested in testAggregationPushdown(String)");
-    }
-
-    @Test(dataProvider = "testAggregationPushdownDistStylesDataProvider")
-    public void testAggregationPushdown(String distStyle)
-    {
-        String nation = format("%s.nation_%s_%s", TEST_SCHEMA, distStyle, randomNameSuffix());
-        String customer = format("%s.customer_%s_%s", TEST_SCHEMA, distStyle, randomNameSuffix());
-        try {
-            copyWithDistStyle(TEST_SCHEMA + ".nation", nation, distStyle, Optional.of("regionkey"));
-            copyWithDistStyle(TEST_SCHEMA + ".customer", customer, distStyle, Optional.of("nationkey"));
-
-            // TODO support aggregation pushdown with GROUPING SETS
-            // TODO support aggregation over expressions
-
-            // count()
-            assertThat(query("SELECT count(*) FROM " + nation)).isFullyPushedDown();
-            assertThat(query("SELECT count(nationkey) FROM " + nation)).isFullyPushedDown();
-            assertThat(query("SELECT count(1) FROM " + nation)).isFullyPushedDown();
-            assertThat(query("SELECT count() FROM " + nation)).isFullyPushedDown();
-            assertThat(query("SELECT regionkey, count(1) FROM " + nation + " GROUP BY regionkey")).isFullyPushedDown();
-            try (TestTable emptyTable = createAggregationTestTable(getSession().getSchema().orElseThrow() + ".empty_table", ImmutableList.of())) {
-                String emptyTableName = emptyTable.getName() + "_" + distStyle;
-                copyWithDistStyle(emptyTable.getName(), emptyTableName, distStyle, Optional.of("a_bigint"));
-
-                assertThat(query("SELECT count(*) FROM " + emptyTableName)).isFullyPushedDown();
-                assertThat(query("SELECT count(a_bigint) FROM " + emptyTableName)).isFullyPushedDown();
-                assertThat(query("SELECT count(1) FROM " + emptyTableName)).isFullyPushedDown();
-                assertThat(query("SELECT count() FROM " + emptyTableName)).isFullyPushedDown();
-                assertThat(query("SELECT a_bigint, count(1) FROM " + emptyTableName + " GROUP BY a_bigint")).isFullyPushedDown();
-            }
-
-            // GROUP BY
-            assertThat(query("SELECT regionkey, min(nationkey) FROM " + nation + " GROUP BY regionkey")).isFullyPushedDown();
-            assertThat(query("SELECT regionkey, max(nationkey) FROM " + nation + " GROUP BY regionkey")).isFullyPushedDown();
-            assertThat(query("SELECT regionkey, sum(nationkey) FROM " + nation + " GROUP BY regionkey")).isFullyPushedDown();
-            assertThat(query("SELECT regionkey, avg(nationkey) FROM " + nation + " GROUP BY regionkey")).isFullyPushedDown();
-            try (TestTable emptyTable = createAggregationTestTable(getSession().getSchema().orElseThrow() + ".empty_table", ImmutableList.of())) {
-                String emptyTableName = emptyTable.getName() + "_" + distStyle;
-                copyWithDistStyle(emptyTable.getName(), emptyTableName, distStyle, Optional.of("a_bigint"));
-
-                assertThat(query("SELECT t_double, min(a_bigint) FROM " + emptyTableName + " GROUP BY t_double")).isFullyPushedDown();
-                assertThat(query("SELECT t_double, max(a_bigint) FROM " + emptyTableName + " GROUP BY t_double")).isFullyPushedDown();
-                assertThat(query("SELECT t_double, sum(a_bigint) FROM " + emptyTableName + " GROUP BY t_double")).isFullyPushedDown();
-                assertThat(query("SELECT t_double, avg(a_bigint) FROM " + emptyTableName + " GROUP BY t_double")).isFullyPushedDown();
-            }
-
-            // GROUP BY and WHERE on bigint column
-            // GROUP BY and WHERE on aggregation key
-            assertThat(query("SELECT regionkey, sum(nationkey) FROM " + nation + " WHERE regionkey < 4 GROUP BY regionkey")).isFullyPushedDown();
-
-            // GROUP BY and WHERE on varchar column
-            // GROUP BY and WHERE on "other" (not aggregation key, not aggregation input)
-            assertThat(query("SELECT regionkey, sum(nationkey) FROM " + nation + " WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isFullyPushedDown();
-            // GROUP BY above WHERE and LIMIT
-            assertThat(query("SELECT regionkey, sum(nationkey) FROM (SELECT * FROM " + nation + " WHERE regionkey < 2 LIMIT 11) GROUP BY regionkey")).isFullyPushedDown();
-            // GROUP BY above TopN
-            assertThat(query("SELECT regionkey, sum(nationkey) FROM (SELECT regionkey, nationkey FROM " + nation + " ORDER BY nationkey ASC LIMIT 10) GROUP BY regionkey")).isFullyPushedDown();
-            // GROUP BY with JOIN
-            assertThat(query(
-                    joinPushdownEnabled(getSession()),
-                    "SELECT n.regionkey, sum(c.acctbal) acctbals FROM " + nation + " n LEFT JOIN " + customer + " c USING (nationkey) GROUP BY 1"))
-                    .isFullyPushedDown();
-            // GROUP BY with WHERE on neither grouping nor aggregation column
-            assertThat(query("SELECT nationkey, min(regionkey) FROM " + nation + " WHERE name = 'ARGENTINA' GROUP BY nationkey")).isFullyPushedDown();
-            // aggregation on varchar column
-            assertThat(query("SELECT count(name) FROM " + nation)).isFullyPushedDown();
-            // aggregation on varchar column with GROUPING
-            assertThat(query("SELECT nationkey, count(name) FROM " + nation + " GROUP BY nationkey")).isFullyPushedDown();
-            // aggregation on varchar column with WHERE
-            assertThat(query("SELECT count(name) FROM " + nation + " WHERE name = 'ARGENTINA'")).isFullyPushedDown();
-        }
-        finally {
-            executeInRedshift("DROP TABLE IF EXISTS " + nation);
-            executeInRedshift("DROP TABLE IF EXISTS " + customer);
-        }
-    }
-
-    @Override
-    public void testNumericAggregationPushdown()
-    {
-        throw new SkipException("tested in testNumericAggregationPushdown(String)");
-    }
-
-    @Test(dataProvider = "testAggregationPushdownDistStylesDataProvider")
-    public void testNumericAggregationPushdown(String distStyle)
-    {
-        String schemaName = getSession().getSchema().orElseThrow();
-        // empty table
-        try (TestTable emptyTable = createAggregationTestTable(schemaName + ".test_aggregation_pushdown", ImmutableList.of())) {
-            String emptyTableName = emptyTable.getName() + "_" + distStyle;
-            copyWithDistStyle(emptyTable.getName(), emptyTableName, distStyle, Optional.of("a_bigint"));
-
-            assertThat(query("SELECT min(short_decimal), min(long_decimal), min(a_bigint), min(t_double) FROM " + emptyTableName)).isFullyPushedDown();
-            assertThat(query("SELECT max(short_decimal), max(long_decimal), max(a_bigint), max(t_double) FROM " + emptyTableName)).isFullyPushedDown();
-            assertThat(query("SELECT sum(short_decimal), sum(long_decimal), sum(a_bigint), sum(t_double) FROM " + emptyTableName)).isFullyPushedDown();
-            assertThat(query("SELECT avg(short_decimal), avg(long_decimal), avg(a_bigint), avg(t_double) FROM " + emptyTableName)).isFullyPushedDown();
-        }
-
-        try (TestTable testTable = createAggregationTestTable(schemaName + ".test_aggregation_pushdown",
-                ImmutableList.of("100.000, 100000000.000000000, 100.000, 100000000", "123.321, 123456789.987654321, 123.321, 123456789"))) {
-            String testTableName = testTable.getName() + "_" + distStyle;
-            copyWithDistStyle(testTable.getName(), testTableName, distStyle, Optional.of("a_bigint"));
-
-            assertThat(query("SELECT min(short_decimal), min(long_decimal), min(a_bigint), min(t_double) FROM " + testTableName)).isFullyPushedDown();
-            assertThat(query("SELECT max(short_decimal), max(long_decimal), max(a_bigint), max(t_double) FROM " + testTableName)).isFullyPushedDown();
-            assertThat(query("SELECT sum(short_decimal), sum(long_decimal), sum(a_bigint), sum(t_double) FROM " + testTableName)).isFullyPushedDown();
-            assertThat(query("SELECT avg(short_decimal), avg(long_decimal), avg(a_bigint), avg(t_double) FROM " + testTableName)).isFullyPushedDown();
-
-            // smoke testing of more complex cases
-            // WHERE on aggregation column
-            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM " + testTableName + " WHERE short_decimal < 110 AND long_decimal < 124")).isFullyPushedDown();
-            // WHERE on non-aggregation column
-            assertThat(query("SELECT min(long_decimal) FROM " + testTableName + " WHERE short_decimal < 110")).isFullyPushedDown();
-            // GROUP BY
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTableName + " GROUP BY short_decimal")).isFullyPushedDown();
-            // GROUP BY with WHERE on both grouping and aggregation column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTableName + " WHERE short_decimal < 110 AND long_decimal < 124 GROUP BY short_decimal")).isFullyPushedDown();
-            // GROUP BY with WHERE on grouping column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTableName + " WHERE short_decimal < 110 GROUP BY short_decimal")).isFullyPushedDown();
-            // GROUP BY with WHERE on aggregation column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTableName + " WHERE long_decimal < 124 GROUP BY short_decimal")).isFullyPushedDown();
-        }
-    }
-
-    private static void copyWithDistStyle(String sourceTableName, String destTableName, String distStyle, Optional<String> distKey)
-    {
-        if (distStyle.equals("AUTO")) {
-            // NOTE: Redshift doesn't support setting diststyle AUTO in CTAS statements
-            executeInRedshift("CREATE TABLE " + destTableName + " AS SELECT * FROM " + sourceTableName);
-            // Redshift doesn't allow ALTER DISTSTYLE if original and new style are same, so we need to check current diststyle of table
-            boolean isDistStyleAuto = executeWithRedshift(handle -> {
-                Optional<Long> currentDistStyle = handle.createQuery("" +
-                                "SELECT releffectivediststyle " +
-                                "FROM pg_class_info AS a LEFT JOIN pg_namespace AS b ON a.relnamespace = b.oid " +
-                                "WHERE lower(nspname) = lower(:schema_name) AND lower(relname) = lower(:table_name)")
-                        .bind("schema_name", TEST_SCHEMA)
-                        // destTableName = TEST_SCHEMA + "." + tableName
-                        .bind("table_name", destTableName.substring(destTableName.indexOf(".") + 1))
-                        .mapTo(Long.class)
-                        .findOne();
-
-                // 10 means AUTO(ALL) and 11 means AUTO(EVEN). See https://docs.aws.amazon.com/redshift/latest/dg/r_PG_CLASS_INFO.html.
-                return currentDistStyle.isPresent() && (currentDistStyle.get() == 10 || currentDistStyle.get() == 11);
-            });
-            if (!isDistStyleAuto) {
-                executeInRedshift("ALTER TABLE " + destTableName + " ALTER DISTSTYLE " + distStyle);
-            }
-        }
-        else {
-            String copyWithDistStyleSql = "CREATE TABLE " + destTableName + " DISTSTYLE " + distStyle;
-            if (distStyle.equals("KEY")) {
-                copyWithDistStyleSql += format(" DISTKEY(%s)", distKey.orElseThrow());
-            }
-            copyWithDistStyleSql += " AS SELECT * FROM " + sourceTableName;
-            executeInRedshift(copyWithDistStyleSql);
-        }
-    }
-
-    @DataProvider
-    public Object[][] testAggregationPushdownDistStylesDataProvider()
-    {
-        return new Object[][] {
-                {"EVEN"},
-                {"KEY"},
-                {"ALL"},
-                {"AUTO"},
-        };
-    }
-
-    @Test
-    public void testDecimalAvgPushdownForMaximumDecimalScale()
-    {
-        List<String> rows = ImmutableList.of(
-                "12345789.9876543210",
-                format("%s.%s", "1".repeat(28), "9".repeat(10)));
-
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, TEST_SCHEMA + ".test_agg_pushdown_avg_max_decimal",
-                "(t_decimal DECIMAL(38, 10))", rows)) {
-            // Redshift avg rounds down decimal result which doesn't match Presto semantics
-            assertThatThrownBy(() -> assertThat(query("SELECT avg(t_decimal) FROM " + testTable.getName())).isFullyPushedDown())
-                    .isInstanceOf(AssertionError.class)
-                    .hasMessageContaining("""
-                            elements not found:
-                              <(555555555555555555561728450.9938271605)>
-                            and elements not expected:
-                              <(555555555555555555561728450.9938271604)>
-                            """);
-        }
-    }
-
-    @Test
-    public void testDecimalAvgPushdownFoShortDecimalScale()
-    {
-        List<String> rows = ImmutableList.of(
-                "0.987654321234567890",
-                format("0.%s", "1".repeat(18)));
-
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, TEST_SCHEMA + ".test_agg_pushdown_avg_max_decimal",
-                "(t_decimal DECIMAL(18, 18))", rows)) {
-            assertThat(query("SELECT avg(t_decimal) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-    }
-
-    @Override
     @Test
     public void testReadMetadataWithRelationsConcurrentModifications()
     {
@@ -539,15 +261,6 @@ public class TestRedshiftConnectorTest
     public void testInsertRowConcurrently()
     {
         throw new SkipException("Test fails with a timeout sometimes and is flaky");
-    }
-
-    @Override
-    protected Session joinPushdownEnabled(Session session)
-    {
-        return Session.builder(super.joinPushdownEnabled(session))
-                // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
-                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
-                .build();
     }
 
     @Override

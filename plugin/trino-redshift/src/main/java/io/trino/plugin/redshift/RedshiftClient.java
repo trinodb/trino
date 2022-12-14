@@ -16,20 +16,12 @@ package io.trino.plugin.redshift;
 import com.amazon.redshift.jdbc.RedshiftPreparedStatement;
 import com.amazon.redshift.util.RedshiftObject;
 import com.google.common.base.CharMatcher;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
-import io.trino.plugin.base.aggregation.AggregateFunctionRule;
-import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.JdbcExpression;
-import io.trino.plugin.jdbc.JdbcJoinCondition;
-import io.trino.plugin.jdbc.JdbcSortItem;
-import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
@@ -41,26 +33,11 @@ import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.StandardColumnMappings;
 import io.trino.plugin.jdbc.WriteMapping;
-import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
-import io.trino.plugin.jdbc.aggregation.ImplementCount;
-import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
-import io.trino.plugin.jdbc.aggregation.ImplementCountDistinct;
-import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
-import io.trino.plugin.jdbc.aggregation.ImplementStddevPop;
-import io.trino.plugin.jdbc.aggregation.ImplementStddevSamp;
-import io.trino.plugin.jdbc.aggregation.ImplementSum;
-import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
-import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
-import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.JoinCondition;
-import io.trino.spi.connector.JoinStatistics;
-import io.trino.spi.connector.JoinType;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.CharType;
@@ -95,8 +72,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.BiFunction;
@@ -106,7 +81,6 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
-import static io.trino.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -176,7 +150,6 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 
 public class RedshiftClient
         extends BaseJdbcClient
@@ -226,7 +199,6 @@ public class RedshiftClient
             .toFormatter();
     private static final OffsetDateTime REDSHIFT_MIN_SUPPORTED_TIMESTAMP_TZ = OffsetDateTime.of(-4712, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC);
 
-    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
     private final RedshiftTableStatisticsReader statisticsReader;
 
@@ -240,62 +212,8 @@ public class RedshiftClient
             RemoteQueryModifier queryModifier)
     {
         super(config, "\"", connectionFactory, queryBuilder, identifierMapping, queryModifier);
-        ConnectorExpressionRewriter<String> connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
-                .addStandardRules(this::quoted)
-                .build();
-
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-
-        aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
-                connectorExpressionRewriter,
-                ImmutableSet.<AggregateFunctionRule<JdbcExpression, String>>builder()
-                        .add(new ImplementCountAll(bigintTypeHandle))
-                        .add(new ImplementCount(bigintTypeHandle))
-                        .add(new ImplementCountDistinct(bigintTypeHandle, true))
-                        .add(new ImplementMinMax(true))
-                        .add(new ImplementSum(RedshiftClient::toTypeHandle))
-                        .add(new ImplementAvgFloatingPoint())
-                        .add(new ImplementRedshiftAvgDecimal())
-                        .add(new ImplementRedshiftAvgBigint())
-                        .add(new ImplementStddevSamp())
-                        .add(new ImplementStddevPop())
-                        .add(new ImplementVarianceSamp())
-                        .add(new ImplementVariancePop())
-                        .build());
-
         this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
         this.statisticsReader = new RedshiftTableStatisticsReader(connectionFactory);
-    }
-
-    private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
-    {
-        return Optional.of(
-                new JdbcTypeHandle(
-                        Types.NUMERIC,
-                        Optional.of("decimal"),
-                        Optional.of(decimalType.getPrecision()),
-                        Optional.of(decimalType.getScale()),
-                        Optional.empty(),
-                        Optional.empty()));
-    }
-
-    @Override
-    public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
-            throws SQLException
-    {
-        Connection connection = super.getConnection(session, split, tableHandle);
-        try {
-            // super.getConnection sets read-only, since the connection is going to be used only for reads.
-            // However, for a complex query, Redshift may decide to create some temporary tables behind
-            // the scenes, and this requires the connection not to be read-only, otherwise Redshift
-            // may fail with "ERROR: transaction is read-only".
-            connection.setReadOnly(false);
-        }
-        catch (SQLException e) {
-            connection.close();
-            throw e;
-        }
-        return connection;
     }
 
     @Override
@@ -303,12 +221,6 @@ public class RedshiftClient
     {
         // Don't return a comment until the connector supports creating tables with comment
         return Optional.empty();
-    }
-
-    @Override
-    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
-    {
-        return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }
 
     @Override
@@ -327,63 +239,6 @@ public class RedshiftClient
             throwIfInstanceOf(e, TrinoException.class);
             throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
         }
-    }
-
-    @Override
-    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
-    {
-        return true;
-    }
-
-    @Override
-    protected Optional<TopNFunction> topNFunction()
-    {
-        return Optional.of((query, sortItems, limit) -> {
-            String orderBy = sortItems.stream()
-                    .map(sortItem -> {
-                        String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
-                        String nullsHandling = sortItem.getSortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
-                        return format("%s %s %s", quoted(sortItem.getColumn().getColumnName()), ordering, nullsHandling);
-                    })
-                    .collect(joining(", "));
-
-            return format("%s ORDER BY %s LIMIT %d", query, orderBy, limit);
-        });
-    }
-
-    @Override
-    public boolean isTopNGuaranteed(ConnectorSession session)
-    {
-        return true;
-    }
-
-    @Override
-    protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
-    {
-        return joinCondition.getOperator() != JoinCondition.Operator.IS_DISTINCT_FROM;
-    }
-
-    @Override
-    public Optional<PreparedQuery> implementJoin(ConnectorSession session,
-            JoinType joinType,
-            PreparedQuery leftSource,
-            PreparedQuery rightSource,
-            List<JdbcJoinCondition> joinConditions,
-            Map<JdbcColumnHandle, String> rightAssignments,
-            Map<JdbcColumnHandle, String> leftAssignments,
-            JoinStatistics statistics)
-    {
-        if (joinType == JoinType.FULL_OUTER) {
-            // FULL JOIN is only supported with merge-joinable or hash-joinable join conditions
-            return Optional.empty();
-        }
-        return implementJoinCostAware(
-                session,
-                joinType,
-                leftSource,
-                rightSource,
-                statistics,
-                () -> super.implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
     }
 
     @Override
