@@ -164,7 +164,6 @@ public class InformationSchemaMetadata
                 tableHandle.getPrefixes().isEmpty() ? TupleDomain.none() : TupleDomain.all(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
                 emptyList());
     }
 

@@ -349,8 +349,8 @@ public class RaptorMetadata
                 TupleDomain.all(),
                 Optional.of(new ConnectorTablePartitioning(
                         partitioning,
-                        ImmutableList.copyOf(bucketColumnHandles))),
-                oneSplitPerBucket ? Optional.of(ImmutableSet.copyOf(bucketColumnHandles)) : Optional.empty(),
+                        ImmutableList.copyOf(bucketColumnHandles),
+                        oneSplitPerBucket)),
                 Optional.empty(),
                 ImmutableList.of());
     }

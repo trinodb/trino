@@ -460,7 +460,6 @@ public class ElasticsearchMetadata
                 handle.getConstraint(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
                 ImmutableList.of());
     }
 

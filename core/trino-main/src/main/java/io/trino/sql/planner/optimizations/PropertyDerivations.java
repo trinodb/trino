@@ -907,7 +907,9 @@ public final class PropertyDerivations
 
         private Global deriveGlobalProperties(TableScanNode node, TableProperties layout, Map<ColumnHandle, Symbol> assignments, Map<ColumnHandle, NullableValue> constants)
         {
-            Optional<List<Symbol>> streamPartitioning = layout.getStreamPartitioningColumns()
+            Optional<List<Symbol>> streamPartitioning = layout.getTablePartitioning()
+                    .filter(TablePartitioning::isSingleSplitPerPartition)
+                    .map(TablePartitioning::getPartitioningColumns)
                     .flatMap(columns -> translateToNonConstantSymbols(columns, assignments, constants));
 
             if (layout.getTablePartitioning().isPresent() && node.isUseConnectorNodePartitioning()) {
@@ -928,7 +930,7 @@ public final class PropertyDerivations
         }
 
         private static Optional<List<Symbol>> translateToNonConstantSymbols(
-                Set<ColumnHandle> columnHandles,
+                List<ColumnHandle> columnHandles,
                 Map<ColumnHandle, Symbol> assignments,
                 Map<ColumnHandle, NullableValue> globalConstants)
         {

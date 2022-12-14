@@ -396,7 +396,6 @@ public class TestPushPredicateIntoTableScan
                                 TupleDomain.all(),
                                 Optional.of(new ConnectorTablePartitioning(PARTITIONING_HANDLE, ImmutableList.of(MOCK_COLUMN_HANDLE))),
                                 Optional.empty(),
-                                Optional.empty(),
                                 ImmutableList.of());
                     }
                     return new ConnectorTableProperties();
