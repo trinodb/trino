@@ -34,11 +34,9 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.execution.QueryManagerConfig.MAX_TASK_RETRY_ATTEMPTS;
-import static io.trino.execution.QueryManagerConfig.QUERY_MAX_RUN_TIME_HARD_LIMIT;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
@@ -328,15 +326,6 @@ public final class SystemSessionProperties
                         QUERY_MAX_RUN_TIME,
                         "Maximum run time of a query (includes the queueing time)",
                         queryManagerConfig.getQueryMaxRunTime(),
-                        queryManagerConfig.getQueryMaxRunTimeHardLimit()
-                                .<Consumer<Duration>>map(hardLimit -> value -> {
-                                    if (value.compareTo(hardLimit) > 0) {
-                                        throw new TrinoException(
-                                                INVALID_SESSION_PROPERTY,
-                                                format("%s must not exceed '%s' %s: %s", QUERY_MAX_RUN_TIME, QUERY_MAX_RUN_TIME_HARD_LIMIT, hardLimit, value));
-                                    }
-                                })
-                                .orElse(value -> {}),
                         false),
                 durationProperty(
                         QUERY_MAX_EXECUTION_TIME,
