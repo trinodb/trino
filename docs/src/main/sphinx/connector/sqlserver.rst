@@ -357,7 +357,7 @@ For example, select the top 10 percent of nations by population::
       TABLE(
         sqlserver.system.query(
           query => 'SELECT
-            TOP(10) PERCENT
+            TOP(10) PERCENT *
           FROM
             tpch.nation
           ORDER BY
