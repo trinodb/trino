@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.faulttolerant.mongodb;
+package io.trino.plugin.postgresql;
 
 import io.trino.operator.RetryPolicy;
 
-public class TestMongoQueryFailureRecoveryTest
-        extends BaseMongoFailureRecoveryTest
+public class TestPostgresQueryFailureRecoveryTest
+        extends BasePostgresFailureRecoveryTest
 {
-    public TestMongoQueryFailureRecoveryTest()
+    public TestPostgresQueryFailureRecoveryTest()
     {
         super(RetryPolicy.QUERY);
     }

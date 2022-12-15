@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.faulttolerant.postgresql;
+package io.trino.plugin.sqlserver;
 
 import io.trino.operator.RetryPolicy;
 
-public class TestPostgresTaskFailureRecoveryTest
-        extends BasePostgresFailureRecoveryTest
+public class TestSqlServerTaskFailureRecoveryTest
+        extends BaseSqlServerFailureRecoveryTest
 {
-    public TestPostgresTaskFailureRecoveryTest()
+    public TestSqlServerTaskFailureRecoveryTest()
     {
         super(RetryPolicy.TASK);
     }

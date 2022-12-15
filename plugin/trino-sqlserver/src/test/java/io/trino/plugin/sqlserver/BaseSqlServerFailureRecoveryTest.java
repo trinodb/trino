@@ -11,13 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.faulttolerant.sqlserver;
+package io.trino.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.faulttolerant.jdbc.BaseJdbcFailureRecoveryTest;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
-import io.trino.plugin.sqlserver.TestingSqlServer;
+import io.trino.plugin.jdbc.BaseJdbcFailureRecoveryTest;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 

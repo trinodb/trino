@@ -11,13 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.faulttolerant.jdbc;
+package io.trino.plugin.jdbc;
 
-import io.trino.faulttolerant.BaseFailureRecoveryTest;
 import io.trino.operator.RetryPolicy;
+import io.trino.testing.BaseFailureRecoveryTest;
 import org.testng.SkipException;
 
-import java.util.List;
 import java.util.Optional;
 
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
@@ -29,27 +28,6 @@ public abstract class BaseJdbcFailureRecoveryTest
     public BaseJdbcFailureRecoveryTest(RetryPolicy retryPolicy)
     {
         super(retryPolicy);
-    }
-
-    @Override
-    protected void createPartitionedLineitemTable(String tableName, List<String> columns, String partitionColumn)
-    {
-    }
-
-    @Override
-    public void testJoinDynamicFilteringDisabled()
-    {
-        assertThatThrownBy(super::testJoinDynamicFilteringDisabled)
-                .hasMessageContaining("partitioned_lineitem' does not exist");
-        throw new SkipException("skipped");
-    }
-
-    @Override
-    public void testJoinDynamicFilteringEnabled()
-    {
-        assertThatThrownBy(super::testJoinDynamicFilteringEnabled)
-                .hasMessageContaining("partitioned_lineitem' does not exist");
-        throw new SkipException("skipped");
     }
 
     @Override

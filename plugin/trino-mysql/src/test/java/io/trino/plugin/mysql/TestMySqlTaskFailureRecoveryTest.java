@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.faulttolerant.mysql;
+package io.trino.plugin.mysql;
 
 import io.trino.operator.RetryPolicy;
 

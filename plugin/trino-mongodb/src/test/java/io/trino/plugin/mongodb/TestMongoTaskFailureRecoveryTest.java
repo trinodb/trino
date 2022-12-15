@@ -11,15 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.faulttolerant.sqlserver;
+package io.trino.plugin.mongodb;
 
 import io.trino.operator.RetryPolicy;
 
-public class TestSqlServerQueryFailureRecoveryTest
-        extends BaseSqlServerFailureRecoveryTest
+public class TestMongoTaskFailureRecoveryTest
+        extends BaseMongoFailureRecoveryTest
 {
-    public TestSqlServerQueryFailureRecoveryTest()
+    public TestMongoTaskFailureRecoveryTest()
     {
-        super(RetryPolicy.QUERY);
+        super(RetryPolicy.TASK);
     }
 }
