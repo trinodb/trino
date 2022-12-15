@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.faulttolerant;
+package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -21,21 +21,11 @@ import io.trino.Session;
 import io.trino.client.StageStats;
 import io.trino.client.StatementStats;
 import io.trino.execution.FailureInjector.InjectedFailureType;
-import io.trino.operator.OperatorStats;
 import io.trino.operator.RetryPolicy;
-import io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
-import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.ErrorType;
 import io.trino.spi.QueryId;
-import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedResultWithQueryId;
-import io.trino.testing.MaterializedRow;
-import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.assertj.core.api.AbstractThrowableAssert;
-import org.intellij.lang.annotations.Language;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -52,21 +42,13 @@ import java.util.function.Supplier;
 import static com.google.common.base.Functions.identity;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
-import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
-import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.execution.FailureInjector.FAILURE_INJECTION_MESSAGE;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_FAILURE;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_FAILURE;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_TIMEOUT;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_FAILURE;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_TIMEOUT;
-import static io.trino.spi.predicate.Domain.singleValue;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
-import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.CUSTOMER;
@@ -87,7 +69,6 @@ import static org.testng.Assert.assertEquals;
 public abstract class BaseFailureRecoveryTest
         extends AbstractTestQueryFramework
 {
-    private static final String PARTITIONED_LINEITEM = "partitioned_lineitem";
     protected static final int INVOCATION_COUNT = 1;
     private static final Duration MAX_ERROR_DURATION = new Duration(5, SECONDS);
     private static final Duration REQUEST_TIMEOUT = new Duration(5, SECONDS);
@@ -136,60 +117,7 @@ public abstract class BaseFailureRecoveryTest
             Map<String, String> coordinatorProperties)
             throws Exception;
 
-    @BeforeClass
-    public void initTables()
-            throws Exception
-    {
-        // setup partitioned fact table for dynamic partition pruning
-        createPartitionedLineitemTable(PARTITIONED_LINEITEM, ImmutableList.of("orderkey", "partkey", "suppkey"), "suppkey");
-    }
-
-    protected abstract void createPartitionedLineitemTable(String tableName, List<String> columns, String partitionColumn);
-
     protected abstract boolean areWriteRetriesSupported();
-
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testSimpleSelect()
-    {
-        testSelect("SELECT * FROM nation");
-    }
-
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testAggregation()
-    {
-        testSelect("SELECT orderStatus, count(*) FROM orders GROUP BY orderStatus");
-    }
-
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testJoinDynamicFilteringDisabled()
-    {
-        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
-                "AND supplier.name = 'Supplier#000000001'";
-        testSelect(selectQuery, Optional.of(enableDynamicFiltering(false)));
-    }
-
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testJoinDynamicFilteringEnabled()
-    {
-        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
-                "AND supplier.name = 'Supplier#000000001'";
-        testSelect(
-                selectQuery,
-                Optional.of(enableDynamicFiltering(true)),
-                queryId -> {
-                    DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(queryId);
-                    assertThat(dynamicFiltersStats.getLazyDynamicFilters())
-                            .as("Dynamic filter is missing")
-                            .isEqualTo(1);
-                    DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-                    assertThat(domainStats.getSimplifiedDomain())
-                            .isEqualTo(singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
-                    OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(queryId, getQualifiedTableName(PARTITIONED_LINEITEM));
-                    // Currently, stats from all attempts are combined.
-                    // Asserting on multiple of 615L as well in case the probe scan was completed twice
-                    assertThat(probeStats.getInputPositions()).isIn(615L, 1230L);
-                });
-    }
 
     protected void testSelect(String query)
     {
@@ -245,24 +173,6 @@ public abstract class BaseFailureRecoveryTest
                     .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                     .finishesSuccessfully();
         }
-    }
-
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testUserFailure()
-    {
-        // Some connectors have pushdowns enabled for arithmetic operations (like SqlServer),
-        // so exception will come not from trino, but from datasource itself
-        Session withoutPushdown = Session.builder(this.getSession())
-                .setSystemProperty("allow_pushdown_into_connectors", "false")
-                .build();
-
-        assertThatThrownBy(() -> getQueryRunner().execute(withoutPushdown, "SELECT * FROM nation WHERE regionKey / nationKey - 1 = 0"))
-                .hasMessageMatching("(?i).*Division by zero.*"); // some errors come back with different casing.
-
-        assertThatQuery("SELECT * FROM nation")
-                .experiencing(TASK_FAILURE, Optional.of(ErrorType.USER_ERROR))
-                .at(leafStage())
-                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
     }
 
     @Test(invocationCount = INVOCATION_COUNT)
@@ -370,19 +280,6 @@ public abstract class BaseFailureRecoveryTest
     @Test(invocationCount = INVOCATION_COUNT)
     public void testRequestTimeouts()
     {
-        // extra test cases not covered by general timeout cases scattered around
-        assertThatQuery("SELECT * FROM nation")
-                .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
-                .at(leafStage())
-                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
-                .finishesSuccessfully();
-
-        assertThatQuery("SELECT * FROM nation")
-                .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
-                .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
-                .finishesSuccessfully();
-
         if (areWriteRetriesSupported()) {
             assertThatQuery("INSERT INTO <table> SELECT * FROM orders")
                     .withSetupQuery(Optional.of("CREATE TABLE <table> AS SELECT * FROM orders WITH NO DATA"))
@@ -438,35 +335,8 @@ public abstract class BaseFailureRecoveryTest
                 .withSetupQuery(setupQuery)
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
-                .at(leafStage())
-                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
-                .finishesSuccessfully();
-
-        assertThatQuery(query)
-                .withSession(session)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(boundaryDistributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
-                .finishesSuccessfully();
-
-        assertThatQuery(query)
-                .withSession(session)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
-                .at(intermediateDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
-                .finishesSuccessfully();
-
-        assertThatQuery(query)
-                .withSession(session)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_MANAGEMENT_REQUEST_FAILURE)
-                .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
                 .finishesSuccessfully();
 
         assertThatQuery(query)
@@ -899,17 +769,5 @@ public abstract class BaseFailureRecoveryTest
     {
         StatementStats statementStats = result.getStatementStats().orElseThrow(() -> new IllegalArgumentException("statement stats is not present"));
         return requireNonNull(statementStats.getRootStage(), "root stage is null");
-    }
-
-    private Session enableDynamicFiltering(boolean enabled)
-    {
-        Session defaultSession = getQueryRunner().getDefaultSession();
-        return Session.builder(defaultSession)
-                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.toString(enabled))
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
-                // Ensure probe side scan wait until DF is collected
-                .setCatalogSessionProperty(defaultSession.getCatalog().orElseThrow(), "dynamic_filtering_wait_timeout", "1h")
-                .build();
     }
 }

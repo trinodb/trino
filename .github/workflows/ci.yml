@@ -541,14 +541,16 @@ jobs:
             - { modules: plugin/trino-singlestore }
             - { modules: plugin/trino-sqlserver }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
+            - { modules: plugin/trino-delta-lake, profile: fte-tests }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-1 }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-2 }
+            - { modules: plugin/trino-hive, profile: fte-tests }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive }
+            - { modules: plugin/trino-iceberg, profile: fte-tests }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-postgresql }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-mongodb }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-mysql }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-sqlserver }
+            - { modules: plugin/trino-postgresql, profile: fte-tests }
+            - { modules: plugin/trino-mongodb, profile: fte-tests }
+            - { modules: plugin/trino-mysql, profile: fte-tests }
+            - { modules: plugin/trino-sqlserver, profile: fte-tests }
             - { modules: testing/trino-tests }
           EOF
           ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json

@@ -11,13 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.faulttolerant.mongodb;
+package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.faulttolerant.BaseFailureRecoveryTest;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
-import io.trino.plugin.mongodb.MongoServer;
+import io.trino.testing.BaseFailureRecoveryTest;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.testng.SkipException;
@@ -54,27 +53,6 @@ public abstract class BaseMongoFailureRecoveryTest
                     runner.loadExchangeManager("filesystem", ImmutableMap.of(
                             "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
                 });
-    }
-
-    @Override
-    protected void createPartitionedLineitemTable(String tableName, List<String> columns, String partitionColumn)
-    {
-    }
-
-    @Override
-    public void testJoinDynamicFilteringDisabled()
-    {
-        assertThatThrownBy(super::testJoinDynamicFilteringDisabled)
-                .hasMessageContaining("Unknown session property mongodb.dynamic_filtering_wait_timeout");
-        throw new SkipException("skipped");
-    }
-
-    @Override
-    public void testJoinDynamicFilteringEnabled()
-    {
-        assertThatThrownBy(super::testJoinDynamicFilteringEnabled)
-                .hasMessageContaining("Unknown session property mongodb.dynamic_filtering_wait_timeout");
-        throw new SkipException("skipped");
     }
 
     @Override

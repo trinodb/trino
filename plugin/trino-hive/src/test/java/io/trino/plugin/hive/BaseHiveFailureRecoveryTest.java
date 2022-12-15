@@ -11,11 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.faulttolerant.hive;
+package io.trino.plugin.hive;
 
 import io.trino.Session;
-import io.trino.faulttolerant.BaseFailureRecoveryTest;
 import io.trino.operator.RetryPolicy;
+import io.trino.testing.ExtendedFailureRecoveryTest;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -26,7 +26,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseHiveFailureRecoveryTest
-        extends BaseFailureRecoveryTest
+        extends ExtendedFailureRecoveryTest
 {
     protected BaseHiveFailureRecoveryTest(RetryPolicy retryPolicy)
     {

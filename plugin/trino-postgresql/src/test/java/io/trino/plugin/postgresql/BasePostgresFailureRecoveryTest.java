@@ -11,25 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.faulttolerant.mysql;
+package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.faulttolerant.jdbc.BaseJdbcFailureRecoveryTest;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
-import io.trino.plugin.mysql.TestingMySqlServer;
+import io.trino.plugin.jdbc.BaseJdbcFailureRecoveryTest;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static io.trino.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 
-public abstract class BaseMySqlFailureRecoveryTest
+public abstract class BasePostgresFailureRecoveryTest
         extends BaseJdbcFailureRecoveryTest
 {
-    public BaseMySqlFailureRecoveryTest(RetryPolicy retryPolicy)
+    public BasePostgresFailureRecoveryTest(RetryPolicy retryPolicy)
     {
         super(retryPolicy);
     }
@@ -41,8 +40,8 @@ public abstract class BaseMySqlFailureRecoveryTest
             Map<String, String> coordinatorProperties)
             throws Exception
     {
-        return createMySqlQueryRunner(
-                closeAfterClass(new TestingMySqlServer()),
+        return createPostgreSqlQueryRunner(
+                closeAfterClass(new TestingPostgreSqlServer()),
                 configProperties,
                 coordinatorProperties,
                 Map.of(),

@@ -11,14 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.faulttolerant.delta;
+package io.trino.plugin.iceberg;
 
-import io.trino.faulttolerant.BaseFailureRecoveryTest;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorType;
+import io.trino.testing.BaseFailureRecoveryTest;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Optional;
 
 import static io.trino.execution.FailureInjector.FAILURE_INJECTION_MESSAGE;
@@ -27,13 +26,11 @@ import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RE
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_TIMEOUT;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_FAILURE;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_TIMEOUT;
-import static java.lang.String.format;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
-public abstract class BaseDeltaFailureRecoveryTest
+public abstract class BaseIcebergFailureRecoveryTest
         extends BaseFailureRecoveryTest
 {
-    protected BaseDeltaFailureRecoveryTest(RetryPolicy retryPolicy)
+    protected BaseIcebergFailureRecoveryTest(RetryPolicy retryPolicy)
     {
         super(retryPolicy);
     }
@@ -44,6 +41,16 @@ public abstract class BaseDeltaFailureRecoveryTest
         return true;
     }
 
+    @Test(invocationCount = INVOCATION_COUNT)
+    public void testCreatePartitionedTable()
+    {
+        testTableModification(
+                Optional.empty(),
+                "CREATE TABLE <table> WITH (partitioning = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders",
+                Optional.of("DROP TABLE <table>"));
+    }
+
+    // Copied from BaseDeltaFailureRecoveryTest
     @Override
     public void testDelete()
     {
@@ -85,14 +92,6 @@ public abstract class BaseDeltaFailureRecoveryTest
                 .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
                 .finishesSuccessfully();
 
-        // DELETE plan is too simplistic for testing with `intermediateDistributedStage`
-        assertThatQuery(deleteQuery)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
-                .at(intermediateDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
-
         assertThatQuery(deleteQuery)
                 .withSetupQuery(setupQuery)
                 .withCleanupQuery(cleanupQuery)
@@ -106,7 +105,7 @@ public abstract class BaseDeltaFailureRecoveryTest
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
                 .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                 .finishesSuccessfully();
 
         if (getRetryPolicy() == RetryPolicy.QUERY) {
@@ -128,6 +127,7 @@ public abstract class BaseDeltaFailureRecoveryTest
         }
     }
 
+    // Copied from BaseDeltaFailureRecoveryTest
     @Override
     public void testUpdate()
     {
@@ -168,14 +168,6 @@ public abstract class BaseDeltaFailureRecoveryTest
                 .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
                 .finishesSuccessfully();
 
-        // UPDATE plan is too simplistic for testing with `intermediateDistributedStage`
-        assertThatQuery(updateQuery)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
-                .at(intermediateDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
-
         assertThatQuery(updateQuery)
                 .withSetupQuery(setupQuery)
                 .withCleanupQuery(cleanupQuery)
@@ -189,7 +181,7 @@ public abstract class BaseDeltaFailureRecoveryTest
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
                 .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                 .finishesSuccessfully();
 
         if (getRetryPolicy() == RetryPolicy.QUERY) {
@@ -211,39 +203,11 @@ public abstract class BaseDeltaFailureRecoveryTest
         }
     }
 
-    @Override
-    // materialized views are currently not implemented by Delta connector
-    public void testRefreshMaterializedView()
-    {
-        assertThatThrownBy(super::testRefreshMaterializedView)
-                .hasMessageContaining("This connector does not support creating materialized views");
-    }
-
-    @Override
-    protected void createPartitionedLineitemTable(String tableName, List<String> columns, String partitionColumn)
-    {
-        String sql = format(
-                "CREATE TABLE %s WITH (partitioned_by = array['%s']) AS SELECT %s FROM tpch.tiny.lineitem",
-                tableName,
-                partitionColumn,
-                String.join(",", columns));
-        getQueryRunner().execute(sql);
-    }
-
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testCreatePartitionedTable()
-    {
-        testTableModification(
-                Optional.empty(),
-                "CREATE TABLE <table> WITH (partitioned_by = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders",
-                Optional.of("DROP TABLE <table>"));
-    }
-
     @Test(invocationCount = INVOCATION_COUNT)
     public void testInsertIntoNewPartition()
     {
         testTableModification(
-                Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders"),
+                Optional.of("CREATE TABLE <table> WITH (partitioning = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders"),
                 "INSERT INTO <table> SELECT *, 'partition2' p FROM orders",
                 Optional.of("DROP TABLE <table>"));
     }
@@ -252,8 +216,25 @@ public abstract class BaseDeltaFailureRecoveryTest
     public void testInsertIntoExistingPartition()
     {
         testTableModification(
-                Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders"),
+                Optional.of("CREATE TABLE <table> WITH (partitioning = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders"),
                 "INSERT INTO <table> SELECT *, 'partition1' p FROM orders",
+                Optional.of("DROP TABLE <table>"));
+    }
+
+    @Test(invocationCount = INVOCATION_COUNT)
+    public void testMergePartitionedTable()
+    {
+        testTableModification(
+                Optional.of("CREATE TABLE <table> WITH (partitioning = ARRAY['bucket(orderkey, 10)']) AS SELECT * FROM orders"),
+                """
+                        MERGE INTO <table> t
+                        USING (SELECT orderkey, 'X' clerk FROM <table>) s
+                        ON t.orderkey = s.orderkey
+                        WHEN MATCHED AND s.orderkey > 1000
+                            THEN UPDATE SET clerk = t.clerk || s.clerk
+                        WHEN MATCHED AND s.orderkey <= 1000
+                            THEN DELETE
+                        """,
                 Optional.of("DROP TABLE <table>"));
     }
 }

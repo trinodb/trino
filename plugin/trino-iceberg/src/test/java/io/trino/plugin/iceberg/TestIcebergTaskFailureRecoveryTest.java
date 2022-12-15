@@ -11,12 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.faulttolerant.iceberg;
+package io.trino.plugin.iceberg;
 
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
-import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
