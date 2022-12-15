@@ -115,9 +115,9 @@ public class CreateMaterializedViewTask
                 parameterLookup,
                 true);
 
-        if (statement.getGracePeriod().isPresent()) {
+        if (statement.getGracePeriod().isPresent() || statement.getStaleBehavior().isPresent()) {
             // Should fail in analysis
-            throw new UnsupportedOperationException();
+            throw new UnsupportedOperationException("GRACE PERIOD and WHEN STALE are not supported yet");
         }
         MaterializedViewDefinition definition = new MaterializedViewDefinition(
                 sql,

@@ -25,11 +25,19 @@ import static java.util.Objects.requireNonNull;
 public class CreateMaterializedView
         extends Statement
 {
+    public enum StaleBehavior
+    {
+        FAIL,
+        INLINE,
+        /**/;
+    }
+
     private final QualifiedName name;
     private final Query query;
     private final boolean replace;
     private final boolean notExists;
     private final Optional<IntervalLiteral> gracePeriod;
+    private final Optional<StaleBehavior> staleBehavior;
     private final List<Property> properties;
     private final Optional<String> comment;
 
@@ -40,6 +48,7 @@ public class CreateMaterializedView
             boolean replace,
             boolean notExists,
             Optional<IntervalLiteral> gracePeriod,
+            Optional<StaleBehavior> staleBehavior,
             List<Property> properties,
             Optional<String> comment)
     {
@@ -49,6 +58,7 @@ public class CreateMaterializedView
         this.replace = replace;
         this.notExists = notExists;
         this.gracePeriod = requireNonNull(gracePeriod, "gracePeriod is null");
+        this.staleBehavior = requireNonNull(staleBehavior, "staleBehavior is null");
         this.properties = ImmutableList.copyOf(requireNonNull(properties, "properties is null"));
         this.comment = requireNonNull(comment, "comment is null");
     }
@@ -76,6 +86,11 @@ public class CreateMaterializedView
     public Optional<IntervalLiteral> getGracePeriod()
     {
         return gracePeriod;
+    }
+
+    public Optional<StaleBehavior> getStaleBehavior()
+    {
+        return staleBehavior;
     }
 
     public List<Property> getProperties()
@@ -106,7 +121,7 @@ public class CreateMaterializedView
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, query, replace, notExists, gracePeriod, properties, comment);
+        return Objects.hash(name, query, replace, notExists, gracePeriod, staleBehavior, properties, comment);
     }
 
     @Override
@@ -124,6 +139,7 @@ public class CreateMaterializedView
                 && Objects.equals(replace, o.replace)
                 && Objects.equals(notExists, o.notExists)
                 && Objects.equals(gracePeriod, o.gracePeriod)
+                && Objects.equals(staleBehavior, o.staleBehavior)
                 && Objects.equals(properties, o.properties)
                 && Objects.equals(comment, o.comment);
     }
@@ -137,6 +153,7 @@ public class CreateMaterializedView
                 .add("replace", replace)
                 .add("notExists", notExists)
                 .add("gracePeriod", gracePeriod)
+                .add("staleBehavior", staleBehavior)
                 .add("properties", properties)
                 .add("comment", comment)
                 .toString();

@@ -41,6 +41,7 @@ import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CreateMaterializedView;
+import io.trino.sql.tree.CreateMaterializedView.StaleBehavior;
 import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
@@ -467,6 +468,14 @@ class AstBuilder
             gracePeriod = Optional.of((IntervalLiteral) visit(context.interval()));
         }
 
+        Optional<StaleBehavior> staleBehavior = Optional.empty();
+        if (context.FAIL() != null) {
+            staleBehavior = Optional.of(StaleBehavior.FAIL);
+        }
+        else if (context.INLINE() != null) {
+            staleBehavior = Optional.of(StaleBehavior.INLINE);
+        }
+
         Optional<String> comment = Optional.empty();
         if (context.COMMENT() != null) {
             comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
@@ -484,6 +493,7 @@ class AstBuilder
                 context.REPLACE() != null,
                 context.EXISTS() != null,
                 gracePeriod,
+                staleBehavior,
                 properties,
                 comment);
     }

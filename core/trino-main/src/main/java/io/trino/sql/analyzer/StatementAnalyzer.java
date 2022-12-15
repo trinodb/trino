@@ -1329,6 +1329,9 @@ class StatementAnalyzer
             if (node.getGracePeriod().isPresent()) {
                 throw new TrinoException(NOT_SUPPORTED, "GRACE PERIOD is not supported yet");
             }
+            if (node.getStaleBehavior().isPresent()) {
+                throw new TrinoException(NOT_SUPPORTED, "WHEN STALE is not supported yet");
+            }
 
             // analyze the query that creates the view
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);

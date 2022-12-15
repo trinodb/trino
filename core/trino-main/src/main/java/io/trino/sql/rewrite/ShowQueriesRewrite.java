@@ -606,6 +606,7 @@ public final class ShowQueriesRewrite
                         false,
                         false,
                         Optional.empty(), // TODO support GRACE PERIOD
+                        Optional.empty(), // TODO support WHEN STALE
                         propertyNodes,
                         viewDefinition.get().getComment())).trim();
                 return singleValueQuery("Create Materialized View", sql);
