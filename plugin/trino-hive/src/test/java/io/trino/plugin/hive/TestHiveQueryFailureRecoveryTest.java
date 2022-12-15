@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.faulttolerant.hive;
+package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
@@ -29,12 +29,12 @@ import java.util.Map;
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 
-public class TestHiveTaskFailureRecoveryTest
+public class TestHiveQueryFailureRecoveryTest
         extends BaseHiveFailureRecoveryTest
 {
-    public TestHiveTaskFailureRecoveryTest()
+    public TestHiveQueryFailureRecoveryTest()
     {
-        super(RetryPolicy.TASK);
+        super(RetryPolicy.QUERY);
     }
 
     private HiveMinioDataLake hiveMinioDataLake;
