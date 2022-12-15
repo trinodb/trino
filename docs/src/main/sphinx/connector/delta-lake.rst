@@ -418,6 +418,7 @@ Delta Lake. In addition to the :ref:`globally available
 statements, the connector supports the following features:
 
 * :ref:`sql-data-management`, see also :ref:`delta-lake-write-support`
+* :ref:`sql-view-management`
 * :doc:`/sql/create-schema`, see also :ref:`delta-lake-create-schema`
 * :doc:`/sql/create-table`, see also :ref:`delta-lake-create-table`
 * :doc:`/sql/create-table-as`
