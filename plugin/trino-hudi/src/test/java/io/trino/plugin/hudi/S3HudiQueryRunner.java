@@ -142,15 +142,6 @@ public final class S3HudiQueryRunner
         String bucketName = "test-bucket";
         HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(bucketName);
         hiveMinioDataLake.start();
-        /*
-         * Please set the below VM arguments for the main method to run:
-         *
-         * -ea --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED
-         *
-         * TODO: We need to set above arguments due to Hudi's deep reflection based ObjectSizeEstimator.
-         *       Higher versions of jdk block illegal reflective access. This will not be needed after
-         *       https://issues.apache.org/jira/browse/HUDI-4687 is fixed.
-         */
         DistributedQueryRunner queryRunner = create(
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
