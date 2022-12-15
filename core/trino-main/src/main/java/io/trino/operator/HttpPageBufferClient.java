@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.LittleEndianDataInputStream;
@@ -145,6 +146,9 @@ public final class HttpPageBufferClient
     @GuardedBy("this")
     private String taskInstanceId;
 
+    // it is synchronized on `this` for update
+    private volatile long averageRequestSizeInBytes;
+
     private final AtomicLong rowsReceived = new AtomicLong();
     private final AtomicInteger pagesReceived = new AtomicInteger();
 
@@ -153,6 +157,7 @@ public final class HttpPageBufferClient
 
     private final AtomicInteger requestsScheduled = new AtomicInteger();
     private final AtomicInteger requestsCompleted = new AtomicInteger();
+    private final AtomicInteger requestsSucceeded = new AtomicInteger();
     private final AtomicInteger requestsFailed = new AtomicInteger();
 
     private final Executor pageBufferClientCallbackExecutor;
@@ -251,12 +256,18 @@ public final class HttpPageBufferClient
                 requestsScheduled.get(),
                 requestsCompleted.get(),
                 requestsFailed.get(),
+                requestsSucceeded.get(),
                 httpRequestState);
     }
 
     public TaskId getRemoteTaskId()
     {
         return remoteTaskId;
+    }
+
+    public long getAverageRequestSizeInBytes()
+    {
+        return averageRequestSizeInBytes;
     }
 
     public synchronized boolean isRunning()
@@ -434,6 +445,8 @@ public final class HttpPageBufferClient
                     }
                 }
                 requestsCompleted.incrementAndGet();
+                long responseSize = pages.stream().mapToLong(Slice::length).sum();
+                requestSucceeded(responseSize);
 
                 synchronized (HttpPageBufferClient.this) {
                     // client is complete, acknowledge it by sending it a delete in the next request
@@ -483,6 +496,14 @@ public final class HttpPageBufferClient
                 handleFailure(t, resultFuture);
             }
         }, pageBufferClientCallbackExecutor);
+    }
+
+    @VisibleForTesting
+    synchronized void requestSucceeded(long responseSize)
+    {
+        int successfulRequests = requestsSucceeded.incrementAndGet();
+        // AVG_n = AVG_(n-1) * (n-1)/n + VALUE_n / n
+        averageRequestSizeInBytes = (long) ((1.0 * averageRequestSizeInBytes * (successfulRequests - 1)) + responseSize) / successfulRequests;
     }
 
     private synchronized void destroyTaskResults()
