@@ -516,6 +516,40 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFailure(), expectedException);
     }
 
+    @Test
+    public void testRequestDurationMetric()
+            throws Exception
+    {
+        Page expectedPage = new Page(100);
+
+        DataSize expectedMaxSize = DataSize.of(11, Unit.MEGABYTE);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(expectedMaxSize);
+
+        CyclicBarrier requestComplete = new CyclicBarrier(2);
+
+        TestingClientCallback callback = new TestingClientCallback(requestComplete);
+
+        URI location = URI.create("http://localhost:8080");
+        HttpPageBufferClient client = new HttpPageBufferClient(
+                "localhost",
+                new TestingHttpClient(processor, scheduler),
+                DataIntegrityVerification.ABORT,
+                expectedMaxSize,
+                new Duration(1, TimeUnit.MINUTES),
+                true,
+                TASK_ID,
+                location,
+                callback,
+                scheduler,
+                pageBufferClientCallbackExecutor);
+
+        // fetch a page and verify
+        processor.addPage(location, expectedPage);
+        client.scheduleRequest();
+        requestComplete.await(10, TimeUnit.SECONDS);
+        assertEquals(client.getStatus().getRequestsDuration().getDigest().getCount(), 1.0);
+    }
+
     private static void assertStatus(
             HttpPageBufferClient client,
             URI location, String status,

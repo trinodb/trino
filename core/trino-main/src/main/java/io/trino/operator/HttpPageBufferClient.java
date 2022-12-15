@@ -30,11 +30,13 @@ import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.ResponseTooLargeException;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerdeUtil;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.server.remotetask.Backoff;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
@@ -145,6 +147,10 @@ public final class HttpPageBufferClient
     private boolean completed;
     @GuardedBy("this")
     private String taskInstanceId;
+    @GuardedBy("this")
+    private long lastRequestTimestamp;
+    @GuardedBy("this")
+    private final TDigest requestsDuration = new TDigest();
 
     // it is synchronized on `this` for update
     private volatile long averageRequestSizeInBytes;
@@ -161,6 +167,7 @@ public final class HttpPageBufferClient
     private final AtomicInteger requestsFailed = new AtomicInteger();
 
     private final Executor pageBufferClientCallbackExecutor;
+    private final Ticker ticker;
 
     public HttpPageBufferClient(
             String selfAddress,
@@ -217,6 +224,7 @@ public final class HttpPageBufferClient
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(ticker, "ticker is null");
         this.backoff = new Backoff(maxErrorDuration, ticker);
+        this.ticker = ticker;
     }
 
     public synchronized PageBufferClientStatus getStatus()
@@ -257,7 +265,8 @@ public final class HttpPageBufferClient
                 requestsCompleted.get(),
                 requestsFailed.get(),
                 requestsSucceeded.get(),
-                httpRequestState);
+                httpRequestState,
+                new TDigestHistogram(TDigest.copyOf(requestsDuration)));
     }
 
     public TaskId getRemoteTaskId()
@@ -347,6 +356,7 @@ public final class HttpPageBufferClient
     private synchronized void sendGetResults()
     {
         URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(token)).build();
+        lastRequestTimestamp = ticker.read();
         HttpResponseFuture<PagesResponse> resultFuture = httpClient.executeAsync(
                 prepareGet()
                         .setHeader(TRINO_MAX_SIZE, maxResponseSize.toString())
@@ -360,7 +370,9 @@ public final class HttpPageBufferClient
             public void onSuccess(PagesResponse result)
             {
                 assertNotHoldsLock(this);
-
+                synchronized (HttpPageBufferClient.this) {
+                    requestsDuration.add(new Duration(ticker.read() - lastRequestTimestamp, NANOSECONDS).toMillis());
+                }
                 backoff.success();
 
                 List<Slice> pages;
@@ -466,6 +478,10 @@ public final class HttpPageBufferClient
             {
                 log.debug("Request to %s failed %s", uri, t);
                 assertNotHoldsLock(this);
+
+                synchronized (HttpPageBufferClient.this) {
+                    requestsDuration.add(new Duration(ticker.read() - lastRequestTimestamp, NANOSECONDS).toMillis());
+                }
 
                 if (t instanceof ChecksumVerificationException) {
                     switch (dataIntegrityVerification) {

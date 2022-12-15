@@ -15,6 +15,8 @@ package io.trino.operator;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.stats.TDigest;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import org.joda.time.DateTime;
 
 import java.net.URI;
@@ -39,6 +41,7 @@ public class PageBufferClientStatus
     private final int requestsFailed;
     private final int requestsSucceeded;
     private final String httpRequestState;
+    private final TDigestHistogram requestsDuration;
 
     @JsonCreator
     public PageBufferClientStatus(@JsonProperty("uri") URI uri,
@@ -52,7 +55,8 @@ public class PageBufferClientStatus
             @JsonProperty("requestsCompleted") int requestsCompleted,
             @JsonProperty("requestsFailed") int requestsFailed,
             @JsonProperty("requestsSucceeded") int requestsSucceeded,
-            @JsonProperty("httpRequestState") String httpRequestState)
+            @JsonProperty("httpRequestState") String httpRequestState,
+            @JsonProperty("requestsDurationInMilliseconds") TDigestHistogram requestsDuration)
     {
         this.uri = uri;
         this.state = state;
@@ -66,6 +70,7 @@ public class PageBufferClientStatus
         this.requestsFailed = requestsFailed;
         this.requestsSucceeded = requestsSucceeded;
         this.httpRequestState = httpRequestState;
+        this.requestsDuration = requireNonNull(requestsDuration, "requestsDuration is null");
     }
 
     @JsonProperty
@@ -138,6 +143,12 @@ public class PageBufferClientStatus
     public String getHttpRequestState()
     {
         return httpRequestState;
+    }
+
+    @JsonProperty
+    public synchronized TDigestHistogram getRequestsDuration()
+    {
+        return new TDigestHistogram(TDigest.copyOf(requestsDuration.getDigest()));
     }
 
     @Override

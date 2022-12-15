@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.http.client.HttpClient;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
@@ -27,6 +28,7 @@ import io.trino.execution.TaskId;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.HttpPageBufferClient.ClientCallback;
 import io.trino.operator.WorkProcessor.ProcessState;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -133,6 +135,9 @@ public class DirectExchangeClient
             pageBufferClientStatusBuilder.add(client.getStatus());
         }
         List<PageBufferClientStatus> pageBufferClientStatus = pageBufferClientStatusBuilder.build();
+        TDigest mergedRequestsDuration = new TDigest();
+        pageBufferClientStatus.forEach(status -> mergedRequestsDuration.mergeWith(status.getRequestsDuration().getDigest()));
+
         synchronized (this) {
             return new DirectExchangeClientStatus(
                     buffer.getRetainedSizeInBytes(),
@@ -143,7 +148,8 @@ public class DirectExchangeClient
                     buffer.getSpilledPageCount(),
                     buffer.getSpilledBytes(),
                     noMoreLocations,
-                    pageBufferClientStatus);
+                    pageBufferClientStatus,
+                    new TDigestHistogram(mergedRequestsDuration));
         }
     }
 
