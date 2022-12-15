@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.base.Ticker;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.HttpClient;
 import io.airlift.node.NodeInfo;
@@ -167,6 +168,7 @@ public class DirectExchangeClientFactory
                 scheduler,
                 memoryContext,
                 pageBufferClientCallbackExecutor,
-                taskFailureListener);
+                taskFailureListener,
+                Ticker.systemTicker());
     }
 }

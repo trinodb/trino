@@ -14,11 +14,13 @@
 package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.http.client.HttpClient;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
@@ -27,6 +29,7 @@ import io.trino.execution.TaskId;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.HttpPageBufferClient.ClientCallback;
 import io.trino.operator.WorkProcessor.ProcessState;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -35,6 +38,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.io.Closeable;
 import java.net.URI;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +46,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -84,6 +89,11 @@ public class DirectExchangeClient
     @GuardedBy("this")
     private boolean closed;
 
+    @GuardedBy("this")
+    private final TDigest clientWaitingTimeInMillis = new TDigest();
+    @GuardedBy("this")
+    private final Map<HttpPageBufferClient, Long> putToQueuedClientsTimestamp = new HashMap<>();
+
     @GuardedBy("memoryContextLock")
     @Nullable
     private LocalMemoryContext memoryContext;
@@ -92,6 +102,7 @@ public class DirectExchangeClient
     private final Lock memoryContextWriteLock = memoryContextLock.writeLock();
     private final Executor pageBufferClientCallbackExecutor;
     private final TaskFailureListener taskFailureListener;
+    private final Ticker ticker;
 
     // DirectExchangeClientStatus.mergeWith assumes all clients have the same bufferCapacity.
     // Please change that method accordingly when this assumption becomes not true.
@@ -107,7 +118,8 @@ public class DirectExchangeClient
             ScheduledExecutorService scheduledExecutor,
             LocalMemoryContext memoryContext,
             Executor pageBufferClientCallbackExecutor,
-            TaskFailureListener taskFailureListener)
+            TaskFailureListener taskFailureListener,
+            Ticker ticker)
     {
         this.selfAddress = requireNonNull(selfAddress, "selfAddress is null");
         this.dataIntegrityVerification = requireNonNull(dataIntegrityVerification, "dataIntegrityVerification is null");
@@ -121,6 +133,7 @@ public class DirectExchangeClient
         this.memoryContext = memoryContext;
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
         this.taskFailureListener = requireNonNull(taskFailureListener, "taskFailureListener is null");
+        this.ticker = ticker;
     }
 
     public DirectExchangeClientStatus getStatus()
@@ -143,11 +156,12 @@ public class DirectExchangeClient
                     buffer.getSpilledPageCount(),
                     buffer.getSpilledBytes(),
                     noMoreLocations,
-                    pageBufferClientStatus);
+                    pageBufferClientStatus,
+                    new TDigestHistogram(TDigest.copyOf(clientWaitingTimeInMillis)));
         }
     }
 
-    public synchronized void addLocation(TaskId taskId, URI location)
+    public synchronized void addLocation(TaskId taskId, URI location, ClientCallback callback)
     {
         requireNonNull(location, "location is null");
 
@@ -170,13 +184,19 @@ public class DirectExchangeClient
                 acknowledgePages,
                 taskId,
                 location,
-                new ExchangeClientCallback(),
+                callback,
                 scheduledExecutor,
                 pageBufferClientCallbackExecutor);
         allClients.put(location, client);
         queuedClients.add(client);
+        putToQueuedClientsTimestamp.put(client, ticker.read());
 
         scheduleRequestIfNecessary();
+    }
+
+    public synchronized void addLocation(TaskId taskId, URI location)
+    {
+        addLocation(taskId, location, new ExchangeClientCallback());
     }
 
     public synchronized void noMoreLocations()
@@ -290,6 +310,7 @@ public class DirectExchangeClient
         for (int i = 0; i < clientCount; i++) {
             HttpPageBufferClient client = queuedClients.poll();
             client.scheduleRequest();
+            clientWaitingTimeInMillis.add(new Duration(ticker.read() - putToQueuedClientsTimestamp.getOrDefault(client, ticker.read()), TimeUnit.NANOSECONDS).toMillis());
         }
         return clientCount;
     }
@@ -371,6 +392,7 @@ public class DirectExchangeClient
     {
         if (!completedClients.contains(client) && !queuedClients.contains(client)) {
             queuedClients.add(client);
+            putToQueuedClientsTimestamp.put(client, ticker.read());
         }
         scheduleRequestIfNecessary();
     }

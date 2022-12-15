@@ -16,6 +16,8 @@ package io.trino.operator;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.airlift.stats.TDigest;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.Mergeable;
 
 import java.util.List;
@@ -35,6 +37,7 @@ public class DirectExchangeClientStatus
     private final long spilledBytes;
     private final boolean noMoreLocations;
     private final List<PageBufferClientStatus> pageBufferClientStatuses;
+    private final TDigestHistogram clientWaitingTimeInMillis;
 
     @JsonCreator
     public DirectExchangeClientStatus(
@@ -46,7 +49,8 @@ public class DirectExchangeClientStatus
             @JsonProperty("spilledPages") int spilledPages,
             @JsonProperty("spilledBytes") long spilledBytes,
             @JsonProperty("noMoreLocations") boolean noMoreLocations,
-            @JsonProperty("pageBufferClientStatuses") List<PageBufferClientStatus> pageBufferClientStatuses)
+            @JsonProperty("pageBufferClientStatuses") List<PageBufferClientStatus> pageBufferClientStatuses,
+            @JsonProperty("clientWaitingTimeInMillis") TDigestHistogram clientWaitingTimeInMillis)
     {
         this.bufferedBytes = bufferedBytes;
         this.maxBufferedBytes = maxBufferedBytes;
@@ -57,6 +61,7 @@ public class DirectExchangeClientStatus
         this.spilledBytes = spilledBytes;
         this.noMoreLocations = noMoreLocations;
         this.pageBufferClientStatuses = ImmutableList.copyOf(requireNonNull(pageBufferClientStatuses, "pageBufferClientStatuses is null"));
+        this.clientWaitingTimeInMillis = requireNonNull(clientWaitingTimeInMillis, "clientWaitingTimeInMillis is null");
     }
 
     @JsonProperty
@@ -113,6 +118,12 @@ public class DirectExchangeClientStatus
         return pageBufferClientStatuses;
     }
 
+    @JsonProperty
+    public synchronized TDigestHistogram getClientWaitingTimeInMillis()
+    {
+        return new TDigestHistogram(TDigest.copyOf(clientWaitingTimeInMillis.getDigest()));
+    }
+
     @Override
     public boolean isFinal()
     {
@@ -132,6 +143,7 @@ public class DirectExchangeClientStatus
                 .add("spilledBytes", spilledBytes)
                 .add("noMoreLocations", noMoreLocations)
                 .add("pageBufferClientStatuses", pageBufferClientStatuses)
+                .add("clientWaitingTimeInMillis", clientWaitingTimeInMillis)
                 .toString();
     }
 
@@ -147,7 +159,8 @@ public class DirectExchangeClientStatus
                 spilledPages + other.spilledPages,
                 spilledBytes + other.spilledBytes,
                 noMoreLocations && other.noMoreLocations, // if at least one has some locations, mergee has some too
-                ImmutableList.of()); // pageBufferClientStatuses may be long, so we don't want to combine the lists
+                ImmutableList.of(), // pageBufferClientStatuses may be long, so we don't want to combine the lists
+                getClientWaitingTimeInMillis().mergeWith(other.getClientWaitingTimeInMillis()));
     }
 
     private static long mergeAvgs(long value1, long count1, long value2, long count2)

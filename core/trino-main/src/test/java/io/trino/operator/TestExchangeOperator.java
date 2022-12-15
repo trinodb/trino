@@ -19,6 +19,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.testing.TestingHttpClient;
+import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
@@ -101,7 +102,8 @@ public class TestExchangeOperator
                 scheduler,
                 memoryContext,
                 pageBufferClientCallbackExecutor,
-                taskFailureListener);
+                taskFailureListener,
+                new TestingTicker());
     }
 
     @AfterClass(alwaysRun = true)

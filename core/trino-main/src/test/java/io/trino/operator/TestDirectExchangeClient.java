@@ -25,6 +25,8 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -145,7 +147,8 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (taskId, failure) -> {});
+                (taskId, failure) -> {},
+                new TestingTicker());
 
         assertThat(buffer.getAllTasks()).isEmpty();
         assertThat(buffer.getPages().asMap()).isEmpty();
@@ -208,7 +211,8 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (taskId, failure) -> {});
+                (taskId, failure) -> {},
+                new TestingTicker());
 
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
         exchangeClient.noMoreLocations();
@@ -264,7 +268,8 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (taskId, failure) -> {});
+                (taskId, failure) -> {},
+                new TestingTicker());
 
         assertThat(buffer.getAllTasks()).isEmpty();
         assertThat(buffer.getPages().asMap()).isEmpty();
@@ -332,7 +337,8 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (taskId, failure) -> {});
+                (taskId, failure) -> {},
+                new TestingTicker());
 
         URI location1 = URI.create("http://localhost:8081/foo");
         processor.addPage(location1, createPage(1));
@@ -435,7 +441,8 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (taskId, failure) -> {});
+                (taskId, failure) -> {},
+                new TestingTicker());
 
         exchangeClient.addLocation(task1, location1);
         exchangeClient.addLocation(task2, location2);
@@ -494,7 +501,8 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (taskId, failure) -> {});
+                (taskId, failure) -> {},
+                new TestingTicker());
 
         exchangeClient.addLocation(attempt0Task1, attempt0Task1Location);
         assertFalse(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent());
@@ -549,7 +557,8 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (taskId, failure) -> {});
+                (taskId, failure) -> {},
+                new TestingTicker());
 
         exchangeClient.addLocation(taskP0A0, locationP0A0);
         exchangeClient.addLocation(taskP1A0, locationP1A0);
@@ -632,7 +641,8 @@ public class TestDirectExchangeClient
                 (taskId, failure) -> {
                     failedTasks.add(taskId);
                     latch.countDown();
-                });
+                },
+                new TestingTicker());
 
         assertThat(buffer.getAllTasks()).isEmpty();
         assertThat(buffer.getPages().asMap()).isEmpty();
@@ -741,7 +751,8 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (taskId, failure) -> {});
+                (taskId, failure) -> {},
+                new TestingTicker());
 
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
         exchangeClient.noMoreLocations();
@@ -891,7 +902,8 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (taskId, failure) -> {});
+                (taskId, failure) -> {},
+                new TestingTicker());
 
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
         exchangeClient.noMoreLocations();
@@ -924,7 +936,8 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (taskId, failure) -> {});
+                (taskId, failure) -> {},
+                new TestingTicker());
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
         exchangeClient.noMoreLocations();
 
@@ -974,7 +987,8 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (taskId, failure) -> {});
+                (taskId, failure) -> {},
+                new TestingTicker());
         exchangeClient.getAllClients().putAll(Map.of(locationOne, clientToBeUsed, locationTwo, clientToBeSkipped));
         exchangeClient.getQueuedClients().addAll(ImmutableList.of(clientToBeUsed, clientToBeSkipped));
 
@@ -1008,7 +1022,8 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (taskId, failure) -> {});
+                (taskId, failure) -> {},
+                new TestingTicker());
         exchangeClient.getAllClients().putAll(Map.of(locationOne, firstClient, locationTwo, secondClient));
         exchangeClient.getQueuedClients().addAll(ImmutableList.of(firstClient, secondClient));
 
@@ -1044,7 +1059,8 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (taskId, failure) -> {});
+                (taskId, failure) -> {},
+                new TestingTicker());
         exchangeClient.getAllClients().putAll(Map.of(locationOne, pendingClient, locationTwo, clientToBeSkipped));
         exchangeClient.getQueuedClients().add(clientToBeSkipped);
 
@@ -1067,6 +1083,43 @@ public class TestDirectExchangeClient
                 callback,
                 scheduler,
                 pageBufferClientCallbackExecutor);
+    }
+
+    @Test
+    public void testClientWaitingTimeMetric()
+            throws Exception
+    {
+        DataSize maxResponseSize = DataSize.ofBytes(1024);
+        TestingTicker ticker = new TestingTicker();
+
+        DirectExchangeBuffer buffer = new StreamingDirectExchangeBuffer(scheduler, DataSize.ofBytes(1024));
+        buffer.addTask(TASK_ID);
+        buffer.addPages(TASK_ID, ImmutableList.of(Slices.wrappedBuffer(new byte[1024])));
+
+        @SuppressWarnings("resource")
+        DirectExchangeClient exchangeClient = new DirectExchangeClient(
+                "localhost",
+                DataIntegrityVerification.ABORT,
+                buffer,
+                maxResponseSize,
+                1,
+                new Duration(1, TimeUnit.MINUTES),
+                true,
+                new TestingHttpClient(new MockExchangeRequestProcessor(maxResponseSize), scheduler),
+                scheduler,
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                pageBufferClientCallbackExecutor,
+                (taskId, failure) -> {},
+                ticker);
+
+        exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), URI.create("http://localhost:8080"), new MockClientCallback());
+        ticker.increment(10, SECONDS);
+        buffer.pollPage();
+        exchangeClient.scheduleRequestIfNecessary();
+        assertEquals(exchangeClient.getStatus().getClientWaitingTimeInMillis().getMax(), 10000.0);
+
+        exchangeClient.noMoreLocations();
+        exchangeClient.close();
     }
 
     private static Page createPage(int size)
