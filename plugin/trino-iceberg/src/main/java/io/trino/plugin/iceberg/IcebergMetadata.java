@@ -394,28 +394,35 @@ public class IcebergMetadata
         io.trino.spi.type.Type versionType = version.getVersionType();
         switch (version.getPointerType()) {
             case TEMPORAL:
-                long epochMillis;
-                if (versionType instanceof TimestampWithTimeZoneType) {
-                    epochMillis = ((TimestampWithTimeZoneType) versionType).isShort()
-                            ? unpackMillisUtc((long) version.getVersion())
-                            : ((LongTimestampWithTimeZone) version.getVersion()).getEpochMillis();
-                }
-                else {
-                    throw new TrinoException(NOT_SUPPORTED, "Unsupported type for temporal table version: " + versionType.getDisplayName());
-                }
-                return getSnapshotIdAsOfTime(table, epochMillis);
+                return getTemporalSnapshotIdFromVersion(table, version, versionType);
 
             case TARGET_ID:
-                if (versionType != BIGINT) {
-                    throw new TrinoException(NOT_SUPPORTED, "Unsupported type for table version: " + versionType.getDisplayName());
-                }
-                long snapshotId = (long) version.getVersion();
-                if (table.snapshot(snapshotId) == null) {
-                    throw new TrinoException(INVALID_ARGUMENTS, "Iceberg snapshot ID does not exists: " + snapshotId);
-                }
-                return snapshotId;
+                return getTargetSnapshotIdFromVersion(table, version, versionType);
         }
         throw new TrinoException(NOT_SUPPORTED, "Version pointer type is not supported: " + version.getPointerType());
+    }
+
+    private static long getTargetSnapshotIdFromVersion(Table table, ConnectorTableVersion version, io.trino.spi.type.Type versionType)
+    {
+        if (versionType != BIGINT) {
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported type for table version: " + versionType.getDisplayName());
+        }
+        long snapshotId = (long) version.getVersion();
+        if (table.snapshot(snapshotId) == null) {
+            throw new TrinoException(INVALID_ARGUMENTS, "Iceberg snapshot ID does not exists: " + snapshotId);
+        }
+        return snapshotId;
+    }
+
+    private static long getTemporalSnapshotIdFromVersion(Table table, ConnectorTableVersion version, io.trino.spi.type.Type versionType)
+    {
+        if (versionType instanceof TimestampWithTimeZoneType timeZonedVersionType) {
+            long epochMillis = timeZonedVersionType.isShort()
+                    ? unpackMillisUtc((long) version.getVersion())
+                    : ((LongTimestampWithTimeZone) version.getVersion()).getEpochMillis();
+            return getSnapshotIdAsOfTime(table, epochMillis);
+        }
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported type for temporal table version: " + versionType.getDisplayName());
     }
 
     @Override
