@@ -439,6 +439,33 @@ public class TestHttpPageBufferClient
     }
 
     @Test
+    public void testAverageSizeOfRequest()
+    {
+        HttpPageBufferClient client = new HttpPageBufferClient(
+                "localhost",
+                new TestingHttpClient(new MockExchangeRequestProcessor(DataSize.of(10, MEGABYTE)), scheduler),
+                DataIntegrityVerification.ABORT,
+                DataSize.of(10, MEGABYTE),
+                new Duration(30, TimeUnit.SECONDS),
+                true,
+                TASK_ID,
+                URI.create("http://localhost:8080"),
+                new TestingClientCallback(new CyclicBarrier(1)),
+                scheduler,
+                new TestingTicker(),
+                pageBufferClientCallbackExecutor);
+
+        assertEquals(client.getAverageRequestSizeInBytes(), 0);
+
+        client.requestSucceeded(0);
+        assertEquals(client.getAverageRequestSizeInBytes(), 0);
+
+        client.requestSucceeded(1000);
+        client.requestSucceeded(800);
+        assertEquals(client.getAverageRequestSizeInBytes(), 600);
+    }
+
+    @Test
     public void testMemoryExceededInAddPages()
             throws Exception
     {
