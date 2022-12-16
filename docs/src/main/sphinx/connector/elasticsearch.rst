@@ -84,7 +84,8 @@ Configuration properties
         queries.
       -
     * - ``elasticsearch.legacy-pass-through-query.enabled``
-      - Enables legacy pass-through query
+      - Enables legacy pass-through query. Deprecated, use the :ref:`raw_query
+        table function <elasticsearch-raw-query-function>` instead.
       - false
 
 TLS security
@@ -379,35 +380,6 @@ Elasticsearch Trino         Supports
 (all others)  (unsupported) (unsupported)
 ============= ============= =============
 
-Pass-through queries
---------------------
-
-.. note::
-
-    This feature is deprecated and disabled by default. It's recommended to use
-    ``raw_query`` :doc:`table function</functions/table>` instead.
-    To enable legacy pass-through query please use
-    ``elasticsearch.legacy-pass-through-query-enabled`` configuration property.
-
-The Elasticsearch connector allows you to embed any valid Elasticsearch query,
-that uses the `Elasticsearch Query DSL
-<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl.html>`_
-in your SQL query.
-
-The results can then be used in any SQL statement, wrapping the Elasticsearch
-query. The syntax extends the syntax of the enhanced Elasticsearch table names
-with the following::
-
-    SELECT * FROM es.default."<index>$query:<es-query>"
-
-The Elasticsearch query string ``es-query`` is base32-encoded to avoid having to
-deal with escaping quotes and case sensitivity issues in table identifiers.
-
-The result of these query tables is a table with a single row and a single
-column named ``result`` of type VARCHAR. It contains the JSON payload returned
-by Elasticsearch, and can be processed with the :doc:`built-in JSON functions
-</functions/json>`.
-
 AWS authorization
 -----------------
 
@@ -452,3 +424,53 @@ SQL support
 The connector provides :ref:`globally available <sql-globally-available>` and
 :ref:`read operation <sql-read-operations>` statements to access data and
 metadata in the Elasticsearch catalog.
+
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access Elasticsearch.
+
+.. _elasticsearch-raw-query-function:
+
+``raw_query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``raw_query`` function allows you to query the underlying database directly.
+This function requires `Elastic Query DSL
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl.html>`_
+syntax, because the full query is pushed down and processed in Elasticsearch.
+This can be useful for accessing native features which are not available in
+Trino or for improving query performance in situations where running a query
+natively may be faster.
+
+.. include:: polymorphic-table-function-ordering.fragment
+
+The ``raw_query`` function requires three parameters:
+
+* ``schema``: The schema in the catalog that the query is to be executed on.
+* ``index``: The index in Elasticsearch to be searched.
+* ``query``: The query to be executed, written in Elastic Query DSL.
+
+Once executed, the query returns a single row containing the resulting JSON
+payload returned by Elasticsearch.
+
+For example, the following use of the ``raw_query`` table function searches for
+documents in the ``orders`` index where the country name is ``ALGERIA``::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        elasticsearch.system.raw_query(
+          schema => 'sales',
+          index => 'orders',
+          query => '{
+            "query": {
+              "match": {
+                "name": "ALGERIA"
+              }
+            }
+          }'
+        )
+      );
