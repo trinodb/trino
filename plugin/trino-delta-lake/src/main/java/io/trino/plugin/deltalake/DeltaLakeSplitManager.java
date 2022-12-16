@@ -37,6 +37,7 @@ import io.trino.spi.type.TypeManager;
 import javax.inject.Inject;
 
 import java.net.URI;
+import java.net.URLDecoder;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +59,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxInitial
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxSplitSize;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -291,7 +293,15 @@ public class DeltaLakeSplitManager
     {
         // paths are relative to the table location and are RFC 2396 URIs
         // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file
-        String path = URI.create(addAction.getPath()).getPath();
+        URI uri = URI.create(addAction.getPath());
+        String path = uri.getPath();
+
+        // org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem encodes the path as URL when opening files
+        // https://issues.apache.org/jira/browse/HADOOP-18580
+        if (tableLocation.startsWith("abfs://") || tableLocation.startsWith("abfss://")) {
+            // Replace '+' with '%2B' beforehand. Otherwise, the character becomes a space ' ' by URL decode.
+            path = URLDecoder.decode(path.replace("+", "%2B"), UTF_8);
+        }
         if (tableLocation.endsWith("/")) {
             return tableLocation + path;
         }
