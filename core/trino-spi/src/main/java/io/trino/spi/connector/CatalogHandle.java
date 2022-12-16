@@ -11,20 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.connector;
+package io.trino.spi.connector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.common.base.CharMatcher;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
-import static io.trino.connector.CatalogHandle.CatalogHandleType.INFORMATION_SCHEMA;
-import static io.trino.connector.CatalogHandle.CatalogHandleType.NORMAL;
-import static io.trino.connector.CatalogHandle.CatalogHandleType.SYSTEM;
+import static io.trino.spi.connector.CatalogHandle.CatalogHandleType.INFORMATION_SCHEMA;
+import static io.trino.spi.connector.CatalogHandle.CatalogHandleType.NORMAL;
+import static io.trino.spi.connector.CatalogHandle.CatalogHandleType.SYSTEM;
 import static java.lang.Math.toIntExact;
 import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
@@ -59,10 +57,14 @@ public final class CatalogHandle
         requireNonNull(id, "id is null");
 
         int versionSplit = id.lastIndexOf(':');
-        checkArgument(versionSplit > 0, "invalid id %s");
+        if (versionSplit <= 0) {
+            throw new IllegalArgumentException("invalid id " + id);
+        }
 
         int typeSplit = id.lastIndexOf(':', versionSplit - 1);
-        checkArgument(typeSplit > 0, "invalid id %s");
+        if (typeSplit <= 0) {
+            throw new IllegalArgumentException("invalid id " + id);
+        }
 
         String catalogName = id.substring(0, typeSplit);
         CatalogHandleType type = CatalogHandleType.valueOf(id.substring(typeSplit + 1, versionSplit).toUpperCase(ROOT));
@@ -76,7 +78,9 @@ public final class CatalogHandle
         this.type = requireNonNull(type, "type is null");
         this.version = requireNonNull(version, "version is null");
         requireNonNull(catalogName, "catalogName is null");
-        checkArgument(!catalogName.isEmpty(), "catalogName is empty");
+        if (catalogName.isEmpty()) {
+            throw new IllegalArgumentException("catalogName is empty");
+        }
         this.rootCatalogHandle = switch (type) {
             case NORMAL -> this;
             case INFORMATION_SCHEMA, SYSTEM -> new CatalogHandle(catalogName, NORMAL, version);
@@ -170,11 +174,6 @@ public final class CatalogHandle
     public static final class CatalogVersion
             implements Comparable<CatalogVersion>
     {
-        private static final CharMatcher ALLOWED_CHARACTERS = CharMatcher.inRange('0', '9')
-                .or(CharMatcher.inRange('a', 'z'))
-                .or(CharMatcher.anyOf("_-"))
-                .precomputed();
-
         private final String version;
 
         /**
@@ -184,9 +183,24 @@ public final class CatalogHandle
         public CatalogVersion(String version)
         {
             requireNonNull(version, "version is null");
-            checkArgument(!version.isEmpty(), "version is empty");
-            checkArgument(ALLOWED_CHARACTERS.matchesAllOf(version), "invalid version: %s", version);
+            if (version.isEmpty()) {
+                throw new IllegalArgumentException("version is empty");
+            }
+            for (int i = 0; i < version.length(); i++) {
+                if (!isAllowedCharacter(version.charAt(i))) {
+                    throw new IllegalArgumentException("invalid version: " + version);
+                }
+            }
+
             this.version = version;
+        }
+
+        private static boolean isAllowedCharacter(char c)
+        {
+            return ('0' <= c && c <= '9') ||
+                    ('a' <= c && c <= 'z') ||
+                    c == '_' ||
+                    c == '-';
         }
 
         @Override

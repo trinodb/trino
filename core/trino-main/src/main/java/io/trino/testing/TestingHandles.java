@@ -13,12 +13,12 @@
  */
 package io.trino.testing;
 
-import io.trino.connector.CatalogHandle;
-import io.trino.connector.CatalogHandle.CatalogVersion;
 import io.trino.metadata.TableHandle;
+import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
+import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 
 public final class TestingHandles
 {
