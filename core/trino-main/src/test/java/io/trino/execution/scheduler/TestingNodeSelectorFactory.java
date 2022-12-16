@@ -15,10 +15,10 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.execution.RemoteTask;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.spi.connector.CatalogHandle;
 
 import java.util.List;
 import java.util.Map;

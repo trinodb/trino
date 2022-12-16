@@ -14,8 +14,8 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.connector.CatalogHandle;
-import io.trino.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -29,7 +29,7 @@ import javax.inject.Inject;
 
 import java.util.Set;
 
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
+import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static java.util.Objects.requireNonNull;
 
 public class GlobalSystemConnector

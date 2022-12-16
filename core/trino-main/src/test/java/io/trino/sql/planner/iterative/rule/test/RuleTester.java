@@ -15,13 +15,13 @@ package io.trino.sql.planner.iterative.rule.test;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.security.AccessControl;
 import io.trino.spi.Plugin;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
