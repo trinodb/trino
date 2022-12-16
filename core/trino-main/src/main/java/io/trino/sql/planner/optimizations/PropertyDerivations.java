@@ -34,10 +34,10 @@ import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.OrderingScheme;
+import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.optimizations.ActualProperties.Global;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
@@ -101,10 +101,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
 import static io.trino.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
-import static io.trino.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
-import static io.trino.sql.planner.optimizations.ActualProperties.Global.coordinatorSinglePartition;
-import static io.trino.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
-import static io.trino.sql.planner.optimizations.ActualProperties.Global.singlePartition;
+import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
@@ -191,7 +189,7 @@ public final class PropertyDerivations
         public ActualProperties visitExplainAnalyze(ExplainAnalyzeNode node, List<ActualProperties> inputProperties)
         {
             return ActualProperties.builder()
-                    .global(coordinatorSinglePartition())
+                    .nodePartitioning(Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of()))
                     .build();
         }
 
@@ -227,7 +225,7 @@ public final class PropertyDerivations
             }
 
             return ActualProperties.builderFrom(properties)
-                    .global(partitionedOn(ARBITRARY_DISTRIBUTION, ImmutableList.of(node.getIdColumn())))
+                    .nodePartitioning(Partitioning.create(ARBITRARY_DISTRIBUTION, ImmutableList.of(node.getIdColumn())))
                     .local(newLocalProperties.build())
                     .build();
         }
@@ -479,7 +477,7 @@ public final class PropertyDerivations
         public ActualProperties visitStatisticsWriterNode(StatisticsWriterNode node, List<ActualProperties> context)
         {
             return ActualProperties.builder()
-                    .global(coordinatorSinglePartition())
+                    .nodePartitioning(Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of()))
                     .build();
         }
 
@@ -487,7 +485,7 @@ public final class PropertyDerivations
         public ActualProperties visitTableFinish(TableFinishNode node, List<ActualProperties> inputProperties)
         {
             return ActualProperties.builder()
-                    .global(coordinatorSinglePartition())
+                    .nodePartitioning(Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of()))
                     .build();
         }
 
@@ -495,7 +493,7 @@ public final class PropertyDerivations
         public ActualProperties visitTableDelete(TableDeleteNode node, List<ActualProperties> context)
         {
             return ActualProperties.builder()
-                    .global(coordinatorSinglePartition())
+                    .nodePartitioning(Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of()))
                     .build();
         }
 
@@ -504,14 +502,14 @@ public final class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
+            ActualProperties.Builder result = ActualProperties.builder();
             if (properties.isCoordinatorOnly()) {
-                return ActualProperties.builder()
-                        .global(coordinatorSinglePartition())
-                        .build();
+                result.nodePartitioning(Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of()));
             }
-            return ActualProperties.builder()
-                    .global(properties.isSingleNode() ? singlePartition() : arbitraryPartition())
-                    .build();
+            else if (properties.isSingleNode()) {
+                result.nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()));
+            }
+            return result.build();
         }
 
         @Override
@@ -519,7 +517,7 @@ public final class PropertyDerivations
         {
             // metadata operations always run on the coordinator
             return ActualProperties.builder()
-                    .global(coordinatorSinglePartition())
+                    .nodePartitioning(Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of()))
                     .build();
         }
 
@@ -556,7 +554,7 @@ public final class PropertyDerivations
                         // Cross join preserves only constants from probe and build sides.
                         // Cross join doesn't preserve sorting or grouping local properties on either side.
                         yield ActualProperties.builder()
-                                .global(probeProperties)
+                                .nodePartitioning(probeProperties.getNodePartitioning())
                                 .local(ImmutableList.of())
                                 .constants(constants)
                                 .build();
@@ -578,7 +576,7 @@ public final class PropertyDerivations
                         // We can't say anything about the partitioning scheme because any partition of
                         // a hash-partitioned join can produce nulls in case of a lack of matches
                         ActualProperties.builder()
-                                .global(probeProperties.isSingleNode() ? singlePartition() : arbitraryPartition())
+                                .nodePartitioning(probeProperties.isSingleNode() ? Optional.of(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of())) : Optional.empty())
                                 .build();
             };
         }
@@ -643,7 +641,7 @@ public final class PropertyDerivations
         public ActualProperties visitIndexSource(IndexSourceNode node, List<ActualProperties> context)
         {
             return ActualProperties.builder()
-                    .global(singlePartition())
+                    .nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()))
                     .build();
         }
 
@@ -708,10 +706,10 @@ public final class PropertyDerivations
                 builder.constants(constants);
 
                 if (inputProperties.stream().anyMatch(ActualProperties::isCoordinatorOnly)) {
-                    builder.global(coordinatorSinglePartition());
+                    builder.nodePartitioning(Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of()));
                 }
                 else if (inputProperties.stream().anyMatch(ActualProperties::isSingleNode)) {
-                    builder.global(singlePartition());
+                    builder.nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()));
                 }
 
                 return builder.build();
@@ -719,18 +717,18 @@ public final class PropertyDerivations
 
             return switch (node.getType()) {
                 case GATHER -> ActualProperties.builder()
-                        .global(node.getPartitioningScheme().getPartitioning().getHandle().isCoordinatorOnly() ? coordinatorSinglePartition() : singlePartition())
+                        .nodePartitioning(node.getPartitioningScheme().getPartitioning())
                         .local(localProperties.build())
                         .constants(constants)
                         .build();
                 case REPARTITION -> ActualProperties.builder()
-                        .global(partitionedOn(node.getPartitioningScheme().getPartitioning()))
+                        .nodePartitioning(node.getPartitioningScheme().getPartitioning())
                         .constants(constants)
                         .build();
                 case REPLICATE ->
-                        // TODO: this should have the same global properties as the stream taking the replicated data
+                    // TODO: this should have the same global properties as the stream taking the replicated data
                         ActualProperties.builder()
-                                .global(arbitraryPartition())
+                                .nodePartitioning(Optional.empty())
                                 .constants(constants)
                                 .build();
             };
@@ -801,7 +799,7 @@ public final class PropertyDerivations
         public ActualProperties visitRefreshMaterializedView(RefreshMaterializedViewNode node, List<ActualProperties> inputProperties)
         {
             return ActualProperties.builder()
-                    .global(coordinatorSinglePartition())
+                    .nodePartitioning(Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of()))
                     .build();
         }
 
@@ -815,14 +813,14 @@ public final class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
+            ActualProperties.Builder result = ActualProperties.builder();
             if (properties.isCoordinatorOnly()) {
-                return ActualProperties.builder()
-                        .global(coordinatorSinglePartition())
-                        .build();
+                result.nodePartitioning(Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of()));
             }
-            return ActualProperties.builder()
-                    .global(properties.isSingleNode() ? singlePartition() : arbitraryPartition())
-                    .build();
+            else if (properties.isSingleNode()) {
+                result.nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()));
+            }
+            return result.build();
         }
 
         @Override
@@ -855,7 +853,7 @@ public final class PropertyDerivations
         public ActualProperties visitValues(ValuesNode node, List<ActualProperties> context)
         {
             return ActualProperties.builder()
-                    .global(singlePartition())
+                    .nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()))
                     .build();
         }
 
@@ -882,7 +880,7 @@ public final class PropertyDerivations
             properties.constants(symbolConstants);
 
             // Partitioning properties
-            properties.global(deriveGlobalProperties(node, layout, assignments));
+            properties.nodePartitioning(deriveNodePartitioning(node, layout, assignments));
 
             // Append the global constants onto the local properties to maximize their translation potential
             List<LocalProperty<ColumnHandle>> constantAppendedLocalProperties = ImmutableList.<LocalProperty<ColumnHandle>>builder()
@@ -894,7 +892,7 @@ public final class PropertyDerivations
             return properties.build();
         }
 
-        private Global deriveGlobalProperties(TableScanNode node, TableProperties layout, Map<ColumnHandle, Symbol> assignments)
+        private Optional<Partitioning> deriveNodePartitioning(TableScanNode node, TableProperties layout, Map<ColumnHandle, Symbol> assignments)
         {
             if (layout.getTablePartitioning().isPresent() && node.isUseConnectorNodePartitioning()) {
                 TablePartitioning tablePartitioning = layout.getTablePartitioning().get();
@@ -903,10 +901,10 @@ public final class PropertyDerivations
                             .map(assignments::get)
                             .collect(toImmutableList());
 
-                    return partitionedOn(tablePartitioning.getPartitioningHandle(), arguments);
+                    return Optional.of(Partitioning.create(tablePartitioning.getPartitioningHandle(), arguments));
                 }
             }
-            return arbitraryPartition();
+            return Optional.empty();
         }
 
         private static Map<Symbol, Symbol> computeIdentityTranslations(Map<Symbol, Expression> assignments)

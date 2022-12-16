@@ -121,8 +121,6 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUT
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
-import static io.trino.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
-import static io.trino.sql.planner.optimizations.ActualProperties.Global.singlePartition;
 import static io.trino.sql.planner.optimizations.LocalProperties.grouped;
 import static io.trino.sql.planner.optimizations.PreferredProperties.partitionedWithLocal;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
@@ -735,7 +733,7 @@ public class AddExchanges
             return new PlanWithProperties(
                     node,
                     ActualProperties.builder()
-                            .global(singlePartition())
+                            .nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()))
                             .build());
         }
 
@@ -813,7 +811,7 @@ public class AddExchanges
             return new PlanWithProperties(
                     node,
                     ActualProperties.builder()
-                            .global(singlePartition())
+                            .nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()))
                             .build());
         }
 
@@ -823,7 +821,7 @@ public class AddExchanges
             return new PlanWithProperties(
                     node,
                     ActualProperties.builder()
-                            .global(singlePartition())
+                            .nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()))
                             .build());
         }
 
@@ -1189,7 +1187,7 @@ public class AddExchanges
             return new PlanWithProperties(
                     node,
                     ActualProperties.builder()
-                            .global(singlePartition())
+                            .nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()))
                             .build());
         }
 
@@ -1274,7 +1272,7 @@ public class AddExchanges
                 return new PlanWithProperties(
                         newNode,
                         ActualProperties.builder()
-                                .global(partitionedOn(desiredParentPartitioning))
+                                .nodePartitioning(desiredParentPartitioning)
                                 .build());
             }
 
@@ -1356,7 +1354,7 @@ public class AddExchanges
             return new PlanWithProperties(
                     result,
                     ActualProperties.builder()
-                            .global(singlePartition())
+                            .nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()))
                             .build());
         }
 
