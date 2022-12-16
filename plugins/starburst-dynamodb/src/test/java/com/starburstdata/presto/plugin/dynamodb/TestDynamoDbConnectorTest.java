@@ -97,17 +97,18 @@ public class TestDynamoDbConnectorTest
     public void testShowCreateTable()
     {
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .matches("CREATE TABLE \\w+\\.\\w+\\.orders \\Q(\n" +
-                        "   orderkey bigint NOT NULL COMMENT 'orderkey',\n" +
-                        "   custkey bigint COMMENT 'custkey',\n" +
-                        "   orderstatus varchar(1) COMMENT 'orderstatus',\n" +
-                        "   totalprice double COMMENT 'totalprice',\n" +
-                        "   orderdate date COMMENT 'orderdate',\n" +
-                        "   orderpriority varchar(15) COMMENT 'orderpriority',\n" +
-                        "   clerk varchar(15) COMMENT 'clerk',\n" +
-                        "   shippriority integer COMMENT 'shippriority',\n" +
-                        "   comment varchar(79) COMMENT 'comment'\n" +
-                        ")");
+                .matches("""
+                        CREATE TABLE \\w+\\.\\w+\\.orders \\Q(
+                           orderkey bigint NOT NULL COMMENT 'orderkey',
+                           custkey bigint COMMENT 'custkey',
+                           orderstatus varchar(1) COMMENT 'orderstatus',
+                           totalprice double COMMENT 'totalprice',
+                           orderdate date COMMENT 'orderdate',
+                           orderpriority varchar(15) COMMENT 'orderpriority',
+                           clerk varchar(15) COMMENT 'clerk',
+                           shippriority integer COMMENT 'shippriority',
+                           comment varchar(79) COMMENT 'comment'
+                        )""");
     }
 
     @Override
