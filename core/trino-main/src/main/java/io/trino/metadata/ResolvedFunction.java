@@ -26,7 +26,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.collect.cache.NonEvictableLoadingCache;
-import io.trino.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionKind;

@@ -13,6 +13,8 @@
  */
 package io.trino.connector;
 
+import io.trino.spi.connector.CatalogHandle;
+
 import javax.validation.constraints.NotNull;
 
 import static com.google.common.base.Preconditions.checkArgument;

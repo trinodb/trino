@@ -15,10 +15,10 @@ package io.trino.connector.system;
 
 import io.trino.FullConnectorSession;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;

@@ -16,6 +16,7 @@ package io.trino.connector;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
+import io.trino.spi.connector.CatalogHandle;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;

@@ -14,7 +14,7 @@
 package io.trino.metadata;
 
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
