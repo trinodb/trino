@@ -60,60 +60,65 @@ public class TestTopNStatsRule
                                 .nullsFraction(0)));
 
         // Test case with more rows in data than in topN PARTIAL step
+        PlanNodeStatsEstimate sourceStats = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(100)
+                .addSymbolStatistics(new Symbol("i1"), SymbolStatsEstimate.builder()
+                        .setLowValue(1)
+                        .setHighValue(10)
+                        .setDistinctValuesCount(5)
+                        .setNullsFraction(0)
+                        .build())
+                .addSymbolStatistics(new Symbol("i2"), SymbolStatsEstimate.builder()
+                        .setLowValue(0)
+                        .setHighValue(3)
+                        .setDistinctValuesCount(4)
+                        .setNullsFraction(0)
+                        .build())
+                .build();
+
         tester().assertStatsFor(pb -> pb
                 .topN(10, ImmutableList.of(pb.symbol("i1")), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1"), pb.symbol("i2"))))
-                .withSourceStats(0, PlanNodeStatsEstimate.builder()
-                        .setOutputRowCount(100)
-                        .addSymbolStatistics(new Symbol("i1"), SymbolStatsEstimate.builder()
-                                .setLowValue(1)
-                                .setHighValue(10)
-                                .setDistinctValuesCount(5)
-                                .setNullsFraction(0)
-                                .build())
-                        .addSymbolStatistics(new Symbol("i2"), SymbolStatsEstimate.builder()
-                                .setLowValue(0)
-                                .setHighValue(3)
-                                .setDistinctValuesCount(4)
-                                .setNullsFraction(0)
-                                .build())
-                        .build())
-                .check(check -> check
-                        .outputRowsCount(Double.NaN) //Expect TopN not to limit
-                        .symbolStats("i1", assertion -> assertion
-                                .lowValue(Double.NEGATIVE_INFINITY)
-                                .highValue(Double.POSITIVE_INFINITY)
-                                .distinctValuesCount(Double.NaN)
-                                .dataSizeUnknown()
-                                .nullsFraction(Double.NaN))
-                        .symbolStats("i2", assertion -> assertion
-                                .lowValue(Double.NEGATIVE_INFINITY)
-                                .highValue(Double.POSITIVE_INFINITY)
-                                .dataSizeUnknown()
-                                .distinctValuesCount(Double.NaN)
-                                .nullsFraction(Double.NaN)));
+                .withSourceStats(0, sourceStats)
+                .check(check -> check.equalTo(sourceStats.mapOutputRowCount(ignore -> 10.0)));
+
+        tester().assertStatsFor(pb -> pb
+                        .topN(10, ImmutableList.of(pb.symbol("i1")), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1"), pb.symbol("i2"))))
+                .withSourceStats(0, sourceStats.mapOutputRowCount(ignore -> 5000000.0))
+                .check(check -> check.equalTo(sourceStats.mapOutputRowCount(ignore -> 50.0)));
+
+        tester().assertStatsFor(pb -> pb
+                        .topN(
+                                10,
+                                ImmutableList.of(pb.symbol("i1")),
+                                TopNNode.Step.FINAL,
+                                pb.topN(10, ImmutableList.of(pb.symbol("i1")), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1"), pb.symbol("i2")))))
+                .withSourceStats(0, sourceStats)
+                .check(check -> check.equalTo(sourceStats.mapOutputRowCount(ignore -> 10.0)));
     }
 
     @Test
     public void testTopNWithSmallInput()
     {
         // Test case with less rows in data than in topN
-        tester().assertStatsFor(pb -> pb
-                .topN(1000, ImmutableList.of(pb.symbol("i1")), pb.values(pb.symbol("i1"), pb.symbol("i2"))))
-                .withSourceStats(0, PlanNodeStatsEstimate.builder()
-                        .setOutputRowCount(100)
-                        .addSymbolStatistics(new Symbol("i1"), SymbolStatsEstimate.builder()
-                                .setLowValue(1)
-                                .setHighValue(10)
-                                .setDistinctValuesCount(5)
-                                .setNullsFraction(0)
-                                .build())
-                        .addSymbolStatistics(new Symbol("i2"), SymbolStatsEstimate.builder()
-                                .setLowValue(0)
-                                .setHighValue(3)
-                                .setDistinctValuesCount(4)
-                                .setNullsFraction(0)
-                                .build())
+        PlanNodeStatsEstimate sourceStats = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(100)
+                .addSymbolStatistics(new Symbol("i1"), SymbolStatsEstimate.builder()
+                        .setLowValue(1)
+                        .setHighValue(10)
+                        .setDistinctValuesCount(5)
+                        .setNullsFraction(0)
                         .build())
+                .addSymbolStatistics(new Symbol("i2"), SymbolStatsEstimate.builder()
+                        .setLowValue(0)
+                        .setHighValue(3)
+                        .setDistinctValuesCount(4)
+                        .setNullsFraction(0)
+                        .build())
+                .build();
+
+        tester().assertStatsFor(pb -> pb
+                        .topN(1000, ImmutableList.of(pb.symbol("i1")), pb.values(pb.symbol("i1"), pb.symbol("i2"))))
+                .withSourceStats(0, sourceStats)
                 .check(check -> check
                         .outputRowsCount(100) //Expect TopN not to limit
                         .symbolStats("i1", assertion -> assertion
@@ -128,6 +133,11 @@ public class TestTopNStatsRule
                                 .dataSizeUnknown()
                                 .distinctValuesCount(4)
                                 .nullsFraction(0)));
+
+        tester().assertStatsFor(pb -> pb
+                        .topN(1000, ImmutableList.of(pb.symbol("i1")), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1"), pb.symbol("i2"))))
+                .withSourceStats(0, sourceStats)
+                .check(check -> check.equalTo(sourceStats));
     }
 
     @Test
