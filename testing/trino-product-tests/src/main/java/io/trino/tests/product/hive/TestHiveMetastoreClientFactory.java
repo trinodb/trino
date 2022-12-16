@@ -19,6 +19,7 @@ import com.google.inject.name.Named;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.metastore.thrift.DefaultThriftMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.NoHiveMetastoreAuthentication;
+import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreIntrospection;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClientFactory;
 import org.apache.thrift.TException;
@@ -35,6 +36,7 @@ public final class TestHiveMetastoreClientFactory
             Optional.empty(),
             new Duration(10, SECONDS),
             new NoHiveMetastoreAuthentication(),
+            new ThriftHiveMetastoreIntrospection(),
             "localhost");
 
     @Inject

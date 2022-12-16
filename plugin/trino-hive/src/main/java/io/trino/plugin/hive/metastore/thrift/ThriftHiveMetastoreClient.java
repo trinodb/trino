@@ -112,22 +112,12 @@ public class ThriftHiveMetastoreClient
     protected final ThriftHiveMetastore.Iface client;
     private final String hostname;
 
-    private final MetastoreSupportsDateStatistics metastoreSupportsDateStatistics;
-    private final AtomicInteger chosenGetTableAlternative;
-    private final AtomicInteger chosenTableParamAlternative;
-    private final AtomicInteger chosenGetAllViewsAlternative;
-    private final AtomicInteger chosenAlterTransactionalTableAlternative;
-    private final AtomicInteger chosenAlterPartitionsAlternative;
+    private final ThriftHiveMetastoreIntrospection metastoreIntrospection;
 
     public ThriftHiveMetastoreClient(
             TTransport transport,
             String hostname,
-            MetastoreSupportsDateStatistics metastoreSupportsDateStatistics,
-            AtomicInteger chosenGetTableAlternative,
-            AtomicInteger chosenTableParamAlternative,
-            AtomicInteger chosenGetAllViewsAlternative,
-            AtomicInteger chosenAlterTransactionalTableAlternative,
-            AtomicInteger chosenAlterPartitionsAlternative)
+            ThriftHiveMetastoreIntrospection metastoreIntrospection)
     {
         this.transport = requireNonNull(transport, "transport is null");
         ThriftHiveMetastore.Client client = new ThriftHiveMetastore.Client(new TBinaryProtocol(transport));
@@ -138,12 +128,7 @@ public class ThriftHiveMetastoreClient
             this.client = client;
         }
         this.hostname = requireNonNull(hostname, "hostname is null");
-        this.metastoreSupportsDateStatistics = requireNonNull(metastoreSupportsDateStatistics, "metastoreSupportsDateStatistics is null");
-        this.chosenGetTableAlternative = requireNonNull(chosenGetTableAlternative, "chosenGetTableAlternative is null");
-        this.chosenTableParamAlternative = requireNonNull(chosenTableParamAlternative, "chosenTableParamAlternative is null");
-        this.chosenGetAllViewsAlternative = requireNonNull(chosenGetAllViewsAlternative, "chosenGetAllViewsAlternative is null");
-        this.chosenAlterTransactionalTableAlternative = requireNonNull(chosenAlterTransactionalTableAlternative, "chosenAlterTransactionalTableAlternative is null");
-        this.chosenAlterPartitionsAlternative = requireNonNull(chosenAlterPartitionsAlternative, "chosenAlterPartitionsAlternative is null");
+        this.metastoreIntrospection = requireNonNull(metastoreIntrospection, "metastoreIntrospection is null");
     }
 
     @Override
@@ -179,7 +164,7 @@ public class ThriftHiveMetastoreClient
     {
         return alternativeCall(
                 exception -> !isUnknownMethodExceptionalResponse(exception),
-                chosenGetAllViewsAlternative,
+                metastoreIntrospection.getChosenGetAllViewsAlternative(),
                 () -> client.get_tables_by_type(databaseName, ".*", TableType.VIRTUAL_VIEW.name()),
                 // fallback to enumerating Presto views only (Hive views can still be executed, but will be listed as tables and not views)
                 () -> getTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true"));
@@ -208,7 +193,7 @@ public class ThriftHiveMetastoreClient
 
         return alternativeCall(
                 ThriftHiveMetastoreClient::defaultIsValidExceptionalResponse,
-                chosenTableParamAlternative,
+                metastoreIntrospection.getChosenTableParamAlternative(),
                 () -> client.get_table_names_by_filter(databaseName, filterWithEquals, (short) -1),
                 () -> client.get_table_names_by_filter(databaseName, filterWithLike, (short) -1));
     }
@@ -261,7 +246,7 @@ public class ThriftHiveMetastoreClient
     {
         return alternativeCall(
                 ThriftHiveMetastoreClient::defaultIsValidExceptionalResponse,
-                chosenGetTableAlternative,
+                metastoreIntrospection.getChosenGetTableAlternative(),
                 () -> {
                     GetTableRequest request = new GetTableRequest(databaseName, tableName);
                     request.setCapabilities(new ClientCapabilities(ImmutableList.of(ClientCapability.INSERT_ONLY_TABLES)));
@@ -351,7 +336,7 @@ public class ThriftHiveMetastoreClient
     {
         boolean containsDateStatistics = statistics.stream().anyMatch(stats -> stats.getStatsData().isSetDateStats());
 
-        DateStatisticsSupport dateStatisticsSupported = this.metastoreSupportsDateStatistics.isSupported();
+        DateStatisticsSupport dateStatisticsSupported = metastoreIntrospection.getMetastoreSupportsDateStatistics().isSupported();
         if (containsDateStatistics && dateStatisticsSupported == NOT_SUPPORTED) {
             log.debug("Skipping date statistics for %s because metastore does not support them", objectName);
             statistics = statistics.stream()
@@ -387,11 +372,11 @@ public class ThriftHiveMetastoreClient
             // When `dateStatistics.size() == 1` we expect something like "TTransportException: java.net.SocketTimeoutException: Read timed out"
             log.warn(e, "Failed to save date statistics for %s. Metastore might not support date statistics", objectName);
             if (!statisticsExceptDate.isEmpty()) {
-                this.metastoreSupportsDateStatistics.failed();
+                metastoreIntrospection.getMetastoreSupportsDateStatistics().failed();
             }
             return;
         }
-        this.metastoreSupportsDateStatistics.succeeded();
+        metastoreIntrospection.getMetastoreSupportsDateStatistics().succeeded();
     }
 
     @Override
@@ -691,7 +676,7 @@ public class ThriftHiveMetastoreClient
     {
         alternativeCall(
                 exception -> !isUnknownMethodExceptionalResponse(exception),
-                chosenAlterPartitionsAlternative,
+                metastoreIntrospection.getChosenAlterPartitionsAlternative(),
                 () -> {
                     AlterPartitionsRequest request = new AlterPartitionsRequest(dbName, tableName, partitions);
                     request.setWriteId(writeId);
@@ -720,7 +705,7 @@ public class ThriftHiveMetastoreClient
         long originalWriteId = table.getWriteId();
         alternativeCall(
                 exception -> !isUnknownMethodExceptionalResponse(exception),
-                chosenAlterTransactionalTableAlternative,
+                metastoreIntrospection.getChosenAlterTransactionalTableAlternative(),
                 () -> {
                     table.setWriteId(writeId);
                     checkArgument(writeId >= table.getWriteId(), "The writeId supplied %s should be greater than or equal to the table writeId %s", writeId, table.getWriteId());

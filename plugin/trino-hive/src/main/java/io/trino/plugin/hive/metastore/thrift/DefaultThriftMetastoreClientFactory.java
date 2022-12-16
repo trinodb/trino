@@ -42,7 +42,6 @@ import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.list;
@@ -57,24 +56,21 @@ public class DefaultThriftMetastoreClientFactory
     private final HiveMetastoreAuthentication metastoreAuthentication;
     private final String hostname;
 
-    private final MetastoreSupportsDateStatistics metastoreSupportsDateStatistics = new MetastoreSupportsDateStatistics();
-    private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
-    private final AtomicInteger chosenTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
-    private final AtomicInteger chosenGetAllViewsAlternative = new AtomicInteger(Integer.MAX_VALUE);
-    private final AtomicInteger chosenAlterTransactionalTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
-    private final AtomicInteger chosenAlterPartitionsAlternative = new AtomicInteger(Integer.MAX_VALUE);
+    private final ThriftHiveMetastoreIntrospection metastoreIntrospection;
 
     public DefaultThriftMetastoreClientFactory(
             Optional<SSLContext> sslContext,
             Optional<HostAndPort> socksProxy,
             Duration timeout,
             HiveMetastoreAuthentication metastoreAuthentication,
+            ThriftHiveMetastoreIntrospection metastoreIntrospection,
             String hostname)
     {
         this.sslContext = requireNonNull(sslContext, "sslContext is null");
         this.socksProxy = requireNonNull(socksProxy, "socksProxy is null");
         this.timeoutMillis = toIntExact(timeout.toMillis());
         this.metastoreAuthentication = requireNonNull(metastoreAuthentication, "metastoreAuthentication is null");
+        this.metastoreIntrospection = requireNonNull(metastoreIntrospection, "metastoreIntrospection is null");
         this.hostname = requireNonNull(hostname, "hostname is null");
     }
 
@@ -82,7 +78,8 @@ public class DefaultThriftMetastoreClientFactory
     public DefaultThriftMetastoreClientFactory(
             ThriftMetastoreConfig config,
             HiveMetastoreAuthentication metastoreAuthentication,
-            NodeManager nodeManager)
+            NodeManager nodeManager,
+            ThriftHiveMetastoreIntrospection metastoreIntrospection)
     {
         this(
                 buildSslContext(
@@ -94,6 +91,7 @@ public class DefaultThriftMetastoreClientFactory
                 Optional.ofNullable(config.getSocksProxy()),
                 config.getMetastoreTimeout(),
                 metastoreAuthentication,
+                metastoreIntrospection,
                 nodeManager.getCurrentNode().getHost());
     }
 
@@ -109,12 +107,7 @@ public class DefaultThriftMetastoreClientFactory
         return new ThriftHiveMetastoreClient(
                 transport,
                 hostname,
-                metastoreSupportsDateStatistics,
-                chosenGetTableAlternative,
-                chosenTableParamAlternative,
-                chosenGetAllViewsAlternative,
-                chosenAlterTransactionalTableAlternative,
-                chosenAlterPartitionsAlternative);
+                metastoreIntrospection);
     }
 
     private TTransport createTransport(HostAndPort address, Optional<String> delegationToken)
