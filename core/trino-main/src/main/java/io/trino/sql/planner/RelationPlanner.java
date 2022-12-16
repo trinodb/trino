@@ -304,27 +304,42 @@ class RelationPlanner
 
         PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext)
                 .withScope(analysis.getAccessControlScope(table), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
+        Map<Symbol, List<Expression>> maskedAssignments = new LinkedHashMap<>();
 
         for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
             Field field = plan.getDescriptor().getFieldByIndex(i);
 
             for (Expression mask : columnMasks.getOrDefault(field.getName().orElseThrow(), ImmutableList.of())) {
                 planBuilder = subqueryPlanner.handleSubqueries(planBuilder, mask, analysis.getSubqueries(mask));
-
-                Map<Symbol, Expression> assignments = new LinkedHashMap<>();
-                for (Symbol symbol : planBuilder.getRoot().getOutputSymbols()) {
-                    assignments.put(symbol, symbol.toSymbolReference());
-                }
-                assignments.put(plan.getFieldMappings().get(i), coerceIfNecessary(analysis, mask, planBuilder.rewrite(mask)));
-
-                planBuilder = planBuilder
-                        .withNewRoot(new ProjectNode(
-                                idAllocator.getNextId(),
-                                planBuilder.getRoot(),
-                                Assignments.copyOf(assignments)));
+                maskedAssignments.computeIfAbsent(plan.getFieldMappings().get(i), key -> new ArrayList<>())
+                        .add(coerceIfNecessary(analysis, mask, planBuilder.rewrite(mask)));
             }
         }
 
+        // If there are multiple masks for the same field, layer them out in separate nested ProjectNode instances.
+        // This does have a unintended side effect of those additional masks that they reference other fields'
+        // values that might have already been rewritten by previous masks
+        int projectionCount = maskedAssignments.values().stream()
+                .mapToInt(List::size)
+                .max()
+                .orElse(0);
+        for (int i = 0; i < projectionCount; i++) {
+            Map<Symbol, Expression> assignments = new LinkedHashMap<>();
+            for (Symbol symbol : planBuilder.getRoot().getOutputSymbols()) {
+                assignments.put(symbol, symbol.toSymbolReference());
+            }
+            final int idx = i;
+            maskedAssignments.forEach((symbol, masks) -> {
+                if (masks.size() > idx) {
+                    assignments.put(symbol, masks.get(idx));
+                }
+            });
+            planBuilder = planBuilder
+                    .withNewRoot(new ProjectNode(
+                            idAllocator.getNextId(),
+                            planBuilder.getRoot(),
+                            Assignments.copyOf(assignments)));
+        }
         return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings(), outerContext);
     }
 

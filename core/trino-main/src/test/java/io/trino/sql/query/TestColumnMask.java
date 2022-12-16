@@ -829,7 +829,7 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "clerk",
                 USER,
-                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast(regexp_replace(clerk,'(Clerk#)','***#') as varchar(15))"));
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast('***' as varchar(15))"));
 
         accessControl.columnMask(
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
@@ -838,7 +838,7 @@ public class TestColumnMask
                 new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'([1-9]+)') IN ('951'), '***', comment)"));
 
         assertThat(assertions.query(query))
-                .matches("VALUES (CAST('***' as varchar(79)), 'O', CAST('***#000000951' as varchar(15)))");
+                .matches("VALUES (CAST('***' as varchar(79)), 'O', CAST('***' as varchar(15)))");
 
         // Mask "comment" and "orderstatus" using "clerk" ("clerk" appears between "orderstatus" and "comment" in table definition)
         // "comment" and "orderstatus" are masked as the condition on "clerk" is satisfied
@@ -847,7 +847,7 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "clerk",
                 USER,
-                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast(regexp_replace(clerk,'(Clerk#)','***#') as varchar(15))"));
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast('***' as varchar(15))"));
 
         accessControl.columnMask(
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
@@ -862,6 +862,33 @@ public class TestColumnMask
                 new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'([1-9]+)') IN ('951'), '***', comment)"));
 
         assertThat(assertions.query(query))
-                .matches("VALUES (CAST('***' as varchar(79)), '*', CAST('***#000000951' as varchar(15)))");
+                .matches("VALUES (CAST('***' as varchar(79)), '*', CAST('***' as varchar(15)))");
+
+        // Cross-reference "comment" and "clerk
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                "clerk",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast(comment as varchar(15))"));
+
+        accessControl.columnMask(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                "comment",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "regexp_extract(clerk,'([1-9]+)')"));
+
+        assertThat(assertions.query(query))
+                .matches("VALUES (CAST('951' as varchar(79)), 'O', CAST('nstructions sle' as varchar(15)))");
+
+        // add another mask on clerk, which would now reference masked "order_status" instead of original one
+        accessControl.columnMask(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                "clerk",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast(comment as varchar(15))"));
+
+        assertThat(assertions.query(query))
+                .matches("VALUES (CAST('951' as varchar(79)), 'O', CAST('951' as varchar(15)))");
     }
 }
