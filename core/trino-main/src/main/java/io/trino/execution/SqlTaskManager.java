@@ -315,6 +315,7 @@ public class SqlTaskManager
             }
         }
         taskNotificationExecutor.shutdownNow();
+        driverYieldExecutor.shutdownNow();
     }
 
     @Managed
