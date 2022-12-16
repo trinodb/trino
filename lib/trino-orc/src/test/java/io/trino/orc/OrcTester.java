@@ -57,7 +57,9 @@ import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.Timestamp;
+import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
+import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile.ReaderOptions;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
@@ -74,6 +76,7 @@ import org.apache.hadoop.hive.serde2.io.ShortWritable;
 import org.apache.hadoop.hive.serde2.io.TimestampWritableV2;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.StandardStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveCharObjectInspector;
@@ -88,6 +91,7 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.util.Progressable;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
@@ -108,9 +112,15 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.StreamSupport;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.advance;
 import static com.google.common.collect.Lists.newArrayList;
@@ -162,6 +172,7 @@ import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Arrays.asList;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_IDS_CONF_STR;
@@ -969,17 +980,60 @@ public class OrcTester
     public static void writeOrcColumnHive(RecordWriter recordWriter, Type type, Iterator<?> values)
             throws Exception
     {
-        SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", type);
+        StandardStructObjectInspector objectInspector = getStandardStructObjectInspector(ImmutableList.of("test"), ImmutableList.of(getJavaObjectInspector(type)));
+        writeOrcColumnsHive(
+                recordWriter,
+                objectInspector,
+                ImmutableList.of(type),
+                StreamSupport.stream(
+                        Spliterators.spliteratorUnknownSize(values, Spliterator.ORDERED), false)
+                        .map(value -> (Function<Integer, Object>) (fieldIndex) -> value)
+                        .iterator());
+    }
+
+    public static void writeOrcColumnsHiveFile(
+            File outputFile,
+            OrcTester.Format format,
+            CompressionKind compression,
+            List<String> names,
+            List<Type> types,
+            Iterator<Function<Integer, Object>> values)
+            throws Exception
+    {
+        StandardStructObjectInspector objectInspector = getStandardStructObjectInspector(names,
+                types.stream().map(OrcTester::getJavaObjectInspector).collect(toImmutableList()));
+
+        writeOrcColumnsHive(
+                createOrcRecordWriter(outputFile, format, compression, objectInspector),
+                objectInspector,
+                types,
+                values);
+    }
+
+    public static void writeOrcColumnsHive(
+            RecordWriter recordWriter,
+            StandardStructObjectInspector objectInspector,
+            List<Type> types,
+            Iterator<Function<Integer, Object>> values)
+            throws Exception
+    {
+        requireNonNull(types, "types is null");
+        requireNonNull(objectInspector, "objectInspector is null");
+
         Object row = objectInspector.create();
 
         List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
+        int fieldCount = fields.size();
+        checkArgument(fieldCount == types.size(), "Field and type count must be the same");
+
         Serializer serializer = new OrcSerde();
 
         while (values.hasNext()) {
-            Object value = values.next();
-            value = preprocessWriteValueHive(type, value);
-            objectInspector.setStructFieldData(row, fields.get(0), value);
-
+            Function<Integer, Object> valueGetter = values.next();
+            for (int fieldIndex = 0; fieldIndex < fieldCount; fieldIndex++) {
+                Object value = preprocessWriteValueHive(types.get(fieldIndex), valueGetter.apply(fieldIndex));
+                objectInspector.setStructFieldData(row, fields.get(fieldIndex), value);
+            }
             Writable record = serializer.serialize(row, objectInspector);
             recordWriter.write(record);
         }
@@ -1140,33 +1194,92 @@ public class OrcTester
     static RecordWriter createOrcRecordWriter(File outputFile, Format format, CompressionKind compression, Type type)
             throws IOException
     {
-        JobConf jobConf = new JobConf(newEmptyConfiguration());
-        OrcConf.WRITE_FORMAT.setString(jobConf, format == ORC_12 ? "0.12" : "0.11");
-        OrcConf.COMPRESS.setString(jobConf, compression.name());
+        StandardStructObjectInspector objectInspector = getStandardStructObjectInspector(ImmutableList.of("test"), ImmutableList.of(getJavaObjectInspector(type)));
 
-        return new OrcOutputFormat().getHiveRecordWriter(
-                jobConf,
-                new Path(outputFile.toURI()),
-                Text.class,
-                compression != NONE,
-                createTableProperties("test", getJavaObjectInspector(type).getTypeName()),
-                () -> {});
+        return RecordWriterBuilder.builder(outputFile, format, compression)
+                .withColumns(objectInspector)
+                .withBloomFilter(objectInspector, 0.50)
+                .build();
+    }
+
+    private static RecordWriter createOrcRecordWriter(File outputFile, Format format, CompressionKind compression, StandardStructObjectInspector objectInspector)
+            throws IOException
+    {
+        return RecordWriterBuilder.builder(outputFile, format, compression)
+                .withColumns(objectInspector)
+                .withStripeSize(120000L)
+                .build();
+    }
+
+    private static class RecordWriterBuilder
+    {
+        private final JobConf jobConf;
+        private final File file;
+
+        private Class<? extends Writable> valueClass = Text.class;
+        private final CompressionKind compression;
+        private Progressable reporter = () -> {};
+        private Properties tableProperties = new Properties();
+
+        private RecordWriterBuilder(File file, Format format, CompressionKind compression)
+        {
+            this.jobConf = new JobConf(newEmptyConfiguration());
+            this.file = file;
+            this.compression = compression;
+            OrcConf.WRITE_FORMAT.setString(jobConf, format == ORC_12 ? "0.12" : "0.11");
+            OrcConf.COMPRESS.setString(jobConf, compression.name());
+        }
+
+        public static RecordWriterBuilder builder(File file, Format format, CompressionKind compression)
+        {
+            return new RecordWriterBuilder(file, format, compression);
+        }
+
+        public RecordWriterBuilder withColumns(StandardStructObjectInspector objectInspector)
+        {
+            List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
+            tableProperties.setProperty(IOConstants.COLUMNS, fields.stream()
+                    .map(StructField::getFieldName)
+                    .collect(Collectors.joining(",")));
+            tableProperties.setProperty(IOConstants.COLUMNS_TYPES, fields.stream()
+                    .map(field -> field.getFieldObjectInspector().getTypeName())
+                    .collect(Collectors.joining(":")));
+            return this;
+        }
+
+        public RecordWriterBuilder withStripeSize(long stripeSizeBytes)
+        {
+            tableProperties.setProperty(OrcConf.STRIPE_SIZE.getAttribute(), Long.toString(stripeSizeBytes));
+            return this;
+        }
+
+        public RecordWriterBuilder withBloomFilter(StandardStructObjectInspector objectInspector, Double falsePositiveProbability)
+        {
+            List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
+            tableProperties.setProperty(OrcConf.BLOOM_FILTER_COLUMNS.getAttribute(), fields.stream()
+                    .map(StructField::getFieldName)
+                    .collect(Collectors.joining(",")));
+            tableProperties.setProperty(OrcConf.BLOOM_FILTER_FPP.getAttribute(), Double.toString(falsePositiveProbability));
+            tableProperties.setProperty(OrcConf.BLOOM_FILTER_WRITE_VERSION.getAttribute(), "original");
+            return this;
+        }
+
+        FileSinkOperator.RecordWriter build()
+                throws IOException
+        {
+            return new OrcOutputFormat().getHiveRecordWriter(
+                    jobConf,
+                    new Path(file.toURI()),
+                    valueClass,
+                    compression != NONE,
+                    tableProperties,
+                    reporter);
+        }
     }
 
     static SettableStructObjectInspector createSettableStructObjectInspector(String name, Type type)
     {
         return getStandardStructObjectInspector(ImmutableList.of(name), ImmutableList.of(getJavaObjectInspector(type)));
-    }
-
-    private static Properties createTableProperties(String name, String type)
-    {
-        Properties orderTableProperties = new Properties();
-        orderTableProperties.setProperty("columns", name);
-        orderTableProperties.setProperty("columns.types", type);
-        orderTableProperties.setProperty("orc.bloom.filter.columns", name);
-        orderTableProperties.setProperty("orc.bloom.filter.fpp", "0.50");
-        orderTableProperties.setProperty("orc.bloom.filter.write.version", "original");
-        return orderTableProperties;
     }
 
     private static <T> List<T> reverse(List<T> iterable)
