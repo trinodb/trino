@@ -281,7 +281,6 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
                             Partitioning.create(FIXED_HASH_DISTRIBUTION, desiredHashSymbols),
                             source.getOutputSymbols(),
                             Optional.empty(),
-                            false,
                             Optional.empty(),
                             // It's fine to reuse partitionCount since that is computed by considering all the expanding nodes and table scans in a query
                             partitionCount));

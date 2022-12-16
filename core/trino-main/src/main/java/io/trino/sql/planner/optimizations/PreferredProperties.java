@@ -71,7 +71,7 @@ class PreferredProperties
     public static PreferredProperties partitionedWithNullsAndAnyReplicated(Set<Symbol> columns)
     {
         return builder()
-                .global(Global.distributed(PartitioningProperties.partitioned(columns).withNullsAndAnyReplicated(true)))
+                .global(Global.distributed(PartitioningProperties.partitioned(columns, true)))
                 .build();
     }
 
@@ -86,13 +86,6 @@ class PreferredProperties
     {
         return builder()
                 .global(Global.distributed(PartitioningProperties.partitioned(partitioning)))
-                .build();
-    }
-
-    public static PreferredProperties partitionedWithNullsAndAnyReplicated(Partitioning partitioning)
-    {
-        return builder()
-                .global(Global.distributed(PartitioningProperties.partitioned(partitioning).withNullsAndAnyReplicated(true)))
                 .build();
     }
 
@@ -308,19 +301,19 @@ class PreferredProperties
             checkArgument(partitioning.isEmpty() || partitioning.get().getColumns().equals(partitioningColumns), "Partitioning input must match partitioningColumns");
         }
 
-        public PartitioningProperties withNullsAndAnyReplicated(boolean nullsAndAnyReplicated)
-        {
-            return new PartitioningProperties(partitioningColumns, partitioning, nullsAndAnyReplicated);
-        }
-
         public static PartitioningProperties partitioned(Partitioning partitioning)
         {
-            return new PartitioningProperties(partitioning.getColumns(), Optional.of(partitioning), false);
+            return new PartitioningProperties(partitioning.getColumns(), Optional.of(partitioning), partitioning.isNullsAndAnyReplicated());
         }
 
         public static PartitioningProperties partitioned(Set<Symbol> columns)
         {
-            return new PartitioningProperties(columns, Optional.empty(), false);
+            return partitioned(columns, false);
+        }
+
+        public static PartitioningProperties partitioned(Set<Symbol> columns, boolean nullsAndAnyReplicated)
+        {
+            return new PartitioningProperties(columns, Optional.empty(), nullsAndAnyReplicated);
         }
 
         public static PartitioningProperties singlePartition()
@@ -363,7 +356,7 @@ class PreferredProperties
 
             // Otherwise partition on any common columns if available
             Set<Symbol> common = Sets.intersection(partitioningColumns, parent.partitioningColumns);
-            return common.isEmpty() ? this : partitioned(common).withNullsAndAnyReplicated(nullsAndAnyReplicated);
+            return common.isEmpty() ? this : partitioned(common, nullsAndAnyReplicated);
         }
 
         public Optional<PartitioningProperties> translate(Function<Symbol, Optional<Symbol>> translator)

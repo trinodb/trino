@@ -108,7 +108,7 @@ public class PushPartialAggregationThroughExchange
         // partial aggregation can only be pushed through exchange that doesn't change
         // the cardinality of the stream (i.e., gather or repartition)
         if ((exchangeNode.getType() != GATHER && exchangeNode.getType() != REPARTITION) ||
-                exchangeNode.getPartitioningScheme().isReplicateNullsAndAny()) {
+                exchangeNode.getPartitioningScheme().getPartitioning().isNullsAndAnyReplicated()) {
             return Result.empty();
         }
 
@@ -177,7 +177,6 @@ public class PushPartialAggregationThroughExchange
                 exchange.getPartitioningScheme().getPartitioning(),
                 aggregation.getOutputSymbols(),
                 exchange.getPartitioningScheme().getHashColumn(),
-                exchange.getPartitioningScheme().isReplicateNullsAndAny(),
                 exchange.getPartitioningScheme().getBucketToPartition(),
                 exchange.getPartitioningScheme().getPartitionCount());
 

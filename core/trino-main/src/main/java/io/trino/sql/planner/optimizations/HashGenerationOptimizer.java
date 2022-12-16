@@ -547,7 +547,6 @@ public class HashGenerationOptimizer
                                     .collect(toImmutableList()))
                             .build(),
                     partitionSymbols.map(newHashSymbols::get),
-                    partitioningScheme.isReplicateNullsAndAny(),
                     partitioningScheme.getBucketToPartition(),
                     partitioningScheme.getPartitionCount());
 

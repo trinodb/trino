@@ -45,28 +45,40 @@ public final class Partitioning
 {
     private final PartitioningHandle handle;
     private final List<ArgumentBinding> arguments;
+    // Description of whether rows with nulls in partitioning columns or some arbitrary rows have been replicated to all *nodes*
+    private final boolean nullsAndAnyReplicated;
 
-    private Partitioning(PartitioningHandle handle, List<ArgumentBinding> arguments)
+    private Partitioning(PartitioningHandle handle, List<ArgumentBinding> arguments, boolean nullsAndAnyReplicated)
     {
         this.handle = requireNonNull(handle, "handle is null");
         this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
+        this.nullsAndAnyReplicated = nullsAndAnyReplicated;
     }
 
     public static Partitioning create(PartitioningHandle handle, List<Symbol> columns)
     {
-        return new Partitioning(handle, columns.stream()
-                .map(Symbol::toSymbolReference)
-                .map(ArgumentBinding::expressionBinding)
-                .collect(toImmutableList()));
+        return create(handle, columns, false);
+    }
+
+    public static Partitioning create(PartitioningHandle handle, List<Symbol> columns, boolean nullsAndAnyReplicated)
+    {
+        return new Partitioning(
+                handle,
+                columns.stream()
+                        .map(Symbol::toSymbolReference)
+                        .map(ArgumentBinding::expressionBinding)
+                        .collect(toImmutableList()),
+                nullsAndAnyReplicated);
     }
 
     // Factory method for JSON serde only!
     @JsonCreator
     public static Partitioning jsonCreate(
             @JsonProperty("handle") PartitioningHandle handle,
-            @JsonProperty("arguments") List<ArgumentBinding> arguments)
+            @JsonProperty("arguments") List<ArgumentBinding> arguments,
+            @JsonProperty("nullsAndAnyReplicated") boolean nullsAndAnyReplicated)
     {
-        return new Partitioning(handle, arguments);
+        return new Partitioning(handle, arguments, nullsAndAnyReplicated);
     }
 
     @JsonProperty
@@ -79,6 +91,12 @@ public final class Partitioning
     public List<ArgumentBinding> getArguments()
     {
         return arguments;
+    }
+
+    @JsonProperty
+    public boolean isNullsAndAnyReplicated()
+    {
+        return nullsAndAnyReplicated;
     }
 
     public Set<Symbol> getColumns()
@@ -94,6 +112,10 @@ public final class Partitioning
             Metadata metadata,
             Session session)
     {
+        if (nullsAndAnyReplicated != right.nullsAndAnyReplicated) {
+            return false;
+        }
+
         if (!handle.equals(right.handle) && metadata.getCommonPartitioning(session, handle, right.handle).isEmpty()) {
             return false;
         }
@@ -109,6 +131,10 @@ public final class Partitioning
             Metadata metadata,
             Session session)
     {
+        if (nullsAndAnyReplicated != right.nullsAndAnyReplicated) {
+            return false;
+        }
+
         if (!handle.equals(right.handle) && metadata.getCommonPartitioning(session, handle, right.handle).isEmpty()) {
             return false;
         }
@@ -157,8 +183,11 @@ public final class Partitioning
         return rightConstant.isPresent() && rightConstant.get().equals(leftArgument.getConstant());
     }
 
-    public boolean isPartitionedOn(Collection<Symbol> columns, Set<Symbol> knownConstants)
+    public boolean isPartitionedOn(Collection<Symbol> columns, Set<Symbol> knownConstants, boolean nullsAndAnyReplicated)
     {
+        if (this.nullsAndAnyReplicated != nullsAndAnyReplicated) {
+            return false;
+        }
         for (ArgumentBinding argument : arguments) {
             // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
             // can safely ignore all constant columns when comparing partition properties
@@ -175,8 +204,11 @@ public final class Partitioning
         return true;
     }
 
-    public boolean isPartitionedOnExactly(Collection<Symbol> columns, Set<Symbol> knownConstants)
+    public boolean isPartitionedOnExactly(Collection<Symbol> columns, Set<Symbol> knownConstants, boolean nullsAndAnyReplicated)
     {
+        if (this.nullsAndAnyReplicated != nullsAndAnyReplicated) {
+            return false;
+        }
         Set<Symbol> toCheck = new HashSet<>();
         for (ArgumentBinding argument : arguments) {
             // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
@@ -197,14 +229,17 @@ public final class Partitioning
 
     public boolean isEffectivelySinglePartition(Set<Symbol> knownConstants)
     {
-        return isPartitionedOn(ImmutableSet.of(), knownConstants);
+        return isPartitionedOn(ImmutableSet.of(), knownConstants, false);
     }
 
     public Partitioning translate(Function<Symbol, Symbol> translator)
     {
-        return new Partitioning(handle, arguments.stream()
-                .map(argument -> argument.translate(translator))
-                .collect(toImmutableList()));
+        return new Partitioning(
+                handle,
+                arguments.stream()
+                        .map(argument -> argument.translate(translator))
+                        .collect(toImmutableList()),
+                nullsAndAnyReplicated);
     }
 
     public Optional<Partitioning> translate(Translator translator)
@@ -218,18 +253,23 @@ public final class Partitioning
             newArguments.add(newArgument.get());
         }
 
-        return Optional.of(new Partitioning(handle, newArguments.build()));
+        return Optional.of(new Partitioning(handle, newArguments.build(), nullsAndAnyReplicated));
     }
 
     public Partitioning withAlternativePartitioningHandle(PartitioningHandle partitioningHandle)
     {
-        return new Partitioning(partitioningHandle, this.arguments);
+        return new Partitioning(partitioningHandle, arguments, nullsAndAnyReplicated);
+    }
+
+    public Partitioning withNullsAndAnyReplicated()
+    {
+        return new Partitioning(handle, arguments, true);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(handle, arguments);
+        return Objects.hash(handle, arguments, nullsAndAnyReplicated);
     }
 
     @Override
@@ -243,7 +283,8 @@ public final class Partitioning
         }
         Partitioning other = (Partitioning) obj;
         return Objects.equals(this.handle, other.handle) &&
-                Objects.equals(this.arguments, other.arguments);
+                Objects.equals(this.arguments, other.arguments) &&
+                this.nullsAndAnyReplicated == other.nullsAndAnyReplicated;
     }
 
     @Override
@@ -252,6 +293,7 @@ public final class Partitioning
         return toStringHelper(this)
                 .add("handle", handle)
                 .add("arguments", arguments)
+                .add("nullsAndAnyReplicated", nullsAndAnyReplicated)
                 .toString();
     }
 

@@ -724,8 +724,7 @@ public final class PropertyDerivations
                         .constants(constants)
                         .build();
                 case REPARTITION -> ActualProperties.builder()
-                        .global(partitionedOn(node.getPartitioningScheme().getPartitioning())
-                                .withReplicatedNulls(node.getPartitioningScheme().isReplicateNullsAndAny()))
+                        .global(partitionedOn(node.getPartitioningScheme().getPartitioning()))
                         .constants(constants)
                         .build();
                 case REPLICATE ->

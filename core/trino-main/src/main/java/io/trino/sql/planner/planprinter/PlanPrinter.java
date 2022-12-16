@@ -564,7 +564,7 @@ public class PlanPrinter
                 .append(format("Output layout: [%s]\n",
                         Joiner.on(", ").join(layout)));
 
-        boolean replicateNullsAndAny = partitioningScheme.isReplicateNullsAndAny();
+        boolean replicateNullsAndAny = partitioningScheme.getPartitioning().isNullsAndAnyReplicated();
         List<String> arguments = partitioningScheme.getPartitioning().getArguments().stream()
                 .map(argument -> {
                     if (argument.isConstant()) {
@@ -1667,7 +1667,7 @@ public class PlanPrinter
                         "LocalExchange",
                         ImmutableMap.of(
                                 "partitioning", anonymizer.anonymize(node.getPartitioningScheme().getPartitioning().getHandle()),
-                                "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().isReplicateNullsAndAny()),
+                                "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().getPartitioning().isNullsAndAnyReplicated()),
                                 "hashColumn", formatHash(node.getPartitioningScheme().getHashColumn()),
                                 "arguments", formatCollection(node.getPartitioningScheme().getPartitioning().getArguments(), anonymizer::anonymize)),
                         context.tag());
@@ -1678,7 +1678,7 @@ public class PlanPrinter
                         ImmutableMap.of(
                                 "partitionCount", node.getPartitioningScheme().getPartitionCount().map(String::valueOf).orElse(""),
                                 "type", node.getType().name(),
-                                "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().isReplicateNullsAndAny()),
+                                "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().getPartitioning().isNullsAndAnyReplicated()),
                                 "hashColumn", formatHash(node.getPartitioningScheme().getHashColumn())),
                         context.tag());
             }
