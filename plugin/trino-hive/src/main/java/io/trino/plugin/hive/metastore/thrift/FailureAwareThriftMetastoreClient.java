@@ -90,17 +90,17 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getTableNamesByFilter(String databaseName, String filter)
             throws TException
     {
-        return runWithHandle(() -> delegate.getAllViews(databaseName));
+        return runWithHandle(() -> delegate.getTableNamesByFilter(databaseName, filter));
     }
 
     @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public List<String> getTableNamesByType(String databaseName, String tableType)
             throws TException
     {
-        return runWithHandle(() -> delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue));
+        return runWithHandle(() -> delegate.getTableNamesByType(databaseName, tableType));
     }
 
     @Override
@@ -150,6 +150,13 @@ public class FailureAwareThriftMetastoreClient
             throws TException
     {
         return runWithHandle(() -> delegate.getTable(databaseName, tableName));
+    }
+
+    @Override
+    public Table getTableWithCapabilities(String databaseName, String tableName)
+            throws TException
+    {
+        return runWithHandle(() -> delegate.getTableWithCapabilities(databaseName, tableName));
     }
 
     @Override
@@ -412,10 +419,17 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
-    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+    public void alterPartitionsReq(String dbName, String tableName, List<Partition> partitions, long writeId)
             throws TException
     {
-        runWithHandle(() -> delegate.alterPartitions(dbName, tableName, partitions, writeId));
+        runWithHandle(() -> delegate.alterPartitionsReq(dbName, tableName, partitions, writeId));
+    }
+
+    @Override
+    public void alterPartitionsWithEnvContext(String dbName, String tableName, List<Partition> partitions)
+            throws TException
+    {
+        runWithHandle(() -> delegate.alterPartitionsWithEnvContext(dbName, tableName, partitions));
     }
 
     @Override
@@ -426,10 +440,17 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
-    public void alterTransactionalTable(Table table, long transactionId, long writeId, EnvironmentContext context)
+    public void alterTransactionalTableReq(Table table, long transactionId, long writeId, EnvironmentContext environmentContext)
             throws TException
     {
-        runWithHandle(() -> delegate.alterTransactionalTable(table, transactionId, writeId, context));
+        runWithHandle(() -> delegate.alterTransactionalTableReq(table, transactionId, writeId, environmentContext));
+    }
+
+    @Override
+    public void alterTransactionalTableWithEnvContext(Table table, long writeId, EnvironmentContext environmentContext)
+            throws TException
+    {
+        runWithHandle(() -> delegate.alterTransactionalTableWithEnvContext(table, writeId, environmentContext));
     }
 
     private <T> T runWithHandle(ThrowingSupplier<T> supplier)

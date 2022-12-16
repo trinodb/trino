@@ -21,7 +21,6 @@ import io.trino.plugin.base.util.LoggingInvocationHandler.ParameterNamesProvider
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport;
 import org.apache.hadoop.hive.common.ValidTxnList;
-import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.AbortTxnRequest;
 import org.apache.hadoop.hive.metastore.api.AddDynamicPartitions;
 import org.apache.hadoop.hive.metastore.api.AllocateTableWriteIdsRequest;
@@ -53,7 +52,6 @@ import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
 import org.apache.hadoop.hive.metastore.api.LockRequest;
 import org.apache.hadoop.hive.metastore.api.LockResponse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
-import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.OpenTxnRequest;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PartitionsStatsRequest;
@@ -67,7 +65,6 @@ import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
 import org.apache.hadoop.hive.metastore.api.TxnToWriteId;
 import org.apache.hadoop.hive.metastore.api.UnlockRequest;
 import org.apache.hadoop.hive.metastore.txn.TxnUtils;
-import org.apache.thrift.TApplicationException;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TTransport;
@@ -75,18 +72,11 @@ import org.apache.thrift.transport.TTransport;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Predicate;
-import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Throwables.propagateIfPossible;
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.reflect.Reflection.newProxy;
-import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.NOT_SUPPORTED;
 import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.SUPPORTED;
 import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.UNKNOWN;
@@ -94,9 +84,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.metastore.api.GrantRevokeType.GRANT;
 import static org.apache.hadoop.hive.metastore.api.GrantRevokeType.REVOKE;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_FILTER_FIELD_PARAMS;
 import static org.apache.hadoop.hive.metastore.txn.TxnUtils.createValidTxnWriteIdList;
-import static org.apache.thrift.TApplicationException.UNKNOWN_METHOD;
 
 public class ThriftHiveMetastoreClient
         implements ThriftMetastoreClient
@@ -104,9 +92,6 @@ public class ThriftHiveMetastoreClient
     private static final Logger log = Logger.get(ThriftHiveMetastoreClient.class);
 
     private static final ParameterNamesProvider PARAMETER_NAMES_PROVIDER = new AirliftParameterNamesProvider(ThriftHiveMetastore.Iface.class, ThriftHiveMetastore.Client.class);
-
-    private static final Pattern TABLE_PARAMETER_SAFE_KEY_PATTERN = Pattern.compile("^[a-zA-Z_]+$");
-    private static final Pattern TABLE_PARAMETER_SAFE_VALUE_PATTERN = Pattern.compile("^[a-zA-Z0-9\\s]*$");
 
     private final TTransport transport;
     protected final ThriftHiveMetastore.Iface client;
@@ -159,43 +144,17 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getTableNamesByFilter(String databaseName, String filter)
             throws TException
     {
-        return alternativeCall(
-                exception -> !isUnknownMethodExceptionalResponse(exception),
-                metastoreIntrospection.getChosenGetAllViewsAlternative(),
-                () -> client.get_tables_by_type(databaseName, ".*", TableType.VIRTUAL_VIEW.name()),
-                // fallback to enumerating Presto views only (Hive views can still be executed, but will be listed as tables and not views)
-                () -> getTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true"));
+        return client.get_table_names_by_filter(databaseName, filter, (short) -1);
     }
 
     @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public List<String> getTableNamesByType(String databaseName, String tableType)
             throws TException
     {
-        checkArgument(TABLE_PARAMETER_SAFE_KEY_PATTERN.matcher(parameterKey).matches(), "Parameter key contains invalid characters: '%s'", parameterKey);
-        /*
-         * The parameter value is restricted to have only alphanumeric characters so that it's safe
-         * to be used against HMS. When using with a LIKE operator, the HMS may want the parameter
-         * value to follow a Java regex pattern or an SQL pattern. And it's hard to predict the
-         * HMS's behavior from outside. Also, by restricting parameter values, we avoid the problem
-         * of how to quote them when passing within the filter string.
-         */
-        checkArgument(TABLE_PARAMETER_SAFE_VALUE_PATTERN.matcher(parameterValue).matches(), "Parameter value contains invalid characters: '%s'", parameterValue);
-        /*
-         * Thrift call `get_table_names_by_filter` may be translated by Metastore to an SQL query against Metastore database.
-         * Hive 2.3 on some databases uses CLOB for table parameter value column and some databases disallow `=` predicate over
-         * CLOB values. At the same time, they allow `LIKE` predicates over them.
-         */
-        String filterWithEquals = HIVE_FILTER_FIELD_PARAMS + parameterKey + " = \"" + parameterValue + "\"";
-        String filterWithLike = HIVE_FILTER_FIELD_PARAMS + parameterKey + " LIKE \"" + parameterValue + "\"";
-
-        return alternativeCall(
-                ThriftHiveMetastoreClient::defaultIsValidExceptionalResponse,
-                metastoreIntrospection.getChosenTableParamAlternative(),
-                () -> client.get_table_names_by_filter(databaseName, filterWithEquals, (short) -1),
-                () -> client.get_table_names_by_filter(databaseName, filterWithLike, (short) -1));
+        return client.get_tables_by_type(databaseName, ".*", tableType);
     }
 
     @Override
@@ -244,18 +203,11 @@ public class ThriftHiveMetastoreClient
     public Table getTable(String databaseName, String tableName)
             throws TException
     {
-        return alternativeCall(
-                ThriftHiveMetastoreClient::defaultIsValidExceptionalResponse,
-                metastoreIntrospection.getChosenGetTableAlternative(),
-                () -> {
-                    GetTableRequest request = new GetTableRequest(databaseName, tableName);
-                    request.setCapabilities(new ClientCapabilities(ImmutableList.of(ClientCapability.INSERT_ONLY_TABLES)));
-                    return client.get_table_req(request).getTable();
-                },
-                () -> client.get_table(databaseName, tableName));
+        return client.get_table(databaseName, tableName);
     }
 
-    private Table getTableWithCapabilities(String databaseName, String tableName)
+    @Override
+    public Table getTableWithCapabilities(String databaseName, String tableName)
             throws TException
     {
         GetTableRequest request = new GetTableRequest();
@@ -671,22 +623,19 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+    public void alterPartitionsWithEnvContext(String dbName, String tableName, List<Partition> partitions)
             throws TException
     {
-        alternativeCall(
-                exception -> !isUnknownMethodExceptionalResponse(exception),
-                metastoreIntrospection.getChosenAlterPartitionsAlternative(),
-                () -> {
-                    AlterPartitionsRequest request = new AlterPartitionsRequest(dbName, tableName, partitions);
-                    request.setWriteId(writeId);
-                    client.alter_partitions_req(request);
-                    return null;
-                },
-                () -> {
-                    client.alter_partitions_with_environment_context(dbName, tableName, partitions, new EnvironmentContext());
-                    return null;
-                });
+        client.alter_partitions_with_environment_context(dbName, tableName, partitions, new EnvironmentContext());
+    }
+
+    @Override
+    public void alterPartitionsReq(String dbName, String tableName, List<Partition> partitions, long writeId)
+            throws TException
+    {
+        AlterPartitionsRequest request = new AlterPartitionsRequest(dbName, tableName, partitions);
+        request.setWriteId(writeId);
+        client.alter_partitions_req(request);
     }
 
     @Override
@@ -699,112 +648,24 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public void alterTransactionalTable(Table table, long transactionId, long writeId, EnvironmentContext environmentContext)
+    public void alterTransactionalTableReq(Table table, long transactionId, long writeId, EnvironmentContext environmentContext)
             throws TException
     {
-        long originalWriteId = table.getWriteId();
-        alternativeCall(
-                exception -> !isUnknownMethodExceptionalResponse(exception),
-                metastoreIntrospection.getChosenAlterTransactionalTableAlternative(),
-                () -> {
-                    table.setWriteId(writeId);
-                    checkArgument(writeId >= table.getWriteId(), "The writeId supplied %s should be greater than or equal to the table writeId %s", writeId, table.getWriteId());
-                    AlterTableRequest request = new AlterTableRequest(table.getDbName(), table.getTableName(), table);
-                    request.setValidWriteIdList(getValidWriteIds(ImmutableList.of(format("%s.%s", table.getDbName(), table.getTableName())), transactionId));
-                    request.setWriteId(writeId);
-                    request.setEnvironmentContext(environmentContext);
-                    client.alter_table_req(request);
-                    return null;
-                },
-                () -> {
-                    table.setWriteId(originalWriteId);
-                    client.alter_table_with_environment_context(table.getDbName(), table.getTableName(), table, environmentContext);
-                    return null;
-                });
+        table.setWriteId(writeId);
+        checkArgument(writeId >= table.getWriteId(), "The writeId supplied %s should be greater than or equal to the table writeId %s", writeId, table.getWriteId());
+        AlterTableRequest request = new AlterTableRequest(table.getDbName(), table.getTableName(), table);
+        request.setValidWriteIdList(getValidWriteIds(ImmutableList.of(format("%s.%s", table.getDbName(), table.getTableName())), transactionId));
+        request.setWriteId(writeId);
+        request.setEnvironmentContext(environmentContext);
+        client.alter_table_req(request);
     }
 
-    @SafeVarargs
-    private static <T> T alternativeCall(
-            Predicate<Exception> isValidExceptionalResponse,
-            AtomicInteger chosenAlternative,
-            AlternativeCall<T>... alternatives)
+    @Override
+    public void alterTransactionalTableWithEnvContext(Table table, long writeId, EnvironmentContext environmentContext)
             throws TException
     {
-        checkArgument(alternatives.length > 0, "No alternatives");
-        int chosen = chosenAlternative.get();
-        checkArgument(chosen == Integer.MAX_VALUE || (0 <= chosen && chosen < alternatives.length), "Bad chosen alternative value: %s", chosen);
-
-        if (chosen != Integer.MAX_VALUE) {
-            return alternatives[chosen].execute();
-        }
-
-        Exception firstException = null;
-        for (int i = 0; i < alternatives.length; i++) {
-            int position = i;
-            try {
-                T result = alternatives[i].execute();
-                chosenAlternative.updateAndGet(currentChosen -> Math.min(currentChosen, position));
-                return result;
-            }
-            catch (TException | RuntimeException exception) {
-                if (isValidExceptionalResponse.test(exception)) {
-                    // This is likely a valid response. We are not settling on an alternative yet.
-                    // We will do it later when we get a more obviously valid response.
-                    throw exception;
-                }
-                if (firstException == null) {
-                    firstException = exception;
-                }
-                else if (firstException != exception) {
-                    firstException.addSuppressed(exception);
-                }
-            }
-        }
-
-        verifyNotNull(firstException);
-        propagateIfPossible(firstException, TException.class);
-        throw propagate(firstException);
-    }
-
-    // TODO we should recognize exceptions which we suppress and try different alternative call
-    // this requires product tests with HDP 3
-    private static boolean defaultIsValidExceptionalResponse(Exception exception)
-    {
-        if (exception instanceof NoSuchObjectException) {
-            return true;
-        }
-
-        if (exception.toString().contains("AccessControlException")) {
-            // e.g. org.apache.hadoop.hive.metastore.api.MetaException: org.apache.hadoop.security.AccessControlException: Permission denied: ...
-            return true;
-        }
-
-        return false;
-    }
-
-    private static boolean isUnknownMethodExceptionalResponse(Exception exception)
-    {
-        if (!(exception instanceof TApplicationException applicationException)) {
-            return false;
-        }
-
-        return applicationException.getType() == UNKNOWN_METHOD;
-    }
-
-    private static RuntimeException propagate(Throwable throwable)
-    {
-        if (throwable instanceof InterruptedException) {
-            Thread.currentThread().interrupt();
-        }
-        throwIfUnchecked(throwable);
-        throw new RuntimeException(throwable);
-    }
-
-    @FunctionalInterface
-    private interface AlternativeCall<T>
-    {
-        T execute()
-                throws TException;
+        table.setWriteId(writeId);
+        client.alter_table_with_environment_context(table.getDbName(), table.getTableName(), table, environmentContext);
     }
 
     @FunctionalInterface

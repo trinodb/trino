@@ -120,13 +120,15 @@ public class MockThriftMetastoreClient
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getTableNamesByFilter(String databaseName, String filter)
+            throws TException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public List<String> getTableNamesByType(String databaseName, String tableType)
+            throws TException
     {
         throw new UnsupportedOperationException();
     }
@@ -169,6 +171,13 @@ public class MockThriftMetastoreClient
                 "",
                 "",
                 TableType.MANAGED_TABLE.name());
+    }
+
+    @Override
+    public Table getTableWithCapabilities(String databaseName, String tableName)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -504,7 +513,14 @@ public class MockThriftMetastoreClient
     }
 
     @Override
-    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+    public void alterPartitionsReq(String dbName, String tableName, List<Partition> partitions, long writeId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void alterPartitionsWithEnvContext(String dbName, String tableName, List<Partition> partitions)
+            throws TException
     {
         throw new UnsupportedOperationException();
     }
@@ -516,7 +532,15 @@ public class MockThriftMetastoreClient
     }
 
     @Override
-    public void alterTransactionalTable(Table table, long transactionId, long writeId, EnvironmentContext context)
+    public void alterTransactionalTableReq(Table table, long transactionId, long writeId, EnvironmentContext environmentContext)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void alterTransactionalTableWithEnvContext(Table table, long writeId, EnvironmentContext environmentContext)
+            throws TException
     {
         throw new UnsupportedOperationException();
     }

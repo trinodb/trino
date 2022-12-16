@@ -45,6 +45,7 @@ public class ThriftHiveMetastoreFactory
     private final boolean assumeCanonicalPartitionKeys;
     private final ExecutorService writeStatisticsExecutor;
     private final ThriftMetastoreStats stats = new ThriftMetastoreStats();
+    private final ThriftHiveMetastoreIntrospection metastoreIntrospection;
 
     @Inject
     public ThriftHiveMetastoreFactory(
@@ -53,7 +54,8 @@ public class ThriftHiveMetastoreFactory
             @TranslateHiveViews boolean translateHiveViews,
             ThriftMetastoreConfig thriftConfig,
             HdfsEnvironment hdfsEnvironment,
-            @ThriftHiveWriteStatisticsExecutor ExecutorService writeStatisticsExecutor)
+            @ThriftHiveWriteStatisticsExecutor ExecutorService writeStatisticsExecutor,
+            ThriftHiveMetastoreIntrospection metastoreIntrospection)
     {
         this.metastoreClientFactory = requireNonNull(metastoreClientFactory, "metastoreClientFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -70,6 +72,7 @@ public class ThriftHiveMetastoreFactory
 
         this.assumeCanonicalPartitionKeys = thriftConfig.isAssumeCanonicalPartitionKeys();
         this.writeStatisticsExecutor = requireNonNull(writeStatisticsExecutor, "writeStatisticsExecutor is null");
+        this.metastoreIntrospection = requireNonNull(metastoreIntrospection, "metastoreIntrospection is null");
     }
 
     @Managed
@@ -102,6 +105,7 @@ public class ThriftHiveMetastoreFactory
                 translateHiveViews,
                 assumeCanonicalPartitionKeys,
                 stats,
-                writeStatisticsExecutor);
+                writeStatisticsExecutor,
+                metastoreIntrospection);
     }
 }

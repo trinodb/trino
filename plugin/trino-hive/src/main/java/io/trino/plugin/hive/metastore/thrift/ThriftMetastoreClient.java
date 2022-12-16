@@ -50,10 +50,10 @@ public interface ThriftMetastoreClient
     List<String> getAllTables(String databaseName)
             throws TException;
 
-    List<String> getAllViews(String databaseName)
+    List<String> getTableNamesByFilter(String databaseName, String filter)
             throws TException;
 
-    List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    List<String> getTableNamesByType(String databaseName, String tableType)
             throws TException;
 
     void createDatabase(Database database)
@@ -75,6 +75,9 @@ public interface ThriftMetastoreClient
             throws TException;
 
     Table getTable(String databaseName, String tableName)
+            throws TException;
+
+    Table getTableWithCapabilities(String databaseName, String tableName)
             throws TException;
 
     List<FieldSchema> getFields(String databaseName, String tableName)
@@ -194,12 +197,18 @@ public interface ThriftMetastoreClient
         throw new UnsupportedOperationException();
     }
 
-    void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+    void alterPartitionsReq(String dbName, String tableName, List<Partition> partitions, long writeId)
+            throws TException;
+
+    void alterPartitionsWithEnvContext(String dbName, String tableName, List<Partition> partitions)
             throws TException;
 
     void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
             throws TException;
 
-    void alterTransactionalTable(Table table, long transactionId, long writeId, EnvironmentContext context)
+    void alterTransactionalTableReq(Table table, long transactionId, long writeId, EnvironmentContext environmentContext)
+            throws TException;
+
+    void alterTransactionalTableWithEnvContext(Table table, long writeId, EnvironmentContext environmentContext)
             throws TException;
 }

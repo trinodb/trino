@@ -28,6 +28,7 @@ import io.trino.plugin.hive.gcs.HiveGcsConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.TestingTokenAwareMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreIntrospection;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
@@ -121,7 +122,8 @@ public final class TestingThriftHiveMetastoreBuilder
                 hiveConfig.isTranslateHiveViews(),
                 thriftMetastoreConfig,
                 hdfsEnvironment,
-                newFixedThreadPool(thriftMetastoreConfig.getWriteStatisticsThreads()));
+                newFixedThreadPool(thriftMetastoreConfig.getWriteStatisticsThreads()),
+                new ThriftHiveMetastoreIntrospection());
         return metastoreFactory.createMetastore(Optional.empty());
     }
 }

@@ -51,6 +51,7 @@ import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.LockComponentBuilder;
 import org.apache.hadoop.hive.metastore.LockRequestBuilder;
+import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.ConfigValSecurityException;
@@ -82,6 +83,7 @@ import org.apache.hadoop.hive.metastore.api.TxnAbortedException;
 import org.apache.hadoop.hive.metastore.api.TxnToWriteId;
 import org.apache.hadoop.hive.metastore.api.UnknownDBException;
 import org.apache.hadoop.hive.metastore.api.UnknownTableException;
+import org.apache.thrift.TApplicationException;
 import org.apache.thrift.TException;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -99,12 +101,17 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -135,6 +142,8 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.metastore.api.HiveObjectType.TABLE;
+import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_FILTER_FIELD_PARAMS;
+import static org.apache.thrift.TApplicationException.UNKNOWN_METHOD;
 
 @ThreadSafe
 public class ThriftHiveMetastore
@@ -143,6 +152,9 @@ public class ThriftHiveMetastore
     private static final Logger log = Logger.get(ThriftHiveMetastore.class);
 
     private static final String DEFAULT_METASTORE_USER = "presto";
+
+    private static final Pattern TABLE_PARAMETER_SAFE_KEY_PATTERN = Pattern.compile("^[a-zA-Z_]+$");
+    private static final Pattern TABLE_PARAMETER_SAFE_VALUE_PATTERN = Pattern.compile("^[a-zA-Z0-9\\s]*$");
 
     private final Optional<ConnectorIdentity> identity;
     private final HdfsEnvironment hdfsEnvironment;
@@ -158,6 +170,7 @@ public class ThriftHiveMetastore
     private final boolean assumeCanonicalPartitionKeys;
     private final ThriftMetastoreStats stats;
     private final ExecutorService writeStatisticsExecutor;
+    private final ThriftHiveMetastoreIntrospection metastoreIntrospection;
 
     public ThriftHiveMetastore(
             Optional<ConnectorIdentity> identity,
@@ -173,7 +186,8 @@ public class ThriftHiveMetastore
             boolean translateHiveViews,
             boolean assumeCanonicalPartitionKeys,
             ThriftMetastoreStats stats,
-            ExecutorService writeStatisticsExecutor)
+            ExecutorService writeStatisticsExecutor,
+            ThriftHiveMetastoreIntrospection metastoreIntrospection)
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -189,6 +203,7 @@ public class ThriftHiveMetastore
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         this.stats = requireNonNull(stats, "stats is null");
         this.writeStatisticsExecutor = requireNonNull(writeStatisticsExecutor, "writeStatisticsExecutor is null");
+        this.metastoreIntrospection = requireNonNull(metastoreIntrospection, "metastoreIntrospection is null");
     }
 
     @VisibleForTesting
@@ -272,11 +287,8 @@ public class ThriftHiveMetastore
             return retry()
                     .stopOn(UnknownDBException.class)
                     .stopOnIllegalExceptions()
-                    .run("getTablesWithParameter", stats.getGetTablesWithParameter().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            return client.getTablesWithParameter(databaseName, parameterKey, parameterValue);
-                        }
-                    }));
+                    .run("getTablesWithParameter", stats.getGetTablesWithParameter().wrap(
+                            () -> doGetTablesWithParameter(databaseName, parameterKey, parameterValue)));
         }
         catch (UnknownDBException e) {
             return ImmutableList.of();
@@ -297,9 +309,8 @@ public class ThriftHiveMetastore
                     .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("getTable", stats.getGetTable().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            return Optional.of(client.getTable(databaseName, tableName));
-                        }
+                        Table table = getTableFromMetastore(databaseName, tableName);
+                        return Optional.of(table);
                     }));
         }
         catch (NoSuchObjectException e) {
@@ -311,6 +322,17 @@ public class ThriftHiveMetastore
         catch (Exception e) {
             throw propagate(e);
         }
+    }
+
+    private Table getTableFromMetastore(String databaseName, String tableName)
+            throws TException
+    {
+        return alternativeCall(
+                this::createMetastoreClient,
+                ThriftHiveMetastore::defaultIsValidExceptionalResponse,
+                metastoreIntrospection.getChosenGetTableAlternative(),
+                client -> client.getTableWithCapabilities(databaseName, tableName),
+                client -> client.getTable(databaseName, tableName));
     }
 
     @Override
@@ -826,12 +848,16 @@ public class ThriftHiveMetastore
                     .stopOn(UnknownDBException.class)
                     .stopOnIllegalExceptions()
                     .run("getAllViews", stats.getGetAllViews().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            if (translateHiveViews) {
-                                return client.getAllViews(databaseName);
-                            }
-                            return client.getTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true");
+                        if (translateHiveViews) {
+                            return alternativeCall(
+                                    this::createMetastoreClient,
+                                    exception -> !isUnknownMethodExceptionalResponse(exception),
+                                    metastoreIntrospection.getChosenGetAllViewsAlternative(),
+                                    client -> client.getTableNamesByType(databaseName, TableType.VIRTUAL_VIEW.name()),
+                                    // fallback to enumerating Presto views only (Hive views will still be executed, but will be listed as tables)
+                                    client -> doGetTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true"));
                         }
+                        return doGetTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true");
                     }));
         }
         catch (UnknownDBException e) {
@@ -843,6 +869,34 @@ public class ThriftHiveMetastore
         catch (Exception e) {
             throw propagate(e);
         }
+    }
+
+    private List<String> doGetTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+            throws TException
+    {
+        checkArgument(TABLE_PARAMETER_SAFE_KEY_PATTERN.matcher(parameterKey).matches(), "Parameter key contains invalid characters: '%s'", parameterKey);
+        /*
+         * The parameter value is restricted to have only alphanumeric characters so that it's safe
+         * to be used against HMS. When using with a LIKE operator, the HMS may want the parameter
+         * value to follow a Java regex pattern or a SQL pattern. And it's hard to predict the
+         * HMS's behavior from outside. Also, by restricting parameter values, we avoid the problem
+         * of how to quote them when passing within the filter string.
+         */
+        checkArgument(TABLE_PARAMETER_SAFE_VALUE_PATTERN.matcher(parameterValue).matches(), "Parameter value contains invalid characters: '%s'", parameterValue);
+        /*
+         * Thrift call `get_table_names_by_filter` may be translated by Metastore to a SQL query against Metastore database.
+         * Hive 2.3 on some databases uses CLOB for table parameter value column and some databases disallow `=` predicate over
+         * CLOB values. At the same time, they allow `LIKE` predicates over them.
+         */
+        String filterWithEquals = HIVE_FILTER_FIELD_PARAMS + parameterKey + " = \"" + parameterValue + "\"";
+        String filterWithLike = HIVE_FILTER_FIELD_PARAMS + parameterKey + " LIKE \"" + parameterValue + "\"";
+
+        return alternativeCall(
+                this::createMetastoreClient,
+                ThriftHiveMetastore::defaultIsValidExceptionalResponse,
+                metastoreIntrospection.getChosenTableParamAlternative(),
+                client -> client.getTableNamesByFilter(databaseName, filterWithEquals),
+                client -> client.getTableNamesByFilter(databaseName, filterWithLike));
     }
 
     @Override
@@ -1048,9 +1102,7 @@ public class ThriftHiveMetastore
                     .stopOn(InvalidOperationException.class, MetaException.class)
                     .stopOnIllegalExceptions()
                     .run("alterTransactionalTable", stats.getAlterTransactionalTable().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            client.alterTransactionalTable(table, transactionId, writeId, new EnvironmentContext());
-                        }
+                        doAlterTransactionalTable(table, transactionId, writeId, new EnvironmentContext());
                         return null;
                     }));
         }
@@ -1063,6 +1115,24 @@ public class ThriftHiveMetastore
         catch (Exception e) {
             throw propagate(e);
         }
+    }
+
+    private void doAlterTransactionalTable(Table table, long transactionId, long writeId, EnvironmentContext environmentContext)
+            throws TException
+    {
+        long originalWriteId = table.getWriteId();
+        alternativeCall(
+                this::createMetastoreClient,
+                exception -> !isUnknownMethodExceptionalResponse(exception),
+                metastoreIntrospection.getChosenAlterTransactionalTableAlternative(),
+                client -> {
+                    client.alterTransactionalTableReq(table, transactionId, writeId, environmentContext);
+                    return null;
+                },
+                client -> {
+                    client.alterTransactionalTableWithEnvContext(table, originalWriteId, environmentContext);
+                    return null;
+                });
     }
 
     @Override
@@ -1836,9 +1906,7 @@ public class ThriftHiveMetastore
             retry()
                     .stopOnIllegalExceptions()
                     .run("alterPartitions", stats.getAlterPartitions().wrap(() -> {
-                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
-                            metastoreClient.alterPartitions(dbName, tableName, partitions, writeId);
-                        }
+                        doAlterPartitions(dbName, tableName, partitions, writeId);
                         return null;
                     }));
         }
@@ -1848,6 +1916,23 @@ public class ThriftHiveMetastore
         catch (Exception e) {
             throw propagate(e);
         }
+    }
+
+    private void doAlterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+            throws TException
+    {
+        alternativeCall(
+                this::createMetastoreClient,
+                exception -> !isUnknownMethodExceptionalResponse(exception),
+                metastoreIntrospection.getChosenAlterPartitionsAlternative(),
+                client -> {
+                    client.alterPartitionsReq(dbName, tableName, partitions, writeId);
+                    return null;
+                },
+                client -> {
+                    client.alterPartitionsWithEnvContext(dbName, tableName, partitions);
+                    return null;
+                });
     }
 
     @Override
@@ -1913,6 +1998,77 @@ public class ThriftHiveMetastore
                 .stopOn(TrinoException.class);
     }
 
+    @SafeVarargs
+    private static <T> T alternativeCall(
+            ClientSupplier clientSupplier,
+            Predicate<Exception> isValidExceptionalResponse,
+            AtomicInteger chosenAlternative,
+            AlternativeCall<T>... alternatives)
+            throws TException
+    {
+        checkArgument(alternatives.length > 0, "No alternatives");
+        int chosen = chosenAlternative.get();
+        checkArgument(chosen == Integer.MAX_VALUE || (0 <= chosen && chosen < alternatives.length), "Bad chosen alternative value: %s", chosen);
+
+        if (chosen != Integer.MAX_VALUE) {
+            try (ThriftMetastoreClient client = clientSupplier.createMetastoreClient()) {
+                return alternatives[chosen].callOn(client);
+            }
+        }
+
+        Exception firstException = null;
+        for (int i = 0; i < alternatives.length; i++) {
+            int position = i;
+            try (ThriftMetastoreClient client = clientSupplier.createMetastoreClient()) {
+                T result = alternatives[i].callOn(client);
+                chosenAlternative.updateAndGet(currentChosen -> Math.min(currentChosen, position));
+                return result;
+            }
+            catch (TException | RuntimeException exception) {
+                if (isValidExceptionalResponse.test(exception)) {
+                    // This is likely a valid response. We are not settling on an alternative yet.
+                    // We will do it later when we get a more obviously valid response.
+                    throw exception;
+                }
+                if (firstException == null) {
+                    firstException = exception;
+                }
+                else if (firstException != exception) {
+                    firstException.addSuppressed(exception);
+                }
+            }
+        }
+
+        verifyNotNull(firstException);
+        propagateIfPossible(firstException, TException.class);
+        throw propagate(firstException);
+    }
+
+    // TODO we should recognize exceptions which we suppress and try different alternative call
+    // this requires product tests with HDP 3
+    private static boolean defaultIsValidExceptionalResponse(Exception exception)
+    {
+        if (exception instanceof NoSuchObjectException) {
+            return true;
+        }
+
+        if (exception.toString().contains("AccessControlException")) {
+            // e.g. org.apache.hadoop.hive.metastore.api.MetaException: org.apache.hadoop.security.AccessControlException: Permission denied: ...
+            return true;
+        }
+
+        return false;
+    }
+
+    private static boolean isUnknownMethodExceptionalResponse(Exception exception)
+    {
+        if (!(exception instanceof TApplicationException applicationException)) {
+            return false;
+        }
+
+        return applicationException.getType() == UNKNOWN_METHOD;
+    }
+
     private static RuntimeException propagate(Throwable throwable)
     {
         if (throwable instanceof InterruptedException) {
@@ -1920,5 +2076,19 @@ public class ThriftHiveMetastore
         }
         throwIfUnchecked(throwable);
         throw new RuntimeException(throwable);
+    }
+
+    @FunctionalInterface
+    private interface AlternativeCall<T>
+    {
+        T callOn(ThriftMetastoreClient client)
+                throws TException;
+    }
+
+    @FunctionalInterface
+    private interface ClientSupplier
+    {
+        ThriftMetastoreClient createMetastoreClient()
+                throws TException;
     }
 }
