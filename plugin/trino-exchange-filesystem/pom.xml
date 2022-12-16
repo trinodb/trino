@@ -76,6 +76,7 @@
         <dependency>
             <groupId>com.azure</groupId>
             <artifactId>azure-core</artifactId>
+            <version>1.34.0</version>
         </dependency>
 
         <dependency>
