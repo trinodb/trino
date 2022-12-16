@@ -53,15 +53,16 @@ public class TestStarburstOracleParallelSubpartitionsConnectorSmokeTest
 
     private static void partitionTables()
     {
-        executeInOracle(format("ALTER TABLE %s.nation MODIFY PARTITION BY RANGE (nationkey) INTERVAL (5)\n" +
-                "SUBPARTITION BY LIST (regionkey)\n" +
-                "SUBPARTITION TEMPLATE (\n" +
-                "    SUBPARTITION africa VALUES (0),\n" +
-                "    SUBPARTITION america VALUES (1),\n" +
-                "    SUBPARTITION asia VALUES (2),\n" +
-                "    SUBPARTITION europe VALUES (3),\n" +
-                "    SUBPARTITION middle_east VALUES (4)\n" +
-                ") (PARTITION before_4 VALUES LESS THAN (4))", SUBPARTITIONED_USER));
+        executeInOracle(format("""
+                ALTER TABLE %s.nation MODIFY PARTITION BY RANGE (nationkey) INTERVAL (5)
+                SUBPARTITION BY LIST (regionkey)
+                SUBPARTITION TEMPLATE (
+                    SUBPARTITION africa VALUES (0),
+                    SUBPARTITION america VALUES (1),
+                    SUBPARTITION asia VALUES (2),
+                    SUBPARTITION europe VALUES (3),
+                    SUBPARTITION middle_east VALUES (4)
+                ) (PARTITION before_4 VALUES LESS THAN (4))""", SUBPARTITIONED_USER));
 
         executeInOracle(format("ALTER TABLE %s.region MODIFY PARTITION BY HASH(name) PARTITIONS 3", SUBPARTITIONED_USER));
     }
