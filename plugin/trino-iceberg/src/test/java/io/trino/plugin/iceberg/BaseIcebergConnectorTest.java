@@ -3449,7 +3449,7 @@ public abstract class BaseIcebergConnectorTest
     }
 
     /**
-     * @see TestIcebergAnalyze
+     * @see TestIcebergStatistics
      */
     @Test
     public void testBasicAnalyze()

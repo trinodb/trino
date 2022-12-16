@@ -28,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 
-public class TestIcebergAnalyze
+public class TestIcebergStatistics
         extends AbstractTestQueryFramework
 {
     @Override
