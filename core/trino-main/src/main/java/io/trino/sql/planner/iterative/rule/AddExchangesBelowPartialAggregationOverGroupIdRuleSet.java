@@ -302,7 +302,7 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
 
         private int maximalConcurrencyAfterRepartition(Context context)
         {
-            return getTaskConcurrency(context.getSession()) * taskCountEstimator.estimateHashedTaskCount(context.getSession());
+            return getTaskConcurrency(context.getSession()) * taskCountEstimator.estimateHashedTaskCount(context.getSession(), context.getHashPartitionCount());
         }
 
         private double estimateAggregationMemoryRequirements(Set<Symbol> groupingKeys, GroupIdNode groupId, Multiset<Symbol> groupingSetHistogram, Context context)

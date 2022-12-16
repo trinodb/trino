@@ -22,6 +22,7 @@ import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostProvider;
+import io.trino.cost.HashPartitionCountProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
@@ -298,6 +299,12 @@ public class IterativeOptimizer
             public CostProvider getCostProvider()
             {
                 return costProvider;
+            }
+
+            @Override
+            public int getHashPartitionCount()
+            {
+                return HashPartitionCountProvider.getHashPartitionCount(context.session, context.memo.extract(), statsProvider);
             }
 
             @Override

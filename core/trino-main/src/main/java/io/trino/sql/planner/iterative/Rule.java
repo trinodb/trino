@@ -55,6 +55,8 @@ public interface Rule<T>
 
         CostProvider getCostProvider();
 
+        int getHashPartitionCount();
+
         void checkTimeoutNotExhausted();
 
         WarningCollector getWarningCollector();

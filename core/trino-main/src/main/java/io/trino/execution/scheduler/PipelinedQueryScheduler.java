@@ -847,12 +847,16 @@ public class PipelinedQueryScheduler
         {
             DistributedStagesSchedulerStateMachine stateMachine = new DistributedStagesSchedulerStateMachine(queryStateMachine.getQueryId(), executor);
 
+            int hashPartitionCount = stageManager.getHashPartitionCount();
+            log.info("Remote hash partition count for this query: " + hashPartitionCount);
+
             Map<PartitioningHandle, NodePartitionMap> partitioningCacheMap = new HashMap<>();
             Function<PartitioningHandle, NodePartitionMap> partitioningCache = partitioningHandle ->
                     partitioningCacheMap.computeIfAbsent(partitioningHandle, handle -> nodePartitioningManager.getNodePartitioningMap(
                             queryStateMachine.getSession(),
                             // TODO: support hash distributed writer scaling (https://github.com/trinodb/trino/issues/10791)
-                            handle.equals(SCALED_WRITER_HASH_DISTRIBUTION) ? FIXED_HASH_DISTRIBUTION : handle));
+                            handle.equals(SCALED_WRITER_HASH_DISTRIBUTION) ? FIXED_HASH_DISTRIBUTION : handle,
+                            hashPartitionCount));
 
             Map<PlanFragmentId, Optional<int[]>> bucketToPartitionMap = createBucketToPartitionMap(
                     coordinatorStagesScheduler.getBucketToPartitionForStagesConsumedByCoordinator(),

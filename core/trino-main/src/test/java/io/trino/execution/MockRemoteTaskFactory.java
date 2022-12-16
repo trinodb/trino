@@ -77,6 +77,7 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.cost.HashPartitionCountProvider.getHashPartitionCount;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.StateMachine.StateChangeListener;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.BROADCAST;
@@ -121,6 +122,7 @@ public class MockRemoteTaskFactory
                 ImmutableList.of(sourceId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
                 StatsAndCosts.empty(),
+                getHashPartitionCount(TEST_SESSION),
                 ImmutableList.of(),
                 Optional.empty());
 

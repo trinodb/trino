@@ -125,7 +125,7 @@ public class QueryExplainer
         return switch (planType) {
             case LOGICAL -> {
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
-                yield PlanPrinter.graphvizLogicalPlan(plan.getRoot(), plan.getTypes());
+                yield PlanPrinter.graphvizLogicalPlan(session, plan.getRoot(), plan.getTypes());
             }
             case DISTRIBUTED -> PlanPrinter.graphvizDistributedPlan(getDistributedPlan(session, statement, parameters, warningCollector));
             default -> throw new IllegalArgumentException("Unhandled plan type: " + planType);

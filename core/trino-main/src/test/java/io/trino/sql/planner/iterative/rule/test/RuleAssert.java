@@ -20,6 +20,7 @@ import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostProvider;
+import io.trino.cost.HashPartitionCountProvider;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
@@ -52,6 +53,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.MoreCollectors.toOptional;
+import static io.trino.cost.HashPartitionCountProvider.getHashPartitionCount;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
@@ -169,7 +171,14 @@ public class RuleAssert
         }
 
         inTransaction(session -> {
-            assertPlan(session, metadata, functionManager, ruleApplication.statsProvider, new Plan(actual, types, StatsAndCosts.empty()), ruleApplication.lookup, pattern);
+            assertPlan(
+                    session,
+                    metadata,
+                    functionManager,
+                    ruleApplication.statsProvider,
+                    new Plan(actual, types, StatsAndCosts.empty(), getHashPartitionCount(session)),
+                    ruleApplication.lookup,
+                    pattern);
             return null;
         });
     }
@@ -264,6 +273,12 @@ public class RuleAssert
             public CostProvider getCostProvider()
             {
                 return costProvider;
+            }
+
+            @Override
+            public int getHashPartitionCount()
+            {
+                return HashPartitionCountProvider.getHashPartitionCount(session, memo.extract(), statsProvider);
             }
 
             @Override

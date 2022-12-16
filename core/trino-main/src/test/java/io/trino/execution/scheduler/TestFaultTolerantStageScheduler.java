@@ -82,6 +82,7 @@ import static com.google.common.collect.Iterables.limit;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.cost.HashPartitionCountProvider.getHashPartitionCount;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -938,7 +939,7 @@ public class TestFaultTolerantStageScheduler
         DynamicFilterService dynamicFilterService = new DynamicFilterService(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getFunctionManager(), PLANNER_CONTEXT.getTypeOperators(), new DynamicFilterConfig());
         return createStageScheduler(
                 session,
-                createSqlStage(createIntermediatePlanFragment(), remoteTaskFactory),
+                createSqlStage(createIntermediatePlanFragment(session), remoteTaskFactory),
                 nodeAllocator,
                 retryAttempts,
                 maxTasksWaitingForNodePerStage,
@@ -949,7 +950,7 @@ public class TestFaultTolerantStageScheduler
                 sourceExchanges.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> {
                     FaultTolerantStageScheduler sourceScheduler = createStageScheduler(
                             session,
-                            createSqlStage(createLeafPlanFragment(entry.getKey()), remoteTaskFactory),
+                            createSqlStage(createLeafPlanFragment(session, entry.getKey()), remoteTaskFactory),
                             nodeAllocator,
                             retryAttempts,
                             maxTasksWaitingForNodePerStage,
@@ -1022,7 +1023,7 @@ public class TestFaultTolerantStageScheduler
                 new SplitSchedulerStats());
     }
 
-    private PlanFragment createIntermediatePlanFragment()
+    private PlanFragment createIntermediatePlanFragment(Session session)
     {
         Symbol probeColumnSymbol = new Symbol("probe_column");
         Symbol buildColumnSymbol = new Symbol("build_column");
@@ -1065,11 +1066,12 @@ public class TestFaultTolerantStageScheduler
                 ImmutableList.of(TABLE_SCAN_NODE_ID),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(probeColumnSymbol, buildColumnSymbol)),
                 StatsAndCosts.empty(),
+                getHashPartitionCount(session),
                 ImmutableList.of(),
                 Optional.empty());
     }
 
-    private PlanFragment createLeafPlanFragment(PlanFragmentId fragmentId)
+    private PlanFragment createLeafPlanFragment(Session session, PlanFragmentId fragmentId)
     {
         Symbol outputColumn = new Symbol("output_column");
         return new PlanFragment(
@@ -1088,6 +1090,7 @@ public class TestFaultTolerantStageScheduler
                 ImmutableList.of(TABLE_SCAN_NODE_ID),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(outputColumn)),
                 StatsAndCosts.empty(),
+                getHashPartitionCount(session),
                 ImmutableList.of(),
                 Optional.empty());
     }

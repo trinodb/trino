@@ -132,9 +132,9 @@ public class NodePartitioningManager
         return bucketFunction;
     }
 
-    public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle)
+    public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle, int hashPartitionCount)
     {
-        return getNodePartitioningMap(session, partitioningHandle, new HashMap<>(), new AtomicReference<>());
+        return getNodePartitioningMap(session, partitioningHandle, new HashMap<>(), new AtomicReference<>(), hashPartitionCount);
     }
 
     /**
@@ -145,22 +145,24 @@ public class NodePartitioningManager
             Session session,
             PartitioningHandle partitioningHandle,
             Map<Integer, List<InternalNode>> bucketToNodeCache,
-            AtomicReference<List<InternalNode>> systemPartitioningCache)
+            AtomicReference<List<InternalNode>> systemPartitioningCache,
+            int hashPartitionCount)
     {
         requireNonNull(session, "session is null");
         requireNonNull(partitioningHandle, "partitioningHandle is null");
 
         if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
-            return systemNodePartitionMap(session, partitioningHandle, systemPartitioningCache);
+            return systemNodePartitionMap(session, partitioningHandle, systemPartitioningCache, hashPartitionCount);
         }
 
         if (partitioningHandle.getConnectorHandle() instanceof MergePartitioningHandle mergeHandle) {
-            return mergeHandle.getNodePartitioningMap(handle -> getNodePartitioningMap(session, handle, bucketToNodeCache, systemPartitioningCache));
+            return mergeHandle.getNodePartitioningMap(handle ->
+                    getNodePartitioningMap(session, handle, bucketToNodeCache, systemPartitioningCache, hashPartitionCount));
         }
 
         Optional<ConnectorBucketNodeMap> optionalMap = getConnectorBucketNodeMap(session, partitioningHandle);
         if (optionalMap.isEmpty()) {
-            return systemNodePartitionMap(session, FIXED_HASH_DISTRIBUTION, systemPartitioningCache);
+            return systemNodePartitionMap(session, FIXED_HASH_DISTRIBUTION, systemPartitioningCache, hashPartitionCount);
         }
         ConnectorBucketNodeMap connectorBucketNodeMap = optionalMap.get();
 
@@ -199,7 +201,11 @@ public class NodePartitioningManager
         return new NodePartitionMap(partitionToNode, bucketToPartition, getSplitToBucket(session, partitioningHandle));
     }
 
-    private NodePartitionMap systemNodePartitionMap(Session session, PartitioningHandle partitioningHandle, AtomicReference<List<InternalNode>> nodesCache)
+    private NodePartitionMap systemNodePartitionMap(
+            Session session,
+            PartitioningHandle partitioningHandle,
+            AtomicReference<List<InternalNode>> nodesCache,
+            int remoteHashPartitionCount)
     {
         SystemPartitioning partitioning = ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getPartitioning();
 
@@ -211,7 +217,7 @@ public class NodePartitioningManager
             case FIXED -> {
                 List<InternalNode> value = nodesCache.get();
                 if (value == null) {
-                    value = nodeSelector.selectRandomNodes(getHashPartitionCount(session));
+                    value = nodeSelector.selectRandomNodes(remoteHashPartitionCount);
                     nodesCache.set(value);
                 }
                 yield value;
@@ -243,7 +249,7 @@ public class NodePartitioningManager
     {
         if (partitioning.getConnectorHandle() instanceof MergePartitioningHandle) {
             // TODO: can we always use this code path?
-            return getNodePartitioningMap(session, partitioning).getBucketToPartition().length;
+            return getNodePartitioningMap(session, partitioning, getHashPartitionCount(session)).getBucketToPartition().length;
         }
         return getBucketNodeMap(session, partitioning).getBucketCount();
     }

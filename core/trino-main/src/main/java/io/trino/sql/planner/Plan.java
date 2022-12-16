@@ -23,12 +23,14 @@ public class Plan
     private final PlanNode root;
     private final TypeProvider types;
     private final StatsAndCosts statsAndCosts;
+    private final int hashPartitionCount;
 
-    public Plan(PlanNode root, TypeProvider types, StatsAndCosts statsAndCosts)
+    public Plan(PlanNode root, TypeProvider types, StatsAndCosts statsAndCosts, int hashPartitionCount)
     {
         this.root = requireNonNull(root, "root is null");
         this.types = requireNonNull(types, "types is null");
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
+        this.hashPartitionCount = hashPartitionCount;
     }
 
     public PlanNode getRoot()
@@ -44,5 +46,10 @@ public class Plan
     public StatsAndCosts getStatsAndCosts()
     {
         return statsAndCosts;
+    }
+
+    public int getHashPartitionCount()
+    {
+        return hashPartitionCount;
     }
 }

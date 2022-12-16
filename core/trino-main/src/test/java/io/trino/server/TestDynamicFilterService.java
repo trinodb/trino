@@ -64,6 +64,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.SystemSessionProperties.RETRY_POLICY;
+import static io.trino.cost.HashPartitionCountProvider.getHashPartitionCount;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
@@ -1087,6 +1088,7 @@ public class TestDynamicFilterService
                 ImmutableList.of(tableScanNodeId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
                 StatsAndCosts.empty(),
+                getHashPartitionCount(session),
                 ImmutableList.of(),
                 Optional.empty());
     }

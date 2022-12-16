@@ -32,6 +32,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.cost.HashPartitionCountProvider.getHashPartitionCount;
 import static io.trino.cost.PlanNodeStatsEstimate.unknown;
 import static io.trino.cost.StatsAndCosts.empty;
 import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
@@ -97,7 +98,7 @@ public class TestPushProjectionThroughJoin
                 dummyMetadata(),
                 createTestingFunctionManager(),
                 node -> unknown(),
-                new Plan(rewritten.get(), p.getTypes(), empty()), noLookup(),
+                new Plan(rewritten.get(), p.getTypes(), empty(), getHashPartitionCount(session)), noLookup(),
                 join(INNER, builder -> builder
                         .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol("a1"), new Symbol("b1"))))
                         .left(

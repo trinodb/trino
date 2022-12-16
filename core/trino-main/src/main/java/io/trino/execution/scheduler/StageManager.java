@@ -286,4 +286,12 @@ class StageManager
                 .sum();
         return new Duration(millis, MILLISECONDS);
     }
+
+    public int getHashPartitionCount()
+    {
+        return stages.values().stream()
+                .mapToInt(stage -> stage.getFragment().getHashPartitionCount())
+                .max()
+                .orElseThrow();
+    }
 }

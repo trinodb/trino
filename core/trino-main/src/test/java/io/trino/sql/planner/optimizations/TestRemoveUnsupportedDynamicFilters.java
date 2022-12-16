@@ -48,6 +48,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.cost.HashPartitionCountProvider.getHashPartitionCount;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
@@ -504,7 +505,7 @@ public class TestRemoveUnsupportedDynamicFilters
                     metadata,
                     getQueryRunner().getFunctionManager(),
                     getQueryRunner().getStatsCalculator(),
-                    new Plan(actual, builder.getTypes(), StatsAndCosts.empty()),
+                    new Plan(actual, builder.getTypes(), StatsAndCosts.empty(), getHashPartitionCount(session)),
                     pattern);
             return null;
         });

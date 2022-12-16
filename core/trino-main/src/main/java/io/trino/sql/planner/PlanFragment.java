@@ -51,6 +51,7 @@ public class PlanFragment
     private final List<RemoteSourceNode> remoteSourceNodes;
     private final PartitioningScheme partitioningScheme;
     private final StatsAndCosts statsAndCosts;
+    private final int hashPartitionCount;
     private final List<CatalogProperties> activeCatalogs;
     private final Optional<String> jsonRepresentation;
 
@@ -67,6 +68,7 @@ public class PlanFragment
             List<RemoteSourceNode> remoteSourceNodes,
             PartitioningScheme partitioningScheme,
             StatsAndCosts statsAndCosts,
+            int hashPartitionCount,
             List<CatalogProperties> activeCatalogs)
     {
         this.id = requireNonNull(id, "id is null");
@@ -80,6 +82,7 @@ public class PlanFragment
         this.remoteSourceNodes = requireNonNull(remoteSourceNodes, "remoteSourceNodes is null");
         this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
+        this.hashPartitionCount = hashPartitionCount;
         this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
         this.jsonRepresentation = Optional.empty();
     }
@@ -93,6 +96,7 @@ public class PlanFragment
             @JsonProperty("partitionedSources") List<PlanNodeId> partitionedSources,
             @JsonProperty("partitioningScheme") PartitioningScheme partitioningScheme,
             @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
+            @JsonProperty("hashPartitionCount") int hashPartitionCount,
             @JsonProperty("activeCatalogs") List<CatalogProperties> activeCatalogs,
             @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
     {
@@ -103,6 +107,7 @@ public class PlanFragment
         this.partitionedSources = ImmutableList.copyOf(requireNonNull(partitionedSources, "partitionedSources is null"));
         this.partitionedSourcesSet = ImmutableSet.copyOf(partitionedSources);
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
+        this.hashPartitionCount = hashPartitionCount;
         this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
         this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
 
@@ -171,6 +176,12 @@ public class PlanFragment
     }
 
     @JsonProperty
+    public int getHashPartitionCount()
+    {
+        return hashPartitionCount;
+    }
+
+    @JsonProperty
     public List<CatalogProperties> getActiveCatalogs()
     {
         return activeCatalogs;
@@ -201,6 +212,7 @@ public class PlanFragment
                 this.remoteSourceNodes,
                 this.partitioningScheme,
                 this.statsAndCosts,
+                this.hashPartitionCount,
                 this.activeCatalogs);
     }
 
@@ -255,7 +267,7 @@ public class PlanFragment
 
     public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme.withBucketToPartition(bucketToPartition), statsAndCosts, activeCatalogs, jsonRepresentation);
+        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme.withBucketToPartition(bucketToPartition), statsAndCosts, hashPartitionCount, activeCatalogs, jsonRepresentation);
     }
 
     @Override

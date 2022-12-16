@@ -151,6 +151,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.airlift.units.Duration.succinctNanos;
+import static io.trino.cost.HashPartitionCountProvider.getHashPartitionCount;
 import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
@@ -585,7 +586,7 @@ public class PlanPrinter
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
     }
 
-    public static String graphvizLogicalPlan(PlanNode plan, TypeProvider types)
+    public static String graphvizLogicalPlan(Session session, PlanNode plan, TypeProvider types)
     {
         // TODO: This should move to something like GraphvizRenderer
         PlanFragment fragment = new PlanFragment(
@@ -596,6 +597,7 @@ public class PlanPrinter
                 ImmutableList.of(plan.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
                 StatsAndCosts.empty(),
+                getHashPartitionCount(session),
                 ImmutableList.of(),
                 Optional.empty());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));

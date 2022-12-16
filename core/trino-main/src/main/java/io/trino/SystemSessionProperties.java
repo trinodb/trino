@@ -174,6 +174,7 @@ public final class SystemSessionProperties
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS = "adaptive_partial_aggregation_min_rows";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
     public static final String JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT = "join_partitioned_build_min_row_count";
+    public static final String REMOTE_HASH_PARTITION_MIN_ROW_COUNT = "remote_hash_partition_min_row_count";
     public static final String USE_EXACT_PARTITIONING = "use_exact_partitioning";
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
     public static final String FAULT_TOLERANT_EXECUTION_EVENT_DRIVEN_SCHEDULER_ENABLED = "fault_tolerant_execution_event_driven_scheduler_enabled";
@@ -863,6 +864,12 @@ public final class SystemSessionProperties
                         "Minimum number of join build side rows required to use partitioned join lookup",
                         optimizerConfig.getJoinPartitionedBuildMinRowCount(),
                         value -> validateNonNegativeLongValue(value, JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT),
+                        false),
+                longProperty(
+                        REMOTE_HASH_PARTITION_MIN_ROW_COUNT,
+                        "Remote hash partition min row count",
+                        optimizerConfig.getRemoteHashPartitionMinRowCount(),
+                        value -> validateNonNegativeLongValue(value, REMOTE_HASH_PARTITION_MIN_ROW_COUNT),
                         false),
                 booleanProperty(
                         USE_EXACT_PARTITIONING,
@@ -1555,6 +1562,11 @@ public final class SystemSessionProperties
     public static long getJoinPartitionedBuildMinRowCount(Session session)
     {
         return session.getSystemProperty(JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT, Long.class);
+    }
+
+    public static long getRemoteHashPartitionMinRowCount(Session session)
+    {
+        return session.getSystemProperty(REMOTE_HASH_PARTITION_MIN_ROW_COUNT, Long.class);
     }
 
     public static boolean isUseExactPartitioning(Session session)

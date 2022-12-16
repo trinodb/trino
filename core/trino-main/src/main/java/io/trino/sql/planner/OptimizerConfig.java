@@ -88,6 +88,7 @@ public class OptimizerConfig
     private long adaptivePartialAggregationMinRows = 100_000;
     private double adaptivePartialAggregationUniqueRowsRatioThreshold = 0.8;
     private long joinPartitionedBuildMinRowCount = 1_000_000L;
+    private long remoteHashPartitionMinRowCount = 10_000_000L;
 
     private boolean forceFixedDistributionForPartitionedOutputOperatorEnabled = true;
 
@@ -743,6 +744,19 @@ public class OptimizerConfig
     public OptimizerConfig setJoinPartitionedBuildMinRowCount(long joinPartitionedBuildMinRowCount)
     {
         this.joinPartitionedBuildMinRowCount = joinPartitionedBuildMinRowCount;
+        return this;
+    }
+
+    @Min(0)
+    public long getRemoteHashPartitionMinRowCount()
+    {
+        return remoteHashPartitionMinRowCount;
+    }
+
+    @Config("optimizer.remote-hash-partition-min-row-count")
+    public OptimizerConfig setRemoteHashPartitionMinRowCount(long remoteHashPartitionMinRowCount)
+    {
+        this.remoteHashPartitionMinRowCount = remoteHashPartitionMinRowCount;
         return this;
     }
 

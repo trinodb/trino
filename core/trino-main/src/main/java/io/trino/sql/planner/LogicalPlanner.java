@@ -119,6 +119,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.zip;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
+import static io.trino.cost.HashPartitionCountProvider.getHashPartitionCount;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
@@ -267,14 +268,14 @@ public class LogicalPlanner
         }
 
         TypeProvider types = symbolAllocator.getTypes();
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, tableStatsProvider);
 
         StatsAndCosts statsAndCosts = StatsAndCosts.empty();
         if (collectPlanStatistics) {
-            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, tableStatsProvider);
             CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, types);
             statsAndCosts = StatsAndCosts.create(root, statsProvider, costProvider);
         }
-        return new Plan(root, types, statsAndCosts);
+        return new Plan(root, types, statsAndCosts, getHashPartitionCount(session, root, statsProvider));
     }
 
     public PlanNode planStatement(Analysis analysis, Statement statement)

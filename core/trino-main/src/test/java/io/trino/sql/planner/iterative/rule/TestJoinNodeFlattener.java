@@ -15,6 +15,7 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -44,6 +45,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.trino.cost.HashPartitionCountProvider.getHashPartitionCount;
 import static io.trino.cost.PlanNodeStatsEstimate.unknown;
 import static io.trino.cost.StatsAndCosts.empty;
 import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
@@ -449,12 +451,13 @@ public class TestJoinNodeFlattener
 
     private void assertPlan(TypeProvider typeProvider, PlanNode actual, PlanMatchPattern pattern)
     {
+        Session session = testSessionBuilder().build();
         PlanAssert.assertPlan(
-                testSessionBuilder().build(),
+                session,
                 dummyMetadata(),
                 queryRunner.getFunctionManager(),
                 node -> unknown(),
-                new Plan(actual, typeProvider, empty()), noLookup(),
+                new Plan(actual, typeProvider, empty(), getHashPartitionCount(session)), noLookup(),
                 pattern);
     }
 }

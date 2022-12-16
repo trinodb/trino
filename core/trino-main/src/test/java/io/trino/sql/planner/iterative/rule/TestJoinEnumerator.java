@@ -17,6 +17,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.SystemSessionProperties;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CachingTableStatsProvider;
@@ -163,6 +164,12 @@ public class TestJoinEnumerator
             public CostProvider getCostProvider()
             {
                 return costProvider;
+            }
+
+            @Override
+            public int getHashPartitionCount()
+            {
+                return SystemSessionProperties.getHashPartitionCount(queryRunner.getDefaultSession());
             }
 
             @Override

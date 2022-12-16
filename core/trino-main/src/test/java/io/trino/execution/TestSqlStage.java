@@ -48,6 +48,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.cost.HashPartitionCountProvider.getHashPartitionCount;
 import static io.trino.execution.SqlStage.createSqlStage;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.ARBITRARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -183,6 +184,7 @@ public class TestSqlStage
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
                 StatsAndCosts.empty(),
+                getHashPartitionCount(TEST_SESSION),
                 ImmutableList.of(),
                 Optional.empty());
     }

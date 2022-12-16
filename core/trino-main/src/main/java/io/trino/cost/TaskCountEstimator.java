@@ -17,7 +17,6 @@ import io.trino.Session;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
-import io.trino.operator.RetryPolicy;
 
 import javax.inject.Inject;
 
@@ -25,9 +24,6 @@ import java.util.Set;
 import java.util.function.IntSupplier;
 
 import static io.trino.SystemSessionProperties.getCostEstimationWorkerCount;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionPartitionCount;
-import static io.trino.SystemSessionProperties.getHashPartitionCount;
-import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -66,15 +62,8 @@ public class TaskCountEstimator
         return numberOfNodes.getAsInt();
     }
 
-    public int estimateHashedTaskCount(Session session)
+    public int estimateHashedTaskCount(Session session, int hashPartitionCount)
     {
-        int partitionCount;
-        if (getRetryPolicy(session) == RetryPolicy.TASK) {
-            partitionCount = getFaultTolerantExecutionPartitionCount(session);
-        }
-        else {
-            partitionCount = getHashPartitionCount(session);
-        }
-        return min(estimateSourceDistributedTaskCount(session), partitionCount);
+        return min(estimateSourceDistributedTaskCount(session), hashPartitionCount);
     }
 }

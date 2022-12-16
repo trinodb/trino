@@ -63,6 +63,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.cost.HashPartitionCountProvider.getHashPartitionCount;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -100,6 +101,7 @@ public final class TaskTestUtils
             new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(SYMBOL))
                     .withBucketToPartition(Optional.of(new int[1])),
             StatsAndCosts.empty(),
+            getHashPartitionCount(TEST_SESSION),
             ImmutableList.of(),
             Optional.empty());
 
@@ -123,6 +125,7 @@ public final class TaskTestUtils
             new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(SYMBOL))
                     .withBucketToPartition(Optional.of(new int[1])),
             StatsAndCosts.empty(),
+            getHashPartitionCount(TEST_SESSION),
             ImmutableList.of(),
             Optional.empty());
 

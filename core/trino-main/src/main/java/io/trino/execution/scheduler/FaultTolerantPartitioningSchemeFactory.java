@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionPartitionCount;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
@@ -66,7 +67,7 @@ public class FaultTolerantPartitioningSchemeFactory
         if (partitioningHandle.getCatalogHandle().isPresent() ||
                 (partitioningHandle.getConnectorHandle() instanceof MergePartitioningHandle)) {
             // TODO This caps the number of partitions to the number of available nodes. Perhaps a better approach is required for fault tolerant execution.
-            BucketNodeMap bucketNodeMap = nodePartitioningManager.getNodePartitioningMap(session, partitioningHandle).asBucketNodeMap();
+            BucketNodeMap bucketNodeMap = nodePartitioningManager.getNodePartitioningMap(session, partitioningHandle, getFaultTolerantExecutionPartitionCount(session)).asBucketNodeMap();
             int bucketCount = bucketNodeMap.getBucketCount();
             int[] bucketToPartition = new int[bucketCount];
             // make sure all buckets mapped to the same node map to the same partition, such that locality requirements are respected in scheduling

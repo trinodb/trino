@@ -44,6 +44,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.cost.HashPartitionCountProvider.getHashPartitionCount;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -135,7 +136,7 @@ public class TestUnaliasSymbolReferences
                     WarningCollector.NOOP,
                     new CachingTableStatsProvider(metadata, session));
 
-            Plan actual = new Plan(optimized, planBuilder.getTypes(), StatsAndCosts.empty());
+            Plan actual = new Plan(optimized, planBuilder.getTypes(), StatsAndCosts.empty(), getHashPartitionCount(session));
             PlanAssert.assertPlan(session, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actual, pattern);
             return null;
         });
