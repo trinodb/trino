@@ -206,10 +206,11 @@ public abstract class BaseSapHanaConnectorTest
             // For max decimal precision we cannot extend the scale and precision and hence the result doesn't match Trino avg semantics
             assertThatThrownBy(() -> assertThat(query("SELECT avg(t_decimal) FROM " + testTable.getName())).isFullyPushedDown())
                     .isInstanceOf(AssertionError.class)
-                    .hasMessageContaining("elements not found:\n" +
-                            "  <(555555555555555555561728450.9938271605)>\n" +
-                            "and elements not expected:\n" +
-                            "  <(555555555555555555561728450.9938270000)>");
+                    .hasMessageContaining("""
+                            elements not found:
+                              <(555555555555555555561728450.9938271605)>
+                            and elements not expected:
+                              <(555555555555555555561728450.9938270000)>""");
         }
 
         try (TestTable testTable = new TestTable(onRemoteDatabase(),
@@ -235,90 +236,95 @@ public abstract class BaseSapHanaConnectorTest
     {
         assertThat(query("SELECT * FROM _SYS_BI.M_TIME_DIMENSION_YEAR")).returnsEmptyResult();
         assertThat((String) computeActual("SHOW CREATE TABLE _SYS_BI.M_TIME_DIMENSION_YEAR").getOnlyValue())
-                .isEqualTo("CREATE TABLE saphana._sys_bi.m_time_dimension_year (\n" +
-                        "   year varchar(4) NOT NULL,\n" +
-                        "   year_int integer,\n" +
-                        "   is_leap_year tinyint\n" +
-                        ")");
+                .isEqualTo("""
+                        CREATE TABLE saphana._sys_bi.m_time_dimension_year (
+                           year varchar(4) NOT NULL,
+                           year_int integer,
+                           is_leap_year tinyint
+                        )""");
 
         assertThat(query("SELECT * FROM _SYS_BI.M_TIME_DIMENSION_MONTH")).returnsEmptyResult();
         assertThat((String) computeActual("SHOW CREATE TABLE _SYS_BI.M_TIME_DIMENSION_MONTH").getOnlyValue())
-                .isEqualTo("CREATE TABLE saphana._sys_bi.m_time_dimension_month (\n" +
-                        "   year varchar(4) NOT NULL,\n" +
-                        "   halfyear varchar(2),\n" +
-                        "   quarter varchar(2),\n" +
-                        "   month varchar(2) NOT NULL,\n" +
-                        "   calquarter varchar(5),\n" +
-                        "   calmonth varchar(6),\n" +
-                        "   year_int integer,\n" +
-                        "   halfyear_int tinyint,\n" +
-                        "   quarter_int tinyint,\n" +
-                        "   month_int tinyint\n" +
-                        ")");
+                .isEqualTo("""
+                        CREATE TABLE saphana._sys_bi.m_time_dimension_month (
+                           year varchar(4) NOT NULL,
+                           halfyear varchar(2),
+                           quarter varchar(2),
+                           month varchar(2) NOT NULL,
+                           calquarter varchar(5),
+                           calmonth varchar(6),
+                           year_int integer,
+                           halfyear_int tinyint,
+                           quarter_int tinyint,
+                           month_int tinyint
+                        )""");
 
         assertThat(query("SELECT * FROM _SYS_BI.M_TIME_DIMENSION_WEEK")).returnsEmptyResult();
         assertThat((String) computeActual("SHOW CREATE TABLE _SYS_BI.M_TIME_DIMENSION_WEEK").getOnlyValue())
-                .isEqualTo("CREATE TABLE saphana._sys_bi.m_time_dimension_week (\n" +
-                        "   year varchar(4) NOT NULL,\n" +
-                        "   halfyear varchar(2),\n" +
-                        "   quarter varchar(2),\n" +
-                        "   month varchar(2),\n" +
-                        "   week varchar(2) NOT NULL,\n" +
-                        "   calquarter varchar(5),\n" +
-                        "   calmonth varchar(6),\n" +
-                        "   calweek varchar(6),\n" +
-                        "   year_int integer,\n" +
-                        "   halfyear_int tinyint,\n" +
-                        "   quarter_int tinyint,\n" +
-                        "   month_int tinyint,\n" +
-                        "   week_int tinyint\n" +
-                        ")");
+                .isEqualTo("""
+                        CREATE TABLE saphana._sys_bi.m_time_dimension_week (
+                           year varchar(4) NOT NULL,
+                           halfyear varchar(2),
+                           quarter varchar(2),
+                           month varchar(2),
+                           week varchar(2) NOT NULL,
+                           calquarter varchar(5),
+                           calmonth varchar(6),
+                           calweek varchar(6),
+                           year_int integer,
+                           halfyear_int tinyint,
+                           quarter_int tinyint,
+                           month_int tinyint,
+                           week_int tinyint
+                        )""");
 
         assertThat(query("SELECT * FROM _SYS_BI.M_TIME_DIMENSION")).returnsEmptyResult();
         assertThat((String) computeActual("SHOW CREATE TABLE _SYS_BI.M_TIME_DIMENSION").getOnlyValue())
-                .isEqualTo("CREATE TABLE saphana._sys_bi.m_time_dimension (\n" +
-                        "   datetimestamp timestamp(7) NOT NULL,\n" +
-                        "   date_sql date,\n" +
-                        "   datetime_sap varchar(14),\n" +
-                        "   date_sap varchar(8),\n" +
-                        "   year varchar(4),\n" +
-                        "   quarter varchar(2),\n" +
-                        "   month varchar(2),\n" +
-                        "   week varchar(2),\n" +
-                        "   week_year varchar(4),\n" +
-                        "   day_of_week varchar(2),\n" +
-                        "   day varchar(2),\n" +
-                        "   hour varchar(2),\n" +
-                        "   minute varchar(2),\n" +
-                        "   second varchar(2),\n" +
-                        "   calquarter varchar(5),\n" +
-                        "   calmonth varchar(6),\n" +
-                        "   calweek varchar(6),\n" +
-                        "   year_int integer,\n" +
-                        "   quarter_int tinyint,\n" +
-                        "   month_int tinyint,\n" +
-                        "   week_int tinyint,\n" +
-                        "   week_year_int integer,\n" +
-                        "   day_of_week_int tinyint,\n" +
-                        "   day_int tinyint,\n" +
-                        "   hour_int tinyint,\n" +
-                        "   minute_int tinyint,\n" +
-                        "   second_int tinyint,\n" +
-                        "   month_last_day tinyint,\n" +
-                        "   tzntstmps decimal(15, 0),\n" +
-                        "   tzntstmpl decimal(21, 7)\n" +
-                        ")");
+                .isEqualTo("""
+                        CREATE TABLE saphana._sys_bi.m_time_dimension (
+                           datetimestamp timestamp(7) NOT NULL,
+                           date_sql date,
+                           datetime_sap varchar(14),
+                           date_sap varchar(8),
+                           year varchar(4),
+                           quarter varchar(2),
+                           month varchar(2),
+                           week varchar(2),
+                           week_year varchar(4),
+                           day_of_week varchar(2),
+                           day varchar(2),
+                           hour varchar(2),
+                           minute varchar(2),
+                           second varchar(2),
+                           calquarter varchar(5),
+                           calmonth varchar(6),
+                           calweek varchar(6),
+                           year_int integer,
+                           quarter_int tinyint,
+                           month_int tinyint,
+                           week_int tinyint,
+                           week_year_int integer,
+                           day_of_week_int tinyint,
+                           day_int tinyint,
+                           hour_int tinyint,
+                           minute_int tinyint,
+                           second_int tinyint,
+                           month_last_day tinyint,
+                           tzntstmps decimal(15, 0),
+                           tzntstmpl decimal(21, 7)
+                        )""");
 
         assertThat(query("SELECT * FROM _SYS_BI.M_FISCAL_CALENDAR")).returnsEmptyResult();
         assertThat((String) computeActual("SHOW CREATE TABLE _SYS_BI.M_FISCAL_CALENDAR").getOnlyValue())
-                .isEqualTo("CREATE TABLE saphana._sys_bi.m_fiscal_calendar (\n" +
-                        "   calendar_variant varchar(2) NOT NULL,\n" +
-                        "   date varchar(8) NOT NULL,\n" +
-                        "   date_sql date,\n" +
-                        "   fiscal_year varchar(4),\n" +
-                        "   fiscal_period varchar(3),\n" +
-                        "   current_year_adjustment varchar(2)\n" +
-                        ")");
+                .isEqualTo("""
+                        CREATE TABLE saphana._sys_bi.m_fiscal_calendar (
+                           calendar_variant varchar(2) NOT NULL,
+                           date varchar(8) NOT NULL,
+                           date_sql date,
+                           fiscal_year varchar(4),
+                           fiscal_period varchar(3),
+                           current_year_adjustment varchar(2)
+                        )""");
     }
 
     @Override
