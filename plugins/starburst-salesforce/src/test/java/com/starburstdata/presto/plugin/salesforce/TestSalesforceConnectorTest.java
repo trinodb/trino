@@ -613,15 +613,14 @@ public class TestSalesforceConnectorTest
     @Test
     public void testPredicate()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT orderkey__c+1 AS a FROM orders__c WHERE orderstatus__c = 'F' UNION ALL \n" +
-                "  SELECT orderkey__c FROM orders__c WHERE orderkey__c % 2 = 0 UNION ALL \n" +
-                "  (SELECT orderkey__c+custkey__c FROM orders__c ORDER BY orderkey__c LIMIT 10)\n" +
-                ") \n" +
-                "WHERE a < 20 OR a > 100 \n" +
-                "ORDER BY a");
+        assertQuery("""
+                SELECT *
+                FROM (
+                  SELECT orderkey__c+1 AS a FROM orders__c WHERE orderstatus__c = 'F' UNION ALL
+                  SELECT orderkey__c FROM orders__c WHERE orderkey__c % 2 = 0 UNION ALL
+                  (SELECT orderkey__c+custkey__c FROM orders__c ORDER BY orderkey__c LIMIT 10))
+                WHERE a < 20 OR a > 100
+                ORDER BY a""");
     }
 
     @Test
@@ -1219,14 +1218,16 @@ public class TestSalesforceConnectorTest
                 "DELETE FROM " + tableName + "\n" +
                         "WHERE orderkey__c IN (SELECT orderkey__c FROM orders__c WHERE orderstatus__c = 'F')\n" +
                         "  AND orderkey__c IN (SELECT orderkey__c FROM orders__c WHERE custkey__c % 5 = 0)\n",
-                "SELECT count(*) FROM lineitem__c\n" +
-                        "WHERE orderkey__c IN (SELECT orderkey__c FROM orders__c WHERE orderstatus__c = 'F')\n" +
-                        "  AND orderkey__c IN (SELECT orderkey__c FROM orders__c WHERE custkey__c % 5 = 0)");
+                """
+                        SELECT count(*) FROM lineitem__c
+                        WHERE orderkey__c IN (SELECT orderkey__c FROM orders__c WHERE orderstatus__c = 'F')
+                          AND orderkey__c IN (SELECT orderkey__c FROM orders__c WHERE custkey__c % 5 = 0)""");
         assertQuery(
                 "SELECT * FROM " + tableName,
-                "SELECT * FROM lineitem__c\n" +
-                        "WHERE orderkey__c IN (SELECT orderkey__c FROM orders__c WHERE orderstatus__c <> 'F')\n" +
-                        "  OR orderkey__c IN (SELECT orderkey__c FROM orders__c WHERE custkey__c % 5 <> 0)");
+                """
+                        SELECT * FROM lineitem__c
+                        WHERE orderkey__c IN (SELECT orderkey__c FROM orders__c WHERE orderstatus__c <> 'F')
+                          OR orderkey__c IN (SELECT orderkey__c FROM orders__c WHERE custkey__c % 5 <> 0)""");
 
         assertUpdate("DROP TABLE " + tableName);
 
@@ -1237,12 +1238,16 @@ public class TestSalesforceConnectorTest
         assertUpdate(
                 "DELETE FROM " + tableName + "\n" +
                         "WHERE (orderkey__c IN (SELECT CASE WHEN orderkey__c % 3 = 0 THEN NULL ELSE orderkey__c END FROM lineitem__c)) IS NULL\n",
-                "SELECT count(*) FROM orders__c\n" +
-                        "WHERE (orderkey__c IN (SELECT CASE WHEN orderkey__c % 3 = 0 THEN NULL ELSE orderkey__c END FROM lineitem__c)) IS NULL\n");
+                """
+                        SELECT count(*) FROM orders__c
+                        WHERE (orderkey__c IN (SELECT CASE WHEN orderkey__c % 3 = 0 THEN NULL ELSE orderkey__c END FROM lineitem__c)) IS NULL
+                        """);
         assertQuery(
                 "SELECT * FROM " + tableName,
-                "SELECT * FROM orders__c\n" +
-                        "WHERE (orderkey__c IN (SELECT CASE WHEN orderkey__c % 3 = 0 THEN NULL ELSE orderkey__c END FROM lineitem__c)) IS NOT NULL\n");
+                """
+                        SELECT * FROM orders__c
+                        WHERE (orderkey__c IN (SELECT CASE WHEN orderkey__c % 3 = 0 THEN NULL ELSE orderkey__c END FROM lineitem__c)) IS NOT NULL
+                        """);
 
         assertUpdate("DROP TABLE " + tableName);
 
@@ -1469,14 +1474,14 @@ public class TestSalesforceConnectorTest
         String viewName = "test_show_create_view" + randomNameSuffix();
         assertUpdate("DROP VIEW IF EXISTS " + viewName);
         String ddl = format(
-                "CREATE VIEW %s.%s.%s SECURITY DEFINER AS\n" +
-                        "SELECT *\n" +
-                        "FROM\n" +
-                        "  (\n" +
-                        " VALUES \n" +
-                        "     ROW (1, 'one')\n" +
-                        "   , ROW (2, 't')\n" +
-                        ")  t (col1, col2)",
+                """
+                        CREATE VIEW %s.%s.%s SECURITY DEFINER AS
+                        SELECT *
+                        FROM
+                          (
+                         VALUES
+                             ROW (1, 'one')
+                           , ROW (2, 't')\n)  t (col1, col2)""",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 viewName);
@@ -2297,27 +2302,28 @@ public class TestSalesforceConnectorTest
     {
         assertThat((String) computeActual("SHOW CREATE TABLE orders__c").getOnlyValue())
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
-                .matches("CREATE TABLE \\w+\\.\\w+\\.orders__c \\Q(\n" +
-                        "   id varchar(18) NOT NULL COMMENT 'Label Record ID corresponds to this field.',\n" +
-                        "   ownerid varchar(18) NOT NULL COMMENT 'Label Owner ID corresponds to this field.',\n" +
-                        "   isdeleted boolean NOT NULL COMMENT 'Label Deleted corresponds to this field.',\n" +
-                        "   name varchar(80) COMMENT 'Label Name corresponds to this field.',\n" +
-                        "   createddate timestamp(0) NOT NULL COMMENT 'Label Created Date corresponds to this field.',\n" +
-                        "   createdbyid varchar(18) NOT NULL COMMENT 'Label Created By ID corresponds to this field.',\n" +
-                        "   lastmodifieddate timestamp(0) COMMENT 'Label Last Modified Date corresponds to this field.',\n" +
-                        "   lastmodifiedbyid varchar(18) COMMENT 'Label Last Modified By ID corresponds to this field.',\n" +
-                        "   systemmodstamp timestamp(0) NOT NULL COMMENT 'Label System Modstamp corresponds to this field.',\n" +
-                        "   lastactivitydate date COMMENT 'Label Last Activity Date corresponds to this field.',\n" +
-                        "   shippriority__c double COMMENT 'Label shippriority corresponds to this field.',\n" +
-                        "   custkey__c double COMMENT 'Label custkey corresponds to this field.',\n" +
-                        "   orderstatus__c varchar(1) COMMENT 'Label orderstatus corresponds to this field.',\n" +
-                        "   totalprice__c double COMMENT 'Label totalprice corresponds to this field.',\n" +
-                        "   orderkey__c double COMMENT 'Label orderkey corresponds to this field.',\n" +
-                        "   comment__c varchar(79) COMMENT 'Label comment corresponds to this field.',\n" +
-                        "   orderdate__c date COMMENT 'Label orderdate corresponds to this field.',\n" +
-                        "   orderpriority__c varchar(15) COMMENT 'Label orderpriority corresponds to this field.',\n" +
-                        "   clerk__c varchar(15) COMMENT 'Label clerk corresponds to this field.'\n" +
-                        ")");
+                .matches("""
+                        CREATE TABLE \\w+\\.\\w+\\.orders__c \\Q(
+                           id varchar(18) NOT NULL COMMENT 'Label Record ID corresponds to this field.',
+                           ownerid varchar(18) NOT NULL COMMENT 'Label Owner ID corresponds to this field.',
+                           isdeleted boolean NOT NULL COMMENT 'Label Deleted corresponds to this field.',
+                           name varchar(80) COMMENT 'Label Name corresponds to this field.',
+                           createddate timestamp(0) NOT NULL COMMENT 'Label Created Date corresponds to this field.',
+                           createdbyid varchar(18) NOT NULL COMMENT 'Label Created By ID corresponds to this field.',
+                           lastmodifieddate timestamp(0) COMMENT 'Label Last Modified Date corresponds to this field.',
+                           lastmodifiedbyid varchar(18) COMMENT 'Label Last Modified By ID corresponds to this field.',
+                           systemmodstamp timestamp(0) NOT NULL COMMENT 'Label System Modstamp corresponds to this field.',
+                           lastactivitydate date COMMENT 'Label Last Activity Date corresponds to this field.',
+                           shippriority__c double COMMENT 'Label shippriority corresponds to this field.',
+                           custkey__c double COMMENT 'Label custkey corresponds to this field.',
+                           orderstatus__c varchar(1) COMMENT 'Label orderstatus corresponds to this field.',
+                           totalprice__c double COMMENT 'Label totalprice corresponds to this field.',
+                           orderkey__c double COMMENT 'Label orderkey corresponds to this field.',
+                           comment__c varchar(79) COMMENT 'Label comment corresponds to this field.',
+                           orderdate__c date COMMENT 'Label orderdate corresponds to this field.',
+                           orderpriority__c varchar(15) COMMENT 'Label orderpriority corresponds to this field.',
+                           clerk__c varchar(15) COMMENT 'Label clerk corresponds to this field.'
+                        )""");
     }
 
     @Test
