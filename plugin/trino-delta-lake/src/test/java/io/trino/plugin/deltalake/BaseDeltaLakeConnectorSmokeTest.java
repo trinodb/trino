@@ -288,7 +288,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String tableName = "test_uri_table_" + randomNameSuffix();
         registerTableFromResources(tableName, "databricks/uri", getQueryRunner());
 
-        assertQuery("SELECT * FROM " + tableName, "VALUES ('a=equal', 1), ('a:colon', 2), ('a+plus', 3)");
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('a=equal', 1), ('a:colon', 2), ('a+plus', 3), ('a space', 4), ('a%percent', 5)");
         String firstFilePath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE y = 1");
         assertQuery("SELECT * FROM " + tableName + " WHERE \"$path\" = '" + firstFilePath + "'", "VALUES ('a=equal', 1)");
 

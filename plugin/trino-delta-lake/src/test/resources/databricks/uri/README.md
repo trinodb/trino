@@ -9,4 +9,6 @@ LOCATION '/home/username/trino/plugin/trino-delta-lake/src/test/resources/databr
 INSERT INTO default.uri_test VALUES ('a=equal', 1);
 INSERT INTO default.uri_test VALUES ('a:colon', 2);
 INSERT INTO default.uri_test VALUES ('a+plus', 3);
+INSERT INTO default.uri_test VALUES ('a space', 4);
+INSERT INTO default.uri_test VALUES ('a%percent', 5);
 ```
