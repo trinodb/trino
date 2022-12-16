@@ -121,7 +121,7 @@ public class UseNonPartitionedJoinLookupSource
                 && !isSingleGather(exchangeNode)
                 && exchangeNode.getOrderingScheme().isEmpty()
                 && exchangeNode.getPartitioningScheme().getBucketToPartition().isEmpty()
-                && !exchangeNode.getPartitioningScheme().isReplicateNullsAndAny();
+                && !exchangeNode.getPartitioningScheme().getPartitioning().isNullsAndAnyReplicated();
     }
 
     private static boolean isSingleGather(ExchangeNode exchangeNode)

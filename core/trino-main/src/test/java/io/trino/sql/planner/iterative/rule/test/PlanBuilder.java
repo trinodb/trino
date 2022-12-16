@@ -911,7 +911,6 @@ public class PlanBuilder
                     ImmutableList.copyOf(partitioningSymbols)),
                     ImmutableList.copyOf(outputSymbols),
                     Optional.empty(),
-                    false,
                     Optional.empty(),
                     Optional.of(partitionCount)));
         }
@@ -923,7 +922,6 @@ public class PlanBuilder
                     ImmutableList.of()),
                     ImmutableList.copyOf(outputSymbols),
                     Optional.empty(),
-                    false,
                     Optional.empty(),
                     Optional.of(partitionCount)));
         }

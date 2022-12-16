@@ -98,7 +98,7 @@ public class ExchangeNode
         checkArgument(scope != LOCAL || partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable),
                 "local exchanges do not support constant partition function arguments");
 
-        checkArgument(scope != REMOTE || type == Type.REPARTITION || !partitioningScheme.isReplicateNullsAndAny(), "Only REPARTITION can replicate remotely");
+        checkArgument(scope != REMOTE || type == Type.REPARTITION || !partitioningScheme.getPartitioning().isNullsAndAnyReplicated(), "Only REPARTITION can replicate remotely");
 
         orderingScheme.ifPresent(ordering -> {
             PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
@@ -128,10 +128,9 @@ public class ExchangeNode
                 scope,
                 child,
                 new PartitioningScheme(
-                        Partitioning.create(FIXED_HASH_DISTRIBUTION, partitioningColumns),
+                        Partitioning.create(FIXED_HASH_DISTRIBUTION, partitioningColumns, replicateNullsAndAny),
                         child.getOutputSymbols(),
                         hashColumns,
-                        replicateNullsAndAny,
                         Optional.empty(),
                         Optional.empty()));
     }

@@ -171,7 +171,6 @@ public class PushProjectionThroughExchange
                 exchange.getPartitioningScheme().getPartitioning(),
                 outputBuilder.build(),
                 exchange.getPartitioningScheme().getHashColumn(),
-                exchange.getPartitioningScheme().isReplicateNullsAndAny(),
                 exchange.getPartitioningScheme().getBucketToPartition(),
                 exchange.getPartitioningScheme().getPartitionCount());
 
