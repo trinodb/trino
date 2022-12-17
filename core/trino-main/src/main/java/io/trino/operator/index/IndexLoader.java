@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.connector.CatalogHandle;
+import io.trino.connector.CatalogHandle.CatalogVersion;
 import io.trino.execution.ScheduledSplit;
 import io.trino.execution.SplitAssignment;
 import io.trino.metadata.Split;
@@ -57,7 +58,7 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 public class IndexLoader
 {
-    private static final CatalogHandle INDEX_CATALOG_HANDLE = createRootCatalogHandle("$index");
+    private static final CatalogHandle INDEX_CATALOG_HANDLE = createRootCatalogHandle("$index", new CatalogVersion("index"));
     private final BlockingQueue<UpdateRequest> updateRequests = new LinkedBlockingQueue<>();
 
     private final List<Type> outputTypes;

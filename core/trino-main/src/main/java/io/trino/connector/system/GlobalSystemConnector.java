@@ -15,6 +15,7 @@ package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.connector.CatalogHandle;
+import io.trino.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -35,7 +36,7 @@ public class GlobalSystemConnector
         implements InternalConnector
 {
     public static final String NAME = "system";
-    public static final CatalogHandle CATALOG_HANDLE = createRootCatalogHandle(NAME);
+    public static final CatalogHandle CATALOG_HANDLE = createRootCatalogHandle(NAME, new CatalogVersion("system"));
 
     private final Set<SystemTable> systemTables;
     private final Set<Procedure> procedures;
