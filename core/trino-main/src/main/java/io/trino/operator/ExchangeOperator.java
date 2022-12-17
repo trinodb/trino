@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.connector.CatalogHandle;
+import io.trino.connector.CatalogHandle.CatalogVersion;
 import io.trino.exchange.ExchangeDataSource;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.LazyExchangeDataSource;
@@ -47,7 +48,7 @@ import static java.util.Objects.requireNonNull;
 public class ExchangeOperator
         implements SourceOperator
 {
-    public static final CatalogHandle REMOTE_CATALOG_HANDLE = createRootCatalogHandle("$remote");
+    public static final CatalogHandle REMOTE_CATALOG_HANDLE = createRootCatalogHandle("$remote", new CatalogVersion("remote"));
 
     public static class ExchangeOperatorFactory
             implements SourceOperatorFactory

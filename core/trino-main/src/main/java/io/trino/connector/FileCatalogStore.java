@@ -36,6 +36,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
+import static io.trino.connector.CoordinatorDynamicCatalogManager.computeCatalogVersion;
 
 public class FileCatalogStore
         implements CatalogStore
@@ -69,7 +70,8 @@ public class FileCatalogStore
             String connectorName = properties.remove("connector.name");
             checkState(connectorName != null, "Catalog configuration %s does not contain 'connector.name'", file.getAbsoluteFile());
 
-            catalogProperties.add(new CatalogProperties(createRootCatalogHandle(catalogName), connectorName, ImmutableMap.copyOf(properties)));
+            CatalogHandle catalogHandle = createRootCatalogHandle(catalogName, computeCatalogVersion(catalogName, connectorName, properties));
+            catalogProperties.add(new CatalogProperties(catalogHandle, connectorName, ImmutableMap.copyOf(properties)));
         }
         this.catalogs = catalogProperties.build();
     }
