@@ -33,8 +33,8 @@ public interface CatalogServiceProvider<T>
 
     static <T> CatalogServiceProvider<T> singleton(CatalogHandle catalogHandle, T value)
     {
-        return catalogName -> {
-            checkArgument(catalogName.equals(catalogHandle));
+        return handle -> {
+            checkArgument(handle.equals(catalogHandle));
             return value;
         };
     }

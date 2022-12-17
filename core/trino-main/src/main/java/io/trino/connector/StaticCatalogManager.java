@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle.CatalogVersion;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
@@ -97,7 +98,7 @@ public class StaticCatalogManager
             String connectorName = properties.remove("connector.name");
             checkState(connectorName != null, "Catalog configuration %s does not contain connector.name", file.getAbsoluteFile());
 
-            catalogProperties.add(new CatalogProperties(createRootCatalogHandle(catalogName), connectorName, ImmutableMap.copyOf(properties)));
+            catalogProperties.add(new CatalogProperties(createRootCatalogHandle(catalogName, new CatalogVersion("default")), connectorName, ImmutableMap.copyOf(properties)));
         }
         this.catalogProperties = catalogProperties.build();
         this.executor = requireNonNull(executor, "executor is null");

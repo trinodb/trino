@@ -15,6 +15,7 @@ package io.trino.connector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.google.common.base.CharMatcher;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
@@ -25,68 +26,61 @@ import static io.trino.connector.CatalogHandle.CatalogHandleType.INFORMATION_SCH
 import static io.trino.connector.CatalogHandle.CatalogHandleType.NORMAL;
 import static io.trino.connector.CatalogHandle.CatalogHandleType.SYSTEM;
 import static java.lang.Math.toIntExact;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
 public final class CatalogHandle
 {
     private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(CatalogHandle.class).instanceSize());
 
-    private static final String INFORMATION_SCHEMA_CONNECTOR_PREFIX = "$info_schema@";
-    private static final String SYSTEM_TABLES_CONNECTOR_PREFIX = "$system@";
-
-    private final String id;
+    private final String catalogName;
     private final CatalogHandleType type;
     private final CatalogHandle rootCatalogHandle;
+    private final CatalogVersion version;
 
-    public static CatalogHandle createRootCatalogHandle(String catalogName)
+    public static CatalogHandle createRootCatalogHandle(String catalogName, CatalogVersion version)
     {
-        return new CatalogHandle(NORMAL, catalogName);
+        return new CatalogHandle(catalogName, NORMAL, version);
     }
 
     public static CatalogHandle createInformationSchemaCatalogHandle(CatalogHandle catalogHandle)
     {
-        return new CatalogHandle(INFORMATION_SCHEMA, catalogHandle.getCatalogName());
+        return new CatalogHandle(catalogHandle.getCatalogName(), INFORMATION_SCHEMA, catalogHandle.getVersion());
     }
 
     public static CatalogHandle createSystemTablesCatalogHandle(CatalogHandle catalogHandle)
     {
-        return new CatalogHandle(SYSTEM, catalogHandle.getCatalogName());
+        return new CatalogHandle(catalogHandle.getCatalogName(), SYSTEM, catalogHandle.getVersion());
     }
 
     @JsonCreator
     public static CatalogHandle fromId(String id)
     {
-        if (id.startsWith(SYSTEM_TABLES_CONNECTOR_PREFIX)) {
-            return new CatalogHandle(SYSTEM, id.substring(SYSTEM_TABLES_CONNECTOR_PREFIX.length()));
-        }
-        if (id.startsWith(INFORMATION_SCHEMA_CONNECTOR_PREFIX)) {
-            return new CatalogHandle(INFORMATION_SCHEMA, id.substring(INFORMATION_SCHEMA_CONNECTOR_PREFIX.length()));
-        }
-        return new CatalogHandle(NORMAL, id);
+        requireNonNull(id, "id is null");
+
+        int versionSplit = id.lastIndexOf(':');
+        checkArgument(versionSplit > 0, "invalid id %s");
+
+        int typeSplit = id.lastIndexOf(':', versionSplit - 1);
+        checkArgument(typeSplit > 0, "invalid id %s");
+
+        String catalogName = id.substring(0, typeSplit);
+        CatalogHandleType type = CatalogHandleType.valueOf(id.substring(typeSplit + 1, versionSplit).toUpperCase(ROOT));
+        CatalogVersion version = new CatalogVersion(id.substring(versionSplit + 1));
+        return new CatalogHandle(catalogName, type, version);
     }
 
-    private CatalogHandle(CatalogHandleType type, String catalogName)
+    private CatalogHandle(String catalogName, CatalogHandleType type, CatalogVersion version)
     {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.type = requireNonNull(type, "type is null");
+        this.version = requireNonNull(version, "version is null");
         requireNonNull(catalogName, "catalogName is null");
         checkArgument(!catalogName.isEmpty(), "catalogName is empty");
-        checkArgument(!catalogName.startsWith(INFORMATION_SCHEMA_CONNECTOR_PREFIX) && !catalogName.startsWith(SYSTEM_TABLES_CONNECTOR_PREFIX), "Catalog name is an internal name: %s", catalogName);
-        switch (type) {
-            case NORMAL:
-                id = catalogName;
-                this.rootCatalogHandle = this;
-                break;
-            case INFORMATION_SCHEMA:
-                id = INFORMATION_SCHEMA_CONNECTOR_PREFIX + catalogName;
-                this.rootCatalogHandle = new CatalogHandle(NORMAL, catalogName);
-                break;
-            case SYSTEM:
-                id = SYSTEM_TABLES_CONNECTOR_PREFIX + catalogName;
-                this.rootCatalogHandle = new CatalogHandle(NORMAL, catalogName);
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown type: " + type);
-        }
+        this.rootCatalogHandle = switch (type) {
+            case NORMAL -> this;
+            case INFORMATION_SCHEMA, SYSTEM -> new CatalogHandle(catalogName, NORMAL, version);
+        };
     }
 
     /**
@@ -95,7 +89,7 @@ public final class CatalogHandle
     @JsonValue
     public String getId()
     {
-        return id;
+        return catalogName + ":" + type.toString().toLowerCase(ROOT) + ":" + version;
     }
 
     /**
@@ -104,12 +98,17 @@ public final class CatalogHandle
      */
     public String getCatalogName()
     {
-        return rootCatalogHandle.id;
+        return catalogName;
     }
 
     public CatalogHandleType getType()
     {
         return type;
+    }
+
+    public CatalogVersion getVersion()
+    {
+        return version;
     }
 
     public CatalogHandle getRootCatalogHandle()
@@ -118,34 +117,34 @@ public final class CatalogHandle
     }
 
     @Override
-    public boolean equals(Object o)
+    public boolean equals(Object other)
     {
-        if (this == o) {
+        if (this == other) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        CatalogHandle that = (CatalogHandle) o;
-        return Objects.equals(id, that.id);
+        return other instanceof CatalogHandle that &&
+                Objects.equals(catalogName, that.catalogName) &&
+                type == that.type &&
+                Objects.equals(version, that.version);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(id);
+        return Objects.hash(catalogName, type, version);
     }
 
     @Override
     public String toString()
     {
-        return id;
+        return catalogName;
     }
 
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE +
-                estimatedSizeOf(id) +
+                estimatedSizeOf(catalogName) +
+                version.getRetainedSizeInBytes() +
                 (rootCatalogHandle == this ? 0 : rootCatalogHandle.getRetainedSizeInBytes());
     }
 
@@ -165,6 +164,63 @@ public final class CatalogHandle
         public boolean isInternal()
         {
             return internal;
+        }
+    }
+
+    public static final class CatalogVersion
+            implements Comparable<CatalogVersion>
+    {
+        private static final CharMatcher ALLOWED_CHARACTERS = CharMatcher.inRange('0', '9')
+                .or(CharMatcher.inRange('a', 'z'))
+                .or(CharMatcher.anyOf("_-"))
+                .precomputed();
+
+        private final String version;
+
+        /**
+         * Version of a catalog.  The string maybe compared lexicographically using ASCII, and to determine which catalog version is newer.
+         */
+        @JsonCreator
+        public CatalogVersion(String version)
+        {
+            requireNonNull(version, "version is null");
+            checkArgument(!version.isEmpty(), "version is empty");
+            checkArgument(ALLOWED_CHARACTERS.matchesAllOf(version), "invalid version: %s", version);
+            this.version = version;
+        }
+
+        @Override
+        public int compareTo(CatalogVersion other)
+        {
+            return version.compareTo(other.version);
+        }
+
+        @Override
+        public boolean equals(Object other)
+        {
+            if (this == other) {
+                return true;
+            }
+            return other instanceof CatalogVersion that &&
+                    version.equals(that.version);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return version.hashCode();
+        }
+
+        @JsonValue
+        @Override
+        public String toString()
+        {
+            return version;
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + estimatedSizeOf(version);
         }
     }
 }

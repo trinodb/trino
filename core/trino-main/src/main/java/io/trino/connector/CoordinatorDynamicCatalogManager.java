@@ -15,8 +15,12 @@ package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle.CatalogVersion;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
@@ -182,7 +186,8 @@ public class CoordinatorDynamicCatalogManager
                 throw new TrinoException(ALREADY_EXISTS, format("Catalog '%s' already exists", catalogName));
             }
 
-            CatalogProperties catalogProperties = new CatalogProperties(createRootCatalogHandle(catalogName), connectorName, properties);
+            CatalogHandle catalogHandle = createRootCatalogHandle(catalogName, computeCatalogVersion(catalogName, connectorName, properties));
+            CatalogProperties catalogProperties = new CatalogProperties(catalogHandle, connectorName, properties);
             CatalogConnector catalog = catalogFactory.createCatalog(catalogProperties);
             catalogs.put(catalogName, catalog);
         }
@@ -209,5 +214,25 @@ public class CoordinatorDynamicCatalogManager
         finally {
             catalogsUpdateLock.unlock();
         }
+    }
+
+    static CatalogVersion computeCatalogVersion(String catalogName, String connectorName, Map<String, String> properties)
+    {
+        Hasher hasher = Hashing.sha256().newHasher();
+        hasher.putUnencodedChars("catalog-hash");
+        hashLengthPrefixedString(hasher, catalogName);
+        hashLengthPrefixedString(hasher, connectorName);
+        hasher.putInt(properties.size());
+        ImmutableSortedMap.copyOf(properties).forEach((key, value) -> {
+            hashLengthPrefixedString(hasher, key);
+            hashLengthPrefixedString(hasher, value);
+        });
+        return new CatalogVersion(hasher.hash().toString());
+    }
+
+    private static void hashLengthPrefixedString(Hasher hasher, String value)
+    {
+        hasher.putInt(value.length());
+        hasher.putUnencodedChars(value);
     }
 }
