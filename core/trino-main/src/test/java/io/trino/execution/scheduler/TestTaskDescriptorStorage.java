@@ -94,8 +94,8 @@ public class TestTaskDescriptorStorage
                 .hasMessageContaining("descriptor not found for key");
 
         assertThat(manager.getReservedBytes())
-                .isGreaterThanOrEqualTo(toBytes(5, KILOBYTE))
-                .isLessThanOrEqualTo(toBytes(7, KILOBYTE));
+                .isGreaterThanOrEqualTo(toBytes(6, KILOBYTE))
+                .isLessThanOrEqualTo(toBytes(8, KILOBYTE));
     }
 
     @Test
@@ -140,8 +140,8 @@ public class TestTaskDescriptorStorage
 
         // assert that the memory has been released
         assertThat(manager.getReservedBytes())
-                .isGreaterThanOrEqualTo(toBytes(3, KILOBYTE))
-                .isLessThanOrEqualTo(toBytes(4, KILOBYTE));
+                .isGreaterThanOrEqualTo(toBytes(4, KILOBYTE))
+                .isLessThanOrEqualTo(toBytes(5, KILOBYTE));
 
         // check that the any future operations for QUERY_1 will fail
         assertThatThrownBy(() -> manager.put(QUERY_1_STAGE_1, createTaskDescriptor(0, DataSize.of(1, KILOBYTE))))
