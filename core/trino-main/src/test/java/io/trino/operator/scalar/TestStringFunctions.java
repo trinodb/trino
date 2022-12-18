@@ -357,7 +357,7 @@ public class TestStringFunctions
         assertFunction("SUBSTR('Quadratically', 50)", createVarcharType(13), "");
         assertFunction("SUBSTR('Quadratically', -5)", createVarcharType(13), "cally");
         assertFunction("SUBSTR('Quadratically', -50)", createVarcharType(13), "");
-        assertFunction("SUBSTR('Quadratically', 0)", createVarcharType(13), "");
+        assertFunction("SUBSTR('Quadratically', 0)", createVarcharType(13), "Quadratically");
 
         assertFunction("SUBSTR('Quadratically', 5, 6)", createVarcharType(13), "ratica");
         assertFunction("SUBSTR('Quadratically', 5, 10)", createVarcharType(13), "ratically");
@@ -394,7 +394,7 @@ public class TestStringFunctions
         assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 50)", createVarcharType(13), "");
         assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -5)", createVarcharType(13), "cally");
         assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -50)", createVarcharType(13), "");
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 0)", createVarcharType(13), "");
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 0)", createVarcharType(13), "Quadratically");
 
         assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 6)", createVarcharType(13), "ratica");
         assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 10)", createVarcharType(13), "ratically");
