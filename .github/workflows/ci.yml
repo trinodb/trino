@@ -42,7 +42,11 @@ concurrency:
   # Cancel all workflow runs except latest within a concurrency group. This is achieved by defining a concurrency group for the PR.
   # Non-PR builds have singleton concurrency groups.
   # When triggered by the repository_dispatch, add the expected SHA to avoid cancelling the run from the PR.
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.number || github.sha }}-${{ github.event_name == 'repository_dispatch' && github.event.client_payload.slash_command.args.named.sha || github.sha }}
+  group: |
+    workflow=${{ github.workflow }},
+    pr_number=${{ github.event_name == 'pull_request' && github.event.number || 'NA' }},
+    dispatch_sha=${{ github.event_name == 'repository_dispatch' && github.event.client_payload.slash_command.args.named.sha || 'NA' }},
+    commit_sha=${{ github.event_name != 'pull_request' && github.event_name != 'repository_dispatch' && github.sha || 'NA' }}
   cancel-in-progress: true
 
 jobs:
