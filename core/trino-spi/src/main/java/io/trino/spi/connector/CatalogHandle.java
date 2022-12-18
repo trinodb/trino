@@ -174,6 +174,8 @@ public final class CatalogHandle
     public static final class CatalogVersion
             implements Comparable<CatalogVersion>
     {
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(CatalogVersion.class).instanceSize());
+
         private final String version;
 
         /**
