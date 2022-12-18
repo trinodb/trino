@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>403-SNAPSHOT</version>
+        <version>404-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -199,6 +199,15 @@
                                 <item>
                                     <code>java.field.enumConstantOrderChanged</code>
                                 </item>
+                                <!-- Allow arbitrary changes to unstable APIs -->
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>
+                                        <matcher>java</matcher>
+                                        <match>@io.trino.spi.Unstable *;</match>
+                                    </old>
+                                </item>
                                 <!-- Allow removing things that were previously deprecated -->
                                 <item>
                                     <regex>true</regex>
@@ -211,28 +220,18 @@
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;java.util.Optional&lt;io.trino.spi.metrics.Distribution&lt;?&gt;&gt;&gt;, java.util.List&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;)
-                                    </old>
-                                    <new>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;)</new>
-                                </item>
-                                <item>
                                     <ignore>true</ignore>
                                     <code>java.method.removed</code>
-                                    <old>method java.util.List&lt;java.util.Optional&lt;io.trino.spi.metrics.Distribution&lt;?&gt;&gt;&gt; io.trino.spi.eventlistener.QueryStatistics::getStageOutputBufferUtilizationDistribution()</old>
+                                    <old>method boolean io.trino.spi.connector.MaterializedViewFreshness::isMaterializedViewFresh()</old>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;)</old>
-                                    <new>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferUtilization&gt;, java.util.List&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;)
-                                    </new>
-                                </item>
-                                <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.connector.ConnectorViewDefinition.ViewColumn::&lt;init&gt;(java.lang.String, io.trino.spi.type.TypeId)</old>
-                                    <new>method void io.trino.spi.connector.ConnectorViewDefinition.ViewColumn::&lt;init&gt;(java.lang.String, io.trino.spi.type.TypeId, java.util.Optional&lt;java.lang.String&gt;)</new>
-                                    <justification>Add support for view column comments</justification>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method java.lang.invoke.MethodHandle io.trino.spi.predicate.Range::getComparisonOperator(io.trino.spi.type.Type)</old>
+                                    <new>method java.lang.invoke.MethodHandle io.trino.spi.predicate.Range::getComparisonOperator(io.trino.spi.type.Type)</new>
+                                    <oldVisibility>protected</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                    <justification>It was not accessible outside of SPI anyway</justification>
                                 </item>
                             </differences>
                         </revapi.differences>

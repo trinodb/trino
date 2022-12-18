@@ -25,6 +25,7 @@ import com.google.common.io.Resources;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.GenericContainer;
 
 import java.io.Closeable;
@@ -196,9 +197,13 @@ public class CassandraServer
     @Override
     public void close()
     {
-        if (session != null) {
-            session.close();
-        }
+        session.close();
         dockerContainer.close();
+    }
+
+    @ResourcePresence
+    public boolean isRunning()
+    {
+        return dockerContainer.getContainerId() != null;
     }
 }

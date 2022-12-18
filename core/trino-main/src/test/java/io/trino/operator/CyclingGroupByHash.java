@@ -49,18 +49,6 @@ public class CyclingGroupByHash
     }
 
     @Override
-    public long getHashCollisions()
-    {
-        return 0;
-    }
-
-    @Override
-    public double getExpectedHashCollisions()
-    {
-        return 0;
-    }
-
-    @Override
     public List<Type> getTypes()
     {
         return ImmutableList.of();

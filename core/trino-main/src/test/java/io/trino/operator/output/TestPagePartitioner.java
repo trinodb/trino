@@ -26,7 +26,7 @@ import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.OutputBufferInfo;
 import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.execution.buffer.OutputBuffers;
-import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.operator.BucketPartitionFunction;
@@ -105,7 +105,7 @@ public class TestPagePartitioner
     private static final int PARTITION_COUNT = 2;
 
     private static final PagesSerdeFactory PAGES_SERDE_FACTORY = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false);
-    private static final PagesSerde PAGES_SERDE = PAGES_SERDE_FACTORY.createPagesSerde();
+    private static final PageDeserializer PAGE_DESERIALIZER = PAGES_SERDE_FACTORY.createDeserializer(Optional.empty());
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -616,7 +616,8 @@ public class TestPagePartitioner
                     types,
                     PARTITION_MAX_MEMORY,
                     operatorContext,
-                    POSITIONS_APPENDER_FACTORY);
+                    POSITIONS_APPENDER_FACTORY,
+                    Optional.empty());
         }
 
         private DriverContext buildDriverContext()
@@ -636,7 +637,7 @@ public class TestPagePartitioner
 
         public Stream<Page> getEnqueuedDeserialized()
         {
-            return getEnqueued().stream().map(PAGES_SERDE::deserialize);
+            return getEnqueued().stream().map(PAGE_DESERIALIZER::deserialize);
         }
 
         public List<Slice> getEnqueued()
@@ -651,7 +652,7 @@ public class TestPagePartitioner
 
         public Stream<Page> getEnqueuedDeserialized(int partition)
         {
-            return getEnqueued(partition).stream().map(PAGES_SERDE::deserialize);
+            return getEnqueued(partition).stream().map(PAGE_DESERIALIZER::deserialize);
         }
 
         public List<Slice> getEnqueued(int partition)

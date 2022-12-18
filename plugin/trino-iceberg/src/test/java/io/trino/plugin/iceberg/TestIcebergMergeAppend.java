@@ -17,7 +17,9 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -61,13 +63,14 @@ public class TestIcebergMergeAppend
                         .setMetastoreUser("test"));
         TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
         tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
+        CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(metastore, 1000);
         trinoCatalog = new TrinoHiveCatalog(
                 new CatalogName("catalog"),
-                memoizeMetastore(metastore, 1000),
+                cachingHiveMetastore,
+                new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
                 fileSystemFactory,
                 new TestingTypeManager(),
                 tableOperationsProvider,
-                "trino-version",
                 false,
                 false,
                 false);

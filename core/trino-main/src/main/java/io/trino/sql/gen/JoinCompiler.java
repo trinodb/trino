@@ -150,7 +150,7 @@ public class JoinCompiler
     {
         return lookupSourceFactories.getUnchecked(new CacheKey(
                 types,
-                outputChannels.orElse(rangeList(types.size())),
+                outputChannels.orElseGet(() -> rangeList(types.size())),
                 joinChannels,
                 sortChannel));
     }
@@ -168,7 +168,7 @@ public class JoinCompiler
 
         return new PagesHashStrategyFactory(hashStrategies.getUnchecked(new CacheKey(
                 types,
-                outputChannels.orElse(rangeList(types.size())),
+                outputChannels.orElseGet(() -> rangeList(types.size())),
                 joinChannels,
                 Optional.empty())));
     }

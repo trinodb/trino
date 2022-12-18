@@ -87,7 +87,7 @@ public class HiveConfig
     private boolean recursiveDirWalkerEnabled;
     private boolean ignoreAbsentPartitions;
 
-    private int maxConcurrentFileRenames = 20;
+    private int maxConcurrentFileSystemOperations = 20;
     private int maxConcurrentMetastoreDrops = 20;
     private int maxConcurrentMetastoreUpdates = 20;
     private int maxPartitionDropsPerQuery = 100_000;
@@ -300,15 +300,16 @@ public class HiveConfig
     }
 
     @Min(1)
-    public int getMaxConcurrentFileRenames()
+    public int getMaxConcurrentFileSystemOperations()
     {
-        return maxConcurrentFileRenames;
+        return maxConcurrentFileSystemOperations;
     }
 
-    @Config("hive.max-concurrent-file-renames")
-    public HiveConfig setMaxConcurrentFileRenames(int maxConcurrentFileRenames)
+    @LegacyConfig("hive.max-concurrent-file-renames")
+    @Config("hive.max-concurrent-file-system-operations")
+    public HiveConfig setMaxConcurrentFileSystemOperations(int maxConcurrentFileSystemOperations)
     {
-        this.maxConcurrentFileRenames = maxConcurrentFileRenames;
+        this.maxConcurrentFileSystemOperations = maxConcurrentFileSystemOperations;
         return this;
     }
 

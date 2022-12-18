@@ -72,6 +72,7 @@ public class TestPendingStageState
     {
         if (queryRunner != null) {
             queryRunner.close();
+            queryRunner = null;
         }
     }
 }

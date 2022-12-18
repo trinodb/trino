@@ -89,10 +89,21 @@ import static java.util.Collections.emptySet;
 public interface ConnectorAccessControl
 {
     /**
+     * Check if identity is allowed to create the specified schema with properties.
+     *
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName, Map<String, Object> properties)
+    {
+        denyCreateSchema(schemaName);
+    }
+
+    /**
      * Check if identity is allowed to create the specified schema.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
+    @Deprecated
     default void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
     {
         denyCreateSchema(schemaName);

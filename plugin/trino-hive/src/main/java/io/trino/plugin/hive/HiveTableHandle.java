@@ -181,53 +181,8 @@ public class HiveTableHandle
                 maxScannedFileSize);
     }
 
-    public HiveTableHandle withAnalyzeColumnNames()
-    {
-        return new HiveTableHandle(
-                schemaName,
-                tableName,
-                tableParameters,
-                partitionColumns,
-                dataColumns,
-                partitionNames,
-                partitions,
-                compactEffectivePredicate,
-                enforcedConstraint,
-                bucketHandle,
-                bucketFilter,
-                analyzePartitionValues,
-                constraintColumns,
-                projectedColumns,
-                transaction,
-                recordScannedFiles,
-                maxScannedFileSize);
-    }
-
     public HiveTableHandle withTransaction(AcidTransaction transaction)
     {
-        return new HiveTableHandle(
-                schemaName,
-                tableName,
-                tableParameters,
-                partitionColumns,
-                dataColumns,
-                partitionNames,
-                partitions,
-                compactEffectivePredicate,
-                enforcedConstraint,
-                bucketHandle,
-                bucketFilter,
-                analyzePartitionValues,
-                constraintColumns,
-                projectedColumns,
-                transaction,
-                recordScannedFiles,
-                maxScannedFileSize);
-    }
-
-    public HiveTableHandle withUpdateProcessor(AcidTransaction transaction, HiveUpdateProcessor updateProcessor)
-    {
-        requireNonNull(updateProcessor, "updateProcessor is null");
         return new HiveTableHandle(
                 schemaName,
                 tableName,
@@ -451,13 +406,6 @@ public class HiveTableHandle
     public boolean isInAcidTransaction()
     {
         return transaction.isAcidTransactionRunning();
-    }
-
-    @JsonIgnore
-    public long getAcidTransactionId()
-    {
-        checkState(transaction.isAcidTransactionRunning(), "The AcidTransaction is not running");
-        return transaction.getAcidTransactionId();
     }
 
     @JsonIgnore

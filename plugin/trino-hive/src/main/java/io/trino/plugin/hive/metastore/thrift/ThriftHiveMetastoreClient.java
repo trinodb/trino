@@ -75,7 +75,6 @@ import org.apache.thrift.transport.TTransport;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -88,7 +87,6 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.reflect.Reflection.newProxy;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
-import static io.trino.plugin.hive.metastore.MetastoreUtil.adjustRowCount;
 import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.NOT_SUPPORTED;
 import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.SUPPORTED;
 import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.UNKNOWN;
@@ -118,6 +116,8 @@ public class ThriftHiveMetastoreClient
     private final AtomicInteger chosenGetTableAlternative;
     private final AtomicInteger chosenTableParamAlternative;
     private final AtomicInteger chosenGetAllViewsAlternative;
+    private final AtomicInteger chosenAlterTransactionalTableAlternative;
+    private final AtomicInteger chosenAlterPartitionsAlternative;
 
     public ThriftHiveMetastoreClient(
             TTransport transport,
@@ -125,7 +125,9 @@ public class ThriftHiveMetastoreClient
             MetastoreSupportsDateStatistics metastoreSupportsDateStatistics,
             AtomicInteger chosenGetTableAlternative,
             AtomicInteger chosenTableParamAlternative,
-            AtomicInteger chosenGetAllViewsAlternative)
+            AtomicInteger chosenGetAllViewsAlternative,
+            AtomicInteger chosenAlterTransactionalTableAlternative,
+            AtomicInteger chosenAlterPartitionsAlternative)
     {
         this.transport = requireNonNull(transport, "transport is null");
         ThriftHiveMetastore.Client client = new ThriftHiveMetastore.Client(new TBinaryProtocol(transport));
@@ -140,6 +142,8 @@ public class ThriftHiveMetastoreClient
         this.chosenGetTableAlternative = requireNonNull(chosenGetTableAlternative, "chosenGetTableAlternative is null");
         this.chosenTableParamAlternative = requireNonNull(chosenTableParamAlternative, "chosenTableParamAlternative is null");
         this.chosenGetAllViewsAlternative = requireNonNull(chosenGetAllViewsAlternative, "chosenGetAllViewsAlternative is null");
+        this.chosenAlterTransactionalTableAlternative = requireNonNull(chosenAlterTransactionalTableAlternative, "chosenAlterTransactionalTableAlternative is null");
+        this.chosenAlterPartitionsAlternative = requireNonNull(chosenAlterPartitionsAlternative, "chosenAlterPartitionsAlternative is null");
     }
 
     @Override
@@ -189,13 +193,13 @@ public class ThriftHiveMetastoreClient
         /*
          * The parameter value is restricted to have only alphanumeric characters so that it's safe
          * to be used against HMS. When using with a LIKE operator, the HMS may want the parameter
-         * value to follow a Java regex pattern or a SQL pattern. And it's hard to predict the
+         * value to follow a Java regex pattern or an SQL pattern. And it's hard to predict the
          * HMS's behavior from outside. Also, by restricting parameter values, we avoid the problem
          * of how to quote them when passing within the filter string.
          */
         checkArgument(TABLE_PARAMETER_SAFE_VALUE_PATTERN.matcher(parameterValue).matches(), "Parameter value contains invalid characters: '%s'", parameterValue);
         /*
-         * Thrift call `get_table_names_by_filter` may be translated by Metastore to a SQL query against Metastore database.
+         * Thrift call `get_table_names_by_filter` may be translated by Metastore to an SQL query against Metastore database.
          * Hive 2.3 on some databases uses CLOB for table parameter value column and some databases disallow `=` predicate over
          * CLOB values. At the same time, they allow `LIKE` predicates over them.
          */
@@ -682,22 +686,22 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
-            throws TException
-    {
-        Table table = getTableWithCapabilities(dbName, tableName);
-        rowCountChange.ifPresent(rowCount ->
-                table.setParameters(adjustRowCount(table.getParameters(), tableName, rowCount)));
-        alterTransactionalTable(table, transactionId, writeId, new EnvironmentContext());
-    }
-
-    @Override
     public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
             throws TException
     {
-        AlterPartitionsRequest request = new AlterPartitionsRequest(dbName, tableName, partitions);
-        request.setWriteId(writeId);
-        client.alter_partitions_req(request);
+        alternativeCall(
+                exception -> !isUnknownMethodExceptionalResponse(exception),
+                chosenAlterPartitionsAlternative,
+                () -> {
+                    AlterPartitionsRequest request = new AlterPartitionsRequest(dbName, tableName, partitions);
+                    request.setWriteId(writeId);
+                    client.alter_partitions_req(request);
+                    return null;
+                },
+                () -> {
+                    client.alter_partitions_with_environment_context(dbName, tableName, partitions, new EnvironmentContext());
+                    return null;
+                });
     }
 
     @Override
@@ -713,13 +717,25 @@ public class ThriftHiveMetastoreClient
     public void alterTransactionalTable(Table table, long transactionId, long writeId, EnvironmentContext environmentContext)
             throws TException
     {
-        table.setWriteId(writeId);
-        checkArgument(writeId >= table.getWriteId(), "The writeId supplied %s should be greater than or equal to the table writeId %s", writeId, table.getWriteId());
-        AlterTableRequest request = new AlterTableRequest(table.getDbName(), table.getTableName(), table);
-        request.setValidWriteIdList(getValidWriteIds(ImmutableList.of(format("%s.%s", table.getDbName(), table.getTableName())), transactionId));
-        request.setWriteId(writeId);
-        request.setEnvironmentContext(environmentContext);
-        client.alter_table_req(request);
+        long originalWriteId = table.getWriteId();
+        alternativeCall(
+                exception -> !isUnknownMethodExceptionalResponse(exception),
+                chosenAlterTransactionalTableAlternative,
+                () -> {
+                    table.setWriteId(writeId);
+                    checkArgument(writeId >= table.getWriteId(), "The writeId supplied %s should be greater than or equal to the table writeId %s", writeId, table.getWriteId());
+                    AlterTableRequest request = new AlterTableRequest(table.getDbName(), table.getTableName(), table);
+                    request.setValidWriteIdList(getValidWriteIds(ImmutableList.of(format("%s.%s", table.getDbName(), table.getTableName())), transactionId));
+                    request.setWriteId(writeId);
+                    request.setEnvironmentContext(environmentContext);
+                    client.alter_table_req(request);
+                    return null;
+                },
+                () -> {
+                    table.setWriteId(originalWriteId);
+                    client.alter_table_with_environment_context(table.getDbName(), table.getTableName(), table, environmentContext);
+                    return null;
+                });
     }
 
     @SafeVarargs

@@ -39,8 +39,8 @@ import static com.google.common.reflect.Reflection.newProxy;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -56,7 +56,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
 
     private static final String ICEBERG_CATALOG = "iceberg";
 
-    private final String schemaName = "test_iceberg_glue_" + randomTableSuffix();
+    private final String schemaName = "test_iceberg_glue_" + randomNameSuffix();
 
     private GlueHiveMetastore glueHiveMetastore;
 
@@ -129,7 +129,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
     @Test
     public void testInsertFailureDoesNotCorruptTheTableMetadata()
     {
-        String tableName = "test_insert_failure" + randomTableSuffix();
+        String tableName = "test_insert_failure" + randomNameSuffix();
 
         getQueryRunner().execute(format("CREATE TABLE %s (a_varchar) AS VALUES ('Trino')", tableName));
         assertThatThrownBy(() -> getQueryRunner().execute("INSERT INTO " + tableName + " VALUES 'rocks'"))

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>403-SNAPSHOT</version>
+        <version>404-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -45,6 +45,11 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-hive</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-memory-context</artifactId>
         </dependency>
 
         <dependency>
@@ -305,6 +310,12 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-tpcds</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-tpch</artifactId>
             <scope>test</scope>
         </dependency>
@@ -412,9 +423,12 @@
                                 <exclude>**/TestDeltaLakeAdlsConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestDeltaLakeGlueMetastore.java</exclude>
                                 <exclude>**/TestDeltaLakeCleanUpGlueMetastore.java</exclude>
+                                <exclude>**/TestDeltaLakeSharedGlueMetastoreViews.java</exclude>
                                 <exclude>**/TestDeltaLakeSharedGlueMetastoreWithTableRedirections.java</exclude>
                                 <exclude>**/TestDeltaLakeTableWithCustomLocationUsingGlueMetastore.java</exclude>
                                 <exclude>**/TestDeltaLakeRenameToWithGlueMetastore.java</exclude>
+                                <exclude>**/TestDeltaLakeRegisterTableProcedureWithGlue.java</exclude>
+                                <exclude>**/TestDeltaLakeViewsGlueMetastore.java</exclude>
                                 <exclude>**/TestDeltaLakeGcsConnectorSmokeTest.java</exclude>
                             </excludes>
                         </configuration>
@@ -462,9 +476,12 @@
                                 <include>**/TestDeltaLakeAdlsConnectorSmokeTest.java</include>
                                 <include>**/TestDeltaLakeGlueMetastore.java</include>
                                 <include>**/TestDeltaLakeCleanUpGlueMetastore.java</include>
+                                <include>**/TestDeltaLakeSharedGlueMetastoreViews.java</include>
                                 <include>**/TestDeltaLakeSharedGlueMetastoreWithTableRedirections.java</include>
                                 <include>**/TestDeltaLakeTableWithCustomLocationUsingGlueMetastore.java</include>
                                 <include>**/TestDeltaLakeRenameToWithGlueMetastore.java</include>
+                                <include>**/TestDeltaLakeRegisterTableProcedureWithGlue.java</include>
+                                <include>**/TestDeltaLakeViewsGlueMetastore.java</include>
                             </includes>
                         </configuration>
                     </plugin>

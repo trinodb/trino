@@ -44,7 +44,7 @@ import java.util.Base64;
 
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -57,23 +57,30 @@ public class TestIcebergGcsConnectorSmokeTest
     private static final Logger LOG = Logger.get(TestIcebergGcsConnectorSmokeTest.class);
 
     private static final FileAttribute<?> READ_ONLY_PERMISSIONS = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
-    private final String schema;
     private final String gcpStorageBucket;
-    private final Path gcpCredentialsFile;
-    private final HiveHadoop hiveHadoop;
-    private final FileSystem fileSystem;
+    private final String gcpCredentialKey;
+    private final String schema;
+
+    private HiveHadoop hiveHadoop;
+    private FileSystem fileSystem;
 
     @Parameters({"testing.gcp-storage-bucket", "testing.gcp-credentials-key"})
     public TestIcebergGcsConnectorSmokeTest(String gcpStorageBucket, String gcpCredentialKey)
     {
         super(ORC);
-        this.schema = "test_iceberg_gcs_connector_smoke_test_" + randomTableSuffix();
         this.gcpStorageBucket = requireNonNull(gcpStorageBucket, "gcpStorageBucket is null");
+        this.gcpCredentialKey = requireNonNull(gcpCredentialKey, "gcpCredentialKey is null");
+        this.schema = "test_iceberg_gcs_connector_smoke_test_" + randomNameSuffix();
+    }
 
-        requireNonNull(gcpCredentialKey, "gcpCredentialKey is null");
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
         InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(gcpCredentialKey));
+        Path gcpCredentialsFile;
         try {
-            this.gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json", READ_ONLY_PERMISSIONS);
+            gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json", READ_ONLY_PERMISSIONS);
             gcpCredentialsFile.toFile().deleteOnExit();
             Files.write(gcpCredentialsFile, jsonKey.readAllBytes());
 
@@ -104,39 +111,7 @@ public class TestIcebergGcsConnectorSmokeTest
         catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
-    }
 
-    @AfterClass(alwaysRun = true)
-    public void removeTestData()
-    {
-        if (fileSystem != null) {
-            try {
-                fileSystem.delete(new org.apache.hadoop.fs.Path(schemaUrl()), true);
-            }
-            catch (IOException e) {
-                // The GCS bucket should be configured to expire objects automatically. Clean up issues do not need to fail the test.
-                LOG.warn(e, "Failed to clean up GCS test directory: %s", schemaUrl());
-            }
-        }
-    }
-
-    @Override
-    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
-    {
-        switch (connectorBehavior) {
-            case SUPPORTS_RENAME_SCHEMA:
-                // GCS tests use the Hive Metastore catalog which does not support renaming schemas
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
-    }
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.catalog.type", "hive_metastore")
@@ -152,6 +127,34 @@ public class TestIcebergGcsConnectorSmokeTest
                                 .withSchemaProperties(ImmutableMap.of("location", "'" + schemaUrl() + "'"))
                                 .build())
                 .build();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void removeTestData()
+    {
+        if (fileSystem != null) {
+            try {
+                fileSystem.delete(new org.apache.hadoop.fs.Path(schemaUrl()), true);
+            }
+            catch (IOException e) {
+                // The GCS bucket should be configured to expire objects automatically. Clean up issues do not need to fail the test.
+                LOG.warn(e, "Failed to clean up GCS test directory: %s", schemaUrl());
+            }
+            fileSystem = null;
+        }
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_RENAME_SCHEMA:
+                // GCS tests use the Hive Metastore catalog which does not support renaming schemas
+                return false;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 
     @Override
@@ -171,7 +174,7 @@ public class TestIcebergGcsConnectorSmokeTest
     {
         String schemaName = getSession().getSchema().orElseThrow();
         assertQueryFails(
-                format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomTableSuffix()),
+                format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomNameSuffix()),
                 "Hive metastore does not support renaming schemas");
     }
 

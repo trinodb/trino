@@ -47,6 +47,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfPossible;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.qubole.rubix.spi.CacheConfig.enableHeartbeat;
 import static com.qubole.rubix.spi.CacheConfig.setBookKeeperServerPort;
 import static com.qubole.rubix.spi.CacheConfig.setCacheDataDirPrefix;
@@ -277,7 +278,9 @@ public class RubixInitializer
 
     private Configuration getRubixServerConfiguration()
     {
-        Node master = nodeManager.getAllNodes().stream().filter(Node::isCoordinator).findFirst().get();
+        Node master = nodeManager.getAllNodes().stream()
+                .filter(Node::isCoordinator)
+                .collect(onlyElement());
         masterAddress = master.getHostAndPort();
 
         Configuration configuration = getInitialConfiguration();

@@ -72,6 +72,7 @@ public final class InternalDeltaLakeConnectorFactory
             String catalogName,
             Map<String, String> config,
             ConnectorContext context,
+            Optional<Module> metastoreModule,
             Module module)
     {
         ClassLoader classLoader = InternalDeltaLakeConnectorFactory.class.getClassLoader();
@@ -92,7 +93,7 @@ public final class InternalDeltaLakeConnectorFactory
                     new HdfsAuthenticationModule(),
                     new HdfsFileSystemModule(),
                     new CatalogNameModule(catalogName),
-                    new DeltaLakeMetastoreModule(),
+                    metastoreModule.orElse(new DeltaLakeMetastoreModule()),
                     new DeltaLakeModule(),
                     new DeltaLakeSecurityModule(),
                     binder -> {

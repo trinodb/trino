@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
-import io.trino.connector.CatalogHandle.CatalogHandleType;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.metadata.QualifiedObjectName;
@@ -31,6 +30,7 @@ import io.trino.plugin.base.security.ReadOnlySystemAccessControl;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.connector.CatalogHandle.CatalogHandleType;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -303,16 +303,16 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanCreateSchema(SecurityContext securityContext, CatalogSchemaName schemaName)
+    public void checkCanCreateSchema(SecurityContext securityContext, CatalogSchemaName schemaName, Map<String, Object> properties)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(schemaName, "schemaName is null");
 
         checkCanAccessCatalog(securityContext, schemaName.getCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanCreateSchema(securityContext.toSystemSecurityContext(), schemaName));
+        systemAuthorizationCheck(control -> control.checkCanCreateSchema(securityContext.toSystemSecurityContext(), schemaName, properties));
 
-        catalogAuthorizationCheck(schemaName.getCatalogName(), securityContext, (control, context) -> control.checkCanCreateSchema(context, schemaName.getSchemaName()));
+        catalogAuthorizationCheck(schemaName.getCatalogName(), securityContext, (control, context) -> control.checkCanCreateSchema(context, schemaName.getSchemaName(), properties));
     }
 
     @Override
@@ -1338,8 +1338,11 @@ public class AccessControlManager
 
     private List<SystemAccessControl> getSystemAccessControls()
     {
-        return Optional.ofNullable(systemAccessControls.get())
-                .orElse(ImmutableList.of(new InitializingSystemAccessControl()));
+        List<SystemAccessControl> accessControls = systemAccessControls.get();
+        if (accessControls != null) {
+            return accessControls;
+        }
+        return ImmutableList.of(new InitializingSystemAccessControl());
     }
 
     private ConnectorSecurityContext toConnectorSecurityContext(String catalogName, SecurityContext securityContext)

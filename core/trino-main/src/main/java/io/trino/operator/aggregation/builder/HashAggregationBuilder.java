@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation.builder;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.operator.HashCollisionsCounter;
 import io.trino.operator.Work;
 import io.trino.operator.WorkProcessor;
 import io.trino.spi.Page;
@@ -29,8 +28,6 @@ public interface HashAggregationBuilder
     boolean isFull();
 
     void updateMemory();
-
-    void recordHashCollisions(HashCollisionsCounter hashCollisionsCounter);
 
     @Override
     void close();

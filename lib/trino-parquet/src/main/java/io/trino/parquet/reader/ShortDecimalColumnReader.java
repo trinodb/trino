@@ -20,10 +20,8 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.io.ParquetDecodingException;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.parquet.ParquetTypeUtils.checkBytesFitInShortDecimal;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -44,13 +42,12 @@ public class ShortDecimalColumnReader
         extends PrimitiveColumnReader
 {
     private final DecimalType parquetDecimalType;
-    private final int typeLength;
 
     ShortDecimalColumnReader(PrimitiveField field, DecimalType parquetDecimalType)
     {
         super(field);
         this.parquetDecimalType = requireNonNull(parquetDecimalType, "parquetDecimalType is null");
-        typeLength = field.getDescriptor().getPrimitiveType().getTypeLength();
+        int typeLength = field.getDescriptor().getPrimitiveType().getTypeLength();
         checkArgument(typeLength <= 16, "Type length %s should be <= 16 for short decimal column %s", typeLength, field.getDescriptor());
     }
 
@@ -72,12 +69,12 @@ public class ShortDecimalColumnReader
         }
         else {
             byte[] bytes = valuesReader.readBytes().getBytes();
-            if (typeLength <= Long.BYTES) {
+            if (bytes.length <= Long.BYTES) {
                 value = getShortDecimalValue(bytes);
             }
             else {
                 int startOffset = bytes.length - Long.BYTES;
-                checkBytesFitInShortDecimal(bytes, startOffset, trinoType);
+                checkBytesFitInShortDecimal(bytes, 0, startOffset, trinoType, field.getDescriptor());
                 value = getShortDecimalValue(bytes, startOffset, Long.BYTES);
             }
         }
@@ -140,20 +137,5 @@ public class ShortDecimalColumnReader
         }
 
         throw new IllegalArgumentException("Unsupported type: " + type);
-    }
-
-    private void checkBytesFitInShortDecimal(byte[] bytes, int endOffset, Type trinoType)
-    {
-        // Equivalent to expectedValue = bytes[endOffset] < 0 ? -1 : 0
-        byte expectedValue = (byte) (bytes[endOffset] >> 7);
-        for (int i = 0; i < endOffset; i++) {
-            if (bytes[i] != expectedValue) {
-                throw new TrinoException(NOT_SUPPORTED, format(
-                        "Could not read fixed_len_byte_array(%d) value %s into %s",
-                        typeLength,
-                        new BigDecimal(new BigInteger(bytes), parquetDecimalType.getScale()),
-                        trinoType));
-            }
-        }
     }
 }

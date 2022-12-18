@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.client.NodeVersion;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -35,6 +36,7 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -69,15 +71,18 @@ public class TestSetSessionTask
         LARGE,
     }
 
-    private final TransactionManager transactionManager;
-    private final AccessControl accessControl;
-    private final Metadata metadata;
-    private final PlannerContext plannerContext;
-    private final SessionPropertyManager sessionPropertyManager;
+    private LocalQueryRunner queryRunner;
+    private TransactionManager transactionManager;
+    private AccessControl accessControl;
+    private Metadata metadata;
+    private PlannerContext plannerContext;
+    private SessionPropertyManager sessionPropertyManager;
+    private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
-    public TestSetSessionTask()
+    @BeforeClass
+    public void setUp()
     {
-        LocalQueryRunner queryRunner = LocalQueryRunner.builder(TEST_SESSION)
+        queryRunner = LocalQueryRunner.builder(TEST_SESSION)
                 .withExtraSystemSessionProperties(ImmutableSet.of(() -> ImmutableList.of(
                         stringProperty(
                                 "foo",
@@ -124,13 +129,18 @@ public class TestSetSessionTask
         }
     }
 
-    private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
-
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
+        queryRunner.close();
+        queryRunner = null;
         executor.shutdownNow();
         executor = null;
+        transactionManager = null;
+        accessControl = null;
+        metadata = null;
+        plannerContext = null;
+        sessionPropertyManager = null;
     }
 
     @Test
@@ -198,7 +208,9 @@ public class TestSetSessionTask
                 executor,
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                Optional.empty(),
+                true,
+                new NodeVersion("test"));
         getFutureValue(new SetSessionTask(plannerContext, accessControl, sessionPropertyManager).execute(new SetSession(qualifiedPropName, expression), stateMachine, parameters, WarningCollector.NOOP));
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();

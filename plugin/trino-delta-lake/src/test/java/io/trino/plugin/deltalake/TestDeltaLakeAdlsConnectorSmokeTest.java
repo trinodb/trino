@@ -50,6 +50,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.regex.Matcher.quoteReplacement;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDeltaLakeAdlsConnectorSmokeTest
         extends BaseDeltaLakeConnectorSmokeTest
@@ -114,7 +115,15 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     }
 
     @Override
-    protected void createTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
+    public void testPathUriDecoding()
+    {
+        // TODO https://github.com/trinodb/trino/issues/15376 AzureBlobFileSystem doesn't expect URI as the path argument
+        assertThatThrownBy(super::testPathUriDecoding)
+                .hasStackTraceContaining("The specified path does not exist");
+    }
+
+    @Override
+    protected void registerTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
     {
         String targetDirectory = bucketName + "/" + table;
 
@@ -134,7 +143,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
             throw new UncheckedIOException(e);
         }
 
-        queryRunner.execute(format("CREATE TABLE %s (dummy int) WITH (location = '%s')", table, getLocationForTable(bucketName, table)));
+        queryRunner.execute(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, table, getLocationForTable(bucketName, table)));
     }
 
     @Override

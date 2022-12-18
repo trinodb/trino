@@ -57,12 +57,9 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.testing.TestingConnectorSession;
-import org.apache.hadoop.hive.common.type.Timestamp;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -121,6 +118,13 @@ public final class HiveTestUtils
                 .build();
     }
 
+    public static TestingConnectorSession getHiveSession(HiveConfig hiveConfig, ParquetReaderConfig parquetReaderConfig)
+    {
+        return TestingConnectorSession.builder()
+                .setPropertyMetadata(getHiveSessionProperties(hiveConfig, parquetReaderConfig).getSessionProperties())
+                .build();
+    }
+
     public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig)
     {
         return getHiveSessionProperties(hiveConfig, new OrcReaderConfig());
@@ -149,6 +153,16 @@ public final class HiveTestUtils
                 new OrcWriterConfig(),
                 new ParquetReaderConfig(),
                 parquetWriterConfig);
+    }
+
+    public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig, ParquetReaderConfig parquetReaderConfig)
+    {
+        return new HiveSessionProperties(
+                hiveConfig,
+                new OrcReaderConfig(),
+                new OrcWriterConfig(),
+                parquetReaderConfig,
+                new ParquetWriterConfig());
     }
 
     public static Set<HivePageSourceFactory> getDefaultHivePageSourceFactories(HdfsEnvironment hdfsEnvironment, HiveConfig hiveConfig)
@@ -245,10 +259,5 @@ public final class HiveTestUtils
         catch (Throwable t) {
             throw new AssertionError(t);
         }
-    }
-
-    public static Timestamp hiveTimestamp(LocalDateTime local)
-    {
-        return Timestamp.ofEpochSecond(local.toEpochSecond(ZoneOffset.UTC), local.getNano());
     }
 }

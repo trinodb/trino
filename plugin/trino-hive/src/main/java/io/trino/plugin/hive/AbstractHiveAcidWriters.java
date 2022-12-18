@@ -85,7 +85,6 @@ public abstract class AbstractHiveAcidWriters
 
     protected Optional<FileWriter> deleteFileWriter = Optional.empty();
     protected Optional<FileWriter> insertFileWriter = Optional.empty();
-    private int insertRowCounter;
 
     public AbstractHiveAcidWriters(
             AcidTransaction transaction,
@@ -158,13 +157,6 @@ public abstract class AbstractHiveAcidWriters
                 RunLengthEncodedBlock.create(rowTypeNullsBlock, positionCount),
         };
         return new Page(blockArray);
-    }
-
-    protected Block createRowIdBlock(int positionCount)
-    {
-        Block block = createRowIdBlock(positionCount, insertRowCounter);
-        insertRowCounter += positionCount;
-        return block;
     }
 
     @VisibleForTesting

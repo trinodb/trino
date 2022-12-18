@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
@@ -55,7 +56,7 @@ public class FaultTolerantPartitioningSchemeFactory
 
     private FaultTolerantPartitioningScheme create(PartitioningHandle partitioningHandle)
     {
-        if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
+        if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION) || partitioningHandle.equals(SCALED_WRITER_HASH_DISTRIBUTION)) {
             return new FaultTolerantPartitioningScheme(
                     partitionCount,
                     Optional.of(IntStream.range(0, partitionCount).toArray()),

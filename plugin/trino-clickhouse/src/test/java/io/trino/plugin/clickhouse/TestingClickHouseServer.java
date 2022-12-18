@@ -14,6 +14,7 @@
 package io.trino.plugin.clickhouse;
 
 import com.clickhouse.client.ClickHouseVersion;
+import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.ClickHouseContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -101,5 +102,11 @@ public class TestingClickHouseServer
     public void close()
     {
         dockerContainer.stop();
+    }
+
+    @ResourcePresence
+    public boolean isRunning()
+    {
+        return dockerContainer.getContainerId() != null;
     }
 }

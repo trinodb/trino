@@ -26,7 +26,6 @@ import io.airlift.slice.Slice;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.collect.cache.NonEvictableCache;
-import io.trino.connector.CatalogHandle;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.FunctionResolver.CatalogFunctionBinding;
 import io.trino.metadata.FunctionResolver.CatalogFunctionMetadata;
@@ -37,6 +36,7 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.BeginTableExecuteResult;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
@@ -161,6 +161,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -937,13 +938,6 @@ public final class MetadataManager
                 .collect(Collectors.toList());
         sourceConnectorHandles.add(tableHandle.getConnectorHandle());
 
-        if (sourceConnectorHandles.stream()
-                .map(Object::getClass)
-                .distinct()
-                .count() > 1) {
-            throw new TrinoException(NOT_SUPPORTED, "Cross connector materialized views are not supported");
-        }
-
         ConnectorInsertTableHandle handle = metadata.beginRefreshMaterializedView(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle(), sourceConnectorHandles, getRetryPolicy(session).getRetryMode());
 
         return new InsertTableHandle(tableHandle.getCatalogHandle(), transactionHandle, handle);
@@ -1441,7 +1435,7 @@ public final class MetadataManager
             ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
             return metadata.getMaterializedViewFreshness(connectorSession, viewName.asSchemaTableName());
         }
-        return new MaterializedViewFreshness(false);
+        return new MaterializedViewFreshness(STALE);
     }
 
     @Override

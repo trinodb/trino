@@ -36,7 +36,6 @@ import io.trino.execution.buffer.SpoolingOutputStats;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
-import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.operator.TaskContext;
@@ -213,7 +212,7 @@ public class MockRemoteTaskFactory
                     DataSize.ofBytes(1),
                     () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                     () -> {},
-                    new ExchangeManagerRegistry(new ExchangeHandleResolver()));
+                    new ExchangeManagerRegistry());
 
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
@@ -260,6 +259,7 @@ public class MockRemoteTaskFactory
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
+                            DataSize.ofBytes(0),
                             0,
                             new Duration(0, MILLISECONDS),
                             INITIAL_DYNAMIC_FILTERS_VERSION,
@@ -289,6 +289,7 @@ public class MockRemoteTaskFactory
                     queuedSplitsInfo.getCount(),
                     combinedSplitsInfo.getCount() - queuedSplitsInfo.getCount(),
                     outputBuffer.getStatus(),
+                    stats.getOutputDataSize(),
                     stats.getPhysicalWrittenDataSize(),
                     stats.getUserMemoryReservation(),
                     stats.getPeakUserMemoryReservation(),

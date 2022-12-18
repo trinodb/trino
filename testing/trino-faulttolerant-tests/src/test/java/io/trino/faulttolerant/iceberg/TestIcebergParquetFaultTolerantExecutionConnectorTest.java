@@ -22,7 +22,7 @@ import org.testng.annotations.AfterClass;
 
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.FaultTolerantExecutionConnectorTestHelper.getExtraProperties;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergParquetFaultTolerantExecutionConnectorTest
@@ -33,7 +33,7 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
     @Override
     protected IcebergQueryRunner.Builder createQueryRunnerBuilder()
     {
-        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomTableSuffix());
+        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomNameSuffix());
         minioStorage.start();
 
         IcebergQueryRunner.Builder builder = super.createQueryRunnerBuilder();

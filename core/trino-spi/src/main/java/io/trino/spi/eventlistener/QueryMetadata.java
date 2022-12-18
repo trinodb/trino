@@ -15,6 +15,7 @@ package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Unstable;
 
 import java.net.URI;
 import java.util.List;
@@ -46,6 +47,7 @@ public class QueryMetadata
     private final Optional<String> payload;
 
     @JsonCreator
+    @Unstable
     public QueryMetadata(
             String queryId,
             Optional<String> transactionId,

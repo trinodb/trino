@@ -102,6 +102,8 @@ public class TestDbSessionPropertyManagerIntegration
             closer.register(queryRunner);
             closer.register(mysqlContainer::close);
         }
+        queryRunner = null;
+        mysqlContainer = null;
     }
 
     @BeforeMethod

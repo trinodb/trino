@@ -21,18 +21,9 @@ import java.util.function.ToIntFunction;
 
 public interface ConnectorNodePartitioningProvider
 {
-    /**
-     * @deprecated use {@link #getBucketNodeMapping}
-     */
-    @Deprecated
-    default ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
-    {
-        return null;
-    }
-
     default Optional<ConnectorBucketNodeMap> getBucketNodeMapping(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
-        return Optional.ofNullable(getBucketNodeMap(transactionHandle, session, partitioningHandle));
+        return Optional.empty();
     }
 
     default ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)

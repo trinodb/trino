@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Streams;
-import io.trino.connector.CatalogHandle;
 import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
@@ -33,6 +32,7 @@ import io.trino.metadata.TableLayout;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -44,6 +44,7 @@ import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.ptf.Argument;
 import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.security.Identity;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
@@ -1681,6 +1682,7 @@ public class Analysis
         private final List<List<ColumnHandle>> mergeCaseColumnHandles;
         private final Set<ColumnHandle> nonNullableColumnHandles;
         private final Map<ColumnHandle, Integer> columnHandleFieldNumbers;
+        private final RowType mergeRowType;
         private final List<Integer> insertPartitioningArgumentIndexes;
         private final Optional<TableLayout> insertLayout;
         private final Optional<PartitioningHandle> updateLayout;
@@ -1695,6 +1697,7 @@ public class Analysis
                 List<List<ColumnHandle>> mergeCaseColumnHandles,
                 Set<ColumnHandle> nonNullableColumnHandles,
                 Map<ColumnHandle, Integer> columnHandleFieldNumbers,
+                RowType mergeRowType,
                 List<Integer> insertPartitioningArgumentIndexes,
                 Optional<TableLayout> insertLayout,
                 Optional<PartitioningHandle> updateLayout,
@@ -1708,6 +1711,7 @@ public class Analysis
             this.mergeCaseColumnHandles = requireNonNull(mergeCaseColumnHandles, "mergeCaseColumnHandles is null");
             this.nonNullableColumnHandles = requireNonNull(nonNullableColumnHandles, "nonNullableColumnHandles is null");
             this.columnHandleFieldNumbers = requireNonNull(columnHandleFieldNumbers, "columnHandleFieldNumbers is null");
+            this.mergeRowType = requireNonNull(mergeRowType, "mergeRowType is null");
             this.insertLayout = requireNonNull(insertLayout, "insertLayout is null");
             this.updateLayout = requireNonNull(updateLayout, "updateLayout is null");
             this.insertPartitioningArgumentIndexes = (requireNonNull(insertPartitioningArgumentIndexes, "insertPartitioningArgumentIndexes is null"));
@@ -1748,6 +1752,11 @@ public class Analysis
         public Map<ColumnHandle, Integer> getColumnHandleFieldNumbers()
         {
             return columnHandleFieldNumbers;
+        }
+
+        public RowType getMergeRowType()
+        {
+            return mergeRowType;
         }
 
         public List<Integer> getInsertPartitioningArgumentIndexes()
@@ -2213,6 +2222,7 @@ public class Analysis
         private final String functionName;
         private final Map<String, Argument> arguments;
         private final List<TableArgumentAnalysis> tableArgumentAnalyses;
+        private final Map<String, List<Integer>> requiredColumns;
         private final List<List<String>> copartitioningLists;
         private final int properColumnsCount;
         private final ConnectorTableFunctionHandle connectorTableFunctionHandle;
@@ -2223,6 +2233,7 @@ public class Analysis
                 String functionName,
                 Map<String, Argument> arguments,
                 List<TableArgumentAnalysis> tableArgumentAnalyses,
+                Map<String, List<Integer>> requiredColumns,
                 List<List<String>> copartitioningLists,
                 int properColumnsCount,
                 ConnectorTableFunctionHandle connectorTableFunctionHandle,
@@ -2232,6 +2243,8 @@ public class Analysis
             this.functionName = requireNonNull(functionName, "functionName is null");
             this.arguments = ImmutableMap.copyOf(arguments);
             this.tableArgumentAnalyses = ImmutableList.copyOf(tableArgumentAnalyses);
+            this.requiredColumns = requiredColumns.entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableList.copyOf(entry.getValue())));
             this.copartitioningLists = ImmutableList.copyOf(copartitioningLists);
             this.properColumnsCount = properColumnsCount;
             this.connectorTableFunctionHandle = requireNonNull(connectorTableFunctionHandle, "connectorTableFunctionHandle is null");
@@ -2256,6 +2269,11 @@ public class Analysis
         public List<TableArgumentAnalysis> getTableArgumentAnalyses()
         {
             return tableArgumentAnalyses;
+        }
+
+        public Map<String, List<Integer>> getRequiredColumns()
+        {
+            return requiredColumns;
         }
 
         public List<List<String>> getCopartitioningLists()

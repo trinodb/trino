@@ -34,8 +34,10 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.execution.QueryManagerConfig.QUERY_MAX_RUN_TIME_HARD_LIMIT;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
@@ -54,6 +56,7 @@ import static java.lang.String.format;
 public final class SystemSessionProperties
         implements SystemSessionPropertiesProvider
 {
+    public static final String LEGACY_UPDATE_DELETE_IMPLEMENTATION = "legacy_update_delete_implementation";
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
@@ -167,7 +170,6 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_GROWTH_FACTOR = "fault_tolerant_execution_task_memory_growth_factor";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE = "fault_tolerant_execution_task_memory_estimation_quantile";
     public static final String FAULT_TOLERANT_EXECUTION_PARTITION_COUNT = "fault_tolerant_execution_partition_count";
-    public static final String FAULT_TOLERANT_EXECUTION_PRESERVE_INPUT_PARTITIONS_IN_WRITE_STAGE = "fault_tolerant_execution_preserve_input_partitions_in_write_stage";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS = "adaptive_partial_aggregation_min_rows";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
@@ -175,6 +177,7 @@ public final class SystemSessionProperties
     public static final String USE_EXACT_PARTITIONING = "use_exact_partitioning";
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
     public static final String FAULT_TOLERANT_EXECUTION_EVENT_DRIVEN_SCHEDULER_ENABLED = "fault_tolerant_execution_event_driven_scheduler_enabled";
+    public static final String FAULT_TOLERANT_EXECUTION_FORCE_PREFERRED_WRITE_PARTITIONING_ENABLED = "fault_tolerant_execution_force_preferred_write_partitioning_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -203,6 +206,11 @@ public final class SystemSessionProperties
             NodeSchedulerConfig nodeSchedulerConfig)
     {
         sessionProperties = ImmutableList.of(
+                booleanProperty(
+                        LEGACY_UPDATE_DELETE_IMPLEMENTATION,
+                        "Use legacy UPDATE and DELETE implementation",
+                        featuresConfig.isLegacyUpdateDeleteImplementation(),
+                        true),
                 stringProperty(
                         EXECUTION_POLICY,
                         "Policy used for scheduling query tasks",
@@ -319,6 +327,15 @@ public final class SystemSessionProperties
                         QUERY_MAX_RUN_TIME,
                         "Maximum run time of a query (includes the queueing time)",
                         queryManagerConfig.getQueryMaxRunTime(),
+                        queryManagerConfig.getQueryMaxRunTimeHardLimit()
+                                .<Consumer<Duration>>map(hardLimit -> value -> {
+                                    if (value.compareTo(hardLimit) > 0) {
+                                        throw new TrinoException(
+                                                INVALID_SESSION_PROPERTY,
+                                                format("%s must not exceed '%s' %s: %s", QUERY_MAX_RUN_TIME, QUERY_MAX_RUN_TIME_HARD_LIMIT, hardLimit, value));
+                                    }
+                                })
+                                .orElse(value -> {}),
                         false),
                 durationProperty(
                         QUERY_MAX_EXECUTION_TIME,
@@ -769,7 +786,7 @@ public final class SystemSessionProperties
                             if (value < 1.0) {
                                 throw new TrinoException(
                                         INVALID_SESSION_PROPERTY,
-                                        format("%s must be greater or equal to 1.0", RETRY_MAX_DELAY));
+                                        format("%s must be greater than or equal to 1.0", RETRY_DELAY_SCALE_FACTOR));
                             }
                         },
                         false),
@@ -826,11 +843,6 @@ public final class SystemSessionProperties
                         queryManagerConfig.getFaultTolerantExecutionPartitionCount(),
                         false),
                 booleanProperty(
-                        FAULT_TOLERANT_EXECUTION_PRESERVE_INPUT_PARTITIONS_IN_WRITE_STAGE,
-                        "Ensure single task reads single hash partitioned input partition for stages which write table data",
-                        queryManagerConfig.getFaultTolerantPreserveInputPartitionsInWriteStage(),
-                        false),
-                booleanProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_ENABLED,
                         "When enabled, partial aggregation might be adaptively turned off when it does not provide any performance gain",
                         optimizerConfig.isAdaptivePartialAggregationEnabled(),
@@ -865,6 +877,11 @@ public final class SystemSessionProperties
                         FAULT_TOLERANT_EXECUTION_EVENT_DRIVEN_SCHEDULER_ENABLED,
                         "Enable event driven scheduler for fault tolerant execution",
                         queryManagerConfig.isFaultTolerantExecutionEventDrivenSchedulerEnabled(),
+                        true),
+                booleanProperty(
+                        FAULT_TOLERANT_EXECUTION_FORCE_PREFERRED_WRITE_PARTITIONING_ENABLED,
+                        "Force preferred write partitioning for fault tolerant execution",
+                        queryManagerConfig.isFaultTolerantExecutionForcePreferredWritePartitioningEnabled(),
                         true));
     }
 
@@ -872,6 +889,11 @@ public final class SystemSessionProperties
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    public static boolean isLegacyUpdateDeleteImplementation(Session session)
+    {
+        return session.getSystemProperty(LEGACY_UPDATE_DELETE_IMPLEMENTATION, Boolean.class);
     }
 
     public static String getExecutionPolicy(Session session)
@@ -1504,11 +1526,6 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE, Double.class);
     }
 
-    public static boolean getFaultTolerantPreserveInputPartitionsInWriteStage(Session session)
-    {
-        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_PRESERVE_INPUT_PARTITIONS_IN_WRITE_STAGE, Boolean.class);
-    }
-
     public static int getFaultTolerantExecutionPartitionCount(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_PARTITION_COUNT, Integer.class);
@@ -1547,5 +1564,14 @@ public final class SystemSessionProperties
     public static boolean isFaultTolerantExecutionEventDriverSchedulerEnabled(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_EVENT_DRIVEN_SCHEDULER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isFaultTolerantExecutionForcePreferredWritePartitioningEnabled(Session session)
+    {
+        if (!isFaultTolerantExecutionEventDriverSchedulerEnabled(session)) {
+            // supported only in event driven scheduler
+            return false;
+        }
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_FORCE_PREFERRED_WRITE_PARTITIONING_ENABLED, Boolean.class);
     }
 }

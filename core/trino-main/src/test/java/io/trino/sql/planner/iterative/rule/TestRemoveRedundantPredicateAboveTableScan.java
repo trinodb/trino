@@ -16,11 +16,11 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
-import io.trino.connector.CatalogHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.plugin.tpch.TpchTransactionHandle;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
@@ -275,7 +275,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
         ColumnHandle textColumnHandle = new TpchColumnHandle("name", VARCHAR);
         ColumnHandle nationKeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(removeRedundantPredicateAboveTableScan)
-                .on(p -> p.filter(expression("name LIKE 'LARGE PLATED %' AND nationkey = BIGINT '44'"),
+                .on(p -> p.filter(expression("if(name = 'x', true, false) AND nationkey = BIGINT '44'"),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(
@@ -289,7 +289,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                         nationKeyColumnHandle, NullableValue.of(BIGINT, (long) 44))))))
                 .matches(
                         filter(
-                                expression("name LIKE 'LARGE PLATED %'"),
+                                expression("if(name = 'x', true, false)"),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
                                         ImmutableMap.of(

@@ -116,6 +116,7 @@ public class TestJdbcConnection
         closeAll(
                 server,
                 executor::shutdownNow);
+        server = null;
     }
 
     @Test

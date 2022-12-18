@@ -344,7 +344,7 @@ public final class QueryAssertions
                 .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + table.getObjectName()).getOnlyValue());
     }
 
-    static RuntimeException getTrinoExceptionCause(Throwable e)
+    public static RuntimeException getTrinoExceptionCause(Throwable e)
     {
         return Throwables.getCausalChain(e).stream()
                 .filter(QueryAssertions::isTrinoException)

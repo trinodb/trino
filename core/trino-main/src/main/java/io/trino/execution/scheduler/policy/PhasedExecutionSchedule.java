@@ -57,6 +57,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.execution.scheduler.StageExecution.State.FLUSHING;
 import static io.trino.execution.scheduler.StageExecution.State.RUNNING;
 import static io.trino.execution.scheduler.StageExecution.State.SCHEDULED;
@@ -290,7 +291,8 @@ public class PhasedExecutionSchedule
 
         QueryId queryId = stages.stream()
                 .map(stage -> stage.getStageId().getQueryId())
-                .findAny().orElseThrow();
+                .distinct()
+                .collect(onlyElement());
         List<PlanFragment> fragments = stages.stream()
                 .map(StageExecution::getFragment)
                 .collect(toImmutableList());

@@ -457,6 +457,12 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema, Map<String, Object> properties)
+    {
+        checkCanCreateSchema(context, schema);
+    }
+
+    @Override
     public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema)
     {
         if (!isSchemaOwner(context, schema)) {

@@ -32,7 +32,6 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static io.trino.operator.join.PagesHash.getHashPosition;
-import static io.trino.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -55,9 +54,6 @@ public final class BigintPagesHash
     private final int[] keys;
     private final long[] values;
     private final long size;
-
-    private final long hashCollisions;
-    private final double expectedHashCollisions;
 
     public BigintPagesHash(
             LongArrayList addresses,
@@ -86,7 +82,6 @@ public final class BigintPagesHash
 
         // We will process addresses in batches, to improve spatial and temporal memory locality
         int positionsInStep = Math.min(addresses.size() + 1, (int) CACHE_SIZE.toBytes() / Integer.SIZE);
-        long hashCollisionsLocal = 0;
 
         for (int step = 0; step * positionsInStep <= addresses.size(); step++) {
             int stepBeginPosition = step * positionsInStep;
@@ -120,7 +115,6 @@ public final class BigintPagesHash
                     }
                     // increment position and mask to handler wrap around
                     pos = (pos + 1) & mask;
-                    hashCollisionsLocal++;
                 }
 
                 keys[pos] = addressIndex;
@@ -130,8 +124,6 @@ public final class BigintPagesHash
 
         size = sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() +
                 sizeOf(keys) + sizeOf(values);
-        hashCollisions = hashCollisionsLocal;
-        expectedHashCollisions = estimateNumberOfHashCollisions(addresses.size(), hashSize);
     }
 
     @Override
@@ -144,18 +136,6 @@ public final class BigintPagesHash
     public long getInMemorySizeInBytes()
     {
         return INSTANCE_SIZE + size;
-    }
-
-    @Override
-    public long getHashCollisions()
-    {
-        return hashCollisions;
-    }
-
-    @Override
-    public double getExpectedHashCollisions()
-    {
-        return expectedHashCollisions;
     }
 
     @Override

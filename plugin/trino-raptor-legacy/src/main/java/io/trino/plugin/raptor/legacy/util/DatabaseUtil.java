@@ -92,7 +92,7 @@ public final class DatabaseUtil
     }
 
     /**
-     * Run a SQL query as ignoring any constraint violations.
+     * Run an SQL query as ignoring any constraint violations.
      * This allows idempotent inserts (equivalent to INSERT IGNORE).
      */
     public static void runIgnoringConstraintViolation(Runnable task)

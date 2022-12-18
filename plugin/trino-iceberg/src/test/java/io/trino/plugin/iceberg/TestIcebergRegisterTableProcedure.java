@@ -20,6 +20,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
 import org.testng.annotations.AfterClass;
@@ -30,15 +31,18 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
 import static io.trino.plugin.iceberg.procedure.RegisterTableProcedure.getLatestMetadataLocation;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -82,7 +86,7 @@ public class TestIcebergRegisterTableProcedure
     @Test(dataProvider = "fileFormats")
     public void testRegisterTableWithTableLocation(IcebergFileFormat icebergFileFormat)
     {
-        String tableName = "test_register_table_with_table_location_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomTableSuffix();
+        String tableName = "test_register_table_with_table_location_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')", tableName, icebergFileFormat));
         assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
@@ -102,9 +106,31 @@ public class TestIcebergRegisterTableProcedure
     }
 
     @Test(dataProvider = "fileFormats")
+    public void testRegisterPartitionedTable(IcebergFileFormat icebergFileFormat)
+    {
+        String tableName = "test_register_partitioned_table_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (data int, part varchar) WITH (partitioning = ARRAY['part'], format = '" + icebergFileFormat + "')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+
+        MaterializedResult partitions = computeActual(format("SELECT * FROM \"%s$partitions\"", tableName));
+        assertThat(partitions.getMaterializedRows()).hasSize(1);
+
+        String tableLocation = getTableLocation(tableName);
+        dropTableFromMetastore(tableName);
+
+        assertUpdate("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "')");
+
+        MaterializedResult partitionsAfterRegister = computeActual(format("SELECT * FROM \"%s$partitions\"", tableName));
+        assertThat(partitions).isEqualTo(partitionsAfterRegister);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "fileFormats")
     public void testRegisterTableWithComments(IcebergFileFormat icebergFileFormat)
     {
-        String tableName = "test_register_table_with_comments_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomTableSuffix();
+        String tableName = "test_register_table_with_comments_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')", tableName, icebergFileFormat));
         assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
@@ -130,7 +156,7 @@ public class TestIcebergRegisterTableProcedure
     @Test(dataProvider = "fileFormats")
     public void testRegisterTableWithShowCreateTable(IcebergFileFormat icebergFileFormat)
     {
-        String tableName = "test_register_table_with_show_create_table_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomTableSuffix();
+        String tableName = "test_register_table_with_show_create_table_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')", tableName, icebergFileFormat));
         assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
@@ -150,7 +176,7 @@ public class TestIcebergRegisterTableProcedure
     @Test(dataProvider = "fileFormats")
     public void testRegisterTableWithReInsert(IcebergFileFormat icebergFileFormat)
     {
-        String tableName = "test_register_table_with_re_insert_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomTableSuffix();
+        String tableName = "test_register_table_with_re_insert_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')", tableName, icebergFileFormat));
         assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
@@ -174,7 +200,7 @@ public class TestIcebergRegisterTableProcedure
     @Test(dataProvider = "fileFormats")
     public void testRegisterTableWithDroppedTable(IcebergFileFormat icebergFileFormat)
     {
-        String tableName = "test_register_table_with_dropped_table_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomTableSuffix();
+        String tableName = "test_register_table_with_dropped_table_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')", tableName, icebergFileFormat));
         assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
@@ -192,7 +218,7 @@ public class TestIcebergRegisterTableProcedure
     @Test(dataProvider = "fileFormats")
     public void testRegisterTableWithDifferentTableName(IcebergFileFormat icebergFileFormat)
     {
-        String tableName = "test_register_table_with_different_table_name_old_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomTableSuffix();
+        String tableName = "test_register_table_with_different_table_name_old_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')", tableName, icebergFileFormat));
         assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
@@ -217,7 +243,7 @@ public class TestIcebergRegisterTableProcedure
     @Test(dataProvider = "fileFormats")
     public void testRegisterTableWithMetadataFile(IcebergFileFormat icebergFileFormat)
     {
-        String tableName = "test_register_table_with_metadata_file_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomTableSuffix();
+        String tableName = "test_register_table_with_metadata_file_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')", tableName, icebergFileFormat));
         assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
@@ -245,7 +271,7 @@ public class TestIcebergRegisterTableProcedure
             throws IOException
     {
         IcebergFileFormat icebergFileFormat = IcebergFileFormat.ORC;
-        String tableName = "test_register_table_with_no_metadata_file_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomTableSuffix();
+        String tableName = "test_register_table_with_no_metadata_file_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')", tableName, icebergFileFormat));
         assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
@@ -266,7 +292,7 @@ public class TestIcebergRegisterTableProcedure
     public void testRegisterTableWithInvalidMetadataFile()
             throws IOException
     {
-        String tableName = "test_register_table_with_invalid_metadata_file_" + randomTableSuffix();
+        String tableName = "test_register_table_with_invalid_metadata_file_" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean)", tableName));
         assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
@@ -295,7 +321,7 @@ public class TestIcebergRegisterTableProcedure
     @Test
     public void testRegisterTableWithNonExistingTableLocation()
     {
-        String tableName = "test_register_table_with_non_existing_table_location_" + randomTableSuffix();
+        String tableName = "test_register_table_with_non_existing_table_location_" + randomNameSuffix();
         String tableLocation = "/test/iceberg/hive/warehouse/orders_5-581fad8517934af6be1857a903559d44";
         assertQueryFails("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "')",
                 ".*No versioned metadata file exists at location.*");
@@ -304,7 +330,7 @@ public class TestIcebergRegisterTableProcedure
     @Test
     public void testRegisterTableWithNonExistingMetadataFile()
     {
-        String tableName = "test_register_table_with_non_existing_metadata_file_" + randomTableSuffix();
+        String tableName = "test_register_table_with_non_existing_metadata_file_" + randomNameSuffix();
         String nonExistingMetadataFileName = "00003-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json";
         String tableLocation = "/test/iceberg/hive/warehouse/orders_5-581fad8517934af6be1857a903559d44";
         assertQueryFails("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "', '" + nonExistingMetadataFileName + "')",
@@ -322,7 +348,7 @@ public class TestIcebergRegisterTableProcedure
     @Test
     public void testRegisterTableWithExistingTable()
     {
-        String tableName = "test_register_table_with_existing_table_" + randomTableSuffix();
+        String tableName = "test_register_table_with_existing_table_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (a int, b varchar, c boolean)");
         assertUpdate("INSERT INTO " + tableName + " values(1, 'INDIA', true)", 1);
@@ -336,7 +362,7 @@ public class TestIcebergRegisterTableProcedure
     @Test
     public void testRegisterTableWithInvalidURIScheme()
     {
-        String tableName = "test_register_table_with_invalid_uri_scheme_" + randomTableSuffix();
+        String tableName = "test_register_table_with_invalid_uri_scheme_" + randomNameSuffix();
         String nonExistedMetadataFileName = "00003-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json";
         String tableLocation = "invalid://hadoop-master:9000/test/iceberg/hive/orders_5-581fad8517934af6be1857a903559d44";
         assertQueryFails("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "', '" + nonExistedMetadataFileName + "')",
@@ -348,7 +374,7 @@ public class TestIcebergRegisterTableProcedure
     @Test
     public void testRegisterTableWithInvalidParameter()
     {
-        String tableName = "test_register_table_with_invalid_parameter_" + randomTableSuffix();
+        String tableName = "test_register_table_with_invalid_parameter_" + randomNameSuffix();
         String tableLocation = "/test/iceberg/hive/table1/";
 
         assertQueryFails(format("CALL iceberg.system.register_table (CURRENT_SCHEMA, '%s')", tableName),
@@ -378,7 +404,7 @@ public class TestIcebergRegisterTableProcedure
     @Test
     public void testRegisterTableWithInvalidMetadataFileName()
     {
-        String tableName = "test_register_table_with_invalid_metadata_file_name_" + randomTableSuffix();
+        String tableName = "test_register_table_with_invalid_metadata_file_name_" + randomNameSuffix();
         String tableLocation = "/test/iceberg/hive";
 
         String[] invalidMetadataFileNames = {
@@ -396,7 +422,14 @@ public class TestIcebergRegisterTableProcedure
 
     private String getTableLocation(String tableName)
     {
-        return (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*/[^/]*$', '') FROM " + tableName);
+        Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
+        Matcher matcher = locationPattern.matcher((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue());
+        if (matcher.find()) {
+            String location = matcher.group(1);
+            verify(!matcher.find(), "Unexpected second match");
+            return location;
+        }
+        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
     }
 
     private void dropTableFromMetastore(String tableName)

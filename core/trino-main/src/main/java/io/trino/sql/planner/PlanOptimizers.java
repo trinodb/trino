@@ -43,15 +43,7 @@ import io.trino.sql.planner.iterative.rule.CreatePartialTopN;
 import io.trino.sql.planner.iterative.rule.DecorrelateInnerUnnestWithGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.DecorrelateLeftUnnestWithGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.DecorrelateUnnest;
-import io.trino.sql.planner.iterative.rule.DesugarArrayConstructor;
-import io.trino.sql.planner.iterative.rule.DesugarAtTimeZone;
-import io.trino.sql.planner.iterative.rule.DesugarCurrentCatalog;
-import io.trino.sql.planner.iterative.rule.DesugarCurrentPath;
-import io.trino.sql.planner.iterative.rule.DesugarCurrentSchema;
-import io.trino.sql.planner.iterative.rule.DesugarCurrentUser;
 import io.trino.sql.planner.iterative.rule.DesugarLambdaExpression;
-import io.trino.sql.planner.iterative.rule.DesugarLike;
-import io.trino.sql.planner.iterative.rule.DesugarTryExpression;
 import io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType;
 import io.trino.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
 import io.trino.sql.planner.iterative.rule.DetermineTableScanNodePartitioning;
@@ -168,6 +160,7 @@ import io.trino.sql.planner.iterative.rule.PushLimitThroughOuterJoin;
 import io.trino.sql.planner.iterative.rule.PushLimitThroughProject;
 import io.trino.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
 import io.trino.sql.planner.iterative.rule.PushLimitThroughUnion;
+import io.trino.sql.planner.iterative.rule.PushMergeWriterDeleteIntoConnector;
 import io.trino.sql.planner.iterative.rule.PushOffsetThroughProject;
 import io.trino.sql.planner.iterative.rule.PushPartialAggregationThroughExchange;
 import io.trino.sql.planner.iterative.rule.PushPartialAggregationThroughJoin;
@@ -404,12 +397,6 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(new DesugarLambdaExpression().rules())
-                                .addAll(new DesugarAtTimeZone(metadata, typeAnalyzer).rules())
-                                .addAll(new DesugarCurrentCatalog(metadata).rules())
-                                .addAll(new DesugarCurrentSchema(metadata).rules())
-                                .addAll(new DesugarCurrentUser(metadata).rules())
-                                .addAll(new DesugarCurrentPath(metadata).rules())
-                                .addAll(new DesugarTryExpression(metadata, typeAnalyzer).rules())
                                 .build()),
                 new IterativeOptimizer(
                         plannerContext,
@@ -819,6 +806,7 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         // Must run before AddExchanges
                         new PushDeleteIntoConnector(metadata),
+                        new PushMergeWriterDeleteIntoConnector(metadata),
                         new DetermineTableScanNodePartitioning(metadata, nodePartitioningManager, taskCountEstimator),
                         // Must run after join reordering because join reordering creates
                         // new join nodes without JoinNode.maySkipOutputDuplicates flag set
@@ -969,17 +957,6 @@ public class PlanOptimizers
                         new AddIntermediateAggregations(),
                         new RemoveRedundantIdentityProjections())));
         // DO NOT add optimizers that change the plan shape (computations) after this point
-
-        // Remove any remaining sugar
-        builder.add(new IterativeOptimizer(
-                plannerContext,
-                ruleStats,
-                statsCalculator,
-                costCalculator,
-                ImmutableSet.<Rule<?>>builder()
-                        .addAll(new DesugarLike(metadata, typeAnalyzer).rules())
-                        .addAll(new DesugarArrayConstructor(metadata, typeAnalyzer).rules())
-                        .build()));
 
         // Precomputed hashes - this assumes that partitioning will not change
         builder.add(new HashGenerationOptimizer(metadata));

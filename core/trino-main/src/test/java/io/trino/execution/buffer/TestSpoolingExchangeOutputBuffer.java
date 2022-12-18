@@ -313,8 +313,8 @@ public class TestSpoolingExchangeOutputBuffer
         blockBuilder.writeBytes(valueSlice, 0, valueSlice.length());
         blockBuilder.closeEntry();
         Page page = pageBuilder.build();
-        PagesSerde pagesSerde = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false).createPagesSerde();
-        return pagesSerde.serialize(pagesSerde.newContext(), page);
+        PageSerializer serializer = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false).createSerializer(Optional.empty());
+        return serializer.serialize(page);
     }
 
     private static class TestingExchangeSink

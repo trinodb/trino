@@ -24,13 +24,11 @@ public class LocationHandle
 {
     private final Path targetPath;
     private final Path writePath;
-    private final boolean isExistingTable;
     private final WriteMode writeMode;
 
     public LocationHandle(
             Path targetPath,
             Path writePath,
-            boolean isExistingTable,
             WriteMode writeMode)
     {
         if (writeMode.isWritePathSameAsTargetPath() && !targetPath.equals(writePath)) {
@@ -38,7 +36,6 @@ public class LocationHandle
         }
         this.targetPath = requireNonNull(targetPath, "targetPath is null");
         this.writePath = requireNonNull(writePath, "writePath is null");
-        this.isExistingTable = isExistingTable;
         this.writeMode = requireNonNull(writeMode, "writeMode is null");
     }
 
@@ -46,13 +43,11 @@ public class LocationHandle
     public LocationHandle(
             @JsonProperty("targetPath") String targetPath,
             @JsonProperty("writePath") String writePath,
-            @JsonProperty("isExistingTable") boolean isExistingTable,
             @JsonProperty("writeMode") WriteMode writeMode)
     {
         this(
                 new Path(requireNonNull(targetPath, "targetPath is null")),
                 new Path(requireNonNull(writePath, "writePath is null")),
-                isExistingTable,
                 writeMode);
     }
 
@@ -74,12 +69,6 @@ public class LocationHandle
         return writeMode;
     }
 
-    // This method should only be called by LocationService
-    boolean isExistingTable()
-    {
-        return isExistingTable;
-    }
-
     @JsonProperty("targetPath")
     public String getJsonSerializableTargetPath()
     {
@@ -90,12 +79,6 @@ public class LocationHandle
     public String getJsonSerializableWritePath()
     {
         return writePath.toString();
-    }
-
-    @JsonProperty("isExistingTable")
-    public boolean getJsonSerializableIsExistingTable()
-    {
-        return isExistingTable;
     }
 
     @JsonProperty("writeMode")

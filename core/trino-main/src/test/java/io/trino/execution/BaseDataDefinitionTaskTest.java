@@ -16,7 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
+import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
@@ -34,6 +34,7 @@ import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -128,7 +129,14 @@ public abstract class BaseDataDefinitionTaskTest
     {
         if (queryRunner != null) {
             queryRunner.close();
+            queryRunner = null;
         }
+        testSession = null;
+        metadata = null;
+        plannerContext = null;
+        materializedViewPropertyManager = null;
+        transactionManager = null;
+        queryStateMachine = null;
     }
 
     protected static QualifiedObjectName qualifiedObjectName(String objectName)
@@ -210,7 +218,9 @@ public abstract class BaseDataDefinitionTaskTest
                 directExecutor(),
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                Optional.empty(),
+                true,
+                new NodeVersion("test"));
     }
 
     protected static class MockMetadata

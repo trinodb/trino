@@ -37,6 +37,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -77,7 +78,7 @@ public class TestDeltaLakeMetastoreAccessOperations
                         .setMetastoreUser("test"));
         metastore = new CountingAccessHiveMetastore(hiveMetastore);
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(new CountingAccessMetastoreModule(metastore)));
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.empty(), new CountingAccessMetastoreModule(metastore)));
         ImmutableMap.Builder<String, String> deltaLakeProperties = ImmutableMap.builder();
         deltaLakeProperties.put("hive.metastore", "test"); // use test value so we do not get clash with default bindings)
         queryRunner.createCatalog("delta_lake", "delta-lake", deltaLakeProperties.buildOrThrow());
@@ -152,18 +153,24 @@ public class TestDeltaLakeMetastoreAccessOperations
     public void testSelectFromView()
     {
         assertUpdate("CREATE TABLE test_select_view_table (id VARCHAR, age INT)");
-        assertQueryFails(
-                "CREATE VIEW test_select_view_view AS SELECT id, age FROM test_select_view_table",
-                "This connector does not support creating views");
+        assertUpdate("CREATE VIEW test_select_view_view AS SELECT id, age FROM test_select_view_table");
+
+        assertMetastoreInvocations("SELECT * FROM test_select_view_view",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLE, 2)
+                        .build());
     }
 
     @Test
     public void testSelectFromViewWithFilter()
     {
         assertUpdate("CREATE TABLE test_select_view_where_table AS SELECT 2 as age", 1);
-        assertQueryFails(
-                "CREATE VIEW test_select_view_where_view AS SELECT age FROM test_select_view_where_table",
-                "This connector does not support creating views");
+        assertUpdate("CREATE VIEW test_select_view_where_view AS SELECT age FROM test_select_view_where_table");
+
+        assertMetastoreInvocations("SELECT * FROM test_select_view_where_view WHERE age = 2",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLE, 2)
+                        .build());
     }
 
     @Test

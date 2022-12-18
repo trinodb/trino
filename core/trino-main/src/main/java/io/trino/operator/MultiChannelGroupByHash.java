@@ -44,7 +44,6 @@ import static io.trino.operator.SyntheticAddress.encodeSyntheticAddress;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.gen.JoinCompiler.PagesHashStrategyFactory;
-import static io.trino.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 import static java.lang.Math.min;
@@ -89,8 +88,6 @@ public class MultiChannelGroupByHash
 
     private int nextGroupId;
     private DictionaryLookBack dictionaryLookBack;
-    private long hashCollisions;
-    private double expectedHashCollisions;
 
     // reserve enough memory before rehash
     private final UpdateMemory updateMemory;
@@ -176,18 +173,6 @@ public class MultiChannelGroupByHash
                 sizeOf(rawHashByHashPosition) +
                 preallocatedMemoryInBytes +
                 (dictionaryLookBack != null ? dictionaryLookBack.getRetainedSizeInBytes() : 0);
-    }
-
-    @Override
-    public long getHashCollisions()
-    {
-        return hashCollisions;
-    }
-
-    @Override
-    public double getExpectedHashCollisions()
-    {
-        return expectedHashCollisions + estimateNumberOfHashCollisions(getGroupCount(), hashCapacity);
     }
 
     @Override
@@ -297,7 +282,6 @@ public class MultiChannelGroupByHash
             }
             // increment position and mask to handle wrap around
             hashPosition = (hashPosition + 1) & mask;
-            hashCollisions++;
         }
 
         // did we find an existing group?
@@ -381,8 +365,6 @@ public class MultiChannelGroupByHash
         }
         preallocatedMemoryInBytes = 0;
 
-        expectedHashCollisions += estimateNumberOfHashCollisions(getGroupCount(), hashCapacity);
-
         int newMask = newCapacity - 1;
         byte[] rawHashes = new byte[newCapacity];
         int[] newGroupIdByHash = new int[newCapacity];
@@ -400,7 +382,6 @@ public class MultiChannelGroupByHash
             int pos = getHashPosition(rawHash, newMask);
             while (newGroupIdByHash[pos] != -1) {
                 pos = (pos + 1) & newMask;
-                hashCollisions++;
             }
 
             // record the mapping

@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertDeprecatedEquivalence;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
@@ -36,7 +37,8 @@ public class TestSheetsConfig
                 .setCredentialsFilePath(null)
                 .setMetadataSheetId(null)
                 .setSheetsDataMaxCacheSize(1000)
-                .setSheetsDataExpireAfterWrite(new Duration(5, TimeUnit.MINUTES)));
+                .setSheetsDataExpireAfterWrite(new Duration(5, TimeUnit.MINUTES))
+                .setReadTimeout(new Duration(20, TimeUnit.SECONDS)));
     }
 
     @Test
@@ -46,18 +48,43 @@ public class TestSheetsConfig
         Path credentialsFile = Files.createTempFile(null, null);
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("credentials-path", credentialsFile.toString())
-                .put("metadata-sheet-id", "foo_bar_sheet_id#Sheet1")
-                .put("sheets-data-max-cache-size", "2000")
-                .put("sheets-data-expire-after-write", "10m")
+                .put("gsheets.credentials-path", credentialsFile.toString())
+                .put("gsheets.metadata-sheet-id", "foo_bar_sheet_id#Sheet1")
+                .put("gsheets.max-data-cache-size", "2000")
+                .put("gsheets.data-cache-ttl", "10m")
+                .put("gsheets.read-timeout", "1m")
                 .buildOrThrow();
 
         SheetsConfig expected = new SheetsConfig()
                 .setCredentialsFilePath(credentialsFile.toString())
                 .setMetadataSheetId("foo_bar_sheet_id#Sheet1")
                 .setSheetsDataMaxCacheSize(2000)
-                .setSheetsDataExpireAfterWrite(new Duration(10, TimeUnit.MINUTES));
+                .setSheetsDataExpireAfterWrite(new Duration(10, TimeUnit.MINUTES))
+                .setReadTimeout(new Duration(1, TimeUnit.MINUTES));
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testLegacyPropertyMappings()
+            throws IOException
+    {
+        Path credentialsFile = Files.createTempFile(null, null);
+
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("gsheets.credentials-path", credentialsFile.toString())
+                .put("gsheets.metadata-sheet-id", "foo_bar_sheet_id#Sheet1")
+                .put("gsheets.max-data-cache-size", "2000")
+                .put("gsheets.data-cache-ttl", "10m")
+                .buildOrThrow();
+
+        Map<String, String> oldProperties = ImmutableMap.<String, String>builder()
+                .put("credentials-path", credentialsFile.toString())
+                .put("metadata-sheet-id", "foo_bar_sheet_id#Sheet1")
+                .put("sheets-data-max-cache-size", "2000")
+                .put("sheets-data-expire-after-write", "10m")
+                .buildOrThrow();
+
+        assertDeprecatedEquivalence(SheetsConfig.class, properties, oldProperties);
     }
 }

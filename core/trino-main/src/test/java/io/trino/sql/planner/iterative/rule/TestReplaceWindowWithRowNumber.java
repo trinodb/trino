@@ -20,6 +20,7 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
@@ -43,7 +44,7 @@ public class TestReplaceWindowWithRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
                     return p.window(
-                            new WindowNode.Specification(ImmutableList.of(a), Optional.empty()),
+                            new DataOrganizationSpecification(ImmutableList.of(a), Optional.empty()),
                             ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(rowNumberFunction)),
                             p.values(a));
                 })
@@ -58,7 +59,7 @@ public class TestReplaceWindowWithRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
                     return p.window(
-                            new WindowNode.Specification(ImmutableList.of(), Optional.empty()),
+                            new DataOrganizationSpecification(ImmutableList.of(), Optional.empty()),
                             ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(rowNumberFunction)),
                             p.values(a));
                 })
@@ -78,7 +79,7 @@ public class TestReplaceWindowWithRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rank1 = p.symbol("rank_1");
                     return p.window(
-                            new WindowNode.Specification(ImmutableList.of(a), Optional.empty()),
+                            new DataOrganizationSpecification(ImmutableList.of(a), Optional.empty()),
                             ImmutableMap.of(rank1, newWindowNodeFunction(rank)),
                             p.values(a));
                 })
@@ -91,7 +92,7 @@ public class TestReplaceWindowWithRowNumber
                     Symbol rowNumber1 = p.symbol("row_number_1");
                     Symbol rank1 = p.symbol("rank_1");
                     return p.window(
-                            new WindowNode.Specification(ImmutableList.of(a), Optional.empty()),
+                            new DataOrganizationSpecification(ImmutableList.of(a), Optional.empty()),
                             ImmutableMap.of(rowNumber1, newWindowNodeFunction(rowNumber), rank1, newWindowNodeFunction(rank)),
                             p.values(a));
                 })
@@ -103,7 +104,7 @@ public class TestReplaceWindowWithRowNumber
                     OrderingScheme orderingScheme = new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
                     Symbol rowNumber1 = p.symbol("row_number_1");
                     return p.window(
-                            new WindowNode.Specification(ImmutableList.of(a), Optional.of(orderingScheme)),
+                            new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
                             ImmutableMap.of(rowNumber1, newWindowNodeFunction(rowNumber)),
                             p.values(a));
                 })

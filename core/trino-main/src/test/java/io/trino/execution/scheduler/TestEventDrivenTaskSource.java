@@ -27,13 +27,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
-import io.trino.connector.CatalogHandle;
 import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.scheduler.EventDrivenTaskSource.Partition;
 import io.trino.execution.scheduler.EventDrivenTaskSource.PartitionUpdate;
 import io.trino.metadata.Split;
 import io.trino.spi.QueryId;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeId;
@@ -76,6 +76,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -90,8 +91,6 @@ import static org.testng.Assert.fail;
 public class TestEventDrivenTaskSource
 {
     private static final int INVOCATION_COUNT = 20;
-
-    private static final CatalogHandle TESTING_CATALOG_HANDLE = CatalogHandle.createRootCatalogHandle("testing");
 
     private static final PlanNodeId PLAN_NODE_1 = new PlanNodeId("plan-node-1");
     private static final PlanNodeId PLAN_NODE_2 = new PlanNodeId("plan-node-2");
@@ -395,7 +394,7 @@ public class TestEventDrivenTaskSource
         Multimaps.asMap(splits).forEach(((planNodeId, connectorSplits) -> splitSources.put(planNodeId, new TestingSplitSource(executor, connectorSplits))));
         splitSources.putAll(failingSplitSources);
 
-        EventDrivenTaskSource.Callback taskSourceCallback = failingCallback.orElse(new TestingTaskSourceCallback());
+        EventDrivenTaskSource.Callback taskSourceCallback = failingCallback.orElseGet(TestingTaskSourceCallback::new);
         int partitionCount = getPartitionCount(sourceHandles.values(), splits.values());
         FaultTolerantPartitioningScheme partitioningScheme = createPartitioningScheme(partitionCount);
         AtomicLong getSplitInvocations = new AtomicLong();
@@ -573,7 +572,7 @@ public class TestEventDrivenTaskSource
         @Override
         public CatalogHandle getCatalogHandle()
         {
-            return TESTING_CATALOG_HANDLE;
+            return TEST_CATALOG_HANDLE;
         }
 
         @Override
@@ -600,7 +599,7 @@ public class TestEventDrivenTaskSource
                 future = currentFuture;
                 ConnectorSplit split = remainingSplits.poll();
                 boolean lastBatch = remainingSplits.isEmpty();
-                batch = new SplitBatch(split == null ? ImmutableList.of() : ImmutableList.of(new Split(TESTING_CATALOG_HANDLE, split)), lastBatch);
+                batch = new SplitBatch(split == null ? ImmutableList.of() : ImmutableList.of(new Split(TEST_CATALOG_HANDLE, split)), lastBatch);
                 if (lastBatch) {
                     finished = true;
                 }

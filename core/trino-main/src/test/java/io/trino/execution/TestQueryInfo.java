@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
+import io.trino.client.NodeVersion;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoWarning;
@@ -123,6 +124,7 @@ public class TestQueryInfo
                 Optional.of(new ResourceGroupId("groupId")),
                 Optional.of(QueryType.SELECT),
                 RetryPolicy.TASK,
-                false);
+                false,
+                new NodeVersion("test"));
     }
 }

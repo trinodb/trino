@@ -23,8 +23,8 @@ To connect to SQL Server, you need:
 Configuration
 -------------
 
-The connector can query a single database on an SQL server instance. Create a
-catalog properties file that specifies the SQL server connector by setting the
+The connector can query a single database on a given SQL Server instance. Create
+a catalog properties file that specifies the SQL server connector by setting the
 ``connector.name`` to ``sqlserver``.
 
 For example, to access a database as ``sqlserver``, create the file
@@ -68,6 +68,8 @@ Further parameters like ``trustServerCertificate``, ``hostNameInCertificate``,
 ``trustStore``, and ``trustStorePassword`` are details in the `TLS section of
 SQL Server JDBC driver documentation
 <https://docs.microsoft.com/en-us/sql/connect/jdbc/using-ssl-encryption>`_.
+
+.. include:: jdbc-authentication.fragment
 
 Multiple SQL Server databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -152,7 +154,7 @@ each direction.
 SQL Server type to Trino type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The connector maps SQL server types to the corresponding Trino types following this table:
+The connector maps SQL Server types to the corresponding Trino types following this table:
 
 .. list-table:: SQL Server type to Trino type mapping
   :widths: 30, 20, 50
@@ -355,7 +357,7 @@ For example, select the top 10 percent of nations by population::
       TABLE(
         sqlserver.system.query(
           query => 'SELECT
-            TOP(10) PERCENT
+            TOP(10) PERCENT *
           FROM
             tpch.nation
           ORDER BY

@@ -37,7 +37,6 @@ public class HandleJsonModule
     public void configure(Binder binder)
     {
         binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
-        binder.bind(ExchangeHandleResolver.class).in(Scopes.SINGLETON);
     }
 
     @ProvidesIntoSet
@@ -101,14 +100,14 @@ public class HandleJsonModule
     }
 
     @ProvidesIntoSet
-    public static com.fasterxml.jackson.databind.Module exchangeSinkInstanceHandleModule(ExchangeHandleResolver resolver)
+    public static com.fasterxml.jackson.databind.Module exchangeSinkInstanceHandleModule(HandleResolver resolver)
     {
-        return new AbstractTypedJacksonModule<>(ExchangeSinkInstanceHandle.class, ignored -> "ExchangeSinkInstance", ignored -> resolver.getExchangeSinkInstanceHandleClass()) {};
+        return new AbstractTypedJacksonModule<>(ExchangeSinkInstanceHandle.class, resolver::getId, resolver::getHandleClass) {};
     }
 
     @ProvidesIntoSet
-    public static com.fasterxml.jackson.databind.Module exchangeSourceHandleModule(ExchangeHandleResolver resolver)
+    public static com.fasterxml.jackson.databind.Module exchangeSourceHandleModule(HandleResolver resolver)
     {
-        return new AbstractTypedJacksonModule<>(ExchangeSourceHandle.class, ignored -> "ExchangeSource", ignored -> resolver.getExchangeSourceHandleClass()) {};
+        return new AbstractTypedJacksonModule<>(ExchangeSourceHandle.class, resolver::getId, resolver::getHandleClass) {};
     }
 }

@@ -256,7 +256,6 @@ public class TestAccessControlTableRedirection
     {
         return MockConnectorFactory.builder()
                 .withListTables((session, schemaName) -> SCHEMA_TABLE_MAPPING.getOrDefault(schemaName, ImmutableSet.of()).stream()
-                        .map(name -> new SchemaTableName(schemaName, name))
                         .collect(toImmutableList()))
                 .withGetTableHandle((session, tableName) -> {
                     if (SCHEMA_TABLE_MAPPING.getOrDefault(tableName.getSchemaName(), ImmutableSet.of()).contains(tableName.getTableName())

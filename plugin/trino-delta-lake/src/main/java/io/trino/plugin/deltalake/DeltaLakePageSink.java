@@ -17,11 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.parquet.writer.ParquetSchemaConverter;
@@ -42,7 +43,6 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.mapred.JobConf;
@@ -99,7 +99,7 @@ public class DeltaLakePageSink
     private final List<Type> partitionColumnTypes;
 
     private final PageIndexer pageIndexer;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystem fileSystem;
 
     private final int maxOpenWriters;
 
@@ -126,6 +126,7 @@ public class DeltaLakePageSink
             List<String> originalPartitionColumns,
             PageIndexerFactory pageIndexerFactory,
             HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             int maxOpenWriters,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             String outputPath,
@@ -138,7 +139,7 @@ public class DeltaLakePageSink
 
         requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
 
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystem = requireNonNull(fileSystemFactory, "fileSystemFactory is null").create(session);
         this.maxOpenWriters = maxOpenWriters;
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
 
@@ -224,12 +225,6 @@ public class DeltaLakePageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        ListenableFuture<Collection<Slice>> result = hdfsEnvironment.doAs(session.getIdentity(), this::doFinish);
-        return MoreFutures.toCompletableFuture(result);
-    }
-
-    private ListenableFuture<Collection<Slice>> doFinish()
-    {
         for (int writerIndex = 0; writerIndex < writers.size(); writerIndex++) {
             closeWriter(writerIndex);
         }
@@ -237,16 +232,11 @@ public class DeltaLakePageSink
 
         List<Slice> result = dataFileInfos.build();
 
-        return Futures.immediateFuture(result);
+        return MoreFutures.toCompletableFuture(Futures.immediateFuture(result));
     }
 
     @Override
     public void abort()
-    {
-        hdfsEnvironment.doAs(session.getIdentity(), this::doAbort);
-    }
-
-    private void doAbort()
     {
         List<Closeable> rollbackActions = Streams.concat(
                         writers.stream()
@@ -275,15 +265,10 @@ public class DeltaLakePageSink
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        if (page.getPositionCount() > 0) {
-            hdfsEnvironment.doAs(session.getIdentity(), () -> doAppend(page));
+        if (page.getPositionCount() == 0) {
+            return NOT_BLOCKED;
         }
 
-        return NOT_BLOCKED;
-    }
-
-    private void doAppend(Page page)
-    {
         while (page.getPositionCount() > MAX_PAGE_POSITIONS) {
             Page chunk = page.getRegion(0, MAX_PAGE_POSITIONS);
             page = page.getRegion(MAX_PAGE_POSITIONS, page.getPositionCount() - MAX_PAGE_POSITIONS);
@@ -291,6 +276,7 @@ public class DeltaLakePageSink
         }
 
         writePage(page);
+        return NOT_BLOCKED;
     }
 
     private void writePage(Page page)
@@ -389,29 +375,24 @@ public class DeltaLakePageSink
 
             FileWriter fileWriter;
             if (isOptimizedParquetWriter) {
-                fileWriter = createParquetFileWriter(filePath);
+                fileWriter = createParquetFileWriter(filePath.toString());
             }
             else {
                 fileWriter = createRecordFileWriter(filePath);
             }
 
             Path rootTableLocation = new Path(outputPath);
-            try {
-                DeltaLakeWriter writer = new DeltaLakeWriter(
-                        hdfsEnvironment.getFileSystem(session.getIdentity(), rootTableLocation, conf),
-                        fileWriter,
-                        rootTableLocation,
-                        partitionName.map(partition -> new Path(partition, fileName).toString()).orElse(fileName),
-                        partitionValues,
-                        stats,
-                        dataColumnHandles);
+            DeltaLakeWriter writer = new DeltaLakeWriter(
+                    fileSystem,
+                    fileWriter,
+                    rootTableLocation,
+                    partitionName.map(partition -> new Path(partition, fileName).toString()).orElse(fileName),
+                    partitionValues,
+                    stats,
+                    dataColumnHandles);
 
-                writers.set(writerIndex, writer);
-                memoryUsage += writer.getMemoryUsage();
-            }
-            catch (IOException e) {
-                throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Unable to create writer for location: " + outputPath, e);
-            }
+            writers.set(writerIndex, writer);
+            memoryUsage += writer.getMemoryUsage();
         }
         verify(writers.size() == pageIndexer.getMaxIndex() + 1);
         verify(!writers.contains(null));
@@ -470,7 +451,7 @@ public class DeltaLakePageSink
                 .collect(toList());
     }
 
-    private FileWriter createParquetFileWriter(Path path)
+    private FileWriter createParquetFileWriter(String path)
     {
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                 .setMaxBlockSize(getParquetWriterBlockSize(session))
@@ -479,8 +460,7 @@ public class DeltaLakePageSink
         CompressionCodecName compressionCodecName = getCompressionCodec(session).getParquetCompressionCodec();
 
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), path, conf);
-            Closeable rollbackAction = () -> fileSystem.delete(path, false);
+            Closeable rollbackAction = () -> fileSystem.deleteFile(path);
 
             List<Type> parquetTypes = dataColumnTypes.stream()
                     .map(type -> {
@@ -501,7 +481,7 @@ public class DeltaLakePageSink
 
             ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(parquetTypes, dataColumnNames, false, false);
             return new ParquetFileWriter(
-                    fileSystem.create(path),
+                    fileSystem.newOutputFile(path),
                     rollbackAction,
                     parquetTypes,
                     dataColumnNames,
@@ -511,6 +491,7 @@ public class DeltaLakePageSink
                     identityMapping,
                     compressionCodecName,
                     trinoVersion,
+                    false,
                     Optional.empty(),
                     Optional.empty());
         }

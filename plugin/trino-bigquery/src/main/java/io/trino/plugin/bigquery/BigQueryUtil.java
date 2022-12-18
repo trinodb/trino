@@ -36,7 +36,8 @@ public final class BigQueryUtil
     private static final Set<String> INTERNAL_ERROR_MESSAGES = ImmutableSet.of(
             "HTTP/2 error code: INTERNAL_ERROR",
             "Connection closed with unknown cause",
-            "Received unexpected EOS on DATA frame from server");
+            "Received unexpected EOS on DATA frame from server",
+            "INTERNAL: request failed: internal error");
 
     private BigQueryUtil() {}
 

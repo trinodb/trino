@@ -24,10 +24,11 @@ import java.util.LinkedList;
 
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
 
-final class PageReader
+public final class PageReader
 {
     private final CompressionCodecName codec;
     private final long valueCount;
+    private final boolean hasNoNulls;
     private final LinkedList<DataPage> compressedPages;
     private final DictionaryPage compressedDictionaryPage;
 
@@ -38,17 +39,24 @@ final class PageReader
     public PageReader(CompressionCodecName codec,
                       LinkedList<DataPage> compressedPages,
                       DictionaryPage compressedDictionaryPage,
-                      long valueCount)
+                      long valueCount,
+                      boolean hasNoNulls)
     {
         this.codec = codec;
         this.compressedPages = compressedPages;
         this.compressedDictionaryPage = compressedDictionaryPage;
         this.valueCount = valueCount;
+        this.hasNoNulls = hasNoNulls;
     }
 
     public long getTotalValueCount()
     {
         return valueCount;
+    }
+
+    public boolean hasNoNulls()
+    {
+        return hasNoNulls;
     }
 
     public DataPage readPage()
@@ -108,5 +116,20 @@ final class PageReader
         catch (IOException e) {
             throw new RuntimeException("Error reading dictionary page", e);
         }
+    }
+
+    public DataPage getNextPage()
+    {
+        return compressedPages.getFirst();
+    }
+
+    public boolean hasNext()
+    {
+        return !compressedPages.isEmpty();
+    }
+
+    public void skipNextPage()
+    {
+        compressedPages.removeFirst();
     }
 }

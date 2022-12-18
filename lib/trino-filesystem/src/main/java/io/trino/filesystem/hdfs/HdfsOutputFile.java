@@ -13,15 +13,18 @@
  */
 package io.trino.filesystem.hdfs;
 
+import io.trino.filesystem.MemoryAwareFileSystem;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.memory.context.AggregatedMemoryContext;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.io.OutputStream;
 
+import static io.trino.filesystem.FileSystemUtils.getRawFileSystem;
 import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
 import static java.util.Objects.requireNonNull;
 
@@ -40,24 +43,28 @@ class HdfsOutputFile
     }
 
     @Override
-    public OutputStream create()
+    public OutputStream create(AggregatedMemoryContext memoryContext)
             throws IOException
     {
-        return create(false);
+        return create(false, memoryContext);
     }
 
     @Override
-    public OutputStream createOrOverwrite()
+    public OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
             throws IOException
     {
-        return create(true);
+        return create(true, memoryContext);
     }
 
-    private OutputStream create(boolean overwrite)
+    private OutputStream create(boolean overwrite, AggregatedMemoryContext memoryContext)
             throws IOException
     {
         Path file = hadoopPath(path);
         FileSystem fileSystem = environment.getFileSystem(context, file);
+        FileSystem rawFileSystem = getRawFileSystem(fileSystem);
+        if (rawFileSystem instanceof MemoryAwareFileSystem memoryAwareFileSystem) {
+            return environment.doAs(context.getIdentity(), () -> memoryAwareFileSystem.create(file, memoryContext));
+        }
         return environment.doAs(context.getIdentity(), () -> fileSystem.create(file, overwrite));
     }
 

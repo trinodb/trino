@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>403-SNAPSHOT</version>
+        <version>404-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -509,6 +509,7 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/TestHiveGlueMetastore.java</exclude>
+                                <exclude>**/TestTrinoS3FileSystemAwsS3.java</exclude>
                                 <exclude>**/TestFullParquetReader.java</exclude>
                             </excludes>
                         </configuration>
@@ -546,7 +547,7 @@
         </profile>
 
         <profile>
-            <id>test-hive-glue</id>
+            <id>aws-tests</id>
             <build>
                 <plugins>
                     <plugin>
@@ -555,6 +556,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestHiveGlueMetastore.java</include>
+                                <include>**/TestTrinoS3FileSystemAwsS3.java</include>
                             </includes>
                         </configuration>
                     </plugin>

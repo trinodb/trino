@@ -26,6 +26,7 @@ import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -50,6 +51,7 @@ import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.parquet.GenericParquetWriter;
 import org.apache.iceberg.deletes.EqualityDeleteWriter;
+import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
 import org.apache.iceberg.hadoop.HadoopOutputFile;
 import org.apache.iceberg.parquet.Parquet;
@@ -70,10 +72,11 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
 import static java.lang.String.format;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
@@ -118,7 +121,7 @@ public class TestIcebergV2
     @Test
     public void testSettingFormatVersion()
     {
-        String tableName = "test_seting_format_version_" + randomTableSuffix();
+        String tableName = "test_seting_format_version_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
         assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
         assertUpdate("DROP TABLE " + tableName);
@@ -131,7 +134,7 @@ public class TestIcebergV2
     @Test
     public void testDefaultFormatVersion()
     {
-        String tableName = "test_default_format_version_" + randomTableSuffix();
+        String tableName = "test_default_format_version_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
         assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
         assertUpdate("DROP TABLE " + tableName);
@@ -140,7 +143,7 @@ public class TestIcebergV2
     @Test
     public void testV2TableRead()
     {
-        String tableName = "test_v2_table_read" + randomTableSuffix();
+        String tableName = "test_v2_table_read" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
         updateTableToV2(tableName);
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
@@ -150,7 +153,7 @@ public class TestIcebergV2
     public void testV2TableWithPositionDelete()
             throws Exception
     {
-        String tableName = "test_v2_row_delete" + randomTableSuffix();
+        String tableName = "test_v2_row_delete" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = updateTableToV2(tableName);
 
@@ -169,8 +172,10 @@ public class TestIcebergV2
                 .withSpec(PartitionSpec.unpartitioned())
                 .buildPositionWriter();
 
+        PositionDelete<Record> positionDelete = PositionDelete.create();
+        PositionDelete<Record> record = positionDelete.set(dataFilePath, 0, GenericRecord.create(icebergTable.schema()));
         try (Closeable ignored = writer) {
-            writer.delete(dataFilePath, 0, GenericRecord.create(icebergTable.schema()));
+            writer.write(record);
         }
 
         icebergTable.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
@@ -181,7 +186,7 @@ public class TestIcebergV2
     public void testV2TableWithEqualityDelete()
             throws Exception
     {
-        String tableName = "test_v2_equality_delete" + randomTableSuffix();
+        String tableName = "test_v2_equality_delete" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = updateTableToV2(tableName);
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
@@ -195,7 +200,7 @@ public class TestIcebergV2
             throws Exception
     {
         // Specify equality delete filter with different column order from table definition
-        String tableName = "test_v2_equality_delete_different_order" + randomTableSuffix();
+        String tableName = "test_v2_equality_delete_different_order" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = updateTableToV2(tableName);
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.empty(), ImmutableMap.of("regionkey", 1L, "name", "ARGENTINA"));
@@ -208,7 +213,7 @@ public class TestIcebergV2
     public void testOptimizingV2TableRemovesEqualityDeletesWhenWholeTableIsScanned()
             throws Exception
     {
-        String tableName = "test_optimize_table_cleans_equality_delete_file_when_whole_table_is_scanned" + randomTableSuffix();
+        String tableName = "test_optimize_table_cleans_equality_delete_file_when_whole_table_is_scanned" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = updateTableToV2(tableName);
         Assertions.assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
@@ -227,7 +232,7 @@ public class TestIcebergV2
     public void testOptimizingV2TableDoesntRemoveEqualityDeletesWhenOnlyPartOfTheTableIsOptimized()
             throws Exception
     {
-        String tableName = "test_optimize_table_with_equality_delete_file_for_different_partition_" + randomTableSuffix();
+        String tableName = "test_optimize_table_with_equality_delete_file_for_different_partition_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = updateTableToV2(tableName);
         Assertions.assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
@@ -246,7 +251,7 @@ public class TestIcebergV2
     public void testSelectivelyOptimizingLeavesEqualityDeletes()
             throws Exception
     {
-        String tableName = "test_selectively_optimizing_leaves_eq_deletes_" + randomTableSuffix();
+        String tableName = "test_selectively_optimizing_leaves_eq_deletes_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['nationkey']) AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = loadTable(tableName);
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
@@ -259,7 +264,7 @@ public class TestIcebergV2
     public void testOptimizingWholeTableRemovesEqualityDeletes()
             throws Exception
     {
-        String tableName = "test_optimizing_whole_table_removes_eq_deletes_" + randomTableSuffix();
+        String tableName = "test_optimizing_whole_table_removes_eq_deletes_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['nationkey']) AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = loadTable(tableName);
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
@@ -272,7 +277,7 @@ public class TestIcebergV2
     public void testOptimizingV2TableWithEmptyPartitionSpec()
             throws Exception
     {
-        String tableName = "test_optimize_table_with_global_equality_delete_file_" + randomTableSuffix();
+        String tableName = "test_optimize_table_with_global_equality_delete_file_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = updateTableToV2(tableName);
         Assertions.assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
@@ -291,7 +296,7 @@ public class TestIcebergV2
     public void testOptimizingPartitionsOfV2TableWithGlobalEqualityDeleteFile()
             throws Exception
     {
-        String tableName = "test_optimize_partitioned_table_with_global_equality_delete_file_" + randomTableSuffix();
+        String tableName = "test_optimize_partitioned_table_with_global_equality_delete_file_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = updateTableToV2(tableName);
         Assertions.assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
@@ -313,7 +318,7 @@ public class TestIcebergV2
     @Test
     public void testUpgradeTableToV2FromTrino()
     {
-        String tableName = "test_upgrade_table_to_v2_from_trino_" + randomTableSuffix();
+        String tableName = "test_upgrade_table_to_v2_from_trino_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1) AS SELECT * FROM tpch.tiny.nation", 25);
         assertEquals(loadTable(tableName).operations().current().formatVersion(), 1);
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 2");
@@ -324,7 +329,7 @@ public class TestIcebergV2
     @Test
     public void testDowngradingV2TableToV1Fails()
     {
-        String tableName = "test_downgrading_v2_table_to_v1_fails_" + randomTableSuffix();
+        String tableName = "test_downgrading_v2_table_to_v1_fails_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
         assertEquals(loadTable(tableName).operations().current().formatVersion(), 2);
         assertThatThrownBy(() -> query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 1"))
@@ -336,7 +341,7 @@ public class TestIcebergV2
     @Test
     public void testUpgradingToInvalidVersionFails()
     {
-        String tableName = "test_upgrading_to_invalid_version_fails_" + randomTableSuffix();
+        String tableName = "test_upgrading_to_invalid_version_fails_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
         assertEquals(loadTable(tableName).operations().current().formatVersion(), 2);
         assertThatThrownBy(() -> query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 42"))
@@ -346,7 +351,7 @@ public class TestIcebergV2
     @Test
     public void testUpdatingAllTableProperties()
     {
-        String tableName = "test_updating_all_table_properties_" + randomTableSuffix();
+        String tableName = "test_updating_all_table_properties_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1, format = 'ORC') AS SELECT * FROM tpch.tiny.nation", 25);
         BaseTable table = loadTable(tableName);
         assertEquals(table.operations().current().formatVersion(), 1);
@@ -368,7 +373,7 @@ public class TestIcebergV2
     @Test
     public void testUnsettingAllTableProperties()
     {
-        String tableName = "test_unsetting_all_table_properties_" + randomTableSuffix();
+        String tableName = "test_unsetting_all_table_properties_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1, format = 'PARQUET', partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
         BaseTable table = loadTable(tableName);
         assertEquals(table.operations().current().formatVersion(), 1);
@@ -390,7 +395,7 @@ public class TestIcebergV2
     @Test
     public void testDeletingEntireFile()
     {
-        String tableName = "test_deleting_entire_file_" + randomTableSuffix();
+        String tableName = "test_deleting_entire_file_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation WITH NO DATA", 0);
         assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey = 1", "SELECT count(*) FROM nation WHERE regionkey = 1");
         assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey != 1", "SELECT count(*) FROM nation WHERE regionkey != 1");
@@ -404,7 +409,7 @@ public class TestIcebergV2
     @Test
     public void testDeletingEntireFileFromPartitionedTable()
     {
-        String tableName = "test_deleting_entire_file_from_partitioned_table_" + randomTableSuffix();
+        String tableName = "test_deleting_entire_file_from_partitioned_table_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a INT, b INT) WITH (partitioning = ARRAY['a'])");
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1), (1, 3), (1, 5), (2, 1), (2, 3), (2, 5)", 6);
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 2), (1, 4), (1, 6), (2, 2), (2, 4), (2, 6)", 6);
@@ -418,7 +423,7 @@ public class TestIcebergV2
     @Test
     public void testDeletingEntireFileWithNonTupleDomainConstraint()
     {
-        String tableName = "test_deleting_entire_file_with_non_tuple_domain_constraint" + randomTableSuffix();
+        String tableName = "test_deleting_entire_file_with_non_tuple_domain_constraint" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation WITH NO DATA", 0);
         assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey = 1", "SELECT count(*) FROM nation WHERE regionkey = 1");
         assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey != 1", "SELECT count(*) FROM nation WHERE regionkey != 1");
@@ -432,7 +437,7 @@ public class TestIcebergV2
     @Test
     public void testDeletingEntireFileWithMultipleSplits()
     {
-        String tableName = "test_deleting_entire_file_with_multiple_splits" + randomTableSuffix();
+        String tableName = "test_deleting_entire_file_with_multiple_splits" + randomNameSuffix();
         assertUpdate(
                 Session.builder(getSession()).setCatalogSessionProperty("iceberg", "orc_writer_max_stripe_rows", "5").build(),
                 "CREATE TABLE " + tableName + " WITH (format = 'ORC') AS SELECT * FROM tpch.tiny.nation", 25);
@@ -453,7 +458,7 @@ public class TestIcebergV2
     public void testMultipleDeletes()
     {
         // Deletes only remove entire data files from the table if the whole file is removed in a single operation
-        String tableName = "test_multiple_deletes_" + randomTableSuffix();
+        String tableName = "test_multiple_deletes_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
         assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
         // Ensure only one snapshot is committed to the table
@@ -470,7 +475,7 @@ public class TestIcebergV2
     @Test
     public void testDeletingEntirePartitionedTable()
     {
-        String tableName = "test_deleting_entire_partitioned_table_" + randomTableSuffix();
+        String tableName = "test_deleting_entire_partitioned_table_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
 
         assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(5);
@@ -519,7 +524,7 @@ public class TestIcebergV2
 
         Record dataDelete = GenericRecord.create(deleteRowSchema);
         try (Closeable ignored = writer) {
-            writer.delete(dataDelete.copy(overwriteValues));
+            writer.write(dataDelete.copy(overwriteValues));
         }
 
         icebergTable.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
@@ -539,13 +544,14 @@ public class TestIcebergV2
     {
         TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
         IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
+        CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(metastore, 1000);
         TrinoCatalog catalog = new TrinoHiveCatalog(
                 new CatalogName("hive"),
-                CachingHiveMetastore.memoizeMetastore(metastore, 1000),
+                cachingHiveMetastore,
+                new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
                 fileSystemFactory,
                 new TestingTypeManager(),
                 tableOperationsProvider,
-                "test",
                 false,
                 false,
                 false);

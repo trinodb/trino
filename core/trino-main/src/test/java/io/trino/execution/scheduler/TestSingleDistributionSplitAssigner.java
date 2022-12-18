@@ -15,7 +15,6 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.connector.CatalogHandle;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -24,6 +23,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -31,8 +31,6 @@ import static org.testng.Assert.assertTrue;
 
 public class TestSingleDistributionSplitAssigner
 {
-    private static final CatalogHandle TESTING_CATALOG_HANDLE = CatalogHandle.createRootCatalogHandle("testing");
-
     private static final PlanNodeId PLAN_NODE_1 = new PlanNodeId("plan-node-1");
     private static final PlanNodeId PLAN_NODE_2 = new PlanNodeId("plan-node-2");
 
@@ -140,6 +138,6 @@ public class TestSingleDistributionSplitAssigner
 
     private Split createSplit(int id)
     {
-        return new Split(TESTING_CATALOG_HANDLE, new TestingConnectorSplit(id, OptionalInt.empty(), Optional.empty()));
+        return new Split(TEST_CATALOG_HANDLE, new TestingConnectorSplit(id, OptionalInt.empty(), Optional.empty()));
     }
 }

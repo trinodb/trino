@@ -86,10 +86,11 @@ public class TestMinimalFunctionality
         embeddedKinesisStream = new EmbeddedKinesisStream(TestUtils.noneToBlank(accessKey), TestUtils.noneToBlank(secretKey));
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void stop()
     {
         embeddedKinesisStream.close();
+        embeddedKinesisStream = null;
     }
 
     @Parameters({
@@ -175,5 +176,6 @@ public class TestMinimalFunctionality
     {
         embeddedKinesisStream.deleteStream(streamName);
         queryRunner.close();
+        queryRunner = null;
     }
 }

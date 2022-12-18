@@ -227,7 +227,8 @@ public class PartitionedOutputOperator
                 sourceTypes,
                 maxMemory,
                 operatorContext,
-                positionsAppenderFactory);
+                positionsAppenderFactory,
+                operatorContext.getSession().getExchangeEncryptionKey());
 
         operatorContext.setInfoSupplier(this.partitionFunction.getOperatorInfoSupplier());
         this.memoryContext = operatorContext.newLocalUserMemoryContext(PartitionedOutputOperator.class.getSimpleName());

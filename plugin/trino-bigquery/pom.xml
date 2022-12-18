@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>403-SNAPSHOT</version>
+        <version>404-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -232,6 +232,11 @@
         </dependency>
 
         <dependency>
+            <groupId>net.jodah</groupId>
+            <artifactId>failsafe</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
         </dependency>
@@ -324,6 +329,12 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-testing-services</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-tpch</artifactId>
             <scope>test</scope>
         </dependency>
@@ -381,6 +392,7 @@
                             <excludes>
                                 <!-- If you are adding entry here also add an entry to cloud-tests or cloud-tests-case-insensitive-mapping profile below -->
                                 <exclude>**/TestBigQueryConnectorTest.java</exclude>
+                                <exclude>**/TestBigQueryWithDifferentProjectIdConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestBigQueryMetadataCaching.java</exclude>
                                 <exclude>**/TestBigQueryTypeMapping.java</exclude>
                                 <exclude>**/TestBigQueryMetadata.java</exclude>
@@ -416,6 +428,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestBigQueryConnectorTest.java</include>
+                                <include>**/TestBigQueryWithDifferentProjectIdConnectorSmokeTest.java</include>
                                 <include>**/TestBigQueryMetadataCaching.java</include>
                                 <include>**/TestBigQueryTypeMapping.java</include>
                                 <include>**/TestBigQueryMetadata.java</include>

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -30,17 +31,15 @@ public class TestDeltaLakeTableStatistics
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaLakeQueryRunner(DELTA_CATALOG);
+        return createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), ImmutableMap.of("delta.register-table-procedure.enabled", "true"));
     }
 
     @BeforeClass
     public void registerTables()
     {
         String dataPath = Resources.getResource("databricks/person").toExternalForm();
-        // register the table for which we have data on disk; note that the schema is actually defined
-        // in the transaction log and is different from what we specify here
         getQueryRunner().execute(
-                format("CREATE TABLE person (name VARCHAR(256), age INTEGER) WITH (location = '%s')", dataPath));
+                format("CALL system.register_table('%s', 'person', '%s')", getSession().getSchema().orElseThrow(), dataPath));
     }
 
     @Test

@@ -15,6 +15,7 @@ package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Unstable;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -42,6 +43,7 @@ public class SplitCompletedEvent
     private final String payload;
 
     @JsonCreator
+    @Unstable
     public SplitCompletedEvent(
             String queryId,
             String stageId,

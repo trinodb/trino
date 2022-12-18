@@ -106,8 +106,9 @@ public final class Row
             return addField(Optional.empty(), value);
         }
 
-        private Builder addField(Optional<String> name, @Nullable Object value)
+        public Builder addField(Optional<String> name, @Nullable Object value)
         {
+            requireNonNull(name, "name is null");
             fields.add(new RowField(size++, name, value));
             return this;
         }

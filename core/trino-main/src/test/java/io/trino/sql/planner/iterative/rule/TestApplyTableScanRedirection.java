@@ -48,7 +48,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tests.BogusType.BOGUS;
@@ -60,7 +59,6 @@ public class TestApplyTableScanRedirection
     private static final String TEST_SCHEMA = "test_schema";
     private static final String TEST_TABLE = "test_table";
     private static final SchemaTableName SOURCE_TABLE = new SchemaTableName(TEST_SCHEMA, TEST_TABLE);
-    private static final TableHandle TEST_TABLE_HANDLE = createTableHandle(new MockConnectorTableHandle(SOURCE_TABLE));
 
     private static final Session MOCK_SESSION = testSessionBuilder().setCatalog(TEST_CATALOG_NAME).setSchema(TEST_SCHEMA).build();
 
@@ -78,10 +76,10 @@ public class TestApplyTableScanRedirection
     private static final ColumnHandle DESTINATION_COLUMN_HANDLE_C = new MockConnectorColumnHandle(DESTINATION_COLUMN_NAME_C, BIGINT);
     private static final String DESTINATION_COLUMN_NAME_D = "destination_col_d";
 
-    private static TableHandle createTableHandle(ConnectorTableHandle tableHandle)
+    private static TableHandle createTableHandle(RuleTester ruleTester, ConnectorTableHandle tableHandle)
     {
         return new TableHandle(
-                TEST_CATALOG_HANDLE,
+                ruleTester.getCurrentCatalogHandle(),
                 tableHandle,
                 TestingTransactionHandle.create());
     }
@@ -94,7 +92,8 @@ public class TestApplyTableScanRedirection
             ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_A, VARCHAR);
-                        return p.tableScan(TEST_TABLE_HANDLE,
+                        return p.tableScan(
+                                createTableHandle(ruleTester, new MockConnectorTableHandle(SOURCE_TABLE)),
                                 ImmutableList.of(column),
                                 ImmutableMap.of(column, SOURCE_COLUMN_HANDLE_A));
                     })
@@ -114,7 +113,8 @@ public class TestApplyTableScanRedirection
             ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_A, VARCHAR);
-                        return p.tableScan(TEST_TABLE_HANDLE,
+                        return p.tableScan(
+                                createTableHandle(ruleTester, new MockConnectorTableHandle(SOURCE_TABLE)),
                                 ImmutableList.of(column),
                                 ImmutableMap.of(column, SOURCE_COLUMN_HANDLE_A),
                                 true);
@@ -149,7 +149,8 @@ public class TestApplyTableScanRedirection
             ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_A, VARCHAR);
-                        return p.tableScan(TEST_TABLE_HANDLE,
+                        return p.tableScan(
+                                createTableHandle(ruleTester, new MockConnectorTableHandle(SOURCE_TABLE)),
                                 ImmutableList.of(column),
                                 ImmutableMap.of(column, SOURCE_COLUMN_HANDLE_A));
                     })
@@ -192,7 +193,8 @@ public class TestApplyTableScanRedirection
             ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_A, VARCHAR);
-                        return p.tableScan(TEST_TABLE_HANDLE,
+                        return p.tableScan(
+                                createTableHandle(ruleTester, new MockConnectorTableHandle(SOURCE_TABLE)),
                                 ImmutableList.of(column),
                                 ImmutableMap.of(column, SOURCE_COLUMN_HANDLE_A));
                     })
@@ -223,7 +225,7 @@ public class TestApplyTableScanRedirection
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_A, VARCHAR);
                         return p.tableScan(
-                                createTableHandle(new MockConnectorTableHandle(SOURCE_TABLE, constraint, Optional.empty())),
+                                createTableHandle(ruleTester, new MockConnectorTableHandle(SOURCE_TABLE, constraint, Optional.empty())),
                                 ImmutableList.of(column),
                                 ImmutableMap.of(column, SOURCE_COLUMN_HANDLE_A),
                                 constraint);
@@ -241,7 +243,7 @@ public class TestApplyTableScanRedirection
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_B, VARCHAR);
                         return p.tableScan(
-                                createTableHandle(new MockConnectorTableHandle(SOURCE_TABLE, constraint, Optional.empty())),
+                                createTableHandle(ruleTester, new MockConnectorTableHandle(SOURCE_TABLE, constraint, Optional.empty())),
                                 ImmutableList.of(column),
                                 ImmutableMap.of(column, SOURCE_COLUMN_HANDLE_B), // predicate on non-projected column
                                 TupleDomain.all());

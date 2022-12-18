@@ -22,14 +22,13 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.parquet.ParquetReaderUtils.toInputStream;
 
 public class DoubleDictionary
-        extends Dictionary
+        implements Dictionary
 {
     private final double[] content;
 
     public DoubleDictionary(DictionaryPage dictionaryPage)
             throws IOException
     {
-        super(dictionaryPage.getEncoding());
         content = new double[dictionaryPage.getDictionarySize()];
         DoublePlainValuesReader doubleReader = new DoublePlainValuesReader();
         doubleReader.initFromPage(dictionaryPage.getDictionarySize(), toInputStream(dictionaryPage));

@@ -13,12 +13,21 @@
  */
 package io.trino.parquet.reader;
 
+import com.google.common.primitives.Bytes;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.spi.type.Decimals;
+import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 
+import java.math.BigInteger;
 import java.util.Random;
 import java.util.function.IntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.trino.parquet.ParquetTypeUtils.paddingBigInteger;
 
 public final class TestData
 {
@@ -48,6 +57,72 @@ public final class TestData
             value >>= Byte.SIZE;
         }
         return result;
+    }
+
+    public static boolean[] generateMixedData(Random r, int size, int maxGroupSize)
+    {
+        BooleanArrayList mixedList = new BooleanArrayList(size);
+        while (mixedList.size() < size) {
+            boolean isGroup = r.nextBoolean();
+            int groupSize = r.nextInt(maxGroupSize);
+            if (isGroup) {
+                boolean value = r.nextBoolean();
+                for (int i = 0; i < groupSize; i++) {
+                    mixedList.add(value);
+                }
+            }
+            else {
+                for (int i = 0; i < groupSize; i++) {
+                    mixedList.add(r.nextBoolean());
+                }
+            }
+        }
+        boolean[] result = new boolean[size];
+        mixedList.getElements(0, result, 0, size);
+        return result;
+    }
+
+    public static int[] generateMixedData(Random r, int size, int maxGroupSize, int bitWidth)
+    {
+        IntList mixedList = new IntArrayList();
+        while (mixedList.size() < size) {
+            boolean isGroup = r.nextBoolean();
+            int groupSize = r.nextInt(maxGroupSize);
+            if (isGroup) {
+                int value = randomInt(r, bitWidth);
+                for (int i = 0; i < groupSize; i++) {
+                    mixedList.add(value);
+                }
+            }
+            else {
+                for (int i = 0; i < groupSize; i++) {
+                    mixedList.add(randomInt(r, bitWidth));
+                }
+            }
+        }
+        int[] result = new int[size];
+        mixedList.getElements(0, result, 0, size);
+        return result;
+    }
+
+    public static Slice randomBigInteger(Random r)
+    {
+        BigInteger bigInteger = new BigInteger(126, r);
+        byte[] result = paddingBigInteger(bigInteger, 2 * SIZE_OF_LONG);
+        Bytes.reverse(result);
+        return Slices.wrappedBuffer(result);
+    }
+
+    public static int randomInt(Random r, int bitWidth)
+    {
+        checkArgument(bitWidth <= 32 && bitWidth >= 0, "bit width must be in range 0 - 32 inclusive");
+        if (bitWidth == 32) {
+            return r.nextInt();
+        }
+        else if (bitWidth == 31) {
+            return r.nextInt() & ((1 << 31) - 1);
+        }
+        return r.nextInt(1 << bitWidth);
     }
 
     private static long randomLong(Random r, int bitWidth)

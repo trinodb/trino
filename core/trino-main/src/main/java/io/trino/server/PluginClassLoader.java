@@ -14,7 +14,7 @@
 package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogHandle;
 
 import java.io.IOException;
 import java.net.URL;

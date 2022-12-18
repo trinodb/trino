@@ -21,7 +21,6 @@ import com.google.common.io.Closer;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.StaticConnectorFactory;
@@ -30,6 +29,7 @@ import io.trino.connector.TestingTableFunctions.MonomorphicStaticReturnTypeFunct
 import io.trino.connector.TestingTableFunctions.OnlyPassThroughFunction;
 import io.trino.connector.TestingTableFunctions.PassThroughFunction;
 import io.trino.connector.TestingTableFunctions.PolymorphicStaticReturnTypeFunction;
+import io.trino.connector.TestingTableFunctions.RequiredColumnsFunction;
 import io.trino.connector.TestingTableFunctions.TableArgumentFunction;
 import io.trino.connector.TestingTableFunctions.TableArgumentRowSemanticsFunction;
 import io.trino.connector.TestingTableFunctions.TwoScalarArgumentsFunction;
@@ -64,6 +64,7 @@ import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
@@ -120,6 +121,7 @@ import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_AGGREGATE;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_IN_DISTINCT;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
+import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_AGGREGATE;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
@@ -224,7 +226,7 @@ public class TestAnalyzer
 
     private static final SqlParser SQL_PARSER = new SqlParser();
 
-    private final Closer closer = Closer.create();
+    private Closer closer;
     private TransactionManager transactionManager;
     private AccessControl accessControl;
     private PlannerContext plannerContext;
@@ -6622,9 +6624,38 @@ public class TestAnalyzer
                 .hasMessage("line 1:23: Column 'table_alias.a' cannot be resolved");
     }
 
+    @Test
+    public void testTableFunctionRequiredColumns()
+    {
+        // the function required_column_function specifies columns 0 and 1 from table argument "INPUT" as required.
+        analyze("""
+                SELECT * FROM TABLE(system.required_columns_function(
+                    input => TABLE(t1)))
+                """);
+
+        analyze("""
+                SELECT * FROM TABLE(system.required_columns_function(
+                    input => TABLE(SELECT 1, 2, 3)))
+                """);
+
+        assertFails("""
+                SELECT * FROM TABLE(system.required_columns_function(
+                    input => TABLE(SELECT 1)))
+                """)
+                .hasErrorCode(FUNCTION_IMPLEMENTATION_ERROR)
+                .hasMessage("Invalid index: 1 of required column from table argument INPUT");
+
+        // table s1.t5 has two columns. The second column is hidden. Table function can require a hidden column.
+        analyze("""
+                SELECT * FROM TABLE(system.required_columns_function(
+                    input => TABLE(s1.t5)))
+                """);
+    }
+
     @BeforeClass
     public void setup()
     {
+        closer = Closer.create();
         LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION);
         closer.register(queryRunner);
         transactionManager = queryRunner.getTransactionManager();
@@ -6959,6 +6990,12 @@ public class TestAnalyzer
             throws Exception
     {
         closer.close();
+        closer = null;
+        transactionManager = null;
+        accessControl = null;
+        plannerContext = null;
+        tablePropertyManager = null;
+        analyzePropertyManager = null;
     }
 
     private void inSetupTransaction(Consumer<Session> consumer)
@@ -7004,7 +7041,8 @@ public class TestAnalyzer
                         new OnlyPassThroughFunction(),
                         new MonomorphicStaticReturnTypeFunction(),
                         new PolymorphicStaticReturnTypeFunction(),
-                        new PassThroughFunction()))),
+                        new PassThroughFunction(),
+                        new RequiredColumnsFunction()))),
                 new SessionPropertyManager(),
                 tablePropertyManager,
                 analyzePropertyManager,

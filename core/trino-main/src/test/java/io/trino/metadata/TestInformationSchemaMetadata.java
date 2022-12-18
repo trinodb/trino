@@ -38,6 +38,8 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -55,18 +57,18 @@ import static org.testng.Assert.assertFalse;
 
 public class TestInformationSchemaMetadata
 {
-    private final TransactionManager transactionManager;
-    private final Metadata metadata;
+    private LocalQueryRunner queryRunner;
+    private TransactionManager transactionManager;
+    private Metadata metadata;
 
-    public TestInformationSchemaMetadata()
+    @BeforeClass
+    public void setUp()
     {
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION);
+        queryRunner = LocalQueryRunner.create(TEST_SESSION);
         MockConnectorFactory mockConnectorFactory = MockConnectorFactory.builder()
                 .withListSchemaNames(connectorSession -> ImmutableList.of("test_schema"))
-                .withListTables((connectorSession, schemaNameOrNull) ->
-                        ImmutableList.of(
-                                new SchemaTableName("test_schema", "test_view"),
-                                new SchemaTableName("test_schema", "another_table")))
+                .withListTables((connectorSession, schemaName) ->
+                        ImmutableList.of("test_view", "another_table"))
                 .withGetViews((connectorSession, prefix) -> {
                     ConnectorViewDefinition definition = new ConnectorViewDefinition(
                             "select 1",
@@ -83,6 +85,21 @@ public class TestInformationSchemaMetadata
         queryRunner.createCatalog("test_catalog", mockConnectorFactory, ImmutableMap.of());
         transactionManager = queryRunner.getTransactionManager();
         metadata = queryRunner.getMetadata();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        try {
+            if (queryRunner != null) {
+                queryRunner.close();
+            }
+        }
+        finally {
+            metadata = null;
+            transactionManager = null;
+            queryRunner = null;
+        }
     }
 
     /**

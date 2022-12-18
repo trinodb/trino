@@ -45,6 +45,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "query.remote-task.max-consecutive-error-count"})
 public class QueryManagerConfig
 {
+    public static final String QUERY_MAX_RUN_TIME_HARD_LIMIT = "query.max-run-time.hard-limit";
     public static final long AVAILABLE_HEAP_MEMORY = Runtime.getRuntime().maxMemory();
 
     private int scheduleSplitBatchSize = 1000;
@@ -72,6 +73,7 @@ public class QueryManagerConfig
 
     private String queryExecutionPolicy = "phased";
     private Duration queryMaxRunTime = new Duration(100, TimeUnit.DAYS);
+    private Optional<Duration> queryMaxRunTimeHardLimit = Optional.empty();
     private Duration queryMaxExecutionTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxPlanningTime = new Duration(10, TimeUnit.MINUTES);
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
@@ -97,8 +99,8 @@ public class QueryManagerConfig
     private int faultTolerantExecutionMaxTaskSplitCount = 256;
     private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15));
     private int faultTolerantExecutionPartitionCount = 50;
-    private boolean faultTolerantPreserveInputPartitionsInWriteStage = true;
     private boolean faultTolerantExecutionEventDrivenSchedulerEnabled = true;
+    private boolean faultTolerantExecutionForcePreferredWritePartitioningEnabled = true;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -320,6 +322,19 @@ public class QueryManagerConfig
     }
 
     @NotNull
+    public Optional<Duration> getQueryMaxRunTimeHardLimit()
+    {
+        return queryMaxRunTimeHardLimit;
+    }
+
+    @Config(QUERY_MAX_RUN_TIME_HARD_LIMIT)
+    public QueryManagerConfig setQueryMaxRunTimeHardLimit(Duration queryMaxRunTimeHardLimit)
+    {
+        this.queryMaxRunTimeHardLimit = Optional.ofNullable(queryMaxRunTimeHardLimit);
+        return this;
+    }
+
+    @NotNull
     public Duration getQueryMaxExecutionTime()
     {
         return queryMaxExecutionTime;
@@ -517,7 +532,7 @@ public class QueryManagerConfig
     @ConfigDescription("Factor by which retry delay is scaled on subsequent failures")
     public QueryManagerConfig setRetryDelayScaleFactor(double retryDelayScaleFactor)
     {
-        checkArgument(retryDelayScaleFactor >= 1.0, "retry-delay-scale-factor must be greater or equal to 1");
+        checkArgument(retryDelayScaleFactor >= 1.0, "retry-delay-scale-factor must be greater than or equal to 1");
         this.retryDelayScaleFactor = retryDelayScaleFactor;
         return this;
     }
@@ -620,19 +635,6 @@ public class QueryManagerConfig
         return this;
     }
 
-    public boolean getFaultTolerantPreserveInputPartitionsInWriteStage()
-    {
-        return faultTolerantPreserveInputPartitionsInWriteStage;
-    }
-
-    @Config("fault-tolerant-execution-preserve-input-partitions-in-write-stage")
-    @ConfigDescription("Ensure single task reads single hash partitioned input partition for stages which write table data")
-    public QueryManagerConfig setFaultTolerantPreserveInputPartitionsInWriteStage(boolean faultTolerantPreserveInputPartitionsInWriteStage)
-    {
-        this.faultTolerantPreserveInputPartitionsInWriteStage = faultTolerantPreserveInputPartitionsInWriteStage;
-        return this;
-    }
-
     public boolean isFaultTolerantExecutionEventDrivenSchedulerEnabled()
     {
         return faultTolerantExecutionEventDrivenSchedulerEnabled;
@@ -642,6 +644,18 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionEventDrivenSchedulerEnabled(boolean faultTolerantExecutionEventDrivenSchedulerEnabled)
     {
         this.faultTolerantExecutionEventDrivenSchedulerEnabled = faultTolerantExecutionEventDrivenSchedulerEnabled;
+        return this;
+    }
+
+    public boolean isFaultTolerantExecutionForcePreferredWritePartitioningEnabled()
+    {
+        return faultTolerantExecutionForcePreferredWritePartitioningEnabled;
+    }
+
+    @Config("experimental.fault-tolerant-execution-force-preferred-write-partitioning-enabled")
+    public QueryManagerConfig setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(boolean faultTolerantExecutionForcePreferredWritePartitioningEnabled)
+    {
+        this.faultTolerantExecutionForcePreferredWritePartitioningEnabled = faultTolerantExecutionForcePreferredWritePartitioningEnabled;
         return this;
     }
 

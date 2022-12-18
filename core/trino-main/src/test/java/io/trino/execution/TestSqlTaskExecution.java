@@ -77,7 +77,7 @@ import static io.trino.execution.TaskState.FLUSHING;
 import static io.trino.execution.TaskState.RUNNING;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.trino.execution.TaskTestUtils.createTestSplitMonitor;
-import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
+import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
@@ -103,8 +103,8 @@ public class TestSqlTaskExecution
         ScheduledExecutorService taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
         ScheduledExecutorService driverYieldExecutor = newScheduledThreadPool(2, threadsNamed("driver-yield-%s"));
         TaskExecutor taskExecutor = new TaskExecutor(5, 10, 3, 4, Ticker.systemTicker());
-        taskExecutor.start();
 
+        taskExecutor.start();
         try {
             TaskStateMachine taskStateMachine = new TaskStateMachine(TASK_ID, taskNotificationExecutor);
             PartitionedOutputBuffer outputBuffer = newTestingOutputBuffer(taskNotificationExecutor);

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>403-SNAPSHOT</version>
+        <version>404-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -295,6 +295,19 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-testing</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-services</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <!-- conflicts with elasticsearch client dependency -->
+                    <groupId>org.openjdk.jmh</groupId>
+                    <artifactId>jmh-core</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

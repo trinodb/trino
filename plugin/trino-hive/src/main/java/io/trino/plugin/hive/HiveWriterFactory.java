@@ -79,6 +79,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.immutableEntry;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.hdfs.ConfigurationUtils.toJobConf;
 import static io.trino.plugin.hive.HiveCompressionCodecs.selectCompressionCodec;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
@@ -126,7 +127,7 @@ public class HiveWriterFactory
     private static final Pattern BUCKET_FROM_FILENAME_PATTERN = Pattern.compile("(0[0-9]+)_.*");
 
     private final Set<HiveFileWriterFactory> fileWriterFactories;
-    private final TrinoFileSystemFactory fileSystemFactory;
+    private final TrinoFileSystem fileSystem;
     private final String schemaName;
     private final String tableName;
     private final AcidTransaction transaction;
@@ -200,7 +201,7 @@ public class HiveWriterFactory
             HiveWriterStats hiveWriterStats)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.fileSystem = fileSystemFactory.create(session);
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.transaction = requireNonNull(transaction, "transaction is null");
@@ -361,7 +362,7 @@ public class HiveWriterFactory
                         // verify that the target directory for the partition does not already exist
                         String writeInfoTargetPath = writeInfo.getTargetPath().toString();
                         try {
-                            if (fileSystemFactory.create(session).newInputFile(writeInfoTargetPath).exists()) {
+                            if (fileSystem.newInputFile(writeInfoTargetPath).exists()) {
                                 throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format(
                                         "Target directory for new partition '%s' of table '%s.%s' already exists: %s",
                                         partitionName,
@@ -503,11 +504,10 @@ public class HiveWriterFactory
         if (transaction.isMerge()) {
             OrcFileWriterFactory orcFileWriterFactory = (OrcFileWriterFactory) fileWriterFactories.stream()
                     .filter(factory -> factory instanceof OrcFileWriterFactory)
-                    .findFirst()
-                    .get();
+                    .collect(onlyElement());
             checkArgument(hiveRowtype.isPresent(), "rowTypes not present");
             RowIdSortingFileWriterMaker fileWriterMaker = (deleteWriter, deletePath) -> makeRowIdSortingWriter(deleteWriter, deletePath);
-            hiveFileWriter = new MergeFileWriter(transaction, 0, bucketNumber, fileWriterMaker, path, partitionName, orcFileWriterFactory, inputColumns, conf, session, typeManager, hiveRowtype.get());
+            hiveFileWriter = new MergeFileWriter(transaction, 0, bucketNumber, fileWriterMaker, path, orcFileWriterFactory, inputColumns, conf, session, typeManager, hiveRowtype.get());
         }
         else {
             for (HiveFileWriterFactory fileWriterFactory : fileWriterFactories) {
@@ -577,7 +577,6 @@ public class HiveWriterFactory
         };
 
         if (!sortedBy.isEmpty()) {
-            TrinoFileSystem fileSystem;
             Path tempFilePath;
             if (sortedWritingTempStagingPathEnabled) {
                 String tempPrefix = sortedWritingTempStagingPath.replace(
@@ -589,7 +588,6 @@ public class HiveWriterFactory
             else {
                 tempFilePath = new Path(path.getParent(), ".tmp-sort." + path.getName());
             }
-            fileSystem = fileSystemFactory.create(session);
 
             List<Type> types = dataColumns.stream()
                     .map(column -> column.getHiveType().getType(typeManager, getTimestampPrecision(session)))
@@ -645,7 +643,6 @@ public class HiveWriterFactory
     {
         String parentPath = setSchemeToFileIfAbsent(path.getParent().toString());
         Path tempFilePath = new Path(parentPath, ".tmp-sort." + path.getName());
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         // The ORC columns are: operation, originalTransaction, bucket, rowId, row
         // The deleted rows should be sorted by originalTransaction, then by rowId
         List<Integer> sortFields = ImmutableList.of(1, 3);

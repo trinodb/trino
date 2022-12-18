@@ -33,7 +33,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -226,7 +225,8 @@ public class DefaultJdbcMetadata
                 handle.getLimit(),
                 handle.getColumns(),
                 handle.getOtherReferencedTables(),
-                handle.getNextSyntheticColumnId());
+                handle.getNextSyntheticColumnId(),
+                handle.getAuthorization());
 
         return Optional.of(
                 remainingExpression.isPresent()
@@ -247,7 +247,8 @@ public class DefaultJdbcMetadata
                 OptionalLong.empty(),
                 Optional.of(columns),
                 handle.getAllReferencedTables(),
-                handle.getNextSyntheticColumnId());
+                handle.getNextSyntheticColumnId(),
+                handle.getAuthorization());
     }
 
     @Override
@@ -287,7 +288,8 @@ public class DefaultJdbcMetadata
                         handle.getLimit(),
                         Optional.of(newColumns),
                         handle.getOtherReferencedTables(),
-                        handle.getNextSyntheticColumnId()),
+                        handle.getNextSyntheticColumnId(),
+                        handle.getAuthorization()),
                 projections,
                 assignments.entrySet().stream()
                         .map(assignment -> new Assignment(
@@ -392,7 +394,8 @@ public class DefaultJdbcMetadata
                 OptionalLong.empty(),
                 Optional.of(newColumnsList),
                 handle.getAllReferencedTables(),
-                nextSyntheticColumnId);
+                nextSyntheticColumnId,
+                handle.getAuthorization());
 
         return Optional.of(new AggregationApplicationResult<>(handle, projections.build(), resultAssignments.build(), ImmutableMap.of(), precalculateStatisticsForPushdown));
     }
@@ -414,6 +417,10 @@ public class DefaultJdbcMetadata
 
         JdbcTableHandle leftHandle = flushAttributesAsQuery(session, (JdbcTableHandle) left);
         JdbcTableHandle rightHandle = flushAttributesAsQuery(session, (JdbcTableHandle) right);
+
+        if (!leftHandle.getAuthorization().equals(rightHandle.getAuthorization())) {
+            return Optional.empty();
+        }
         int nextSyntheticColumnId = max(leftHandle.getNextSyntheticColumnId(), rightHandle.getNextSyntheticColumnId());
 
         ImmutableMap.Builder<JdbcColumnHandle, JdbcColumnHandle> newLeftColumnsBuilder = ImmutableMap.builder();
@@ -478,7 +485,8 @@ public class DefaultJdbcMetadata
                                                 .addAll(leftReferencedTables)
                                                 .addAll(rightReferencedTables)
                                                 .build())),
-                        nextSyntheticColumnId),
+                        nextSyntheticColumnId,
+                        leftHandle.getAuthorization()),
                 ImmutableMap.copyOf(newLeftColumns),
                 ImmutableMap.copyOf(newRightColumns),
                 precalculateStatisticsForPushdown));
@@ -535,7 +543,8 @@ public class DefaultJdbcMetadata
                 OptionalLong.of(limit),
                 handle.getColumns(),
                 handle.getOtherReferencedTables(),
-                handle.getNextSyntheticColumnId());
+                handle.getNextSyntheticColumnId(),
+                handle.getAuthorization());
 
         return Optional.of(new LimitApplicationResult<>(handle, jdbcClient.isLimitGuaranteed(session), precalculateStatisticsForPushdown));
     }
@@ -584,7 +593,8 @@ public class DefaultJdbcMetadata
                 OptionalLong.of(topNCount),
                 handle.getColumns(),
                 handle.getOtherReferencedTables(),
-                handle.getNextSyntheticColumnId());
+                handle.getNextSyntheticColumnId(),
+                handle.getAuthorization());
 
         return Optional.of(new TopNApplicationResult<>(sortedTableHandle, jdbcClient.isTopNGuaranteed(session), precalculateStatisticsForPushdown));
     }
@@ -612,12 +622,6 @@ public class DefaultJdbcMetadata
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         return jdbcClient.getTableScanRedirection(session, tableHandle);
-    }
-
-    @Override
-    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
-    {
-        return new ConnectorTableProperties();
     }
 
     @Override
@@ -829,7 +833,17 @@ public class DefaultJdbcMetadata
     @Override
     public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
     {
-        throw new TrinoException(NOT_SUPPORTED, "Unsupported delete");
+        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+    }
+
+    @Override
+    public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        // The column is used for row-level merge, which is not supported, but it's required during analysis anyway.
+        return new JdbcColumnHandle(
+                "$merge_row_id",
+                new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+                BIGINT);
     }
 
     @Override

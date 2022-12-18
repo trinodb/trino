@@ -13,6 +13,8 @@
  */
 package io.trino.connector;
 
+import io.trino.spi.connector.CatalogHandle;
+
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;

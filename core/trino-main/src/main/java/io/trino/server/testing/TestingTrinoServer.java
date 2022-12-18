@@ -77,6 +77,7 @@ import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.type.TypeManager;
@@ -231,12 +232,17 @@ public class TestingTrinoServer
                 // Use task.writer-count > 1, as this allows to expose writer-concurrency related bugs.
                 .put("task.writer-count", "2")
                 .put("exchange.client-threads", "4")
+                // Reduce memory footprint in tests
+                .put("exchange.max-buffer-size", "4MB")
                 .put("internal-communication.shared-secret", "internal-shared-secret");
 
         if (coordinator) {
             // TODO: enable failure detector
             serverProperties.put("failure-detector.enabled", "false");
             serverProperties.put("catalog.store", "none");
+
+            // Reduce memory footprint in tests
+            serverProperties.put("query.min-expire-age", "5s");
         }
 
         serverProperties.put("optimizer.ignore-stats-calculator-failures", "false");
@@ -540,6 +546,11 @@ public class TestingTrinoServer
     public SplitManager getSplitManager()
     {
         return splitManager;
+    }
+
+    public ExchangeManager getExchangeManager()
+    {
+        return exchangeManagerRegistry.getExchangeManager();
     }
 
     public PageSourceManager getPageSourceManager()

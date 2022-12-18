@@ -254,10 +254,21 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to create the specified schema with properties in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema, Map<String, Object> properties)
+    {
+        denyCreateSchema(schema.toString());
+    }
+
+    /**
      * Check if identity is allowed to create the specified schema in a catalog.
      *
      * @throws AccessDeniedException if not allowed
      */
+    @Deprecated
     default void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema)
     {
         denyCreateSchema(schema.toString());

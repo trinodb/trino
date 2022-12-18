@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>403-SNAPSHOT</version>
+        <version>404-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -551,7 +551,6 @@
                             <executable>${java.home}/bin/java</executable>
                             <arguments>
                                 <argument>-DoutputDirectory=benchmark_outputs</argument>
-                                <argument>-Dmyproperty=myvalue</argument>
                                 <argument>-classpath</argument>
                                 <classpath />
                                 <argument>io.trino.benchmark.BenchmarkSuite</argument>

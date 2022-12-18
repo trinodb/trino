@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>403-SNAPSHOT</version>
+    <version>404-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -57,7 +57,7 @@
         <dep.jsonwebtoken.version>0.11.2</dep.jsonwebtoken.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>1.14</dep.drift.version>
-        <dep.tempto.version>189</dep.tempto.version>
+        <dep.tempto.version>190</dep.tempto.version>
         <dep.gcs.version>2.2.8</dep.gcs.version>
         <dep.errorprone.version>2.15.0</dep.errorprone.version>
         <dep.testcontainers.version>1.17.3</dep.testcontainers.version>
@@ -66,8 +66,11 @@
         <dep.confluent.version>5.5.2</dep.confluent.version>
         <dep.casandra.version>4.14.0</dep.casandra.version>
         <dep.minio.version>7.1.4</dep.minio.version>
-        <dep.iceberg.version>1.0.0</dep.iceberg.version>
+        <dep.iceberg.version>1.1.0</dep.iceberg.version>
         <dep.spotbugs-annotations.version>4.7.2</dep.spotbugs-annotations.version>
+        <dep.protobuf.version>3.21.6</dep.protobuf.version>
+        <dep.wire.version>3.2.2</dep.wire.version>
+        <dep.kotlin.version>1.4.0</dep.kotlin.version>
 
         <dep.docker.images.version>72</dep.docker.images.version>
 
@@ -143,6 +146,7 @@
         <module>plugin/trino-ml</module>
         <module>plugin/trino-mongodb</module>
         <module>plugin/trino-mysql</module>
+        <module>plugin/trino-mysql-event-listener</module>
         <module>plugin/trino-oracle</module>
         <module>plugin/trino-password-authenticators</module>
         <module>plugin/trino-phoenix5</module>
@@ -436,6 +440,13 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-mongodb</artifactId>
+                <type>test-jar</type>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-mysql</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -544,6 +555,13 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-record-decoder</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-record-decoder</artifactId>
+                <type>test-jar</type>
                 <version>${project.version}</version>
             </dependency>
 
@@ -702,7 +720,7 @@
             <dependency>
                 <groupId>io.trino.hadoop</groupId>
                 <artifactId>hadoop-apache</artifactId>
-                <version>3.2.0-16</version>
+                <version>3.2.0-18</version>
             </dependency>
 
             <dependency>
@@ -1182,6 +1200,18 @@
             </dependency>
 
             <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java</artifactId>
+                <version>${dep.protobuf.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java-util</artifactId>
+                <version>${dep.protobuf.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.h2database</groupId>
                 <artifactId>h2</artifactId>
                 <version>1.4.200</version>
@@ -1249,7 +1279,7 @@
             <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>10.2.0.jre11</version>
+                <version>11.2.1.jre17</version>
             </dependency>
 
             <dependency>
@@ -1301,6 +1331,13 @@
             </dependency>
 
             <dependency>
+                <groupId>com.squareup.wire</groupId>
+                <artifactId>wire-schema</artifactId>
+                <version>${dep.wire.version}</version>
+            </dependency>
+
+
+            <dependency>
                 <groupId>com.teradata</groupId>
                 <artifactId>re2j-td</artifactId>
                 <version>1.4</version>
@@ -1344,7 +1381,7 @@
                 <groupId>io.confluent</groupId>
                 <artifactId>kafka-json-schema-serializer</artifactId>
                 <version>${dep.confluent.version}</version>
-                <!-- This is under Confluence Community License and it should not be used with compile scope -->
+                <!-- This is under Confluent Community License and it should not be used with compile scope -->
                 <scope>test</scope>
                 <exclusions>
                     <exclusion>
@@ -1360,6 +1397,22 @@
                         <artifactId>commons-logging</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.confluent</groupId>
+                <artifactId>kafka-protobuf-provider</artifactId>
+                <version>${dep.confluent.version}</version>
+                <!-- This is under Confluent Community License and it should not be used with compile scope -->
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>io.confluent</groupId>
+                <artifactId>kafka-protobuf-serializer</artifactId>
+                <version>${dep.confluent.version}</version>
+                <!-- This is under Confluent Community License and it should not be used with compile scope -->
+                <scope>test</scope>
             </dependency>
 
             <dependency>
@@ -1483,7 +1536,7 @@
             <dependency>
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
-                <version>8.0.22</version>
+                <version>8.0.29</version>
             </dependency>
 
             <dependency>
@@ -1722,6 +1775,18 @@
                 <groupId>org.jetbrains</groupId>
                 <artifactId>annotations</artifactId>
                 <version>19.0.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-stdlib</artifactId>
+                <version>${dep.kotlin.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-stdlib-common</artifactId>
+                <version>${dep.kotlin.version}</version>
             </dependency>
 
             <dependency>

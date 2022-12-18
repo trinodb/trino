@@ -79,6 +79,7 @@ public class TestTrinoDriverImpersonateUser
             throws Exception
     {
         server.close();
+        server = null;
     }
 
     @Test

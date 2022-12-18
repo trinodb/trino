@@ -19,6 +19,10 @@ worker outage or other fault during query execution.
     example, Trino does not spend resources retrying a query that fails because
     its SQL cannot be parsed.
 
+    For a step-by-step guide explaining how to configure a Trino cluster with
+    fault-tolerant execution to improve query processing resilience, read
+    :doc:`/installation/query-resiliency`.
+
 Configuration
 -------------
 
@@ -48,6 +52,7 @@ depending on the desired :ref:`retry policy <fte-retry-policy>`.
     * :doc:`/connector/delta-lake`
     * :doc:`/connector/hive`
     * :doc:`/connector/iceberg`
+    * :doc:`/connector/mongodb`
     * :doc:`/connector/mysql`
     * :doc:`/connector/postgresql`
     * :doc:`/connector/sqlserver`
@@ -118,8 +123,13 @@ recommended when executing large batch queries, as the cluster can more
 efficiently retry smaller tasks within the query rather than retry the whole
 query.
 
-The following cluster configuration changes are recommended to improve
-fault-tolerant execution with a ``TASK`` retry policy:
+When a cluster is configured with a ``TASK`` retry policy, some relevant
+configuration properties have their default values changed to follow best
+practices for a fault-tolerant cluster. However, this automatic change does not
+affect clusters that have these properties manually configured. If you have
+any of the following properties configured in the ``config.properties`` file on
+a cluster with a ``TASK`` retry policy, it is strongly recommended to make the
+following changes:
 
 * Set the ``task.low-memory-killer.policy``
   :doc:`query management property </admin/properties-query-management>` to
@@ -361,10 +371,6 @@ the property may be configured for:
      - Comma-separated list of URI locations that the exchange manager uses to
        store spooling data. Only supports S3 and local filesystems.
      -
-     - Any
-   * - ``exchange.encryption-enabled``
-     - Enable encrypting of spooling data.
-     - ``true``
      - Any
    * - ``exchange.sink-buffer-pool-min-size``
      - The minimum buffer pool size for an exchange sink. The larger the buffer

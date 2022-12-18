@@ -24,6 +24,7 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
+import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogServiceProviderModule;
 import io.trino.connector.ConnectorServicesProvider;
@@ -78,7 +79,6 @@ import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
-import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
@@ -133,7 +133,9 @@ import io.trino.spi.ErrorType;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.Plugin;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
@@ -217,6 +219,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.connector.CatalogServiceProviderModule.createAccessControlProvider;
@@ -357,7 +360,7 @@ public class LocalQueryRunner
         this.optimizerConfig = new OptimizerConfig();
         LazyCatalogFactory catalogFactory = new LazyCatalogFactory();
         this.catalogFactory = catalogFactory;
-        this.catalogManager = new CoordinatorDynamicCatalogManager(NO_STORED_CATALOGS, catalogFactory);
+        this.catalogManager = new CoordinatorDynamicCatalogManager(NO_STORED_CATALOGS, catalogFactory, directExecutor());
         this.transactionManager = InMemoryTransactionManager.create(
                 new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
                 yieldExecutor,
@@ -454,15 +457,15 @@ public class LocalQueryRunner
                 new CatalogSystemTable(metadata, accessControl),
                 new TableCommentSystemTable(metadata, accessControl),
                 new MaterializedViewSystemTable(metadata, accessControl),
-                new SchemaPropertiesSystemTable(transactionManager, schemaPropertyManager),
-                new TablePropertiesSystemTable(transactionManager, tablePropertyManager),
-                new MaterializedViewPropertiesSystemTable(transactionManager, materializedViewPropertyManager),
-                new ColumnPropertiesSystemTable(transactionManager, columnPropertyManager),
-                new AnalyzePropertiesSystemTable(transactionManager, analyzePropertyManager),
+                new SchemaPropertiesSystemTable(metadata, accessControl, schemaPropertyManager),
+                new TablePropertiesSystemTable(metadata, accessControl, tablePropertyManager),
+                new MaterializedViewPropertiesSystemTable(metadata, accessControl, materializedViewPropertyManager),
+                new ColumnPropertiesSystemTable(metadata, accessControl, columnPropertyManager),
+                new AnalyzePropertiesSystemTable(metadata, accessControl, analyzePropertyManager),
                 new TransactionsSystemTable(typeManager, transactionManager)),
                 ImmutableSet.of());
 
-        exchangeManagerRegistry = new ExchangeManagerRegistry(new ExchangeHandleResolver());
+        exchangeManagerRegistry = new ExchangeManagerRegistry();
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
                 catalogFactory,
@@ -507,7 +510,8 @@ public class LocalQueryRunner
                 defaultSession.getCatalogProperties(),
                 sessionPropertyManager,
                 defaultSession.getPreparedStatements(),
-                defaultSession.getProtocolHeaders());
+                defaultSession.getProtocolHeaders(),
+                defaultSession.getExchangeEncryptionKey());
 
         SpillerStats spillerStats = new SpillerStats();
         this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(plannerContext.getBlockEncodingSerde(), spillerStats, featuresConfig, nodeSpillConfig);
@@ -674,6 +678,12 @@ public class LocalQueryRunner
     }
 
     @Override
+    public ExchangeManager getExchangeManager()
+    {
+        return exchangeManagerRegistry.getExchangeManager();
+    }
+
+    @Override
     public StatsCalculator getStatsCalculator()
     {
         return statsCalculator;
@@ -755,6 +765,20 @@ public class LocalQueryRunner
     {
         printPlan = true;
         return this;
+    }
+
+    public CatalogHandle getCatalogHandle(String catalogName)
+    {
+        return inTransaction(transactionSession -> getMetadata().getCatalogHandle(transactionSession, catalogName)).orElseThrow();
+    }
+
+    public TableHandle getTableHandle(String catalogName, String schemaName, String tableName)
+    {
+        return inTransaction(transactionSession ->
+                getMetadata().getTableHandle(
+                        transactionSession,
+                        new QualifiedObjectName(catalogName, schemaName, tableName))
+                .orElseThrow());
     }
 
     @Override
@@ -955,7 +979,8 @@ public class LocalQueryRunner
                 new DynamicFilterConfig(),
                 blockTypeOperators,
                 tableExecuteContextManager,
-                exchangeManagerRegistry);
+                exchangeManagerRegistry,
+                nodeManager.getCurrentNode().getNodeVersion());
 
         // plan query
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(
@@ -1108,7 +1133,8 @@ public class LocalQueryRunner
                 plannerContext,
                 statementAnalyzerFactory,
                 statsCalculator,
-                costCalculator);
+                costCalculator,
+                new NodeVersion("test"));
     }
 
     private AnalyzerFactory createAnalyzerFactory(QueryExplainerFactory queryExplainerFactory)

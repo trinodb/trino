@@ -165,6 +165,7 @@ public class TestRaptorStorageManager
     {
         if (dummyHandle != null) {
             dummyHandle.close();
+            dummyHandle = null;
         }
         deleteRecursively(temporary, ALLOW_INSECURE);
     }

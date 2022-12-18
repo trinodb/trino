@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.metadata.IndexHandle;
 import io.trino.metadata.Metadata;
@@ -29,8 +28,8 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.RetryPolicy;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.predicate.TupleDomain;
@@ -55,6 +54,7 @@ import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -104,7 +104,6 @@ import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.planner.plan.WindowNode.Specification;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NullLiteral;
@@ -131,6 +130,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -499,7 +499,7 @@ public class PlanBuilder
         {
             checkState(groupingSets != null, "No grouping sets defined; use globalGrouping/groupingKeys method");
             return new AggregationNode(
-                    nodeId.orElse(idAllocator.getNextId()),
+                    nodeId.orElseGet(idAllocator::getNextId),
                     source,
                     assignments,
                     groupingSets,
@@ -836,7 +836,7 @@ public class PlanBuilder
                         TestingTransactionHandle.create()),
                 Optional.empty(),
                 schemaTableName,
-                new MergeParadigmAndTypes(RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW, ImmutableList.of(), INTEGER));
+                new MergeParadigmAndTypes(Optional.of(DELETE_ROW_AND_INSERT_ROW), ImmutableList.of(), ImmutableList.of(), INTEGER));
     }
 
     public ExchangeNode gatheringExchange(ExchangeNode.Scope scope, PlanNode child)
@@ -1344,7 +1344,7 @@ public class PlanBuilder
                 filter);
     }
 
-    public WindowNode window(Specification specification, Map<Symbol, WindowNode.Function> functions, PlanNode source)
+    public WindowNode window(DataOrganizationSpecification specification, Map<Symbol, WindowNode.Function> functions, PlanNode source)
     {
         return new WindowNode(
                 idAllocator.getNextId(),
@@ -1356,7 +1356,7 @@ public class PlanBuilder
                 0);
     }
 
-    public WindowNode window(Specification specification, Map<Symbol, WindowNode.Function> functions, Symbol hashSymbol, PlanNode source)
+    public WindowNode window(DataOrganizationSpecification specification, Map<Symbol, WindowNode.Function> functions, Symbol hashSymbol, PlanNode source)
     {
         return new WindowNode(
                 idAllocator.getNextId(),
@@ -1385,7 +1385,7 @@ public class PlanBuilder
                 hashSymbol);
     }
 
-    public TopNRankingNode topNRanking(Specification specification, RankingType rankingType, int maxRankingPerPartition, Symbol rankingSymbol, Optional<Symbol> hashSymbol, PlanNode source)
+    public TopNRankingNode topNRanking(DataOrganizationSpecification specification, RankingType rankingType, int maxRankingPerPartition, Symbol rankingSymbol, Optional<Symbol> hashSymbol, PlanNode source)
     {
         return new TopNRankingNode(
                 idAllocator.getNextId(),

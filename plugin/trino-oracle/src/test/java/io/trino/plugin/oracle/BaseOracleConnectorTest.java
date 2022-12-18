@@ -31,10 +31,11 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -169,7 +170,7 @@ public abstract class BaseOracleConnectorTest
     @Override
     public void testCommentColumn()
     {
-        String tableName = "test_comment_column_" + randomTableSuffix();
+        String tableName = "test_comment_column_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + "(a integer)");
 
@@ -329,7 +330,7 @@ public abstract class BaseOracleConnectorTest
     public void testDeleteWithLike()
     {
         assertThatThrownBy(super::testDeleteWithLike)
-                .hasStackTraceContaining("TrinoException: Unsupported delete");
+                .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
     @Test

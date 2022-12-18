@@ -16,7 +16,6 @@ package io.trino.plugin.hive.acid;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.orc.OrcWriter.OrcOperation;
 import io.trino.plugin.hive.HiveUpdateProcessor;
 import io.trino.plugin.hive.WriterKind;
 
@@ -91,13 +90,6 @@ public class AcidTransaction
     }
 
     @JsonIgnore
-    public Optional<OrcOperation> getOrcOperation()
-    {
-        ensureTransactionRunning("accessing orcOperation");
-        return operation.getOrcOperation();
-    }
-
-    @JsonIgnore
     public long getAcidTransactionId()
     {
         ensureTransactionRunning("accessing transactionId");
@@ -138,11 +130,6 @@ public class AcidTransaction
     public boolean isMerge()
     {
         return operation == MERGE;
-    }
-
-    public boolean isAcidInsertOperation(WriterKind writerKind)
-    {
-        return isInsert() || (isUpdate() && writerKind == WriterKind.INSERT);
     }
 
     public boolean isAcidDeleteOperation(WriterKind writerKind)

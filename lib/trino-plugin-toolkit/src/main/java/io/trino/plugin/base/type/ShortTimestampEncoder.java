@@ -43,12 +43,12 @@ class ShortTimestampEncoder
     {
         long micros;
         if (timeZone != DateTimeZone.UTC) {
-            micros = timeZone.convertUTCToLocal(decodedTimestamp.getEpochSeconds() * MILLISECONDS_PER_SECOND) * MICROSECONDS_PER_MILLISECOND;
+            micros = timeZone.convertUTCToLocal(decodedTimestamp.epochSeconds() * MILLISECONDS_PER_SECOND) * MICROSECONDS_PER_MILLISECOND;
         }
         else {
-            micros = decodedTimestamp.getEpochSeconds() * MICROSECONDS_PER_SECOND;
+            micros = decodedTimestamp.epochSeconds() * MICROSECONDS_PER_SECOND;
         }
-        int nanosOfSecond = (int) round(decodedTimestamp.getNanosOfSecond(), 9 - type.getPrecision());
+        int nanosOfSecond = (int) round(decodedTimestamp.nanosOfSecond(), 9 - type.getPrecision());
         return micros + nanosOfSecond / NANOSECONDS_PER_MICROSECOND;
     }
 }

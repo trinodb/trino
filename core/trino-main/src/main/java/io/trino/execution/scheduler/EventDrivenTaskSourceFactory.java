@@ -31,9 +31,7 @@ import io.trino.sql.planner.SplitSourceFactory;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.RemoteSourceNode;
-import io.trino.sql.planner.plan.TableWriterNode;
 
 import javax.inject.Inject;
 
@@ -48,10 +46,10 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxTaskSplitCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskInputSize;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskSplitCount;
-import static io.trino.SystemSessionProperties.getFaultTolerantPreserveInputPartitionsInWriteStage;
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -186,43 +184,19 @@ public class EventDrivenTaskSourceFactory
                     maxArbitraryDistributionTaskSplitCount);
         }
         if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||
-                (partitioning.getConnectorHandle() instanceof MergePartitioningHandle)) {
-            return new HashDistributionSplitAssigner(
+                (partitioning.getConnectorHandle() instanceof MergePartitioningHandle) ||
+                partitioning.equals(SCALED_WRITER_HASH_DISTRIBUTION)) {
+            return HashDistributionSplitAssigner.create(
                     partitioning.getCatalogHandle(),
                     partitionedSources,
                     replicatedSources,
-                    getFaultTolerantExecutionTargetTaskInputSize(session).toBytes(),
-                    outputDataSizeEstimates,
                     sourcePartitioningScheme,
-                    getFaultTolerantPreserveInputPartitionsInWriteStage(session) && isWriteFragment(fragment));
+                    outputDataSizeEstimates,
+                    fragment,
+                    getFaultTolerantExecutionTargetTaskInputSize(session).toBytes());
         }
 
         // other partitioning handles are not expected to be set as a fragment partitioning
         throw new IllegalArgumentException("Unexpected partitioning: " + partitioning);
-    }
-
-    private static boolean isWriteFragment(PlanFragment fragment)
-    {
-        PlanVisitor<Boolean, Void> visitor = new PlanVisitor<>()
-        {
-            @Override
-            protected Boolean visitPlan(PlanNode node, Void context)
-            {
-                for (PlanNode child : node.getSources()) {
-                    if (child.accept(this, context)) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-
-            @Override
-            public Boolean visitTableWriter(TableWriterNode node, Void context)
-            {
-                return true;
-            }
-        };
-
-        return fragment.getRoot().accept(visitor, null);
     }
 }

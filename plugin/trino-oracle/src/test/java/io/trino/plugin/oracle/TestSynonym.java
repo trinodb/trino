@@ -17,7 +17,7 @@ import io.trino.testing.sql.SqlExecutor;
 
 import java.io.Closeable;
 
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 
 public class TestSynonym
@@ -29,7 +29,7 @@ public class TestSynonym
     public TestSynonym(SqlExecutor sqlExecutor, String namePrefix, String definition)
     {
         this.sqlExecutor = sqlExecutor;
-        this.name = namePrefix + "_" + randomTableSuffix();
+        this.name = namePrefix + "_" + randomNameSuffix();
         sqlExecutor.execute(format("CREATE SYNONYM %s %s", name, definition));
     }
 

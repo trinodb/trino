@@ -16,7 +16,7 @@ Requirements
 
 To connect to Databricks Delta Lake, you need:
 
-* Tables written by Databricks Runtime 7.3 LTS, 9.1 LTS and 10.4 LTS are supported.
+* Tables written by Databricks Runtime 7.3 LTS, 9.1 LTS, 10.4 LTS and 11.3 LTS are supported.
 * Deployments using AWS, HDFS, Azure Storage, and Google Cloud Storage (GCS) are
   fully supported.
 * Network access from the coordinator and workers to the Delta Lake storage.
@@ -155,6 +155,9 @@ values. Typical usage does not require you to configure them.
     * - ``delta.unique-table-location``
       - Use randomized, unique table locations.
       - ``true``
+    * - ``delta.register-table-procedure.enabled``
+      - Enable to allow users to call the ``register_table`` procedure
+      - ``false``
 
 The following table describes performance tuning catalog properties for the
 connector.
@@ -219,6 +222,12 @@ connector.
         The equivalent catalog session property is
         ``parquet_optimized_writer_enabled``.
       - ``true``
+    * - ``parquet.optimized-reader.enabled``
+      - Whether batched column readers should be used when reading Parquet files
+        for improved performance. Set this property to ``false`` to disable the
+        optimized parquet reader by default. The equivalent catalog session
+        property is ``parquet_optimized_reader_enabled``.
+      - ``true``
 
 The following table describes :ref:`catalog session properties
 <session-properties-definition>` supported by the Delta Lake connector to
@@ -233,6 +242,10 @@ configure processing of Parquet files.
       - Default
     * - ``parquet_optimized_writer_enabled``
       - Whether the optimized writer should be used when writing Parquet files.
+      - ``true``
+    * - ``parquet_optimized_reader_enabled``
+      - Whether batched column readers should be used when reading Parquet files
+        for improved performance.
       - ``true``
     * - ``parquet_max_read_block_size``
       - The maximum block size used when reading Parquet files.
@@ -405,6 +418,7 @@ Delta Lake. In addition to the :ref:`globally available
 statements, the connector supports the following features:
 
 * :ref:`sql-data-management`, see also :ref:`delta-lake-write-support`
+* :ref:`sql-view-management`
 * :doc:`/sql/create-schema`, see also :ref:`delta-lake-create-schema`
 * :doc:`/sql/create-table`, see also :ref:`delta-lake-create-table`
 * :doc:`/sql/create-table-as`
@@ -516,6 +530,13 @@ ignored. The table schema is read from the transaction log, instead. If the
 schema is changed by an external system, Trino automatically uses the new
 schema.
 
+.. warning::
+
+   Using ``CREATE TABLE`` with an existing table content is deprecated, instead use the
+   ``system.register_table`` procedure. The ``CREATE TABLE ... WITH (location=...)``
+   syntax can be temporarily re-enabled using the ``delta.legacy-create-table-with-existing-location.enabled``
+   config property or ``legacy_create_table_with_existing_location_enabled`` session property.
+
 If the specified location does not already contain a Delta table, the connector
 automatically writes the initial transaction log entries and registers the table
 in the metastore. As a result, any Databricks engine can write to the table::
@@ -550,6 +571,21 @@ The following example uses all three table properties::
   )
   AS SELECT name, comment, regionkey FROM tpch.tiny.nation;
 
+.. _delta-lake-register-table:
+
+Register table
+^^^^^^^^^^^^^^
+
+The connector can register table into the metastore with existing transaction logs and data files.
+
+The ``system.register_table`` procedure allows the caller to register an existing delta lake
+table in the metastore, using its existing transaction logs and data files::
+
+    CALL delta.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 's3://my-bucket/a/path')
+
+To prevent unauthorized users from accessing data, this procedure is disabled by default.
+The procedure is enabled only when ``delta.register-table-procedure.enabled`` is set to ``true``.
+
 .. _delta-lake-write-support:
 
 Updating data
@@ -560,11 +596,11 @@ You can use the connector to :doc:`/sql/insert`, :doc:`/sql/delete`,
 
 Write operations are supported for tables stored on the following systems:
 
-* Azure ADLS Gen2
+* Azure ADLS Gen2, Google Cloud Storage
 
-  Writes to the Azure ADLS Gen2 file system are enabled by default. Trino
-  detects write collisions on ADLS Gen2 when writing from multiple Trino
-  clusters, or from as any number of open source Delta Lake clusters.
+  Writes to the Azure ADLS Gen2 and Google Cloud Storage are
+  enabled by default. Trino detects write collisions on these storage systems
+  when writing from multiple Trino clusters, or from other query engines.
 
 * S3 and S3-compatible storage
 

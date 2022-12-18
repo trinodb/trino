@@ -16,12 +16,15 @@ package io.trino.plugin.base.security;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.TrinoException;
 
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
 
@@ -47,9 +50,28 @@ public class ImpersonationRule
 
     public Optional<Boolean> match(String originalUser, Set<String> originalRoles, String newUser)
     {
+        Pattern replacedNewUserPattern = newUserPattern;
+        if (originalUserPattern.isPresent()) {
+            Matcher matcher = originalUserPattern.get().matcher(originalUser);
+            if (matcher.matches()) {
+                StringBuilder stringBuilder = new StringBuilder();
+                try {
+                    matcher.appendReplacement(stringBuilder, newUserPattern.pattern());
+                }
+                catch (IndexOutOfBoundsException e) {
+                    throw new TrinoException(
+                            CONFIGURATION_INVALID,
+                            "new_user in impersonation rule refers to a capturing group that does not exist in original_user",
+                            e);
+                }
+
+                replacedNewUserPattern = Pattern.compile(stringBuilder.toString());
+            }
+        }
+
         if (originalUserPattern.map(regex -> regex.matcher(originalUser).matches()).orElse(true) &&
                 originalRolePattern.map(regex -> originalRoles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
-                newUserPattern.matcher(newUser).matches()) {
+                replacedNewUserPattern.matcher(newUser).matches()) {
             return Optional.of(allow);
         }
         return Optional.empty();

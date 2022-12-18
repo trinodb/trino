@@ -15,6 +15,7 @@ package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Unstable;
 
 import java.time.Duration;
 
@@ -41,6 +42,7 @@ public class StageOutputBufferUtilization
     private final Duration duration;
 
     @JsonCreator
+    @Unstable
     public StageOutputBufferUtilization(
             int stageId,
             int tasks,

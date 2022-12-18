@@ -67,7 +67,7 @@ public class TestFileBasedAccessControl
     {
         ConnectorAccessControl accessControl = createAccessControl("empty.json");
 
-        accessControl.checkCanCreateSchema(UNKNOWN, "unknown");
+        accessControl.checkCanCreateSchema(UNKNOWN, "unknown", ImmutableMap.of());
         accessControl.checkCanDropSchema(UNKNOWN, "unknown");
         accessControl.checkCanRenameSchema(UNKNOWN, "unknown", "new_unknown");
         accessControl.checkCanSetSchemaAuthorization(UNKNOWN, "unknown", new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
@@ -145,20 +145,21 @@ public class TestFileBasedAccessControl
     {
         ConnectorAccessControl accessControl = createAccessControl("schema.json");
 
-        accessControl.checkCanCreateSchema(ADMIN, "bob");
-        accessControl.checkCanCreateSchema(ADMIN, "staff");
-        accessControl.checkCanCreateSchema(ADMIN, "authenticated");
-        accessControl.checkCanCreateSchema(ADMIN, "test");
+        Map<String, Object> properties = ImmutableMap.of();
+        accessControl.checkCanCreateSchema(ADMIN, "bob", properties);
+        accessControl.checkCanCreateSchema(ADMIN, "staff", properties);
+        accessControl.checkCanCreateSchema(ADMIN, "authenticated", properties);
+        accessControl.checkCanCreateSchema(ADMIN, "test", properties);
 
-        accessControl.checkCanCreateSchema(BOB, "bob");
-        accessControl.checkCanCreateSchema(BOB, "staff");
-        accessControl.checkCanCreateSchema(BOB, "authenticated");
-        assertDenied(() -> accessControl.checkCanCreateSchema(BOB, "test"));
+        accessControl.checkCanCreateSchema(BOB, "bob", properties);
+        accessControl.checkCanCreateSchema(BOB, "staff", properties);
+        accessControl.checkCanCreateSchema(BOB, "authenticated", properties);
+        assertDenied(() -> accessControl.checkCanCreateSchema(BOB, "test", properties));
 
-        assertDenied(() -> accessControl.checkCanCreateSchema(CHARLIE, "bob"));
-        assertDenied(() -> accessControl.checkCanCreateSchema(CHARLIE, "staff"));
-        accessControl.checkCanCreateSchema(CHARLIE, "authenticated");
-        assertDenied(() -> accessControl.checkCanCreateSchema(CHARLIE, "test"));
+        assertDenied(() -> accessControl.checkCanCreateSchema(CHARLIE, "bob", properties));
+        assertDenied(() -> accessControl.checkCanCreateSchema(CHARLIE, "staff", properties));
+        accessControl.checkCanCreateSchema(CHARLIE, "authenticated", properties);
+        assertDenied(() -> accessControl.checkCanCreateSchema(CHARLIE, "test", properties));
 
         accessControl.checkCanDropSchema(ADMIN, "bob");
         accessControl.checkCanDropSchema(ADMIN, "staff");

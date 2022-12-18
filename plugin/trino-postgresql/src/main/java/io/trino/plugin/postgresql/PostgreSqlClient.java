@@ -67,6 +67,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.RewriteComparison;
 import io.trino.plugin.jdbc.expression.RewriteIn;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
 import io.trino.spi.TrinoException;
@@ -282,9 +283,10 @@ public class PostgreSqlClient
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
             TypeManager typeManager,
-            IdentifierMapping identifierMapping)
+            IdentifierMapping identifierMapping,
+            RemoteQueryModifier queryModifier)
     {
-        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, true);
+        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
         this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
@@ -369,7 +371,7 @@ public class PostgreSqlClient
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
-        execute(connection, format(
+        execute(session, connection, format(
                 "ALTER TABLE %s RENAME TO %s",
                 quoted(catalogName, remoteSchemaName, remoteTableName),
                 quoted(newRemoteTableName)));
@@ -970,6 +972,10 @@ public class PostgreSqlClient
             Map<JdbcColumnHandle, String> leftAssignments,
             JoinStatistics statistics)
     {
+        if (joinType == JoinType.FULL_OUTER) {
+            // FULL JOIN is only supported with merge-joinable or hash-joinable join conditions
+            return Optional.empty();
+        }
         return implementJoinCostAware(
                 session,
                 joinType,

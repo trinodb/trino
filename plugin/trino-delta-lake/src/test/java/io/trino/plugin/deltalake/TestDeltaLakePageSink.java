@@ -59,6 +59,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.Math.round;
 import static java.time.temporal.ChronoUnit.MINUTES;
@@ -137,23 +138,12 @@ public class TestDeltaLakePageSink
     private void writeToBlock(BlockBuilder blockBuilder, LineItemColumn column, LineItem lineItem)
     {
         switch (column.getType().getBase()) {
-            case IDENTIFIER:
-                BIGINT.writeLong(blockBuilder, column.getIdentifier(lineItem));
-                break;
-            case INTEGER:
-                INTEGER.writeLong(blockBuilder, column.getInteger(lineItem));
-                break;
-            case DATE:
-                DATE.writeLong(blockBuilder, column.getDate(lineItem));
-                break;
-            case DOUBLE:
-                DOUBLE.writeDouble(blockBuilder, column.getDouble(lineItem));
-                break;
-            case VARCHAR:
-                createUnboundedVarcharType().writeSlice(blockBuilder, Slices.utf8Slice(column.getString(lineItem)));
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported type " + column.getType());
+            case IDENTIFIER -> BIGINT.writeLong(blockBuilder, column.getIdentifier(lineItem));
+            case INTEGER -> INTEGER.writeLong(blockBuilder, column.getInteger(lineItem));
+            case DATE -> DATE.writeLong(blockBuilder, column.getDate(lineItem));
+            case DOUBLE -> DOUBLE.writeDouble(blockBuilder, column.getDouble(lineItem));
+            case VARCHAR -> createUnboundedVarcharType().writeSlice(blockBuilder, Slices.utf8Slice(column.getString(lineItem)));
+            default -> throw new IllegalArgumentException("Unsupported type " + column.getType());
         }
     }
 
@@ -181,7 +171,7 @@ public class TestDeltaLakePageSink
                 new TestingTypeManager(),
                 new NodeVersion("test-version"));
 
-        return provider.createPageSink(transaction, SESSION, tableHandle);
+        return provider.createPageSink(transaction, SESSION, tableHandle, TESTING_PAGE_SINK_ID);
     }
 
     private static List<DeltaLakeColumnHandle> getColumnHandles()
@@ -202,19 +192,12 @@ public class TestDeltaLakePageSink
 
     private static Type getTrinoType(TpchColumnType type)
     {
-        switch (type.getBase()) {
-            case IDENTIFIER:
-                return BIGINT;
-            case INTEGER:
-                return INTEGER;
-            case DATE:
-                return DATE;
-            case DOUBLE:
-                return DOUBLE;
-            case VARCHAR:
-                return createUnboundedVarcharType();
-            default:
-                throw new UnsupportedOperationException();
-        }
+        return switch (type.getBase()) {
+            case IDENTIFIER -> BIGINT;
+            case INTEGER -> INTEGER;
+            case DATE -> DATE;
+            case DOUBLE -> DOUBLE;
+            case VARCHAR -> createUnboundedVarcharType();
+        };
     }
 }

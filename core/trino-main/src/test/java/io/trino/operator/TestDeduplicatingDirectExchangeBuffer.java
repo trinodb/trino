@@ -25,7 +25,6 @@ import io.airlift.units.DataSize;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
-import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeManagerFactory;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
@@ -64,7 +63,7 @@ public class TestDeduplicatingDirectExchangeBuffer
     @BeforeClass
     public void beforeClass()
     {
-        exchangeManagerRegistry = new ExchangeManagerRegistry(new ExchangeHandleResolver());
+        exchangeManagerRegistry = new ExchangeManagerRegistry();
         exchangeManagerRegistry.addExchangeManagerFactory(new FileSystemExchangeManagerFactory());
         exchangeManagerRegistry.loadExchangeManager("filesystem", ImmutableMap.of(
                 "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
@@ -614,7 +613,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                 directExecutor(),
                 DataSize.of(100, BYTE),
                 RetryPolicy.QUERY,
-                new ExchangeManagerRegistry(new ExchangeHandleResolver()),
+                new ExchangeManagerRegistry(),
                 new QueryId("query"),
                 createRandomExchangeId())) {
             TaskId task = createTaskId(0, 0);
@@ -637,7 +636,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                 directExecutor(),
                 DataSize.of(100, BYTE),
                 RetryPolicy.QUERY,
-                new ExchangeManagerRegistry(new ExchangeHandleResolver()),
+                new ExchangeManagerRegistry(),
                 new QueryId("query"),
                 createRandomExchangeId())) {
             TaskId task = createTaskId(0, 0);

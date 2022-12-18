@@ -86,6 +86,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.round;
@@ -278,7 +279,7 @@ public class TestHivePageSink
 
     private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveConfig config, HiveMetastore metastore, Path outputPath, HiveWriterStats stats)
     {
-        LocationHandle locationHandle = new LocationHandle(outputPath, outputPath, false, DIRECT_TO_TARGET_NEW_DIRECTORY);
+        LocationHandle locationHandle = new LocationHandle(outputPath, outputPath, DIRECT_TO_TARGET_NEW_DIRECTORY);
         HiveOutputTableHandle handle = new HiveOutputTableHandle(
                 SCHEMA_NAME,
                 TABLE_NAME,
@@ -312,7 +313,7 @@ public class TestHivePageSink
                 new HiveEventClient(),
                 getHiveSessionProperties(config),
                 stats);
-        return provider.createPageSink(transaction, getHiveSession(config), handle);
+        return provider.createPageSink(transaction, getHiveSession(config), handle, TESTING_PAGE_SINK_ID);
     }
 
     private static List<HiveColumnHandle> getColumnHandles()

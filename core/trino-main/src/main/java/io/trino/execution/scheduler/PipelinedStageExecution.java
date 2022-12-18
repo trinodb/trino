@@ -346,7 +346,7 @@ public class PipelinedStageExecution
                         .findFirst()
                         .map(this::rewriteTransportFailure)
                         .map(ExecutionFailureInfo::toException)
-                        .orElse(new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
+                        .orElseGet(() -> new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
                 fail(failure);
                 break;
             case CANCELED:

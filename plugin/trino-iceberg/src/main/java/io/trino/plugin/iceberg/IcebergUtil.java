@@ -105,8 +105,6 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
-import static io.trino.plugin.iceberg.TrinoTypes.getNextValue;
-import static io.trino.plugin.iceberg.TrinoTypes.getPreviousValue;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
@@ -389,14 +387,14 @@ public final class IcebergUtil
         }
         if (!range.isLowUnbounded()) {
             Object boundedValue = range.getLowBoundedValue();
-            Optional<Object> adjacentValue = range.isLowInclusive() ? getPreviousValue(type, boundedValue) : getNextValue(type, boundedValue);
+            Optional<Object> adjacentValue = range.isLowInclusive() ? type.getPreviousValue(boundedValue) : type.getNextValue(boundedValue);
             if (adjacentValue.isEmpty() || yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), targetTypeEqualOperator)) {
                 return false;
             }
         }
         if (!range.isHighUnbounded()) {
             Object boundedValue = range.getHighBoundedValue();
-            Optional<Object> adjacentValue = range.isHighInclusive() ? getNextValue(type, boundedValue) : getPreviousValue(type, boundedValue);
+            Optional<Object> adjacentValue = range.isHighInclusive() ? type.getNextValue(boundedValue) : type.getPreviousValue(boundedValue);
             if (adjacentValue.isEmpty() || yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), targetTypeEqualOperator)) {
                 return false;
             }

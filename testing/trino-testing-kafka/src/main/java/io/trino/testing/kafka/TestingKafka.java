@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import io.airlift.log.Logger;
+import io.trino.testing.ResourcePresence;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -46,6 +47,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static org.testcontainers.containers.KafkaContainer.KAFKA_PORT;
@@ -67,6 +69,7 @@ public final class TestingKafka
     private final GenericContainer<?> schemaRegistry;
     private final boolean withSchemaRegistry;
     private final Closer closer = Closer.create();
+    private boolean stopped;
 
     public static TestingKafka create()
     {
@@ -130,6 +133,7 @@ public final class TestingKafka
 
     public void start()
     {
+        checkState(!stopped, "Cannot start again");
         kafka.start();
         if (withSchemaRegistry) {
             schemaRegistry.start();
@@ -141,6 +145,13 @@ public final class TestingKafka
             throws IOException
     {
         closer.close();
+        stopped = true;
+    }
+
+    @ResourcePresence
+    public boolean isNotStopped()
+    {
+        return !stopped;
     }
 
     public void createTopic(String topic)
@@ -203,7 +214,7 @@ public final class TestingKafka
         try (KafkaProducer<K, V> producer = createProducer(extraProducerProperties)) {
             Future<RecordMetadata> future = recordStream.map(record -> send(producer, record))
                     .reduce((first, second) -> second)
-                    .orElse(Futures.immediateFuture(null));
+                    .orElseGet(() -> Futures.immediateFuture(null));
             producer.flush();
             return future.get();
         }

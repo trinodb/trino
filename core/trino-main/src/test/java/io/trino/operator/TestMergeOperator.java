@@ -27,7 +27,6 @@ import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.TestingPagesSerdeFactory;
-import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
@@ -60,6 +59,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -88,14 +88,14 @@ public class TestMergeOperator
         serdeFactory = new TestingPagesSerdeFactory();
 
         taskBuffers = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(TestingTaskBuffer::new));
-        httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), executor);
+        httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers, serdeFactory), executor);
         exchangeClientFactory = new DirectExchangeClientFactory(
                 new NodeInfo("test"),
                 new FeaturesConfig(),
                 new DirectExchangeClientConfig(),
                 httpClient,
                 executor,
-                new ExchangeManagerRegistry(new ExchangeHandleResolver()));
+                new ExchangeManagerRegistry());
         orderingCompiler = new OrderingCompiler(new TypeOperators());
     }
 
@@ -367,7 +367,7 @@ public class TestMergeOperator
     }
 
     private static List<Page> pullAvailablePages(Operator operator)
-            throws InterruptedException
+            throws Exception
     {
         long endTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         List<Page> outputPages = new ArrayList<>();
@@ -388,6 +388,11 @@ public class TestMergeOperator
         // verify state
         assertFalse(operator.needsInput(), "Operator still wants input");
         assertTrue(operator.isFinished(), "Expected operator to be finished");
+
+        operator.close();
+        operator.getOperatorContext().destroy();
+
+        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), 0);
 
         return outputPages;
     }

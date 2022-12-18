@@ -39,7 +39,7 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -62,7 +62,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     {
         super(FileFormat.PARQUET);
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
-        this.schemaName = "test_iceberg_smoke_" + randomTableSuffix();
+        this.schemaName = "test_iceberg_smoke_" + randomNameSuffix();
         glueClient = AWSGlueAsyncClientBuilder.defaultClient();
     }
 

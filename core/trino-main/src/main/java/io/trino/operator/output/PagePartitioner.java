@@ -19,7 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.buffer.OutputBuffer;
-import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.PartitionFunction;
@@ -30,6 +30,7 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
+import io.trino.util.Ciphers;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
@@ -63,7 +64,7 @@ public class PagePartitioner
     private final int[] partitionChannels;
     @Nullable
     private final Block[] partitionConstantBlocks; // when null, no constants are present. Only non-null elements are constants
-    private final PagesSerde serde;
+    private final PageSerializer serializer;
     private final PageBuilder[] pageBuilders;
     private final PositionsAppenderPageBuilder[] positionsAppenders;
     private final boolean replicatesAnyRow;
@@ -85,7 +86,8 @@ public class PagePartitioner
             List<Type> sourceTypes,
             DataSize maxMemory,
             OperatorContext operatorContext,
-            PositionsAppenderFactory positionsAppenderFactory)
+            PositionsAppenderFactory positionsAppenderFactory,
+            Optional<Slice> exchangeEncryptionKey)
     {
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
         this.partitionChannels = Ints.toArray(requireNonNull(partitionChannels, "partitionChannels is null"));
@@ -103,7 +105,7 @@ public class PagePartitioner
         this.nullChannel = nullChannel.orElse(-1);
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
         this.sourceTypes = sourceTypes.toArray(new Type[0]);
-        this.serde = serdeFactory.createPagesSerde();
+        this.serializer = serdeFactory.createSerializer(exchangeEncryptionKey.map(Ciphers::deserializeAesEncryptionKey));
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
         //  Ensure partition channels align with constant arguments provided
@@ -159,6 +161,7 @@ public class PagePartitioner
         for (PageBuilder pageBuilder : pageBuilders) {
             sizeInBytes += pageBuilder.getRetainedSizeInBytes();
         }
+        sizeInBytes += serializer.getRetainedSizeInBytes();
         return sizeInBytes;
     }
 
@@ -476,49 +479,45 @@ public class PagePartitioner
 
     private void flushPageBuilders(boolean force)
     {
-        try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
-            // add all full pages to output buffer
-            for (int partition = 0; partition < pageBuilders.length; partition++) {
-                PageBuilder partitionPageBuilder = pageBuilders[partition];
-                if (!partitionPageBuilder.isEmpty() && (force || partitionPageBuilder.isFull())) {
-                    Page pagePartition = partitionPageBuilder.build();
-                    partitionPageBuilder.reset();
+        // add all full pages to output buffer
+        for (int partition = 0; partition < pageBuilders.length; partition++) {
+            PageBuilder partitionPageBuilder = pageBuilders[partition];
+            if (!partitionPageBuilder.isEmpty() && (force || partitionPageBuilder.isFull())) {
+                Page pagePartition = partitionPageBuilder.build();
+                partitionPageBuilder.reset();
 
-                    enqueuePage(pagePartition, partition, context);
-                }
+                enqueuePage(pagePartition, partition);
             }
         }
     }
 
     private void flushPositionsAppenders(boolean force)
     {
-        try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
-            // add all full pages to output buffer
-            for (int partition = 0; partition < positionsAppenders.length; partition++) {
-                PositionsAppenderPageBuilder partitionPageBuilder = positionsAppenders[partition];
-                if (!partitionPageBuilder.isEmpty() && (force || partitionPageBuilder.isFull())) {
-                    Page pagePartition = partitionPageBuilder.build();
-                    enqueuePage(pagePartition, partition, context);
-                }
+        // add all full pages to output buffer
+        for (int partition = 0; partition < positionsAppenders.length; partition++) {
+            PositionsAppenderPageBuilder partitionPageBuilder = positionsAppenders[partition];
+            if (!partitionPageBuilder.isEmpty() && (force || partitionPageBuilder.isFull())) {
+                Page pagePartition = partitionPageBuilder.build();
+                enqueuePage(pagePartition, partition);
             }
         }
     }
 
-    private void enqueuePage(Page pagePartition, int partition, PagesSerde.PagesSerdeContext context)
+    private void enqueuePage(Page pagePartition, int partition)
     {
         operatorContext.recordOutput(pagePartition.getSizeInBytes(), pagePartition.getPositionCount());
 
-        outputBuffer.enqueue(partition, splitAndSerializePage(context, pagePartition));
+        outputBuffer.enqueue(partition, splitAndSerializePage(pagePartition));
         pagesAdded.incrementAndGet();
         rowsAdded.addAndGet(pagePartition.getPositionCount());
     }
 
-    private List<Slice> splitAndSerializePage(PagesSerde.PagesSerdeContext context, Page page)
+    private List<Slice> splitAndSerializePage(Page page)
     {
         List<Page> split = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
         ImmutableList.Builder<Slice> builder = ImmutableList.builderWithExpectedSize(split.size());
         for (Page chunk : split) {
-            builder.add(serde.serialize(context, chunk));
+            builder.add(serializer.serialize(chunk));
         }
         return builder.build();
     }

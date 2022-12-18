@@ -42,7 +42,6 @@ import static io.trino.metadata.MetadataListing.getMaterializedViews;
 import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -57,7 +56,7 @@ public class MaterializedViewSystemTable
             .column("storage_catalog", createUnboundedVarcharType())
             .column("storage_schema", createUnboundedVarcharType())
             .column("storage_table", createUnboundedVarcharType())
-            .column("is_fresh", BOOLEAN)
+            .column("freshness", createUnboundedVarcharType())
             .column("comment", createUnboundedVarcharType())
             .column("definition", createUnboundedVarcharType())
             .build();
@@ -138,7 +137,7 @@ public class MaterializedViewSystemTable
                 definition.getStorageTable()
                         .map(storageTable -> storageTable.getSchemaTableName().getTableName())
                         .orElse(""),
-                freshness.isMaterializedViewFresh(),
+                freshness.getFreshness().name(),
                 definition.getComment().orElse(""),
                 definition.getOriginalSql()
         };

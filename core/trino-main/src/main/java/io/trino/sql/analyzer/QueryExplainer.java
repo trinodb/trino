@@ -14,6 +14,7 @@
 package io.trino.sql.analyzer;
 
 import io.trino.Session;
+import io.trino.client.NodeVersion;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.warnings.WarningCollector;
@@ -62,6 +63,7 @@ public class QueryExplainer
     private final StatementAnalyzerFactory statementAnalyzerFactory;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
+    private final NodeVersion version;
 
     QueryExplainer(
             PlanOptimizersFactory planOptimizersFactory,
@@ -70,7 +72,8 @@ public class QueryExplainer
             AnalyzerFactory analyzerFactory,
             StatementAnalyzerFactory statementAnalyzerFactory,
             StatsCalculator statsCalculator,
-            CostCalculator costCalculator)
+            CostCalculator costCalculator,
+            NodeVersion version)
     {
         this.planOptimizers = requireNonNull(planOptimizersFactory.get(), "planOptimizers is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
@@ -79,6 +82,7 @@ public class QueryExplainer
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+        this.version = requireNonNull(version, "version is null");
     }
 
     public void validate(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
@@ -96,14 +100,15 @@ public class QueryExplainer
         return switch (planType) {
             case LOGICAL -> {
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
-                yield PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), plannerContext.getMetadata(), plannerContext.getFunctionManager(), plan.getStatsAndCosts(), session, 0, false);
+                yield PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), plannerContext.getMetadata(), plannerContext.getFunctionManager(), plan.getStatsAndCosts(), session, 0, false, Optional.of(version));
             }
             case DISTRIBUTED -> PlanPrinter.textDistributedPlan(
                     getDistributedPlan(session, statement, parameters, warningCollector),
                     plannerContext.getMetadata(),
                     plannerContext.getFunctionManager(),
                     session,
-                    false);
+                    false,
+                    version);
             case IO -> textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector), plannerContext, session);
             default -> throw new IllegalArgumentException("Unhandled plan type: " + planType);
         };

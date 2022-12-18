@@ -45,10 +45,16 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 public class TestingTableFunctions
 {
     private static final String SCHEMA_NAME = "system";
-    private static final ConnectorTableFunctionHandle HANDLE = new ConnectorTableFunctionHandle() {};
+    private static final String TABLE_NAME = "table";
+    private static final String COLUMN_NAME = "column";
+    private static final ConnectorTableFunctionHandle HANDLE = new TestingTableFunctionHandle();
     private static final TableFunctionAnalysis ANALYSIS = TableFunctionAnalysis.builder()
             .handle(HANDLE)
-            .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN)))))
+            .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(COLUMN_NAME, Optional.of(BOOLEAN)))))
+            .build();
+    private static final TableFunctionAnalysis NO_DESCRIPTOR_ANALYSIS = TableFunctionAnalysis.builder()
+            .handle(HANDLE)
+            .requiredColumns("INPUT", ImmutableList.of(0))
             .build();
 
     /**
@@ -159,7 +165,11 @@ public class TestingTableFunctions
         @Override
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
-            return ANALYSIS;
+            return TableFunctionAnalysis.builder()
+                    .handle(HANDLE)
+                    .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(COLUMN_NAME, Optional.of(BOOLEAN)))))
+                    .requiredColumns("INPUT", ImmutableList.of(0))
+                    .build();
         }
     }
 
@@ -182,7 +192,11 @@ public class TestingTableFunctions
         @Override
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
-            return ANALYSIS;
+            return TableFunctionAnalysis.builder()
+                    .handle(HANDLE)
+                    .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(COLUMN_NAME, Optional.of(BOOLEAN)))))
+                    .requiredColumns("INPUT", ImmutableList.of(0))
+                    .build();
         }
     }
 
@@ -230,7 +244,12 @@ public class TestingTableFunctions
         @Override
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
-            return ANALYSIS;
+            return TableFunctionAnalysis.builder()
+                    .handle(HANDLE)
+                    .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(COLUMN_NAME, Optional.of(BOOLEAN)))))
+                    .requiredColumns("INPUT1", ImmutableList.of(0))
+                    .requiredColumns("INPUT2", ImmutableList.of(0))
+                    .build();
         }
     }
 
@@ -252,9 +271,7 @@ public class TestingTableFunctions
         @Override
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
-            return TableFunctionAnalysis.builder()
-                    .handle(HANDLE)
-                    .build();
+            return NO_DESCRIPTOR_ANALYSIS;
         }
     }
 
@@ -300,9 +317,7 @@ public class TestingTableFunctions
         @Override
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
-            return TableFunctionAnalysis.builder()
-                    .handle(HANDLE)
-                    .build();
+            return NO_DESCRIPTOR_ANALYSIS;
         }
     }
 
@@ -326,9 +341,97 @@ public class TestingTableFunctions
         @Override
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
+            return NO_DESCRIPTOR_ANALYSIS;
+        }
+    }
+
+    public static class DifferentArgumentTypesFunction
+            extends AbstractConnectorTableFunction
+    {
+        public DifferentArgumentTypesFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "different_arguments_function",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT_1")
+                                    .passThroughColumns()
+                                    .build(),
+                            DescriptorArgumentSpecification.builder()
+                                    .name("LAYOUT")
+                                    .build(),
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT_2")
+                                    .rowSemantics()
+                                    .passThroughColumns()
+                                    .build(),
+                            ScalarArgumentSpecification.builder()
+                                    .name("ID")
+                                    .type(BIGINT)
+                                    .build(),
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT_3")
+                                    .pruneWhenEmpty()
+                                    .build()),
+                    GENERIC_TABLE);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
             return TableFunctionAnalysis.builder()
                     .handle(HANDLE)
+                    .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(COLUMN_NAME, Optional.of(BOOLEAN)))))
+                    .requiredColumns("INPUT_1", ImmutableList.of(0))
+                    .requiredColumns("INPUT_2", ImmutableList.of(0))
+                    .requiredColumns("INPUT_3", ImmutableList.of(0))
                     .build();
+        }
+    }
+
+    public static class RequiredColumnsFunction
+            extends AbstractConnectorTableFunction
+    {
+        public RequiredColumnsFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "required_columns_function",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT")
+                                    .build()),
+                    GENERIC_TABLE);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(HANDLE)
+                    .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN)))))
+                    .requiredColumns("INPUT", ImmutableList.of(0, 1))
+                    .build();
+        }
+    }
+
+    public static class TestingTableFunctionHandle
+            implements ConnectorTableFunctionHandle
+    {
+        private final MockConnectorTableHandle tableHandle;
+
+        public TestingTableFunctionHandle()
+        {
+            this.tableHandle = new MockConnectorTableHandle(
+                    new SchemaTableName(SCHEMA_NAME, TABLE_NAME),
+                    TupleDomain.all(),
+                    Optional.of(ImmutableList.of(new MockConnectorColumnHandle(COLUMN_NAME, BOOLEAN))));
+        }
+
+        public MockConnectorTableHandle getTableHandle()
+        {
+            return tableHandle;
         }
     }
 }

@@ -152,7 +152,7 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName)
+    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName, Map<String, Object> properties)
     {
         denyCreateSchema(schemaName.toString());
     }

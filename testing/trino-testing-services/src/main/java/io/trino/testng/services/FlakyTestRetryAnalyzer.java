@@ -55,7 +55,7 @@ public class FlakyTestRetryAnalyzer
 
         Optional<String> enabledSystemPropertyValue = Optional.ofNullable(System.getProperty(ENABLED_SYSTEM_PROPERTY));
         if (!enabledSystemPropertyValue.map(Boolean::parseBoolean)
-                .orElse(System.getenv("CONTINUOUS_INTEGRATION") != null)) {
+                .orElseGet(() -> System.getenv("CONTINUOUS_INTEGRATION") != null)) {
             log.info(
                     "FlakyTestRetryAnalyzer not enabled: " +
                             "CONTINUOUS_INTEGRATION environment is not detected or " +

@@ -14,12 +14,12 @@
 package io.trino.sql.planner.planprinter;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.connector.CatalogHandle;
 import io.trino.execution.TableInfo;
 import io.trino.metadata.IndexHandle;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.type.Type;

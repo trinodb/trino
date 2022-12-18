@@ -244,7 +244,7 @@ public class TableWriterNode
         @Override
         public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
         {
-            return layout.map(tableLayout -> tableLayout.getLayout().isMultipleWritersPerPartitionSupported()).orElse(true);
+            return layout.map(tableLayout -> tableLayout.getLayout().supportsMultipleWritersPerPartition()).orElse(true);
         }
 
         public Optional<TableLayout> getLayout()
@@ -367,7 +367,7 @@ public class TableWriterNode
         public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
         {
             return metadata.getInsertLayout(session, handle)
-                    .map(layout -> layout.getLayout().isMultipleWritersPerPartitionSupported())
+                    .map(layout -> layout.getLayout().supportsMultipleWritersPerPartition())
                     .orElse(true);
         }
     }
@@ -481,7 +481,7 @@ public class TableWriterNode
         public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
         {
             return metadata.getInsertLayout(session, storageTableHandle)
-                    .map(layout -> layout.getLayout().isMultipleWritersPerPartitionSupported())
+                    .map(layout -> layout.getLayout().supportsMultipleWritersPerPartition())
                     .orElse(true);
         }
     }
@@ -547,7 +547,7 @@ public class TableWriterNode
         public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
         {
             return metadata.getInsertLayout(session, tableHandle)
-                    .map(layout -> layout.getLayout().isMultipleWritersPerPartitionSupported())
+                    .map(layout -> layout.getLayout().supportsMultipleWritersPerPartition())
                     .orElse(true);
         }
     }
@@ -741,7 +741,7 @@ public class TableWriterNode
         public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
         {
             return metadata.getLayoutForTableExecute(session, executeHandle)
-                    .map(layout -> layout.getLayout().isMultipleWritersPerPartitionSupported())
+                    .map(layout -> layout.getLayout().supportsMultipleWritersPerPartition())
                     .orElse(true);
         }
     }
@@ -812,23 +812,26 @@ public class TableWriterNode
 
     public static class MergeParadigmAndTypes
     {
-        private final RowChangeParadigm paradigm;
+        private final Optional<RowChangeParadigm> paradigm;
         private final List<Type> columnTypes;
+        private final List<String> columnNames;
         private final Type rowIdType;
 
         @JsonCreator
         public MergeParadigmAndTypes(
-                @JsonProperty("paradigm") RowChangeParadigm paradigm,
+                @JsonProperty("paradigm") Optional<RowChangeParadigm> paradigm,
                 @JsonProperty("columnTypes") List<Type> columnTypes,
+                @JsonProperty("columnNames") List<String> columnNames,
                 @JsonProperty("rowIdType") Type rowIdType)
         {
             this.paradigm = requireNonNull(paradigm, "paradigm is null");
             this.columnTypes = requireNonNull(columnTypes, "columnTypes is null");
+            this.columnNames = requireNonNull(columnNames, "columnNames is null");
             this.rowIdType = requireNonNull(rowIdType, "rowIdType is null");
         }
 
         @JsonProperty
-        public RowChangeParadigm getParadigm()
+        public Optional<RowChangeParadigm> getParadigm()
         {
             return paradigm;
         }
@@ -837,6 +840,12 @@ public class TableWriterNode
         public List<Type> getColumnTypes()
         {
             return columnTypes;
+        }
+
+        @JsonProperty
+        public List<String> getColumnNames()
+        {
+            return columnNames;
         }
 
         @JsonProperty

@@ -107,6 +107,7 @@ import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Collections.unmodifiableList;
@@ -988,7 +989,7 @@ public class TestHiveGlueMetastore
             ConnectorOutputTableHandle createTableHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty(), NO_RETRIES);
 
             // write data
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, createTableHandle);
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, createTableHandle, TESTING_PAGE_SINK_ID);
             MaterializedResult data = MaterializedResult.resultBuilder(session, BigintType.BIGINT)
                     .row(1L)
                     .row(2L)
@@ -1033,7 +1034,7 @@ public class TestHiveGlueMetastore
             ConnectorOutputTableHandle createTableHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty(), NO_RETRIES);
 
             // write data
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, createTableHandle);
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, createTableHandle, TESTING_PAGE_SINK_ID);
             MaterializedResult data = MaterializedResult.resultBuilder(session, BigintType.BIGINT, BigintType.BIGINT)
                     .row(1L, 1L)
                     .row(2L, 1L)

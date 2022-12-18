@@ -44,7 +44,7 @@ import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -277,7 +277,7 @@ public class TestBigQueryTypeMapping
     @Test
     public void testInvalidNumericScaleType()
     {
-        String tableName = "test.invalid_numeric_scale_" + randomTableSuffix();
+        String tableName = "test.invalid_numeric_scale_" + randomNameSuffix();
         try {
             assertThatThrownBy(() -> getBigQuerySqlExecutor().execute(format("CREATE TABLE %s (invalid_type NUMERIC(38, 10))", tableName)))
                     .hasMessageContaining("In NUMERIC(P, S), S must be between 0 and 9");

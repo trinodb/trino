@@ -32,7 +32,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
@@ -330,12 +329,6 @@ public class TestingMetadata
 
     @Override
     public void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption) {}
-
-    @Override
-    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
-    {
-        return new ConnectorTableProperties();
-    }
 
     public void clear()
     {

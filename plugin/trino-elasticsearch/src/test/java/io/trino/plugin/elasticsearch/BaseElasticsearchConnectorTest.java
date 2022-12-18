@@ -46,8 +46,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -85,6 +85,16 @@ public abstract class BaseElasticsearchConnectorTest
                 ImmutableMap.of("elasticsearch.legacy-pass-through-query.enabled", "true"),
                 3,
                 catalogName);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public final void destroy()
+            throws IOException
+    {
+        elasticsearch.stop();
+        elasticsearch = null;
+        client.close();
+        client = null;
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")
@@ -138,14 +148,6 @@ public abstract class BaseElasticsearchConnectorTest
                 {500},
                 {1000}
         };
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-            throws IOException
-    {
-        elasticsearch.stop();
-        client.close();
     }
 
     @Test
@@ -476,7 +478,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testAsRawJson()
             throws IOException
     {
-        String indexName = "raw_json_" + randomTableSuffix();
+        String indexName = "raw_json_" + randomNameSuffix();
 
         @Language("JSON")
         String mapping = "" +
@@ -726,7 +728,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testAsRawJsonForAllPrimitiveTypes()
             throws IOException
     {
-        String indexName = "raw_json_primitive_" + randomTableSuffix();
+        String indexName = "raw_json_primitive_" + randomNameSuffix();
 
         @Language("JSON")
         String mapping = "" +
@@ -832,7 +834,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testAsRawJsonCases()
             throws IOException
     {
-        String indexName = "raw_json_cases_" + randomTableSuffix();
+        String indexName = "raw_json_cases_" + randomNameSuffix();
 
         @Language("JSON")
         String mapping = "" +
@@ -893,7 +895,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testAsRawJsonAndIsArraySameFieldException()
             throws IOException
     {
-        String indexName = "raw_json_array_exception" + randomTableSuffix();
+        String indexName = "raw_json_array_exception" + randomNameSuffix();
 
         @Language("JSON")
         String mapping = "" +
@@ -1731,7 +1733,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testAlias()
             throws IOException
     {
-        String aliasName = format("alias_%s", randomTableSuffix());
+        String aliasName = format("alias_%s", randomNameSuffix());
         addAlias("orders", aliasName);
 
         assertQuery(

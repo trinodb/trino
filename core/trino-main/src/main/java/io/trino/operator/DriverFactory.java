@@ -18,6 +18,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -96,12 +97,37 @@ public class DriverFactory
     {
         checkState(!noMoreDrivers, "noMoreDrivers is already set");
         requireNonNull(driverContext, "driverContext is null");
-        ImmutableList.Builder<Operator> operators = ImmutableList.builder();
-        for (OperatorFactory operatorFactory : operatorFactories) {
-            Operator operator = operatorFactory.createOperator(driverContext);
-            operators.add(operator);
+        List<Operator> operators = new ArrayList<>();
+        try {
+            for (OperatorFactory operatorFactory : operatorFactories) {
+                Operator operator = operatorFactory.createOperator(driverContext);
+                operators.add(operator);
+            }
+            return Driver.createDriver(driverContext, operators);
         }
-        return Driver.createDriver(driverContext, operators.build());
+        catch (Throwable failure) {
+            for (Operator operator : operators) {
+                try {
+                    operator.close();
+                }
+                catch (Throwable closeFailure) {
+                    if (failure != closeFailure) {
+                        failure.addSuppressed(closeFailure);
+                    }
+                }
+            }
+            for (OperatorContext operatorContext : driverContext.getOperatorContexts()) {
+                try {
+                    operatorContext.destroy();
+                }
+                catch (Throwable destroyFailure) {
+                    if (failure != destroyFailure) {
+                        failure.addSuppressed(destroyFailure);
+                    }
+                }
+            }
+            throw failure;
+        }
     }
 
     public synchronized void noMoreDrivers()

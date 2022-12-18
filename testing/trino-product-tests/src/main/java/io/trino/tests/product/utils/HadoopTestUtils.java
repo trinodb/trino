@@ -29,6 +29,10 @@ public final class HadoopTestUtils
 
     private static final Logger log = Logger.get(HiveProductTest.class);
 
+    public static final String ERROR_READING_FROM_HIVE_ISSUE = "https://github.com/trinodb/trino/issues/7535";
+    @Language("RegExp")
+    public static final String ERROR_READING_FROM_HIVE_MATCH = "FAILED: Execution Error, return code 2 from org.apache.hadoop.hive.ql.exec.mr.MapRedTask";
+
     public static final String ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE = "https://github.com/trinodb/trino/issues/4936";
     @Language("RegExp")
     public static final String ERROR_COMMITTING_WRITE_TO_HIVE_MATCH =

@@ -18,10 +18,10 @@ import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.TopNRankingNode.RankingType;
-import io.trino.sql.planner.plan.WindowNode;
 
 import java.util.List;
 import java.util.Map;
@@ -37,7 +37,7 @@ import static java.util.Objects.requireNonNull;
 public class TopNRankingMatcher
         implements Matcher
 {
-    private final Optional<ExpectedValueProvider<WindowNode.Specification>> specification;
+    private final Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification;
     private final Optional<SymbolAlias> rankingSymbol;
     private final Optional<RankingType> rankingType;
     private final Optional<Integer> maxRankingPerPartition;
@@ -45,7 +45,7 @@ public class TopNRankingMatcher
     private final Optional<Optional<SymbolAlias>> hashSymbol;
 
     private TopNRankingMatcher(
-            Optional<ExpectedValueProvider<WindowNode.Specification>> specification,
+            Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification,
             Optional<SymbolAlias> rankingSymbol,
             Optional<RankingType> rankingType,
             Optional<Integer> maxRankingPerPartition,
@@ -74,7 +74,7 @@ public class TopNRankingMatcher
         TopNRankingNode topNRankingNode = (TopNRankingNode) node;
 
         if (specification.isPresent()) {
-            WindowNode.Specification expected = specification.get().getExpectedValue(symbolAliases);
+            DataOrganizationSpecification expected = specification.get().getExpectedValue(symbolAliases);
             if (!expected.equals(topNRankingNode.getSpecification())) {
                 return NO_MATCH;
             }
@@ -131,7 +131,7 @@ public class TopNRankingMatcher
     public static class Builder
     {
         private final PlanMatchPattern source;
-        private Optional<ExpectedValueProvider<WindowNode.Specification>> specification = Optional.empty();
+        private Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification = Optional.empty();
         private Optional<SymbolAlias> rankingSymbol = Optional.empty();
         private Optional<RankingType> rankingType = Optional.empty();
         private Optional<Integer> maxRankingPerPartition = Optional.empty();

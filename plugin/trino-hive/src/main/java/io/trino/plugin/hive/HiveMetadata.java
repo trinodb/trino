@@ -262,6 +262,7 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyOnline;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.fromHivePrivilegeInfos;
+import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.PartitionUpdateInfo;
 import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.cleanExtraOutputFiles;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
@@ -352,6 +353,8 @@ public class HiveMetadata
     private static final String CSV_ESCAPE_KEY = OpenCSVSerde.ESCAPECHAR;
 
     private static final String AUTO_PURGE_KEY = "auto.purge";
+
+    public static final String MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE = "Modifying Hive table rows is only supported for transactional tables";
 
     private final CatalogName catalogName;
     private final SemiTransactionalHiveMetastore metastore;
@@ -868,14 +871,44 @@ public class HiveMetadata
             return locationUri;
         });
 
+        String queryId = session.getQueryId();
         Database database = Database.builder()
                 .setDatabaseName(schemaName)
                 .setLocation(location)
                 .setOwnerType(accessControlMetadata.isUsingSystemSecurity() ? Optional.empty() : Optional.of(owner.getType()))
                 .setOwnerName(accessControlMetadata.isUsingSystemSecurity() ? Optional.empty() : Optional.of(owner.getName()))
+                .setParameters(ImmutableMap.of(PRESTO_QUERY_ID_NAME, queryId))
                 .build();
 
-        metastore.createDatabase(database);
+        // Ensure the database has queryId set. This is relied on for exception handling
+        verify(
+                getQueryId(database).orElseThrow(() -> new IllegalArgumentException("Query id is not present")).equals(queryId),
+                "Database does not have correct query id set",
+                database);
+
+        try {
+            metastore.createDatabase(database);
+        }
+        catch (SchemaAlreadyExistsException e) {
+            // Ignore SchemaAlreadyExistsException when database looks like created by us.
+            // This may happen when an actually successful metastore create call is retried
+            // e.g. because of a timeout on our side.
+            Optional<Database> existingDatabase = metastore.getDatabase(schemaName);
+            if (existingDatabase.isEmpty() || !isCreatedBy(existingDatabase.get(), queryId)) {
+                throw e;
+            }
+        }
+    }
+
+    private static Optional<String> getQueryId(Database database)
+    {
+        return Optional.ofNullable(database.getParameters().get(PRESTO_QUERY_ID_NAME));
+    }
+
+    private static boolean isCreatedBy(Database database, String queryId)
+    {
+        Optional<String> databaseQueryId = getQueryId(database);
+        return databaseQueryId.isPresent() && databaseQueryId.get().equals(queryId);
     }
 
     @Override
@@ -904,6 +937,7 @@ public class HiveMetadata
         String tableName = schemaTableName.getTableName();
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
+        boolean isTransactional = isTransactional(tableMetadata.getProperties()).orElse(false);
 
         if (bucketProperty.isPresent() && getAvroSchemaUrl(tableMetadata.getProperties()) != null) {
             throw new TrinoException(NOT_SUPPORTED, "Bucketing columns not supported when Avro schema url is set");
@@ -911,6 +945,10 @@ public class HiveMetadata
 
         if (bucketProperty.isPresent() && getAvroSchemaLiteral(tableMetadata.getProperties()) != null) {
             throw new TrinoException(NOT_SUPPORTED, "Bucketing/Partitioning columns not spported when Avro schema literal is set");
+        }
+
+        if (isTransactional) {
+            metastore.checkSupportsHiveAcidTransactions();
         }
 
         validateTimestampColumns(tableMetadata.getColumns(), getTimestampPrecision(session));
@@ -941,13 +979,11 @@ public class HiveMetadata
         }
         else {
             external = false;
-            boolean isTransactional = isTransactional(tableMetadata.getProperties()).orElse(false);
             if (isTransactional && isDelegateTransactionalManagedTableLocationToMetastore(session)) {
                 targetPath = Optional.empty();
             }
             else {
-                LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, Optional.empty());
-                targetPath = Optional.of(locationService.getQueryWriteInfo(locationHandle).getTargetPath());
+                targetPath = Optional.of(locationService.forNewTable(metastore, session, schemaName, tableName));
             }
         }
 
@@ -1484,6 +1520,10 @@ public class HiveMetadata
         }
 
         boolean isTransactional = isTransactional(tableMetadata.getProperties()).orElse(false);
+        if (isTransactional) {
+            metastore.checkSupportsHiveAcidTransactions();
+        }
+
         if (isTransactional && externalLocation.isEmpty() && isDelegateTransactionalManagedTableLocationToMetastore(session)) {
             throw new TrinoException(NOT_SUPPORTED, "CREATE TABLE AS is not supported for transactional tables without explicit location if location determining is delegated to metastore");
         }
@@ -1536,7 +1576,7 @@ public class HiveMetadata
                 .collect(toImmutableList());
         checkPartitionTypesSupported(partitionColumns);
 
-        LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, externalLocation);
+        LocationHandle locationHandle = locationService.forNewTableAsSelect(metastore, session, schemaName, tableName, externalLocation);
 
         AcidTransaction transaction = isTransactional ? forCreateTable() : NO_ACID_TRANSACTION;
 
@@ -1891,7 +1931,7 @@ public class HiveMetadata
         }
         // TODO: At some point we should add detection to see if the metastore supports
         //  transactional tables and just say merge isn't supported in the HMS
-        throw new TrinoException(NOT_SUPPORTED, "Hive merge is only supported for transactional tables");
+        throw new TrinoException(NOT_SUPPORTED, MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
@@ -1902,11 +1942,11 @@ public class HiveMetadata
         Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
-        if (!isTransactionalTable(table.getParameters())) {
-            throw new TrinoException(NOT_SUPPORTED, "Hive merge is only supported for transactional tables");
+        if (!isFullAcidTable(table.getParameters())) {
+            throw new TrinoException(NOT_SUPPORTED, MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
         }
 
-        HiveInsertTableHandle insertHandle = beginInsertOrMerge(session, tableHandle, retryMode, "Merging", true);
+        HiveInsertTableHandle insertHandle = beginInsertOrMerge(session, tableHandle, retryMode, "Merging into", true);
         return new HiveMergeTableHandle(hiveTableHandle.withTransaction(insertHandle.getTransaction()), insertHandle);
     }
 
@@ -1949,7 +1989,7 @@ public class HiveMetadata
     @Override
     public HiveInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
-        return beginInsertOrMerge(session, tableHandle, retryMode, "Inserting", false);
+        return beginInsertOrMerge(session, tableHandle, retryMode, "Inserting into", false);
     }
 
     private HiveInsertTableHandle beginInsertOrMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode, String description, boolean isForMerge)
@@ -1962,19 +2002,19 @@ public class HiveMetadata
 
         for (Column column : table.getDataColumns()) {
             if (!isWritableType(column.getType())) {
-                throw new TrinoException(NOT_SUPPORTED, format("%s into Hive table %s with column type %s not supported", description, tableName, column.getType()));
+                throw new TrinoException(NOT_SUPPORTED, format("%s Hive table %s with column type %s not supported", description, tableName, column.getType()));
             }
         }
 
         boolean isTransactional = isTransactionalTable(table.getParameters());
         if (isTransactional && retryMode != NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "Inserting into Hive transactional tables is not supported with query retries enabled");
+            throw new TrinoException(NOT_SUPPORTED, description + " Hive transactional tables is not supported with query retries enabled");
         }
         if (isTransactional && !autoCommit) {
-            throw new TrinoException(NOT_SUPPORTED, "Inserting into Hive transactional tables is not supported in explicit transactions (use autocommit mode)");
+            throw new TrinoException(NOT_SUPPORTED, description + " Hive transactional tables is not supported in explicit transactions (use autocommit mode)");
         }
         if (isSparkBucketedTable(table)) {
-            throw new TrinoException(NOT_SUPPORTED, "Inserting into Spark bucketed tables is not supported");
+            throw new TrinoException(NOT_SUPPORTED, description + " Spark bucketed tables is not supported");
         }
 
         List<HiveColumnHandle> handles = hiveColumnHandles(table, typeManager, getTimestampPrecision(session)).stream()
@@ -1984,11 +2024,11 @@ public class HiveMetadata
         HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table);
         Optional.ofNullable(table.getParameters().get(SKIP_HEADER_COUNT_KEY)).map(Integer::parseInt).ifPresent(headerSkipCount -> {
             if (headerSkipCount > 1) {
-                throw new TrinoException(NOT_SUPPORTED, format("%s into Hive table with value of %s property greater than 1 is not supported", description, SKIP_HEADER_COUNT_KEY));
+                throw new TrinoException(NOT_SUPPORTED, format("%s Hive table with value of %s property greater than 1 is not supported", description, SKIP_HEADER_COUNT_KEY));
             }
         });
         if (table.getParameters().containsKey(SKIP_FOOTER_COUNT_KEY)) {
-            throw new TrinoException(NOT_SUPPORTED, format("%s into Hive table with %s property not supported", description, SKIP_FOOTER_COUNT_KEY));
+            throw new TrinoException(NOT_SUPPORTED, format("%s Hive table with %s property not supported", description, SKIP_FOOTER_COUNT_KEY));
         }
         LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
 
@@ -2095,6 +2135,7 @@ public class HiveMetadata
                 .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager)));
         Map<List<String>, ComputedStatistics> partitionComputedStatistics = createComputedStatisticsToPartitionMap(computedStatistics, partitionedBy, columnTypes);
 
+        ImmutableList.Builder<PartitionUpdateInfo> partitionUpdateInfosBuilder = ImmutableList.builder();
         for (PartitionUpdate partitionUpdate : partitionUpdates) {
             if (partitionUpdate.getName().isEmpty()) {
                 // insert into unpartitioned table
@@ -2140,15 +2181,12 @@ public class HiveMetadata
                         partitionUpdate.getStatistics(),
                         columnTypes,
                         getColumnStatistics(partitionComputedStatistics, partitionValues));
-                metastore.finishInsertIntoExistingPartition(
-                        session,
-                        handle.getSchemaName(),
-                        handle.getTableName(),
-                        partitionValues,
-                        partitionUpdate.getWritePath(),
-                        partitionUpdate.getFileNames(),
-                        partitionStatistics,
-                        handle.isRetriesEnabled());
+                partitionUpdateInfosBuilder.add(
+                        new PartitionUpdateInfo(
+                                partitionValues,
+                                partitionUpdate.getWritePath(),
+                                partitionUpdate.getFileNames(),
+                                partitionStatistics));
             }
             else if (partitionUpdate.getUpdateMode() == NEW || partitionUpdate.getUpdateMode() == OVERWRITE) {
                 // insert into new partition or overwrite existing partition
@@ -2180,6 +2218,16 @@ public class HiveMetadata
             else {
                 throw new IllegalArgumentException(format("Unsupported update mode: %s", partitionUpdate.getUpdateMode()));
             }
+        }
+
+        List<PartitionUpdateInfo> partitionUpdateInfos = partitionUpdateInfosBuilder.build();
+        if (!partitionUpdateInfos.isEmpty()) {
+            metastore.finishInsertIntoExistingPartitions(
+                    session,
+                    handle.getSchemaName(),
+                    handle.getTableName(),
+                    partitionUpdateInfos,
+                    handle.isRetriesEnabled());
         }
         return table;
     }
@@ -2288,10 +2336,6 @@ public class HiveMetadata
             // unsafe due to non transactional nature of committing changes done to Hive table. If Trino looses connectivity to HDFS cluster while deleting
             // post-optimize data files duplicate rows will be left in table and manual cleanup from user will be required.
             throw new TrinoException(NOT_SUPPORTED, "OPTIMIZE procedure must be explicitly enabled via " + NON_TRANSACTIONAL_OPTIMIZE_ENABLED + " session property");
-        }
-
-        if (retryMode != NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "OPTIMIZE procedure is not supported with query retries enabled");
         }
 
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
@@ -2417,6 +2461,7 @@ public class HiveMetadata
         // Support for bucketed tables disabled mostly so we do not need to think about grouped execution in an initial version. Possibly no change apart from testing required.
         verify(handle.getBucketProperty().isEmpty(), "bucketed table not supported");
 
+        ImmutableList.Builder<PartitionUpdateInfo> partitionUpdateInfosBuilder = ImmutableList.builder();
         for (PartitionUpdate partitionUpdate : partitionUpdates) {
             verify(partitionUpdate.getUpdateMode() == APPEND, "Expected partionUpdate mode to be APPEND but got %s", partitionUpdate.getUpdateMode()); // sanity check
 
@@ -2443,16 +2488,23 @@ public class HiveMetadata
             else {
                 // operating on a partition
                 List<String> partitionValues = toPartitionValues(partitionUpdate.getName());
-                metastore.finishInsertIntoExistingPartition(
-                        session,
-                        handle.getSchemaName(),
-                        handle.getTableName(),
-                        partitionValues,
-                        partitionUpdate.getWritePath(),
-                        partitionUpdate.getFileNames(),
-                        PartitionStatistics.empty(),
-                        handle.isRetriesEnabled());
+                partitionUpdateInfosBuilder.add(
+                        new PartitionUpdateInfo(
+                                partitionValues,
+                                partitionUpdate.getWritePath(),
+                                partitionUpdate.getFileNames(),
+                                PartitionStatistics.empty()));
             }
+        }
+
+        List<PartitionUpdateInfo> partitionUpdateInfos = partitionUpdateInfosBuilder.build();
+        if (!partitionUpdateInfos.isEmpty()) {
+            metastore.finishInsertIntoExistingPartitions(
+                    session,
+                    handle.getSchemaName(),
+                    handle.getTableName(),
+                    partitionUpdateInfos,
+                    handle.isRetriesEnabled());
         }
 
         // get filesystem
@@ -3348,6 +3400,32 @@ public class HiveMetadata
                         .addAll(partitionedBy)
                         .build(),
                 multipleWritersPerPartitionSupported));
+    }
+
+    @Override
+    public Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle executeHandle)
+    {
+        HiveTableExecuteHandle hiveExecuteHandle = (HiveTableExecuteHandle) executeHandle;
+        SchemaTableName tableName = hiveExecuteHandle.getSchemaTableName();
+        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableName));
+
+        if (table.getStorage().getBucketProperty().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Optimizing bucketed Hive table %s is not supported", tableName));
+        }
+        if (isTransactionalTable(table.getParameters())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Optimizing transactional Hive table %s is not supported", tableName));
+        }
+
+        List<Column> partitionColumns = table.getPartitionColumns();
+        if (partitionColumns.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new ConnectorTableLayout(
+                partitionColumns.stream()
+                        .map(Column::getName)
+                        .collect(toImmutableList())));
     }
 
     @Override

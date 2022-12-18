@@ -179,6 +179,26 @@ with ORC files performed by the Iceberg connector.
     - Enable bloom filters for predicate pushdown.
     - ``false``
 
+Parquet format configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following properties are used to configure the read and write operations
+with Parquet files performed by the Iceberg connector.
+
+.. list-table:: Parquet format configuration properties
+    :widths: 30, 50, 20
+    :header-rows: 1
+
+    * - Property Name
+      - Description
+      - Default
+    * - ``parquet.optimized-reader.enabled``
+      - Whether batched column readers should be used when reading Parquet files
+        for improved performance. Set this property to ``false`` to disable the
+        optimized parquet reader by default. The equivalent catalog session
+        property is ``parquet_optimized_reader_enabled``.
+      - ``true``
+
 .. _iceberg-authorization:
 
 Authorization checks
@@ -448,13 +468,13 @@ The default value for this property is ``7d``.
 drop_extended_stats
 ~~~~~~~~~~~~~~~~~~~
 
-This is an experimental command to remove extended statistics from the table.
+The ``drop_extended_stats`` command removes all extended statistics information from
+the table.
 
 ``drop_extended_stats`` can be run as follows:
 
 .. code-block:: sql
 
-  SET SESSION my_catalog.experimental_extended_statistics_enabled = true;
   ALTER TABLE test_table EXECUTE drop_extended_stats
 
 .. _iceberg-alter-table-set-properties:
@@ -738,7 +758,7 @@ Use the ``$snapshots`` metadata table to determine the latest snapshot ID of the
     FROM iceberg.testdb."customer_orders$snapshots"
     ORDER BY committed_at DESC LIMIT 1
 
-A SQL procedure ``system.rollback_to_snapshot`` allows the caller to roll back
+The procedure ``system.rollback_to_snapshot`` allows the caller to roll back
 the state of the table to a previous snapshot id::
 
     CALL iceberg.system.rollback_to_snapshot('testdb', 'customer_orders', 8954597067493422955)
@@ -751,12 +771,15 @@ and rename operations, including in nested structures.
 Table partitioning can also be changed and the connector can still
 query data created before the partitioning change.
 
+.. _iceberg-register-table:
+
 Register table
 --------------
 The connector can register existing Iceberg tables with the catalog.
 
-An SQL procedure ``system.register_table`` allows the caller to register an existing Iceberg
-table in the metastore, using its existing metadata and data files::
+The procedure ``system.register_table`` allows the caller to register an
+existing Iceberg table in the metastore, using its existing metadata and data
+files::
 
     CALL iceberg.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 'hdfs://hadoop-master:9000/user/hive/warehouse/customer_orders-581fad8517934af6be1857a903559d44')
 
@@ -1213,12 +1236,19 @@ used to specify the schema where the storage table will be created.
 Updating the data in the materialized view with
 :doc:`/sql/refresh-materialized-view` deletes the data from the storage table,
 and inserts the data that is the result of executing the materialized view
-query into the existing table. Refreshing a materialized view also stores
-the snapshot-ids of all tables that are part of the materialized
+query into the existing table. Data is replaced atomically, so users can
+continue to query the materialized view while it is being refreshed.
+Refreshing a materialized view also stores
+the snapshot-ids of all Iceberg tables that are part of the materialized
 view's query in the materialized view metadata. When the materialized
 view is queried, the snapshot-ids are used to check if the data in the storage
 table is up to date. If the data is outdated, the materialized view behaves
 like a normal view, and the data is queried directly from the base tables.
+Detecting outdated data is possible only when the materialized view uses
+Iceberg tables only, or when it uses mix of Iceberg and non-Iceberg tables
+but some Iceberg tables are outdated. When the materialized view is based
+on non-Iceberg tables, querying it can return outdated data, since the connector
+has no information whether the underlying non-Iceberg tables have changed.
 
 Dropping a materialized view with :doc:`/sql/drop-materialized-view` removes
 the definition and the storage table.
@@ -1226,11 +1256,10 @@ the definition and the storage table.
 Table statistics
 ----------------
 
-There is experimental support to collect column statistics which can be enabled by
-setting the ``iceberg.experimental.extended-statistics.enabled`` catalog
-configuration property or the corresponding
-``experimental_extended_statistics_enabled`` session property to ``true``.
-Enabling this configuration allows executing :doc:`/sql/analyze` statement to gather statistics.
+The Iceberg connector can collect column statistics using :doc:`/sql/analyze`
+statement. This can be disabled using ``iceberg.extended-statistics.enabled``
+catalog configuration property, or the corresponding
+``extended_statistics_enabled`` session property.
 
 .. _iceberg_analyze:
 

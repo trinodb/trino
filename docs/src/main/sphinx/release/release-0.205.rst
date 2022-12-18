@@ -74,7 +74,7 @@ SPI
 * Disallow non-static methods to be annotated with ``@ScalarFunction``. Non-static SQL function
   implementations must now be declared in a class annotated with ``@ScalarFunction``.
 * Disallow having multiple public constructors in ``@ScalarFunction`` classes. All non-static
-  implementations of a SQL function will now be associated with a single constructor.
+  implementations of SQL functions will now be associated with a single constructor.
   This improves support for providing specialized implementations of SQL functions with generic arguments.
 * Deprecate ``checkCanSelectFromTable/checkCanSelectFromView`` and
   ``checkCanCreateViewWithSelectFromTable/checkCanCreateViewWithSelectFromView`` in ``ConnectorAccessControl``

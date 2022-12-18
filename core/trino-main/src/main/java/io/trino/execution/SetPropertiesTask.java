@@ -40,7 +40,6 @@ import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.tree.SetProperties.Type.MATERIALIZED_VIEW;
 import static io.trino.sql.tree.SetProperties.Type.TABLE;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SetPropertiesTask
@@ -132,14 +131,17 @@ public class SetPropertiesTask
             Map<String, Optional<Object>> properties)
     {
         if (plannerContext.getMetadata().getMaterializedView(session, materializedViewName).isEmpty()) {
-            String exceptionMessage = format("Materialized View '%s' does not exist", materializedViewName);
+            String additionalInformation;
             if (plannerContext.getMetadata().getView(session, materializedViewName).isPresent()) {
-                exceptionMessage += ", but a view with that name exists.";
+                additionalInformation = ", but a view with that name exists.";
             }
             else if (plannerContext.getMetadata().getTableHandle(session, materializedViewName).isPresent()) {
-                exceptionMessage += ", but a table with that name exists. Did you mean ALTER TABLE " + materializedViewName + " SET PROPERTIES ...?";
+                additionalInformation = ", but a table with that name exists. Did you mean ALTER TABLE " + materializedViewName + " SET PROPERTIES ...?";
             }
-            throw semanticException(TABLE_NOT_FOUND, statement, exceptionMessage);
+            else {
+                additionalInformation = "";
+            }
+            throw semanticException(TABLE_NOT_FOUND, statement, "Materialized View '%s' does not exist%s", materializedViewName, additionalInformation);
         }
         accessControl.checkCanSetMaterializedViewProperties(session.toSecurityContext(), materializedViewName, properties);
         plannerContext.getMetadata().setMaterializedViewProperties(session, materializedViewName, properties);

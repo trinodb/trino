@@ -28,7 +28,6 @@ import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.TestingPagesSerdeFactory;
-import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.metadata.Split;
 import io.trino.operator.ExchangeOperator.ExchangeOperatorFactory;
 import io.trino.spi.Page;
@@ -88,7 +87,7 @@ public class TestExchangeOperator
         scheduler = newScheduledThreadPool(4, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
-        httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), scheduler);
+        httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers, SERDE_FACTORY), scheduler);
 
         directExchangeClientSupplier = (queryId, exchangeId, memoryContext, taskFailureListener, retryPolicy) -> new DirectExchangeClient(
                 "localhost",
@@ -264,14 +263,13 @@ public class TestExchangeOperator
                 directExchangeClientSupplier,
                 SERDE_FACTORY,
                 RetryPolicy.NONE,
-                new ExchangeManagerRegistry(new ExchangeHandleResolver()));
+                new ExchangeManagerRegistry());
 
         DriverContext driverContext = createTaskContext(scheduler, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
         SourceOperator operator = operatorFactory.createOperator(driverContext);
-        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), 0);
         operatorFactory.noMoreOperators();
         return operator;
     }
@@ -325,13 +323,11 @@ public class TestExchangeOperator
             assertPageEquals(TYPES, page, PAGE);
         }
 
-        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), 0);
-
         return outputPages;
     }
 
     private static void waitForFinished(Operator operator)
-            throws InterruptedException
+            throws Exception
     {
         // wait for finished or until 10 seconds has passed
         long endTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
@@ -348,6 +344,10 @@ public class TestExchangeOperator
         assertEquals(operator.isFinished(), true);
         assertEquals(operator.needsInput(), false);
         assertNull(operator.getOutput());
+
+        operator.close();
+        operator.getOperatorContext().destroy();
+
         assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), 0);
     }
 }

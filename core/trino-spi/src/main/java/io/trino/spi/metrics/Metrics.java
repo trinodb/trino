@@ -16,10 +16,12 @@ package io.trino.spi.metrics;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.trino.spi.Mergeable;
+import io.trino.spi.Unstable;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.StringJoiner;
 
 import static java.util.Objects.requireNonNull;
 
@@ -31,6 +33,7 @@ public class Metrics
     private final Map<String, Metric<?>> metrics;
 
     @JsonCreator
+    @Unstable
     public Metrics(Map<String, Metric<?>> metrics)
     {
         this.metrics = Map.copyOf(requireNonNull(metrics, "metrics is null"));
@@ -70,6 +73,14 @@ public class Metrics
     public int hashCode()
     {
         return Objects.hash(metrics);
+    }
+
+    @Override
+    public String toString()
+    {
+        return new StringJoiner(", ", Metrics.class.getSimpleName() + "[", "]")
+                .add(metrics.toString())
+                .toString();
     }
 
     public static class Accumulator

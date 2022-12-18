@@ -81,6 +81,8 @@ public final class TestGroups
     public static final String DELTA_LAKE_DATABRICKS = "delta-lake-databricks";
     public static final String DELTA_LAKE_EXCLUDE_73 = "delta-lake-exclude-73";
     public static final String DELTA_LAKE_EXCLUDE_91 = "delta-lake-exclude-91";
+    public static final String DELTA_LAKE_EXCLUDE_113 = "delta-lake-exclude-113";
+    public static final String HUDI = "hudi";
     public static final String PARQUET = "parquet";
 
     private TestGroups() {}

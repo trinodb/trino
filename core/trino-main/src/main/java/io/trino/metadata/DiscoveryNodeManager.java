@@ -27,11 +27,11 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogManagerConfig;
 import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.server.InternalCommunicationConfig;
+import io.trino.spi.connector.CatalogHandle;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.PostConstruct;

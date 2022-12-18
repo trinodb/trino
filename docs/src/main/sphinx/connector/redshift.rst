@@ -35,6 +35,11 @@ connection properties as appropriate for your setup:
     connection-user=root
     connection-password=secret
 
+The ``connection-user`` and ``connection-password`` are typically required and
+determine the user credentials for the connection, often a service user. You can
+use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
+properties files.
+
 .. _redshift-tls:
 
 Connection security
@@ -56,6 +61,8 @@ by appending parameters to the ``connection-url`` configuration property:
 For more information on TLS configuration options, see the `Redshift JDBC driver
 documentation
 <https://docs.aws.amazon.com/redshift/latest/mgmt/jdbc20-configuration-options.html#jdbc20-ssl-option>`_.
+
+.. include:: jdbc-authentication.fragment
 
 Multiple Redshift databases or clusters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -32,7 +32,6 @@ public class TestFileSystemExchangeConfig
     {
         assertRecordedDefaults(recordDefaults(FileSystemExchangeConfig.class)
                 .setBaseDirectories(null)
-                .setExchangeEncryptionEnabled(true)
                 .setMaxPageStorageSize(DataSize.of(16, MEGABYTE))
                 .setExchangeSinkBufferPoolMinSize(10)
                 .setExchangeSinkBuffersPerPartition(2)
@@ -49,7 +48,6 @@ public class TestFileSystemExchangeConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("exchange.base-directories", "s3://exchange-spooling-test/")
-                .put("exchange.encryption-enabled", "false")
                 .put("exchange.max-page-storage-size", "32MB")
                 .put("exchange.sink-buffer-pool-min-size", "20")
                 .put("exchange.sink-buffers-per-partition", "3")
@@ -63,7 +61,6 @@ public class TestFileSystemExchangeConfig
 
         FileSystemExchangeConfig expected = new FileSystemExchangeConfig()
                 .setBaseDirectories("s3://exchange-spooling-test/")
-                .setExchangeEncryptionEnabled(false)
                 .setMaxPageStorageSize(DataSize.of(32, MEGABYTE))
                 .setExchangeSinkBufferPoolMinSize(20)
                 .setExchangeSinkBuffersPerPartition(3)

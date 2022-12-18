@@ -26,13 +26,16 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.buffer.BufferResult;
-import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PageSerializer;
+import io.trino.execution.buffer.PagesSerdeFactory;
+import io.trino.execution.buffer.TestingPagesSerdeFactory;
 import io.trino.server.InternalHeaders;
 import io.trino.spi.Page;
 
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -45,7 +48,6 @@ import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
-import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
@@ -59,9 +61,10 @@ public class MockExchangeRequestProcessor
         implements TestingHttpClient.Processor
 {
     private static final String TASK_INSTANCE_ID = "task-instance-id";
-    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
-    private final LoadingCache<URI, MockBuffer> buffers = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(MockBuffer::new));
+    private final PagesSerdeFactory serdeFactory = new TestingPagesSerdeFactory();
+
+    private final LoadingCache<URI, MockBuffer> buffers = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(location -> new MockBuffer(location, serdeFactory.createSerializer(Optional.empty()))));
 
     private final DataSize expectedMaxSize;
 
@@ -164,14 +167,16 @@ public class MockExchangeRequestProcessor
     private static class MockBuffer
     {
         private final URI location;
+        private final PageSerializer serializer;
         private final AtomicBoolean completed = new AtomicBoolean();
         private final AtomicLong token = new AtomicLong();
         private final BlockingQueue<Slice> serializedPages = new LinkedBlockingQueue<>();
         private final AtomicReference<RuntimeException> failure = new AtomicReference<>();
 
-        private MockBuffer(URI location)
+        private MockBuffer(URI location, PageSerializer serializer)
         {
             this.location = location;
+            this.serializer = serializer;
         }
 
         public void setCompleted()
@@ -188,9 +193,7 @@ public class MockExchangeRequestProcessor
         public synchronized void addPage(Page page)
         {
             checkState(completed.get() != Boolean.TRUE, "Location %s is complete", location);
-            try (PagesSerde.PagesSerdeContext context = PAGES_SERDE.newContext()) {
-                serializedPages.add(PAGES_SERDE.serialize(context, page));
-            }
+            serializedPages.add(serializer.serialize(page));
         }
 
         public void setFailed(RuntimeException t)

@@ -31,6 +31,7 @@ import io.trino.plugin.hive.metastore.thrift.StaticMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.StaticTokenAwareMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.thrift.ThriftHiveWriteStatisticsExecutor;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationModule;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
@@ -49,14 +50,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_ACCESS_KEY;
 import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_SECRET_KEY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -65,6 +69,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
 {
     private static final String BUCKET_NAME = "delta-lake-per-transaction-metastore-cache";
     private HiveMinioDataLake hiveMinioDataLake;
+    private ExecutorService executorService;
 
     private final Map<String, Long> hiveMetastoreInvocationCounts = new ConcurrentHashMap<>();
 
@@ -89,8 +94,10 @@ public class TestDeltaLakePerTransactionMetastoreCache
                 .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        executorService = newCachedThreadPool(threadsNamed("hive-thrift-statistics-write-%s"));
 
         queryRunner.installPlugin(new TestingDeltaLakePlugin(
+                Optional.empty(),
                 new AbstractConfigurationAwareModule()
                 {
                     @Override
@@ -135,6 +142,14 @@ public class TestDeltaLakePerTransactionMetastoreCache
                             }
                         };
                     }
+
+                    @Provides
+                    @Singleton
+                    @ThriftHiveWriteStatisticsExecutor
+                    public ExecutorService createWriteStatisticsExecutor(ThriftMetastoreConfig hiveConfig)
+                    {
+                        return executorService;
+                    }
                 }));
 
         ImmutableMap.Builder<String, String> deltaLakeProperties = ImmutableMap.builder();
@@ -145,6 +160,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
         deltaLakeProperties.put("hive.s3.path-style-access", "true");
         deltaLakeProperties.put("hive.metastore", "test"); // use test value so we do not get clash with default bindings)
         deltaLakeProperties.put("hive.metastore-timeout", "1m"); // read timed out sometimes happens with the default timeout
+        deltaLakeProperties.put("delta.register-table-procedure.enabled", "true");
         if (!enablePerTransactionHiveMetastoreCaching) {
             // almost disable the cache; 0 is not allowed as config property value
             deltaLakeProperties.put("delta.per-transaction-metastore-cache-maximum-size", "1");
@@ -157,7 +173,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
             tpchTables.forEach(table -> {
                 String tableName = table.getTableName();
                 hiveMinioDataLake.copyResources("io/trino/plugin/deltalake/testing/resources/databricks/" + tableName, tableName);
-                queryRunner.execute(format("CREATE TABLE %s.%s.%s (dummy int) WITH (location = 's3://%s/%3$s')",
+                queryRunner.execute(format("CALL %1$s.system.register_table('%2$s', '%3$s', 's3://%4$s/%3$s')",
                         DELTA_CATALOG,
                         "default",
                         tableName,
@@ -175,6 +191,10 @@ public class TestDeltaLakePerTransactionMetastoreCache
         if (hiveMinioDataLake != null) {
             hiveMinioDataLake.close();
             hiveMinioDataLake = null;
+        }
+
+        if (executorService != null) {
+            executorService.shutdown();
         }
     }
 

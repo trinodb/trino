@@ -36,7 +36,6 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.testing.LocalQueryRunner;
-import io.trino.testing.TestingTransactionHandle;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -47,7 +46,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -65,10 +63,7 @@ public class TestValidateLimitWithPresortedInput
     private static final String COLUMN_NAME_C = "col_c";
     private static final ColumnHandle COLUMN_HANDLE_C = new MockConnectorColumnHandle(COLUMN_NAME_C, VARCHAR);
 
-    private static final TableHandle MOCK_TABLE_HANDLE = new TableHandle(
-            TEST_CATALOG_HANDLE,
-            new MockConnectorTableHandle(MOCK_TABLE_NAME),
-            TestingTransactionHandle.create());
+    private TableHandle mockTableHandle;
 
     @Override
     protected LocalQueryRunner createLocalQueryRunner()
@@ -104,6 +99,8 @@ public class TestValidateLimitWithPresortedInput
                 })
                 .build();
         queryRunner.createCatalog(TEST_CATALOG_NAME, mockFactory, ImmutableMap.of());
+
+        mockTableHandle = queryRunner.getTableHandle(TEST_CATALOG_NAME, MOCK_TABLE_NAME.getSchemaName(), MOCK_TABLE_NAME.getTableName());
         return queryRunner;
     }
 
@@ -117,7 +114,7 @@ public class TestValidateLimitWithPresortedInput
                         true,
                         ImmutableList.of(p.symbol(COLUMN_NAME_A, VARCHAR), p.symbol(COLUMN_NAME_C, VARCHAR)),
                         p.tableScan(
-                                MOCK_TABLE_HANDLE,
+                                mockTableHandle,
                                 ImmutableList.of(p.symbol(COLUMN_NAME_A, VARCHAR), p.symbol(COLUMN_NAME_B, VARCHAR), p.symbol(COLUMN_NAME_C, VARCHAR)),
                                 ImmutableMap.of(
                                         p.symbol(COLUMN_NAME_A, VARCHAR), COLUMN_HANDLE_A,
@@ -131,7 +128,7 @@ public class TestValidateLimitWithPresortedInput
                         true,
                         ImmutableList.of(p.symbol(COLUMN_NAME_A, VARCHAR)),
                         p.tableScan(
-                                MOCK_TABLE_HANDLE,
+                                mockTableHandle,
                                 ImmutableList.of(p.symbol(COLUMN_NAME_A, VARCHAR), p.symbol(COLUMN_NAME_B, VARCHAR), p.symbol(COLUMN_NAME_C, VARCHAR)),
                                 ImmutableMap.of(
                                         p.symbol(COLUMN_NAME_A, VARCHAR), COLUMN_HANDLE_A,
@@ -167,7 +164,7 @@ public class TestValidateLimitWithPresortedInput
                         true,
                         ImmutableList.of(p.symbol(COLUMN_NAME_B, VARCHAR)),
                         p.tableScan(
-                                MOCK_TABLE_HANDLE,
+                                mockTableHandle,
                                 ImmutableList.of(p.symbol(COLUMN_NAME_A, VARCHAR), p.symbol(COLUMN_NAME_B, VARCHAR)),
                                 ImmutableMap.of(
                                         p.symbol(COLUMN_NAME_A, VARCHAR), COLUMN_HANDLE_A,

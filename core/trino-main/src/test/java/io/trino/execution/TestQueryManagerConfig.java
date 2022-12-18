@@ -57,6 +57,7 @@ public class TestQueryManagerConfig
                 .setRemoteTaskMaxCallbackThreads(1000)
                 .setQueryExecutionPolicy("phased")
                 .setQueryMaxRunTime(new Duration(100, DAYS))
+                .setQueryMaxRunTimeHardLimit(null)
                 .setQueryMaxExecutionTime(new Duration(100, DAYS))
                 .setQueryMaxPlanningTime(new Duration(10, MINUTES))
                 .setQueryMaxCpuTime(new Duration(1_000_000_000, DAYS))
@@ -77,8 +78,8 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionMaxTaskSplitCount(256)
                 .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15)))
                 .setFaultTolerantExecutionPartitionCount(50)
-                .setFaultTolerantPreserveInputPartitionsInWriteStage(true)
-                .setFaultTolerantExecutionEventDrivenSchedulerEnabled(true));
+                .setFaultTolerantExecutionEventDrivenSchedulerEnabled(true)
+                .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(true));
     }
 
     @Test
@@ -103,6 +104,7 @@ public class TestQueryManagerConfig
                 .put("query.remote-task.max-callback-threads", "10")
                 .put("query.execution-policy", "legacy-phased")
                 .put("query.max-run-time", "2h")
+                .put("query.max-run-time.hard-limit", "4h")
                 .put("query.max-execution-time", "3h")
                 .put("query.max-planning-time", "1h")
                 .put("query.max-cpu-time", "2d")
@@ -123,8 +125,8 @@ public class TestQueryManagerConfig
                 .put("fault-tolerant-execution-max-task-split-count", "22")
                 .put("fault-tolerant-execution-task-descriptor-storage-max-memory", "3GB")
                 .put("fault-tolerant-execution-partition-count", "123")
-                .put("fault-tolerant-execution-preserve-input-partitions-in-write-stage", "false")
                 .put("experimental.fault-tolerant-execution-event-driven-scheduler-enabled", "false")
+                .put("experimental.fault-tolerant-execution-force-preferred-write-partitioning-enabled", "false")
                 .buildOrThrow();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -146,6 +148,7 @@ public class TestQueryManagerConfig
                 .setRemoteTaskMaxCallbackThreads(10)
                 .setQueryExecutionPolicy("legacy-phased")
                 .setQueryMaxRunTime(new Duration(2, HOURS))
+                .setQueryMaxRunTimeHardLimit(new Duration(4, HOURS))
                 .setQueryMaxExecutionTime(new Duration(3, HOURS))
                 .setQueryMaxPlanningTime(new Duration(1, HOURS))
                 .setQueryMaxCpuTime(new Duration(2, DAYS))
@@ -166,8 +169,8 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionMaxTaskSplitCount(22)
                 .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.of(3, GIGABYTE))
                 .setFaultTolerantExecutionPartitionCount(123)
-                .setFaultTolerantPreserveInputPartitionsInWriteStage(false)
-                .setFaultTolerantExecutionEventDrivenSchedulerEnabled(false);
+                .setFaultTolerantExecutionEventDrivenSchedulerEnabled(false)
+                .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(false);
 
         assertFullMapping(properties, expected);
     }

@@ -14,6 +14,8 @@
 package io.trino.plugin.hive.parquet;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.filesystem.TrinoOutputFile;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
@@ -41,6 +43,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetWriteValidation.ParquetWriteValidationBuilder;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
@@ -60,9 +63,10 @@ public class ParquetFileWriter
     private final List<Block> nullBlocks;
     private final Optional<Supplier<ParquetDataSource>> validationInputFactory;
     private long validationCpuNanos;
+    private AggregatedMemoryContext memoryContext;
 
     public ParquetFileWriter(
-            OutputStream outputStream,
+            TrinoOutputFile outputFile,
             Closeable rollbackAction,
             List<Type> fileColumnTypes,
             List<String> fileColumnNames,
@@ -72,10 +76,13 @@ public class ParquetFileWriter
             int[] fileInputColumnIndexes,
             CompressionCodecName compressionCodecName,
             String trinoVersion,
+            boolean useBatchColumnReadersForVerification,
             Optional<DateTimeZone> parquetTimeZone,
             Optional<Supplier<ParquetDataSource>> validationInputFactory)
+            throws IOException
     {
-        requireNonNull(outputStream, "outputStream is null");
+        this.memoryContext = newSimpleAggregatedMemoryContext();
+        OutputStream outputStream = outputFile.create(memoryContext);
         requireNonNull(trinoVersion, "trinoVersion is null");
         this.validationInputFactory = requireNonNull(validationInputFactory, "validationInputFactory is null");
 
@@ -86,6 +93,7 @@ public class ParquetFileWriter
                 parquetWriterOptions,
                 compressionCodecName,
                 trinoVersion,
+                useBatchColumnReadersForVerification,
                 parquetTimeZone,
                 validationInputFactory.isPresent()
                         ? Optional.of(new ParquetWriteValidationBuilder(fileColumnTypes, fileColumnNames))
@@ -112,7 +120,7 @@ public class ParquetFileWriter
     @Override
     public long getMemoryUsage()
     {
-        return INSTANCE_SIZE + parquetWriter.getRetainedBytes();
+        return INSTANCE_SIZE + parquetWriter.getRetainedBytes() + memoryContext.getBytes();
     }
 
     @Override

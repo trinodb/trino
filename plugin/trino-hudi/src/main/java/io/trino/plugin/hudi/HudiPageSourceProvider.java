@@ -21,7 +21,7 @@ import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
-import io.trino.parquet.predicate.Predicate;
+import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.ParquetReaderColumn;
@@ -90,6 +90,7 @@ import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CURSOR_ERROR;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_MISSING_DATA;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_FILE_FORMAT;
+import static io.trino.plugin.hudi.HudiSessionProperties.isParquetOptimizedReaderEnabled;
 import static io.trino.plugin.hudi.HudiSessionProperties.shouldUseParquetColumnNames;
 import static io.trino.plugin.hudi.HudiUtil.getHudiFileFormat;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -205,7 +206,7 @@ public class HudiPageSourceProvider
                     ? TupleDomain.all()
                     : getParquetTupleDomain(descriptorsByPath, hudiSplit.getPredicate(), fileSchema, useColumnNames);
 
-            Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, timeZone);
+            TupleDomainParquetPredicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, timeZone);
 
             long nextStart = 0;
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
@@ -239,7 +240,7 @@ public class HudiPageSourceProvider
                     dataSource,
                     timeZone,
                     newSimpleAggregatedMemoryContext(),
-                    options,
+                    options.withBatchColumnReaders(isParquetOptimizedReaderEnabled(session)),
                     exception -> handleException(dataSourceId, exception),
                     Optional.of(parquetPredicate),
                     columnIndexes.build(),

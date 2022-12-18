@@ -23,9 +23,11 @@ import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergMetadata;
+import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -45,7 +47,7 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -81,7 +83,7 @@ public class TestTrinoGlueCatalog
     @Test
     public void testNonLowercaseGlueDatabase()
     {
-        String databaseName = "testNonLowercaseDatabase" + randomTableSuffix();
+        String databaseName = "testNonLowercaseDatabase" + randomNameSuffix();
         // Trino schema names are always lowercase (until https://github.com/trinodb/trino/issues/17)
         String trinoSchemaName = databaseName.toLowerCase(ENGLISH);
 
@@ -108,7 +110,8 @@ public class TestTrinoGlueCatalog
                     catalog,
                     connectorIdentity -> {
                         throw new UnsupportedOperationException();
-                    });
+                    },
+                    new TableStatisticsWriter(new NodeVersion("test-version")));
             assertThat(icebergMetadata.schemaExists(SESSION, databaseName)).as("icebergMetadata.schemaExists(databaseName)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, trinoSchemaName)).as("icebergMetadata.schemaExists(trinoSchemaName)")
@@ -146,7 +149,7 @@ public class TestTrinoGlueCatalog
                 Optional.of(tmpDirectory.toAbsolutePath().toString()),
                 false);
 
-        String namespace = "test_default_location_" + randomTableSuffix();
+        String namespace = "test_default_location_" + randomNameSuffix();
         String table = "tableName";
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
         catalogWithDefaultLocation.createNamespace(SESSION, namespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));

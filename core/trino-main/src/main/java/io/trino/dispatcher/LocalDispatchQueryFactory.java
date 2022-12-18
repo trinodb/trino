@@ -16,7 +16,9 @@ package io.trino.dispatcher;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.log.Logger;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
+import io.trino.client.NodeVersion;
 import io.trino.event.QueryMonitor;
 import io.trino.execution.ClusterSizeMonitor;
 import io.trino.execution.LocationFactory;
@@ -63,6 +65,8 @@ public class LocalDispatchQueryFactory
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
     private final WarningCollectorFactory warningCollectorFactory;
     private final ListeningExecutorService executor;
+    private final boolean faultTolerantExecutionExchangeEncryptionEnabled;
+    private final NodeVersion version;
 
     @Inject
     public LocalDispatchQueryFactory(
@@ -75,7 +79,9 @@ public class LocalDispatchQueryFactory
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
             WarningCollectorFactory warningCollectorFactory,
             ClusterSizeMonitor clusterSizeMonitor,
-            DispatchExecutor dispatchExecutor)
+            DispatchExecutor dispatchExecutor,
+            FeaturesConfig featuresConfig,
+            NodeVersion version)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -87,6 +93,8 @@ public class LocalDispatchQueryFactory
         this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
         this.executor = dispatchExecutor.getExecutor();
+        this.faultTolerantExecutionExchangeEncryptionEnabled = requireNonNull(featuresConfig, "featuresConfig is null").isFaultTolerantExecutionExchangeEncryptionEnabled();
+        this.version = requireNonNull(version, "version is null");
     }
 
     @Override
@@ -112,7 +120,9 @@ public class LocalDispatchQueryFactory
                 executor,
                 metadata,
                 warningCollector,
-                getQueryType(preparedQuery.getStatement()));
+                getQueryType(preparedQuery.getStatement()),
+                faultTolerantExecutionExchangeEncryptionEnabled,
+                version);
 
         // It is important that `queryCreatedEvent` is called here. Moving it past the `executor.submit` below
         // can result in delivering query-created event after query analysis has already started.

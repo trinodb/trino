@@ -28,7 +28,6 @@ import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RE
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_FAILURE;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_TIMEOUT;
 import static java.lang.String.format;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 public abstract class BaseIcebergFailureRecoveryTest
         extends BaseFailureRecoveryTest
@@ -53,6 +52,15 @@ public abstract class BaseIcebergFailureRecoveryTest
                 partitionColumn,
                 String.join(",", columns));
         getQueryRunner().execute(sql);
+    }
+
+    @Test(invocationCount = INVOCATION_COUNT)
+    public void testCreatePartitionedTable()
+    {
+        testTableModification(
+                Optional.empty(),
+                "CREATE TABLE <table> WITH (partitioning = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders",
+                Optional.of("DROP TABLE <table>"));
     }
 
     // Copied from BaseDeltaFailureRecoveryTest
@@ -96,16 +104,6 @@ public abstract class BaseIcebergFailureRecoveryTest
                 .at(boundaryDistributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
                 .finishesSuccessfully();
-
-        // DELETE plan is too simplistic for testing with `intermediateDistributedStage`
-        assertThatThrownBy(() ->
-                assertThatQuery(deleteQuery)
-                        .withSetupQuery(setupQuery)
-                        .withCleanupQuery(cleanupQuery)
-                        .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
-                        .at(intermediateDistributedStage())
-                        .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE)))
-                .hasMessageContaining("stage not found");
 
         assertThatQuery(deleteQuery)
                 .withSetupQuery(setupQuery)
@@ -183,16 +181,6 @@ public abstract class BaseIcebergFailureRecoveryTest
                 .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
                 .finishesSuccessfully();
 
-        // UPDATE plan is too simplistic for testing with `intermediateDistributedStage`
-        assertThatThrownBy(() ->
-                assertThatQuery(updateQuery)
-                        .withSetupQuery(setupQuery)
-                        .withCleanupQuery(cleanupQuery)
-                        .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
-                        .at(intermediateDistributedStage())
-                        .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE)))
-                .hasMessageContaining("stage not found");
-
         assertThatQuery(updateQuery)
                 .withSetupQuery(setupQuery)
                 .withCleanupQuery(cleanupQuery)
@@ -226,15 +214,6 @@ public abstract class BaseIcebergFailureRecoveryTest
                     .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                     .finishesSuccessfully();
         }
-    }
-
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testCreatePartitionedTable()
-    {
-        testTableModification(
-                Optional.empty(),
-                "CREATE TABLE <table> WITH (partitioning = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders",
-                Optional.of("DROP TABLE <table>"));
     }
 
     @Test(invocationCount = INVOCATION_COUNT)

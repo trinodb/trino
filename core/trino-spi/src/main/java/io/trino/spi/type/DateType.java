@@ -16,6 +16,8 @@ package io.trino.spi.type;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 
+import java.util.Optional;
+
 //
 // A date is stored as days from 1970-01-01.
 //
@@ -43,6 +45,34 @@ public final class DateType
 
         int days = block.getInt(position, 0);
         return new SqlDate(days);
+    }
+
+    @Override
+    public Optional<Range> getRange()
+    {
+        return Optional.of(new Range((long) Integer.MIN_VALUE, (long) Integer.MAX_VALUE));
+    }
+
+    @Override
+    public Optional<Object> getPreviousValue(Object object)
+    {
+        long value = (long) object;
+        checkValueValid(value);
+        if (value == Integer.MIN_VALUE) {
+            return Optional.empty();
+        }
+        return Optional.of(value - 1);
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object object)
+    {
+        long value = (long) object;
+        checkValueValid(value);
+        if (value == Integer.MAX_VALUE) {
+            return Optional.empty();
+        }
+        return Optional.of(value + 1);
     }
 
     @Override

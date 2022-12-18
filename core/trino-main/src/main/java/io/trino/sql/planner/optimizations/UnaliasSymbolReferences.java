@@ -39,6 +39,7 @@ import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -76,6 +77,7 @@ import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -321,11 +323,29 @@ public class UnaliasSymbolReferences
         @Override
         public PlanAndMappings visitTableFunction(TableFunctionNode node, UnaliasContext context)
         {
-            // TODO rewrite sources, and tableArgumentProperties when we add support for input tables
             Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
             SymbolMapper mapper = symbolMapper(mapping);
 
             List<Symbol> newProperOutputs = mapper.map(node.getProperOutputs());
+
+            ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
+            ImmutableList.Builder<TableArgumentProperties> newTableArgumentProperties = ImmutableList.builder();
+
+            for (int i = 0; i < node.getSources().size(); i++) {
+                PlanAndMappings newSource = node.getSources().get(i).accept(this, context);
+                newSources.add(newSource.getRoot());
+
+                SymbolMapper inputMapper = symbolMapper(new HashMap<>(newSource.getMappings()));
+                TableArgumentProperties properties = node.getTableArgumentProperties().get(i);
+                Optional<DataOrganizationSpecification> newSpecification = properties.getSpecification().map(inputMapper::mapAndDistinct);
+                newTableArgumentProperties.add(new TableArgumentProperties(
+                        properties.getArgumentName(),
+                        properties.isRowSemantics(),
+                        properties.isPruneWhenEmpty(),
+                        properties.isPassThroughColumns(),
+                        inputMapper.map(properties.getRequiredColumns()),
+                        newSpecification));
+            }
 
             return new PlanAndMappings(
                     new TableFunctionNode(
@@ -333,8 +353,9 @@ public class UnaliasSymbolReferences
                             node.getName(),
                             node.getArguments(),
                             newProperOutputs,
-                            node.getSources(),
-                            node.getTableArgumentProperties(),
+                            newSources.build(),
+                            newTableArgumentProperties.build(),
+                            node.getCopartitioningLists(),
                             node.getHandle()),
                     mapping);
         }

@@ -26,9 +26,9 @@ import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HIVE_SPARK;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -46,7 +46,7 @@ public class TestHiveSparkCompatibility
     @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS}, dataProvider = "testReadSparkCreatedTableDataProvider")
     public void testReadSparkCreatedTable(String sparkTableFormat, String expectedTrinoTableFormat)
     {
-        String sparkTableName = "spark_created_table_" + sparkTableFormat.replaceAll("[^a-zA-Z]", "").toLowerCase(ENGLISH) + "_" + randomTableSuffix();
+        String sparkTableName = "spark_created_table_" + sparkTableFormat.replaceAll("[^a-zA-Z]", "").toLowerCase(ENGLISH) + "_" + randomNameSuffix();
         String trinoTableName = format("%s.default.%s", TRINO_CATALOG, sparkTableName);
 
         onSpark().executeQuery(
@@ -191,7 +191,7 @@ public class TestHiveSparkCompatibility
     @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS}, dataProvider = "sparkParquetTimestampFormats")
     public void testSparkParquetTimestampCompatibility(String sparkTimestampFormat, String sparkTimestamp, String[] expectedValues)
     {
-        String sparkTableName = "test_spark_parquet_timestamp_compatibility_" + sparkTimestampFormat.toLowerCase(ENGLISH) + "_" + randomTableSuffix();
+        String sparkTableName = "test_spark_parquet_timestamp_compatibility_" + sparkTimestampFormat.toLowerCase(ENGLISH) + "_" + randomNameSuffix();
         String trinoTableName = format("%s.default.%s", TRINO_CATALOG, sparkTableName);
 
         onSpark().executeQuery("SET spark.sql.parquet.outputTimestampType = " + sparkTimestampFormat);
@@ -217,7 +217,7 @@ public class TestHiveSparkCompatibility
     @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
     public void testInsertFailsOnBucketedTableCreatedBySpark()
     {
-        String hiveTableName = "spark_insert_bucketed_table_" + randomTableSuffix();
+        String hiveTableName = "spark_insert_bucketed_table_" + randomNameSuffix();
 
         onSpark().executeQuery(
                 "CREATE TABLE default." + hiveTableName + "(a_key integer, a_value integer) " +
@@ -233,7 +233,7 @@ public class TestHiveSparkCompatibility
     @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
     public void testUpdateFailsOnBucketedTableCreatedBySpark()
     {
-        String hiveTableName = "spark_update_bucketed_table_" + randomTableSuffix();
+        String hiveTableName = "spark_update_bucketed_table_" + randomNameSuffix();
 
         onSpark().executeQuery(
                 "CREATE TABLE default." + hiveTableName + "(a_key integer, a_value integer) " +
@@ -241,7 +241,7 @@ public class TestHiveSparkCompatibility
                         "CLUSTERED BY (a_key) INTO 3 BUCKETS");
 
         assertQueryFailure(() -> onTrino().executeQuery("UPDATE default." + hiveTableName + " SET a_value = 100 WHERE a_key = 1"))
-                .hasMessageContaining("Updating Spark bucketed tables is not supported");
+                .hasMessageContaining("Merging into Spark bucketed tables is not supported");
 
         onSpark().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -249,7 +249,7 @@ public class TestHiveSparkCompatibility
     @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
     public void testDeleteFailsOnBucketedTableCreatedBySpark()
     {
-        String hiveTableName = "spark_delete_bucketed_table_" + randomTableSuffix();
+        String hiveTableName = "spark_delete_bucketed_table_" + randomNameSuffix();
 
         onSpark().executeQuery(
                 "CREATE TABLE default." + hiveTableName + "(a_key integer, a_value integer) " +
@@ -257,7 +257,7 @@ public class TestHiveSparkCompatibility
                         "CLUSTERED BY (a_key) INTO 3 BUCKETS");
 
         assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM default." + hiveTableName + " WHERE a_key = 1"))
-                .hasMessageContaining("Deleting from Spark bucketed tables is not supported");
+                .hasMessageContaining("Merging into Spark bucketed tables is not supported");
 
         onSpark().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -311,7 +311,7 @@ public class TestHiveSparkCompatibility
 
     private void testReadTrinoCreatedTable(String tableName, String tableFormat)
     {
-        String sparkTableName = "trino_created_table_" + tableName + "_" + randomTableSuffix();
+        String sparkTableName = "trino_created_table_" + tableName + "_" + randomNameSuffix();
         String trinoTableName = format("%s.default.%s", TRINO_CATALOG, sparkTableName);
 
         // Spark timestamps are in microsecond precision
@@ -427,7 +427,7 @@ public class TestHiveSparkCompatibility
     @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
     public void testReadSparkdDateAndTimePartitionName()
     {
-        String sparkTableName = "test_trino_reading_spark_date_and_time_type_partitioned_" + randomTableSuffix();
+        String sparkTableName = "test_trino_reading_spark_date_and_time_type_partitioned_" + randomNameSuffix();
         String trinoTableName = format("%s.default.%s", TRINO_CATALOG, sparkTableName);
 
         onSpark().executeQuery(format("CREATE TABLE default.%s (value integer) PARTITIONED BY (dt date)", sparkTableName));
@@ -486,7 +486,7 @@ public class TestHiveSparkCompatibility
     @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS}, dataProvider = "unsupportedPartitionDates")
     public void testReadSparkInvalidDatePartitionName(String inputDate, java.sql.Date outputDate)
     {
-        String sparkTableName = "test_trino_reading_spark_invalid_date_type_partitioned_" + randomTableSuffix();
+        String sparkTableName = "test_trino_reading_spark_invalid_date_type_partitioned_" + randomNameSuffix();
         String trinoTableName = format("%s.default.%s", TRINO_CATALOG, sparkTableName);
 
         onSpark().executeQuery(format("CREATE TABLE default.%s (value integer) PARTITIONED BY (dt date)", sparkTableName));
@@ -525,7 +525,7 @@ public class TestHiveSparkCompatibility
     {
         // Spark tables can be created using native Spark code or by going through Hive code
         // This tests the native Spark path.
-        String sparkTableName = "test_trino_reading_spark_native_buckets_" + randomTableSuffix();
+        String sparkTableName = "test_trino_reading_spark_native_buckets_" + randomNameSuffix();
         String trinoTableName = format("%s.default.%s", TRINO_CATALOG, sparkTableName);
 
         onSpark().executeQuery(format(

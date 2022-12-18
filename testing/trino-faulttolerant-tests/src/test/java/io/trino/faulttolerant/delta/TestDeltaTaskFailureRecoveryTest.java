@@ -28,14 +28,14 @@ import java.util.Map;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 
 public class TestDeltaTaskFailureRecoveryTest
         extends BaseDeltaFailureRecoveryTest
 {
     private static final String SCHEMA = "task_failure_recovery";
-    private final String bucketName = "test-delta-lake-task-failure-recovery-" + randomTableSuffix();
+    private final String bucketName = "test-delta-lake-task-failure-recovery-" + randomNameSuffix();
 
     protected TestDeltaTaskFailureRecoveryTest()
     {
@@ -51,7 +51,7 @@ public class TestDeltaTaskFailureRecoveryTest
     {
         HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
-        MinioStorage minioStorage = closeAfterClass(new MinioStorage("test-exchange-spooling-" + randomTableSuffix()));
+        MinioStorage minioStorage = closeAfterClass(new MinioStorage("test-exchange-spooling-" + randomNameSuffix()));
         minioStorage.start();
 
         DistributedQueryRunner queryRunner = createS3DeltaLakeQueryRunner(

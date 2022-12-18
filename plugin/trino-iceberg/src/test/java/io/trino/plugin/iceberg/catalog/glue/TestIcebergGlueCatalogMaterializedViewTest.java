@@ -36,12 +36,12 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 
 public class TestIcebergGlueCatalogMaterializedViewTest
         extends BaseIcebergMaterializedViewTest
 {
-    private final String schemaName = "test_iceberg_materialized_view_" + randomTableSuffix();
+    private final String schemaName = "test_iceberg_materialized_view_" + randomNameSuffix();
 
     private File schemaDirectory;
 

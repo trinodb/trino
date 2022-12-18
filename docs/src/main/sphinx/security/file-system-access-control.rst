@@ -448,6 +448,34 @@ function from any catalog:
       ]
     }
 
+.. _verify_rules:
+
+Verify configuration
+^^^^^^^^^^^^^^^^^^^^
+
+To verify the system-access control file is configured properly, set the
+rules to completely block access to all users of the system:
+
+.. code-block:: json
+
+    {
+      "catalogs": [
+        {
+          "catalog": "system",
+          "allow": "none"
+        }
+      ]
+    }
+
+Restart your cluster to activate the rules for your cluster. With the
+Trino :doc:`CLI </client/cli>` run a query to test authorization:
+
+.. code-block:: text
+
+  trino> SELECT * FROM system.runtime.nodes;
+  Query 20200824_183358_00000_c62aw failed: Access Denied: Cannot access catalog system
+
+Remove these rules and restart the Trino cluster.
 
 .. _system-file-auth-session-property:
 
@@ -544,7 +572,9 @@ Each impersonation rule is composed of the following fields:
 * ``original_role`` (optional): regex to match against role names of the
   requesting impersonation. Defaults to ``.*``.
 * ``new_user`` (required): regex to match against the user that will be
-  impersonated.
+  impersonated. May contain references to subsequences captured during the match
+  against *original_user*, and each reference will be replaced by the result of
+  evaluating the corresponding group respectively.
 * ``allow`` (optional): boolean indicating if the authentication should be
   allowed. Defaults to ``true``.
 
@@ -553,7 +583,9 @@ The impersonation rules are a bit different than the other rules: The attribute
 Doing so it was possible to make the attribute ``allow`` optional.
 
 The following example allows the ``admin`` role, to impersonate any user, except
-for ``bob``. It also allows any user to impersonate the ``test`` user:
+for ``bob``. It also allows any user to impersonate the ``test`` user. It also
+allows a user in the form ``team_backend`` to impersonate the
+``team_backend_sandbox`` user, but not arbitrary users:
 
 .. literalinclude:: user-impersonation.json
     :language: json

@@ -86,6 +86,7 @@ public class TestBucketBalancer
     {
         if (dummyHandle != null) {
             dummyHandle.close();
+            dummyHandle = null;
         }
     }
 

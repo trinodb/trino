@@ -24,19 +24,12 @@ import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
 import io.trino.plugin.exchange.filesystem.FileStatus;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeStorage;
-import io.trino.spi.TrinoException;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.crypto.Cipher;
-import javax.crypto.CipherInputStream;
-import javax.crypto.CipherOutputStream;
-import javax.crypto.NoSuchPaddingException;
-import javax.crypto.SecretKey;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -47,11 +40,8 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayDeque;
 import java.util.List;
-import java.util.Optional;
 import java.util.Queue;
 import java.util.stream.Stream;
 
@@ -61,7 +51,6 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.Math.toIntExact;
 import static java.nio.file.Files.createFile;
 import static java.util.Objects.requireNonNull;
@@ -85,9 +74,9 @@ public class LocalFileSystemExchangeStorage
     }
 
     @Override
-    public ExchangeStorageWriter createExchangeStorageWriter(URI file, Optional<SecretKey> secretKey)
+    public ExchangeStorageWriter createExchangeStorageWriter(URI file)
     {
-        return new LocalExchangeStorageWriter(file, secretKey);
+        return new LocalExchangeStorageWriter(file);
     }
 
     @Override
@@ -219,19 +208,7 @@ public class LocalFileSystemExchangeStorage
         private InputStreamSliceInput getSliceInput(ExchangeSourceFile sourceFile)
                 throws FileNotFoundException
         {
-            File file = Paths.get(sourceFile.getFileUri()).toFile();
-            Optional<SecretKey> secretKey = sourceFile.getSecretKey();
-            if (secretKey.isPresent()) {
-                try {
-                    Cipher cipher = Cipher.getInstance("AES");
-                    cipher.init(Cipher.DECRYPT_MODE, secretKey.get());
-                    return new InputStreamSliceInput(new CipherInputStream(new FileInputStream(file), cipher), BUFFER_SIZE_IN_BYTES);
-                }
-                catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException e) {
-                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to create CipherInputStream: " + e.getMessage(), e);
-                }
-            }
-            return new InputStreamSliceInput(new FileInputStream(file), BUFFER_SIZE_IN_BYTES);
+            return new InputStreamSliceInput(new FileInputStream(Paths.get(sourceFile.getFileUri()).toFile()), BUFFER_SIZE_IN_BYTES);
         }
     }
 
@@ -243,22 +220,10 @@ public class LocalFileSystemExchangeStorage
 
         private final OutputStream outputStream;
 
-        public LocalExchangeStorageWriter(URI file, Optional<SecretKey> secretKey)
+        public LocalExchangeStorageWriter(URI file)
         {
             try {
-                if (secretKey.isPresent()) {
-                    try {
-                        Cipher cipher = Cipher.getInstance("AES");
-                        cipher.init(Cipher.ENCRYPT_MODE, secretKey.get());
-                        this.outputStream = new CipherOutputStream(new FileOutputStream(Paths.get(file.getPath()).toFile()), cipher);
-                    }
-                    catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException e) {
-                        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to create CipherOutputStream: " + e.getMessage(), e);
-                    }
-                }
-                else {
-                    this.outputStream = new FileOutputStream(Paths.get(file.getPath()).toFile());
-                }
+                this.outputStream = new FileOutputStream(Paths.get(file.getPath()).toFile());
             }
             catch (FileNotFoundException e) {
                 throw new UncheckedIOException(e);

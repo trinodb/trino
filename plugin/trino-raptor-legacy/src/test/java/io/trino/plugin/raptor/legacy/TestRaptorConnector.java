@@ -67,6 +67,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.DateTimeUtils.parseDate;
 import static org.testng.Assert.assertEquals;
@@ -119,6 +120,7 @@ public class TestRaptorConnector
             throws Exception
     {
         dummyHandle.close();
+        dummyHandle = null;
         deleteRecursively(dataDir.toPath(), ALLOW_INSECURE);
     }
 
@@ -225,7 +227,7 @@ public class TestRaptorConnector
         ConnectorTransactionHandle txn1 = beginTransaction();
         ConnectorTableHandle handle1 = getTableHandle(connector.getMetadata(SESSION, txn1), "test");
         ConnectorInsertTableHandle insertTableHandle = connector.getMetadata(SESSION, txn1).beginInsert(session, handle1, ImmutableList.of(), NO_RETRIES);
-        ConnectorPageSink raptorPageSink = connector.getPageSinkProvider().createPageSink(txn1, session, insertTableHandle);
+        ConnectorPageSink raptorPageSink = connector.getPageSinkProvider().createPageSink(txn1, session, insertTableHandle, TESTING_PAGE_SINK_ID);
 
         Object timestamp1 = null;
         Object timestamp2 = null;

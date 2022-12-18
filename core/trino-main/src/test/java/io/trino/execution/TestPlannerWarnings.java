@@ -76,6 +76,7 @@ public class TestPlannerWarnings
     public void tearDown()
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     @Test

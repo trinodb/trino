@@ -34,7 +34,6 @@ import org.apache.thrift.TException;
 import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalLong;
 
 public interface ThriftMetastoreClient
         extends Closeable
@@ -194,9 +193,6 @@ public interface ThriftMetastoreClient
     {
         throw new UnsupportedOperationException();
     }
-
-    void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
-            throws TException;
 
     void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
             throws TException;

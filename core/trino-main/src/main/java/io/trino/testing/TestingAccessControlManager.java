@@ -135,6 +135,7 @@ public class TestingAccessControlManager
     private final Map<RowFilterKey, List<ViewExpression>> rowFilters = new HashMap<>();
     private final Map<ColumnMaskKey, List<ViewExpression>> columnMasks = new HashMap<>();
     private Predicate<String> deniedCatalogs = s -> true;
+    private Predicate<String> deniedSchemas = s -> true;
     private Predicate<SchemaTableName> deniedTables = s -> true;
     private BiPredicate<Identity, String> denyIdentityTable = IDENTITY_TABLE_TRUE;
 
@@ -180,6 +181,7 @@ public class TestingAccessControlManager
     {
         denyPrivileges.clear();
         deniedCatalogs = s -> true;
+        deniedSchemas = s -> true;
         deniedTables = s -> true;
         denyIdentityTable = IDENTITY_TABLE_TRUE;
         rowFilters.clear();
@@ -189,6 +191,11 @@ public class TestingAccessControlManager
     public void denyCatalogs(Predicate<String> deniedCatalogs)
     {
         this.deniedCatalogs = this.deniedCatalogs.and(deniedCatalogs);
+    }
+
+    public void denySchemas(Predicate<String> deniedSchemas)
+    {
+        this.deniedSchemas = this.deniedSchemas.and(deniedSchemas);
     }
 
     public void denyTables(Predicate<SchemaTableName> deniedTables)
@@ -208,6 +215,17 @@ public class TestingAccessControlManager
                 securityContext,
                 catalogs.stream()
                         .filter(this.deniedCatalogs)
+                        .collect(toImmutableSet()));
+    }
+
+    @Override
+    public Set<String> filterSchemas(SecurityContext securityContext, String catalogName, Set<String> schemaNames)
+    {
+        return super.filterSchemas(
+                securityContext,
+                catalogName,
+                schemaNames.stream()
+                        .filter(this.deniedSchemas)
                         .collect(toImmutableSet()));
     }
 
@@ -291,13 +309,13 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName)
+    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName, Map<String, Object> properties)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), schemaName.getSchemaName(), CREATE_SCHEMA)) {
             denyCreateSchema(schemaName.toString());
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanCreateSchema(context, schemaName);
+            super.checkCanCreateSchema(context, schemaName, properties);
         }
     }
 

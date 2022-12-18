@@ -53,8 +53,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -109,7 +109,7 @@ public class TestIcebergProjectionPushdownPlans
     @Test
     public void testPushdownDisabled()
     {
-        String testTable = "test_disabled_pushdown" + randomTableSuffix();
+        String testTable = "test_disabled_pushdown" + randomNameSuffix();
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setCatalogSessionProperty(CATALOG, "projection_pushdown_enabled", "false")
@@ -131,7 +131,7 @@ public class TestIcebergProjectionPushdownPlans
     @Test
     public void testDereferencePushdown()
     {
-        String testTable = "test_simple_projection_pushdown" + randomTableSuffix();
+        String testTable = "test_simple_projection_pushdown" + randomNameSuffix();
         QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, testTable);
 
         getQueryRunner().execute(format(

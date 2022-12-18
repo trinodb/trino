@@ -38,7 +38,7 @@ import static io.trino.plugin.password.ldap.LdapUtil.addLdapDefinition;
 import static io.trino.plugin.password.ldap.LdapUtil.buildLdapGroupObject;
 import static io.trino.plugin.password.ldap.LdapUtil.buildLdapOrganizationObject;
 import static io.trino.plugin.password.ldap.LdapUtil.buildLdapUserObject;
-import static io.trino.plugin.password.ldap.LdapUtil.randomSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -82,13 +82,13 @@ public class TestingOpenLdapServer
     public DisposableSubContext createOrganization()
             throws NamingException
     {
-        return createDisposableSubContext(buildLdapOrganizationObject("organization_" + randomSuffix(), BASE_DISTINGUISED_NAME));
+        return createDisposableSubContext(buildLdapOrganizationObject("organization_" + randomNameSuffix(), BASE_DISTINGUISED_NAME));
     }
 
     public DisposableSubContext createGroup(DisposableSubContext organization)
             throws Exception
     {
-        return createDisposableSubContext(buildLdapGroupObject(organization.getDistinguishedName(), "group_" + randomSuffix()));
+        return createDisposableSubContext(buildLdapGroupObject(organization.getDistinguishedName(), "group_" + randomNameSuffix()));
     }
 
     public DisposableSubContext createUser(DisposableSubContext organization, String userName, String password)

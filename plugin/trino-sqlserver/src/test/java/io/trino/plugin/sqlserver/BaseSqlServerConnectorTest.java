@@ -42,7 +42,7 @@ import static io.trino.plugin.sqlserver.DataCompression.ROW;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
@@ -409,7 +409,7 @@ public abstract class BaseSqlServerConnectorTest
     @Test(dataProvider = "dataCompression")
     public void testCreateWithDataCompression(DataCompression dataCompression)
     {
-        String tableName = "test_create_with_compression_" + randomTableSuffix();
+        String tableName = "test_create_with_compression_" + randomNameSuffix();
         String createQuery = format("CREATE TABLE sqlserver.dbo.%s (\n" +
                         "   a bigint,\n" +
                         "   b bigint\n" +

@@ -71,6 +71,8 @@ property:
 For more information on TLS configuration options, see the `PostgreSQL JDBC
 driver documentation <https://jdbc.postgresql.org/documentation/use/#connecting-to-the-database>`__.
 
+.. include:: jdbc-authentication.fragment
+
 Multiple PostgreSQL databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

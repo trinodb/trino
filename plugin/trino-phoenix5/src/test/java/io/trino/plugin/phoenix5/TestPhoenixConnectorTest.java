@@ -42,6 +42,7 @@ import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTI
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.phoenix5.PhoenixQueryRunner.createPhoenixQueryRunner;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
@@ -57,7 +58,7 @@ import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -361,7 +362,7 @@ public class TestPhoenixConnectorTest
         // Skipping the ą test case because it is not supported
         List<String> rows = Streams.mapWithIndex(Stream.of("a", "b", "A", "B", " a ", "a", "b", " b "), (value, idx) -> String.format("%d, '%2$s', '%2$s'", idx, value))
                 .collect(toImmutableList());
-        String tableName = "count_distinct_strings" + randomTableSuffix();
+        String tableName = "count_distinct_strings" + randomNameSuffix();
 
         try (TestTable testTable = new TestTable(getQueryRunner()::execute, tableName, "(id int, t_char CHAR(5), t_varchar VARCHAR(5)) WITH (ROWKEYS='id')", rows)) {
             assertQuery("SELECT count(DISTINCT t_varchar) FROM " + testTable.getName(), "VALUES 6");
@@ -374,7 +375,7 @@ public class TestPhoenixConnectorTest
     public void testDeleteWithLike()
     {
         assertThatThrownBy(super::testDeleteWithLike)
-                .hasStackTraceContaining("TrinoException: Unsupported delete");
+                .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
     @Test
@@ -399,7 +400,6 @@ public class TestPhoenixConnectorTest
 
     @Test
     public void testUnsupportedType()
-            throws Exception
     {
         onRemoteDatabase().execute("CREATE TABLE tpch.test_timestamp (pk bigint primary key, val1 timestamp)");
         onRemoteDatabase().execute("UPSERT INTO tpch.test_timestamp (pk, val1) VALUES (1, null)");
@@ -422,7 +422,6 @@ public class TestPhoenixConnectorTest
 
     @Test
     public void testDefaultDecimalTable()
-            throws Exception
     {
         onRemoteDatabase().execute("CREATE TABLE tpch.test_null_decimal (pk bigint primary key, val1 decimal)");
         onRemoteDatabase().execute("UPSERT INTO tpch.test_null_decimal (pk, val1) VALUES (1, 2)");
@@ -470,7 +469,6 @@ public class TestPhoenixConnectorTest
 
     @Test
     public void testSecondaryIndex()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_primary_table (pk bigint, val1 double, val2 double, val3 double) with(rowkeys = 'pk')");
         onRemoteDatabase().execute("CREATE LOCAL INDEX test_local_index ON tpch.test_primary_table (val1)");
@@ -483,7 +481,6 @@ public class TestPhoenixConnectorTest
 
     @Test
     public void testCaseInsensitiveNameMatching()
-            throws Exception
     {
         onRemoteDatabase().execute("CREATE TABLE tpch.\"TestCaseInsensitive\" (\"pK\" bigint primary key, \"Val1\" double)");
         assertUpdate("INSERT INTO testcaseinsensitive VALUES (1, 1.1)", 1);
@@ -492,7 +489,6 @@ public class TestPhoenixConnectorTest
 
     @Test
     public void testMissingColumnsOnInsert()
-            throws Exception
     {
         onRemoteDatabase().execute("CREATE TABLE tpch.test_col_insert(pk VARCHAR NOT NULL PRIMARY KEY, col1 VARCHAR, col2 VARCHAR)");
         assertUpdate("INSERT INTO test_col_insert(pk, col1) VALUES('1', 'val1')", 1);

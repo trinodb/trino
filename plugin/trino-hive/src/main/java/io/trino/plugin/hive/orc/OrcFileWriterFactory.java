@@ -29,7 +29,6 @@ import io.trino.orc.metadata.CompressionKind;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HiveFileWriterFactory;
-import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.acid.AcidTransaction;
@@ -68,7 +67,6 @@ import static io.trino.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterVa
 import static io.trino.plugin.hive.HiveSessionProperties.getOrcStringStatisticsLimit;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcOptimizedWriterValidate;
-import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_NAMES;
 import static io.trino.plugin.hive.acid.AcidSchema.createAcidColumnPrestoTypes;
 import static io.trino.plugin.hive.acid.AcidSchema.createRowType;
@@ -226,21 +224,10 @@ public class OrcFileWriterFactory
         }
     }
 
-    public static HiveType createHiveRowType(Properties schema, TypeManager typeManager, ConnectorSession session)
-    {
-        List<String> dataColumnNames = getColumnNames(schema);
-        List<Type> dataColumnTypes = getColumnTypes(schema).stream()
-                .map(hiveType -> hiveType.getType(typeManager, getTimestampPrecision(session)))
-                .collect(toList());
-        Type dataRowType = createRowType(dataColumnNames, dataColumnTypes);
-        Type acidRowType = createRowType(ACID_COLUMN_NAMES, createAcidColumnPrestoTypes(dataRowType));
-        return toHiveType(acidRowType);
-    }
-
     public static OrcDataSink createOrcDataSink(TrinoFileSystem fileSystem, String path)
             throws IOException
     {
-        return new OutputStreamOrcDataSink(fileSystem.newOutputFile(path).create());
+        return OutputStreamOrcDataSink.create(fileSystem.newOutputFile(path));
     }
 
     private static CompressionKind getCompression(Properties schema, JobConf configuration)

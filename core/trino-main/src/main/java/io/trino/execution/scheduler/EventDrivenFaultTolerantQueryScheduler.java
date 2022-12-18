@@ -994,7 +994,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 ExecutionFailureInfo failureInfo = taskStatus.getFailures().stream()
                         .findFirst()
                         .map(this::rewriteTransportFailure)
-                        .orElse(toFailure(new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason")));
+                        .orElseGet(() -> toFailure(new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason")));
 
                 List<ScheduledTask> replacementTasks = stageExecution.taskFailed(taskId, failureInfo, taskStatus);
                 replacementTasks.forEach(task -> schedulingQueue.addOrUpdate(task, task.priority()));

@@ -23,12 +23,12 @@ import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.trino.Session;
 import io.trino.collect.cache.NonEvictableCache;
-import io.trino.connector.CatalogHandle;
 import io.trino.execution.NodeTaskMap;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
+import io.trino.spi.connector.CatalogHandle;
 
 import javax.inject.Inject;
 

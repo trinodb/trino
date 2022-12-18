@@ -13,7 +13,7 @@ Installing the iterator dependency
 ----------------------------------
 
 The Accumulo connector uses custom Accumulo iterators in
-order to push various information in a SQL predicate clause to Accumulo for
+order to push various information in SQL predicate clauses to Accumulo for
 server-side filtering, known as *predicate pushdown*. In order
 for the server-side iterators to work, you need to add the ``trino-accumulo-iterators``
 JAR file to Accumulo's ``lib/ext`` directory on each TabletServer node.
