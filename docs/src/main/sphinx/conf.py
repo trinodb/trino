@@ -74,7 +74,7 @@ def setup(app):
 
 needs_sphinx = '3.0'
 
-extensions = ['myst_parser', 'backquote', 'download', 'issue', 'sphinx_copybutton']
+extensions = ['myst_parser', 'backquote', 'download', 'issue', 'sphinx_copybutton', 'sphinx_reredirects']
 
 templates_path = ['templates']
 
@@ -138,3 +138,11 @@ html_theme_options = {
 html_css_files = [
     'trino.css',
 ]
+
+# -- List of page redirects ----------------------------------------------------
+# See https://documatt.gitlab.io/sphinx-reredirects/usage.html for plugin docs
+
+redirects = {
+    "installation/jdbc": "client/jdbc",
+    "installation/cli": "client/cli"
+}

@@ -3,3 +3,4 @@ myst-parser
 pillow
 sphinx-material
 sphinx-copybutton
+sphinx-reredirects
