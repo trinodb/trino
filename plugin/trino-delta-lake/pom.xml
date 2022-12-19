@@ -406,6 +406,35 @@
         </dependency>
     </dependencies>
 
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredResourcePatterns>
+                        <!-- com.amazonaws:aws-java-sdk-core and software.amazon.awssdk:sdk-core MIME type file duplicate-->
+                        <ignoredResourcePattern>mime.types</ignoredResourcePattern>
+                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredNonTestScopedDependencies>
+                        <!-- dependency plugin fails to recognize aws-java-sdk-core as a compile-time dependency, because
+                             we only explicitly use a class from aws-java-sdk-glue, which in turn extends from a class from
+                             aws-java-sdk-core -->
+                        <ignoredDependency>com.amazonaws:aws-java-sdk-core</ignoredDependency>
+                        <ignoredDependency>org.apache.iceberg:iceberg-api</ignoredDependency>
+                    </ignoredNonTestScopedDependencies>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
     <profiles>
         <profile>
             <id>default</id>
@@ -429,31 +458,6 @@
                                 <exclude>**/TestDeltaLakeRegisterTableProcedureWithGlue.java</exclude>
                                 <exclude>**/TestDeltaLakeGcsConnectorSmokeTest.java</exclude>
                             </excludes>
-                        </configuration>
-                    </plugin>
-
-                    <plugin>
-                        <groupId>org.basepom.maven</groupId>
-                        <artifactId>duplicate-finder-maven-plugin</artifactId>
-                        <configuration>
-                            <ignoredResourcePatterns>
-                                <!-- com.amazonaws:aws-java-sdk-core and software.amazon.awssdk:sdk-core MIME type file duplicate-->
-                                <ignoredResourcePattern>mime.types</ignoredResourcePattern>
-                                <ignoredResourcePattern>about.html</ignoredResourcePattern>
-                            </ignoredResourcePatterns>
-                        </configuration>
-                    </plugin>
-
-                    <plugin>
-                        <artifactId>maven-dependency-plugin</artifactId>
-                        <configuration>
-                            <ignoredNonTestScopedDependencies>
-                                <!-- dependency plugin fails to recognize aws-java-sdk-core as a compile-time dependency, because
-                                     we only explicitly use a class from aws-java-sdk-glue, which in turn extends from a class from
-                                     aws-java-sdk-core -->
-                                <ignoredDependency>com.amazonaws:aws-java-sdk-core</ignoredDependency>
-                                <ignoredDependency>org.apache.iceberg:iceberg-api</ignoredDependency>
-                            </ignoredNonTestScopedDependencies>
                         </configuration>
                     </plugin>
                 </plugins>
