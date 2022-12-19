@@ -47,6 +47,7 @@ public class QueryManagerConfig
 {
     public static final String QUERY_MAX_RUN_TIME_HARD_LIMIT = "query.max-run-time.hard-limit";
     public static final long AVAILABLE_HEAP_MEMORY = Runtime.getRuntime().maxMemory();
+    public static final int MAX_TASK_RETRY_ATTEMPTS = 126;
 
     private int scheduleSplitBatchSize = 1000;
     private int minScheduleSplitBatchSize = 100;
@@ -482,6 +483,7 @@ public class QueryManagerConfig
     }
 
     @Min(0)
+    @Max(MAX_TASK_RETRY_ATTEMPTS)
     public int getTaskRetryAttemptsPerTask()
     {
         return taskRetryAttemptsPerTask;

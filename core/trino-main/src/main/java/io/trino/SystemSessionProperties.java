@@ -37,6 +37,7 @@ import java.util.OptionalInt;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.execution.QueryManagerConfig.MAX_TASK_RETRY_ATTEMPTS;
 import static io.trino.execution.QueryManagerConfig.QUERY_MAX_RUN_TIME_HARD_LIMIT;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
@@ -762,6 +763,13 @@ public final class SystemSessionProperties
                         TASK_RETRY_ATTEMPTS_PER_TASK,
                         "Maximum number of task retry attempts per single task",
                         queryManagerConfig.getTaskRetryAttemptsPerTask(),
+                        value -> {
+                            if (value < 0 || value > MAX_TASK_RETRY_ATTEMPTS) {
+                                throw new TrinoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s must be greater than or equal to 0 and not not greater than %s", TASK_RETRY_ATTEMPTS_PER_TASK, MAX_TASK_RETRY_ATTEMPTS));
+                            }
+                        },
                         false),
                 integerProperty(
                         MAX_TASKS_WAITING_FOR_NODE_PER_STAGE,
