@@ -496,9 +496,13 @@ public class PlanPrinter
             Anonymizer anonymizer)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(format("Fragment %s [%s]\n",
+        builder.append(format("Fragment %s [%s",
                 fragment.getId(),
                 anonymizer.anonymize(fragment.getPartitioning())));
+        if (fragment.isCoordinatorOnly()) {
+            builder.append(", COORDINATOR");
+        }
+        builder.append("]\n");
 
         if (stageInfo.isPresent()) {
             StageStats stageStats = stageInfo.get().getStageStats();
@@ -640,6 +644,7 @@ public class PlanPrinter
                 types.allTypes(),
                 SINGLE_DISTRIBUTION,
                 Optional.empty(),
+                false,
                 ImmutableList.of(plan.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
                 StatsAndCosts.empty(),

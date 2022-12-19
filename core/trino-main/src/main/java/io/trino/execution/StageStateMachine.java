@@ -668,7 +668,7 @@ public class StageStateMachine
                 stageId,
                 state,
                 fragment,
-                fragment.getPartitioning().isCoordinatorOnly(),
+                fragment.isCoordinatorOnly(),
                 fragment.getTypes(),
                 stageStats,
                 taskInfos,

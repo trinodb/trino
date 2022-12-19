@@ -45,6 +45,7 @@ public class PlanFragment
     private final Map<Symbol, Type> symbols;
     private final PartitioningHandle partitioning;
     private final Optional<Integer> partitionCount;
+    private final boolean coordinatorOnly;
     private final List<PlanNodeId> partitionedSources;
     private final Set<PlanNodeId> partitionedSourcesSet;
     private final List<Type> types;
@@ -62,6 +63,7 @@ public class PlanFragment
             Map<Symbol, Type> symbols,
             PartitioningHandle partitioning,
             Optional<Integer> partitionCount,
+            boolean coordinatorOnly,
             List<PlanNodeId> partitionedSources,
             Set<PlanNodeId> partitionedSourcesSet,
             List<Type> types,
@@ -76,6 +78,7 @@ public class PlanFragment
         this.symbols = requireNonNull(symbols, "symbols is null");
         this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.partitionCount = requireNonNull(partitionCount, "partitionCount is null");
+        this.coordinatorOnly = coordinatorOnly;
         this.partitionedSources = requireNonNull(partitionedSources, "partitionedSources is null");
         this.partitionedSourcesSet = requireNonNull(partitionedSourcesSet, "partitionedSourcesSet is null");
         this.types = requireNonNull(types, "types is null");
@@ -94,6 +97,7 @@ public class PlanFragment
             @JsonProperty("symbols") Map<Symbol, Type> symbols,
             @JsonProperty("partitioning") PartitioningHandle partitioning,
             @JsonProperty("partitionCount") Optional<Integer> partitionCount,
+            @JsonProperty("coordinatorOnly") boolean coordinatorOnly,
             @JsonProperty("partitionedSources") List<PlanNodeId> partitionedSources,
             @JsonProperty("outputPartitioningScheme") PartitioningScheme outputPartitioningScheme,
             @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
@@ -105,6 +109,7 @@ public class PlanFragment
         this.symbols = requireNonNull(symbols, "symbols is null");
         this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.partitionCount = requireNonNull(partitionCount, "partitionCount is null");
+        this.coordinatorOnly = coordinatorOnly;
         this.partitionedSources = ImmutableList.copyOf(requireNonNull(partitionedSources, "partitionedSources is null"));
         this.partitionedSourcesSet = ImmutableSet.copyOf(partitionedSources);
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
@@ -163,6 +168,12 @@ public class PlanFragment
     }
 
     @JsonProperty
+    public boolean isCoordinatorOnly()
+    {
+        return coordinatorOnly;
+    }
+
+    @JsonProperty
     public List<PlanNodeId> getPartitionedSources()
     {
         return partitionedSources;
@@ -210,6 +221,7 @@ public class PlanFragment
                 this.symbols,
                 this.partitioning,
                 this.partitionCount,
+                this.coordinatorOnly,
                 this.partitionedSources,
                 this.partitionedSourcesSet,
                 this.types,
@@ -271,7 +283,7 @@ public class PlanFragment
 
     public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionCount, partitionedSources, outputPartitioningScheme.withBucketToPartition(bucketToPartition), statsAndCosts, activeCatalogs, jsonRepresentation);
+        return new PlanFragment(id, root, symbols, partitioning, partitionCount, coordinatorOnly, partitionedSources, outputPartitioningScheme.withBucketToPartition(bucketToPartition), statsAndCosts, activeCatalogs, jsonRepresentation);
     }
 
     @Override

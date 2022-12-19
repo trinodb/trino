@@ -72,7 +72,6 @@ import static io.trino.SystemSessionProperties.isForceSingleNodeOutput;
 import static io.trino.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static io.trino.spi.connector.StandardWarningCode.TOO_MANY_STAGES;
 import static io.trino.sql.planner.SchedulingOrderVisitor.scheduleOrder;
-import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -184,6 +183,7 @@ public class PlanFragmenter
                 fragment.getSymbols(),
                 fragment.getPartitioning(),
                 fragment.getPartitionCount(),
+                fragment.isCoordinatorOnly(),
                 fragment.getPartitionedSources(),
                 new PartitioningScheme(
                         newOutputPartitioning,
@@ -251,6 +251,7 @@ public class PlanFragmenter
                     symbols,
                     properties.getPartitioningHandle(),
                     properties.getPartitionCount(),
+                    properties.isCoordinatorOnly(),
                     schedulingOrder,
                     properties.getPartitioningScheme(),
                     statsAndCosts.getForSubplan(root),
@@ -439,16 +440,16 @@ public class PlanFragmenter
 
         private static boolean isWorkerCoordinatorBoundary(FragmentProperties fragmentProperties, List<FragmentProperties> childFragmentsProperties)
         {
-            if (!fragmentProperties.getPartitioningHandle().isCoordinatorOnly()) {
+            if (!fragmentProperties.isCoordinatorOnly()) {
                 // receiver stage is not a coordinator stage
                 return false;
             }
-            if (childFragmentsProperties.stream().allMatch(properties -> properties.getPartitioningHandle().isCoordinatorOnly())) {
+            if (childFragmentsProperties.stream().allMatch(FragmentProperties::isCoordinatorOnly)) {
                 // coordinator to coordinator exchange
                 return false;
             }
             checkArgument(
-                    childFragmentsProperties.stream().noneMatch(properties -> properties.getPartitioningHandle().isCoordinatorOnly()),
+                    childFragmentsProperties.stream().noneMatch(FragmentProperties::isCoordinatorOnly),
                     "Plans are not expected to have a mix of coordinator only fragments and distributed fragments as siblings");
             return true;
         }
@@ -462,6 +463,7 @@ public class PlanFragmenter
 
         private Optional<PartitioningHandle> partitioningHandle = Optional.empty();
         private Optional<Integer> partitionCount = Optional.empty();
+        private boolean coordinatorOnly;
         private final Set<PlanNodeId> partitionedSources = new HashSet<>();
 
         public FragmentProperties(PartitioningScheme partitioningScheme)
@@ -573,18 +575,18 @@ public class PlanFragmenter
 
         public FragmentProperties setCoordinatorOnlyDistribution()
         {
-            if (partitioningHandle.isPresent() && partitioningHandle.get().isCoordinatorOnly()) {
+            if (coordinatorOnly) {
                 // already single node distribution
                 return this;
             }
 
             // only system SINGLE can be upgraded to COORDINATOR_ONLY
             checkState(partitioningHandle.isEmpty() || partitioningHandle.get().equals(SINGLE_DISTRIBUTION),
-                    "Cannot overwrite partitioning with %s (currently set to %s)",
-                    COORDINATOR_DISTRIBUTION,
+                    "Cannot set coordinator only distribution (partitioning set to %s)",
                     partitioningHandle);
 
-            partitioningHandle = Optional.of(COORDINATOR_DISTRIBUTION);
+            partitioningHandle = Optional.of(SINGLE_DISTRIBUTION);
+            coordinatorOnly = true;
 
             return this;
         }
@@ -604,7 +606,7 @@ public class PlanFragmenter
             PartitioningHandle currentPartitioning = partitioningHandle.get();
 
             // If already system SINGLE or COORDINATOR_ONLY, leave it as is (this is for single-node execution)
-            if (currentPartitioning.equals(SINGLE_DISTRIBUTION) || currentPartitioning.equals(COORDINATOR_DISTRIBUTION)) {
+            if (currentPartitioning.equals(SINGLE_DISTRIBUTION)) {
                 return this;
             }
 
@@ -646,6 +648,11 @@ public class PlanFragmenter
         public Set<PlanNodeId> getPartitionedSources()
         {
             return partitionedSources;
+        }
+
+        public boolean isCoordinatorOnly()
+        {
+            return coordinatorOnly;
         }
     }
 

@@ -19,9 +19,4 @@ public interface ConnectorPartitioningHandle
     {
         return false;
     }
-
-    default boolean isCoordinatorOnly()
-    {
-        return false;
-    }
 }

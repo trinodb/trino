@@ -145,7 +145,6 @@ import static io.trino.spi.ErrorType.INTERNAL_ERROR;
 import static io.trino.spi.ErrorType.USER_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_HOST_GONE;
-import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.util.Failures.toFailure;
 import static java.lang.Math.max;
@@ -839,8 +838,6 @@ public class EventDrivenFaultTolerantQueryScheduler
                         sinkPartitioningScheme.getPartitionCount(),
                         preserveOrderWithinPartition));
 
-                boolean coordinatorStage = stage.getFragment().getPartitioning().equals(COORDINATOR_DISTRIBUTION);
-
                 StageExecution execution = new StageExecution(
                         queryStateMachine,
                         taskDescriptorStorage,
@@ -850,7 +847,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         exchange,
                         memoryEstimatorFactory.createPartitionMemoryEstimator(),
                         // do not retry coordinator only tasks
-                        coordinatorStage ? 1 : maxTaskExecutionAttempts,
+                        stage.getFragment().isCoordinatorOnly() ? 1 : maxTaskExecutionAttempts,
                         schedulingPriority,
                         dynamicFilterService);
 
@@ -1309,7 +1306,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
             ExchangeSinkHandle exchangeSinkHandle = exchange.addSink(partitionId);
             Session session = queryStateMachine.getSession();
-            DataSize defaultTaskMemory = stage.getFragment().getPartitioning().equals(COORDINATOR_DISTRIBUTION) ?
+            DataSize defaultTaskMemory = stage.getFragment().isCoordinatorOnly() ?
                     getFaultTolerantExecutionDefaultCoordinatorTaskMemory(session) :
                     getFaultTolerantExecutionDefaultTaskMemory(session);
             StagePartition partition = new StagePartition(

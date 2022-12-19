@@ -90,11 +90,6 @@ public class PartitioningHandle
         return connectorHandle.isSingleNode();
     }
 
-    public boolean isCoordinatorOnly()
-    {
-        return connectorHandle.isCoordinatorOnly();
-    }
-
     @Override
     public boolean equals(Object o)
     {

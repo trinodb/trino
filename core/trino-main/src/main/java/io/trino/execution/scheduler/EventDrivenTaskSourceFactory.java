@@ -56,7 +56,6 @@ import static io.trino.SystemSessionProperties.getFaultTolerantExecutionHashDist
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionHashDistributionWriteTaskTargetSize;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxTaskSplitCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionStandardSplitSize;
-import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
@@ -164,10 +163,9 @@ public class EventDrivenTaskSourceFactory
                 .map(PlanNode::getId)
                 .collect(toImmutableSet());
 
-        boolean coordinatorOnly = partitioning.equals(COORDINATOR_DISTRIBUTION);
-        if (partitioning.equals(SINGLE_DISTRIBUTION) || coordinatorOnly) {
+        if (partitioning.equals(SINGLE_DISTRIBUTION)) {
             ImmutableSet<HostAddress> hostRequirement = ImmutableSet.of();
-            if (coordinatorOnly) {
+            if (fragment.isCoordinatorOnly()) {
                 Node currentNode = nodeManager.getCurrentNode();
                 verify(currentNode.isCoordinator(), "current node is expected to be a coordinator");
                 hostRequirement = ImmutableSet.of(currentNode.getHostAndPort());

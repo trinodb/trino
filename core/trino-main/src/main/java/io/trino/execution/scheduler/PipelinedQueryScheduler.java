@@ -882,7 +882,7 @@ public class PipelinedQueryScheduler
             for (SqlStage stage : stageManager.getDistributedStagesInTopologicalOrder()) {
                 Optional<SqlStage> parentStage = stageManager.getParent(stage.getStageId());
                 TaskLifecycleListener taskLifecycleListener;
-                if (parentStage.isEmpty() || parentStage.get().getFragment().getPartitioning().isCoordinatorOnly()) {
+                if (parentStage.isEmpty() || parentStage.get().getFragment().isCoordinatorOnly()) {
                     // output will be consumed by coordinator
                     taskLifecycleListener = coordinatorTaskLifecycleListener;
                 }
@@ -1115,6 +1115,10 @@ public class PipelinedQueryScheduler
                         .addListener(scheduler::finish, directExecutor());
 
                 return scheduler;
+            }
+
+            if (fragment.isCoordinatorOnly()) {
+                return new FixedCountScheduler(stageExecution, ImmutableList.of(nodeScheduler.createNodeSelector(session, Optional.empty()).selectCurrentNode()));
             }
 
             if (splitSources.isEmpty()) {

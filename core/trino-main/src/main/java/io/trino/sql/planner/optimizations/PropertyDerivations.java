@@ -101,7 +101,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
 import static io.trino.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
@@ -189,7 +188,8 @@ public final class PropertyDerivations
         public ActualProperties visitExplainAnalyze(ExplainAnalyzeNode node, List<ActualProperties> inputProperties)
         {
             return ActualProperties.builder()
-                    .nodePartitioning(Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of()))
+                    .nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()))
+                    .setCoordinatorOnly(true)
                     .build();
         }
 
@@ -477,7 +477,8 @@ public final class PropertyDerivations
         public ActualProperties visitStatisticsWriterNode(StatisticsWriterNode node, List<ActualProperties> context)
         {
             return ActualProperties.builder()
-                    .nodePartitioning(Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of()))
+                    .nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()))
+                    .setCoordinatorOnly(true)
                     .build();
         }
 
@@ -485,7 +486,8 @@ public final class PropertyDerivations
         public ActualProperties visitTableFinish(TableFinishNode node, List<ActualProperties> inputProperties)
         {
             return ActualProperties.builder()
-                    .nodePartitioning(Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of()))
+                    .nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()))
+                    .setCoordinatorOnly(true)
                     .build();
         }
 
@@ -493,7 +495,8 @@ public final class PropertyDerivations
         public ActualProperties visitTableDelete(TableDeleteNode node, List<ActualProperties> context)
         {
             return ActualProperties.builder()
-                    .nodePartitioning(Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of()))
+                    .nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()))
+                    .setCoordinatorOnly(true)
                     .build();
         }
 
@@ -501,14 +504,11 @@ public final class PropertyDerivations
         public ActualProperties visitTableExecute(TableExecuteNode node, List<ActualProperties> inputProperties)
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
-
             ActualProperties.Builder result = ActualProperties.builder();
-            if (properties.isCoordinatorOnly()) {
-                result.nodePartitioning(Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of()));
-            }
-            else if (properties.isSingleNode()) {
+            if (properties.isSingleNode()) {
                 result.nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()));
             }
+            result.setCoordinatorOnly(properties.isCoordinatorOnly());
             return result.build();
         }
 
@@ -517,7 +517,8 @@ public final class PropertyDerivations
         {
             // metadata operations always run on the coordinator
             return ActualProperties.builder()
-                    .nodePartitioning(Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of()))
+                    .nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()))
+                    .setCoordinatorOnly(true)
                     .build();
         }
 
@@ -705,11 +706,11 @@ public final class PropertyDerivations
                 builder.local(localProperties.build());
                 builder.constants(constants);
 
-                if (inputProperties.stream().anyMatch(ActualProperties::isCoordinatorOnly)) {
-                    builder.nodePartitioning(Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of()));
-                }
-                else if (inputProperties.stream().anyMatch(ActualProperties::isSingleNode)) {
+                if (inputProperties.stream().anyMatch(ActualProperties::isSingleNode)) {
                     builder.nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()));
+                }
+                if (inputProperties.stream().anyMatch(ActualProperties::isCoordinatorOnly)) {
+                    builder.setCoordinatorOnly(true);
                 }
 
                 return builder.build();
@@ -799,7 +800,8 @@ public final class PropertyDerivations
         public ActualProperties visitRefreshMaterializedView(RefreshMaterializedViewNode node, List<ActualProperties> inputProperties)
         {
             return ActualProperties.builder()
-                    .nodePartitioning(Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of()))
+                    .nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()))
+                    .setCoordinatorOnly(true)
                     .build();
         }
 
@@ -812,14 +814,11 @@ public final class PropertyDerivations
         private ActualProperties visitPartitionedWriter(List<ActualProperties> inputProperties)
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
-
             ActualProperties.Builder result = ActualProperties.builder();
-            if (properties.isCoordinatorOnly()) {
-                result.nodePartitioning(Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of()));
-            }
-            else if (properties.isSingleNode()) {
+            if (properties.isSingleNode()) {
                 result.nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()));
             }
+            result.setCoordinatorOnly(properties.isCoordinatorOnly());
             return result.build();
         }
 

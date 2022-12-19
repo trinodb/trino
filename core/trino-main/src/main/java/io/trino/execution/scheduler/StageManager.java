@@ -95,7 +95,7 @@ class StageManager
             StageId stageId = stage.getStageId();
             stages.put(stageId, stage);
             stagesInTopologicalOrder.add(stage);
-            if (fragment.getPartitioning().isCoordinatorOnly()) {
+            if (fragment.isCoordinatorOnly()) {
                 coordinatorStagesInTopologicalOrder.add(stage);
             }
             else {

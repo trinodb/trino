@@ -254,6 +254,12 @@
                                     <old>interface io.trino.spi.ptf.TableFunctionDataProcessor</old>
                                     <justification>Relocate table function infrastructure</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.connector.ConnectorPartitioningHandle::isCoordinatorOnly()</old>
+                                    <justification>Designed for internal use only</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

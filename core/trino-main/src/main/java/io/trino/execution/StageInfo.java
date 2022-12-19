@@ -174,7 +174,7 @@ public class StageInfo
                 StageId.create(queryId, fragment.getId()),
                 state,
                 fragment,
-                fragment.getPartitioning().isCoordinatorOnly(),
+                fragment.isCoordinatorOnly(),
                 fragment.getTypes(),
                 StageStats.createInitial(),
                 ImmutableList.of(),

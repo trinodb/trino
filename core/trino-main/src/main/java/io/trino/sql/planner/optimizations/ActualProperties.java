@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.util.MoreLists.filteredCopy;
 import static java.util.Objects.requireNonNull;
 
@@ -46,11 +47,13 @@ public class ActualProperties
     // the rows will be partitioned into a single node or stream. However, this can still be a partitioned plan in that the plan
     // will be executed on multiple servers, but only one server will get all the data.
     private final Optional<Partitioning> nodePartitioning; // if missing => partitioned with some unknown scheme
+    private final boolean coordinatorOnly;
     private final List<LocalProperty<Symbol>> localProperties;
     private final Map<Symbol, NullableValue> constants;
 
     private ActualProperties(
             Optional<Partitioning> nodePartitioning,
+            boolean coordinatorOnly,
             List<? extends LocalProperty<Symbol>> localProperties,
             Map<Symbol, NullableValue> constants)
     {
@@ -59,6 +62,8 @@ public class ActualProperties
         requireNonNull(constants, "constants is null");
 
         this.nodePartitioning = nodePartitioning;
+        checkArgument(!coordinatorOnly || nodePartitioning.isPresent() && nodePartitioning.get().getHandle().isSingleNode(), "coordinatorOnly expects single partition");
+        this.coordinatorOnly = coordinatorOnly;
 
         // The constants field implies a ConstantProperty in localProperties (but not vice versa).
         // Let's make sure to include the constants into the local constant properties.
@@ -81,10 +86,7 @@ public class ActualProperties
 
     public boolean isCoordinatorOnly()
     {
-        return nodePartitioning
-                .map(Partitioning::getHandle)
-                .map(PartitioningHandle::isCoordinatorOnly)
-                .orElse(false);
+        return coordinatorOnly;
     }
 
     /**
@@ -210,6 +212,7 @@ public class ActualProperties
     public static class Builder
     {
         private Optional<Partitioning> nodePartitioning;
+        private boolean coordinatorOnly;
         private List<LocalProperty<Symbol>> localProperties;
         private Map<Symbol, NullableValue> constants;
         private boolean unordered;
@@ -238,6 +241,12 @@ public class ActualProperties
             return this;
         }
 
+        public Builder setCoordinatorOnly(boolean coordinatorOnly)
+        {
+            this.coordinatorOnly = coordinatorOnly;
+            return this;
+        }
+
         public Builder local(List<? extends LocalProperty<Symbol>> localProperties)
         {
             this.localProperties = ImmutableList.copyOf(localProperties);
@@ -262,7 +271,7 @@ public class ActualProperties
             if (unordered) {
                 localProperties = filteredCopy(this.localProperties, property -> !property.isOrderSensitive());
             }
-            return new ActualProperties(nodePartitioning, localProperties, constants);
+            return new ActualProperties(nodePartitioning, coordinatorOnly, localProperties, constants);
         }
     }
 

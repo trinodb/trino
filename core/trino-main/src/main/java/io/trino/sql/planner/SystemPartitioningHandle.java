@@ -41,12 +41,10 @@ public final class SystemPartitioningHandle
         SINGLE,
         FIXED,
         SOURCE,
-        COORDINATOR_ONLY,
         ARBITRARY
     }
 
     public static final PartitioningHandle SINGLE_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.SINGLE, SystemPartitionFunction.SINGLE);
-    public static final PartitioningHandle COORDINATOR_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.COORDINATOR_ONLY, SystemPartitionFunction.SINGLE);
     public static final PartitioningHandle FIXED_HASH_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.HASH);
     public static final PartitioningHandle FIXED_ARBITRARY_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.ROUND_ROBIN);
     public static final PartitioningHandle FIXED_BROADCAST_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.BROADCAST);
@@ -98,13 +96,7 @@ public final class SystemPartitioningHandle
     @Override
     public boolean isSingleNode()
     {
-        return partitioning == SystemPartitioning.COORDINATOR_ONLY || partitioning == SystemPartitioning.SINGLE;
-    }
-
-    @Override
-    public boolean isCoordinatorOnly()
-    {
-        return partitioning == SystemPartitioning.COORDINATOR_ONLY;
+        return partitioning == SystemPartitioning.SINGLE;
     }
 
     @Override

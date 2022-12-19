@@ -15,7 +15,6 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.connector.CatalogServiceProvider;
@@ -216,7 +215,6 @@ public class NodePartitioningManager
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, Optional.empty());
 
         List<InternalNode> nodes = switch (partitioning) {
-            case COORDINATOR_ONLY -> ImmutableList.of(nodeSelector.selectCurrentNode());
             case SINGLE -> nodeSelector.selectRandomNodes(1);
             case FIXED -> {
                 List<InternalNode> value = nodesCache.get();
