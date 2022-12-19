@@ -29,10 +29,10 @@ import java.util.Set;
 import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeClient.checkColumnsForInvalidCharacters;
 import static java.util.Locale.ENGLISH;
 
-class SnowflakeMetadata
+public class SnowflakeMetadata
         extends DefaultJdbcMetadata
 {
-    SnowflakeMetadata(JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
+    public SnowflakeMetadata(JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
         super(jdbcClient, true, jdbcQueryEventListeners);
     }
