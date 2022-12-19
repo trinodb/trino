@@ -270,16 +270,6 @@ public class ThriftHiveMetastoreClient
                 () -> client.get_table(databaseName, tableName));
     }
 
-    private Table getTableWithCapabilities(String databaseName, String tableName)
-            throws TException
-    {
-        GetTableRequest request = new GetTableRequest();
-        request.setDbName(databaseName);
-        request.setTblName(tableName);
-        request.setCapabilities(new ClientCapabilities(ImmutableList.of(ClientCapability.INSERT_ONLY_TABLES)));
-        return client.get_table_req(request).getTable();
-    }
-
     @Override
     public List<FieldSchema> getFields(String databaseName, String tableName)
             throws TException
