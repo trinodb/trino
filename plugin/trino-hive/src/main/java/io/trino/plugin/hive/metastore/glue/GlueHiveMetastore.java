@@ -17,6 +17,7 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.AmazonWebServiceRequest;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.handlers.AsyncHandler;
 import com.amazonaws.handlers.RequestHandler2;
@@ -60,6 +61,7 @@ import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.UpdateDatabaseRequest;
 import com.amazonaws.services.glue.model.UpdatePartitionRequest;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -68,8 +70,13 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionNotFoundException;
@@ -134,6 +141,7 @@ import static com.google.common.collect.Comparators.lexicographical;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
@@ -234,6 +242,23 @@ public class GlueHiveMetastore
         asyncGlueClientBuilder.setCredentials(credentialsProvider);
 
         return asyncGlueClientBuilder.build();
+    }
+
+    @VisibleForTesting
+    public static GlueHiveMetastore createTestingGlueHiveMetastore(String defaultWarehouseDir)
+    {
+        HdfsConfig hdfsConfig = new HdfsConfig();
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
+        return new GlueHiveMetastore(
+                hdfsEnvironment,
+                new GlueHiveMetastoreConfig()
+                        .setDefaultWarehouseDir(defaultWarehouseDir),
+                DefaultAWSCredentialsProviderChain.getInstance(),
+                directExecutor(),
+                new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
+                Optional.empty(),
+                table -> true);
     }
 
     @Managed
