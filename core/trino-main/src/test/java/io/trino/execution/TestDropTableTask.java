@@ -55,6 +55,24 @@ public class TestDropTableTask
     }
 
     @Test
+    public void testDropTableIfExistsWithoutExistingCatalog()
+    {
+        QualifiedName tableName = QualifiedName.of("non_existing_catalog", "non_existing_schema", "not_existing_table");
+
+        getFutureValue(executeDropTable(tableName, true));
+        // no exception
+    }
+
+    @Test
+    public void testDropTableIfExistsWithoutExistingSchema()
+    {
+        QualifiedName tableName = QualifiedName.of(TEST_CATALOG_NAME, "non_existing_schema", "not_existing_table");
+
+        getFutureValue(executeDropTable(tableName, true));
+        // no exception
+    }
+
+    @Test
     public void testDropNotExistingTableIfExists()
     {
         QualifiedName tableName = qualifiedName("not_existing_table");
