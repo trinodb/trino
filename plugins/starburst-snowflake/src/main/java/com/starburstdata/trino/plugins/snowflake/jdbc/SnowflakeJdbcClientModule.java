@@ -48,7 +48,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeClient.SNOWFLAKE_MAX_LIST_EXPRESSIONS;
@@ -100,7 +99,10 @@ public class SnowflakeJdbcClientModule
                 .to(Key.get(ConnectionFactory.class, DefaultSnowflakeBinding.class))
                 .in(Scopes.SINGLETON);
 
-        binder.bind(IdentityCacheMapping.class).annotatedWith(ForWarehouseAware.class).to(SingletonIdentityCacheMapping.class).in(SINGLETON);
+        newOptionalBinder(binder, Key.get(IdentityCacheMapping.class, ForWarehouseAware.class))
+                .setDefault()
+                .to(SingletonIdentityCacheMapping.class)
+                .in(Scopes.SINGLETON);
 
         setupTableFunctions(binder);
     }
