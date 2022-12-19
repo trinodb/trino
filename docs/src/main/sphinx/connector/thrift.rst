@@ -28,8 +28,8 @@ Configuration
 -------------
 
 To configure the Thrift connector, create a catalog properties file
-``etc/catalog/thrift.properties`` with the following content,
-replacing the properties as appropriate:
+``etc/catalog/example.properties`` with the following content, replacing the
+properties as appropriate:
 
 .. code-block:: text
 
