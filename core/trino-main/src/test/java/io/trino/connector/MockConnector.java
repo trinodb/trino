@@ -92,6 +92,7 @@ import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.spi.type.Type;
 
@@ -134,6 +135,7 @@ public class MockConnector
     private final BiFunction<ConnectorSession, SchemaTableName, CompletableFuture<?>> refreshMaterializedView;
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
+    private final Function<SchemaTableName, TableStatistics> getTableStatistics;
     private final MockConnectorFactory.ApplyProjection applyProjection;
     private final MockConnectorFactory.ApplyAggregation applyAggregation;
     private final MockConnectorFactory.ApplyJoin applyJoin;
@@ -174,6 +176,7 @@ public class MockConnector
             BiFunction<ConnectorSession, SchemaTableName, CompletableFuture<?>> refreshMaterializedView,
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
+            Function<SchemaTableName, TableStatistics> getTableStatistics,
             ApplyProjection applyProjection,
             ApplyAggregation applyAggregation,
             ApplyJoin applyJoin,
@@ -212,6 +215,7 @@ public class MockConnector
         this.refreshMaterializedView = requireNonNull(refreshMaterializedView, "refreshMaterializedView is null");
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
         this.getColumns = requireNonNull(getColumns, "getColumns is null");
+        this.getTableStatistics = requireNonNull(getTableStatistics, "getTableStatistics is null");
         this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
         this.applyAggregation = requireNonNull(applyAggregation, "applyAggregation is null");
         this.applyJoin = requireNonNull(applyJoin, "applyJoin is null");
@@ -462,6 +466,13 @@ public class MockConnector
         {
             MockConnectorTableHandle table = (MockConnectorTableHandle) tableHandle;
             return new ConnectorTableMetadata(table.getTableName(), getColumns.apply(table.getTableName()));
+        }
+
+        @Override
+        public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
+        {
+            MockConnectorTableHandle table = (MockConnectorTableHandle) tableHandle;
+            return getTableStatistics.apply(table.getTableName());
         }
 
         @Override
