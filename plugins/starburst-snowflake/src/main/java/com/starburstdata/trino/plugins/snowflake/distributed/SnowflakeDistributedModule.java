@@ -67,9 +67,17 @@ public class SnowflakeDistributedModule
         newOptionalBinder(binder, ConnectorAccessControl.class);
         newSetBinder(binder, Procedure.class);
         bindSessionPropertiesProvider(binder, SnowflakeDistributedSessionProperties.class);
-        // TODO: Make more bindings optional defaults so SEP and Galaxy can
-        //       replace them if necessary.
-        newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(SnowflakeMetadataFactory.class).in(Scopes.SINGLETON);
+
+        newOptionalBinder(binder, Key.get(JdbcMetadataFactory.class, ForSnowflake.class))
+                .setDefault()
+                .to(SnowflakeMetadataFactory.class)
+                .in(Scopes.SINGLETON);
+
+        newOptionalBinder(binder, JdbcMetadataFactory.class)
+                .setBinding()
+                .to(Key.get(JdbcMetadataFactory.class, ForSnowflake.class))
+                .in(Scopes.SINGLETON);
+
         binder.bind(SnowflakeConnectionManager.class).in(Scopes.SINGLETON);
         newSetBinder(binder, JdbcQueryEventListener.class)
                 .addBinding()
