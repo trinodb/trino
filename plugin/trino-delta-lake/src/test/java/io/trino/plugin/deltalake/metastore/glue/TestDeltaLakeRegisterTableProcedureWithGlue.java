@@ -13,17 +13,10 @@
  */
 package io.trino.plugin.deltalake.metastore.glue;
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import io.trino.plugin.deltalake.BaseDeltaLakeRegisterTableProcedureTest;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.glue.DefaultGlueColumnStatisticsProviderFactory;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 
-import java.util.Optional;
-
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createTestingGlueHiveMetastore;
 
 public class TestDeltaLakeRegisterTableProcedureWithGlue
         extends BaseDeltaLakeRegisterTableProcedureTest
@@ -31,14 +24,6 @@ public class TestDeltaLakeRegisterTableProcedureWithGlue
     @Override
     protected HiveMetastore createTestMetastore(String dataDirectory)
     {
-        return new GlueHiveMetastore(
-                HDFS_ENVIRONMENT,
-                new GlueHiveMetastoreConfig()
-                        .setDefaultWarehouseDir(dataDirectory),
-                DefaultAWSCredentialsProviderChain.getInstance(),
-                directExecutor(),
-                new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
-                Optional.empty(),
-                table -> true);
+        return createTestingGlueHiveMetastore(dataDirectory);
     }
 }
