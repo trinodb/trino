@@ -255,7 +255,7 @@ public final class ViewReaderUtil
                             .collect(joining(",", "row(", ")"));
                 }
                 case CHAR:
-                    return "varchar";
+                    return "char(" + type.getPrecision() + ")";
                 case FLOAT:
                     return "real";
                 case BINARY:
