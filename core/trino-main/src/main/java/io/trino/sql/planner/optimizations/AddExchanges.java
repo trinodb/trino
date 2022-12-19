@@ -730,11 +730,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitSimpleTableExecuteNode(SimpleTableExecuteNode node, PreferredProperties context)
         {
-            return new PlanWithProperties(
-                    node,
-                    ActualProperties.builder()
-                            .nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()))
-                            .build());
+            return new PlanWithProperties(node, deriveProperties(node, ImmutableList.of()));
         }
 
         private PlanWithProperties visitTableWriter(PlanNode node, Optional<PartitioningScheme> partitioningScheme, PlanNode source, PreferredProperties preferredProperties, TableWriterNode.WriterTarget writerTarget)
@@ -808,21 +804,13 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitValues(ValuesNode node, PreferredProperties preferredProperties)
         {
-            return new PlanWithProperties(
-                    node,
-                    ActualProperties.builder()
-                            .nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()))
-                            .build());
+            return new PlanWithProperties(node, deriveProperties(node, ImmutableList.of()));
         }
 
         @Override
         public PlanWithProperties visitTableDelete(TableDeleteNode node, PreferredProperties context)
         {
-            return new PlanWithProperties(
-                    node,
-                    ActualProperties.builder()
-                            .nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()))
-                            .build());
+            return new PlanWithProperties(node, deriveProperties(node, ImmutableList.of()));
         }
 
         @Override
@@ -1184,11 +1172,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitIndexSource(IndexSourceNode node, PreferredProperties preferredProperties)
         {
-            return new PlanWithProperties(
-                    node,
-                    ActualProperties.builder()
-                            .nodePartitioning(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()))
-                            .build());
+            return new PlanWithProperties(node, deriveProperties(node, ImmutableList.of()));
         }
 
         private Function<Symbol, Optional<Symbol>> outputToInputTranslator(UnionNode node, int sourceIndex)
@@ -1368,7 +1352,7 @@ public class AddExchanges
                 // No source distributed child, we can use insert LOCAL exchange
                 // TODO: if all children have the same partitioning, pass this partitioning to the parent
                 // instead of "arbitraryPartition".
-                return new PlanWithProperties(unionNode.replaceChildren(partitionedChildren));
+                return new PlanWithProperties(unionNode.replaceChildren(partitionedChildren), ActualProperties.builder().build());
             }
 
             int repartitionedRemoteExchangeNodesCount = partitionedChildren.stream().mapToInt(AddExchanges::countRepartitionedRemoteExchangeNodes).sum();
@@ -1380,7 +1364,7 @@ public class AddExchanges
             if (repartitionedRemoteExchangeNodesCount == 0
                     && partitionedConnectorSourceCount == 0
                     && uniqueSourceCatalogCount == 1) {
-                return new PlanWithProperties(unionNode.replaceChildren(partitionedChildren));
+                return new PlanWithProperties(unionNode.replaceChildren(partitionedChildren), ActualProperties.builder().build());
             }
             // If there is at least one not source distributed source or one of sources is connector partitioned
             // we have to insert REMOTE exchange with FIXED_ARBITRARY_DISTRIBUTION instead of local exchange
@@ -1392,7 +1376,8 @@ public class AddExchanges
                             new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), unionNode.getOutputSymbols()),
                             partitionedChildren,
                             partitionedOutputLayouts,
-                            Optional.empty()));
+                            Optional.empty()),
+                    ActualProperties.builder().build());
         }
 
         @Override
@@ -1550,11 +1535,6 @@ public class AddExchanges
     {
         private final PlanNode node;
         private final ActualProperties properties;
-
-        public PlanWithProperties(PlanNode node)
-        {
-            this(node, ActualProperties.builder().build());
-        }
 
         public PlanWithProperties(PlanNode node, ActualProperties properties)
         {
