@@ -13,14 +13,10 @@
  */
 package io.trino.plugin.deltalake.metastore.glue;
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import io.trino.Session;
 import io.trino.plugin.deltalake.TestingDeltaLakePlugin;
 import io.trino.plugin.deltalake.metastore.TestingDeltaLakeMetastoreModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.glue.DefaultGlueColumnStatisticsProviderFactory;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -35,9 +31,8 @@ import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -52,15 +47,7 @@ public class TestDeltaLakeViewsGlueMetastore
 
     private HiveMetastore createTestMetastore(String dataDirectory)
     {
-        return new GlueHiveMetastore(
-                HDFS_ENVIRONMENT,
-                new GlueHiveMetastoreConfig()
-                        .setDefaultWarehouseDir(dataDirectory),
-                DefaultAWSCredentialsProviderChain.getInstance(),
-                directExecutor(),
-                new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
-                Optional.empty(),
-                table -> true);
+        return createTestingGlueHiveMetastore(dataDirectory);
     }
 
     @Override
