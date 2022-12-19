@@ -1,0 +1,69 @@
+Protobuf decoder
+""""""""""""""""
+
+The Protobuf decoder converts the bytes representing a message or key in
+Protobuf formatted message based on a schema.
+
+For key/message, using the ``protobuf`` decoder, the ``dataSchema`` must be
+defined. It points to the location of a valid ``proto`` file of the message
+which needs to be decoded. This location can be a remote web server,
+``dataSchema: 'http://example.org/schema/schema.proto'``,  or local file,
+``dataSchema: '/usr/local/schema/schema.proto'``. The decoder fails if the
+location is not accessible from the coordinator.
+
+For fields, the following attributes are supported:
+
+* ``name`` - Name of the column in the Trino table.
+* ``type`` - Trino data type of column.
+* ``mapping`` - slash-separated list of field names to select a field from the
+  Protobuf schema. If field specified in ``mapping`` does not exist in the
+  original ``proto`` file then a read operation returns NULL.
+
+The following table lists the supported Trino types which can be used in
+``type`` for the equivalent Protobuf field types:
+
+===================================== =======================================
+Trino data type                       Allowed Protobuf data type
+===================================== =======================================
+``BOOLEAN``                           ``bool``
+``INTEGER``                           ``int32``, ``uint32``, ``sint32``, ``fixed32``, ``sfixed32``
+``BIGINT``                            ``int64``, ``uint64``, ``sint64``, ``fixed64``, ``sfixed64``
+``DOUBLE``                            ``double``
+``REAL``                              ``float``
+``VARCHAR`` / ``VARCHAR(x)``          ``string``
+``VARBINARY``                         ``bytes``
+``ROW``                               ``Message``
+``ARRAY``                             Protobuf type with ``repeated`` field
+``MAP``                               ``Map``
+``TIMESTAMP``                         ``Timestamp``, predefined in ``timestamp.proto``
+===================================== =======================================
+
+Protobuf schema evolution
++++++++++++++++++++++++++
+
+The Protobuf decoder supports the schema evolution feature with backward
+compatibility. With backward compatibility, a newer schema can be used to read
+Protobuf data created with an older schema. Any change in the Protobuf schema
+*must* also be reflected in the topic definition file.
+
+The schema evolution behavior is as follows:
+
+* Column added in new schema:
+  Data created with an older schema produces a *default* value when the table is using the new schema.
+
+* Column removed in new schema:
+  Data created with an older schema no longer outputs the data from the column that was removed.
+
+* Column is renamed in the new schema:
+  This is equivalent to removing the column and adding a new one, and data created with an older schema
+  produces a *default* value when table is using the new schema.
+
+* Changing type of column in the new schema:
+  If the type coercion is supported by Protobuf, then the conversion happens. An error is thrown for incompatible types.
+
+Protobuf limitations
+++++++++++++++++++++
+
+* Protobuf specific types like ``any``, ``oneof`` are not supported.
+* Protobuf Timestamp has a nanosecond precision but Trino supports
+  decoding/encoding at microsecond precision.

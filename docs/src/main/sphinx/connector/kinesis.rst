@@ -267,7 +267,31 @@ Type mapping
 
 Because Trino and Kinesis each support types that the other does not, this
 connector :ref:`maps some types <type-mapping-overview>` when reading data. Type
-mapping depends on the format (Raw, Avro, JSON, CSV).
+mapping depends on the format (Raw, CSV, JSON,Avro).
+
+Row decoding
+^^^^^^^^^^^^
+
+A decoder is used to map data to table columns.
+
+The connector contains the following decoders:
+
+* ``raw``: Message is not interpreted; ranges of raw message bytes are mapped
+  to table columns.
+* ``csv``: Message is interpreted as comma separated message, and fields are
+  mapped to table columns.
+* ``json``: Message is parsed as JSON, and JSON fields are mapped to table
+  columns.
+* ``avro``: Message is parsed based on an Avro schema, and Avro fields are
+  mapped to table columns.
+
+.. include:: raw-decoding.fragment
+
+.. include:: csv-decoding.fragment
+
+.. include:: json-decoding.fragment
+
+.. include:: avro-decoding.fragment
 
 .. _kinesis-sql-support:
 
