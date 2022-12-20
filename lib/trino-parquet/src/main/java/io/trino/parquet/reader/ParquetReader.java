@@ -91,7 +91,6 @@ import static java.util.Objects.requireNonNull;
 public class ParquetReader
         implements Closeable
 {
-    private static final int MAX_VECTOR_LENGTH = 8 * 1024;
     private static final int INITIAL_BATCH_SIZE = 1;
     private static final int BATCH_SIZE_GROWTH_FACTOR = 2;
     public static final String PARQUET_CODEC_METRIC_PREFIX = "ParquetReaderCompressionFormat_";
@@ -123,7 +122,7 @@ public class ParquetReader
     private final Map<Integer, Double> maxBytesPerCell;
     private double maxCombinedBytesPerRow;
     private final ParquetReaderOptions options;
-    private int maxBatchSize = MAX_VECTOR_LENGTH;
+    private int maxBatchSize;
 
     private AggregatedMemoryContext currentRowGroupMemoryContext;
     private final Multimap<ChunkKey, ChunkReader> chunkReaders;
@@ -178,6 +177,7 @@ public class ParquetReader
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         this.currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
         this.options = requireNonNull(options, "options is null");
+        this.maxBatchSize = options.getMaxReadBlockRowCount();
         this.columnReaders = new HashMap<>();
         this.maxBytesPerCell = new HashMap<>();
 
@@ -293,7 +293,7 @@ public class ParquetReader
         }
 
         batchSize = min(nextBatchSize, maxBatchSize);
-        nextBatchSize = min(batchSize * BATCH_SIZE_GROWTH_FACTOR, MAX_VECTOR_LENGTH);
+        nextBatchSize = min(batchSize * BATCH_SIZE_GROWTH_FACTOR, options.getMaxReadBlockRowCount());
         batchSize = toIntExact(min(batchSize, currentGroupRowCount - nextRowInGroup));
 
         nextRowInGroup += batchSize;
