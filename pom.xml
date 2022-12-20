@@ -86,6 +86,12 @@
         <air.test.thread-count>2</air.test.thread-count>
         <!-- Be conservative about memory allotment, because tests start background process (e.g. docker containers) -->
         <air.test.jvmsize>3g</air.test.jvmsize>
+        <!-- G1 default region size for a small heap is 1MB. Tests (TestHiveConnectorTest.testMultipleWritersWhenTaskScaleWritersIsEnabled) in particular
+             were observed allocating large number of byte[] of about 1.6MB in size, thus being treated as humongous allocations and preventing heap saturation.
+             Force bigger region size in attempt to help G1 utilize heap fully. -->
+        <air.test.jvm.additional-arguments>
+            -XX:G1HeapRegionSize=32M
+        </air.test.jvm.additional-arguments>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
     </properties>
