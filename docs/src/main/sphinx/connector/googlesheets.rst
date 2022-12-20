@@ -30,6 +30,7 @@ The following configuration properties are available:
 Property name                       Description
 =================================== =====================================================================
 ``gsheets.credentials-path``        Path to the Google API JSON key file
+``gsheets.credentials-key``         The base64 encoded credentials key
 ``gsheets.metadata-sheet-id``       Sheet ID of the spreadsheet, that contains the table mapping
 ``gsheets.max-data-cache-size``     Maximum number of spreadsheets to cache, defaults to ``1000``
 ``gsheets.data-cache-ttl``          How long to cache spreadsheet data or metadata, defaults to ``5m``
@@ -55,6 +56,9 @@ The connector requires credentials in order to access the Google Sheets API.
 The key file needs to be available on the Trino coordinator and workers.
 Set the ``gsheets.credentials-path`` configuration property to point to this file.
 The exact name of the file does not matter -- it can be named anything.
+
+Alternatively, set the ``gsheets.credentials-key`` configuration property.
+It should contain the contents of the JSON file, encoded using base64.
 
 Metadata sheet
 --------------

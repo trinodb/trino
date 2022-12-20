@@ -35,10 +35,12 @@ import io.trino.spi.type.VarcharType;
 
 import javax.inject.Inject;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.GeneralSecurityException;
+import java.util.Base64;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -72,7 +74,6 @@ public class SheetsClient
     private final NonEvictableLoadingCache<String, List<List<Object>>> sheetDataCache;
 
     private final String metadataSheetId;
-    private final String credentialsFilePath;
 
     private final Sheets sheetsService;
 
@@ -82,10 +83,9 @@ public class SheetsClient
         requireNonNull(catalogCodec, "catalogCodec is null");
 
         this.metadataSheetId = config.getMetadataSheetId();
-        this.credentialsFilePath = config.getCredentialsFilePath();
 
         try {
-            this.sheetsService = new Sheets.Builder(newTrustedTransport(), JSON_FACTORY, setTimeout(getCredentials(), config.getReadTimeout())).setApplicationName(APPLICATION_NAME).build();
+            this.sheetsService = new Sheets.Builder(newTrustedTransport(), JSON_FACTORY, setTimeout(getCredentials(config), config.getReadTimeout())).setApplicationName(APPLICATION_NAME).build();
         }
         catch (GeneralSecurityException | IOException e) {
             throw new TrinoException(SHEETS_BAD_CREDENTIALS_ERROR, e);
@@ -201,14 +201,34 @@ public class SheetsClient
         return tableSheetMap.buildOrThrow();
     }
 
-    private Credential getCredentials()
+    private static Credential getCredentials(SheetsConfig sheetsConfig)
     {
-        try (InputStream in = new FileInputStream(credentialsFilePath)) {
-            return GoogleCredential.fromStream(in).createScoped(SCOPES);
+        if (sheetsConfig.getCredentialsFilePath().isPresent()) {
+            try (InputStream in = new FileInputStream(sheetsConfig.getCredentialsFilePath().get())) {
+                return credentialFromStream(in);
+            }
+            catch (IOException e) {
+                throw new TrinoException(SHEETS_BAD_CREDENTIALS_ERROR, e);
+            }
         }
-        catch (IOException e) {
-            throw new TrinoException(SHEETS_BAD_CREDENTIALS_ERROR, e);
+
+        if (sheetsConfig.getCredentialsKey().isPresent()) {
+            try {
+                return credentialFromStream(
+                                new ByteArrayInputStream(Base64.getDecoder().decode(sheetsConfig.getCredentialsKey().get())));
+            }
+            catch (IOException e) {
+                throw new TrinoException(SHEETS_BAD_CREDENTIALS_ERROR, e);
+            }
         }
+
+        throw new TrinoException(SHEETS_BAD_CREDENTIALS_ERROR, "No sheets credentials were provided");
+    }
+
+    private static Credential credentialFromStream(InputStream inputStream)
+            throws IOException
+    {
+        return GoogleCredential.fromStream(inputStream).createScoped(SCOPES);
     }
 
     private List<List<Object>> readAllValuesFromSheetExpression(String sheetExpression)
