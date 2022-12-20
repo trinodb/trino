@@ -67,6 +67,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.deltalake.DeltaHiveTypeTranslator.toHiveType;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.ROW_ID_COLUMN_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockRowCount;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetOptimizedReaderEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
@@ -153,6 +154,7 @@ public class DeltaLakePageSourceProvider
 
         TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(split.getPath(), split.getFileSize());
         ParquetReaderOptions options = parquetReaderOptions.withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
+                .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                 .withUseColumnIndex(isParquetUseColumnIndex(session))
                 .withBatchColumnReaders(isParquetOptimizedReaderEnabled(session));
 

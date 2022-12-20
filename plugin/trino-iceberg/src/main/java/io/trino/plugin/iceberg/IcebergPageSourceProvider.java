@@ -156,6 +156,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcMaxMergeDis
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcMaxReadBlockSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcStreamBufferSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcTinyStripeThreshold;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxReadBlockRowCount;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
@@ -564,6 +565,7 @@ public class IcebergPageSourceProvider
                         dataColumns,
                         parquetReaderOptions
                                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
+                                .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                                 .withBatchColumnReaders(isParquetOptimizedReaderEnabled(session)),
                         predicate,
                         fileFormatDataSourceStats,
