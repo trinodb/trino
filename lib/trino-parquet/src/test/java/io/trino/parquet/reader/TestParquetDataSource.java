@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.parquet;
+package io.trino.parquet.reader;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -19,22 +19,16 @@ import com.google.common.collect.ListMultimap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
-import io.trino.filesystem.TrinoFileSystem;
 import io.trino.parquet.ChunkReader;
 import io.trino.parquet.DiskRange;
 import io.trino.parquet.ParquetReaderOptions;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.io.OutputStream;
-import java.util.UUID;
 import java.util.stream.IntStream;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
-import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParquetDataSource
@@ -44,15 +38,9 @@ public class TestParquetDataSource
             throws IOException
     {
         Slice testingInput = Slices.wrappedIntArray(IntStream.range(0, 1000).toArray());
-        String path = "/tmp/" + UUID.randomUUID();
-        TrinoFileSystem trinoFileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
-        try (OutputStream outputStream = trinoFileSystem.newOutputFile(path).create(newSimpleAggregatedMemoryContext())) {
-            outputStream.write(testingInput.getBytes());
-        }
-        TrinoParquetDataSource dataSource = new TrinoParquetDataSource(
-                trinoFileSystem.newInputFile(path),
-                new ParquetReaderOptions().withMaxBufferSize(maxBufferSize),
-                new FileFormatDataSourceStats());
+        TestingParquetDataSource dataSource = new TestingParquetDataSource(
+                testingInput,
+                new ParquetReaderOptions().withMaxBufferSize(maxBufferSize));
 
         ListMultimap<String, ChunkReader> chunkReaders = dataSource.planRead(ImmutableListMultimap.<String, DiskRange>builder()
                 .putAll("test", new DiskRange(0, 300), new DiskRange(400, 100), new DiskRange(700, 200))
