@@ -34,7 +34,6 @@ import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
 
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
@@ -69,7 +68,7 @@ public class FaultTolerantPartitioningSchemeFactory
         if (partitioningHandle.getConnectorHandle() instanceof MergePartitioningHandle mergePartitioningHandle) {
             return mergePartitioningHandle.getFaultTolerantPartitioningScheme(handle -> this.get(handle, partitionCount));
         }
-        if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION) || partitioningHandle.equals(SCALED_WRITER_HASH_DISTRIBUTION)) {
+        if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
             return createSystemSchema(partitionCount.orElse(maxPartitionCount));
         }
         if (partitioningHandle.getCatalogHandle().isPresent()) {

@@ -63,8 +63,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -113,6 +111,7 @@ public class TestLocalExchange
                 SESSION,
                 8,
                 SINGLE_DISTRIBUTION,
+                false,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
@@ -186,6 +185,7 @@ public class TestLocalExchange
                 SESSION,
                 2,
                 FIXED_ARBITRARY_DISTRIBUTION,
+                false,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
@@ -234,7 +234,8 @@ public class TestLocalExchange
                 nodePartitioningManager,
                 SESSION,
                 3,
-                SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION,
+                FIXED_ARBITRARY_DISTRIBUTION,
+                true,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
@@ -317,7 +318,8 @@ public class TestLocalExchange
                 nodePartitioningManager,
                 SESSION,
                 3,
-                SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION,
+                FIXED_ARBITRARY_DISTRIBUTION,
+                true,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
@@ -358,7 +360,8 @@ public class TestLocalExchange
                 nodePartitioningManager,
                 SESSION,
                 3,
-                SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION,
+                FIXED_ARBITRARY_DISTRIBUTION,
+                true,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
@@ -403,6 +406,7 @@ public class TestLocalExchange
                 SESSION,
                 4,
                 partitioningHandle,
+                true,
                 ImmutableList.of(0),
                 TYPES,
                 Optional.empty(),
@@ -501,6 +505,7 @@ public class TestLocalExchange
                 SESSION,
                 4,
                 partitioningHandle,
+                true,
                 ImmutableList.of(0),
                 TYPES,
                 Optional.empty(),
@@ -569,6 +574,7 @@ public class TestLocalExchange
                 SESSION,
                 4,
                 partitioningHandle,
+                true,
                 ImmutableList.of(0),
                 TYPES,
                 Optional.empty(),
@@ -636,7 +642,8 @@ public class TestLocalExchange
                 nodePartitioningManager,
                 SESSION,
                 2,
-                SCALED_WRITER_HASH_DISTRIBUTION,
+                FIXED_HASH_DISTRIBUTION,
+                true,
                 ImmutableList.of(0),
                 TYPES,
                 Optional.empty(),
@@ -689,6 +696,7 @@ public class TestLocalExchange
                 SESSION,
                 2,
                 FIXED_PASSTHROUGH_DISTRIBUTION,
+                false,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
@@ -756,6 +764,7 @@ public class TestLocalExchange
                 SESSION,
                 2,
                 FIXED_HASH_DISTRIBUTION,
+                false,
                 ImmutableList.of(0),
                 TYPES,
                 Optional.empty(),
@@ -852,6 +861,7 @@ public class TestLocalExchange
                 SESSION,
                 2,
                 partitioningHandle,
+                false,
                 ImmutableList.of(1),
                 ImmutableList.of(BIGINT),
                 Optional.empty(),
@@ -903,6 +913,7 @@ public class TestLocalExchange
                 SESSION,
                 2,
                 FIXED_ARBITRARY_DISTRIBUTION,
+                false,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
@@ -950,6 +961,7 @@ public class TestLocalExchange
                 SESSION,
                 2,
                 FIXED_PASSTHROUGH_DISTRIBUTION,
+                false,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
@@ -1018,7 +1030,7 @@ public class TestLocalExchange
     @DataProvider
     public Object[][] scalingPartitionHandles()
     {
-        return new Object[][] {{SCALED_WRITER_HASH_DISTRIBUTION}, {getCustomScalingPartitioningHandle()}};
+        return new Object[][] {{FIXED_HASH_DISTRIBUTION}, {getCustomScalingPartitioningHandle()}};
     }
 
     private PartitioningHandle getCustomScalingPartitioningHandle()
@@ -1050,8 +1062,7 @@ public class TestLocalExchange
         return new PartitioningHandle(
                 Optional.of(TEST_CATALOG_HANDLE),
                 Optional.of(TestingTransactionHandle.create()),
-                connectorPartitioningHandle,
-                true);
+                connectorPartitioningHandle);
     }
 
     private void run(LocalExchange localExchange, Consumer<LocalExchange> test)

@@ -181,7 +181,8 @@ public class PushProjectionThroughExchange
                 partitioningScheme,
                 newSourceBuilder.build(),
                 inputsBuilder.build(),
-                exchange.getOrderingScheme());
+                exchange.getOrderingScheme(),
+                exchange.isScaleWriters());
 
         // we need to strip unnecessary symbols (hash, partitioning columns).
         return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), result, ImmutableSet.copyOf(project.getOutputSymbols())).orElse(result));

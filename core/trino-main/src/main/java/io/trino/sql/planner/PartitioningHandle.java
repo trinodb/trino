@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 
 public class PartitioningHandle
@@ -31,34 +30,17 @@ public class PartitioningHandle
     private final Optional<CatalogHandle> catalogHandle;
     private final Optional<ConnectorTransactionHandle> transactionHandle;
     private final ConnectorPartitioningHandle connectorHandle;
-    private final boolean scaleWriters;
-
-    public static boolean isScaledWriterHashDistribution(PartitioningHandle partitioning)
-    {
-        return partitioning.isScaleWriters()
-                && (partitioning.equals(SCALED_WRITER_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent());
-    }
-
-    public PartitioningHandle(
-            Optional<CatalogHandle> catalogHandle,
-            Optional<ConnectorTransactionHandle> transactionHandle,
-            ConnectorPartitioningHandle connectorHandle)
-    {
-        this(catalogHandle, transactionHandle, connectorHandle, false);
-    }
 
     @JsonCreator
     public PartitioningHandle(
             @JsonProperty("catalogHandle") Optional<CatalogHandle> catalogHandle,
             @JsonProperty("transactionHandle") Optional<ConnectorTransactionHandle> transactionHandle,
-            @JsonProperty("connectorHandle") ConnectorPartitioningHandle connectorHandle,
-            @JsonProperty("scaleWriters") boolean scaleWriters)
+            @JsonProperty("connectorHandle") ConnectorPartitioningHandle connectorHandle)
     {
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         checkArgument(catalogHandle.isEmpty() || transactionHandle.isPresent(), "transactionHandle is required when catalogHandle is present");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
-        this.scaleWriters = scaleWriters;
     }
 
     @JsonProperty
@@ -79,12 +61,6 @@ public class PartitioningHandle
         return connectorHandle;
     }
 
-    @JsonProperty
-    public boolean isScaleWriters()
-    {
-        return scaleWriters;
-    }
-
     public boolean isSingleNode()
     {
         return connectorHandle.isSingleNode();
@@ -103,23 +79,19 @@ public class PartitioningHandle
 
         return Objects.equals(catalogHandle, that.catalogHandle) &&
                 Objects.equals(transactionHandle, that.transactionHandle) &&
-                Objects.equals(connectorHandle, that.connectorHandle) &&
-                scaleWriters == that.scaleWriters;
+                Objects.equals(connectorHandle, that.connectorHandle);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogHandle, transactionHandle, connectorHandle, scaleWriters);
+        return Objects.hash(catalogHandle, transactionHandle, connectorHandle);
     }
 
     @Override
     public String toString()
     {
         String result = connectorHandle.toString();
-        if (scaleWriters) {
-            result = result + " (scale writers)";
-        }
         if (catalogHandle.isPresent()) {
             result = catalogHandle.get() + ":" + result;
         }

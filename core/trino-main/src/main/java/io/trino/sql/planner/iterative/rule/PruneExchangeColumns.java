@@ -114,6 +114,7 @@ public class PruneExchangeColumns
                 newPartitioningScheme,
                 exchangeNode.getSources(),
                 newInputs,
-                exchangeNode.getOrderingScheme()));
+                exchangeNode.getOrderingScheme(),
+                exchangeNode.isScaleWriters()));
     }
 }

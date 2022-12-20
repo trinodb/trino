@@ -112,7 +112,8 @@ public class UseNonPartitionedJoinLookupSource
                         exchangeNode.getPartitioningScheme().getOutputLayout()),
                 exchangeNode.getSources(),
                 exchangeNode.getInputs(),
-                Optional.empty());
+                Optional.empty(),
+                false);
     }
 
     private static boolean canBeTranslatedToLocalGather(ExchangeNode exchangeNode)

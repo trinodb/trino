@@ -72,8 +72,6 @@ import static io.trino.SystemSessionProperties.isForceSingleNodeOutput;
 import static io.trino.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static io.trino.spi.connector.StandardWarningCode.TOO_MANY_STAGES;
 import static io.trino.sql.planner.SchedulingOrderVisitor.scheduleOrder;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
@@ -184,6 +182,7 @@ public class PlanFragmenter
                 fragment.getPartitioning(),
                 fragment.getPartitionCount(),
                 fragment.isCoordinatorOnly(),
+                fragment.isScaleWriters(),
                 fragment.getPartitionedSources(),
                 new PartitioningScheme(
                         newOutputPartitioning,
@@ -252,6 +251,7 @@ public class PlanFragmenter
                     properties.getPartitioningHandle(),
                     properties.getPartitionCount(),
                     properties.isCoordinatorOnly(),
+                    properties.isScaleWriters(),
                     schedulingOrder,
                     properties.getPartitioningScheme(),
                     statsAndCosts.getForSubplan(root),
@@ -406,6 +406,8 @@ public class PlanFragmenter
                         session);
             }
 
+            context.get().setScaleWriters(exchange.isScaleWriters());
+
             ImmutableList.Builder<FragmentProperties> childrenProperties = ImmutableList.builder();
             ImmutableList.Builder<SubPlan> childrenBuilder = ImmutableList.builder();
             for (int sourceIndex = 0; sourceIndex < exchange.getSources().size(); sourceIndex++) {
@@ -464,6 +466,7 @@ public class PlanFragmenter
         private Optional<PartitioningHandle> partitioningHandle = Optional.empty();
         private Optional<Integer> partitionCount = Optional.empty();
         private boolean coordinatorOnly;
+        private boolean scaleWriters;
         private final Set<PlanNodeId> partitionedSources = new HashSet<>();
 
         public FragmentProperties(PartitioningScheme partitioningScheme)
@@ -525,12 +528,6 @@ public class PlanFragmenter
                 return this;
             }
 
-            if (isCompatibleScaledWriterPartitioning(currentPartitioning, distribution)) {
-                this.partitioningHandle = Optional.of(distribution);
-                this.partitionCount = partitionCount;
-                return this;
-            }
-
             if (currentPartitioning.equals(SOURCE_DISTRIBUTION)) {
                 this.partitioningHandle = Optional.of(distribution);
                 return this;
@@ -560,19 +557,6 @@ public class PlanFragmenter
             return false;
         }
 
-        private static boolean isCompatibleScaledWriterPartitioning(PartitioningHandle current, PartitioningHandle suggested)
-        {
-            if (current.equals(FIXED_HASH_DISTRIBUTION) && suggested.equals(SCALED_WRITER_HASH_DISTRIBUTION)) {
-                return true;
-            }
-            PartitioningHandle currentWithScaledWritersEnabled = new PartitioningHandle(
-                    current.getCatalogHandle(),
-                    current.getTransactionHandle(),
-                    current.getConnectorHandle(),
-                    true);
-            return currentWithScaledWritersEnabled.equals(suggested);
-        }
-
         public FragmentProperties setCoordinatorOnlyDistribution()
         {
             if (coordinatorOnly) {
@@ -588,6 +572,12 @@ public class PlanFragmenter
             partitioningHandle = Optional.of(SINGLE_DISTRIBUTION);
             coordinatorOnly = true;
 
+            return this;
+        }
+
+        public FragmentProperties setScaleWriters(boolean scaleWriters)
+        {
+            this.scaleWriters = scaleWriters;
             return this;
         }
 
@@ -653,6 +643,11 @@ public class PlanFragmenter
         public boolean isCoordinatorOnly()
         {
             return coordinatorOnly;
+        }
+
+        public boolean isScaleWriters()
+        {
+            return scaleWriters;
         }
     }
 

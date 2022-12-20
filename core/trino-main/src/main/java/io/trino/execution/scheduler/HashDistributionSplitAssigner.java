@@ -45,7 +45,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -74,7 +73,7 @@ class HashDistributionSplitAssigner
             long targetPartitionSizeInBytes,
             int targetMaxTaskCount)
     {
-        if (fragment.getPartitioning().equals(SCALED_WRITER_HASH_DISTRIBUTION)) {
+        if (fragment.isScaleWriters()) {
             verify(fragment.getPartitionedSources().isEmpty() && fragment.getRemoteSourceNodes().size() == 1,
                     "SCALED_WRITER_HASH_DISTRIBUTION fragments are expected to have exactly one remote source and no table scans");
         }
@@ -89,7 +88,7 @@ class HashDistributionSplitAssigner
                         sourceDataSizeEstimates,
                         targetPartitionSizeInBytes,
                         targetMaxTaskCount,
-                        sourceId -> fragment.getPartitioning().equals(SCALED_WRITER_HASH_DISTRIBUTION),
+                        sourceId -> fragment.isScaleWriters(),
                         // never merge partitions for table write to avoid running into the maximum writers limit per task
                         !isWriteFragment(fragment)));
     }

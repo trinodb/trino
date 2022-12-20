@@ -116,12 +116,6 @@ public class PartitioningScheme
         return new PartitioningScheme(partitioning, outputLayout, hashColumn, bucketToPartition, partitionCount);
     }
 
-    public PartitioningScheme withPartitioningHandle(PartitioningHandle partitioningHandle)
-    {
-        Partitioning newPartitioning = partitioning.withAlternativePartitioningHandle(partitioningHandle);
-        return new PartitioningScheme(newPartitioning, outputLayout, hashColumn, bucketToPartition, partitionCount);
-    }
-
     public PartitioningScheme withPartitionCount(Optional<Integer> partitionCount)
     {
         return new PartitioningScheme(partitioning, outputLayout, hashColumn, bucketToPartition, partitionCount);

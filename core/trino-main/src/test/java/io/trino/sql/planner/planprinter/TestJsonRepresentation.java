@@ -107,7 +107,8 @@ public class TestJsonRepresentation
                                                 "partitioning", "SINGLE",
                                                 "isReplicateNullsAndAny", "",
                                                 "hashColumn", "[]",
-                                                "arguments", "[]"),
+                                                "arguments", "[]",
+                                                "scaled", ""),
                                         ImmutableList.of(typedSymbol("quantity", "double")),
                                         ImmutableList.of(),
                                         ImmutableList.of(new PlanNodeStatsAndCostSummary(60175, 541575, 0, 0, 0)),
@@ -119,7 +120,7 @@ public class TestJsonRepresentation
                                                 ImmutableList.of("quantity := tpch:quantity"),
                                                 ImmutableList.of(new PlanNodeStatsAndCostSummary(60175, 541575, 541575, 0, 0)),
                                                 ImmutableList.of()))))))));
-        MaterializedResult expectedPlan = resultBuilder(queryRunner.getDefaultSession(), createVarcharType(2058))
+        MaterializedResult expectedPlan = resultBuilder(queryRunner.getDefaultSession(), createVarcharType(2083))
                 .row(DISTRIBUTED_PLAN_JSON_CODEC.toJson(distributedPlan))
                 .build();
         assertThat(actualPlan).isEqualTo(expectedPlan);
@@ -150,7 +151,8 @@ public class TestJsonRepresentation
                                         "partitioning", "SINGLE",
                                         "isReplicateNullsAndAny", "",
                                         "hashColumn", "[]",
-                                        "arguments", "[]"),
+                                        "arguments", "[]",
+                                        "scaled", ""),
                                 ImmutableList.of(typedSymbol("quantity", "double")),
                                 ImmutableList.of(),
                                 ImmutableList.of(new PlanNodeStatsAndCostSummary(60175, 541575, 0, 0, 0)),
@@ -162,7 +164,7 @@ public class TestJsonRepresentation
                                         ImmutableList.of("quantity := tpch:quantity"),
                                         ImmutableList.of(new PlanNodeStatsAndCostSummary(60175, 541575, 541575, 0, 0)),
                                         ImmutableList.of())))))));
-        MaterializedResult expectedPlan = resultBuilder(queryRunner.getDefaultSession(), createVarcharType(1884))
+        MaterializedResult expectedPlan = resultBuilder(queryRunner.getDefaultSession(), createVarcharType(1907))
                 .row(JSON_RENDERED_NODE_CODEC.toJson(expectedJsonNode))
                 .build();
         assertThat(actualPlan).isEqualTo(expectedPlan);

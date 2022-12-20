@@ -40,7 +40,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.sql.planner.PartitioningHandle.isScaledWriterHashDistribution;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.ceil;
 import static java.lang.Math.floorMod;
@@ -103,7 +103,7 @@ public class SkewedPartitionRebalancer
 
     private final List<List<TaskBucket>> partitionAssignments;
 
-    public static boolean checkCanScalePartitionsRemotely(Session session, int taskCount, PartitioningHandle partitioningHandle, NodePartitioningManager nodePartitioningManager)
+    public static boolean checkCanScalePartitionsRemotely(Session session, int taskCount, PartitioningHandle partitioningHandle, NodePartitioningManager nodePartitioningManager, boolean scaledWritersFragment)
     {
         // In case of connector partitioning, check if bucketToPartitions has fixed mapping or not. If it is fixed
         // then we can't distribute a bucket across multiple tasks.
@@ -113,7 +113,7 @@ public class SkewedPartitionRebalancer
                         .orElse(false))
                 .orElse(false);
         // Use skewed partition rebalancer only when there are more than one tasks
-        return taskCount > 1 && !hasFixedNodeMapping && isScaledWriterHashDistribution(partitioningHandle);
+        return taskCount > 1 && !hasFixedNodeMapping && (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION) || partitioningHandle.getCatalogHandle().isPresent()) && scaledWritersFragment;
     }
 
     public static PartitionFunction createPartitionFunction(

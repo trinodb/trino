@@ -26,7 +26,6 @@ import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.session.PropertyMetadata;
-import io.trino.sql.planner.SystemPartitioningHandle;
 import io.trino.sql.planner.TestTableScanNodePartitioning;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.TableExecuteNode;
@@ -48,7 +47,7 @@ import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.spi.connector.TableProcedureExecutionMode.distributedWithFilteringAndRepartitioning;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -178,7 +177,7 @@ public class TestLimitMaxWriterNodesCount
                         node(TableWriterNode.class,
                                 exchange(LOCAL, Optional.empty(),
                                         // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASKS_COUNT is set to 2
-                                        exchange(REMOTE, SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, Optional.of(2),
+                                        exchange(REMOTE, FIXED_ARBITRARY_DISTRIBUTION, Optional.of(2), true,
                                                 values("column_a", "column_b"))))));
     }
 
@@ -222,7 +221,7 @@ public class TestLimitMaxWriterNodesCount
                                 project(
                                 exchange(LOCAL,
                                         // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASKS_COUNT is set to 2
-                                        exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.of(2),
+                                        exchange(REMOTE, FIXED_HASH_DISTRIBUTION, Optional.of(2), true,
                                                 project(
                                                         values("column_a", "column_b"))))))));
     }
@@ -267,7 +266,7 @@ public class TestLimitMaxWriterNodesCount
                                 project(
                                         exchange(LOCAL,
                                                 // partitionCount for writing stage should be set to 4 because it was specified by connector
-                                                exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.of(1),
+                                                exchange(REMOTE, FIXED_HASH_DISTRIBUTION, Optional.of(1), true,
                                                         project(
                                                                 values("column_a", "column_b"))))))));
     }
@@ -291,7 +290,7 @@ public class TestLimitMaxWriterNodesCount
                         node(TableWriterNode.class,
                                 project(
                                         exchange(LOCAL,
-                                                exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.empty(),
+                                                exchange(REMOTE, FIXED_HASH_DISTRIBUTION, Optional.empty(), true,
                                                         project(
                                                                 values("column_a", "column_b"))))))));
     }
@@ -336,7 +335,7 @@ public class TestLimitMaxWriterNodesCount
                         node(TableExecuteNode.class,
                                 exchange(LOCAL, Optional.empty(),
                                         // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASKS_COUNT is set to 2
-                                        exchange(REMOTE, SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, Optional.of(2),
+                                        exchange(REMOTE, FIXED_ARBITRARY_DISTRIBUTION, Optional.of(2), true,
                                                 tableScan(unPartitionedTable))))));
     }
 
@@ -380,7 +379,7 @@ public class TestLimitMaxWriterNodesCount
                                 project(
                                         exchange(LOCAL,
                                                 // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASKS_COUNT is set to 2
-                                                exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.of(2),
+                                                exchange(REMOTE, FIXED_HASH_DISTRIBUTION, Optional.of(2), true,
                                                         project(
                                                                 node(TableScanNode.class))))))));
     }
@@ -404,7 +403,7 @@ public class TestLimitMaxWriterNodesCount
                                     project(
                                         exchange(LOCAL,
                                                 // partitionCount for writing stage should be set to 4 because it was specified by connector
-                                                exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.of(1),
+                                                exchange(REMOTE, FIXED_HASH_DISTRIBUTION, Optional.of(1), true,
                                                         project(
                                                                 node(TableScanNode.class))))))));
     }
@@ -429,7 +428,7 @@ public class TestLimitMaxWriterNodesCount
                                 project(
                                         exchange(LOCAL,
                                                 // partitionCount for writing stage is empty because it is FTE mode
-                                                exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.empty(),
+                                                exchange(REMOTE, FIXED_HASH_DISTRIBUTION, Optional.empty(), true,
                                                         project(
                                                                 node(TableScanNode.class))))))));
     }

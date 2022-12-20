@@ -46,8 +46,8 @@ import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
@@ -117,6 +117,7 @@ public class TestValidateScaledWritersUsage
                         .addSource(planBuilder.exchange(innerExchange ->
                                 innerExchange
                                         .partitioningScheme(new PartitioningScheme(Partitioning.create(scaledWriterPartitionHandle, ImmutableList.of()), ImmutableList.of(symbol)))
+                                        .scaleWriters(true)
                                         .addInputsSet(symbol)
                                         .addSource(tableScanNode))));
         PlanNode root = planBuilder.output(
@@ -138,6 +139,7 @@ public class TestValidateScaledWritersUsage
                         .addSource(planBuilder.exchange(innerExchange ->
                                 innerExchange
                                         .partitioningScheme(new PartitioningScheme(Partitioning.create(scaledWriterPartitionHandle, ImmutableList.of()), ImmutableList.of(symbol)))
+                                        .scaleWriters(true)
                                         .addInputsSet(symbol)
                                         .addSource(tableScanNode))));
         PlanNode root = planBuilder.output(
@@ -162,6 +164,7 @@ public class TestValidateScaledWritersUsage
                         .addSource(planBuilder.exchange(innerExchange ->
                                 innerExchange
                                         .partitioningScheme(new PartitioningScheme(Partitioning.create(scaledWriterPartitionHandle, ImmutableList.of()), ImmutableList.of(symbol)))
+                                        .scaleWriters(true)
                                         .addInputsSet(symbol)
                                         .addSource(tableScanNode)))
                         .addSource(planBuilder.exchange(innerExchange ->
@@ -191,6 +194,7 @@ public class TestValidateScaledWritersUsage
                         .addSource(planBuilder.exchange(innerExchange ->
                                 innerExchange
                                         .partitioningScheme(new PartitioningScheme(Partitioning.create(scaledWriterPartitionHandle, ImmutableList.of()), ImmutableList.of(symbol)))
+                                        .scaleWriters(true)
                                         .addInputsSet(symbol)
                                         .addSource(tableScanNode)))
                         .addSource(planBuilder.exchange(innerExchange ->
@@ -243,6 +247,7 @@ public class TestValidateScaledWritersUsage
                                 planBuilder.exchange(innerExchange ->
                                         innerExchange
                                                 .partitioningScheme(new PartitioningScheme(Partitioning.create(scaledWriterPartitionHandle, ImmutableList.of()), ImmutableList.of(symbol)))
+                                                .scaleWriters(true)
                                                 .addInputsSet(symbol)
                                                 .addSource(tableScanNode)),
                                 symbol)));
@@ -267,6 +272,7 @@ public class TestValidateScaledWritersUsage
                         .addSource(planBuilder.exchange(innerExchange ->
                                 innerExchange
                                         .partitioningScheme(new PartitioningScheme(Partitioning.create(scaledWriterPartitionHandle, ImmutableList.of()), ImmutableList.of(symbol)))
+                                        .scaleWriters(true)
                                         .addInputsSet(symbol)
                                         .addSource(tableScanNode))));
         PlanNode root = planBuilder.output(
@@ -276,7 +282,7 @@ public class TestValidateScaledWritersUsage
                                 tableWriterSource,
                                 symbol)));
 
-        if (scaledWriterPartitionHandle == SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION) {
+        if (scaledWriterPartitionHandle == FIXED_ARBITRARY_DISTRIBUTION) {
             validatePlan(root);
         }
         else {
@@ -297,6 +303,7 @@ public class TestValidateScaledWritersUsage
                         .addSource(planBuilder.exchange(innerExchange ->
                                 innerExchange
                                         .partitioningScheme(new PartitioningScheme(Partitioning.create(scaledWriterPartitionHandle, ImmutableList.of()), ImmutableList.of(symbol)))
+                                        .scaleWriters(true)
                                         .addInputsSet(symbol)
                                         .addSource(tableScanNode)))
                         .addSource(planBuilder.exchange(innerExchange ->
@@ -311,7 +318,7 @@ public class TestValidateScaledWritersUsage
                                 tableWriterSource,
                                 symbol)));
 
-        if (scaledWriterPartitionHandle == SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION) {
+        if (scaledWriterPartitionHandle == FIXED_ARBITRARY_DISTRIBUTION) {
             validatePlan(root);
         }
         else {
@@ -325,13 +332,12 @@ public class TestValidateScaledWritersUsage
     public Object[][] scaledWriterPartitioningHandles()
     {
         return new Object[][] {
-                {SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION},
-                {SCALED_WRITER_HASH_DISTRIBUTION},
+                {FIXED_ARBITRARY_DISTRIBUTION},
+                {FIXED_HASH_DISTRIBUTION},
                 {new PartitioningHandle(
                         Optional.of(TEST_CATALOG_HANDLE),
                         Optional.of(new ConnectorTransactionHandle() {}),
-                        new ConnectorPartitioningHandle() {},
-                        true)}
+                        new ConnectorPartitioningHandle() {})}
         };
     }
 

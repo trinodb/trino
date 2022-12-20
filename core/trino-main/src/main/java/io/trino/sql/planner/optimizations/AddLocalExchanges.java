@@ -25,12 +25,10 @@ import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Partitioning;
-import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.SystemPartitioningHandle;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
@@ -89,8 +87,6 @@ import static io.trino.SystemSessionProperties.isTaskScaleWritersEnabled;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.StreamPreferredProperties.any;
 import static io.trino.sql.planner.optimizations.StreamPreferredProperties.defaultParallelism;
@@ -734,8 +730,9 @@ public class AddLocalExchanges
                                 LOCAL,
                                 newSource.getNode(),
                                 new PartitioningScheme(
-                                        Partitioning.create(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, ImmutableList.of()),
-                                        newSource.getNode().getOutputSymbols())),
+                                        Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()),
+                                        newSource.getNode().getOutputSymbols()),
+                                true),
                         newSource.getProperties());
                 return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
             }
@@ -759,11 +756,6 @@ public class AddLocalExchanges
                 return planAndEnforceChildren(node, preference, preference);
             }
 
-            // connector provided hash function
-            verify(!(partitioningScheme.getPartitioning().getHandle().getConnectorHandle() instanceof SystemPartitioningHandle));
-            verify(
-                    partitioningScheme.getPartitioning().getArguments().stream().noneMatch(Partitioning.ArgumentBinding::isConstant),
-                    "Table writer partitioning has constant arguments");
             PlanWithProperties newSource = source.accept(this, parentPreferences);
             PlanWithProperties exchange = deriveProperties(
                     partitionedExchange(
@@ -782,39 +774,14 @@ public class AddLocalExchanges
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
 
-            if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION)) {
-                // arbitrary hash function on predefined set of partition columns
-                PlanWithProperties newSource = source.accept(this, defaultParallelism(session));
-                PlanWithProperties exchange = deriveProperties(
-                        partitionedExchange(
-                                idAllocator.getNextId(),
-                                LOCAL,
-                                newSource.getNode(),
-                                partitioningScheme.withPartitioningHandle(SCALED_WRITER_HASH_DISTRIBUTION)),
-                        newSource.getProperties());
-                return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
-            }
-
-            // connector provided hash function
-            verify(!(partitioningScheme.getPartitioning().getHandle().getConnectorHandle() instanceof SystemPartitioningHandle));
-            verify(
-                    partitioningScheme.getPartitioning().getArguments().stream().noneMatch(Partitioning.ArgumentBinding::isConstant),
-                    "Table writer partitioning has constant arguments");
-
             PlanWithProperties newSource = source.accept(this, defaultParallelism(session));
-            PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
             PlanWithProperties exchange = deriveProperties(
                     partitionedExchange(
                             idAllocator.getNextId(),
                             LOCAL,
                             newSource.getNode(),
-                            partitioningScheme
-                                    .withPartitioningHandle(
-                                            new PartitioningHandle(
-                                                    partitioningHandle.getCatalogHandle(),
-                                                    partitioningHandle.getTransactionHandle(),
-                                                    partitioningHandle.getConnectorHandle(),
-                                                    true))),
+                            partitioningScheme,
+                            true),
                     newSource.getProperties());
 
             return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
@@ -877,7 +844,8 @@ public class AddLocalExchanges
                         new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
                         sources,
                         inputLayouts,
-                        Optional.empty());
+                        Optional.empty(),
+                        false);
                 return deriveProperties(exchangeNode, inputProperties);
             }
 
@@ -893,7 +861,8 @@ public class AddLocalExchanges
                                 Optional.empty()),
                         sources,
                         inputLayouts,
-                        Optional.empty());
+                        Optional.empty(),
+                        false);
                 return deriveProperties(exchangeNode, inputProperties);
             }
 
@@ -905,7 +874,8 @@ public class AddLocalExchanges
                     new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
                     sources,
                     inputLayouts,
-                    Optional.empty());
+                    Optional.empty(),
+                    false);
 
             return deriveProperties(exchangeNode, inputProperties);
         }

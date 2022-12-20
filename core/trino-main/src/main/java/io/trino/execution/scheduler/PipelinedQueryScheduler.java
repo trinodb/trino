@@ -134,10 +134,8 @@ import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
@@ -852,8 +850,7 @@ public class PipelinedQueryScheduler
             Function<PartitioningKey, NodePartitionMap> partitioningCache = partitioningKey ->
                     partitioningCacheMap.computeIfAbsent(partitioningKey, partitioning -> nodePartitioningManager.getNodePartitioningMap(
                             queryStateMachine.getSession(),
-                            // TODO: support hash distributed writer scaling (https://github.com/trinodb/trino/issues/10791)
-                            partitioning.handle.equals(SCALED_WRITER_HASH_DISTRIBUTION) ? FIXED_HASH_DISTRIBUTION : partitioning.handle,
+                            partitioning.handle,
                             partitioning.partitionCount));
 
             Map<PlanFragmentId, Optional<int[]>> bucketToPartitionMap = createBucketToPartitionMap(
@@ -966,7 +963,7 @@ public class PipelinedQueryScheduler
                 List<RemoteSourceNode> remoteSourceNodes,
                 Optional<Integer> partitionCount)
         {
-            if (partitioningHandle.equals(SOURCE_DISTRIBUTION) || partitioningHandle.equals(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION)) {
+            if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
                 return Optional.of(new int[1]);
             }
             if (searchFrom(fragmentRoot).where(node -> node instanceof TableScanNode).findFirst().isPresent()) {
@@ -1000,7 +997,7 @@ public class PipelinedQueryScheduler
                     if (partitioningHandle.equals(FIXED_BROADCAST_DISTRIBUTION)) {
                         outputBufferManager = new BroadcastPipelinedOutputBufferManager();
                     }
-                    else if (partitioningHandle.equals(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION)) {
+                    else if (partitioningHandle.equals(FIXED_ARBITRARY_DISTRIBUTION) && parentStage.getFragment().isScaleWriters()) {
                         outputBufferManager = new ScaledPipelinedOutputBufferManager();
                     }
                     else {
@@ -1094,7 +1091,7 @@ public class PipelinedQueryScheduler
                         () -> childStageExecutions.stream().anyMatch(StageExecution::isAnyTaskBlocked));
             }
 
-            if (partitioningHandle.equals(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION)) {
+            if (fragment.getPartitioning().equals(FIXED_ARBITRARY_DISTRIBUTION) && fragment.isScaleWriters()) {
                 Supplier<Collection<TaskStatus>> sourceTasksProvider = () -> childStageExecutions.stream()
                         .map(StageExecution::getTaskStatuses)
                         .flatMap(List::stream)

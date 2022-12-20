@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.planner.PartitioningHandle.isScaledWriterHashDistribution;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -55,7 +55,7 @@ public class ValidateScaledWritersUsage
     }
 
     private static class Visitor
-            extends PlanVisitor<List<PartitioningHandle>, Void>
+            extends PlanVisitor<List<ExchangeNode>, Void>
     {
         private final Session session;
         private final PlannerContext plannerContext;
@@ -67,25 +67,26 @@ public class ValidateScaledWritersUsage
         }
 
         @Override
-        protected List<PartitioningHandle> visitPlan(PlanNode node, Void context)
+        protected List<ExchangeNode> visitPlan(PlanNode node, Void context)
         {
-            return collectPartitioningHandles(node.getSources());
+            return collectExchanges(node.getSources());
         }
 
         @Override
-        public List<PartitioningHandle> visitTableWriter(TableWriterNode node, Void context)
+        public List<ExchangeNode> visitTableWriter(TableWriterNode node, Void context)
         {
-            List<PartitioningHandle> children = collectPartitioningHandles(node.getSources());
-            List<PartitioningHandle> scaleWriterPartitioningHandle = children.stream()
-                    .filter(PartitioningHandle::isScaleWriters)
+            List<ExchangeNode> children = collectExchanges(node.getSources());
+            List<ExchangeNode> scaleWriterExchanges = children.stream()
+                    .filter(ExchangeNode::isScaleWriters)
                     .collect(toImmutableList());
             TableWriterNode.WriterTarget target = node.getTarget();
 
-            scaleWriterPartitioningHandle.forEach(partitioningHandle -> {
+            scaleWriterExchanges.forEach(exchange -> {
                 checkState(target.supportsReportingWrittenBytes(plannerContext.getMetadata(), session),
                         "The scaled writer partitioning scheme is set but writer target %s doesn't support reporting physical written bytes", target);
 
-                if (isScaledWriterHashDistribution(partitioningHandle)) {
+                PartitioningHandle partitioningHandle = exchange.getPartitioningScheme().getPartitioning().getHandle();
+                if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION) || partitioningHandle.getCatalogHandle().isPresent()) {
                     checkState(target.supportsMultipleWritersPerPartition(plannerContext.getMetadata(), session),
                             "The scaled writer partitioning scheme is set for the partitioned write but writer target %s doesn't support multiple writers per partition", target);
                 }
@@ -94,15 +95,15 @@ public class ValidateScaledWritersUsage
         }
 
         @Override
-        public List<PartitioningHandle> visitExchange(ExchangeNode node, Void context)
+        public List<ExchangeNode> visitExchange(ExchangeNode node, Void context)
         {
-            return ImmutableList.<PartitioningHandle>builder()
-                    .add(node.getPartitioningScheme().getPartitioning().getHandle())
-                    .addAll(collectPartitioningHandles(node.getSources()))
+            return ImmutableList.<ExchangeNode>builder()
+                    .add(node)
+                    .addAll(collectExchanges(node.getSources()))
                     .build();
         }
 
-        private List<PartitioningHandle> collectPartitioningHandles(List<PlanNode> nodes)
+        private List<ExchangeNode> collectExchanges(List<PlanNode> nodes)
         {
             return nodes.stream()
                     .map(node -> node.accept(this, null))

@@ -248,7 +248,8 @@ public class PredicatePushDown
                         node.getPartitioningScheme(),
                         builder.build(),
                         node.getInputs(),
-                        node.getOrderingScheme());
+                        node.getOrderingScheme(),
+                        node.isScaleWriters());
             }
 
             return node;

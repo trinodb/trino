@@ -87,7 +87,8 @@ public class SqlTaskExecutionFactory
                         TypeProvider.copyOf(fragment.getSymbols()),
                         fragment.getOutputPartitioningScheme(),
                         fragment.getPartitionedSources(),
-                        outputBuffer);
+                        outputBuffer,
+                        fragment.isScaleWriters());
             }
             catch (Throwable e) {
                 // planning failed

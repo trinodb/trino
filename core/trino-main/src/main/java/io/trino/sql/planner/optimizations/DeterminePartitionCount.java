@@ -328,7 +328,7 @@ public class DeterminePartitionCount
             return false;
         }
         PartitioningHandle partitioningHandle = exchangeNode.getPartitioningScheme().getPartitioning().getHandle();
-        return !partitioningHandle.isScaleWriters()
+        return !exchangeNode.isScaleWriters()
                 && !partitioningHandle.isSingleNode()
                 && partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle;
     }
@@ -362,7 +362,8 @@ public class DeterminePartitionCount
                     partitioningScheme,
                     sources,
                     node.getInputs(),
-                    node.getOrderingScheme());
+                    node.getOrderingScheme(),
+                    node.isScaleWriters());
         }
     }
 }

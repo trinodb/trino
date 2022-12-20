@@ -41,8 +41,6 @@ import static io.trino.spi.statistics.TableStatistics.empty;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -139,7 +137,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
                         tableWriter(
                                 ImmutableList.of("customer", "year"),
                                 ImmutableList.of("customer", "year"),
-                                exchange(LOCAL, REPARTITION, SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION,
+                                exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION, Optional.of(true),
                                         exchange(REMOTE, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
                                                 tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
 
@@ -320,7 +318,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
                                 ImmutableList.of("customer", "year"),
                                 ImmutableList.of("customer", "year"),
                                 project(
-                                        exchange(LOCAL, REPARTITION, SCALED_WRITER_HASH_DISTRIBUTION,
+                                        exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION, Optional.of(true),
                                                 exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
                                                         project(
                                                                 tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))))));
@@ -357,8 +355,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
         PartitioningHandle scaledPartitioningHandle = new PartitioningHandle(
                 Optional.of(getCatalogHandle(catalogName)),
                 Optional.of(MockConnectorTransactionHandle.INSTANCE),
-                CONNECTOR_PARTITIONING_HANDLE,
-                true);
+                CONNECTOR_PARTITIONING_HANDLE);
 
         assertDistributedPlan(
                 "INSERT INTO connector_partitioned_table SELECT * FROM source_table",
@@ -372,7 +369,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
                         tableWriter(
                                 ImmutableList.of("customer", "year"),
                                 ImmutableList.of("customer", "year"),
-                                exchange(LOCAL, REPARTITION, scaledPartitioningHandle,
+                                exchange(LOCAL, REPARTITION, scaledPartitioningHandle, Optional.of(true),
                                         exchange(REMOTE, REPARTITION, partitioningHandle,
                                                 tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
 
@@ -409,7 +406,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
                                 ImmutableList.of("customer", "year"),
                                 ImmutableList.of("customer", "year"),
                                 project(
-                                        exchange(LOCAL, REPARTITION, SCALED_WRITER_HASH_DISTRIBUTION,
+                                        exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION, Optional.of(true),
                                                 exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
                                                         project(
                                                                 tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))))));

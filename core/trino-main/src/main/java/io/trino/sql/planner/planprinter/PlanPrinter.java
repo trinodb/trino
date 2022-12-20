@@ -502,6 +502,9 @@ public class PlanPrinter
         if (fragment.isCoordinatorOnly()) {
             builder.append(", COORDINATOR");
         }
+        if (fragment.isScaleWriters()) {
+            builder.append(", SCALED");
+        }
         builder.append("]\n");
 
         if (stageInfo.isPresent()) {
@@ -644,6 +647,7 @@ public class PlanPrinter
                 types.allTypes(),
                 SINGLE_DISTRIBUTION,
                 Optional.empty(),
+                false,
                 false,
                 ImmutableList.of(plan.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
@@ -1674,7 +1678,8 @@ public class PlanPrinter
                                 "partitioning", anonymizer.anonymize(node.getPartitioningScheme().getPartitioning().getHandle()),
                                 "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().getPartitioning().isNullsAndAnyReplicated()),
                                 "hashColumn", formatHash(node.getPartitioningScheme().getHashColumn()),
-                                "arguments", formatCollection(node.getPartitioningScheme().getPartitioning().getArguments(), anonymizer::anonymize)),
+                                "arguments", formatCollection(node.getPartitioningScheme().getPartitioning().getArguments(), anonymizer::anonymize),
+                                "scaled", formatBoolean(node.isScaleWriters())),
                         context.tag());
             }
             else {
@@ -1684,7 +1689,8 @@ public class PlanPrinter
                                 "partitionCount", node.getPartitioningScheme().getPartitionCount().map(String::valueOf).orElse(""),
                                 "type", node.getType().name(),
                                 "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().getPartitioning().isNullsAndAnyReplicated()),
-                                "hashColumn", formatHash(node.getPartitioningScheme().getHashColumn())),
+                                "hashColumn", formatHash(node.getPartitioningScheme().getHashColumn()),
+                                "scaled", formatBoolean(node.isScaleWriters())),
                         context.tag());
             }
             return processChildren(node, new Context());

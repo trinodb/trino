@@ -88,7 +88,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
@@ -520,9 +519,7 @@ public class HashGenerationOptimizer
             PartitioningScheme partitioningScheme = node.getPartitioningScheme();
             PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
 
-            if ((partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)
-                    || partitioningHandle.equals(SCALED_WRITER_HASH_DISTRIBUTION))
-                    && partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable)) {
+            if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION) && partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable)) {
                 // add precomputed hash for exchange
                 partitionSymbols = computeHash(partitioningScheme.getPartitioning().getArguments().stream()
                         .map(ArgumentBinding::getColumn)
@@ -586,7 +583,8 @@ public class HashGenerationOptimizer
                             partitioningScheme,
                             newSources.build(),
                             newInputs.build(),
-                            node.getOrderingScheme()),
+                            node.getOrderingScheme(),
+                            node.isScaleWriters()),
                     newHashSymbols);
         }
 

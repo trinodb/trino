@@ -44,6 +44,7 @@ final class ExchangeMatcher
     private final Set<String> partitionedBy;
     private final Optional<List<List<String>>> inputs;
     private final Optional<Optional<Integer>> partitionCount;
+    private final Optional<Boolean> scaleWriters;
 
     public ExchangeMatcher(
             ExchangeNode.Scope scope,
@@ -52,7 +53,8 @@ final class ExchangeMatcher
             List<Ordering> orderBy,
             Set<String> partitionedBy,
             Optional<List<List<String>>> inputs,
-            Optional<Optional<Integer>> partitionCount)
+            Optional<Optional<Integer>> partitionCount,
+            Optional<Boolean> scaleWriters)
     {
         this.scope = requireNonNull(scope, "scope is null");
         this.type = requireNonNull(type, "type is null");
@@ -61,6 +63,7 @@ final class ExchangeMatcher
         this.partitionedBy = requireNonNull(partitionedBy, "partitionedBy is null");
         this.inputs = requireNonNull(inputs, "inputs is null");
         this.partitionCount = requireNonNull(partitionCount, "partitionCount is null");
+        this.scaleWriters = scaleWriters;
     }
 
     @Override
@@ -121,6 +124,10 @@ final class ExchangeMatcher
             return NO_MATCH;
         }
 
+        if (scaleWriters.isPresent() && scaleWriters.get() != exchangeNode.isScaleWriters()) {
+            return NO_MATCH;
+        }
+
         return MatchResult.match();
     }
 
@@ -132,7 +139,8 @@ final class ExchangeMatcher
                 .add("type", type)
                 .add("partitionHandle", partitioningHandle)
                 .add("orderBy", orderBy)
-                .add("partitionedBy", partitionedBy);
+                .add("partitionedBy", partitionedBy)
+                .add("scaleWriters", scaleWriters);
         inputs.ifPresent(inputs -> string.add("inputs", inputs));
         partitionCount.ifPresent(partitionCount -> string.add("partitionCount", partitionCount));
         return string.toString();

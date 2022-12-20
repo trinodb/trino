@@ -574,7 +574,7 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern exchange(ExchangeNode.Scope scope, PlanMatchPattern... sources)
     {
-        return exchange(scope, Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), sources);
+        return exchange(scope, Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), Optional.empty(), sources);
     }
 
     public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, PlanMatchPattern... sources)
@@ -584,7 +584,12 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, PartitioningHandle partitioningHandle, PlanMatchPattern... sources)
     {
-        return exchange(scope, Optional.of(type), Optional.of(partitioningHandle), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), sources);
+        return exchange(scope, type, partitioningHandle, Optional.empty(), sources);
+    }
+
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, PartitioningHandle partitioningHandle, Optional<Boolean> scaleWriters, PlanMatchPattern... sources)
+    {
+        return exchange(scope, Optional.of(type), Optional.of(partitioningHandle), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), scaleWriters, sources);
     }
 
     public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, List<Ordering> orderBy, PlanMatchPattern... sources)
@@ -605,7 +610,7 @@ public final class PlanMatchPattern
             Optional<List<List<String>>> inputs,
             PlanMatchPattern... sources)
     {
-        return exchange(scope, Optional.of(type), Optional.empty(), orderBy, partitionedBy, inputs, sources);
+        return exchange(scope, Optional.of(type), Optional.empty(), orderBy, partitionedBy, inputs, Optional.empty(), sources);
     }
 
     public static PlanMatchPattern exchange(
@@ -615,9 +620,10 @@ public final class PlanMatchPattern
             List<Ordering> orderBy,
             Set<String> partitionedBy,
             Optional<List<List<String>>> inputs,
+            Optional<Boolean> scaleWriters,
             PlanMatchPattern... sources)
     {
-        return exchange(scope, type, partitioningHandle, orderBy, partitionedBy, inputs, ImmutableList.of(), Optional.empty(), sources);
+        return exchange(scope, type, partitioningHandle, orderBy, partitionedBy, inputs, ImmutableList.of(), Optional.empty(), scaleWriters, sources);
     }
 
     public static PlanMatchPattern exchange(ExchangeNode.Scope scope, Optional<Integer> partitionCount, PlanMatchPattern... sources)
@@ -635,6 +641,11 @@ public final class PlanMatchPattern
         return exchange(scope, Optional.empty(), Optional.of(partitioningHandle), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), ImmutableList.of(), Optional.of(partitionCount), sources);
     }
 
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, PartitioningHandle partitioningHandle, Optional<Integer> partitionCount, boolean scaledWriters, PlanMatchPattern... sources)
+    {
+        return exchange(scope, Optional.empty(), Optional.of(partitioningHandle), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), ImmutableList.of(), Optional.of(partitionCount), Optional.of(scaledWriters), sources);
+    }
+
     public static PlanMatchPattern exchange(
             ExchangeNode.Scope scope,
             Optional<ExchangeNode.Type> type,
@@ -646,8 +657,23 @@ public final class PlanMatchPattern
             Optional<Optional<Integer>> partitionCount,
             PlanMatchPattern... sources)
     {
+        return exchange(scope, type, partitioningHandle, orderBy, partitionedBy, inputs, outputSymbolAliases, partitionCount, Optional.empty(), sources);
+    }
+
+    public static PlanMatchPattern exchange(
+            ExchangeNode.Scope scope,
+            Optional<ExchangeNode.Type> type,
+            Optional<PartitioningHandle> partitioningHandle,
+            List<Ordering> orderBy,
+            Set<String> partitionedBy,
+            Optional<List<List<String>>> inputs,
+            List<String> outputSymbolAliases,
+            Optional<Optional<Integer>> partitionCount,
+            Optional<Boolean> scaleWriters,
+            PlanMatchPattern... sources)
+    {
         PlanMatchPattern result = node(ExchangeNode.class, sources)
-                .with(new ExchangeMatcher(scope, type, partitioningHandle, orderBy, partitionedBy, inputs, partitionCount));
+                .with(new ExchangeMatcher(scope, type, partitioningHandle, orderBy, partitionedBy, inputs, partitionCount, scaleWriters));
 
         for (int i = 0; i < outputSymbolAliases.size(); i++) {
             String outputSymbol = outputSymbolAliases.get(i);

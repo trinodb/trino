@@ -187,7 +187,8 @@ public class PushPartialAggregationThroughExchange
                 partitioning,
                 partials,
                 ImmutableList.copyOf(Collections.nCopies(partials.size(), aggregation.getOutputSymbols())),
-                Optional.empty());
+                Optional.empty(),
+                exchange.isScaleWriters());
     }
 
     private PlanNode split(AggregationNode node, Context context)
