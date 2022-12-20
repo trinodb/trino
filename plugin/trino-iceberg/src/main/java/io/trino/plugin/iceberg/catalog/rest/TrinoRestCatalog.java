@@ -271,6 +271,9 @@ public class TrinoRestCatalog
         String databaseLocation = (String) properties.get(IcebergSchemaProperties.LOCATION_PROPERTY);
         checkArgument(databaseLocation != null, "location must be set for %s", schemaTableName.getSchemaName());
 
+        if (databaseLocation.endsWith("/")) {
+            return databaseLocation + tableName;
+        }
         return join("/", databaseLocation, tableName);
     }
 

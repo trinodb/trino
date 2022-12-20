@@ -27,7 +27,6 @@ import io.trino.spi.security.TrinoPrincipal;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.assertj.core.util.Files;
-import org.testng.SkipException;
 
 import java.io.File;
 
@@ -66,20 +65,6 @@ public class TestTrinoRestCatalog
     {
         assertThatThrownBy(super::testView)
                 .hasMessageContaining("createView is not supported for Iceberg REST catalog");
-    }
-
-    @Override
-    public void testCreateNamespaceWithLocation()
-    {
-        // Remove after https://github.com/apache/iceberg/pull/5737
-        throw new SkipException("Backing test catalog does not support setting namespace location");
-    }
-
-    @Override
-    public void testUseUniqueTableLocations()
-    {
-        // Remove after https://github.com/apache/iceberg/pull/5737
-        throw new SkipException("Backing test catalog does not support setting namespace location");
     }
 
     @Override
