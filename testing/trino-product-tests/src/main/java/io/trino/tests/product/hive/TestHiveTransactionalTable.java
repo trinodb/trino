@@ -2019,6 +2019,38 @@ public class TestHiveTransactionalTable
         });
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testLargePartitionedDelete()
+    {
+        String rootName = "large_delete_";
+        String tableStage1 = rootName + "stage1" + randomNameSuffix();
+        onTrino().executeQuery("CREATE TABLE %s AS SELECT a, b, 20220101 AS d FROM UNNEST(SEQUENCE(1, 9001), SEQUENCE(1, 9001)) AS t(a, b)".formatted(tableStage1));
+        String tableStage2 = rootName + "stage2" + randomNameSuffix();
+        onTrino().executeQuery("CREATE TABLE %s AS SELECT a, b, 20220101 AS d FROM UNNEST(SEQUENCE(1, 100), SEQUENCE(1, 100)) AS t(a, b)".formatted(tableStage2));
+        String tableNew = rootName + "new" + randomNameSuffix();
+        onTrino().executeQuery("""
+                CREATE TABLE %s WITH (transactional=true, partitioned_by=ARRAY['d'])
+                AS (SELECT stage1.a as a, stage1.b as b, stage1.d AS d FROM %s stage1, %s stage2 WHERE stage1.d = stage2.d)
+                """.formatted(tableNew, tableStage1, tableStage2));
+        verifySelectForTrinoAndHive("SELECT count(1) FROM %s".formatted(tableNew), "d IS NOT NULL", row(900100));
+        onTrino().executeQuery("DELETE FROM %s WHERE d = 20220101".formatted(tableNew));
+
+        // Verify no rows
+        verifySelectForTrinoAndHive("SELECT count(1) FROM %s".formatted(tableNew), "d IS NOT NULL", row(0));
+
+        onTrino().executeQuery("INSERT INTO %s SELECT stage1.a AS a, stage1.b AS b, stage1.d AS d FROM %s stage1, %s stage2 WHERE stage1.d = stage2.d".formatted(tableNew, tableStage1, tableStage2));
+
+        verifySelectForTrinoAndHive("SELECT count(1) FROM %s".formatted(tableNew), "d IS NOT NULL", row(900100));
+        onTrino().executeQuery("DELETE FROM %s WHERE d = 20220101".formatted(tableNew));
+
+        // Verify no rows
+        verifySelectForTrinoAndHive("SELECT count(1) FROM %s".formatted(tableNew), "d IS NOT NULL", row(0));
+
+        onTrino().executeQuery("DROP TABLE " + tableNew);
+        onTrino().executeQuery("DROP TABLE " + tableStage2);
+        onTrino().executeQuery("DROP TABLE " + tableStage1);
+    }
+
     private void hdfsDeleteAll(String directory)
     {
         if (!hdfsClient.exist(directory)) {
