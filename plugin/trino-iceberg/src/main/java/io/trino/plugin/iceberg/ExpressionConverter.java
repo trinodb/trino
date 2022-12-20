@@ -82,7 +82,6 @@ public final class ExpressionConverter
             return domain.isNullAllowed() ? alwaysTrue() : not(isNull(columnName));
         }
 
-        // Skip structural types. TODO (https://github.com/trinodb/trino/issues/8759) Evaluate Apache Iceberg's support for predicate on structural types
         if (type instanceof ArrayType || type instanceof MapType || type instanceof RowType) {
             // Fail fast. Ignoring expression could lead to data loss in case of deletions.
             throw new UnsupportedOperationException("Unsupported type for expression: " + type);
