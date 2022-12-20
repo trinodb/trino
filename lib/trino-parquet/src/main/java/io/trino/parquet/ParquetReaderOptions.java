@@ -15,17 +15,20 @@ package io.trino.parquet;
 
 import io.airlift.units.DataSize;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetReaderOptions
 {
     private static final DataSize DEFAULT_MAX_READ_BLOCK_SIZE = DataSize.of(16, MEGABYTE);
+    private static final int DEFAULT_MAX_READ_BLOCK_ROW_COUNT = 8 * 1024;
     private static final DataSize DEFAULT_MAX_MERGE_DISTANCE = DataSize.of(1, MEGABYTE);
     private static final DataSize DEFAULT_MAX_BUFFER_SIZE = DataSize.of(8, MEGABYTE);
 
     private final boolean ignoreStatistics;
     private final DataSize maxReadBlockSize;
+    private final int maxReadBlockRowCount;
     private final DataSize maxMergeDistance;
     private final DataSize maxBufferSize;
     private final boolean useColumnIndex;
@@ -35,6 +38,7 @@ public class ParquetReaderOptions
     {
         ignoreStatistics = false;
         maxReadBlockSize = DEFAULT_MAX_READ_BLOCK_SIZE;
+        maxReadBlockRowCount = DEFAULT_MAX_READ_BLOCK_ROW_COUNT;
         maxMergeDistance = DEFAULT_MAX_MERGE_DISTANCE;
         maxBufferSize = DEFAULT_MAX_BUFFER_SIZE;
         useColumnIndex = true;
@@ -44,6 +48,7 @@ public class ParquetReaderOptions
     private ParquetReaderOptions(
             boolean ignoreStatistics,
             DataSize maxReadBlockSize,
+            int maxReadBlockRowCount,
             DataSize maxMergeDistance,
             DataSize maxBufferSize,
             boolean useColumnIndex,
@@ -51,6 +56,8 @@ public class ParquetReaderOptions
     {
         this.ignoreStatistics = ignoreStatistics;
         this.maxReadBlockSize = requireNonNull(maxReadBlockSize, "maxReadBlockSize is null");
+        checkArgument(maxReadBlockRowCount > 0, "maxReadBlockRowCount must be greater than 0");
+        this.maxReadBlockRowCount = maxReadBlockRowCount;
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
         this.useColumnIndex = useColumnIndex;
@@ -87,11 +94,17 @@ public class ParquetReaderOptions
         return maxBufferSize;
     }
 
+    public int getMaxReadBlockRowCount()
+    {
+        return maxReadBlockRowCount;
+    }
+
     public ParquetReaderOptions withIgnoreStatistics(boolean ignoreStatistics)
     {
         return new ParquetReaderOptions(
                 ignoreStatistics,
                 maxReadBlockSize,
+                maxReadBlockRowCount,
                 maxMergeDistance,
                 maxBufferSize,
                 useColumnIndex,
@@ -103,6 +116,19 @@ public class ParquetReaderOptions
         return new ParquetReaderOptions(
                 ignoreStatistics,
                 maxReadBlockSize,
+                maxReadBlockRowCount,
+                maxMergeDistance,
+                maxBufferSize,
+                useColumnIndex,
+                useBatchColumnReaders);
+    }
+
+    public ParquetReaderOptions withMaxReadBlockRowCount(int maxReadBlockRowCount)
+    {
+        return new ParquetReaderOptions(
+                ignoreStatistics,
+                maxReadBlockSize,
+                maxReadBlockRowCount,
                 maxMergeDistance,
                 maxBufferSize,
                 useColumnIndex,
@@ -114,6 +140,7 @@ public class ParquetReaderOptions
         return new ParquetReaderOptions(
                 ignoreStatistics,
                 maxReadBlockSize,
+                maxReadBlockRowCount,
                 maxMergeDistance,
                 maxBufferSize,
                 useColumnIndex,
@@ -125,6 +152,7 @@ public class ParquetReaderOptions
         return new ParquetReaderOptions(
                 ignoreStatistics,
                 maxReadBlockSize,
+                maxReadBlockRowCount,
                 maxMergeDistance,
                 maxBufferSize,
                 useColumnIndex,
@@ -136,6 +164,7 @@ public class ParquetReaderOptions
         return new ParquetReaderOptions(
                 ignoreStatistics,
                 maxReadBlockSize,
+                maxReadBlockRowCount,
                 maxMergeDistance,
                 maxBufferSize,
                 useColumnIndex,
@@ -147,6 +176,7 @@ public class ParquetReaderOptions
         return new ParquetReaderOptions(
                 ignoreStatistics,
                 maxReadBlockSize,
+                maxReadBlockRowCount,
                 maxMergeDistance,
                 maxBufferSize,
                 useColumnIndex,
