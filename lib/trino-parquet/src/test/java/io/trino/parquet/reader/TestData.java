@@ -28,10 +28,22 @@ import java.util.function.IntFunction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.parquet.ParquetTypeUtils.paddingBigInteger;
+import static java.lang.Math.toIntExact;
 
 public final class TestData
 {
     private TestData() {}
+
+    // Based on org.apache.parquet.schema.Types.BasePrimitiveBuilder.maxPrecision to determine the max decimal precision supported by INT32/INT64
+    public static int maxPrecision(int numBytes)
+    {
+        return toIntExact(
+                // convert double to long
+                Math.round(
+                        // number of base-10 digits
+                        Math.floor(Math.log10(
+                                Math.pow(2, 8 * numBytes - 1) - 1))));  // max value stored in numBytes
+    }
 
     public static IntFunction<long[]> unscaledRandomShortDecimalSupplier(int bitWidth, int precision)
     {

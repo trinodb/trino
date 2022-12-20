@@ -26,8 +26,8 @@ import org.apache.parquet.schema.Types;
 import org.openjdk.jmh.annotations.Param;
 
 import static io.trino.parquet.reader.TestData.longToBytes;
+import static io.trino.parquet.reader.TestData.maxPrecision;
 import static io.trino.parquet.reader.TestData.unscaledRandomShortDecimalSupplier;
-import static java.lang.Math.toIntExact;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 
 public class BenchmarkShortDecimalColumnReader
@@ -71,16 +71,6 @@ public class BenchmarkShortDecimalColumnReader
     {
         Binary binary = Binary.fromConstantByteArray(longToBytes(batch[index], byteArrayLength));
         writer.writeBytes(binary);
-    }
-
-    private static int maxPrecision(int numBytes)
-    {
-        return toIntExact(
-                // convert double to long
-                Math.round(
-                        // number of base-10 digits
-                        Math.floor(Math.log10(
-                                Math.pow(2, 8 * numBytes - 1) - 1))));  // max value stored in numBytes
     }
 
     public static void main(String[] args)
