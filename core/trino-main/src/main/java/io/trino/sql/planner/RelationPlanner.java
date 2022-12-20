@@ -48,6 +48,8 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.UnionNode;
@@ -430,12 +432,18 @@ class RelationPlanner
             }
 
             // add output symbols passed from the table argument
-            ImmutableList.Builder<Symbol> passThroughSymbols = ImmutableList.builder();
+            ImmutableList.Builder<PassThroughColumn> passThroughColumns = ImmutableList.builder();
             if (tableArgument.isPassThroughColumns()) {
                 // the original output symbols from the source node, not coerced
                 // note: hidden columns are included. They are present in sourcePlan.fieldMappings
                 outputSymbols.addAll(sourcePlan.getFieldMappings());
-                passThroughSymbols.addAll(sourcePlan.getFieldMappings());
+                Set<Symbol> partitionBy = specification
+                        .map(DataOrganizationSpecification::getPartitionBy)
+                        .map(ImmutableSet::copyOf)
+                        .orElse(ImmutableSet.of());
+                sourcePlan.getFieldMappings().stream()
+                        .map(symbol -> new PassThroughColumn(symbol, partitionBy.contains(symbol)))
+                        .forEach(passThroughColumns::add);
             }
             else if (tableArgument.getPartitionBy().isPresent()) {
                 tableArgument.getPartitionBy().get().stream()
@@ -443,7 +451,7 @@ class RelationPlanner
                         .map(sourcePlanBuilder::translate)
                         .forEach(symbol -> {
                             outputSymbols.add(symbol);
-                            passThroughSymbols.add(symbol);
+                            passThroughColumns.add(new PassThroughColumn(symbol, true));
                         });
             }
 
@@ -452,8 +460,7 @@ class RelationPlanner
                     tableArgument.getArgumentName(),
                     tableArgument.isRowSemantics(),
                     tableArgument.isPruneWhenEmpty(),
-                    tableArgument.isPassThroughColumns(),
-                    passThroughSymbols.build(),
+                    new PassThroughSpecification(tableArgument.isPassThroughColumns(), passThroughColumns.build()),
                     requiredColumns,
                     specification));
         }

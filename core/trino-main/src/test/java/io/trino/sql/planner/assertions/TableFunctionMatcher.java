@@ -28,6 +28,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
 import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import io.trino.sql.tree.SymbolReference;
 
@@ -118,7 +119,7 @@ public class TableFunctionMatcher
                 }
                 if (expectedTableArgument.rowSemantics() != argumentProperties.isRowSemantics() ||
                         expectedTableArgument.pruneWhenEmpty() != argumentProperties.isPruneWhenEmpty() ||
-                        expectedTableArgument.passThroughColumns() != argumentProperties.isPassThroughColumns()) {
+                        expectedTableArgument.passThroughColumns() != argumentProperties.getPassThroughSpecification().declaredAsPassThrough()) {
                     return NO_MATCH;
                 }
                 boolean specificationMatches = expectedTableArgument.specification()
@@ -130,7 +131,8 @@ public class TableFunctionMatcher
                 Set<SymbolReference> expectedPassThrough = expectedTableArgument.passThroughSymbols().stream()
                         .map(symbolAliases::get)
                         .collect(toImmutableSet());
-                Set<SymbolReference> actualPassThrough = argumentProperties.getPassThroughSymbols().stream()
+                Set<SymbolReference> actualPassThrough = argumentProperties.getPassThroughSpecification().columns().stream()
+                        .map(PassThroughColumn::symbol)
                         .map(Symbol::toSymbolReference)
                         .collect(toImmutableSet());
                 if (!expectedPassThrough.equals(actualPassThrough)) {

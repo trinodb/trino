@@ -76,6 +76,8 @@ import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -336,12 +338,18 @@ public class UnaliasSymbolReferences
                 SymbolMapper inputMapper = symbolMapper(new HashMap<>(newSource.getMappings()));
                 TableArgumentProperties properties = node.getTableArgumentProperties().get(i);
                 Optional<DataOrganizationSpecification> newSpecification = properties.getSpecification().map(inputMapper::mapAndDistinct);
+                PassThroughSpecification newPassThroughSpecification = new PassThroughSpecification(
+                        properties.getPassThroughSpecification().declaredAsPassThrough(),
+                        properties.getPassThroughSpecification().columns().stream()
+                                .map(column -> new PassThroughColumn(
+                                        inputMapper.map(column.symbol()),
+                                        column.isPartitioningColumn()))
+                                .collect(toImmutableList()));
                 newTableArgumentProperties.add(new TableArgumentProperties(
                         properties.getArgumentName(),
                         properties.isRowSemantics(),
                         properties.isPruneWhenEmpty(),
-                        properties.isPassThroughColumns(),
-                        inputMapper.map(properties.getPassThroughSymbols()),
+                        newPassThroughSpecification,
                         inputMapper.map(properties.getRequiredColumns()),
                         newSpecification));
             }

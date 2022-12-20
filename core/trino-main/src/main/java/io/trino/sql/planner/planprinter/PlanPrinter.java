@@ -1835,7 +1835,7 @@ public class PlanPrinter
                 if (argumentProperties.isPruneWhenEmpty()) {
                     properties.append(", prune when empty");
                 }
-                if (argumentProperties.isPassThroughColumns()) {
+                if (argumentProperties.getPassThroughSpecification().declaredAsPassThrough()) {
                     properties.append(", pass through columns");
                 }
                 return format("%s => TableArgument{%s}", argumentName, properties);
