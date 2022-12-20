@@ -37,7 +37,7 @@ import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestHdfsParquetDataSource
+public class TestParquetDataSource
 {
     @Test(dataProvider = "testPlanReadOrderingProvider")
     public void testPlanReadOrdering(DataSize maxBufferSize)
