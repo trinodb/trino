@@ -15,8 +15,6 @@ package io.trino.plugin.deltalake;
 
 import io.trino.Session;
 import io.trino.hdfs.HdfsContext;
-import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.DistributedQueryRunner;
@@ -27,7 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestDeltaLakeTableWithCustomLocationUsingHiveMetastore
@@ -51,11 +49,7 @@ public class TestDeltaLakeTableWithCustomLocationUsingHiveMetastore
                 .setCatalogDirectory(metastoreDir.toURI().toString())
                 .setMetastoreUser("test");
         hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(config.getMetastoreUser()));
-        metastore = new FileHiveMetastore(
-                new NodeVersion("testversion"),
-                HDFS_ENVIRONMENT,
-                false,
-                config);
+        metastore = createTestingFileHiveMetastore(metastoreDir);
         connectorProperties.putIfAbsent("delta.unique-table-location", "true");
         connectorProperties.putIfAbsent("hive.metastore", "file");
         connectorProperties.putIfAbsent("hive.metastore.catalog.dir", metastoreDir.getPath());
