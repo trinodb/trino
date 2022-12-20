@@ -69,7 +69,7 @@ public class ProgressLoggingListener
             LOGGER.info("[TEST START] %s", formatTestName(testResult));
         }
         if (configurationMethod) {
-            LOGGER.info("[CONFIGURATION] %s for %s", method, formatTestName(testResult));
+            LOGGER.info("[CONFIGURATION] %s", method);
         }
         if (!testMethod && !configurationMethod) {
             LOGGER.info("[UNKNOWN THING] %s for %s", method, formatTestName(testResult));
