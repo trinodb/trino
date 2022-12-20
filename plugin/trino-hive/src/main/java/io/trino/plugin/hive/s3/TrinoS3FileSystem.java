@@ -890,6 +890,12 @@ public class TrinoS3FileSystem
             // append the path info to the message
             super(format("%s (Path: %s)", cause, path), cause);
         }
+
+        public UnrecoverableS3OperationException(String bucket, String key, Throwable cause)
+        {
+            // append bucket and key to the message
+            super(format("%s (Bucket: %s, Key: %s)", cause, bucket, key));
+        }
     }
 
     @VisibleForTesting
@@ -1217,24 +1223,51 @@ public class TrinoS3FileSystem
 
     private InitiateMultipartUploadResult initMultipartUpload(String bucket, String key)
     {
-        InitiateMultipartUploadRequest request = new InitiateMultipartUploadRequest(bucket, key)
-                .withObjectMetadata(new ObjectMetadata())
-                .withCannedACL(s3AclType.getCannedACL())
-                .withRequesterPays(requesterPaysEnabled)
-                .withStorageClass(s3StorageClass.getS3StorageClass());
+        try {
+            return retry()
+                    .maxAttempts(maxAttempts)
+                    .exponentialBackoff(BACKOFF_MIN_SLEEP, maxBackoffTime, maxRetryTime, 2.0)
+                    .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class)
+                    .onRetry(STATS::newInitiateMultipartUploadRetry)
+                    .run("initiateMultipartUpload", () -> {
+                        try {
+                            InitiateMultipartUploadRequest request = new InitiateMultipartUploadRequest(bucket, key)
+                                    .withObjectMetadata(new ObjectMetadata())
+                                    .withCannedACL(s3AclType.getCannedACL())
+                                    .withRequesterPays(requesterPaysEnabled)
+                                    .withStorageClass(s3StorageClass.getS3StorageClass());
 
-        if (sseEnabled) {
-            switch (sseType) {
-                case KMS:
-                    request.setSSEAwsKeyManagementParams(getSseKeyManagementParams());
-                    break;
-                case S3:
-                    request.getObjectMetadata().setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
-                    break;
-            }
+                            if (sseEnabled) {
+                                switch (sseType) {
+                                    case KMS:
+                                        request.setSSEAwsKeyManagementParams(getSseKeyManagementParams());
+                                        break;
+                                    case S3:
+                                        request.getObjectMetadata().setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
+                                        break;
+                                }
+                            }
+
+                            return s3.initiateMultipartUpload(request);
+                        }
+                        catch (RuntimeException e) {
+                            STATS.newInitiateMultipartUploadError();
+                            if (e instanceof AmazonS3Exception) {
+                                switch (((AmazonS3Exception) e).getStatusCode()) {
+                                    case HTTP_FORBIDDEN, HTTP_NOT_FOUND, HTTP_BAD_REQUEST -> throw new UnrecoverableS3OperationException(bucket, key, e);
+                                }
+                            }
+                            throw e;
+                        }
+                    });
         }
-
-        return s3.initiateMultipartUpload(request);
+        catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
+        }
     }
 
     private SSEAwsKeyManagementParams getSseKeyManagementParams()
