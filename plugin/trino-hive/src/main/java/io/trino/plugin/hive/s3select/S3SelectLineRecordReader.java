@@ -40,6 +40,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Properties;
@@ -212,6 +213,10 @@ public abstract class S3SelectLineRecordReader
                     });
         }
         catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+                throw new InterruptedIOException();
+            }
             throwIfInstanceOf(e, IOException.class);
             throwIfUnchecked(e);
             throw new RuntimeException(e);
