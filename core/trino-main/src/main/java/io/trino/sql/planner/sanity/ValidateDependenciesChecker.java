@@ -65,6 +65,7 @@ import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -249,12 +250,15 @@ public final class ValidateDependenciesChecker
                                 source.getOutputSymbols());
                     });
                 });
+                Set<Symbol> passThroughSymbols = argumentProperties.getPassThroughSpecification().columns().stream()
+                        .map(PassThroughColumn::symbol)
+                        .collect(toImmutableSet());
                 checkDependencies(
                         inputs,
-                        argumentProperties.getPassThroughSymbols(),
+                        passThroughSymbols,
                         "Invalid node. Pass-through symbols for source %s (%s) not in source plan output (%s)",
                         argumentProperties.getArgumentName(),
-                        argumentProperties.getPassThroughSymbols(),
+                        passThroughSymbols,
                         source.getOutputSymbols());
             }
 
