@@ -23,9 +23,6 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.plugin.tpch.DecimalTypeMapping;
@@ -51,7 +48,7 @@ import java.util.function.Function;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.hive.security.HiveSecurityModule.ALLOW_ALL;
 import static io.trino.plugin.hive.security.HiveSecurityModule.SQL_STANDARD;
 import static io.trino.plugin.tpch.ColumnNaming.SIMPLIFIED;
@@ -105,13 +102,7 @@ public final class HiveQueryRunner
         private Function<Session, Session> initialTablesSessionMutator = Function.identity();
         private Function<DistributedQueryRunner, HiveMetastore> metastore = queryRunner -> {
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
-            return new FileHiveMetastore(
-                    new NodeVersion("test_version"),
-                    HDFS_ENVIRONMENT,
-                    new HiveMetastoreConfig().isHideDeltaLakeTables(),
-                    new FileHiveMetastoreConfig()
-                            .setCatalogDirectory(baseDir.toURI().toString())
-                            .setMetastoreUser("test"));
+            return createTestingFileHiveMetastore(baseDir);
         };
         private Module module = EMPTY_MODULE;
         private Optional<DirectoryLister> directoryLister = Optional.empty();
