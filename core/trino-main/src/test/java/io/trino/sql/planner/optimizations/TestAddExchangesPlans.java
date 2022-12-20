@@ -63,7 +63,6 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -1009,7 +1008,7 @@ public class TestAddExchangesPlans
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey")))))
                                 .right(
                                         exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
-                                                exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                exchange(REMOTE, REPLICATE, SINGLE_DISTRIBUTION,
                                                         exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
                                                                 project(
                                                                         tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))),
@@ -1034,7 +1033,7 @@ public class TestAddExchangesPlans
                                                                 tableScan("nation")))))
                                 .right(
                                         exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
-                                                exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                exchange(REMOTE, REPLICATE, SINGLE_DISTRIBUTION,
                                                         project(
                                                                 tableScan("region", ImmutableMap.of("regionkey", "regionkey")))))))));
     }
@@ -1058,7 +1057,7 @@ public class TestAddExchangesPlans
                                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))
                                         .right(
                                                 exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
-                                                        exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                        exchange(REMOTE, REPLICATE, SINGLE_DISTRIBUTION,
                                                                 project(
                                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))))));
     }
@@ -1079,7 +1078,7 @@ public class TestAddExchangesPlans
                                                 tableScan("nation")))
                                 .right(
                                         exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
-                                                exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                exchange(REMOTE, REPLICATE, SINGLE_DISTRIBUTION,
                                                         tableScan("region")))))));
     }
 
@@ -1185,7 +1184,7 @@ public class TestAddExchangesPlans
                                         node(TableScanNode.class)))
                                 .right(
                                         exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
-                                                exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                exchange(REMOTE, REPLICATE, SINGLE_DISTRIBUTION,
                                                         tableScan("region")))))));
     }
 
@@ -1207,7 +1206,7 @@ public class TestAddExchangesPlans
                                 .right(
                                         exchange(
                                                 LOCAL, GATHER, SINGLE_DISTRIBUTION,
-                                                exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                exchange(REMOTE, REPLICATE, SINGLE_DISTRIBUTION,
                                                         tableScan("region")))))));
     }
 

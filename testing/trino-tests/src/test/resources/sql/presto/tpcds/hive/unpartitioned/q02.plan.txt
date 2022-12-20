@@ -15,7 +15,7 @@ remote exchange (GATHER, SINGLE, [])
                                                 dynamic filter (["cs_sold_date_sk"])
                                                     scan catalog_sales
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                remote exchange (REPLICATE, SINGLE, [])
                                                     dynamic filter (["d_week_seq", "d_week_seq"])
                                                         scan date_dim
                     local exchange (GATHER, SINGLE, [])
@@ -37,7 +37,7 @@ remote exchange (GATHER, SINGLE, [])
                                                         dynamic filter (["cs_sold_date_sk_88"])
                                                             scan catalog_sales
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             dynamic filter (["d_week_seq_129"])
                                                                 scan date_dim
                             local exchange (GATHER, SINGLE, [])

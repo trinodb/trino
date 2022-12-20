@@ -8,11 +8,11 @@ final aggregation over ()
                             dynamic filter (["ss_hdemo_sk", "ss_sold_time_sk", "ss_store_sk"])
                                 scan store_sales
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPLICATE, BROADCAST, [])
+                                remote exchange (REPLICATE, SINGLE, [])
                                     scan household_demographics
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPLICATE, BROADCAST, [])
+                            remote exchange (REPLICATE, SINGLE, [])
                                 scan time_dim
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPLICATE, BROADCAST, [])
+                        remote exchange (REPLICATE, SINGLE, [])
                             scan store

@@ -13,7 +13,7 @@ cross join:
                                     dynamic filter (["c_customer_sk"])
                                         scan customer
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        remote exchange (REPLICATE, SINGLE, [])
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
@@ -21,16 +21,16 @@ cross join:
                                                             dynamic filter (["ss_item_sk", "ss_promo_sk", "ss_sold_date_sk", "ss_store_sk"])
                                                                 scan store_sales
                                                             local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                remote exchange (REPLICATE, SINGLE, [])
                                                                     scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                            remote exchange (REPLICATE, SINGLE, [])
                                                                 scan item
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             scan store
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                    remote exchange (REPLICATE, SINGLE, [])
                                                         scan promotion
     final aggregation over ()
         local exchange (GATHER, SINGLE, [])
@@ -46,18 +46,18 @@ cross join:
                                     dynamic filter (["c_customer_sk_108"])
                                         scan customer
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        remote exchange (REPLICATE, SINGLE, [])
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         dynamic filter (["ss_item_sk_19", "ss_sold_date_sk_40", "ss_store_sk_24"])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                            remote exchange (REPLICATE, SINGLE, [])
                                                                 scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             scan item
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                    remote exchange (REPLICATE, SINGLE, [])
                                                         scan store

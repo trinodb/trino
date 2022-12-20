@@ -14,12 +14,12 @@ local exchange (GATHER, SINGLE, [])
                                                     dynamic filter (["wr_item_sk", "wr_order_number"])
                                                         scan web_returns
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             join (INNER, REPLICATED):
                                                                 dynamic filter (["ws_sold_date_sk"])
                                                                     scan web_sales
                                                                 local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                    remote exchange (REPLICATE, SINGLE, [])
                                                                         scan date_dim
                 remote exchange (REPARTITION, HASH, ["cr_item_sk", "expr_74", "expr_78", "rank_76", "rank_77"])
                     partial aggregation over (cr_item_sk, expr_74, expr_78, rank_76, rank_77)
@@ -33,12 +33,12 @@ local exchange (GATHER, SINGLE, [])
                                                     dynamic filter (["cr_item_sk", "cr_order_number"])
                                                         scan catalog_returns
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             join (INNER, REPLICATED):
                                                                 dynamic filter (["cs_sold_date_sk"])
                                                                     scan catalog_sales
                                                                 local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                    remote exchange (REPLICATE, SINGLE, [])
                                                                         scan date_dim
                 remote exchange (REPARTITION, HASH, ["expr_128", "expr_133", "rank_130", "rank_131", "sr_item_sk"])
                     partial aggregation over (expr_128, expr_133, rank_130, rank_131, sr_item_sk)
@@ -52,10 +52,10 @@ local exchange (GATHER, SINGLE, [])
                                                     dynamic filter (["sr_item_sk", "sr_ticket_number"])
                                                         scan store_returns
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             join (INNER, REPLICATED):
                                                                 dynamic filter (["ss_sold_date_sk"])
                                                                     scan store_sales
                                                                 local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                    remote exchange (REPLICATE, SINGLE, [])
                                                                         scan date_dim

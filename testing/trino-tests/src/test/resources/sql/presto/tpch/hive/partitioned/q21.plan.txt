@@ -16,12 +16,12 @@ local exchange (GATHER, SINGLE, [])
                                                             dynamic filter (["orderkey", "orderkey", "suppkey_0"])
                                                                 scan lineitem
                                                             local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                remote exchange (REPLICATE, SINGLE, [])
                                                                     join (INNER, REPLICATED):
                                                                         dynamic filter (["nationkey"])
                                                                             scan supplier
                                                                         local exchange (GATHER, SINGLE, [])
-                                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                            remote exchange (REPLICATE, SINGLE, [])
                                                                                 scan nation
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, ["orderkey_5"])

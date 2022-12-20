@@ -16,9 +16,9 @@ final aggregation over ()
                                     dynamic filter (["partkey"])
                                         scan lineitem
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        remote exchange (REPLICATE, SINGLE, [])
                                             scan part
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPLICATE, BROADCAST, [])
+                        remote exchange (REPLICATE, SINGLE, [])
                             single aggregation over ()
                                 values (1 rows)

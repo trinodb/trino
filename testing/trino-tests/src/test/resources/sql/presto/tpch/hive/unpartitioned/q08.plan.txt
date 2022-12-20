@@ -19,7 +19,7 @@ remote exchange (GATHER, SINGLE, [])
                                                             dynamic filter (["partkey_5", "suppkey_6"])
                                                                 scan lineitem
                                                             local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                remote exchange (REPLICATE, SINGLE, [])
                                                                     scan part
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["custkey_16"])
@@ -27,12 +27,12 @@ remote exchange (GATHER, SINGLE, [])
                                                     dynamic filter (["nationkey_19"])
                                                         scan customer
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             join (INNER, REPLICATED):
                                                                 dynamic filter (["regionkey"])
                                                                     scan nation
                                                                 local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                    remote exchange (REPLICATE, SINGLE, [])
                                                                         scan region
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["suppkey"])
@@ -40,5 +40,5 @@ remote exchange (GATHER, SINGLE, [])
                                             dynamic filter (["nationkey"])
                                                 scan supplier
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                remote exchange (REPLICATE, SINGLE, [])
                                                     scan nation

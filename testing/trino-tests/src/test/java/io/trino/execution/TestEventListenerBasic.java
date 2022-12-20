@@ -1187,7 +1187,7 @@ public class TestEventListenerBasic
                                         ImmutableList.of(new JsonRenderedNode(
                                                 "138",
                                                 "RemoteSource",
-                                                ImmutableMap.of("sourceFragmentIds", "[1]"),
+                                                ImmutableMap.of("type", "GATHER", "sourceFragmentIds", "[1]"),
                                                 ImmutableList.of(typedSymbol("symbol_1", "double")),
                                                 ImmutableList.of(),
                                                 ImmutableList.of(),

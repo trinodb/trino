@@ -12,7 +12,7 @@ final aggregation over ()
                                             dynamic filter (["ws_item_sk_6", "ws_sold_date_sk_37"])
                                                 scan web_sales
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                remote exchange (REPLICATE, SINGLE, [])
                                                     scan date_dim
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["ws_item_sk"])
@@ -21,12 +21,12 @@ final aggregation over ()
                                         dynamic filter (["ws_item_sk", "ws_sold_date_sk"])
                                             scan web_sales
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
+                                            remote exchange (REPLICATE, SINGLE, [])
                                                 scan item
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        remote exchange (REPLICATE, SINGLE, [])
                                             scan date_dim
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPLICATE, BROADCAST, [])
+                        remote exchange (REPLICATE, SINGLE, [])
                             single aggregation over ()
                                 values (1 rows)

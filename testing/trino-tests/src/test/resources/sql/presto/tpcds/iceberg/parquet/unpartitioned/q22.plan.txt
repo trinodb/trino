@@ -11,8 +11,8 @@ local exchange (GATHER, SINGLE, [])
                                         dynamic filter (["inv_date_sk", "inv_item_sk"])
                                             scan inventory
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
+                                            remote exchange (REPLICATE, SINGLE, [])
                                                 scan date_dim
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        remote exchange (REPLICATE, SINGLE, [])
                                             scan item

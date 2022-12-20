@@ -12,7 +12,7 @@ remote exchange (GATHER, SINGLE, [])
                                 partial aggregation over (suppkey_0)
                                     scan lineitem
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPLICATE, BROADCAST, [])
+                    remote exchange (REPLICATE, SINGLE, [])
                         final aggregation over ()
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (GATHER, SINGLE, [])

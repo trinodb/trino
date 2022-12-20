@@ -1501,7 +1501,9 @@ public class PlanPrinter
         {
             addNode(node,
                     format("Remote%s", node.getOrderingScheme().isPresent() ? "Merge" : "Source"),
-                    ImmutableMap.of("sourceFragmentIds", formatCollection(node.getSourceFragmentIds(), Objects::toString)),
+                    ImmutableMap.of(
+                            "type", node.getExchangeType().toString(),
+                            "sourceFragmentIds", formatCollection(node.getSourceFragmentIds(), Objects::toString)),
                     ImmutableList.of(),
                     ImmutableList.of(),
                     node.getSourceFragmentIds(),

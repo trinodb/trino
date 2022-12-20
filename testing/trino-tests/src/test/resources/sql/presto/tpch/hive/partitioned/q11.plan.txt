@@ -10,15 +10,15 @@ remote exchange (GATHER, SINGLE, [])
                                     dynamic filter (["suppkey"])
                                         scan partsupp
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        remote exchange (REPLICATE, SINGLE, [])
                                             join (INNER, REPLICATED):
                                                 dynamic filter (["nationkey"])
                                                     scan supplier
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                    remote exchange (REPLICATE, SINGLE, [])
                                                         scan nation
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPLICATE, BROADCAST, [])
+                    remote exchange (REPLICATE, SINGLE, [])
                         final aggregation over ()
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (GATHER, SINGLE, [])
@@ -27,10 +27,10 @@ remote exchange (GATHER, SINGLE, [])
                                             dynamic filter (["suppkey_12"])
                                                 scan partsupp
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                remote exchange (REPLICATE, SINGLE, [])
                                                     join (INNER, REPLICATED):
                                                         dynamic filter (["nationkey_22"])
                                                             scan supplier
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                            remote exchange (REPLICATE, SINGLE, [])
                                                                 scan nation

@@ -14,13 +14,13 @@ cross join:
                                                     dynamic filter (["ss_customer_sk", "ss_item_sk", "ss_promo_sk", "ss_sold_date_sk", "ss_store_sk"])
                                                         scan store_sales
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             scan store
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                    remote exchange (REPLICATE, SINGLE, [])
                                                         scan promotion
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                remote exchange (REPLICATE, SINGLE, [])
                                                     scan date_dim
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["c_customer_sk"])
@@ -30,7 +30,7 @@ cross join:
                                 remote exchange (REPARTITION, HASH, ["ca_address_sk"])
                                     scan customer_address
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPLICATE, BROADCAST, [])
+                            remote exchange (REPLICATE, SINGLE, [])
                                 scan item
     final aggregation over ()
         local exchange (GATHER, SINGLE, [])
@@ -46,10 +46,10 @@ cross join:
                                                 dynamic filter (["ss_customer_sk_15", "ss_item_sk_14", "ss_sold_date_sk_12", "ss_store_sk_19"])
                                                     scan store_sales
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                    remote exchange (REPLICATE, SINGLE, [])
                                                         scan store
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                remote exchange (REPLICATE, SINGLE, [])
                                                     scan date_dim
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["c_customer_sk_98"])
@@ -59,5 +59,5 @@ cross join:
                                 remote exchange (REPARTITION, HASH, ["ca_address_sk_118"])
                                     scan customer_address
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPLICATE, BROADCAST, [])
+                            remote exchange (REPLICATE, SINGLE, [])
                                 scan item

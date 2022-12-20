@@ -11,7 +11,7 @@ remote exchange (GATHER, SINGLE, [])
                                         dynamic filter (["acctbal"])
                                             scan customer
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
+                                            remote exchange (REPLICATE, SINGLE, [])
                                                 final aggregation over ()
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (GATHER, SINGLE, [])

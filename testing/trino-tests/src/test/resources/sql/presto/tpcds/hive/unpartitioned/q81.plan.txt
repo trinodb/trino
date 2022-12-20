@@ -13,21 +13,21 @@ local exchange (GATHER, SINGLE, [])
                                                 dynamic filter (["cr_returned_date_sk", "cr_returning_addr_sk", "cr_returning_customer_sk"])
                                                     scan catalog_returns
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                    remote exchange (REPLICATE, SINGLE, [])
                                                         scan date_dim
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["ca_address_sk"])
                                                 scan customer_address
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPLICATE, BROADCAST, [])
+                        remote exchange (REPLICATE, SINGLE, [])
                             join (INNER, REPLICATED):
                                 dynamic filter (["c_current_addr_sk"])
                                     scan customer
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPLICATE, BROADCAST, [])
+                                    remote exchange (REPLICATE, SINGLE, [])
                                         scan customer_address
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPLICATE, BROADCAST, [])
+                    remote exchange (REPLICATE, SINGLE, [])
                         final aggregation over (ca_state_94)
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["ca_state_94"])
@@ -42,12 +42,12 @@ local exchange (GATHER, SINGLE, [])
                                                                     dynamic filter (["cr_returned_date_sk_25", "cr_returning_addr_sk_35"])
                                                                         scan catalog_returns
                                                                     local exchange (GATHER, SINGLE, [])
-                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                        remote exchange (REPLICATE, SINGLE, [])
                                                                             scan date_dim
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPARTITION, HASH, ["ca_address_sk_86"])
                                                                     scan customer_address
             local exchange (GATHER, SINGLE, [])
-                remote exchange (REPLICATE, BROADCAST, [])
+                remote exchange (REPLICATE, SINGLE, [])
                     single aggregation over ()
                         values (1 rows)

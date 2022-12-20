@@ -20,7 +20,7 @@ local exchange (GATHER, SINGLE, [])
                                                                 dynamic filter (["ws_sold_date_sk"])
                                                                     scan web_sales
                                                                 local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                    remote exchange (REPLICATE, SINGLE, [])
                                                                         scan date_dim
                 remote exchange (REPARTITION, HASH, ["cr_item_sk", "expr_66", "expr_70", "rank_68", "rank_69"])
                     partial aggregation over (cr_item_sk, expr_66, expr_70, rank_68, rank_69)
@@ -40,7 +40,7 @@ local exchange (GATHER, SINGLE, [])
                                                                 dynamic filter (["cs_sold_date_sk"])
                                                                     scan catalog_sales
                                                                 local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                    remote exchange (REPLICATE, SINGLE, [])
                                                                         scan date_dim
                 remote exchange (REPARTITION, HASH, ["expr_115", "expr_120", "rank_117", "rank_118", "sr_item_sk"])
                     partial aggregation over (expr_115, expr_120, rank_117, rank_118, sr_item_sk)
@@ -60,5 +60,5 @@ local exchange (GATHER, SINGLE, [])
                                                                 dynamic filter (["ss_sold_date_sk"])
                                                                     scan store_sales
                                                                 local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                    remote exchange (REPLICATE, SINGLE, [])
                                                                         scan date_dim

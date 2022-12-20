@@ -26,7 +26,7 @@ remote exchange (GATHER, SINGLE, [])
                                                                 partial aggregation over (partkey_11)
                                                                     scan part
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        remote exchange (REPLICATE, SINGLE, [])
                                             single aggregation over ()
                                                 values (1 rows)
                 local exchange (GATHER, SINGLE, [])
@@ -35,5 +35,5 @@ remote exchange (GATHER, SINGLE, [])
                             dynamic filter (["nationkey"])
                                 scan supplier
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPLICATE, BROADCAST, [])
+                                remote exchange (REPLICATE, SINGLE, [])
                                     scan nation

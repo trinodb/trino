@@ -13,7 +13,7 @@ local exchange (GATHER, SINGLE, [])
                                                 dynamic filter (["ss_sold_date_sk", "ss_store_sk"])
                                                     scan store_sales
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                    remote exchange (REPLICATE, SINGLE, [])
                                                         dynamic filter (["d_week_seq"])
                                                             scan date_dim
             local exchange (GATHER, SINGLE, [])
@@ -34,14 +34,14 @@ local exchange (GATHER, SINGLE, [])
                                                                         dynamic filter (["ss_sold_date_sk_46", "ss_store_sk_53"])
                                                                             scan store_sales
                                                                         local exchange (GATHER, SINGLE, [])
-                                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                            remote exchange (REPLICATE, SINGLE, [])
                                                                                 dynamic filter (["d_week_seq_75"])
                                                                                     scan date_dim
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        remote exchange (REPLICATE, SINGLE, [])
                                             scan date_dim
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPLICATE, BROADCAST, [])
+                                    remote exchange (REPLICATE, SINGLE, [])
                                         scan date_dim
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["s_store_sk_117"])

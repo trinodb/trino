@@ -15,7 +15,7 @@ local exchange (GATHER, SINGLE, [])
                                             dynamic filter (["custkey_0", "orderkey"])
                                                 scan orders
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                remote exchange (REPLICATE, SINGLE, [])
                                                     single aggregation over (orderkey_11)
                                                         final aggregation over (orderkey_11)
                                                             local exchange (GATHER, SINGLE, [])

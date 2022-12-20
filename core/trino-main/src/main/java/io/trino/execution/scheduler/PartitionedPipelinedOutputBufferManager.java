@@ -21,7 +21,9 @@ import io.trino.sql.planner.PartitioningHandle;
 import javax.annotation.concurrent.ThreadSafe;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.ARBITRARY;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 
 @ThreadSafe
 public class PartitionedPipelinedOutputBufferManager
@@ -38,7 +40,14 @@ public class PartitionedPipelinedOutputBufferManager
             partitions.put(new OutputBufferId(partition), partition);
         }
 
-        outputBuffers = PipelinedOutputBuffers.createInitial(requireNonNull(partitioningHandle, "partitioningHandle is null"))
+        PipelinedOutputBuffers.BufferType type;
+        if (partitioningHandle.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
+            type = ARBITRARY;
+        }
+        else {
+            type = PARTITIONED;
+        }
+        outputBuffers = PipelinedOutputBuffers.createInitial(type)
                 .withBuffers(partitions.buildOrThrow())
                 .withNoMoreBufferIds();
     }

@@ -15,14 +15,14 @@ local exchange (GATHER, SINGLE, [])
                                                         dynamic filter (["ss_customer_sk", "ss_sold_date_sk"])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                            remote exchange (REPLICATE, SINGLE, [])
                                                                 join (INNER, PARTITIONED):
                                                                     remote exchange (REPARTITION, HASH, ["ca_address_sk"])
                                                                         join (INNER, REPLICATED):
                                                                             dynamic filter (["ca_address_sk", "ca_county", "ca_state"])
                                                                                 scan customer_address
                                                                             local exchange (GATHER, SINGLE, [])
-                                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                                remote exchange (REPLICATE, SINGLE, [])
                                                                                     scan store
                                                                     final aggregation over (c_current_addr_sk, c_customer_sk)
                                                                         local exchange (GATHER, SINGLE, [])
@@ -32,7 +32,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                         dynamic filter (["c_customer_sk"])
                                                                                             scan customer
                                                                                         local exchange (GATHER, SINGLE, [])
-                                                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                                            remote exchange (REPLICATE, SINGLE, [])
                                                                                                 join (INNER, REPLICATED, can skip output duplicates):
                                                                                                     join (INNER, REPLICATED, can skip output duplicates):
                                                                                                         local exchange (REPARTITION, ROUND_ROBIN, [])
@@ -41,17 +41,17 @@ local exchange (GATHER, SINGLE, [])
                                                                                                             dynamic filter (["ws_item_sk", "ws_sold_date_sk"])
                                                                                                                 scan web_sales
                                                                                                         local exchange (GATHER, SINGLE, [])
-                                                                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                            remote exchange (REPLICATE, SINGLE, [])
                                                                                                                 scan item
                                                                                                     local exchange (GATHER, SINGLE, [])
-                                                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                        remote exchange (REPLICATE, SINGLE, [])
                                                                                                             scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             dynamic filter (["d_month_seq_17"])
                                                                 scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                    remote exchange (REPLICATE, SINGLE, [])
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (GATHER, SINGLE, [])
                                                                 final aggregation over (expr)
@@ -60,7 +60,7 @@ local exchange (GATHER, SINGLE, [])
                                                                             partial aggregation over (expr)
                                                                                 scan date_dim
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                remote exchange (REPLICATE, SINGLE, [])
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (GATHER, SINGLE, [])
                                                             final aggregation over (expr_104)

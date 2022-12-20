@@ -16,11 +16,11 @@ local exchange (GATHER, SINGLE, [])
                                                 dynamic filter (["cr_item_sk"])
                                                     scan catalog_returns
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        remote exchange (REPLICATE, SINGLE, [])
                                             scan date_dim
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPLICATE, BROADCAST, [])
+                                    remote exchange (REPLICATE, SINGLE, [])
                                         scan item
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPLICATE, BROADCAST, [])
+                                remote exchange (REPLICATE, SINGLE, [])
                                     scan warehouse

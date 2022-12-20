@@ -9,7 +9,7 @@ local exchange (GATHER, SINGLE, [])
                                 dynamic filter (["cd_demo_sk_6", "cd_education_status_9", "cd_marital_status_8"])
                                     scan customer_demographics
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPLICATE, BROADCAST, [])
+                                    remote exchange (REPLICATE, SINGLE, [])
                                         join (INNER, REPLICATED):
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, ["ca_address_sk"])
@@ -24,18 +24,18 @@ local exchange (GATHER, SINGLE, [])
                                                                         dynamic filter (["ws_item_sk", "ws_order_number", "ws_sold_date_sk", "ws_web_page_sk"])
                                                                             scan web_sales
                                                                         local exchange (GATHER, SINGLE, [])
-                                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                            remote exchange (REPLICATE, SINGLE, [])
                                                                                 scan date_dim
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPARTITION, HASH, ["wr_item_sk", "wr_order_number"])
                                                                         dynamic filter (["wr_reason_sk", "wr_refunded_cdemo_sk"])
                                                                             scan web_returns
                                                             local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                remote exchange (REPLICATE, SINGLE, [])
                                                                     scan customer_demographics
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                remote exchange (REPLICATE, SINGLE, [])
                                                     scan web_page
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPLICATE, BROADCAST, [])
+                                remote exchange (REPLICATE, SINGLE, [])
                                     scan reason

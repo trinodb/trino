@@ -18,18 +18,18 @@ final aggregation over ()
                                             dynamic filter (["cs_order_number_26"])
                                                 scan catalog_sales
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                remote exchange (REPLICATE, SINGLE, [])
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
                                                             join (INNER, REPLICATED):
                                                                 dynamic filter (["cs_call_center_sk", "cs_ship_addr_sk", "cs_ship_date_sk"])
                                                                     scan catalog_sales
                                                                 local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                    remote exchange (REPLICATE, SINGLE, [])
                                                                         scan customer_address
                                                             local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                remote exchange (REPLICATE, SINGLE, [])
                                                                     scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                            remote exchange (REPLICATE, SINGLE, [])
                                                                 scan call_center

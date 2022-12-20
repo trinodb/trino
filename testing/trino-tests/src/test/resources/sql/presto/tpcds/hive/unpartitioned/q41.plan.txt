@@ -9,5 +9,5 @@ local exchange (GATHER, SINGLE, [])
                                 dynamic filter (["i_manufact"])
                                     scan item
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPLICATE, BROADCAST, [])
+                                    remote exchange (REPLICATE, SINGLE, [])
                                         scan item

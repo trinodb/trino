@@ -22,29 +22,29 @@ local exchange (GATHER, SINGLE, [])
                                                                         dynamic filter (["inv_date_sk", "inv_item_sk", "inv_warehouse_sk"])
                                                                             scan inventory
                                                             local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                remote exchange (REPLICATE, SINGLE, [])
                                                                     scan warehouse
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, ["i_item_sk"])
                                                                 scan item
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             scan customer_demographics
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                    remote exchange (REPLICATE, SINGLE, [])
                                                         scan household_demographics
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                remote exchange (REPLICATE, SINGLE, [])
                                                     dynamic filter (["d_week_seq"])
                                                         scan date_dim
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
+                                            remote exchange (REPLICATE, SINGLE, [])
                                                 scan date_dim
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        remote exchange (REPLICATE, SINGLE, [])
                                             scan date_dim
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPLICATE, BROADCAST, [])
+                                    remote exchange (REPLICATE, SINGLE, [])
                                         scan promotion
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["cr_item_sk"])

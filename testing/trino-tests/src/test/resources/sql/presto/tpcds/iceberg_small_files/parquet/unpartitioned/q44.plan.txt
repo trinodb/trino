@@ -13,7 +13,7 @@ local exchange (GATHER, SINGLE, [])
                                                 partial aggregation over (ss_item_sk)
                                                     scan store_sales
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        remote exchange (REPLICATE, SINGLE, [])
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (GATHER, SINGLE, [])
                                                     final aggregation over (ss_store_sk_7)
@@ -32,7 +32,7 @@ local exchange (GATHER, SINGLE, [])
                                                     partial aggregation over (ss_item_sk_28)
                                                         scan store_sales
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
+                                            remote exchange (REPLICATE, SINGLE, [])
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (GATHER, SINGLE, [])
                                                         final aggregation over (ss_store_sk_60)
@@ -41,8 +41,8 @@ local exchange (GATHER, SINGLE, [])
                                                                     partial aggregation over (ss_store_sk_60)
                                                                         scan store_sales
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPLICATE, BROADCAST, [])
+                    remote exchange (REPLICATE, SINGLE, [])
                         scan item
             local exchange (GATHER, SINGLE, [])
-                remote exchange (REPLICATE, BROADCAST, [])
+                remote exchange (REPLICATE, SINGLE, [])
                     scan item

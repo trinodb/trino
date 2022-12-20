@@ -16,11 +16,11 @@ local exchange (GATHER, SINGLE, [])
                                                 dynamic filter (["sr_returned_date_sk"])
                                                     scan store_returns
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        remote exchange (REPLICATE, SINGLE, [])
                                             scan store
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPLICATE, BROADCAST, [])
+                                    remote exchange (REPLICATE, SINGLE, [])
                                         scan date_dim
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPLICATE, BROADCAST, [])
+                                remote exchange (REPLICATE, SINGLE, [])
                                     scan date_dim

@@ -16,7 +16,7 @@ remote exchange (GATHER, SINGLE, [])
                                                             dynamic filter (["ss_addr_sk", "ss_sold_date_sk"])
                                                                 scan store_sales
                                                             local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                remote exchange (REPLICATE, SINGLE, [])
                                                                     scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, ["ca_address_sk"])
@@ -34,7 +34,7 @@ remote exchange (GATHER, SINGLE, [])
                                                                     dynamic filter (["ss_addr_sk_10", "ss_sold_date_sk_4"])
                                                                         scan store_sales
                                                                     local exchange (GATHER, SINGLE, [])
-                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                        remote exchange (REPLICATE, SINGLE, [])
                                                                             scan date_dim
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPARTITION, HASH, ["ca_address_sk_59"])
@@ -52,7 +52,7 @@ remote exchange (GATHER, SINGLE, [])
                                                                 dynamic filter (["ss_addr_sk_84", "ss_sold_date_sk_78"])
                                                                     scan store_sales
                                                                 local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                    remote exchange (REPLICATE, SINGLE, [])
                                                                         scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, ["ca_address_sk_133"])
@@ -68,7 +68,7 @@ remote exchange (GATHER, SINGLE, [])
                                                     dynamic filter (["ws_bill_addr_sk", "ws_sold_date_sk"])
                                                         scan web_sales
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             scan date_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["ca_address_sk_184"])
@@ -86,7 +86,7 @@ remote exchange (GATHER, SINGLE, [])
                                                         dynamic filter (["ws_bill_addr_sk_210", "ws_sold_date_sk_203"])
                                                             scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                            remote exchange (REPLICATE, SINGLE, [])
                                                                 scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["ca_address_sk_269"])
@@ -104,7 +104,7 @@ remote exchange (GATHER, SINGLE, [])
                                                     dynamic filter (["ws_bill_addr_sk_295", "ws_sold_date_sk_288"])
                                                         scan web_sales
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             scan date_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["ca_address_sk_354"])

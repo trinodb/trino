@@ -19,5 +19,5 @@ local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["ca_address_sk"])
                                         scan customer_address
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPLICATE, BROADCAST, [])
+                                remote exchange (REPLICATE, SINGLE, [])
                                     scan date_dim

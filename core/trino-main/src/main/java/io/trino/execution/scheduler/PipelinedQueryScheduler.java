@@ -135,7 +135,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
@@ -989,15 +989,17 @@ public class PipelinedQueryScheduler
             ImmutableMap.Builder<PlanFragmentId, PipelinedOutputBufferManager> result = ImmutableMap.builder();
             result.putAll(outputBuffersForStagesConsumedByCoordinator);
             for (SqlStage parentStage : stageManager.getDistributedStagesInTopologicalOrder()) {
+                PlanFragment parentFragment = parentStage.getFragment();
                 for (SqlStage childStage : stageManager.getChildren(parentStage.getStageId())) {
-                    PlanFragmentId fragmentId = childStage.getFragment().getId();
-                    PartitioningHandle partitioningHandle = childStage.getFragment().getOutputPartitioningScheme().getPartitioning().getHandle();
+                    PlanFragment childFragment = childStage.getFragment();
+                    PlanFragmentId fragmentId = childFragment.getId();
+                    PartitioningHandle partitioningHandle = childFragment.getOutputPartitioningScheme().getPartitioning().getHandle();
 
                     PipelinedOutputBufferManager outputBufferManager;
-                    if (partitioningHandle.equals(FIXED_BROADCAST_DISTRIBUTION)) {
+                    if (partitioningHandle.equals(SINGLE_DISTRIBUTION) && getRemoteSource(parentFragment, childFragment).getExchangeType() == REPLICATE) {
                         outputBufferManager = new BroadcastPipelinedOutputBufferManager();
                     }
-                    else if (partitioningHandle.equals(FIXED_ARBITRARY_DISTRIBUTION) && parentStage.getFragment().isScaleWriters()) {
+                    else if (partitioningHandle.equals(FIXED_ARBITRARY_DISTRIBUTION) && parentFragment.isScaleWriters()) {
                         outputBufferManager = new ScaledPipelinedOutputBufferManager();
                     }
                     else {
@@ -1010,6 +1012,16 @@ public class PipelinedQueryScheduler
                 }
             }
             return result.buildOrThrow();
+        }
+
+        private static RemoteSourceNode getRemoteSource(PlanFragment parentFragment, PlanFragment childFragment)
+        {
+            for (RemoteSourceNode remoteSource : parentFragment.getRemoteSourceNodes()) {
+                if (remoteSource.getSourceFragmentIds().contains(childFragment.getId())) {
+                    return remoteSource;
+                }
+            }
+            throw new IllegalArgumentException("Remote source for fragment %s not found in fragment %s".formatted(childFragment.getId(), parentFragment.getId()));
         }
 
         private static StageScheduler createStageScheduler(

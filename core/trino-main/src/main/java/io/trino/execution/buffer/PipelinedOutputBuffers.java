@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.planner.PartitioningHandle;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -26,11 +25,6 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.ARBITRARY;
-import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.BROADCAST;
-import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 
@@ -45,21 +39,6 @@ public class PipelinedOutputBuffers
 
     public static PipelinedOutputBuffers createInitial(BufferType type)
     {
-        return new PipelinedOutputBuffers(0, type, ImmutableMap.of(), false);
-    }
-
-    public static PipelinedOutputBuffers createInitial(PartitioningHandle partitioningHandle)
-    {
-        BufferType type;
-        if (partitioningHandle.equals(FIXED_BROADCAST_DISTRIBUTION)) {
-            type = BROADCAST;
-        }
-        else if (partitioningHandle.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
-            type = ARBITRARY;
-        }
-        else {
-            type = PARTITIONED;
-        }
         return new PipelinedOutputBuffers(0, type, ImmutableMap.of(), false);
     }
 

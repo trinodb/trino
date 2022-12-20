@@ -239,7 +239,7 @@ public class TestJsonRepresentation
                 new JsonRenderedNode(
                         "0",
                         "RemoteSource",
-                        ImmutableMap.of("sourceFragmentIds", "[1, 2]"),
+                        ImmutableMap.of("type", "REPARTITION", "sourceFragmentIds", "[1, 2]"),
                         ImmutableList.of(typedSymbol("a", "bigint"), typedSymbol("b", "bigint")),
                         ImmutableList.of(),
                         ImmutableList.of(),

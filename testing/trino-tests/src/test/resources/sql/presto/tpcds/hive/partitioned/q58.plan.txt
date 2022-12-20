@@ -12,12 +12,12 @@ local exchange (GATHER, SINGLE, [])
                                             dynamic filter (["cs_item_sk", "cs_sold_date_sk"])
                                                 scan catalog_sales
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                remote exchange (REPLICATE, SINGLE, [])
                                                     join (INNER, REPLICATED):
                                                         dynamic filter (["d_date_101"])
                                                             scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                            remote exchange (REPLICATE, SINGLE, [])
                                                                 final aggregation over (d_date_134)
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPARTITION, HASH, ["d_date_134"])
@@ -26,7 +26,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                     dynamic filter (["d_week_seq_136"])
                                                                                         scan date_dim
                                                                                     local exchange (GATHER, SINGLE, [])
-                                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                                        remote exchange (REPLICATE, SINGLE, [])
                                                                                             local exchange (GATHER, SINGLE, [])
                                                                                                 remote exchange (GATHER, SINGLE, [])
                                                                                                     scan date_dim
@@ -44,12 +44,12 @@ local exchange (GATHER, SINGLE, [])
                                             dynamic filter (["ws_item_sk", "ws_sold_date_sk"])
                                                 scan web_sales
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                remote exchange (REPLICATE, SINGLE, [])
                                                     join (INNER, REPLICATED):
                                                         dynamic filter (["d_date_229"])
                                                             scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                            remote exchange (REPLICATE, SINGLE, [])
                                                                 final aggregation over (d_date_262)
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPARTITION, HASH, ["d_date_262"])
@@ -58,7 +58,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                     dynamic filter (["d_week_seq_264"])
                                                                                         scan date_dim
                                                                                     local exchange (GATHER, SINGLE, [])
-                                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                                        remote exchange (REPLICATE, SINGLE, [])
                                                                                             local exchange (GATHER, SINGLE, [])
                                                                                                 remote exchange (GATHER, SINGLE, [])
                                                                                                     scan date_dim
@@ -75,12 +75,12 @@ local exchange (GATHER, SINGLE, [])
                                     dynamic filter (["ss_item_sk", "ss_sold_date_sk"])
                                         scan store_sales
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        remote exchange (REPLICATE, SINGLE, [])
                                             join (INNER, REPLICATED):
                                                 dynamic filter (["d_date"])
                                                     scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                    remote exchange (REPLICATE, SINGLE, [])
                                                         final aggregation over (d_date_8)
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPARTITION, HASH, ["d_date_8"])
@@ -89,10 +89,10 @@ local exchange (GATHER, SINGLE, [])
                                                                             dynamic filter (["d_week_seq_10"])
                                                                                 scan date_dim
                                                                             local exchange (GATHER, SINGLE, [])
-                                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                                remote exchange (REPLICATE, SINGLE, [])
                                                                                     local exchange (GATHER, SINGLE, [])
                                                                                         remote exchange (GATHER, SINGLE, [])
                                                                                             scan date_dim
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPLICATE, BROADCAST, [])
+                                    remote exchange (REPLICATE, SINGLE, [])
                                         scan item

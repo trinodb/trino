@@ -11,10 +11,10 @@ local exchange (GATHER, SINGLE, [])
                                         dynamic filter (["ss_sold_date_sk", "ss_store_sk"])
                                             scan store_sales
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
+                                            remote exchange (REPLICATE, SINGLE, [])
                                                 scan date_dim
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        remote exchange (REPLICATE, SINGLE, [])
                                             scan store
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["substr_35"])

@@ -11,7 +11,7 @@ local exchange (GATHER, SINGLE, [])
                                         dynamic filter (["ws_sold_date_sk"])
                                             scan web_sales
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
+                                            remote exchange (REPLICATE, SINGLE, [])
                                                 scan date_dim
                     final aggregation over (d_date_10, ss_item_sk)
                         local exchange (GATHER, SINGLE, [])
@@ -21,5 +21,5 @@ local exchange (GATHER, SINGLE, [])
                                         dynamic filter (["ss_sold_date_sk"])
                                             scan store_sales
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
+                                            remote exchange (REPLICATE, SINGLE, [])
                                                 scan date_dim

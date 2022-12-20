@@ -14,13 +14,13 @@ local exchange (GATHER, SINGLE, [])
                                                     dynamic filter (["ss_cdemo_sk", "ss_item_sk", "ss_sold_date_sk", "ss_store_sk"])
                                                         scan store_sales
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             scan customer_demographics
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                    remote exchange (REPLICATE, SINGLE, [])
                                                         scan store
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                remote exchange (REPLICATE, SINGLE, [])
                                                     scan date_dim
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["i_item_sk"])

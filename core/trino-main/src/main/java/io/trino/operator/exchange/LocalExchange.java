@@ -54,7 +54,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -427,10 +426,6 @@ public class LocalExchange
         if (partitioning.equals(SINGLE_DISTRIBUTION)) {
             bufferCount = 1;
             checkArgument(partitionChannels.isEmpty(), "Gather exchange must not have partition channels");
-        }
-        else if (partitioning.equals(FIXED_BROADCAST_DISTRIBUTION)) {
-            bufferCount = defaultConcurrency;
-            checkArgument(partitionChannels.isEmpty(), "Broadcast exchange must not have partition channels");
         }
         else if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
             bufferCount = defaultConcurrency;

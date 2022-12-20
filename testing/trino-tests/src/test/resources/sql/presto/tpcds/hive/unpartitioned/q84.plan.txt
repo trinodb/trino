@@ -4,24 +4,24 @@ local exchange (GATHER, SINGLE, [])
             dynamic filter (["sr_cdemo_sk"])
                 scan store_returns
             local exchange (GATHER, SINGLE, [])
-                remote exchange (REPLICATE, BROADCAST, [])
+                remote exchange (REPLICATE, SINGLE, [])
                     join (INNER, REPLICATED):
                         dynamic filter (["cd_demo_sk"])
                             scan customer_demographics
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPLICATE, BROADCAST, [])
+                            remote exchange (REPLICATE, SINGLE, [])
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         dynamic filter (["c_current_addr_sk", "c_current_hdemo_sk"])
                                             scan customer
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
+                                            remote exchange (REPLICATE, SINGLE, [])
                                                 scan customer_address
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        remote exchange (REPLICATE, SINGLE, [])
                                             join (INNER, REPLICATED):
                                                 dynamic filter (["hd_income_band_sk"])
                                                     scan household_demographics
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                    remote exchange (REPLICATE, SINGLE, [])
                                                         scan income_band

@@ -6,7 +6,7 @@ local exchange (GATHER, SINGLE, [])
                     dynamic filter (["c_customer_sk"])
                         scan customer
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPLICATE, BROADCAST, [])
+                        remote exchange (REPLICATE, SINGLE, [])
                             join (INNER, REPLICATED):
                                 final aggregation over (sr_customer_sk, sr_store_sk)
                                     local exchange (GATHER, SINGLE, [])
@@ -16,13 +16,13 @@ local exchange (GATHER, SINGLE, [])
                                                     dynamic filter (["sr_returned_date_sk", "sr_store_sk"])
                                                         scan store_returns
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             scan date_dim
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPLICATE, BROADCAST, [])
+                                    remote exchange (REPLICATE, SINGLE, [])
                                         scan store
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPLICATE, BROADCAST, [])
+                    remote exchange (REPLICATE, SINGLE, [])
                         final aggregation over (sr_store_sk_15)
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["sr_store_sk_15"])
@@ -35,9 +35,9 @@ local exchange (GATHER, SINGLE, [])
                                                             dynamic filter (["sr_returned_date_sk_28"])
                                                                 scan store_returns
                                                             local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                remote exchange (REPLICATE, SINGLE, [])
                                                                     scan date_dim
             local exchange (GATHER, SINGLE, [])
-                remote exchange (REPLICATE, BROADCAST, [])
+                remote exchange (REPLICATE, SINGLE, [])
                     single aggregation over ()
                         values (1 rows)

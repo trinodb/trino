@@ -20,21 +20,21 @@ local exchange (GATHER, SINGLE, [])
                                                                 dynamic filter (["wr_reason_sk", "wr_refunded_addr_sk", "wr_refunded_cdemo_sk", "wr_returning_cdemo_sk"])
                                                                     scan web_returns
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             scan web_page
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                    remote exchange (REPLICATE, SINGLE, [])
                                                         dynamic filter (["cd_education_status", "cd_marital_status"])
                                                             scan customer_demographics
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                remote exchange (REPLICATE, SINGLE, [])
                                                     scan customer_demographics
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["ca_address_sk"])
                                             scan customer_address
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPLICATE, BROADCAST, [])
+                                    remote exchange (REPLICATE, SINGLE, [])
                                         scan date_dim
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPLICATE, BROADCAST, [])
+                                remote exchange (REPLICATE, SINGLE, [])
                                     scan reason

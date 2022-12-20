@@ -20,5 +20,5 @@ local exchange (GATHER, SINGLE, [])
                                                     dynamic filter (["cs_sold_date_sk"])
                                                         scan catalog_sales
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             scan date_dim

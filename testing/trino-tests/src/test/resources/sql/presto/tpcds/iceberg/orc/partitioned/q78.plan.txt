@@ -17,7 +17,7 @@ local exchange (GATHER, SINGLE, [])
                                                     dynamic filter (["sr_item_sk"])
                                                         scan store_returns
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
+                                            remote exchange (REPLICATE, SINGLE, [])
                                                 scan date_dim
                     final aggregation over (d_year_17, ws_bill_customer_sk, ws_item_sk)
                         local exchange (GATHER, SINGLE, [])
@@ -32,7 +32,7 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["wr_item_sk", "wr_order_number"])
                                                     scan web_returns
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
+                                            remote exchange (REPLICATE, SINGLE, [])
                                                 scan date_dim
             final aggregation over (cs_bill_customer_sk, cs_item_sk, d_year_56)
                 local exchange (GATHER, SINGLE, [])
@@ -47,5 +47,5 @@ local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["cr_item_sk", "cr_order_number"])
                                             scan catalog_returns
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPLICATE, BROADCAST, [])
+                                    remote exchange (REPLICATE, SINGLE, [])
                                         scan date_dim

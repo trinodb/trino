@@ -29,17 +29,17 @@ remote exchange (GATHER, SINGLE, [])
                                                                                         dynamic filter (["ss_item_sk", "ss_store_sk"])
                                                                                             scan store_sales
                                                                                         local exchange (GATHER, SINGLE, [])
-                                                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                                            remote exchange (REPLICATE, SINGLE, [])
                                                                                                 scan item
                                                                                     local exchange (GATHER, SINGLE, [])
-                                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                                        remote exchange (REPLICATE, SINGLE, [])
                                                                                             dynamic filter (["s_zip"])
                                                                                                 scan store
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, ["ca_zip", "upper"])
                                                             scan customer_address
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPLICATE, BROADCAST, [])
+                    remote exchange (REPLICATE, SINGLE, [])
                         final aggregation over ()
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (GATHER, SINGLE, [])
@@ -59,7 +59,7 @@ remote exchange (GATHER, SINGLE, [])
                                                                                         dynamic filter (["ss_customer_sk_19", "ss_item_sk_18", "ss_item_sk_18", "ss_store_sk_23", "ss_ticket_number_25"])
                                                                                             scan store_sales
                                                                                         local exchange (GATHER, SINGLE, [])
-                                                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                                            remote exchange (REPLICATE, SINGLE, [])
                                                                                                 dynamic filter (["s_zip_93"])
                                                                                                     scan store
                                                                                 local exchange (GATHER, SINGLE, [])
@@ -71,7 +71,7 @@ remote exchange (GATHER, SINGLE, [])
                                                                                 dynamic filter (["c_birth_country_139"])
                                                                                     scan customer
                                                                     local exchange (GATHER, SINGLE, [])
-                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                        remote exchange (REPLICATE, SINGLE, [])
                                                                             scan item
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPARTITION, HASH, ["ca_zip_155", "upper_173"])

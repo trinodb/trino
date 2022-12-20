@@ -347,7 +347,6 @@ import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.trino.sql.planner.SortExpressionExtractor.extractSortExpression;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
@@ -525,8 +524,7 @@ public class LocalExecutionPlanner
     {
         List<Symbol> outputLayout = partitioningScheme.getOutputLayout();
 
-        if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION) ||
-                partitioningScheme.getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION) ||
+        if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION) ||
                 partitioningScheme.getPartitioning().getHandle().equals(SINGLE_DISTRIBUTION)) {
             return plan(taskContext, plan, outputLayout, types, partitionedSourceOrder, new TaskOutputFactory(outputBuffer));
         }

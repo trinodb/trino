@@ -15,10 +15,10 @@ local exchange (GATHER, SINGLE, [])
                                                         dynamic filter (["ss_sold_date_sk", "ss_store_sk"])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                            remote exchange (REPLICATE, SINGLE, [])
                                                                 scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             scan store
                                 final aggregation over (sr_store_sk)
                                     local exchange (GATHER, SINGLE, [])
@@ -29,10 +29,10 @@ local exchange (GATHER, SINGLE, [])
                                                         dynamic filter (["sr_returned_date_sk", "sr_store_sk"])
                                                             scan store_returns
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                            remote exchange (REPLICATE, SINGLE, [])
                                                                 scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             scan store
                             cross join:
                                 final aggregation over (cs_call_center_sk)
@@ -43,10 +43,10 @@ local exchange (GATHER, SINGLE, [])
                                                     dynamic filter (["cs_sold_date_sk"])
                                                         scan catalog_sales
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             scan date_dim
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPLICATE, BROADCAST, [])
+                                    remote exchange (REPLICATE, SINGLE, [])
                                         final aggregation over (cr_call_center_sk)
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["cr_call_center_sk"])
@@ -55,7 +55,7 @@ local exchange (GATHER, SINGLE, [])
                                                             dynamic filter (["cr_returned_date_sk"])
                                                                 scan catalog_returns
                                                             local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                remote exchange (REPLICATE, SINGLE, [])
                                                                     scan date_dim
                             join (LEFT, PARTITIONED):
                                 final aggregation over (ws_web_page_sk)
@@ -67,10 +67,10 @@ local exchange (GATHER, SINGLE, [])
                                                         dynamic filter (["ws_sold_date_sk", "ws_web_page_sk"])
                                                             scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                            remote exchange (REPLICATE, SINGLE, [])
                                                                 scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             scan web_page
                                 final aggregation over (wr_web_page_sk)
                                     local exchange (GATHER, SINGLE, [])
@@ -81,8 +81,8 @@ local exchange (GATHER, SINGLE, [])
                                                         dynamic filter (["wr_returned_date_sk", "wr_web_page_sk"])
                                                             scan web_returns
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                            remote exchange (REPLICATE, SINGLE, [])
                                                                 scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPLICATE, SINGLE, [])
                                                             scan web_page

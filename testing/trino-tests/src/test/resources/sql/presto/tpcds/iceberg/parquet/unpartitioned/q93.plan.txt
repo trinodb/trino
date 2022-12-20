@@ -14,5 +14,5 @@ local exchange (GATHER, SINGLE, [])
                                         dynamic filter (["sr_reason_sk"])
                                             scan store_returns
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPLICATE, BROADCAST, [])
+                                remote exchange (REPLICATE, SINGLE, [])
                                     scan reason

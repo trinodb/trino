@@ -10,10 +10,10 @@ local exchange (GATHER, SINGLE, [])
                                     dynamic filter (["ss_item_sk_10", "ss_sold_date_sk_31", "ss_store_sk_15"])
                                         scan store_sales
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        remote exchange (REPLICATE, SINGLE, [])
                                             scan date_dim
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPLICATE, BROADCAST, [])
+                    remote exchange (REPLICATE, SINGLE, [])
                         join (INNER, PARTITIONED):
                             remote exchange (REPARTITION, HASH, ["s_store_sk"])
                                 dynamic filter (["s_store_sk"])
@@ -30,8 +30,8 @@ local exchange (GATHER, SINGLE, [])
                                                                 dynamic filter (["ss_sold_date_sk"])
                                                                     scan store_sales
                                                                 local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                    remote exchange (REPLICATE, SINGLE, [])
                                                                         scan date_dim
             local exchange (GATHER, SINGLE, [])
-                remote exchange (REPLICATE, BROADCAST, [])
+                remote exchange (REPLICATE, SINGLE, [])
                     scan item

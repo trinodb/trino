@@ -19,5 +19,5 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["custkey"])
                                                     scan orders
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
+                                            remote exchange (REPLICATE, SINGLE, [])
                                                 scan nation

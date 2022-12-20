@@ -31,7 +31,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -166,7 +165,7 @@ public class ExchangeNode
                 id,
                 ExchangeNode.Type.REPLICATE,
                 scope,
-                new PartitioningScheme(Partitioning.create(FIXED_BROADCAST_DISTRIBUTION, ImmutableList.of()), child.getOutputSymbols()),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), child.getOutputSymbols()),
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputSymbols()),
                 Optional.empty(),

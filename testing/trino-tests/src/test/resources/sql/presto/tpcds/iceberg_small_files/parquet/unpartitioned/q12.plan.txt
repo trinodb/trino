@@ -11,8 +11,8 @@ local exchange (GATHER, SINGLE, [])
                                         dynamic filter (["ws_item_sk", "ws_sold_date_sk"])
                                             scan web_sales
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
+                                            remote exchange (REPLICATE, SINGLE, [])
                                                 scan item
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        remote exchange (REPLICATE, SINGLE, [])
                                             scan date_dim
