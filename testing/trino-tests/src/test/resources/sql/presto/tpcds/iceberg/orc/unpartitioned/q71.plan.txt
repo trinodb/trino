@@ -1,5 +1,5 @@
 remote exchange (GATHER, SINGLE, [])
-    local exchange (GATHER, UNKNOWN, [])
+    local exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             final aggregation over (i_brand, i_brand_id, t_hour, t_minute)
                 local exchange (GATHER, SINGLE, [])

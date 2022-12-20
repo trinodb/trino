@@ -1,5 +1,5 @@
 remote exchange (GATHER, SINGLE, [])
-    local exchange (GATHER, UNKNOWN, [])
+    local exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             final aggregation over (expr$gid, name_22, name_28)
                 local exchange (GATHER, SINGLE, [])

@@ -55,7 +55,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -93,6 +92,7 @@ public class LocalExchange
             int defaultConcurrency,
             PartitioningHandle partitioning,
             boolean scaleWriters,
+            boolean passThrough,
             List<Integer> partitionChannels,
             List<Type> partitionChannelTypes,
             Optional<Integer> partitionHashChannel,
@@ -100,7 +100,7 @@ public class LocalExchange
             BlockTypeOperators blockTypeOperators,
             DataSize writerMinSize)
     {
-        int bufferCount = computeBufferCount(partitioning, defaultConcurrency, partitionChannels);
+        int bufferCount = computeBufferCount(partitioning, passThrough, defaultConcurrency, partitionChannels);
 
         if (scaleWriters) {
             if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
@@ -163,14 +163,7 @@ public class LocalExchange
                 throw new IllegalArgumentException("Unexpected partitioning handle: " + partitioning);
             }
         }
-        else if (partitioning.equals(SINGLE_DISTRIBUTION) || partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
-            LocalExchangeMemoryManager memoryManager = new LocalExchangeMemoryManager(maxBufferedBytes.toBytes());
-            sources = IntStream.range(0, bufferCount)
-                    .mapToObj(i -> new LocalExchangeSource(memoryManager, source -> checkAllSourcesFinished()))
-                    .collect(toImmutableList());
-            exchangerSupplier = () -> new RandomExchanger(asPageConsumers(sources), memoryManager);
-        }
-        else if (partitioning.equals(FIXED_PASSTHROUGH_DISTRIBUTION)) {
+        else if (passThrough) {
             List<LocalExchangeMemoryManager> memoryManagers = IntStream.range(0, bufferCount)
                     .mapToObj(i -> new LocalExchangeMemoryManager(maxBufferedBytes.toBytes() / bufferCount))
                     .collect(toImmutableList());
@@ -183,6 +176,13 @@ public class LocalExchange
                 checkState(currentSource < sources.size(), "no more sources");
                 return new PassthroughExchanger(sources.get(currentSource), memoryManagers.get(currentSource));
             };
+        }
+        else if (partitioning.equals(SINGLE_DISTRIBUTION) || partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
+            LocalExchangeMemoryManager memoryManager = new LocalExchangeMemoryManager(maxBufferedBytes.toBytes());
+            sources = IntStream.range(0, bufferCount)
+                    .mapToObj(i -> new LocalExchangeSource(memoryManager, source -> checkAllSourcesFinished()))
+                    .collect(toImmutableList());
+            exchangerSupplier = () -> new RandomExchanger(asPageConsumers(sources), memoryManager);
         }
         else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||
                 (partitioning.getConnectorHandle() instanceof MergePartitioningHandle)) {
@@ -420,20 +420,20 @@ public class LocalExchange
         checkState(!Thread.holdsLock(lock), "Cannot execute this method while holding a lock");
     }
 
-    private static int computeBufferCount(PartitioningHandle partitioning, int defaultConcurrency, List<Integer> partitionChannels)
+    private static int computeBufferCount(PartitioningHandle partitioning, boolean passThrough, int defaultConcurrency, List<Integer> partitionChannels)
     {
         int bufferCount;
-        if (partitioning.equals(SINGLE_DISTRIBUTION)) {
+        if (passThrough) {
+            bufferCount = defaultConcurrency;
+            checkArgument(partitionChannels.isEmpty(), "Passthrough exchange must not have partition channels");
+        }
+        else if (partitioning.equals(SINGLE_DISTRIBUTION)) {
             bufferCount = 1;
             checkArgument(partitionChannels.isEmpty(), "Gather exchange must not have partition channels");
         }
         else if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
             bufferCount = defaultConcurrency;
             checkArgument(partitionChannels.isEmpty(), "Arbitrary exchange must not have partition channels");
-        }
-        else if (partitioning.equals(FIXED_PASSTHROUGH_DISTRIBUTION)) {
-            bufferCount = defaultConcurrency;
-            checkArgument(partitionChannels.isEmpty(), "Passthrough exchange must not have partition channels");
         }
         else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||
                 (partitioning.getConnectorHandle() instanceof MergePartitioningHandle)) {

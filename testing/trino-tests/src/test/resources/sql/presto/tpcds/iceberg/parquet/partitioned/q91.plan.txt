@@ -1,5 +1,5 @@
 remote exchange (GATHER, SINGLE, [])
-    local exchange (GATHER, UNKNOWN, [])
+    local exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             final aggregation over (cc_call_center_id, cc_manager, cc_name, cd_education_status, cd_marital_status)
                 local exchange (GATHER, SINGLE, [])

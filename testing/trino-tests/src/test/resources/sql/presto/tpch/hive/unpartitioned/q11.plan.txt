@@ -1,5 +1,5 @@
 remote exchange (GATHER, SINGLE, [])
-    local exchange (GATHER, UNKNOWN, [])
+    local exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             cross join:
                 final aggregation over (partkey)
