@@ -20,8 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.predicate.NullableValue;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.planner.optimizations.PartitioningArgument;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -34,8 +33,6 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
@@ -44,11 +41,11 @@ import static java.util.Objects.requireNonNull;
 public final class Partitioning
 {
     private final PartitioningHandle handle;
-    private final List<ArgumentBinding> arguments;
+    private final List<PartitioningArgument> arguments;
     // Description of whether rows with nulls in partitioning columns or some arbitrary rows have been replicated to all *nodes*
     private final boolean nullsAndAnyReplicated;
 
-    private Partitioning(PartitioningHandle handle, List<ArgumentBinding> arguments, boolean nullsAndAnyReplicated)
+    private Partitioning(PartitioningHandle handle, List<PartitioningArgument> arguments, boolean nullsAndAnyReplicated)
     {
         this.handle = requireNonNull(handle, "handle is null");
         this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
@@ -66,7 +63,7 @@ public final class Partitioning
                 handle,
                 columns.stream()
                         .map(Symbol::toSymbolReference)
-                        .map(ArgumentBinding::expressionBinding)
+                        .map(PartitioningArgument::expressionArgument)
                         .collect(toImmutableList()),
                 nullsAndAnyReplicated);
     }
@@ -75,7 +72,7 @@ public final class Partitioning
     @JsonCreator
     public static Partitioning jsonCreate(
             @JsonProperty("handle") PartitioningHandle handle,
-            @JsonProperty("arguments") List<ArgumentBinding> arguments,
+            @JsonProperty("arguments") List<PartitioningArgument> arguments,
             @JsonProperty("nullsAndAnyReplicated") boolean nullsAndAnyReplicated)
     {
         return new Partitioning(handle, arguments, nullsAndAnyReplicated);
@@ -88,7 +85,7 @@ public final class Partitioning
     }
 
     @JsonProperty
-    public List<ArgumentBinding> getArguments()
+    public List<PartitioningArgument> getArguments()
     {
         return arguments;
     }
@@ -102,8 +99,8 @@ public final class Partitioning
     public Set<Symbol> getColumns()
     {
         return arguments.stream()
-                .filter(ArgumentBinding::isVariable)
-                .map(ArgumentBinding::getColumn)
+                .filter(PartitioningArgument::isVariable)
+                .map(PartitioningArgument::getColumn)
                 .collect(toImmutableSet());
     }
 
@@ -144,8 +141,8 @@ public final class Partitioning
         }
 
         for (int i = 0; i < arguments.size(); i++) {
-            ArgumentBinding leftArgument = arguments.get(i);
-            ArgumentBinding rightArgument = right.arguments.get(i);
+            PartitioningArgument leftArgument = arguments.get(i);
+            PartitioningArgument rightArgument = right.arguments.get(i);
 
             if (!isPartitionedWith(leftArgument, leftConstantMapping, rightArgument, rightConstantMapping, leftToRightMappings)) {
                 return false;
@@ -155,9 +152,9 @@ public final class Partitioning
     }
 
     private static boolean isPartitionedWith(
-            ArgumentBinding leftArgument,
+            PartitioningArgument leftArgument,
             Function<Symbol, Optional<NullableValue>> leftConstantMapping,
-            ArgumentBinding rightArgument,
+            PartitioningArgument rightArgument,
             Function<Symbol, Optional<NullableValue>> rightConstantMapping,
             Function<Symbol, Set<Symbol>> leftToRightMappings)
     {
@@ -188,7 +185,7 @@ public final class Partitioning
         if (this.nullsAndAnyReplicated != nullsAndAnyReplicated) {
             return false;
         }
-        for (ArgumentBinding argument : arguments) {
+        for (PartitioningArgument argument : arguments) {
             // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
             // can safely ignore all constant columns when comparing partition properties
             if (argument.isConstant()) {
@@ -210,7 +207,7 @@ public final class Partitioning
             return false;
         }
         Set<Symbol> toCheck = new HashSet<>();
-        for (ArgumentBinding argument : arguments) {
+        for (PartitioningArgument argument : arguments) {
             // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
             // can safely ignore all constant columns when comparing partition properties
             if (argument.isConstant()) {
@@ -242,11 +239,11 @@ public final class Partitioning
                 nullsAndAnyReplicated);
     }
 
-    public Optional<Partitioning> translate(Translator translator)
+    public Optional<Partitioning> translate(PartitioningArgument.Translator translator)
     {
-        ImmutableList.Builder<ArgumentBinding> newArguments = ImmutableList.builder();
-        for (ArgumentBinding argument : arguments) {
-            Optional<ArgumentBinding> newArgument = argument.translate(translator);
+        ImmutableList.Builder<PartitioningArgument> newArguments = ImmutableList.builder();
+        for (PartitioningArgument argument : arguments) {
+            Optional<PartitioningArgument> newArgument = argument.translate(translator);
             if (newArgument.isEmpty()) {
                 return Optional.empty();
             }
@@ -295,141 +292,5 @@ public final class Partitioning
                 .add("arguments", arguments)
                 .add("nullsAndAnyReplicated", nullsAndAnyReplicated)
                 .toString();
-    }
-
-    @Immutable
-    public static final class Translator
-    {
-        private final Function<Symbol, Optional<Symbol>> columnTranslator;
-        private final Function<Symbol, Optional<NullableValue>> constantTranslator;
-        private final Function<Expression, Optional<Symbol>> expressionTranslator;
-
-        public Translator(
-                Function<Symbol, Optional<Symbol>> columnTranslator,
-                Function<Symbol, Optional<NullableValue>> constantTranslator,
-                Function<Expression, Optional<Symbol>> expressionTranslator)
-        {
-            this.columnTranslator = requireNonNull(columnTranslator, "columnTranslator is null");
-            this.constantTranslator = requireNonNull(constantTranslator, "constantTranslator is null");
-            this.expressionTranslator = requireNonNull(expressionTranslator, "expressionTranslator is null");
-        }
-    }
-
-    @Immutable
-    public static final class ArgumentBinding
-    {
-        private final Expression expression;
-        private final NullableValue constant;
-
-        @JsonCreator
-        public ArgumentBinding(
-                @JsonProperty("expression") Expression expression,
-                @JsonProperty("constant") NullableValue constant)
-        {
-            this.expression = expression;
-            this.constant = constant;
-            checkArgument((expression == null) != (constant == null), "Either expression or constant must be set");
-        }
-
-        public static ArgumentBinding expressionBinding(Expression expression)
-        {
-            return new ArgumentBinding(requireNonNull(expression, "expression is null"), null);
-        }
-
-        public static ArgumentBinding constantBinding(NullableValue constant)
-        {
-            return new ArgumentBinding(null, requireNonNull(constant, "constant is null"));
-        }
-
-        public boolean isConstant()
-        {
-            return constant != null;
-        }
-
-        public boolean isVariable()
-        {
-            return expression instanceof SymbolReference;
-        }
-
-        public Symbol getColumn()
-        {
-            verify(expression instanceof SymbolReference, "Expect the expression to be a SymbolReference");
-            return Symbol.from(expression);
-        }
-
-        @JsonProperty
-        public Expression getExpression()
-        {
-            return expression;
-        }
-
-        @JsonProperty
-        public NullableValue getConstant()
-        {
-            return constant;
-        }
-
-        public ArgumentBinding translate(Function<Symbol, Symbol> translator)
-        {
-            if (isConstant()) {
-                return this;
-            }
-            return expressionBinding(translator.apply(Symbol.from(expression)).toSymbolReference());
-        }
-
-        public Optional<ArgumentBinding> translate(Translator translator)
-        {
-            if (isConstant()) {
-                return Optional.of(this);
-            }
-
-            if (!isVariable()) {
-                return translator.expressionTranslator.apply(expression)
-                        .map(Symbol::toSymbolReference)
-                        .map(ArgumentBinding::expressionBinding);
-            }
-
-            Optional<ArgumentBinding> newColumn = translator.columnTranslator.apply(Symbol.from(expression))
-                    .map(Symbol::toSymbolReference)
-                    .map(ArgumentBinding::expressionBinding);
-            if (newColumn.isPresent()) {
-                return newColumn;
-            }
-            // As a last resort, check for a constant mapping for the symbol
-            // Note: this MUST be last because we want to favor the symbol representation
-            // as it makes further optimizations possible.
-            return translator.constantTranslator.apply(Symbol.from(expression))
-                    .map(ArgumentBinding::constantBinding);
-        }
-
-        @Override
-        public String toString()
-        {
-            if (constant != null) {
-                return constant.toString();
-            }
-
-            return expression.toString();
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            ArgumentBinding that = (ArgumentBinding) o;
-            return Objects.equals(expression, that.expression) &&
-                    Objects.equals(constant, that.constant);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(expression, constant);
-        }
     }
 }

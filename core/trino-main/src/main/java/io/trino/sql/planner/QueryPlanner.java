@@ -42,6 +42,7 @@ import io.trino.sql.analyzer.Analysis.SelectExpression;
 import io.trino.sql.analyzer.FieldId;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.planner.RelationPlanner.PatternRecognitionComponents;
+import io.trino.sql.planner.optimizations.PartitioningArgument;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.AssignUniqueId;
@@ -992,7 +993,7 @@ class QueryPlanner
     private static List<Symbol> partitioningSymbols(PartitioningScheme scheme)
     {
         return scheme.getPartitioning().getArguments().stream()
-                .map(Partitioning.ArgumentBinding::getColumn)
+                .map(PartitioningArgument::getColumn)
                 .collect(toImmutableList());
     }
 

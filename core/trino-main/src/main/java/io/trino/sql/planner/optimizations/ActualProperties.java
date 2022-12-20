@@ -150,7 +150,7 @@ public class ActualProperties
     public ActualProperties translate(Function<Symbol, Optional<Symbol>> translator)
     {
         return builder()
-                .nodePartitioning(nodePartitioning.flatMap(partitioning -> partitioning.translate(new Partitioning.Translator(translator, symbol -> Optional.ofNullable(constants.get(symbol)), expression -> Optional.empty()))))
+                .nodePartitioning(nodePartitioning.flatMap(partitioning -> partitioning.translate(new PartitioningArgument.Translator(translator, symbol -> Optional.ofNullable(constants.get(symbol)), expression -> Optional.empty()))))
                 .local(LocalProperties.translate(localProperties, translator))
                 .constants(translateConstants(translator))
                 .build();
@@ -161,7 +161,7 @@ public class ActualProperties
             Function<Expression, Optional<Symbol>> expressionTranslator)
     {
         return builder()
-                .nodePartitioning(nodePartitioning.flatMap(partitioning -> partitioning.translate(new Partitioning.Translator(translator, symbol -> Optional.ofNullable(constants.get(symbol)), expressionTranslator))))
+                .nodePartitioning(nodePartitioning.flatMap(partitioning -> partitioning.translate(new PartitioningArgument.Translator(translator, symbol -> Optional.ofNullable(constants.get(symbol)), expressionTranslator))))
                 .local(LocalProperties.translate(localProperties, translator))
                 .constants(translateConstants(translator))
                 .build();

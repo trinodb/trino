@@ -376,7 +376,7 @@ class PreferredProperties
                 return Optional.of(new PartitioningProperties(newPartitioningColumns, Optional.empty(), nullsAndAnyReplicated));
             }
 
-            Optional<Partitioning> newPartitioning = partitioning.get().translate(new Partitioning.Translator(translator, symbol -> Optional.empty(), coalesceSymbols -> Optional.empty()));
+            Optional<Partitioning> newPartitioning = partitioning.get().translate(new PartitioningArgument.Translator(translator, symbol -> Optional.empty(), coalesceSymbols -> Optional.empty()));
             if (newPartitioning.isEmpty()) {
                 return Optional.empty();
             }

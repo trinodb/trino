@@ -19,10 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Partitioning;
-import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.optimizations.PartitioningArgument;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -96,7 +96,7 @@ public class ExchangeNode
             checkArgument(ImmutableSet.copyOf(sources.get(i).getOutputSymbols()).containsAll(inputs.get(i)), "Source does not supply all required input symbols");
         }
 
-        checkArgument(scope != LOCAL || partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable),
+        checkArgument(scope != LOCAL || partitioningScheme.getPartitioning().getArguments().stream().allMatch(PartitioningArgument::isVariable),
                 "local exchanges do not support constant partition function arguments");
 
         checkArgument(scope != REMOTE || type == Type.REPARTITION || !partitioningScheme.getPartitioning().isNullsAndAnyReplicated(), "Only REPARTITION can replicate remotely");

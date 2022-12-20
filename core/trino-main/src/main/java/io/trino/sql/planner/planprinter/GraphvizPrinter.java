@@ -16,10 +16,10 @@ package io.trino.sql.planner.planprinter;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.optimizations.PartitioningArgument;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.ApplyNode;
@@ -337,9 +337,9 @@ public final class GraphvizPrinter
         @Override
         public Void visitExchange(ExchangeNode node, Void context)
         {
-            List<ArgumentBinding> symbols = node.getOutputSymbols().stream()
+            List<PartitioningArgument> symbols = node.getOutputSymbols().stream()
                     .map(Symbol::toSymbolReference)
-                    .map(ArgumentBinding::expressionBinding)
+                    .map(PartitioningArgument::expressionArgument)
                     .collect(toImmutableList());
             if (node.getType() == REPARTITION) {
                 symbols = node.getPartitioningScheme().getPartitioning().getArguments();
