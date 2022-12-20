@@ -32,7 +32,6 @@ import io.trino.metadata.Metadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.sql.planner.FunctionCallBuilder;
-import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -522,10 +521,10 @@ public class HashGenerationOptimizer
 
             if ((partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)
                     || partitioningHandle.equals(SCALED_WRITER_HASH_DISTRIBUTION))
-                    && partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable)) {
+                    && partitioningScheme.getPartitioning().getArguments().stream().allMatch(PartitioningArgument::isVariable)) {
                 // add precomputed hash for exchange
                 partitionSymbols = computeHash(partitioningScheme.getPartitioning().getArguments().stream()
-                        .map(ArgumentBinding::getColumn)
+                        .map(PartitioningArgument::getColumn)
                         .collect(toImmutableList()));
                 preference = preference.withHashComputation(partitionSymbols);
             }

@@ -22,9 +22,9 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.optimizations.PartitioningArgument;
 import io.trino.sql.tree.Expression;
 
-import static io.trino.sql.planner.Partitioning.ArgumentBinding;
 import static io.trino.sql.planner.plan.StatisticsWriterNode.WriteStatisticsTarget;
 import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 
@@ -45,7 +45,7 @@ public interface Anonymizer
 
     String anonymize(QualifiedObjectName objectName);
 
-    String anonymize(ArgumentBinding argument);
+    String anonymize(PartitioningArgument argument);
 
     String anonymize(IndexHandle indexHandle);
 

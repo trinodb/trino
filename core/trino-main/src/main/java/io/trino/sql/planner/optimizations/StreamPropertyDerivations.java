@@ -25,7 +25,6 @@ import io.trino.metadata.TableProperties;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -346,7 +345,7 @@ public final class StreamPropertyDerivations
                         new StreamProperties(
                                 FIXED,
                                 Optional.of(node.getPartitioningScheme().getPartitioning().getArguments().stream()
-                                        .map(ArgumentBinding::getColumn)
+                                        .map(PartitioningArgument::getColumn)
                                         .collect(toImmutableList())), false);
                 case REPLICATE -> new StreamProperties(MULTIPLE, Optional.empty(), false);
             };

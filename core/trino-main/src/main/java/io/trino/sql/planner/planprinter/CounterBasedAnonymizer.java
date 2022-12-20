@@ -26,6 +26,7 @@ import io.trino.sql.ExpressionFormatter;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SystemPartitioningHandle;
+import io.trino.sql.planner.optimizations.PartitioningArgument;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.CharLiteral;
@@ -47,7 +48,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.sql.planner.Partitioning.ArgumentBinding;
 import static io.trino.sql.planner.plan.StatisticsWriterNode.WriteStatisticsHandle;
 import static io.trino.sql.planner.plan.StatisticsWriterNode.WriteStatisticsTarget;
 import static io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
@@ -175,7 +175,7 @@ public class CounterBasedAnonymizer
     }
 
     @Override
-    public String anonymize(ArgumentBinding argument)
+    public String anonymize(PartitioningArgument argument)
     {
         if (argument.getConstant() != null) {
             return argument.getConstant().toString();

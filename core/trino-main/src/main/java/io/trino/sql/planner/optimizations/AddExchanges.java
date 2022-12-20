@@ -779,7 +779,7 @@ public class AddExchanges
                     PartitioningHandle partitioningHandle = partitioningScheme.get().getPartitioning().getHandle();
                     verify(!(partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle));
                     verify(
-                            partitioningScheme.get().getPartitioning().getArguments().stream().noneMatch(Partitioning.ArgumentBinding::isConstant),
+                            partitioningScheme.get().getPartitioning().getArguments().stream().noneMatch(PartitioningArgument::isConstant),
                             "Table writer partitioning has constant arguments");
                     partitioningScheme = Optional.of(partitioningScheme.get().withPartitioningHandle(
                             new PartitioningHandle(
