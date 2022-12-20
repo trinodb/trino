@@ -1162,8 +1162,8 @@ public class AddExchanges
         private Partitioning selectUnionPartitioning(UnionNode node, PartitioningProperties parentPreference)
         {
             // Use the parent's requested partitioning if available
-            if (parentPreference.getPartitioning().isPresent()) {
-                return parentPreference.getPartitioning().get();
+            if (parentPreference.getHandle().isPresent()) {
+                return new Partitioning(parentPreference.getHandle().get(), parentPreference.getArguments(), parentPreference.isNullsAndAnyReplicated());
             }
 
             // Try planning the children to see if any of them naturally produce a partitioning (for now, just select the first)

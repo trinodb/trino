@@ -45,7 +45,7 @@ public final class Partitioning
     // Description of whether rows with nulls in partitioning columns or some arbitrary rows have been replicated to all *nodes*
     private final boolean nullsAndAnyReplicated;
 
-    private Partitioning(PartitioningHandle handle, List<PartitioningArgument> arguments, boolean nullsAndAnyReplicated)
+    public Partitioning(PartitioningHandle handle, List<PartitioningArgument> arguments, boolean nullsAndAnyReplicated)
     {
         this.handle = requireNonNull(handle, "handle is null");
         this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
