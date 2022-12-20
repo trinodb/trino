@@ -43,6 +43,7 @@ import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
+import io.trino.sql.planner.optimizations.PreferredProperties.PartitioningProperties;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
@@ -261,8 +262,7 @@ public class AddExchanges
                         child.getProperties());
             }
             else if (!isNodePartitionedOn(child.getProperties(), partitioningRequirement) || node.hasEmptyGroupingSet()) {
-                List<Symbol> partitioningKeys = parentPreferredProperties.getGlobalProperties()
-                        .flatMap(PreferredProperties.Global::getPartitioningProperties)
+                List<Symbol> partitioningKeys = parentPreferredProperties.getNodePartitioning()
                         .map(PreferredProperties.PartitioningProperties::getPartitioningColumns)
                         .flatMap(partitioningColumns -> useParentPreferredPartitioning(node, partitioningColumns))
                         .orElse(node.getGroupingKeys());
@@ -1159,7 +1159,7 @@ public class AddExchanges
             return symbol -> Optional.of(node.getSymbolMapping().get(symbol).get(sourceIndex));
         }
 
-        private Partitioning selectUnionPartitioning(UnionNode node, PreferredProperties.PartitioningProperties parentPreference)
+        private Partitioning selectUnionPartitioning(UnionNode node, PartitioningProperties parentPreference)
         {
             // Use the parent's requested partitioning if available
             if (parentPreference.getPartitioning().isPresent()) {
@@ -1169,9 +1169,9 @@ public class AddExchanges
             // Try planning the children to see if any of them naturally produce a partitioning (for now, just select the first)
             boolean nullsAndAnyReplicated = parentPreference.isNullsAndAnyReplicated();
             for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
-                PreferredProperties.PartitioningProperties childPartitioning = parentPreference.translate(outputToInputTranslator(node, sourceIndex)).get();
+                PartitioningProperties childPartitioning = parentPreference.translate(outputToInputTranslator(node, sourceIndex)).get();
                 PreferredProperties childPreferred = PreferredProperties.builder()
-                        .global(PreferredProperties.Global.distributed(childPartitioning))
+                        .nodePartitioning(childPartitioning)
                         .build();
                 PlanWithProperties child = node.getSources().get(sourceIndex).accept(this, childPreferred);
                 // Don't select a single node partitioning so that we maintain query parallelism
@@ -1190,10 +1190,9 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitUnion(UnionNode node, PreferredProperties parentPreference)
         {
-            Optional<PreferredProperties.Global> parentGlobal = parentPreference.getGlobalProperties();
-            if (parentGlobal.isPresent() && parentGlobal.get().isDistributed() && parentGlobal.get().getPartitioningProperties().isPresent()) {
-                PreferredProperties.PartitioningProperties parentPartitioningPreference = parentGlobal.get().getPartitioningProperties().get();
-                Partitioning desiredParentPartitioning = selectUnionPartitioning(node, parentPartitioningPreference);
+            Optional<PartitioningProperties> parentPreferredNodePartitioning = parentPreference.getNodePartitioning();
+            if (parentPreferredNodePartitioning.isPresent() && parentPreferredNodePartitioning.get().isDistributed()) {
+                Partitioning desiredParentPartitioning = selectUnionPartitioning(node, parentPreferredNodePartitioning.get());
 
                 ImmutableList.Builder<PlanNode> partitionedSources = ImmutableList.builder();
                 ImmutableListMultimap.Builder<Symbol, Symbol> outputToSourcesMapping = ImmutableListMultimap.builder();
@@ -1202,7 +1201,7 @@ public class AddExchanges
                     Partitioning childPartitioning = desiredParentPartitioning.translate(createDirectTranslator(createMapping(node.getOutputSymbols(), node.sourceOutputLayout(sourceIndex))));
 
                     PreferredProperties childPreferred = PreferredProperties.builder()
-                            .global(PreferredProperties.Global.distributed(PreferredProperties.PartitioningProperties.partitioned(childPartitioning)))
+                            .nodePartitioning(PartitioningProperties.partitioned(childPartitioning))
                             .build();
 
                     PlanWithProperties source = node.getSources().get(sourceIndex).accept(this, childPreferred);
@@ -1264,7 +1263,7 @@ public class AddExchanges
                 // parent does not have preference or prefers some partitioning without any explicit partitioning - just use
                 // children partitioning and don't GATHER partitioned inputs
                 // TODO: add FIXED_ARBITRARY_DISTRIBUTION support on non empty unpartitionedChildren
-                if (parentGlobal.isEmpty() || parentGlobal.get().isDistributed()) {
+                if (parentPreferredNodePartitioning.isEmpty() || parentPreferredNodePartitioning.get().isDistributed()) {
                     return arbitraryDistributeUnion(node, partitionedChildren, partitionedOutputLayouts);
                 }
 
