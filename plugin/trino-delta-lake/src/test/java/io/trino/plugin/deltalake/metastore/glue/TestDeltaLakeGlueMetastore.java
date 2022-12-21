@@ -81,6 +81,7 @@ import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -266,8 +267,8 @@ public class TestDeltaLakeGlueMetastore
     {
         File deltaTableLogLocation = new File(new File(new URI(deltaLakeTableLocation)), "_delta_log");
         verify(deltaTableLogLocation.mkdirs(), "mkdirs() on '%s' failed", deltaTableLogLocation);
-        byte[] entry = Resources.toByteArray(Resources.getResource("deltalake/person/_delta_log/00000000000000000000.json"));
-        Files.write(new File(deltaTableLogLocation, "00000000000000000000.json").toPath(), entry);
+        String entry = Resources.toString(Resources.getResource("deltalake/person/_delta_log/00000000000000000000.json"), UTF_8);
+        Files.writeString(new File(deltaTableLogLocation, "00000000000000000000.json").toPath(), entry);
     }
 
     private String tableLocation(SchemaTableName tableName)
