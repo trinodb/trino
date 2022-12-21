@@ -136,6 +136,18 @@ public final class TestData
         return propagateSignBit(r.nextInt(), 32 - bitWidth);
     }
 
+    public static int randomUnsignedInt(Random r, int bitWidth)
+    {
+        checkArgument(bitWidth <= 32 && bitWidth >= 0, "bit width must be in range 0 - 32 inclusive");
+        if (bitWidth == 32) {
+            return r.nextInt();
+        }
+        else if (bitWidth == 31) {
+            return r.nextInt() & ((1 << 31) - 1);
+        }
+        return r.nextInt(1 << bitWidth);
+    }
+
     public static long randomLong(Random r, int bitWidth)
     {
         checkArgument(bitWidth <= 64 && bitWidth > 0, "bit width must be in range 1 - 64 inclusive");
