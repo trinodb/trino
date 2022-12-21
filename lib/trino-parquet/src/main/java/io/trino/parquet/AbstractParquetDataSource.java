@@ -207,7 +207,7 @@ public abstract class AbstractParquetDataSource
                                 throws IOException
                         {
                             int offset = toIntExact(diskRange.getOffset() - mergedRange.getOffset());
-                            return mergedRangeLoader.read().slice(offset, diskRange.getLength());
+                            return mergedRangeLoader.read().slice(offset, toIntExact(diskRange.getLength()));
                         }
 
                         @Override
@@ -278,6 +278,8 @@ public abstract class AbstractParquetDataSource
     private class ReferenceCountedReader
             implements ChunkReader
     {
+        // See jdk.internal.util.ArraysSupport.SOFT_MAX_ARRAY_LENGTH for an explanation
+        private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
         private final DiskRange range;
         private final LocalMemoryContext readerMemoryUsage;
         private Slice data;
@@ -286,6 +288,7 @@ public abstract class AbstractParquetDataSource
         public ReferenceCountedReader(DiskRange range, AggregatedMemoryContext memoryContext)
         {
             this.range = range;
+            checkArgument(range.getLength() <= MAX_ARRAY_SIZE, "Cannot read range bigger than %s but got %s", MAX_ARRAY_SIZE, range);
             this.readerMemoryUsage = memoryContext.newLocalMemoryContext(ReferenceCountedReader.class.getSimpleName());
         }
 
@@ -308,7 +311,7 @@ public abstract class AbstractParquetDataSource
             checkState(referenceCount > 0, "Chunk reader is already closed");
 
             if (data == null) {
-                byte[] buffer = new byte[range.getLength()];
+                byte[] buffer = new byte[toIntExact(range.getLength())];
                 readFully(range.getOffset(), buffer, 0, buffer.length);
                 data = Slices.wrappedBuffer(buffer);
                 readerMemoryUsage.setBytes(data.length());
