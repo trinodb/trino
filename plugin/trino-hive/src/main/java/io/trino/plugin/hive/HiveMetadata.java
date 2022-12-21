@@ -3697,27 +3697,31 @@ public class HiveMetadata
     private static void validateTimestampColumns(List<ColumnMetadata> columns, HiveTimestampPrecision precision)
     {
         for (ColumnMetadata column : columns) {
-            validateTimestampTypes(column.getType(), precision);
+            validateTimestampTypes(column.getType(), precision, column);
         }
     }
 
-    private static void validateTimestampTypes(Type type, HiveTimestampPrecision precision)
+    private static void validateTimestampTypes(Type type, HiveTimestampPrecision precision, ColumnMetadata column)
     {
         if (type instanceof TimestampType) {
             if (((TimestampType) type).getPrecision() != precision.getPrecision()) {
-                throw new TrinoException(NOT_SUPPORTED, format("Incorrect timestamp precision for %s; the configured precision is %s", type, precision));
+                throw new TrinoException(NOT_SUPPORTED, format(
+                        "Incorrect timestamp precision for %s; the configured precision is %s; column name: %s",
+                        type,
+                        precision,
+                        column.getName()));
             }
         }
         else if (type instanceof ArrayType) {
-            validateTimestampTypes(((ArrayType) type).getElementType(), precision);
+            validateTimestampTypes(((ArrayType) type).getElementType(), precision, column);
         }
         else if (type instanceof MapType) {
-            validateTimestampTypes(((MapType) type).getKeyType(), precision);
-            validateTimestampTypes(((MapType) type).getValueType(), precision);
+            validateTimestampTypes(((MapType) type).getKeyType(), precision, column);
+            validateTimestampTypes(((MapType) type).getValueType(), precision, column);
         }
         else if (type instanceof RowType) {
             for (Type fieldType : ((RowType) type).getTypeParameters()) {
-                validateTimestampTypes(fieldType, precision);
+                validateTimestampTypes(fieldType, precision, column);
             }
         }
     }
