@@ -103,7 +103,7 @@ public class TestDeltaLakeAdlsStorage
         FileAttribute<Set<PosixFilePermission>> posixFilePermissions = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
         Path coreSiteXml = Files.createTempFile("core-site", ".xml", posixFilePermissions);
         coreSiteXml.toFile().deleteOnExit();
-        Files.write(coreSiteXml, abfsSpecificCoreSiteXmlContent.getBytes(UTF_8));
+        Files.writeString(coreSiteXml, abfsSpecificCoreSiteXmlContent);
 
         return coreSiteXml;
     }
