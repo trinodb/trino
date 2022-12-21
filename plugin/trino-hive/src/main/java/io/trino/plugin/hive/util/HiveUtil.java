@@ -163,7 +163,7 @@ import static java.lang.Long.parseLong;
 import static java.lang.Math.floorDiv;
 import static java.lang.Short.parseShort;
 import static java.lang.String.format;
-import static java.math.BigDecimal.ROUND_UNNECESSARY;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
@@ -799,7 +799,7 @@ public final class HiveUtil
             }
 
             BigDecimal decimal = new BigDecimal(value);
-            decimal = decimal.setScale(type.getScale(), ROUND_UNNECESSARY);
+            decimal = decimal.setScale(type.getScale(), UNNECESSARY);
             if (decimal.precision() > type.getPrecision()) {
                 throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, type, name));
             }

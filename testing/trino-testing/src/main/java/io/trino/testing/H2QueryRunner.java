@@ -86,6 +86,7 @@ import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.math.RoundingMode.HALF_UP;
 import static java.util.Collections.nCopies;
 
 public class H2QueryRunner
@@ -375,7 +376,7 @@ public class H2QueryRunner
                     }
                     else {
                         row.add(decimalValue
-                                .setScale(decimalType.getScale(), BigDecimal.ROUND_HALF_UP)
+                                .setScale(decimalType.getScale(), HALF_UP)
                                 .round(new MathContext(decimalType.getPrecision())));
                     }
                 }
