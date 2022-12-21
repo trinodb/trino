@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.trino.plugin.base.util.LoggingInvocationHandler;
@@ -742,8 +743,10 @@ public class ThriftHiveMetastoreClient
                 });
     }
 
+    // Method needs to be final for @SafeVarargs to work
     @SafeVarargs
-    private <T> T alternativeCall(
+    @VisibleForTesting
+    final <T> T alternativeCall(
             Predicate<Exception> isValidExceptionalResponse,
             AtomicInteger chosenAlternative,
             AlternativeCall<T>... alternatives)
@@ -823,8 +826,9 @@ public class ThriftHiveMetastoreClient
         throw new RuntimeException(throwable);
     }
 
+    @VisibleForTesting
     @FunctionalInterface
-    private interface AlternativeCall<T>
+    interface AlternativeCall<T>
     {
         T execute()
                 throws TException;
