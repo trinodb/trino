@@ -65,10 +65,9 @@ Configuration
 -------------
 
 To configure the BigQuery connector, create a catalog properties file in
-``etc/catalog`` named, for example, ``bigquery.properties``, to mount the
-BigQuery connector as the ``bigquery`` catalog. Create the file with the
-following contents, replacing the connection properties as appropriate for
-your setup:
+``etc/catalog`` named ``example.properties``, to mount the BigQuery connector as
+the ``example`` catalog. Create the file with the following contents, replacing
+the connection properties as appropriate for your setup:
 
 .. code-block:: text
 
@@ -255,9 +254,10 @@ No other types are supported.
 System tables
 -------------
 
-For each Trino table which maps to BigQuery view there exists a system table which exposes BigQuery view definition.
-Given a BigQuery view ``customer_view`` you can send query
-``SELECT * customer_view$view_definition`` to see the SQL which defines view in BigQuery.
+For each Trino table which maps to BigQuery view there exists a system table
+which exposes BigQuery view definition. Given a BigQuery view ``example_view``
+you can send query ``SELECT * example_view$view_definition`` to see the SQL
+which defines view in BigQuery.
 
 .. _bigquery_special_columns:
 
@@ -276,12 +276,12 @@ can be selected directly, or used in conditional statements. For example, you
 can inspect the partition date and time for each record::
 
     SELECT *, "$partition_date", "$partition_time"
-    FROM bigquery.web.page_views;
+    FROM example.web.page_views;
 
 Retrieve all records stored in the partition ``_PARTITIONDATE = '2022-04-07'``::
 
     SELECT *
-    FROM bigquery.web.page_views
+    FROM example.web.page_views
     WHERE "$partition_date" = date '2022-04-07';
 
 .. note::
@@ -333,7 +333,7 @@ For example, group and concatenate all employee IDs by manager ID::
       *
     FROM
       TABLE(
-        bigquery.system.query(
+        example.system.query(
           query => 'SELECT
             manager_id, STRING_AGG(employee_id)
           FROM
