@@ -49,6 +49,7 @@ import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.ptf.ConnectorTableFunction;
@@ -111,6 +112,7 @@ public class MockConnectorFactory
     private final Set<Procedure> procedures;
     private final Set<TableProcedureMetadata> tableProcedures;
     private final Set<ConnectorTableFunction> tableFunctions;
+    private final Optional<FunctionProvider> functionProvider;
     private final boolean allowMissingColumnsOnInsert;
     private final Supplier<List<PropertyMetadata<?>>> analyzeProperties;
     private final Supplier<List<PropertyMetadata<?>>> schemaProperties;
@@ -155,6 +157,7 @@ public class MockConnectorFactory
             Set<Procedure> procedures,
             Set<TableProcedureMetadata> tableProcedures,
             Set<ConnectorTableFunction> tableFunctions,
+            Optional<FunctionProvider> functionProvider,
             Supplier<List<PropertyMetadata<?>>> analyzeProperties,
             Supplier<List<PropertyMetadata<?>>> schemaProperties,
             Supplier<List<PropertyMetadata<?>>> tableProperties,
@@ -203,6 +206,7 @@ public class MockConnectorFactory
         this.procedures = requireNonNull(procedures, "procedures is null");
         this.tableProcedures = requireNonNull(tableProcedures, "tableProcedures is null");
         this.tableFunctions = requireNonNull(tableFunctions, "tableFunctions is null");
+        this.functionProvider = requireNonNull(functionProvider, "functionProvider is null");
         this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
         this.supportsReportingWrittenBytes = supportsReportingWrittenBytes;
     }
@@ -250,6 +254,7 @@ public class MockConnectorFactory
                 procedures,
                 tableProcedures,
                 tableFunctions,
+                functionProvider,
                 allowMissingColumnsOnInsert,
                 analyzeProperties,
                 schemaProperties,
@@ -375,6 +380,7 @@ public class MockConnectorFactory
         private Set<Procedure> procedures = ImmutableSet.of();
         private Set<TableProcedureMetadata> tableProcedures = ImmutableSet.of();
         private Set<ConnectorTableFunction> tableFunctions = ImmutableSet.of();
+        private Optional<FunctionProvider> functionProvider = Optional.empty();
         private Supplier<List<PropertyMetadata<?>>> analyzeProperties = ImmutableList::of;
         private Supplier<List<PropertyMetadata<?>>> schemaProperties = ImmutableList::of;
         private Supplier<List<PropertyMetadata<?>>> tableProperties = ImmutableList::of;
@@ -597,6 +603,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withFunctionProvider(Optional<FunctionProvider> functionProvider)
+        {
+            this.functionProvider = requireNonNull(functionProvider, "functionProvider is null");
+            return this;
+        }
+
         public Builder withAnalyzeProperties(Supplier<List<PropertyMetadata<?>>> analyzeProperties)
         {
             this.analyzeProperties = requireNonNull(analyzeProperties, "analyzeProperties is null");
@@ -712,6 +724,7 @@ public class MockConnectorFactory
                     procedures,
                     tableProcedures,
                     tableFunctions,
+                    functionProvider,
                     analyzeProperties,
                     schemaProperties,
                     tableProperties,

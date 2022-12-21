@@ -124,6 +124,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.mergingExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.roundRobinExchange;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -366,13 +367,54 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitTableFunction(TableFunctionNode node, PreferredProperties preferredProperties)
         {
-            throw new UnsupportedOperationException("execution by operator is not yet implemented for table function " + node.getName());
+            throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
         }
 
         @Override
         public PlanWithProperties visitTableFunctionProcessor(TableFunctionProcessorNode node, PreferredProperties preferredProperties)
         {
-            throw new UnsupportedOperationException("execution by operator is not yet implemented for table function " + node.getName());
+            if (node.getSource().isEmpty()) {
+                return new PlanWithProperties(node, deriveProperties(node, ImmutableList.of()));
+            }
+
+            if (node.getSpecification().isEmpty()) {
+                // node.getSpecification.isEmpty() indicates that there were no sources or a single source with row semantics.
+                // The case of no sources was addressed above.
+                // The case of a single source with row semantics is addressed here. A single source with row semantics can be distributed arbitrarily.
+                PlanWithProperties child = planChild(node, PreferredProperties.any());
+                return rebaseAndDeriveProperties(node, child);
+            }
+
+            List<Symbol> partitionBy = node.getSpecification().orElseThrow().getPartitionBy();
+            List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
+            if (!partitionBy.isEmpty()) {
+                desiredProperties.add(new GroupingProperty<>(partitionBy));
+            }
+            node.getSpecification().orElseThrow().getOrderingScheme().ifPresent(orderingScheme -> desiredProperties.addAll(orderingScheme.toLocalProperties()));
+
+            PlanWithProperties child = planChild(node, partitionedWithLocal(ImmutableSet.copyOf(partitionBy), desiredProperties));
+
+            // TODO do not gather if already gathered
+            if (!node.isPruneWhenEmpty()) {
+                child = withDerivedProperties(
+                        gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
+                        child.getProperties());
+            }
+            else if (!isStreamPartitionedOn(child.getProperties(), partitionBy) &&
+                    !isNodePartitionedOn(child.getProperties(), partitionBy)) {
+                if (partitionBy.isEmpty()) {
+                    child = withDerivedProperties(
+                            gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
+                            child.getProperties());
+                }
+                else {
+                    child = withDerivedProperties(
+                            partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), partitionBy, node.getHashSymbol()),
+                            child.getProperties());
+                }
+            }
+
+            return rebaseAndDeriveProperties(node, child);
         }
 
         @Override
