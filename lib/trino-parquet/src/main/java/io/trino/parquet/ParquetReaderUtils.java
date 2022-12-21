@@ -73,6 +73,21 @@ public final class ParquetReaderUtils
         return value | inputByte << 28;
     }
 
+    public static int readFixedWidthInt(SimpleSliceInputStream input, int bytesWidth)
+    {
+        return switch (bytesWidth) {
+            case 0 -> 0;
+            case 1 -> input.readByte() & 0xFF;
+            case 2 -> input.readShort() & 0xFFFF;
+            case 3 -> {
+                int value = input.readShort() & 0xFFFF;
+                yield ((input.readByte() & 0xFF) << 16) | value;
+            }
+            case 4 -> input.readInt();
+            default -> throw new IllegalArgumentException(format("Encountered bytesWidth (%d) that requires more than 4 bytes", bytesWidth));
+        };
+    }
+
     /**
      * Propagate the sign bit in values that are shorter than 8 bytes.
      * <p>
