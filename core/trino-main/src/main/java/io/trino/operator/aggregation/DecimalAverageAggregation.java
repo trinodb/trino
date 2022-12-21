@@ -41,7 +41,7 @@ import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.Decimals.writeShortDecimal;
 import static io.trino.spi.type.Int128Math.addWithOverflow;
 import static io.trino.spi.type.Int128Math.divideRoundUp;
-import static java.math.BigDecimal.ROUND_HALF_UP;
+import static java.math.RoundingMode.HALF_UP;
 
 @AggregationFunction("avg")
 @Description("Calculates the average value")
@@ -169,7 +169,7 @@ public final class DecimalAverageAggregation
             sum = sum.add(new BigDecimal(OVERFLOW_MULTIPLIER.multiply(BigInteger.valueOf(overflow))));
 
             BigDecimal count = BigDecimal.valueOf(state.getLong());
-            return Decimals.encodeScaledValue(sum.divide(count, type.getScale(), ROUND_HALF_UP), type.getScale());
+            return Decimals.encodeScaledValue(sum.divide(count, type.getScale(), HALF_UP), type.getScale());
         }
 
         Int128 result = divideRoundUp(decimal[offset], decimal[offset + 1], 0, 0, state.getLong(), 0);
