@@ -116,7 +116,6 @@ import static com.google.common.collect.Iterators.advance;
 import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
@@ -960,14 +959,14 @@ public class OrcTester
         return newFields;
     }
 
-    public static DataSize writeOrcColumnHive(File outputFile, Format format, CompressionKind compression, Type type, Iterator<?> values)
+    public static void writeOrcColumnHive(File outputFile, Format format, CompressionKind compression, Type type, Iterator<?> values)
             throws Exception
     {
         RecordWriter recordWriter = createOrcRecordWriter(outputFile, format, compression, type);
-        return writeOrcFileColumnHive(outputFile, recordWriter, type, values);
+        writeOrcFileColumnHive(recordWriter, type, values);
     }
 
-    public static DataSize writeOrcFileColumnHive(File outputFile, RecordWriter recordWriter, Type type, Iterator<?> values)
+    public static void writeOrcFileColumnHive(RecordWriter recordWriter, Type type, Iterator<?> values)
             throws Exception
     {
         SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", type);
@@ -986,7 +985,6 @@ public class OrcTester
         }
 
         recordWriter.close(false);
-        return succinctBytes(outputFile.length());
     }
 
     private static ObjectInspector getJavaObjectInspector(Type type)
