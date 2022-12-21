@@ -544,6 +544,9 @@ public class MockConnector
         public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column) {}
 
         @Override
+        public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Type type) {}
+
+        @Override
         public void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, TrinoPrincipal principal) {}
 
         @Override

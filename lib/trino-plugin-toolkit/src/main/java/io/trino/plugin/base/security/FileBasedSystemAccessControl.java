@@ -62,6 +62,7 @@ import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivileg
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
+import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
@@ -669,6 +670,14 @@ public class FileBasedSystemAccessControl
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {
             denyRenameColumn(table.toString());
+        }
+    }
+
+    @Override
+    public void checkCanAlterColumn(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        if (!checkTablePermission(context, table, OWNERSHIP)) {
+            denyAlterColumn(table.toString());
         }
     }
 

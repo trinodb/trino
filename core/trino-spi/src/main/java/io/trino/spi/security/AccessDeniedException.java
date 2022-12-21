@@ -293,6 +293,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot drop a column from table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyAlterColumn(String tableName)
+    {
+        denyAlterColumn(tableName, null);
+    }
+
+    public static void denyAlterColumn(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot alter a column for table %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denySetTableAuthorization(String tableName, TrinoPrincipal principal)
     {
         denySetTableAuthorization(tableName, principal, null);

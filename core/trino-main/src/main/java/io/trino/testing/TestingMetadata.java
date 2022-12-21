@@ -314,6 +314,17 @@ public class TestingMetadata
     }
 
     @Override
+    public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Type type)
+    {
+        ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
+        SchemaTableName tableName = getTableName(tableHandle);
+        List<ColumnMetadata> columns = new ArrayList<>(tableMetadata.getColumns());
+        ColumnMetadata columnMetadata = getColumnMetadata(session, tableHandle, column);
+        columns.set(columns.indexOf(columnMetadata), ColumnMetadata.builderFrom(columnMetadata).setType(type).build());
+        tables.put(tableName, new ConnectorTableMetadata(tableName, ImmutableList.copyOf(columns), tableMetadata.getProperties(), tableMetadata.getComment()));
+    }
+
+    @Override
     public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);

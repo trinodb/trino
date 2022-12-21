@@ -315,6 +315,25 @@ public abstract class BaseDataDefinitionTaskTest
             tables.remove(oldTableName);
         }
 
+        @Override
+        public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle columnHandle, Type type)
+        {
+            SchemaTableName tableName = getTableName(tableHandle);
+            ConnectorTableMetadata metadata = tables.get(tableName);
+
+            ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builderWithExpectedSize(metadata.getColumns().size());
+            for (ColumnMetadata column : metadata.getColumns()) {
+                if (column.getName().equals(((TestingColumnHandle) columnHandle).getName())) {
+                    columns.add(new ColumnMetadata(column.getName(), type));
+                }
+                else {
+                    columns.add(column);
+                }
+            }
+
+            tables.put(tableName, new ConnectorTableMetadata(tableName, columns.build()));
+        }
+
         private ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
         {
             return tables.get(getTableName(tableHandle));

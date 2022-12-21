@@ -278,6 +278,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanAlterColumn(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        delegate().checkCanAlterColumn(context, table);
+    }
+
+    @Override
     public void checkCanSetTableAuthorization(SystemSecurityContext context, CatalogSchemaTableName table, TrinoPrincipal principal)
     {
         delegate().checkCanSetTableAuthorization(context, table, principal);

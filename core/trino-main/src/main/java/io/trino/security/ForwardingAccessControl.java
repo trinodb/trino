@@ -234,6 +234,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanAlterColumn(SecurityContext context, QualifiedObjectName tableName)
+    {
+        delegate().checkCanAlterColumn(context, tableName);
+    }
+
+    @Override
     public void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName)
     {
         delegate().checkCanDropColumn(context, tableName);

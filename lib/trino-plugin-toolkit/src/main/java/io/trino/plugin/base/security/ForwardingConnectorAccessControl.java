@@ -188,6 +188,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanAlterColumn(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        delegate().checkCanAlterColumn(context, tableName);
+    }
+
+    @Override
     public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, TrinoPrincipal principal)
     {
         delegate().checkCanSetTableAuthorization(context, tableName, principal);

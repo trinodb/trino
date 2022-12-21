@@ -73,6 +73,7 @@ import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ALTER_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_MATERIALIZED_VIEW;
@@ -233,6 +234,7 @@ public class TestAccessControl
         assertAccessDenied("TRUNCATE TABLE orders", "Cannot truncate table .*.orders.*", privilege("orders", TRUNCATE_TABLE));
         assertAccessDenied("CREATE TABLE foo AS SELECT * FROM orders", "Cannot create table .*.foo.*", privilege("foo", CREATE_TABLE));
         assertAccessDenied("ALTER TABLE orders SET PROPERTIES field_length = 32", "Cannot set table properties to .*.orders.*", privilege("orders", SET_TABLE_PROPERTIES));
+        assertAccessDenied("ALTER TABLE orders ALTER COLUMN orderkey SET DATA TYPE char(100)", "Cannot alter a column for table .*.orders.*", privilege("orders", ALTER_COLUMN));
         assertAccessDenied("SELECT * FROM nation", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
         assertAccessDenied("SELECT * FROM (SELECT * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
         assertAccessDenied("SELECT name FROM (SELECT * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
@@ -571,6 +573,16 @@ public class TestAccessControl
         assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM orders");
         assertAccessDenied("COMMENT ON COLUMN " + viewName + ".orderkey IS 'new order key comment'", "Cannot comment column to .*", privilege(viewName, COMMENT_COLUMN));
         assertUpdate(getSession(), "COMMENT ON COLUMN " + viewName + ".orderkey IS 'new comment'");
+    }
+
+    @Test
+    public void testSetColumnType()
+    {
+        String tableName = "test_set_colun_type" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 0);
+
+        assertAccessDenied("ALTER TABLE " + tableName + " ALTER COLUMN orderkey SET DATA TYPE char(100)", "Cannot alter a column for table .*." + tableName + ".*", privilege(tableName, ALTER_COLUMN));
+        assertAccessAllowed("ALTER TABLE " + tableName + " ALTER COLUMN orderkey SET DATA TYPE char(100)", privilege(tableName + ".orderkey", ALTER_COLUMN));
     }
 
     @Test
