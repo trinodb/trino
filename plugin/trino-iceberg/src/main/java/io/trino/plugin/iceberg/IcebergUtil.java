@@ -105,6 +105,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
+import static io.trino.plugin.iceberg.TrinoMetricsReporter.TRINO_METRICS_REPORTER;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
@@ -172,7 +173,7 @@ public final class IcebergUtil
                 table.getTableName(),
                 Optional.empty(),
                 Optional.empty());
-        return new BaseTable(operations, quotedTableName(table));
+        return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
     }
 
     public static Table getIcebergTableWithMetadata(
@@ -190,7 +191,7 @@ public final class IcebergUtil
                 Optional.empty(),
                 Optional.empty());
         operations.initializeFromMetadata(tableMetadata);
-        return new BaseTable(operations, quotedTableName(table));
+        return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
     }
 
     public static Map<String, Object> getIcebergTableProperties(Table icebergTable)

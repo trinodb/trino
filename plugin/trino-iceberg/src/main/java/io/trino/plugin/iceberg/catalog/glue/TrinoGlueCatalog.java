@@ -101,6 +101,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getHiveCatalogNam
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.IcebergUtil.validateTableCanBeDropped;
+import static io.trino.plugin.iceberg.TrinoMetricsReporter.TRINO_METRICS_REPORTER;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getMaterializedViewTableInput;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getViewTableInput;
@@ -330,7 +331,7 @@ public class TrinoGlueCatalog
                             table.getTableName(),
                             Optional.empty(),
                             Optional.empty());
-                    return new BaseTable(operations, quotedTableName(table)).operations().current();
+                    return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER).operations().current();
                 });
 
         return getIcebergTableWithMetadata(
