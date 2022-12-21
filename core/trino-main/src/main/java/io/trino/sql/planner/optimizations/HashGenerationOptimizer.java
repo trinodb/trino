@@ -56,6 +56,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
@@ -498,6 +499,50 @@ public class HashGenerationOptimizer
                             node.getPrePartitionedInputs(),
                             node.getPreSortedOrderPrefix()),
                     child.getHashSymbols());
+        }
+
+        @Override
+        public PlanWithProperties visitTableFunctionProcessor(TableFunctionProcessorNode node, HashComputationSet parentPreference)
+        {
+            return visitPlan(node, parentPreference);
+
+            // TODO The below code adds a hash symbol. The optimization fails because the new symbol is no in the node's output
+            //  (it is neither a proper output nor a pass-through symbol). This could be fixed by exposing the symbol on output,
+            //  but neither the proper outputs nor the pass-through is the right place to do that.
+            /*if (node.getSource().isEmpty()) {
+                return visitPlan(node, parentPreference);
+            }
+
+            List<Symbol> partitionBy = node.getSpecification().map(DataOrganizationSpecification::getPartitionBy).orElse(ImmutableList.of());
+
+            if (partitionBy.isEmpty()) {
+                return planSimpleNodeWithProperties(node, parentPreference, true);
+            }
+
+            Optional<HashComputation> hashComputation = computeHash(partitionBy);
+            PlanWithProperties child = planAndEnforce(
+                    node.getSource().orElseThrow(),
+                    new HashComputationSet(hashComputation),
+                    true,
+                    parentPreference.withHashComputation(node, hashComputation));
+
+            Symbol hashSymbol = child.getRequiredHashSymbol(hashComputation.get());
+
+            return new PlanWithProperties(
+                    new TableFunctionProcessorNode(
+                            node.getId(),
+                            node.getName(),
+                            node.getProperOutputs(),
+                            Optional.of(child.getNode()),
+                            node.getPassThroughSpecifications(),
+                            node.getRequiredSymbols(),
+                            node.getMarkerSymbols(),
+                            node.getSpecification(),
+                            node.getPrePartitioned(),
+                            node.getPreSorted(),
+                            Optional.of(hashSymbol),
+                            node.getHandle()),
+                    child.getHashSymbols());*/
         }
 
         @Override

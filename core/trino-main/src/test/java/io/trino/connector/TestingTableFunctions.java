@@ -13,8 +13,13 @@
  */
 package io.trino.connector;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
@@ -27,20 +32,33 @@ import io.trino.spi.ptf.DescriptorArgumentSpecification;
 import io.trino.spi.ptf.ReturnTypeSpecification.DescribedTable;
 import io.trino.spi.ptf.ScalarArgument;
 import io.trino.spi.ptf.ScalarArgumentSpecification;
+import io.trino.spi.ptf.TableArgument;
 import io.trino.spi.ptf.TableArgumentSpecification;
 import io.trino.spi.ptf.TableFunctionAnalysis;
+import io.trino.spi.ptf.TableFunctionProcessState;
+import io.trino.spi.ptf.TableFunctionProcessState.TableFunctionResult;
+import io.trino.spi.ptf.TableFunctionProcessor;
+import io.trino.spi.ptf.TableFunctionProcessorProvider;
+import io.trino.spi.type.RowType;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.ptf.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.ptf.ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH;
+import static io.trino.spi.ptf.TableFunctionProcessState.Type.FINISHED;
+import static io.trino.spi.ptf.TableFunctionProcessState.Type.FORWARD;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.util.Objects.requireNonNull;
 
 public class TestingTableFunctions
 {
@@ -442,5 +460,342 @@ public class TestingTableFunctions
         {
             return tableHandle;
         }
+    }
+
+    // for testing execution by operator
+
+    public static class IdentityFunction
+            extends AbstractConnectorTableFunction
+    {
+        public IdentityFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "identity_function",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT")
+                                    .keepWhenEmpty()
+                                    .build()),
+                    GENERIC_TABLE);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            List<RowType.Field> inputColumns = ((TableArgument) arguments.get("INPUT")).getRowType().getFields();
+            Descriptor returnedType = new Descriptor(inputColumns.stream()
+                    .map(field -> new Descriptor.Field(field.getName().orElse("anonymous_column"), Optional.of(field.getType())))
+                    .collect(toImmutableList()));
+            return TableFunctionAnalysis.builder()
+                    .handle(new EmptyTableFunctionHandle())
+                    .returnedType(returnedType)
+                    .requiredColumns("INPUT", IntStream.range(0, inputColumns.size()).boxed().collect(toImmutableList()))
+                    .build();
+        }
+
+        public static class IdentityFunctionProcessorProvider
+                implements TableFunctionProcessorProvider
+        {
+            @Override
+            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            {
+                return input -> {
+                    if (input == null) {
+                        return new TableFunctionProcessState(FINISHED, false, null, null);
+                    }
+                    Optional<Page> inputPage = getOnlyElement(input);
+                    return inputPage.map(page -> new TableFunctionProcessState(FORWARD, true, new TableFunctionResult(page), null)).orElseThrow();
+                };
+            }
+        }
+    }
+
+    public static class IdentityPassThroughFunction
+            extends AbstractConnectorTableFunction
+    {
+        public IdentityPassThroughFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "identity_pass_through_function",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT")
+                                    .passThroughColumns()
+                                    .keepWhenEmpty()
+                                    .build()),
+                    ONLY_PASS_THROUGH);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(new EmptyTableFunctionHandle())
+                    .requiredColumns("INPUT", ImmutableList.of(0)) // per spec, function must require at least one column
+                    .build();
+        }
+
+        public static class IdentityPassThroughFunctionProcessorProvider
+                implements TableFunctionProcessorProvider
+        {
+            @Override
+            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            {
+                return new IdentityPassThroughFunctionProcessor();
+            }
+        }
+
+        public static class IdentityPassThroughFunctionProcessor
+                implements TableFunctionProcessor
+        {
+            private long processedPositions; // stateful
+
+            @Override
+            public TableFunctionProcessState process(List<Optional<Page>> input)
+            {
+                if (input == null) {
+                    return new TableFunctionProcessState(FINISHED, false, null, null);
+                }
+
+                Page page = getOnlyElement(input).orElseThrow();
+                BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
+                for (long index = processedPositions; index < processedPositions + page.getPositionCount(); index++) {
+                    // TODO check for long overflow
+                    builder.writeLong(index);
+                }
+                processedPositions = processedPositions + page.getPositionCount();
+                return new TableFunctionProcessState(FORWARD, true, new TableFunctionResult(new Page(builder.build())), null);
+            }
+        }
+    }
+
+    public static class RepeatFunction
+            extends AbstractConnectorTableFunction
+    {
+        public RepeatFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "repeat",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT")
+                                    .passThroughColumns()
+                                    .keepWhenEmpty()
+                                    .build(),
+                            ScalarArgumentSpecification.builder()
+                                    .name("N")
+                                    .type(INTEGER)
+                                    .defaultValue(2L)
+                                    .build()),
+                    ONLY_PASS_THROUGH);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            ScalarArgument count = (ScalarArgument) arguments.get("N");
+            requireNonNull(count.getValue(), "count value for function repeat() is null");
+            checkArgument((long) count.getValue() > 0, "count value for function repeat() must be positive");
+
+            return TableFunctionAnalysis.builder()
+                    .handle(new RepeatFunctionHandle((long) count.getValue()))
+                    .requiredColumns("INPUT", ImmutableList.of(0)) // per spec, function must require at least one column
+                    .build();
+        }
+
+        public static class RepeatFunctionHandle
+                implements ConnectorTableFunctionHandle
+        {
+            private final long count;
+
+            @JsonCreator
+            public RepeatFunctionHandle(@JsonProperty("count") long count)
+            {
+                this.count = count;
+            }
+
+            @JsonProperty
+            public long getCount()
+            {
+                return count;
+            }
+        }
+
+        public static class RepeatFunctionProcessorProvider
+                implements TableFunctionProcessorProvider
+        {
+            @Override
+            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            {
+                return new RepeatFunctionProcessor(((RepeatFunctionHandle) handle).getCount());
+            }
+        }
+
+        public static class RepeatFunctionProcessor
+                implements TableFunctionProcessor
+        {
+            private final long count;
+
+            // stateful
+            private long processedPositions;
+            private long processedRounds;
+            private Block indexes;
+            boolean usedData;
+
+            public RepeatFunctionProcessor(long count)
+            {
+                this.count = count;
+            }
+
+            @Override
+            public TableFunctionProcessState process(List<Optional<Page>> input)
+            {
+                if (input == null) {
+                    if (processedRounds < count && indexes != null) {
+                        processedRounds++;
+                        return new TableFunctionProcessState(FORWARD, false, new TableFunctionResult(new Page(indexes)), null);
+                    }
+                    return new TableFunctionProcessState(FINISHED, false, null, null);
+                }
+
+                Page page = getOnlyElement(input).orElseThrow();
+                if (processedRounds == 0) {
+                    BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
+                    for (long index = processedPositions; index < processedPositions + page.getPositionCount(); index++) {
+                        // TODO check for long overflow
+                        builder.writeLong(index);
+                    }
+                    processedPositions = processedPositions + page.getPositionCount();
+                    indexes = builder.build();
+                    usedData = true;
+                }
+                else {
+                    usedData = false;
+                }
+                processedRounds++;
+
+                TableFunctionProcessState result = new TableFunctionProcessState(FORWARD, usedData, new TableFunctionResult(new Page(indexes)), null);
+
+                if (processedRounds == count) {
+                    processedRounds = 0;
+                    indexes = null;
+                }
+
+                return result;
+            }
+        }
+    }
+
+    public static class TestInputsFunction
+            extends AbstractConnectorTableFunction
+    {
+        public TestInputsFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "test_inputs_function",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .rowSemantics()
+                                    .name("INPUT_1")
+                                    .build(),
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT_2")
+                                    .keepWhenEmpty()
+                                    .build(),
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT_3")
+                                    .keepWhenEmpty()
+                                    .build(),
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT_4")
+                                    .keepWhenEmpty()
+                                    .build()),
+                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("boolean_result", Optional.of(BOOLEAN))))));
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(new EmptyTableFunctionHandle())
+                    .requiredColumns("INPUT_1", IntStream.range(0, ((TableArgument) arguments.get("INPUT_1")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
+                    .requiredColumns("INPUT_2", IntStream.range(0, ((TableArgument) arguments.get("INPUT_2")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
+                    .requiredColumns("INPUT_3", IntStream.range(0, ((TableArgument) arguments.get("INPUT_3")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
+                    .requiredColumns("INPUT_4", IntStream.range(0, ((TableArgument) arguments.get("INPUT_4")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
+                    .build();
+        }
+
+        public static class TestInputsFunctionProcessorProvider
+                implements TableFunctionProcessorProvider
+        {
+            @Override
+            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            {
+                BlockBuilder resultBuilder = BOOLEAN.createBlockBuilder(null, 1);
+                BOOLEAN.writeBoolean(resultBuilder, true);
+
+                TableFunctionResult result = new TableFunctionResult(new Page(resultBuilder.build()));
+
+                return input -> {
+                    if (input == null) {
+                        return new TableFunctionProcessState(FINISHED, false, null, null);
+                    }
+                    return new TableFunctionProcessState(FORWARD, true, result, null);
+                };
+            }
+        }
+    }
+
+    public static class TestSingleInputRowSemanticsFunction
+            extends AbstractConnectorTableFunction
+    {
+        public TestSingleInputRowSemanticsFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "test_single_input_function",
+                    ImmutableList.of(TableArgumentSpecification.builder()
+                            .rowSemantics()
+                            .name("INPUT")
+                            .build()),
+                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("boolean_result", Optional.of(BOOLEAN))))));
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(new EmptyTableFunctionHandle())
+                    .requiredColumns("INPUT", IntStream.range(0, ((TableArgument) arguments.get("INPUT")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
+                    .build();
+        }
+
+        public static class TestSingleInputFunctionProcessorProvider
+                implements TableFunctionProcessorProvider
+        {
+            @Override
+            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            {
+                BlockBuilder builder = BOOLEAN.createBlockBuilder(null, 1);
+                BOOLEAN.writeBoolean(builder, true);
+                TableFunctionResult result = new TableFunctionResult(new Page(builder.build()));
+
+                return input -> {
+                    if (input == null) {
+                        return new TableFunctionProcessState(FINISHED, false, null, null);
+                    }
+                    return new TableFunctionProcessState(FORWARD, true, result, null);
+                };
+            }
+        }
+    }
+
+    public static class EmptyTableFunctionHandle
+            implements ConnectorTableFunctionHandle
+    {
     }
 }

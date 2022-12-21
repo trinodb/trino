@@ -83,6 +83,7 @@ import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.ptf.ConnectorTableFunction;
@@ -159,6 +160,7 @@ public class MockConnector
     private final Set<Procedure> procedures;
     private final Set<TableProcedureMetadata> tableProcedures;
     private final Set<ConnectorTableFunction> tableFunctions;
+    private final Optional<FunctionProvider> functionProvider;
     private final boolean supportsReportingWrittenBytes;
     private final boolean allowMissingColumnsOnInsert;
     private final Supplier<List<PropertyMetadata<?>>> analyzeProperties;
@@ -201,6 +203,7 @@ public class MockConnector
             Set<Procedure> procedures,
             Set<TableProcedureMetadata> tableProcedures,
             Set<ConnectorTableFunction> tableFunctions,
+            Optional<FunctionProvider> functionProvider,
             boolean allowMissingColumnsOnInsert,
             Supplier<List<PropertyMetadata<?>>> analyzeProperties,
             Supplier<List<PropertyMetadata<?>>> schemaProperties,
@@ -241,6 +244,7 @@ public class MockConnector
         this.procedures = requireNonNull(procedures, "procedures is null");
         this.tableProcedures = requireNonNull(tableProcedures, "tableProcedures is null");
         this.tableFunctions = requireNonNull(tableFunctions, "tableFunctions is null");
+        this.functionProvider = requireNonNull(functionProvider, "functionProvider is null");
         this.supportsReportingWrittenBytes = supportsReportingWrittenBytes;
         this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
         this.analyzeProperties = requireNonNull(analyzeProperties, "analyzeProperties is null");
@@ -331,6 +335,12 @@ public class MockConnector
     public Set<ConnectorTableFunction> getTableFunctions()
     {
         return tableFunctions;
+    }
+
+    @Override
+    public Optional<FunctionProvider> getFunctionProvider()
+    {
+        return functionProvider;
     }
 
     @Override
