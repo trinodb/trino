@@ -55,7 +55,7 @@ import static io.trino.orc.OrcRecordReader.wrapWithCacheIfTinyStripes;
 import static io.trino.orc.OrcTester.Format.ORC_12;
 import static io.trino.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static io.trino.orc.OrcTester.READER_OPTIONS;
-import static io.trino.orc.OrcTester.writeOrcFileColumnHive;
+import static io.trino.orc.OrcTester.writeOrcColumnHive;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.orc.metadata.CompressionKind.ZLIB;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -78,7 +78,7 @@ public class TestCachingOrcDataSource
         tempFile = new TempFile();
         Random random = new Random();
         Iterator<String> iterator = Stream.generate(() -> Long.toHexString(random.nextLong())).limit(POSITION_COUNT).iterator();
-        writeOrcFileColumnHive(
+        writeOrcColumnHive(
                 createOrcRecordWriter(tempFile.getFile(), ORC_12, ZLIB, javaStringObjectInspector),
                 VARCHAR,
                 iterator);
