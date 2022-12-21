@@ -466,9 +466,8 @@ public final class IcebergUtil
             if (type.equals(TIMESTAMP_TZ_MICROS)) {
                 return timestampTzFromMicros(parseLong(valueString));
             }
-            if (type instanceof VarcharType) {
+            if (type instanceof VarcharType varcharType) {
                 Slice value = utf8Slice(valueString);
-                VarcharType varcharType = (VarcharType) type;
                 if (!varcharType.isUnbounded() && SliceUtf8.countCodePoints(value) > varcharType.getBoundedLength()) {
                     throw new IllegalArgumentException();
                 }

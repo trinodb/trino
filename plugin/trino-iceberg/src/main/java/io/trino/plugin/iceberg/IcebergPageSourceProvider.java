@@ -842,8 +842,7 @@ public class IcebergPageSourceProvider
         if (columnType instanceof ArrayType) {
             return new ArrayType(getOrcReadType(((ArrayType) columnType).getElementType(), typeManager));
         }
-        if (columnType instanceof MapType) {
-            MapType mapType = (MapType) columnType;
+        if (columnType instanceof MapType mapType) {
             Type keyType = getOrcReadType(mapType.getKeyType(), typeManager);
             Type valueType = getOrcReadType(mapType.getValueType(), typeManager);
             return new MapType(keyType, valueType, typeManager.getTypeOperators());
