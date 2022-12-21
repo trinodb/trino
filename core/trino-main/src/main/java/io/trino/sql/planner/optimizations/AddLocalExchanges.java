@@ -36,6 +36,7 @@ import io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProper
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -58,6 +59,8 @@ import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
@@ -105,6 +108,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.mergingExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -479,6 +483,82 @@ public class AddLocalExchanges
                     node.getPattern(),
                     node.getSubsets(),
                     node.getVariableDefinitions());
+
+            return deriveProperties(result, child.getProperties());
+        }
+
+        @Override
+        public PlanWithProperties visitTableFunction(TableFunctionNode node, StreamPreferredProperties parentPreferences)
+        {
+            throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
+        }
+
+        @Override
+        public PlanWithProperties visitTableFunctionProcessor(TableFunctionProcessorNode node, StreamPreferredProperties parentPreferences)
+        {
+            if (node.getSource().isEmpty()) {
+                return deriveProperties(node, ImmutableList.of());
+            }
+
+            if (node.getSpecification().isEmpty()) {
+                // node.getSpecification.isEmpty() indicates that there were no sources or a single source with row semantics.
+                // The case of no sources was addressed above.
+                // The case of a single source with row semantics is addressed here. Source's properties do not hold after the TableFunctionProcessorNode
+                PlanWithProperties child = planAndEnforce(node.getSource().orElseThrow(), StreamPreferredProperties.any(), StreamPreferredProperties.any());
+                return rebaseAndDeriveProperties(node, ImmutableList.of(child));
+            }
+
+            List<Symbol> partitionBy = node.getSpecification().orElseThrow().getPartitionBy();
+            StreamPreferredProperties childRequirements;
+            if (!node.isPruneWhenEmpty()) {
+                childRequirements = singleStream();
+            }
+            else {
+                childRequirements = parentPreferences
+                        .constrainTo(node.getSource().orElseThrow().getOutputSymbols())
+                        .withDefaultParallelism(session)
+                        .withPartitioning(partitionBy);
+            }
+
+            PlanWithProperties child = planAndEnforce(node.getSource().orElseThrow(), childRequirements, childRequirements);
+
+            List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
+            if (!partitionBy.isEmpty()) {
+                desiredProperties.add(new GroupingProperty<>(partitionBy));
+            }
+            node.getSpecification().flatMap(DataOrganizationSpecification::getOrderingScheme).ifPresent(orderingScheme -> desiredProperties.addAll(orderingScheme.toLocalProperties()));
+            Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
+
+            Set<Symbol> prePartitionedInputs = ImmutableSet.of();
+            if (!partitionBy.isEmpty()) {
+                Optional<LocalProperty<Symbol>> groupingRequirement = matchIterator.next();
+                Set<Symbol> unPartitionedInputs = groupingRequirement.map(LocalProperty::getColumns).orElse(ImmutableSet.of());
+                prePartitionedInputs = partitionBy.stream()
+                        .filter(symbol -> !unPartitionedInputs.contains(symbol))
+                        .collect(toImmutableSet());
+            }
+
+            int preSortedOrderPrefix = 0;
+            if (prePartitionedInputs.equals(ImmutableSet.copyOf(partitionBy))) {
+                while (matchIterator.hasNext() && matchIterator.next().isEmpty()) {
+                    preSortedOrderPrefix++;
+                }
+            }
+
+            TableFunctionProcessorNode result = new TableFunctionProcessorNode(
+                    node.getId(),
+                    node.getName(),
+                    node.getProperOutputs(),
+                    Optional.of(child.getNode()),
+                    node.isPruneWhenEmpty(),
+                    node.getPassThroughSpecifications(),
+                    node.getRequiredSymbols(),
+                    node.getMarkerSymbols(),
+                    node.getSpecification(),
+                    prePartitionedInputs,
+                    preSortedOrderPrefix,
+                    node.getHashSymbol(),
+                    node.getHandle());
 
             return deriveProperties(result, child.getProperties());
         }
