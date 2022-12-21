@@ -214,14 +214,14 @@ public class ParquetReader
                     filteredOffsetIndex = getFilteredOffsetIndex(blockRowRanges[rowGroup], rowGroup, rowGroupRowCount, columnPath);
                 }
                 if (filteredOffsetIndex == null) {
-                    DiskRange range = new DiskRange(startingPosition, toIntExact(totalLength));
+                    DiskRange range = new DiskRange(startingPosition, totalLength);
                     totalDataSize = range.getLength();
                     ranges.put(new ChunkKey(columnId, rowGroup), range);
                 }
                 else {
                     List<OffsetRange> offsetRanges = filteredOffsetIndex.calculateOffsetRanges(startingPosition);
                     for (OffsetRange offsetRange : offsetRanges) {
-                        DiskRange range = new DiskRange(offsetRange.getOffset(), toIntExact(offsetRange.getLength()));
+                        DiskRange range = new DiskRange(offsetRange.getOffset(), offsetRange.getLength());
                         totalDataSize += range.getLength();
                         ranges.put(new ChunkKey(columnId, rowGroup), range);
                     }
