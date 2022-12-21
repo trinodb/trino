@@ -13,6 +13,7 @@ Synopsis
       [ WITH ( property_name = expression [, ...] ) ]
     ALTER TABLE [ IF EXISTS ] name DROP COLUMN [ IF EXISTS ] column_name
     ALTER TABLE [ IF EXISTS ] name RENAME COLUMN [ IF EXISTS ] old_name TO new_name
+    ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name SET DATA TYPE new_type
     ALTER TABLE name SET AUTHORIZATION ( user | USER user | ROLE role )
     ALTER TABLE name SET PROPERTIES property_name = expression [, ...]
     ALTER TABLE name EXECUTE command [ ( parameter => expression [, ... ] ) ]
@@ -94,6 +95,10 @@ Rename column ``id`` to ``user_id`` in the ``users`` table::
 Rename column ``id`` to ``user_id`` in the ``users`` table if table ``users`` and column ``id`` exists::
 
     ALTER TABLE IF EXISTS users RENAME column IF EXISTS id to user_id;
+
+Change type of column ``id`` to ``bigint`` in the ``users`` table::
+
+    ALTER TABLE users ALTER COLUMN id SET DATA TYPE bigint;
 
 Change owner of table ``people`` to user ``alice``::
 

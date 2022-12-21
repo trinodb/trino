@@ -229,6 +229,13 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanAlterColumn(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanAlterColumn(securityContext, getQualifiedObjectName(tableName));
+    }
+
+    @Override
     public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         checkArgument(context == null, "context must be null");

@@ -46,6 +46,7 @@ import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
+import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -167,6 +168,25 @@ public class BlackHoleMetadata
         return tables.values().stream()
                 .filter(table -> prefix.matches(table.toSchemaTableName()))
                 .collect(toImmutableMap(BlackHoleTableHandle::toSchemaTableName, handle -> handle.toTableMetadata().getColumns()));
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Type type)
+    {
+        BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
+        BlackHoleColumnHandle column = (BlackHoleColumnHandle) columnHandle;
+        List<BlackHoleColumnHandle> columns = new ArrayList<>(table.getColumnHandles());
+        columns.set(columns.indexOf(column), new BlackHoleColumnHandle(column.getName(), type));
+
+        tables.put(table.toSchemaTableName(), new BlackHoleTableHandle(
+                table.getSchemaName(),
+                table.getTableName(),
+                ImmutableList.copyOf(columns),
+                table.getSplitCount(),
+                table.getPagesPerSplit(),
+                table.getRowsPerPage(),
+                table.getFieldsLength(),
+                table.getPageProcessingDelay()));
     }
 
     @Override
