@@ -786,7 +786,7 @@ public class TestNodeScheduler
             TaskId taskId = new TaskId(new StageId("test", 1), task, 0);
             task++;
             MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, ImmutableList.copyOf(assignments1.get(node)), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
-            remoteTask.startSplits(15); // 15 running, 5 queued, no maxSplitWeightPerNode adjustment
+            remoteTask.startSplits(15); // 15 running, 5 queued, no maxSplitWeightPerTask adjustment
             nodeTaskMap.addTask(node, remoteTask);
             taskMap.put(node, remoteTask);
         }
