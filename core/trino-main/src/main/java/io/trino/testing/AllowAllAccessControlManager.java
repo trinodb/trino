@@ -139,6 +139,9 @@ public class AllowAllAccessControlManager
     public void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
+    public void checkCanAlterColumn(SecurityContext context, QualifiedObjectName tableName) {}
+
+    @Override
     public void checkCanSetTableAuthorization(SecurityContext context, QualifiedObjectName tableName, TrinoPrincipal principal) {}
 
     @Override

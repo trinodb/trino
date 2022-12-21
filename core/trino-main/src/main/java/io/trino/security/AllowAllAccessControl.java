@@ -182,6 +182,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanAlterColumn(SecurityContext context, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
     public void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName)
     {
     }

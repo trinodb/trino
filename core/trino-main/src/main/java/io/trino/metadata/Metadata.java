@@ -240,6 +240,11 @@ public interface Metadata
     void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column);
 
     /**
+     * Set the specified type to the column.
+     */
+    void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type);
+
+    /**
      * Set the authorization (owner) of specified table's user/role
      */
     void setTableAuthorization(Session session, CatalogSchemaTableName table, TrinoPrincipal principal);

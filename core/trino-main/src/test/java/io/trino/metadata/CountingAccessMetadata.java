@@ -298,6 +298,12 @@ public class CountingAccessMetadata
     }
 
     @Override
+    public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
+    {
+        delegate.setColumnType(session, tableHandle, column, type);
+    }
+
+    @Override
     public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
     {
         delegate.renameColumn(session, tableHandle, source, target);
