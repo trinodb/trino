@@ -1852,22 +1852,4 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         }
         throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
     }
-
-    private String getTableComment(String tableName)
-    {
-        return (String) computeScalar(format(
-                "SELECT comment FROM system.metadata.table_comments WHERE catalog_name = '%s' AND schema_name = '%s' AND table_name = '%s'",
-                getSession().getCatalog().orElseThrow(),
-                SCHEMA,
-                tableName));
-    }
-
-    private String getColumnComment(String tableName, String columnName)
-    {
-        return (String) computeScalar(format(
-                "SELECT comment FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s' AND column_name = '%s'",
-                SCHEMA,
-                tableName,
-                columnName));
-    }
 }
