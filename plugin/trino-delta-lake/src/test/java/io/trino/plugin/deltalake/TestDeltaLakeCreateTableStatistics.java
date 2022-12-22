@@ -32,7 +32,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.stream.Collectors;
@@ -55,13 +54,11 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
-public abstract class AbstractTestDeltaLakeCreateTableStatistics
+public class TestDeltaLakeCreateTableStatistics
         extends AbstractTestQueryFramework
 {
     private static final String SCHEMA = "default";
     private String bucketName;
-
-    abstract Map<String, String> additionalProperties();
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -70,13 +67,10 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
         this.bucketName = "delta-test-create-table-statistics-" + randomNameSuffix();
         HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
-        ImmutableMap.Builder<String, String> queryRunnerProperties = ImmutableMap.<String, String>builder()
-                .put("delta.enable-non-concurrent-writes", "true")
-                .putAll(additionalProperties());
         return DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
-                queryRunnerProperties.buildOrThrow(),
+                ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
                 hiveMinioDataLake.getMinio().getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
     }
