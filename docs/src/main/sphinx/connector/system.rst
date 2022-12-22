@@ -149,7 +149,7 @@ System connector procedures
 .. function:: runtime.kill_query(query_id, message)
 
     Kill the query identified by ``query_id``. The query failure message
-    includes the specified ``message``.
+    includes the specified ``message``. ``message`` is optional.
 
 .. _system-type-mapping:
 
