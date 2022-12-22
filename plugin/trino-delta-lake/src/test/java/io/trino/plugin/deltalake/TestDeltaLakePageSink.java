@@ -26,7 +26,6 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSink;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
@@ -163,12 +162,10 @@ public class TestDeltaLakePageSink
         DeltaLakePageSinkProvider provider = new DeltaLakePageSinkProvider(
                 new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators()), new BlockTypeOperators()),
                 new HdfsFileSystemFactory(HDFS_ENVIRONMENT),
-                HDFS_ENVIRONMENT,
                 JsonCodec.jsonCodec(DataFileInfo.class),
                 JsonCodec.jsonCodec(DeltaLakeMergeResult.class),
                 stats,
                 deltaLakeConfig,
-                new TestingTypeManager(),
                 new NodeVersion("test-version"));
 
         return provider.createPageSink(transaction, SESSION, tableHandle, TESTING_PAGE_SINK_ID);

@@ -370,26 +370,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCompression(String compressionCodec)
     {
-        testCompression(false, compressionCodec);
-    }
-
-    /**
-     * Smoke test compression when writing to a Delta table using optimized writer. It's verified that writer doesn't fail
-     * and reads succeed, but it's not verified that compression actually takes place.
-     */
-    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS}, dataProvider = "compressionCodecs")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testCompressionWithOptimizedWriter(String compressionCodec)
-    {
-        testCompression(true, compressionCodec);
-    }
-
-    private void testCompression(boolean optimizedWriter, String compressionCodec)
-    {
-        String tableName = "test_compression" +
-                (optimizedWriter ? "_optimized" : "") +
-                "_" + compressionCodec +
-                "_" + randomNameSuffix();
+        String tableName = "test_compression_" + compressionCodec + "_" + randomNameSuffix();
         String trinoTableName = "delta.default." + tableName;
         String location = "s3://" + bucketName + "/databricks-compatibility-test-" + tableName;
 
@@ -397,15 +378,14 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                 "AS TABLE tpch.tiny.nation WITH NO DATA");
 
         try {
-            onTrino().executeQuery("SET SESSION delta.parquet_optimized_writer_enabled = " + optimizedWriter);
-            onTrino().executeQuery("SET SESSION delta.compression_codec = '" + compressionCodec + "'");
-
-            if (optimizedWriter && "LZ4".equals(compressionCodec)) {
+            if ("LZ4".equals(compressionCodec)) {
                 // TODO (https://github.com/trinodb/trino/issues/9142) LZ4 is not supported with native Parquet writer
-                assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO " + trinoTableName + " TABLE tpch.tiny.nation"))
-                        .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Unsupported codec: LZ4");
+                assertQueryFailure(() -> onTrino().executeQuery("SET SESSION delta.compression_codec = '" + compressionCodec + "'"))
+                        .hasMessageMatching("Query failed .* Unsupported codec: LZ4");
             }
             else {
+                onTrino().executeQuery("SET SESSION delta.compression_codec = '" + compressionCodec + "'");
+
                 onTrino().executeQuery("INSERT INTO " + trinoTableName + " TABLE tpch.tiny.nation");
                 List<Row> expected = onTrino().executeQuery("TABLE tpch.tiny.nation").rows().stream()
                         .map(row -> row(row.toArray()))

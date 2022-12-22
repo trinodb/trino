@@ -92,7 +92,6 @@ public class DeltaLakeModule
         binder.bind(Key.get(boolean.class, TranslateHiveViews.class)).toInstance(false);
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
-        configBinder(binder).bindConfigDefaults(ParquetWriterConfig.class, config -> config.setParquetOptimizedWriterEnabled(true));
 
         install(new ConnectorAccessControlModule());
         newOptionalBinder(binder, DeltaLakeAccessControlMetadataFactory.class).setDefault().toInstance(SYSTEM);
