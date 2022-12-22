@@ -49,6 +49,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
@@ -116,6 +117,10 @@ public class SyncPartitionMetadataProcedure
 
     private void doSyncPartitionMetadata(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, String mode, boolean caseSensitive)
     {
+        checkProcedureArgument(schemaName != null, "schema_name cannot be null");
+        checkProcedureArgument(tableName != null, "table_name cannot be null");
+        checkProcedureArgument(mode != null, "mode cannot be null");
+
         SyncMode syncMode = toSyncMode(mode);
         HdfsContext hdfsContext = new HdfsContext(session);
         SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create(session.getIdentity(), true).getMetastore();
