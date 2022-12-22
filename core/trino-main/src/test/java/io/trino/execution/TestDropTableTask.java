@@ -73,7 +73,7 @@ public class TestDropTableTask
     }
 
     @Test
-    public void testDropNotExistingTableIfExists()
+    public void testDropTableIfExistsWithoutExistingTable()
     {
         QualifiedName tableName = qualifiedName("not_existing_table");
 
@@ -93,7 +93,7 @@ public class TestDropTableTask
     }
 
     @Test
-    public void testDropTableOnViewIfExists()
+    public void testDropTableIfExistsOnView()
     {
         QualifiedName viewName = qualifiedName("existing_view");
         metadata.createView(testSession, asQualifiedObjectName(viewName), someView(), false);
@@ -115,7 +115,7 @@ public class TestDropTableTask
     }
 
     @Test
-    public void testDropTableOnMaterializedViewIfExists()
+    public void testDropTableIfExistsOnMaterializedView()
     {
         QualifiedName viewName = qualifiedName("existing_materialized_view");
         metadata.createMaterializedView(testSession, asQualifiedObjectName(viewName), someMaterializedView(), false, false);
