@@ -83,7 +83,17 @@ public class SnowflakeDistributedModule
                 .addBinding()
                 .to(Key.get(SnowflakeConnectionManager.class))
                 .in(Scopes.SINGLETON);
-        newOptionalBinder(binder, Key.get(ConnectorSplitManager.class, ForJdbcDynamicFiltering.class)).setBinding().to(SnowflakeSplitManager.class).in(Scopes.SINGLETON);
+
+        newOptionalBinder(binder, Key.get(ConnectorSplitManager.class, ForSnowflake.class))
+                .setDefault()
+                .to(SnowflakeSplitManager.class)
+                .in(Scopes.SINGLETON);
+
+        newOptionalBinder(binder, Key.get(ConnectorSplitManager.class, ForJdbcDynamicFiltering.class))
+                .setBinding()
+                .to(Key.get(ConnectorSplitManager.class, ForSnowflake.class))
+                .in(Scopes.SINGLETON);
+
         binder.bind(ConnectorSplitManager.class).annotatedWith(ForClassLoaderSafe.class).to(JdbcDynamicFilteringSplitManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorSplitManager.class).setBinding().to(ClassLoaderSafeConnectorSplitManager.class).in(Scopes.SINGLETON);
 
