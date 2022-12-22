@@ -20,11 +20,9 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
-import com.google.common.primitives.ImmutableIntArray;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
-import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.trino.execution.scheduler.SplitAssigner.AssignmentResult;
+import io.trino.execution.scheduler.SplitAssigner.Partition;
+import io.trino.execution.scheduler.SplitAssigner.PartitionUpdate;
 import io.trino.metadata.Split;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -33,8 +31,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -42,29 +40,18 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static org.assertj.core.api.Assertions.assertThat;
 
-class TestingTaskSourceCallback
-        implements EventDrivenTaskSource.Callback
+class SplitAssignerTester
 {
     private final Map<Integer, NodeRequirements> nodeRequirements = new HashMap<>();
     private final Map<Integer, ListMultimap<PlanNodeId, Split>> splits = new HashMap<>();
     private final SetMultimap<Integer, PlanNodeId> noMoreSplits = HashMultimap.create();
     private final Set<Integer> sealedPartitions = new HashSet<>();
     private boolean noMorePartitions;
-    private final SettableFuture<List<TaskDescriptor>> taskDescriptors = SettableFuture.create();
+    private Optional<List<TaskDescriptor>> taskDescriptors = Optional.empty();
 
-    public ListenableFuture<List<TaskDescriptor>> getTaskDescriptorsFuture()
+    public Optional<List<TaskDescriptor>> getTaskDescriptors()
     {
         return taskDescriptors;
-    }
-
-    public List<TaskDescriptor> getTaskDescriptors()
-    {
-        try {
-            return Futures.getDone(taskDescriptors);
-        }
-        catch (ExecutionException e) {
-            throw new UncheckedExecutionException(e);
-        }
     }
 
     public synchronized int getPartitionCount()
@@ -122,26 +109,13 @@ class TestingTaskSourceCallback
         }
     }
 
-    @Override
-    public synchronized void partitionsAdded(List<EventDrivenTaskSource.Partition> partitions)
+    public void update(AssignmentResult assignment)
     {
-        verify(!noMorePartitions, "noMorePartitions is set");
-        for (EventDrivenTaskSource.Partition partition : partitions) {
+        for (Partition partition : assignment.partitionsAdded()) {
+            verify(!noMorePartitions, "noMorePartitions is set");
             verify(nodeRequirements.put(partition.partitionId(), partition.nodeRequirements()) == null, "partition already exist: %s", partition.partitionId());
         }
-    }
-
-    @Override
-    public synchronized void noMorePartitions()
-    {
-        noMorePartitions = true;
-        checkFinished();
-    }
-
-    @Override
-    public synchronized void partitionsUpdated(List<EventDrivenTaskSource.PartitionUpdate> partitionUpdates)
-    {
-        for (EventDrivenTaskSource.PartitionUpdate partitionUpdate : partitionUpdates) {
+        for (PartitionUpdate partitionUpdate : assignment.partitionUpdates()) {
             int partitionId = partitionUpdate.partitionId();
             verify(nodeRequirements.get(partitionId) != null, "partition does not exist: %s", partitionId);
             verify(!sealedPartitions.contains(partitionId), "partition is sealed: %s", partitionId);
@@ -154,12 +128,10 @@ class TestingTaskSourceCallback
                 noMoreSplits.put(partitionId, planNodeId);
             }
         }
-    }
-
-    @Override
-    public synchronized void partitionsSealed(ImmutableIntArray partitionIds)
-    {
-        partitionIds.forEach(sealedPartitions::add);
+        assignment.sealedPartitions().forEach(sealedPartitions::add);
+        if (assignment.noMorePartitions()) {
+            noMorePartitions = true;
+        }
         checkFinished();
     }
 
@@ -180,13 +152,7 @@ class TestingTaskSourceCallback
                         taskSplits,
                         nodeRequirements.get(partitionId)));
             }
-            taskDescriptors.set(result.build());
+            taskDescriptors = Optional.of(result.build());
         }
-    }
-
-    @Override
-    public synchronized void failed(Throwable t)
-    {
-        taskDescriptors.setException(t);
     }
 }

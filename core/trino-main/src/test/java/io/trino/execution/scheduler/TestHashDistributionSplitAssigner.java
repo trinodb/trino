@@ -605,13 +605,13 @@ public class TestHashDistributionSplitAssigner
                     replicatedSources,
                     partitioningScheme,
                     outputPartitionToTaskPartition);
-            TestingTaskSourceCallback callback = new TestingTaskSourceCallback();
+            SplitAssignerTester tester = new SplitAssignerTester();
             Map<Integer, ListMultimap<PlanNodeId, Integer>> partitionedSplitIds = new HashMap<>();
             Set<Integer> replicatedSplitIds = new HashSet<>();
             for (SplitBatch batch : splits) {
-                assigner.assign(batch.getPlanNodeId(), batch.getSplits(), batch.isNoMoreSplits()).update(callback);
+                tester.update(assigner.assign(batch.getPlanNodeId(), batch.getSplits(), batch.isNoMoreSplits()));
                 boolean replicated = replicatedSources.contains(batch.getPlanNodeId());
-                callback.checkContainsSplits(batch.getPlanNodeId(), batch.getSplits().values(), replicated);
+                tester.checkContainsSplits(batch.getPlanNodeId(), batch.getSplits().values(), replicated);
                 for (Map.Entry<Integer, Split> entry : batch.getSplits().entries()) {
                     int splitId = TestingConnectorSplit.getSplitId(entry.getValue());
                     if (replicated) {
@@ -623,8 +623,8 @@ public class TestHashDistributionSplitAssigner
                     }
                 }
             }
-            assigner.finish().update(callback);
-            Map<Integer, TaskDescriptor> taskDescriptors = callback.getTaskDescriptors().stream()
+            tester.update(assigner.finish());
+            Map<Integer, TaskDescriptor> taskDescriptors = tester.getTaskDescriptors().orElseThrow().stream()
                     .collect(toImmutableMap(TaskDescriptor::getPartitionId, Function.identity()));
             assertThat(taskDescriptors).hasSize(expectedTaskCount);
 
