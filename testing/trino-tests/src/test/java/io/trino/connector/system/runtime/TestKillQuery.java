@@ -104,6 +104,12 @@ public class TestKillQuery
                 .hasMessageContaining("Query killed. Message: because");
     }
 
+    @Test
+    public void testKillQueryWithNullArgument()
+    {
+        assertQueryFails("CALL system.runtime.kill_query(NULL, 'should fail')", "query_id cannot be null");
+    }
+
     private Session getSession(String user)
     {
         return testSessionBuilder()

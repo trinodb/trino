@@ -42,6 +42,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.procedure.Procedures.checkIsPartitionedTable;
 import static io.trino.plugin.hive.procedure.Procedures.checkPartitionColumns;
@@ -103,6 +104,11 @@ public class RegisterPartitionProcedure
 
     private void doRegisterPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues, String location)
     {
+        checkProcedureArgument(schemaName != null, "schema_name cannot be null");
+        checkProcedureArgument(tableName != null, "table_name cannot be null");
+        checkProcedureArgument(partitionColumn != null, "partition_columns cannot be null");
+        checkProcedureArgument(partitionValues != null, "partition_values cannot be null");
+
         if (!allowRegisterPartition) {
             throw new TrinoException(PERMISSION_DENIED, "register_partition procedure is disabled");
         }
