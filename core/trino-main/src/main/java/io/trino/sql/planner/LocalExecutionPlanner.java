@@ -3177,7 +3177,11 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            context.setDriverInstanceCount(getWriterCount(session, node.getPartitioningScheme(), node.getSource()));
+            context.setDriverInstanceCount(getWriterCount(
+                    session,
+                    node.getPartitioningScheme(),
+                    node.getPreferredPartitioningScheme(),
+                    node.getSource()));
 
             PhysicalOperation source = node.getSource().accept(this, context);
 
@@ -3376,7 +3380,11 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableExecute(TableExecuteNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            context.setDriverInstanceCount(getWriterCount(session, node.getPartitioningScheme(), node.getSource()));
+            context.setDriverInstanceCount(getWriterCount(
+                    session,
+                    node.getPartitioningScheme(),
+                    node.getPreferredPartitioningScheme(),
+                    node.getSource()));
 
             PhysicalOperation source = node.getSource().accept(this, context);
 
@@ -3401,11 +3409,39 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operatorFactory, outputMapping.buildOrThrow(), context, source);
         }
 
-        private int getWriterCount(Session session, Optional<PartitioningScheme> partitioningScheme, PlanNode source)
+        private int getWriterCount(Session session, Optional<PartitioningScheme> partitioningScheme, Optional<PartitioningScheme> preferredPartitioningScheme, PlanNode source)
         {
+            // This check is required because we don't know which writer count to use when exchange is
+            // single distribution. It could be possible that when scaling is enabled, a single distribution is
+            // selected for partitioned write using "task_partitioned_writer_count". However, we can't say for sure
+            // whether this single distribution comes from unpartitioned or partitioned writer count.
+            if (isSingleGatheringExchange(source)) {
+                return 1;
+            }
+
+            if (isLocalScaledWriterExchange(source)) {
+                return partitioningScheme.or(() -> preferredPartitioningScheme)
+                        // The default value of partitioned writer count is 32 which is high enough to use it
+                        // for both cases when scaling is enabled or not. Additionally, it doesn't lead to too many
+                        // small files since when scaling is disabled only single writer will handle a single partition.
+                        .map(scheme -> getTaskPartitionedWriterCount(session))
+                        .orElseGet(() -> getTaskScaleWritersMaxWriterCount(session));
+            }
+
             return partitioningScheme
                     .map(scheme -> getTaskPartitionedWriterCount(session))
-                    .orElseGet(() -> isLocalScaledWriterExchange(source) ? getTaskScaleWritersMaxWriterCount(session) : getTaskWriterCount(session));
+                    .orElseGet(() -> getTaskWriterCount(session));
+        }
+
+        private boolean isSingleGatheringExchange(PlanNode node)
+        {
+            Optional<PlanNode> result = searchFrom(node)
+                    .where(planNode -> planNode instanceof ExchangeNode)
+                    .findFirst();
+
+            return result.isPresent()
+                    && result.get() instanceof ExchangeNode
+                    && ((ExchangeNode) result.get()).getPartitioningScheme().getPartitioning().getHandle().equals(SINGLE_DISTRIBUTION);
         }
 
         @Override

@@ -597,24 +597,44 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitTableWriter(TableWriterNode node, StreamPreferredProperties parentPreferences)
         {
-            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), parentPreferences, node.getTarget());
+            return visitTableWriter(
+                    node,
+                    node.getPartitioningScheme(),
+                    node.getPreferredPartitioningScheme(),
+                    node.getSource(),
+                    parentPreferences,
+                    node.getTarget());
         }
 
         @Override
         public PlanWithProperties visitTableExecute(TableExecuteNode node, StreamPreferredProperties parentPreferences)
         {
-            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), parentPreferences, node.getTarget());
+            return visitTableWriter(
+                    node,
+                    node.getPartitioningScheme(),
+                    node.getPreferredPartitioningScheme(),
+                    node.getSource(),
+                    parentPreferences,
+                    node.getTarget());
         }
 
         private PlanWithProperties visitTableWriter(
                 PlanNode node,
-                Optional<PartitioningScheme> partitioningSchemeOptional,
+                Optional<PartitioningScheme> partitioningScheme,
+                Optional<PartitioningScheme> preferredPartitionScheme,
                 PlanNode source,
                 StreamPreferredProperties parentPreferences,
                 WriterTarget writerTarget)
         {
-            return partitioningSchemeOptional
-                    .map(partitioningScheme -> visitPartitionedWriter(node, partitioningScheme, source, parentPreferences, writerTarget))
+            if (isTaskScaleWritersEnabled(session)
+                    && writerTarget.supportsReportingWrittenBytes(plannerContext.getMetadata(), session)
+                    && writerTarget.supportsMultipleWritersPerPartition(plannerContext.getMetadata(), session)
+                    && (partitioningScheme.isPresent() || preferredPartitionScheme.isPresent())) {
+                return visitScalePartitionedWriter(node, partitioningScheme.orElseGet(preferredPartitionScheme::get), source);
+            }
+
+            return partitioningScheme
+                    .map(scheme -> visitPartitionedWriter(node, scheme, source, parentPreferences))
                     .orElseGet(() -> visitUnpartitionedWriter(node, source, writerTarget));
         }
 
@@ -641,16 +661,10 @@ public class AddLocalExchanges
             return planAndEnforceChildren(node, fixedParallelism(), fixedParallelism());
         }
 
-        private PlanWithProperties visitPartitionedWriter(PlanNode node, PartitioningScheme partitioningScheme, PlanNode source, StreamPreferredProperties parentPreferences, WriterTarget writerTarget)
+        private PlanWithProperties visitPartitionedWriter(PlanNode node, PartitioningScheme partitioningScheme, PlanNode source, StreamPreferredProperties parentPreferences)
         {
             if (getTaskPartitionedWriterCount(session) == 1) {
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
-            }
-
-            if (isTaskScaleWritersEnabled(session)
-                    && writerTarget.supportsReportingWrittenBytes(plannerContext.getMetadata(), session)
-                    && writerTarget.supportsMultipleWritersPerPartition(plannerContext.getMetadata(), session)) {
-                return visitScalePartitionedWriter(node, partitioningScheme, source);
             }
 
             if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION)) {
@@ -678,6 +692,10 @@ public class AddLocalExchanges
 
         private PlanWithProperties visitScalePartitionedWriter(PlanNode node, PartitioningScheme partitioningScheme, PlanNode source)
         {
+            if (getTaskPartitionedWriterCount(session) == 1) {
+                return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
+            }
+
             if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION)) {
                 // arbitrary hash function on predefined set of partition columns
                 PlanWithProperties newSource = source.accept(this, defaultParallelism(session));
@@ -723,9 +741,7 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitMergeWriter(MergeWriterNode node, StreamPreferredProperties parentPreferences)
         {
-            return node.getPartitioningScheme()
-                    .map(partitioningScheme -> visitPartitionedWriter(node, partitioningScheme, node.getSource(), parentPreferences, node.getTarget()))
-                    .orElseGet(() -> visitUnpartitionedWriter(node, node.getSource(), node.getTarget()));
+            return visitTableWriter(node, node.getPartitioningScheme(), Optional.empty(), node.getSource(), parentPreferences, node.getTarget());
         }
 
         //
