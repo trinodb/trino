@@ -164,7 +164,7 @@ public class DeltaLakeMergeSink
         mergePage.getDeletionsPage().ifPresent(deletions -> {
             ColumnarRow rowIdRow = toColumnarRow(deletions.getBlock(deletions.getChannelCount() - 1));
             ColumnarRow rowIdNecessaryFields = toColumnarRow(rowIdRow.getField(0));
-            if (isCDFEnabled && isUpdateOperation(page)) {
+            if (isCDFEnabled) {
                 if (cdfPageSink == null) {
                     cdfPageSink = cdfPageSinkSupplier.get();
                 }
@@ -174,8 +174,14 @@ public class DeltaLakeMergeSink
                 for (int i = 0; i < preUpdateRows.getFieldCount(); i++) {
                     cdfPreUpdateBlocks[i] = preUpdateRows.getField(i);
                 }
-                cdfPreUpdateBlocks[nonSynthesizedColumns.size()] = RunLengthEncodedBlock.create(
-                        nativeValueToBlock(VARCHAR, utf8Slice("update_preimage")), deletions.getPositionCount());
+                if (isUpdateOperation(page)) {
+                    cdfPreUpdateBlocks[nonSynthesizedColumns.size()] = RunLengthEncodedBlock.create(
+                            nativeValueToBlock(VARCHAR, utf8Slice("update_preimage")), deletions.getPositionCount());
+                }
+                else {
+                    cdfPreUpdateBlocks[nonSynthesizedColumns.size()] = RunLengthEncodedBlock.create(
+                            nativeValueToBlock(VARCHAR, utf8Slice("delete")), deletions.getPositionCount());
+                }
                 cdfPageSink.appendPage(new Page(deletions.getPositionCount(), cdfPreUpdateBlocks));
             }
 

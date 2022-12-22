@@ -216,4 +216,31 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
             onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
         }
     }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    public void testDeleteFromTableWithCDF()
+    {
+        String tableName = "test_updates_to_table_with_cdf_" + randomNameSuffix();
+        try {
+            onDelta().executeQuery("CREATE TABLE default." + tableName + " (col1 STRING, updated_column INT) " +
+                    "USING DELTA " +
+                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                    "TBLPROPERTIES (delta.enableChangeDataFeed = true)");
+
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES('testValue1', 1)");
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES('testValue2', 2)");
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES('testValue3', 3)");
+            onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE col1 = 'testValue3'");
+
+            assertThat(onDelta().executeQuery("SELECT col1, updated_column, _change_type, _commit_version FROM table_changes('default." + tableName + "', 0)"))
+                    .containsOnly(
+                            row("testValue1", 1, "insert", 1L),
+                            row("testValue2", 2, "insert", 2L),
+                            row("testValue3", 3, "insert", 3L),
+                            row("testValue3", 3, "delete", 4L));
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+        }
+    }
 }
