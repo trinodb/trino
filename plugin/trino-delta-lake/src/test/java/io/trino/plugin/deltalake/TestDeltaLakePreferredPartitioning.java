@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
+import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
@@ -135,6 +136,10 @@ public class TestDeltaLakePreferredPartitioning
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
+                // It is important to explicitly set partitioned writer count to 1 since in above tests we are testing
+                // the open writers limit for partitions. So, with default value of 32 writer count, we will never
+                // hit that limit thus, tests will fail.
+                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "1")
                 .build();
     }
 
@@ -142,6 +147,10 @@ public class TestDeltaLakePreferredPartitioning
     {
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "false")
+                // It is important to explicitly set partitioned writer count to 1 since in above tests we are testing
+                // the open writers limit for partitions. So, with default value of 32 writer count, we will never
+                // hit that limit thus, tests will fail.
+                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "1")
                 .build();
     }
 }
