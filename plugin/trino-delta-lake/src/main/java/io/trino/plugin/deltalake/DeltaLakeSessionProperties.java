@@ -54,7 +54,6 @@ public final class DeltaLakeSessionProperties
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
-    private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "parquet_optimized_writer_enabled"; // = HiveSessionProperties#PARQUET_OPTIMIZED_WRITER_ENABLED
     private static final String COMPRESSION_CODEC = "compression_codec";
     // This property is not supported by Delta Lake and exists solely for technical reasons.
     @Deprecated
@@ -137,11 +136,6 @@ public final class DeltaLakeSessionProperties
                         "Target maximum size of written files; the actual size may be larger",
                         deltaLakeConfig.getTargetMaxFileSize(),
                         false),
-                booleanProperty(
-                        PARQUET_OPTIMIZED_WRITER_ENABLED,
-                        "Enable optimized writer",
-                        parquetWriterConfig.isParquetOptimizedWriterEnabled(),
-                        false),
                 enumProperty(
                         TIMESTAMP_PRECISION,
                         "Internal Delta Lake connector property",
@@ -174,6 +168,11 @@ public final class DeltaLakeSessionProperties
                         "Compression codec to use when writing new data files",
                         HiveCompressionCodec.class,
                         deltaLakeConfig.getCompressionCodec(),
+                        value -> {
+                            if (value == HiveCompressionCodec.LZ4) {
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, "Unsupported codec: LZ4");
+                            }
+                        },
                         false));
     }
 
@@ -221,11 +220,6 @@ public final class DeltaLakeSessionProperties
     public static boolean isParquetOptimizedReaderEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_OPTIMIZED_READER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isParquetOptimizedWriterEnabled(ConnectorSession session)
-    {
-        return session.getProperty(PARQUET_OPTIMIZED_WRITER_ENABLED, Boolean.class);
     }
 
     public static DataSize getParquetWriterBlockSize(ConnectorSession session)

@@ -15,7 +15,6 @@ package io.trino.plugin.deltalake;
 
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.deltalake.procedure.DeltaLakeTableExecuteHandle;
 import io.trino.plugin.deltalake.procedure.DeltaTableOptimizeHandle;
 import io.trino.plugin.hive.NodeVersion;
@@ -30,7 +29,6 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.type.TypeManager;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -42,13 +40,11 @@ public class DeltaLakePageSinkProvider
 {
     private final PageIndexerFactory pageIndexerFactory;
     private final TrinoFileSystemFactory fileSystemFactory;
-    private final HdfsEnvironment hdfsEnvironment;
     private final JsonCodec<DataFileInfo> dataFileInfoCodec;
     private final JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec;
     private final DeltaLakeWriterStats stats;
     private final int maxPartitionsPerWriter;
     private final DateTimeZone parquetDateTimeZone;
-    private final TypeManager typeManager;
     private final String trinoVersion;
     private final int domainCompactionThreshold;
 
@@ -56,24 +52,20 @@ public class DeltaLakePageSinkProvider
     public DeltaLakePageSinkProvider(
             PageIndexerFactory pageIndexerFactory,
             TrinoFileSystemFactory fileSystemFactory,
-            HdfsEnvironment hdfsEnvironment,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec,
             DeltaLakeWriterStats stats,
             DeltaLakeConfig deltaLakeConfig,
-            TypeManager typeManager,
             NodeVersion nodeVersion)
     {
         this.pageIndexerFactory = pageIndexerFactory;
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.hdfsEnvironment = hdfsEnvironment;
         this.dataFileInfoCodec = dataFileInfoCodec;
         this.mergeResultJsonCodec = requireNonNull(mergeResultJsonCodec, "mergeResultJsonCodec is null");
         this.stats = stats;
         this.maxPartitionsPerWriter = deltaLakeConfig.getMaxPartitionsPerWriter();
         this.parquetDateTimeZone = deltaLakeConfig.getParquetDateTimeZone();
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.trinoVersion = nodeVersion.toString();
     }
 
@@ -85,14 +77,12 @@ public class DeltaLakePageSinkProvider
                 tableHandle.getInputColumns(),
                 tableHandle.getPartitionedBy(),
                 pageIndexerFactory,
-                hdfsEnvironment,
                 fileSystemFactory,
                 maxPartitionsPerWriter,
                 dataFileInfoCodec,
                 tableHandle.getLocation(),
                 session,
                 stats,
-                typeManager,
                 trinoVersion);
     }
 
@@ -104,14 +94,12 @@ public class DeltaLakePageSinkProvider
                 tableHandle.getInputColumns(),
                 tableHandle.getMetadataEntry().getOriginalPartitionColumns(),
                 pageIndexerFactory,
-                hdfsEnvironment,
                 fileSystemFactory,
                 maxPartitionsPerWriter,
                 dataFileInfoCodec,
                 tableHandle.getLocation(),
                 session,
                 stats,
-                typeManager,
                 trinoVersion);
     }
 
@@ -126,14 +114,12 @@ public class DeltaLakePageSinkProvider
                         optimizeHandle.getTableColumns(),
                         optimizeHandle.getOriginalPartitionColumns(),
                         pageIndexerFactory,
-                        hdfsEnvironment,
                         fileSystemFactory,
                         maxPartitionsPerWriter,
                         dataFileInfoCodec,
                         executeHandle.getTableLocation(),
                         session,
                         stats,
-                        typeManager,
                         trinoVersion);
         }
 
