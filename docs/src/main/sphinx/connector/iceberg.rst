@@ -45,10 +45,9 @@ To use Iceberg, you need:
 Configuration
 -------------
 
-The connector supports two Iceberg catalog types, you may use either a Hive
-metastore service (HMS) or AWS Glue. The catalog type is determined by the
-``iceberg.catalog.type`` property, it can be set to either ``HIVE_METASTORE``
-or ``GLUE``.
+The connector supports multiple Iceberg catalog types, you may use either a Hive
+metastore service (HMS), AWS Glue, or a REST catalog. The catalog type is determined by the
+``iceberg.catalog.type`` property, it can be set to ``HIVE_METASTORE``, ``GLUE``, or ``REST``.
 
 
 .. _iceberg-hive-catalog:
@@ -80,6 +79,43 @@ configuration properties as the Hive connector's Glue setup. See
 
     connector.name=iceberg
     iceberg.catalog.type=glue
+
+REST catalog
+^^^^^^^^^^^^^^
+
+In order to use the Iceberg REST catalog, ensure to configure the catalog type with
+``iceberg.catalog.type=rest`` and provide further details with the following
+properties:
+
+============================================== ============================================================
+Property Name                                        Description
+============================================== ============================================================
+``iceberg.rest-catalog.uri``                   REST server API endpoint URI (required).
+                                               Example: ``http://iceberg-with-rest:8181``
+
+``iceberg.rest-catalog.security``              The type of security to use (default: ``NONE``).  ``OAUTH2``
+                                               requires either a ``token`` or ``credential``.
+                                               Example: ``OAUTH2``
+
+``iceberg.rest-catalog.session``               Session information included when communicating with the REST Catalog.
+                                               Options are ``NONE`` or ``USER`` (default: ``NONE``).
+
+``iceberg.rest-catalog.oauth2.token``          The Bearer token which will be used for interactions
+                                               with the server. A ``token`` or ``credential`` is required for
+                                               ``OAUTH2`` security.
+                                               Example: ``AbCdEf123456``
+
+``iceberg.rest-catalog.oauth2.credential``     The credential to exchange for a token in the OAuth2 client
+                                               credentials flow with the server. A ``token`` or ``credential``
+                                               is required for ``OAUTH2`` security.
+                                               Example: ``AbCdEf123456``
+============================================== ============================================================
+
+.. code-block:: text
+
+    connector.name=iceberg
+    iceberg.catalog.type=rest
+    iceberg.rest-catalog.uri=http://iceberg-with-rest:8181
 
 
 General configuration

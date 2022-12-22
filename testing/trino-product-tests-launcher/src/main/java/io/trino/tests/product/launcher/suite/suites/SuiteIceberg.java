@@ -18,6 +18,7 @@ import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeHiveIcebergRedirections;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSparkIceberg;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSparkIcebergRest;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
@@ -41,6 +42,9 @@ public class SuiteIceberg
                         .build(),
                 testOnEnvironment(EnvSinglenodeHiveIcebergRedirections.class)
                         .withGroups("configured_features", "hive_iceberg_redirections")
+                        .build(),
+                testOnEnvironment(EnvSinglenodeSparkIcebergRest.class)
+                        .withGroups("configured_features", "iceberg_rest")
                         .build());
     }
 }
