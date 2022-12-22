@@ -229,6 +229,7 @@ public class RedshiftClient
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
     private final RedshiftTableStatisticsReader statisticsReader;
+    private final boolean legacyTypeMapping;
 
     @Inject
     public RedshiftClient(
@@ -237,9 +238,11 @@ public class RedshiftClient
             JdbcStatisticsConfig statisticsConfig,
             QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping,
-            RemoteQueryModifier queryModifier)
+            RemoteQueryModifier queryModifier,
+            RedshiftConfig redshiftConfig)
     {
         super(config, "\"", connectionFactory, queryBuilder, identifierMapping, queryModifier);
+        this.legacyTypeMapping = redshiftConfig.isLegacyTypeMapping();
         ConnectorExpressionRewriter<String> connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
                 .build();
@@ -467,6 +470,11 @@ public class RedshiftClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle type)
     {
+        // todo remove this when legacy type mapping is no longer supported
+        if (legacyTypeMapping) {
+            return legacyToColumnMapping(session, type);
+        }
+
         Optional<ColumnMapping> mapping = getForcedMappingToVarchar(type);
         if (mapping.isPresent()) {
             return mapping;
@@ -573,6 +581,11 @@ public class RedshiftClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
+        // todo remove this when legacy type mapping is no longer supported
+        if (legacyTypeMapping) {
+            return legacyToWriteMapping(type);
+        }
+
         if (BOOLEAN.equals(type)) {
             return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
         }
