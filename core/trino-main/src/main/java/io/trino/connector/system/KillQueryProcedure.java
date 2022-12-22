@@ -96,7 +96,7 @@ public class KillQueryProcedure
                 "kill_query",
                 ImmutableList.<Argument>builder()
                         .add(new Argument("QUERY_ID", VARCHAR))
-                        .add(new Argument("MESSAGE", VARCHAR))
+                        .add(new Argument("MESSAGE", VARCHAR, false, null))
                         .build(),
                 KILL_QUERY.bindTo(this));
     }
