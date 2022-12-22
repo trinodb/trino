@@ -119,6 +119,13 @@ public class TestAbfsSyncPartitionMetadata
         super.testConflictingMixedCasePartitionNames();
     }
 
+    @Test(groups = AZURE)
+    @Override
+    public void testSyncPartitionMetadataWithNullArgument()
+    {
+        super.testSyncPartitionMetadataWithNullArgument();
+    }
+
     @Override
     protected void removeHdfsDirectory(String path)
     {
