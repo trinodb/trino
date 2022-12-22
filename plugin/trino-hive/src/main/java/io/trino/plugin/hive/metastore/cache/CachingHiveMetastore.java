@@ -151,53 +151,31 @@ public class CachingHiveMetastore
         this.delegate = requireNonNull(delegate, "delegate is null");
         requireNonNull(executor, "executor is null");
 
-        databaseNamesCache = buildCache(expiresAfterWriteMillis, refreshMills, executor, maximumSize, statsRecording, ignored -> loadAllDatabases());
-
-        databaseCache = buildCache(expiresAfterWriteMillis, refreshMills, executor, maximumSize, statsRecording, this::loadDatabase);
-
-        tableNamesCache = buildCache(expiresAfterWriteMillis, refreshMills, executor, maximumSize, statsRecording, this::loadAllTables);
-
-        tablesWithParameterCache = buildCache(expiresAfterWriteMillis, refreshMills, executor, maximumSize, statsRecording, this::loadTablesMatchingParameter);
-
-        tableStatisticsCache = buildCache(expiresAfterWriteMillis, refreshMills, executor, maximumSize, statsRecording, this::loadTableColumnStatistics);
+        CacheFactory cacheFactory = cacheFactory(expiresAfterWriteMillis, refreshMills, executor, maximumSize, statsRecording);
+        databaseNamesCache = cacheFactory.buildCache(ignored -> loadAllDatabases());
+        databaseCache = cacheFactory.buildCache(this::loadDatabase);
+        tableNamesCache = cacheFactory.buildCache(this::loadAllTables);
+        tablesWithParameterCache = cacheFactory.buildCache(this::loadTablesMatchingParameter);
+        tableStatisticsCache = cacheFactory.buildCache(this::loadTableColumnStatistics);
+        tableCache = cacheFactory.buildCache(this::loadTable);
+        viewNamesCache = cacheFactory.buildCache(this::loadAllViews);
+        tablePrivilegesCache = cacheFactory.buildCache(key -> loadTablePrivileges(key.getDatabase(), key.getTable(), key.getOwner(), key.getPrincipal()));
+        rolesCache = cacheFactory.buildCache(ignored -> loadRoles());
+        roleGrantsCache = cacheFactory.buildCache(this::loadRoleGrants);
+        grantedPrincipalsCache = cacheFactory.buildCache(this::loadPrincipals);
+        configValuesCache = cacheFactory.buildCache(this::loadConfigValue);
 
         if (partitionCacheEnabled) {
             // disable refresh since it can't use the bulk loading and causes too many requests
-            partitionStatisticsCache = buildCache(expiresAfterWriteMillis, maximumSize, statsRecording, this::loadPartitionColumnStatistics, this::loadPartitionsColumnStatistics);
+            partitionStatisticsCache = cacheFactory.buildCache(this::loadPartitionColumnStatistics, this::loadPartitionsColumnStatistics);
+            partitionFilterCache = cacheFactory.buildCache(this::loadPartitionNamesByFilter);
+            partitionCache = cacheFactory.buildCache(this::loadPartitionByName, this::loadPartitionsByNames);
         }
         else {
             partitionStatisticsCache = neverCache(this::loadPartitionColumnStatistics, this::loadPartitionsColumnStatistics);
-        }
-
-        tableCache = buildCache(expiresAfterWriteMillis, refreshMills, executor, maximumSize, statsRecording, this::loadTable);
-
-        viewNamesCache = buildCache(expiresAfterWriteMillis, refreshMills, executor, maximumSize, statsRecording, this::loadAllViews);
-
-        if (partitionCacheEnabled) {
-            partitionFilterCache = buildCache(expiresAfterWriteMillis, refreshMills, executor, maximumSize, statsRecording, this::loadPartitionNamesByFilter);
-        }
-        else {
             partitionFilterCache = neverCache(this::loadPartitionNamesByFilter);
-        }
-
-        if (partitionCacheEnabled) {
-            // disable refresh since it can't use the bulk loading and causes too many requests
-            partitionCache = buildCache(expiresAfterWriteMillis, maximumSize, statsRecording, this::loadPartitionByName, this::loadPartitionsByNames);
-        }
-        else {
             partitionCache = neverCache(this::loadPartitionByName, this::loadPartitionsByNames);
         }
-
-        tablePrivilegesCache = buildCache(expiresAfterWriteMillis, refreshMills, executor, maximumSize, statsRecording, key ->
-                loadTablePrivileges(key.getDatabase(), key.getTable(), key.getOwner(), key.getPrincipal()));
-
-        rolesCache = buildCache(expiresAfterWriteMillis, refreshMills, executor, maximumSize, statsRecording, ignored -> loadRoles());
-
-        roleGrantsCache = buildCache(expiresAfterWriteMillis, refreshMills, executor, maximumSize, statsRecording, this::loadRoleGrants);
-
-        grantedPrincipalsCache = buildCache(expiresAfterWriteMillis, refreshMills, executor, maximumSize, statsRecording, this::loadPrincipals);
-
-        configValuesCache = buildCache(expiresAfterWriteMillis, refreshMills, executor, maximumSize, statsRecording, this::loadConfigValue);
     }
 
     private static <K, V> LoadingCache<K, V> neverCache(com.google.common.base.Function<K, V> loader)
@@ -1030,6 +1008,36 @@ public class CachingHiveMetastore
         finally {
             invalidateTable(table.getDatabaseName(), table.getTableName());
         }
+    }
+
+    private interface CacheFactory
+    {
+        <K, V> LoadingCache<K, V> buildCache(com.google.common.base.Function<K, V> loader);
+
+        <K, V> LoadingCache<K, V> buildCache(com.google.common.base.Function<K, V> loader, Function<Iterable<K>, Map<K, V>> bulkLoader);
+    }
+
+    private static CacheFactory cacheFactory(
+            OptionalLong expiresAfterWriteMillis,
+            OptionalLong refreshMillis,
+            Optional<Executor> refreshExecutor,
+            long maximumSize,
+            StatsRecording statsRecording)
+    {
+        return new CacheFactory()
+        {
+            @Override
+            public <K, V> LoadingCache<K, V> buildCache(com.google.common.base.Function<K, V> loader)
+            {
+                return CachingHiveMetastore.buildCache(expiresAfterWriteMillis, refreshMillis, refreshExecutor, maximumSize, statsRecording, loader);
+            }
+
+            @Override
+            public <K, V> LoadingCache<K, V> buildCache(com.google.common.base.Function<K, V> loader, Function<Iterable<K>, Map<K, V>> bulkLoader)
+            {
+                return CachingHiveMetastore.buildCache(expiresAfterWriteMillis, maximumSize, statsRecording, loader, bulkLoader);
+            }
+        };
     }
 
     private static <K, V> LoadingCache<K, V> buildCache(
