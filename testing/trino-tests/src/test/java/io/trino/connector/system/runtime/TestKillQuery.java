@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
@@ -70,6 +71,12 @@ public class TestKillQuery
     @Test(timeOut = 60_000)
     public void testKillQuery()
     {
+        killQuery(queryId -> format("CALL system.runtime.kill_query('%s', 'because')", queryId), "Message: because");
+        killQuery(queryId -> format("CALL system.runtime.kill_query('%s')", queryId), "No message provided.");
+    }
+
+    private void killQuery(Function<String, String> sql, String expectedKilledMessage)
+    {
         String testQueryId = "test_query_id_" + randomUUID().toString().replace("-", "");
         Future<?> queryFuture = executor.submit(() -> {
             getQueryRunner().execute(format("SELECT count(comment) as %s FROM tpch.sf100000.lineitem", testQueryId));
@@ -97,11 +104,11 @@ public class TestKillQuery
             getQueryRunner().getAccessControl().reset();
         }
 
-        getQueryRunner().execute(format("CALL system.runtime.kill_query('%s', 'because')", queryId));
+        getQueryRunner().execute(sql.apply(queryId));
 
         assertThatThrownBy(() -> queryFuture.get(1, TimeUnit.MINUTES))
                 .isInstanceOf(ExecutionException.class)
-                .hasMessageContaining("Query killed. Message: because");
+                .hasMessageContaining("Query killed. " + expectedKilledMessage);
     }
 
     @Test
