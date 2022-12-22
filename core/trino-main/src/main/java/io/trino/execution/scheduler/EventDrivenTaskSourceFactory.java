@@ -13,13 +13,12 @@
  */
 package io.trino.execution.scheduler;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import io.trino.Session;
 import io.trino.execution.ForQueryExecution;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TableExecuteContextManager;
-import io.trino.execution.scheduler.EventDrivenTaskSource.Callback;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
@@ -95,7 +94,6 @@ public class EventDrivenTaskSourceFactory
     }
 
     public EventDrivenTaskSource create(
-            Callback callback,
             Session session,
             PlanFragment fragment,
             Map<PlanFragmentId, Exchange> sourceExchanges,
@@ -103,10 +101,10 @@ public class EventDrivenTaskSourceFactory
             LongConsumer getSplitTimeRecorder,
             Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates)
     {
-        ImmutableMap.Builder<PlanFragmentId, PlanNodeId> remoteSources = ImmutableMap.builder();
+        ImmutableSetMultimap.Builder<PlanNodeId, PlanFragmentId> remoteSources = ImmutableSetMultimap.builder();
         for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
             for (PlanFragmentId sourceFragment : remoteSource.getSourceFragmentIds()) {
-                remoteSources.put(sourceFragment, remoteSource.getId());
+                remoteSources.put(remoteSource.getId(), sourceFragment);
             }
         }
         long targetPartitionSizeInBytes = getFaultTolerantExecutionTargetTaskInputSize(session).toBytes();
@@ -117,7 +115,7 @@ public class EventDrivenTaskSourceFactory
                 session.getQueryId(),
                 tableExecuteContextManager,
                 sourceExchanges,
-                remoteSources.buildOrThrow(),
+                remoteSources.build(),
                 () -> splitSourceFactory.createSplitSources(session, fragment),
                 createSplitAssigner(
                         session,
@@ -127,7 +125,6 @@ public class EventDrivenTaskSourceFactory
                         targetPartitionSizeInBytes,
                         standardSplitSizeInBytes,
                         maxTaskSplitCount),
-                callback,
                 executor,
                 splitBatchSize,
                 standardSplitSizeInBytes,

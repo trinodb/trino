@@ -15,16 +15,19 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 import com.google.common.io.Closer;
-import com.google.common.primitives.ImmutableIntArray;
-import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.ForwardingListenableFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.TableExecuteContext;
 import io.trino.execution.TableExecuteContextManager;
+import io.trino.execution.scheduler.SplitAssigner.AssignmentResult;
 import io.trino.metadata.Split;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogHandle;
@@ -43,26 +46,25 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.LongConsumer;
 import java.util.function.Supplier;
-import java.util.function.ToIntFunction;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
-import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
 import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static java.util.Objects.requireNonNull;
 
@@ -73,43 +75,36 @@ class EventDrivenTaskSource
     private final QueryId queryId;
     private final TableExecuteContextManager tableExecuteContextManager;
     private final Map<PlanFragmentId, Exchange> sourceExchanges;
-    private final Map<PlanFragmentId, PlanNodeId> remoteSources;
+    private final SetMultimap<PlanNodeId, PlanFragmentId> remoteSources;
     private final Supplier<Map<PlanNodeId, SplitSource>> splitSourceSupplier;
-    @GuardedBy("assignerLock")
     private final SplitAssigner assigner;
-    @GuardedBy("assignerLock")
-    private final Callback callback;
     private final Executor executor;
     private final int splitBatchSize;
     private final long targetExchangeSplitSizeInBytes;
     private final FaultTolerantPartitioningScheme sourcePartitioningScheme;
     private final LongConsumer getSplitTimeRecorder;
-    private final SetMultimap<PlanNodeId, PlanFragmentId> remoteSourceFragments;
 
     @GuardedBy("this")
-    private boolean started;
+    private boolean initialized;
+    @GuardedBy("this")
+    private List<IdempotentSplitSource> splitSources;
+    @GuardedBy("this")
+    private final Set<PlanFragmentId> completedFragments = new HashSet<>();
+
+    @GuardedBy("this")
+    private ListenableFuture<AssignmentResult> future;
     @GuardedBy("this")
     private boolean closed;
     @GuardedBy("this")
     private final Closer closer = Closer.create();
 
-    private final Object assignerLock = new Object();
-
-    @GuardedBy("assignerLock")
-    private final Set<PlanFragmentId> finishedFragments = new HashSet<>();
-    @GuardedBy("assignerLock")
-    private final Set<PlanNodeId> allSources = new HashSet<>();
-    @GuardedBy("assignerLock")
-    private final Set<PlanNodeId> finishedSources = new HashSet<>();
-
     EventDrivenTaskSource(
             QueryId queryId,
             TableExecuteContextManager tableExecuteContextManager,
             Map<PlanFragmentId, Exchange> sourceExchanges,
-            Map<PlanFragmentId, PlanNodeId> remoteSources,
+            SetMultimap<PlanNodeId, PlanFragmentId> remoteSources,
             Supplier<Map<PlanNodeId, SplitSource>> splitSourceSupplier,
             SplitAssigner assigner,
-            Callback callback,
             Executor executor,
             int splitBatchSize,
             long targetExchangeSplitSizeInBytes,
@@ -119,180 +114,97 @@ class EventDrivenTaskSource
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
         this.sourceExchanges = ImmutableMap.copyOf(requireNonNull(sourceExchanges, "sourceExchanges is null"));
-        this.remoteSources = ImmutableMap.copyOf(requireNonNull(remoteSources, "remoteSources is null"));
-        checkArgument(
-                sourceExchanges.keySet().equals(remoteSources.keySet()),
-                "sourceExchanges and remoteSources are expected to contain the same set of keys: %s != %s",
-                sourceExchanges.keySet(),
-                remoteSources.keySet());
+        this.remoteSources = ImmutableSetMultimap.copyOf(requireNonNull(remoteSources, "remoteSources is null"));
         this.splitSourceSupplier = requireNonNull(splitSourceSupplier, "splitSourceSupplier is null");
         this.assigner = requireNonNull(assigner, "assigner is null");
-        this.callback = requireNonNull(callback, "callback is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.splitBatchSize = splitBatchSize;
         this.targetExchangeSplitSizeInBytes = targetExchangeSplitSizeInBytes;
         this.sourcePartitioningScheme = requireNonNull(sourcePartitioningScheme, "sourcePartitioningScheme is null");
         this.getSplitTimeRecorder = requireNonNull(getSplitTimeRecorder, "getSplitTimeRecorder is null");
-        remoteSourceFragments = remoteSources.entrySet().stream()
-                .collect(toImmutableSetMultimap(Map.Entry::getValue, Map.Entry::getKey));
     }
 
-    public synchronized void start()
+    public synchronized ListenableFuture<AssignmentResult> process()
     {
-        checkState(!started, "already started");
-        checkState(!closed, "already closed");
-        started = true;
-        try {
-            List<SplitLoader> splitLoaders = new ArrayList<>();
-            for (Map.Entry<PlanFragmentId, Exchange> entry : sourceExchanges.entrySet()) {
-                PlanFragmentId fragmentId = entry.getKey();
-                PlanNodeId remoteSourceNodeId = getRemoteSourceNode(fragmentId);
-                // doesn't have to be synchronized by assignerLock until the loaders are started
-                allSources.add(remoteSourceNodeId);
-                ExchangeSourceHandleSource handleSource = closer.register(entry.getValue().getSourceHandles());
-                ExchangeSplitSource splitSource = closer.register(new ExchangeSplitSource(handleSource, targetExchangeSplitSizeInBytes));
-                SplitLoader splitLoader = closer.register(createExchangeSplitLoader(fragmentId, remoteSourceNodeId, splitSource));
-                splitLoaders.add(splitLoader);
-            }
-            for (Map.Entry<PlanNodeId, SplitSource> entry : splitSourceSupplier.get().entrySet()) {
-                PlanNodeId planNodeId = entry.getKey();
-                // doesn't have to be synchronized by assignerLock until the loaders are started
-                allSources.add(planNodeId);
-                SplitLoader splitLoader = closer.register(createTableScanSplitLoader(planNodeId, entry.getValue()));
-                splitLoaders.add(splitLoader);
-            }
-            if (splitLoaders.isEmpty()) {
-                executor.execute(() -> {
-                    try {
-                        synchronized (assignerLock) {
-                            assigner.finish().update(callback);
-                        }
-                    }
-                    catch (Throwable t) {
-                        fail(t);
-                    }
-                });
+        checkState(!closed, "closed");
+        checkState(future == null || future.isDone(), "still in process");
+
+        if (!initialized) {
+            initialize();
+            initialized = true;
+        }
+
+        future = processNext();
+        return future;
+    }
+
+    @GuardedBy("this")
+    private void initialize()
+    {
+        Map<PlanFragmentId, PlanNodeId> remoteSourceNodeIds = new HashMap<>();
+        remoteSources.forEach((planNodeId, planFragmentId) -> remoteSourceNodeIds.put(planFragmentId, planNodeId));
+        ImmutableList.Builder<IdempotentSplitSource> splitSources = ImmutableList.builder();
+        for (Map.Entry<PlanFragmentId, Exchange> entry : sourceExchanges.entrySet()) {
+            PlanFragmentId sourceFragmentId = entry.getKey();
+            PlanNodeId remoteSourceNodeId = remoteSourceNodeIds.get(sourceFragmentId);
+            verify(remoteSourceNodeId != null, "remote source not found for fragment: %s", sourceFragmentId);
+            ExchangeSourceHandleSource handleSource = closer.register(entry.getValue().getSourceHandles());
+            ExchangeSplitSource splitSource = closer.register(new ExchangeSplitSource(handleSource, targetExchangeSplitSizeInBytes));
+            splitSources.add(closer.register(new IdempotentSplitSource(queryId, tableExecuteContextManager, remoteSourceNodeId, Optional.of(sourceFragmentId), splitSource, splitBatchSize, getSplitTimeRecorder)));
+        }
+        for (Map.Entry<PlanNodeId, SplitSource> entry : splitSourceSupplier.get().entrySet()) {
+            splitSources.add(closer.register(new IdempotentSplitSource(queryId, tableExecuteContextManager, entry.getKey(), Optional.empty(), closer.register(entry.getValue()), splitBatchSize, getSplitTimeRecorder)));
+        }
+        this.splitSources = splitSources.build();
+    }
+
+    @GuardedBy("this")
+    private ListenableFuture<AssignmentResult> processNext()
+    {
+        List<ListenableFuture<IdempotentSplitSource.SplitBatchReference>> futures = splitSources.stream()
+                .map(IdempotentSplitSource::getNext)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toImmutableList());
+
+        if (futures.isEmpty()) {
+            return immediateFuture(assigner.finish());
+        }
+
+        ListenableFuture<IdempotentSplitSource.SplitBatchReference> firstCompleted = whenAnyCompleteCancelOthers(futures);
+        return Futures.transform(firstCompleted, this::process, executor);
+    }
+
+    private synchronized AssignmentResult process(IdempotentSplitSource.SplitBatchReference batchReference)
+    {
+        PlanNodeId sourceNodeId = batchReference.getPlanNodeId();
+        Optional<PlanFragmentId> sourceFragmentId = batchReference.getSourceFragmentId();
+        SplitBatch splitBatch = batchReference.getSplitBatchAndAdvance();
+
+        boolean noMoreSplits = false;
+        if (splitBatch.isLastBatch()) {
+            if (sourceFragmentId.isPresent()) {
+                completedFragments.add(sourceFragmentId.get());
+                noMoreSplits = completedFragments.containsAll(remoteSources.get(sourceNodeId));
             }
             else {
-                splitLoaders.forEach(SplitLoader::start);
+                noMoreSplits = true;
             }
         }
-        catch (Throwable t) {
-            try {
-                closer.close();
-            }
-            catch (Throwable closerFailure) {
-                if (closerFailure != t) {
-                    t.addSuppressed(closerFailure);
-                }
-            }
-            throw t;
-        }
-    }
 
-    private SplitLoader createExchangeSplitLoader(PlanFragmentId fragmentId, PlanNodeId remoteSourceNodeId, ExchangeSplitSource splitSource)
-    {
-        return new SplitLoader(
-                splitSource,
-                executor,
-                ExchangeSplitSource::getSplitPartition,
-                new SplitLoader.Callback()
-                {
-                    @Override
-                    public void update(ListMultimap<Integer, Split> splits, boolean noMoreSplitsForFragment)
-                    {
-                        try {
-                            synchronized (assignerLock) {
-                                if (noMoreSplitsForFragment) {
-                                    finishedFragments.add(fragmentId);
-                                }
-                                boolean noMoreSplitsForRemoteSource = finishedFragments.containsAll(remoteSourceFragments.get(remoteSourceNodeId));
-                                assigner.assign(remoteSourceNodeId, splits, noMoreSplitsForRemoteSource).update(callback);
-                                if (noMoreSplitsForRemoteSource) {
-                                    finishedSources.add(remoteSourceNodeId);
-                                }
-                                if (finishedSources.containsAll(allSources)) {
-                                    assigner.finish().update(callback);
-                                }
-                            }
-                        }
-                        catch (Throwable t) {
-                            fail(t);
-                        }
-                    }
-
-                    @Override
-                    public void failed(Throwable t)
-                    {
-                        fail(t);
-                    }
-                },
-                splitBatchSize,
-                getSplitTimeRecorder);
-    }
-
-    private SplitLoader createTableScanSplitLoader(PlanNodeId planNodeId, SplitSource splitSource)
-    {
-        return new SplitLoader(
-                splitSource,
-                executor,
-                this::getSplitPartition,
-                new SplitLoader.Callback()
-                {
-                    @Override
-                    public void update(ListMultimap<Integer, Split> splits, boolean noMoreSplits)
-                    {
-                        try {
-                            synchronized (assignerLock) {
-                                assigner.assign(planNodeId, splits, noMoreSplits).update(callback);
-                                if (noMoreSplits) {
-                                    finishedSources.add(planNodeId);
-
-                                    Optional<List<Object>> tableExecuteSplitsInfo = splitSource.getTableExecuteSplitsInfo();
-                                    // Here we assume that we can get non-empty tableExecuteSplitsInfo only for queries which facilitate single split source.
-                                    tableExecuteSplitsInfo.ifPresent(info -> {
-                                        TableExecuteContext tableExecuteContext = tableExecuteContextManager.getTableExecuteContextForQuery(queryId);
-                                        tableExecuteContext.setSplitsInfo(info);
-                                    });
-                                }
-                                if (finishedSources.containsAll(allSources)) {
-                                    assigner.finish().update(callback);
-                                }
-                            }
-                        }
-                        catch (Throwable t) {
-                            fail(t);
-                        }
-                    }
-
-                    @Override
-                    public void failed(Throwable t)
-                    {
-                        fail(t);
-                    }
-                },
-                splitBatchSize,
-                getSplitTimeRecorder);
-    }
-
-    private PlanNodeId getRemoteSourceNode(PlanFragmentId fragmentId)
-    {
-        PlanNodeId planNodeId = remoteSources.get(fragmentId);
-        verify(planNodeId != null, "remote source not found for fragment: %s", fragmentId);
-        return planNodeId;
+        ListMultimap<Integer, Split> splits = splitBatch.getSplits().stream()
+                .collect(toImmutableListMultimap(this::getSplitPartition, Function.identity()));
+        return assigner.assign(sourceNodeId, splits, noMoreSplits);
     }
 
     private int getSplitPartition(Split split)
     {
-        return sourcePartitioningScheme.getPartition(split);
-    }
-
-    private void fail(Throwable failure)
-    {
-        synchronized (assignerLock) {
-            callback.failed(failure);
+        if (split.getConnectorSplit() instanceof RemoteSplit remoteSplit) {
+            SpoolingExchangeInput exchangeInput = (SpoolingExchangeInput) remoteSplit.getExchangeInput();
+            List<ExchangeSourceHandle> handles = exchangeInput.getExchangeSourceHandles();
+            return handles.get(0).getPartitionId();
         }
-        close();
+        return sourcePartitioningScheme.getPartition(split);
     }
 
     @Override
@@ -310,33 +222,105 @@ class EventDrivenTaskSource
         }
     }
 
-    interface Callback
+    private static class IdempotentSplitSource
+            implements Closeable
     {
-        void partitionsAdded(List<Partition> partitions);
+        private final QueryId queryId;
+        private final TableExecuteContextManager tableExecuteContextManager;
+        private final PlanNodeId planNodeId;
+        private final Optional<PlanFragmentId> sourceFragmentId;
+        private final SplitSource splitSource;
+        private final int splitBatchSize;
+        private final LongConsumer getSplitTimeRecorder;
 
-        void noMorePartitions();
+        @GuardedBy("this")
+        private Optional<CallbackProxyFuture<SplitBatchReference>> future = Optional.empty();
+        @GuardedBy("this")
+        private boolean closed;
+        @GuardedBy("this")
+        private boolean finished;
 
-        void partitionsUpdated(List<PartitionUpdate> partitionUpdates);
-
-        void partitionsSealed(ImmutableIntArray partitionIds);
-
-        void failed(Throwable t);
-    }
-
-    record Partition(int partitionId, NodeRequirements nodeRequirements)
-    {
-        public Partition
+        private IdempotentSplitSource(
+                QueryId queryId,
+                TableExecuteContextManager tableExecuteContextManager,
+                PlanNodeId planNodeId,
+                Optional<PlanFragmentId> sourceFragmentId,
+                SplitSource splitSource,
+                int splitBatchSize,
+                LongConsumer getSplitTimeRecorder)
         {
-            requireNonNull(nodeRequirements, "nodeRequirements is null");
+            this.queryId = requireNonNull(queryId, "queryId is null");
+            this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+            this.sourceFragmentId = requireNonNull(sourceFragmentId, "sourceFragmentId is null");
+            this.splitSource = requireNonNull(splitSource, "splitSource is null");
+            this.splitBatchSize = splitBatchSize;
+            this.getSplitTimeRecorder = requireNonNull(getSplitTimeRecorder, "getSplitTimeRecorder is null");
         }
-    }
 
-    record PartitionUpdate(int partitionId, PlanNodeId planNodeId, List<Split> splits, boolean noMoreSplits)
-    {
-        public PartitionUpdate
+        public synchronized Optional<ListenableFuture<SplitBatchReference>> getNext()
         {
-            requireNonNull(planNodeId, "planNodeId is null");
-            splits = ImmutableList.copyOf(requireNonNull(splits, "splits is null"));
+            if (future.isEmpty() && !finished) {
+                long start = System.nanoTime();
+                future = Optional.of(new CallbackProxyFuture<>(Futures.transform(splitSource.getNextBatch(splitBatchSize), batch -> {
+                    getSplitTimeRecorder.accept(start);
+                    if (batch.isLastBatch()) {
+                        Optional<List<Object>> tableExecuteSplitsInfo = splitSource.getTableExecuteSplitsInfo();
+                        // Here we assume that we can get non-empty tableExecuteSplitsInfo only for queries which facilitate single split source.
+                        tableExecuteSplitsInfo.ifPresent(info -> {
+                            TableExecuteContext tableExecuteContext = tableExecuteContextManager.getTableExecuteContextForQuery(queryId);
+                            tableExecuteContext.setSplitsInfo(info);
+                        });
+                    }
+                    return new SplitBatchReference(batch);
+                }, directExecutor())));
+            }
+            return future.map(CallbackProxyFuture::addListener);
+        }
+
+        @Override
+        public synchronized void close()
+        {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            if (future.isPresent() && !future.get().isDone()) {
+                future.get().cancel(true);
+            }
+            splitSource.close();
+        }
+
+        private synchronized void advance(boolean lastBatch)
+        {
+            finished = lastBatch;
+            future = Optional.empty();
+        }
+
+        public class SplitBatchReference
+        {
+            private final SplitBatch splitBatch;
+
+            public SplitBatchReference(SplitBatch splitBatch)
+            {
+                this.splitBatch = requireNonNull(splitBatch, "splitBatch is null");
+            }
+
+            public PlanNodeId getPlanNodeId()
+            {
+                return planNodeId;
+            }
+
+            public Optional<PlanFragmentId> getSourceFragmentId()
+            {
+                return sourceFragmentId;
+            }
+
+            public SplitBatch getSplitBatchAndAdvance()
+            {
+                advance(splitBatch.isLastBatch());
+                return splitBatch;
+            }
         }
     }
 
@@ -345,7 +329,6 @@ class EventDrivenTaskSource
     {
         private final ExchangeSourceHandleSource handleSource;
         private final long targetSplitSizeInBytes;
-        private final AtomicBoolean finished = new AtomicBoolean();
 
         private ExchangeSplitSource(ExchangeSourceHandleSource handleSource, long targetSplitSizeInBytes)
         {
@@ -372,9 +355,6 @@ class EventDrivenTaskSource
                         ImmutableList.Builder<Split> splits = ImmutableList.builder();
                         for (int partition : partitionToHandles.keySet()) {
                             splits.addAll(createRemoteSplits(partitionToHandles.get(partition)));
-                        }
-                        if (batch.lastBatch()) {
-                            finished.set(true);
                         }
                         return new SplitBatch(splits.build(), batch.lastBatch());
                     }, directExecutor());
@@ -408,14 +388,6 @@ class EventDrivenTaskSource
             return new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(handles, Optional.empty())));
         }
 
-        private static int getSplitPartition(Split split)
-        {
-            RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
-            SpoolingExchangeInput exchangeInput = (SpoolingExchangeInput) remoteSplit.getExchangeInput();
-            List<ExchangeSourceHandle> handles = exchangeInput.getExchangeSourceHandles();
-            return handles.get(0).getPartitionId();
-        }
-
         @Override
         public void close()
         {
@@ -425,7 +397,7 @@ class EventDrivenTaskSource
         @Override
         public boolean isFinished()
         {
-            return finished.get();
+            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -435,102 +407,72 @@ class EventDrivenTaskSource
         }
     }
 
-    private static class SplitLoader
-            implements Closeable
+    /**
+     * This proxy is necessary to solve the "accumulating callbacks" problem
+     */
+    private static class CallbackProxyFuture<T>
+            extends ForwardingListenableFuture<T>
     {
-        private final SplitSource splitSource;
-        private final Executor executor;
-        private final ToIntFunction<Split> splitToPartition;
-        private final Callback callback;
-        private final int splitBatchSize;
-        private final LongConsumer getSplitTimeRecorder;
+        private final ListenableFuture<T> delegate;
 
-        @GuardedBy("this")
-        private boolean started;
-        @GuardedBy("this")
-        private boolean closed;
-        @GuardedBy("this")
-        private ListenableFuture<SplitBatch> splitLoadingFuture;
+        @GuardedBy("listeners")
+        private final Set<SettableFuture<T>> listeners = Sets.newIdentityHashSet();
 
-        public SplitLoader(
-                SplitSource splitSource,
-                Executor executor,
-                ToIntFunction<Split> splitToPartition,
-                Callback callback,
-                int splitBatchSize,
-                LongConsumer getSplitTimeRecorder)
+        private CallbackProxyFuture(ListenableFuture<T> delegate)
         {
-            this.splitSource = requireNonNull(splitSource, "splitSource is null");
-            this.executor = requireNonNull(executor, "executor is null");
-            this.splitToPartition = requireNonNull(splitToPartition, "splitToPartition is null");
-            this.callback = requireNonNull(callback, "callback is null");
-            this.splitBatchSize = splitBatchSize;
-            this.getSplitTimeRecorder = requireNonNull(getSplitTimeRecorder, "getSplitTimeRecorder is null");
-        }
-
-        public synchronized void start()
-        {
-            checkState(!started, "already started");
-            checkState(!closed, "already closed");
-            started = true;
-            processNext();
-        }
-
-        private synchronized void processNext()
-        {
-            if (closed) {
-                return;
-            }
-            verify(splitLoadingFuture == null || splitLoadingFuture.isDone(), "splitLoadingFuture is still running");
-            long start = System.nanoTime();
-            splitLoadingFuture = splitSource.getNextBatch(splitBatchSize);
-            Futures.addCallback(splitLoadingFuture, new FutureCallback<>()
-            {
-                @Override
-                public void onSuccess(SplitBatch result)
-                {
-                    try {
-                        getSplitTimeRecorder.accept(start);
-                        ListMultimap<Integer, Split> splits = result.getSplits().stream()
-                                .collect(toImmutableListMultimap(splitToPartition::applyAsInt, Function.identity()));
-                        boolean finished = result.isLastBatch() && splitSource.isFinished();
-                        callback.update(splits, finished);
-                        if (!finished) {
-                            processNext();
-                        }
-                    }
-                    catch (Throwable t) {
-                        callback.failed(t);
-                    }
-                }
-
-                @Override
-                public void onFailure(Throwable t)
-                {
-                    callback.failed(t);
-                }
-            }, executor);
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            delegate.addListener(this::propagateIfNecessary, directExecutor());
         }
 
         @Override
-        public synchronized void close()
+        protected ListenableFuture<T> delegate()
         {
-            if (closed) {
-                return;
-            }
-            closed = true;
-            if (splitLoadingFuture != null) {
-                splitLoadingFuture.cancel(true);
-                splitLoadingFuture = null;
-            }
-            splitSource.close();
+            return delegate;
         }
 
-        public interface Callback
+        @Override
+        public void addListener(Runnable listener, Executor executor)
         {
-            void update(ListMultimap<Integer, Split> splits, boolean noMoreSplits);
+            throw new UnsupportedOperationException();
+        }
 
-            void failed(Throwable t);
+        public ListenableFuture<T> addListener()
+        {
+            SettableFuture<T> listener = SettableFuture.create();
+            synchronized (listeners) {
+                listeners.add(listener);
+            }
+
+            listener.addListener(
+                    () -> {
+                        if (listener.isCancelled()) {
+                            synchronized (listeners) {
+                                listeners.remove(listener);
+                            }
+                        }
+                    },
+                    directExecutor());
+
+            propagateIfNecessary();
+
+            return listener;
+        }
+
+        private void propagateIfNecessary()
+        {
+            if (!delegate.isDone()) {
+                return;
+            }
+
+            List<SettableFuture<T>> futures;
+            synchronized (listeners) {
+                futures = ImmutableList.copyOf(listeners);
+                listeners.clear();
+            }
+
+            for (SettableFuture<T> future : futures) {
+                future.setFuture(delegate);
+            }
         }
     }
 }

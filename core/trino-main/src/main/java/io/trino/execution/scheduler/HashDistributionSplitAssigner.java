@@ -19,8 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
-import io.trino.execution.scheduler.EventDrivenTaskSource.Partition;
-import io.trino.execution.scheduler.EventDrivenTaskSource.PartitionUpdate;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;

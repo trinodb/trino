@@ -89,6 +89,7 @@ public class QueryManagerConfig
     private Duration retryMaxDelay = new Duration(1, MINUTES);
     private double retryDelayScaleFactor = 2.0;
 
+    private int maxTasksWaitingForExecutionPerQuery = 10;
     private int maxTasksWaitingForNodePerStage = 5;
 
     private DataSize faultTolerantExecutionTargetTaskInputSize = DataSize.of(4, GIGABYTE);
@@ -521,6 +522,20 @@ public class QueryManagerConfig
     {
         checkArgument(retryDelayScaleFactor >= 1.0, "retry-delay-scale-factor must be greater than or equal to 1");
         this.retryDelayScaleFactor = retryDelayScaleFactor;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxTasksWaitingForExecutionPerQuery()
+    {
+        return maxTasksWaitingForExecutionPerQuery;
+    }
+
+    @Config("max-tasks-waiting-for-execution-per-query")
+    @ConfigDescription("Maximum number of tasks waiting to be scheduled per query. Split enumeration is paused by the scheduler when this threshold is crossed")
+    public QueryManagerConfig setMaxTasksWaitingForExecutionPerQuery(int maxTasksWaitingForExecutionPerQuery)
+    {
+        this.maxTasksWaitingForExecutionPerQuery = maxTasksWaitingForExecutionPerQuery;
         return this;
     }
 
