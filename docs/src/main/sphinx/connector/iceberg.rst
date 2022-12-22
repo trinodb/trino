@@ -468,13 +468,13 @@ The default value for this property is ``7d``.
 drop_extended_stats
 ~~~~~~~~~~~~~~~~~~~
 
-This is an experimental command to remove extended statistics from the table.
+The ``drop_extended_stats`` command removes all extended statistics information from
+the table.
 
 ``drop_extended_stats`` can be run as follows:
 
 .. code-block:: sql
 
-  SET SESSION my_catalog.experimental_extended_statistics_enabled = true;
   ALTER TABLE test_table EXECUTE drop_extended_stats
 
 .. _iceberg-alter-table-set-properties:
@@ -1256,11 +1256,10 @@ the definition and the storage table.
 Table statistics
 ----------------
 
-There is experimental support to collect column statistics which can be enabled by
-setting the ``iceberg.experimental.extended-statistics.enabled`` catalog
-configuration property or the corresponding
-``experimental_extended_statistics_enabled`` session property to ``true``.
-Enabling this configuration allows executing :doc:`/sql/analyze` statement to gather statistics.
+The Iceberg connector can collect column statistics using :doc:`/sql/analyze`
+statement. This can be disabled using ``iceberg.extended-statistics.enabled``
+catalog configuration property, or the corresponding
+``extended_statistics_enabled`` session property.
 
 .. _iceberg_analyze:
 

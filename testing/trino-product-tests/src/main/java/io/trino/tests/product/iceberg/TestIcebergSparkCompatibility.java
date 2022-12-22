@@ -2236,7 +2236,6 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
         onTrino().executeQuery("CREATE TABLE " + trinoTableName + " AS SELECT regionkey, name FROM tpch.tiny.region");
-        onTrino().executeQuery("SET SESSION " + TRINO_CATALOG + ".experimental_extended_statistics_enabled = true");
         onTrino().executeQuery("ANALYZE " + trinoTableName);
 
         // We're not verifying results of ANALYZE (covered by non-product tests), but we're verifying table is readable.
@@ -2256,7 +2255,6 @@ public class TestIcebergSparkCompatibility
 
         onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(col1 INT, COL2 INT) USING ICEBERG");
         onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, 1)");
-        onTrino().executeQuery("SET SESSION " + TRINO_CATALOG + ".experimental_extended_statistics_enabled = true");
         onTrino().executeQuery("ANALYZE " + trinoTableName);
 
         // We're not verifying results of ANALYZE (covered by non-product tests), but we're verifying table is readable.

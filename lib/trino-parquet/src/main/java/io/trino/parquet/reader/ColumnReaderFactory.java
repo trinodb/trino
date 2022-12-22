@@ -14,6 +14,7 @@
 package io.trino.parquet.reader;
 
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.reader.decoders.TransformingValueDecoders;
 import io.trino.parquet.reader.decoders.ValueDecoders;
 import io.trino.parquet.reader.flat.FlatColumnReader;
 import io.trino.spi.TrinoException;
@@ -23,6 +24,8 @@ import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
@@ -39,10 +42,13 @@ import org.joda.time.DateTimeZone;
 import java.util.Optional;
 
 import static io.trino.parquet.ParquetTypeUtils.createDecimalType;
+import static io.trino.parquet.reader.decoders.TransformingValueDecoders.getInt96ToLongTimestampDecoder;
+import static io.trino.parquet.reader.decoders.TransformingValueDecoders.getInt96ToShortTimestampDecoder;
 import static io.trino.parquet.reader.flat.BinaryColumnAdapter.BINARY_ADAPTER;
 import static io.trino.parquet.reader.flat.BooleanColumnAdapter.BOOLEAN_ADAPTER;
 import static io.trino.parquet.reader.flat.ByteColumnAdapter.BYTE_ADAPTER;
 import static io.trino.parquet.reader.flat.Int128ColumnAdapter.INT128_ADAPTER;
+import static io.trino.parquet.reader.flat.Int96ColumnAdapter.INT96_ADAPTER;
 import static io.trino.parquet.reader.flat.IntColumnAdapter.INT_ADAPTER;
 import static io.trino.parquet.reader.flat.LongColumnAdapter.LONG_ADAPTER;
 import static io.trino.parquet.reader.flat.ShortColumnAdapter.SHORT_ADAPTER;
@@ -66,6 +72,7 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LE
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 
 public final class ColumnReaderFactory
 {
@@ -112,7 +119,7 @@ public final class ColumnReaderFactory
             }
             if (type instanceof TimeType && primitiveType == INT64) {
                 if (annotation instanceof TimeLogicalTypeAnnotation timeAnnotation && timeAnnotation.getUnit() == MICROS) {
-                    return new FlatColumnReader<>(field, ValueDecoders::getTimeMicrosDecoder, LONG_ADAPTER);
+                    return new FlatColumnReader<>(field, TransformingValueDecoders::getTimeMicrosDecoder, LONG_ADAPTER);
                 }
                 throw unsupportedException(type, field);
             }
@@ -130,6 +137,57 @@ public final class ColumnReaderFactory
             }
             if (DOUBLE.equals(type) && primitiveType == PrimitiveTypeName.DOUBLE) {
                 return new FlatColumnReader<>(field, ValueDecoders::getDoubleDecoder, LONG_ADAPTER);
+            }
+            if (type instanceof TimestampType timestampType && primitiveType == INT96) {
+                if (timestampType.isShort()) {
+                    return new FlatColumnReader<>(
+                            field,
+                            (encoding, primitiveField) -> getInt96ToShortTimestampDecoder(encoding, primitiveField, timeZone),
+                            LONG_ADAPTER);
+                }
+                return new FlatColumnReader<>(
+                        field,
+                        (encoding, primitiveField) -> getInt96ToLongTimestampDecoder(encoding, primitiveField, timeZone),
+                        INT96_ADAPTER);
+            }
+            if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && primitiveType == INT96) {
+                if (timestampWithTimeZoneType.isShort()) {
+                    return new FlatColumnReader<>(field, TransformingValueDecoders::getInt96ToShortTimestampWithTimeZoneDecoder, LONG_ADAPTER);
+                }
+                throw unsupportedException(type, field);
+            }
+            if (type instanceof TimestampType timestampType && primitiveType == INT64) {
+                if (!(annotation instanceof TimestampLogicalTypeAnnotation timestampAnnotation)) {
+                    throw unsupportedException(type, field);
+                }
+                if (timestampType.isShort()) {
+                    return switch (timestampAnnotation.getUnit()) {
+                        case MILLIS -> new FlatColumnReader<>(field, TransformingValueDecoders::getInt64TimestampMillsToShortTimestampDecoder, LONG_ADAPTER);
+                        case MICROS -> new FlatColumnReader<>(field, TransformingValueDecoders::getInt64TimestampMicrosToShortTimestampDecoder, LONG_ADAPTER);
+                        case NANOS -> new FlatColumnReader<>(field, TransformingValueDecoders::getInt64TimestampNanosToShortTimestampDecoder, LONG_ADAPTER);
+                    };
+                }
+                return switch (timestampAnnotation.getUnit()) {
+                    case MILLIS -> new FlatColumnReader<>(field, TransformingValueDecoders::getInt64TimestampMillisToLongTimestampDecoder, INT96_ADAPTER);
+                    case MICROS -> new FlatColumnReader<>(field, TransformingValueDecoders::getInt64TimestampMicrosToLongTimestampDecoder, INT96_ADAPTER);
+                    case NANOS -> new FlatColumnReader<>(field, TransformingValueDecoders::getInt64TimestampNanosToLongTimestampDecoder, INT96_ADAPTER);
+                };
+            }
+            if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && primitiveType == INT64) {
+                if (!(annotation instanceof TimestampLogicalTypeAnnotation timestampAnnotation)) {
+                    throw unsupportedException(type, field);
+                }
+                if (timestampWithTimeZoneType.isShort()) {
+                    return switch (timestampAnnotation.getUnit()) {
+                        case MILLIS -> new FlatColumnReader<>(field, TransformingValueDecoders::getInt64TimestampMillsToShortTimestampWithTimeZoneDecoder, LONG_ADAPTER);
+                        case MICROS -> new FlatColumnReader<>(field, TransformingValueDecoders::getInt64TimestampMicrosToShortTimestampWithTimeZoneDecoder, LONG_ADAPTER);
+                        case NANOS -> throw unsupportedException(type, field);
+                    };
+                }
+                return switch (timestampAnnotation.getUnit()) {
+                    case MILLIS, NANOS -> throw unsupportedException(type, field);
+                    case MICROS -> new FlatColumnReader<>(field, TransformingValueDecoders::getInt64TimestampMicrosToLongTimestampWithTimeZoneDecoder, INT96_ADAPTER);
+                };
             }
             if (type instanceof DecimalType decimalType && decimalType.isShort()
                     && (primitiveType == INT32 || primitiveType == INT64 || primitiveType == FIXED_LEN_BYTE_ARRAY)) {

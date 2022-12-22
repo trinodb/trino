@@ -105,6 +105,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
+import static io.trino.plugin.iceberg.TrinoMetricsReporter.TRINO_METRICS_REPORTER;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
@@ -132,6 +133,7 @@ import static java.lang.Float.parseFloat;
 import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
@@ -171,7 +173,7 @@ public final class IcebergUtil
                 table.getTableName(),
                 Optional.empty(),
                 Optional.empty());
-        return new BaseTable(operations, quotedTableName(table));
+        return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
     }
 
     public static Table getIcebergTableWithMetadata(
@@ -189,7 +191,7 @@ public final class IcebergUtil
                 Optional.empty(),
                 Optional.empty());
         operations.initializeFromMetadata(tableMetadata);
-        return new BaseTable(operations, quotedTableName(table));
+        return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
     }
 
     public static Map<String, Object> getIcebergTableProperties(Table icebergTable)
@@ -480,7 +482,7 @@ public final class IcebergUtil
             }
             if (type instanceof DecimalType decimalType) {
                 BigDecimal decimal = new BigDecimal(valueString);
-                decimal = decimal.setScale(decimalType.getScale(), BigDecimal.ROUND_UNNECESSARY);
+                decimal = decimal.setScale(decimalType.getScale(), UNNECESSARY);
                 if (decimal.precision() > decimalType.getPrecision()) {
                     throw new IllegalArgumentException();
                 }

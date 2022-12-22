@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.parquet.reader.flat.BinaryBuffer;
+import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Chars;
 import io.trino.spi.type.DecimalType;
@@ -38,8 +39,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetReaderUtils.castToByte;
 import static io.trino.parquet.ParquetReaderUtils.toByteExact;
 import static io.trino.parquet.ParquetReaderUtils.toShortExact;
+import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.parquet.ParquetTypeUtils.checkBytesFitInShortDecimal;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
+import static io.trino.parquet.reader.flat.Int96ColumnAdapter.Int96Buffer;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.util.Objects.requireNonNull;
 
@@ -195,68 +198,6 @@ public class ApacheParquetValueDecoders
         {
             for (int i = offset; i < offset + length; i++) {
                 values[i] = delegate.readLong();
-            }
-        }
-
-        @Override
-        public void skip(int n)
-        {
-            delegate.skip(n);
-        }
-    }
-
-    public static final class DoubleApacheParquetValueDecoder
-            implements ValueDecoder<long[]>
-    {
-        private final ValuesReader delegate;
-
-        public DoubleApacheParquetValueDecoder(ValuesReader delegate)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-        }
-
-        @Override
-        public void init(SimpleSliceInputStream input)
-        {
-            initialize(input, delegate);
-        }
-
-        @Override
-        public void read(long[] values, int offset, int length)
-        {
-            for (int i = offset; i < offset + length; i++) {
-                values[i] = Double.doubleToLongBits(delegate.readDouble());
-            }
-        }
-
-        @Override
-        public void skip(int n)
-        {
-            delegate.skip(n);
-        }
-    }
-
-    public static final class FloatApacheParquetValueDecoder
-            implements ValueDecoder<int[]>
-    {
-        private final ValuesReader delegate;
-
-        public FloatApacheParquetValueDecoder(ValuesReader delegate)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-        }
-
-        @Override
-        public void init(SimpleSliceInputStream input)
-        {
-            initialize(input, delegate);
-        }
-
-        @Override
-        public void read(int[] values, int offset, int length)
-        {
-            for (int i = offset; i < offset + length; i++) {
-                values[i] = Float.floatToIntBits(delegate.readFloat());
             }
         }
 
@@ -520,6 +461,40 @@ public class ApacheParquetValueDecoders
                 byte[] data = delegate.readBytes().getBytes();
                 values[currentOutputOffset] = (long) LONG_ARRAY_HANDLE.get(data, 0);
                 values[currentOutputOffset + 1] = (long) LONG_ARRAY_HANDLE.get(data, Long.BYTES);
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
+    }
+
+    public static final class Int96ApacheParquetValueDecoder
+            implements ValueDecoder<Int96Buffer>
+    {
+        private final ValuesReader delegate;
+
+        public Int96ApacheParquetValueDecoder(ValuesReader delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            initialize(input, delegate);
+        }
+
+        @Override
+        public void read(Int96Buffer values, int offset, int length)
+        {
+            int endOffset = offset + length;
+            for (int i = offset; i < endOffset; i++) {
+                DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(delegate.readBytes());
+                values.longs[i] = decodedTimestamp.epochSeconds();
+                values.ints[i] = decodedTimestamp.nanosOfSecond();
             }
         }
 

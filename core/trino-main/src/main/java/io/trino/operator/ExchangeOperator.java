@@ -15,7 +15,6 @@ package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
-import io.trino.connector.CatalogHandle;
 import io.trino.exchange.ExchangeDataSource;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.LazyExchangeDataSource;
@@ -25,6 +24,8 @@ import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
+import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.split.RemoteSplit;
@@ -40,14 +41,14 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
+import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ExchangeOperator
         implements SourceOperator
 {
-    public static final CatalogHandle REMOTE_CATALOG_HANDLE = createRootCatalogHandle("$remote");
+    public static final CatalogHandle REMOTE_CATALOG_HANDLE = createRootCatalogHandle("$remote", new CatalogVersion("remote"));
 
     public static class ExchangeOperatorFactory
             implements SourceOperatorFactory

@@ -39,7 +39,7 @@ import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
-import io.trino.parquet.predicate.Predicate;
+import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.ParquetReaderColumn;
@@ -156,6 +156,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcMaxMergeDis
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcMaxReadBlockSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcStreamBufferSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcTinyStripeThreshold;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxReadBlockRowCount;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
@@ -564,6 +565,7 @@ public class IcebergPageSourceProvider
                         dataColumns,
                         parquetReaderOptions
                                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
+                                .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                                 .withBatchColumnReaders(isParquetOptimizedReaderEnabled(session)),
                         predicate,
                         fileFormatDataSourceStats,
@@ -973,7 +975,7 @@ public class IcebergPageSourceProvider
             MessageType requestedSchema = new MessageType(fileSchema.getName(), parquetFields.stream().filter(Objects::nonNull).collect(toImmutableList()));
             Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
             TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
-            Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, UTC);
+            TupleDomainParquetPredicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, UTC);
 
             long nextStart = 0;
             Optional<Long> startRowPosition = Optional.empty();
@@ -1354,7 +1356,7 @@ public class IcebergPageSourceProvider
         effectivePredicate.getDomains().orElseThrow().forEach((columnHandle, domain) -> {
             String baseType = columnHandle.getType().getTypeSignature().getBase();
             // skip looking up predicates for complex types as Parquet only stores stats for primitives
-            if (!baseType.equals(StandardTypes.MAP) && !baseType.equals(StandardTypes.ARRAY) && !baseType.equals(StandardTypes.ROW)) {
+            if (columnHandle.isBaseColumn() && (!baseType.equals(StandardTypes.MAP) && !baseType.equals(StandardTypes.ARRAY) && !baseType.equals(StandardTypes.ROW))) {
                 ColumnDescriptor descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
                 if (descriptor != null) {
                     predicate.put(descriptor, domain);

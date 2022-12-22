@@ -13,8 +13,9 @@
  */
 package io.trino.connector;
 
-import io.trino.connector.CatalogHandle.CatalogHandleType;
 import io.trino.metadata.Catalog;
+import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogHandle.CatalogHandleType;
 
 import java.util.Optional;
 

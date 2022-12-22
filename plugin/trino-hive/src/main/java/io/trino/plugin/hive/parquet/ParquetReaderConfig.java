@@ -20,6 +20,8 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.trino.parquet.ParquetReaderOptions;
 
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 @DefunctConfig({
@@ -56,6 +58,21 @@ public class ParquetReaderConfig
     public ParquetReaderConfig setMaxReadBlockSize(DataSize maxReadBlockSize)
     {
         options = options.withMaxReadBlockSize(maxReadBlockSize);
+        return this;
+    }
+
+    @Min(128)
+    @Max(65536)
+    public int getMaxReadBlockRowCount()
+    {
+        return options.getMaxReadBlockRowCount();
+    }
+
+    @Config("parquet.max-read-block-row-count")
+    @ConfigDescription("Maximum number of rows read in a batch")
+    public ParquetReaderConfig setMaxReadBlockRowCount(int length)
+    {
+        options = options.withMaxReadBlockRowCount(length);
         return this;
     }
 

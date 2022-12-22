@@ -14,17 +14,10 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
-import io.trino.hdfs.DynamicHdfsConfiguration;
-import io.trino.hdfs.HdfsConfig;
-import io.trino.hdfs.HdfsConfiguration;
-import io.trino.hdfs.HdfsConfigurationInitializer;
-import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -37,7 +30,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionField;
@@ -53,7 +45,6 @@ import org.apache.iceberg.data.parquet.GenericParquetWriter;
 import org.apache.iceberg.deletes.EqualityDeleteWriter;
 import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
-import org.apache.iceberg.hadoop.HadoopOutputFile;
 import org.apache.iceberg.parquet.Parquet;
 import org.assertj.core.api.Assertions;
 import org.testng.annotations.AfterClass;
@@ -72,6 +63,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
@@ -89,7 +81,6 @@ public class TestIcebergV2
         extends AbstractTestQueryFramework
 {
     private HiveMetastore metastore;
-    private HdfsEnvironment hdfsEnvironment;
     private java.nio.file.Path tempDir;
     private File metastoreDir;
 
@@ -97,10 +88,6 @@ public class TestIcebergV2
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        HdfsConfig config = new HdfsConfig();
-        HdfsConfiguration configuration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
-        hdfsEnvironment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
-
         tempDir = Files.createTempDirectory("test_iceberg_v2");
         metastoreDir = tempDir.resolve("iceberg_data").toFile();
         metastore = createTestingFileHiveMetastore(metastoreDir);
@@ -161,10 +148,10 @@ public class TestIcebergV2
 
         Path metadataDir = new Path(metastoreDir.toURI());
         String deleteFileName = "delete_file_" + UUID.randomUUID();
-        FileSystem fs = hdfsEnvironment.getFileSystem(new HdfsContext(SESSION), metadataDir);
+        TrinoFileSystem fs = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
 
         Path path = new Path(metadataDir, deleteFileName);
-        PositionDeleteWriter<Record> writer = Parquet.writeDeletes(HadoopOutputFile.fromPath(path, fs))
+        PositionDeleteWriter<Record> writer = Parquet.writeDeletes(fs.toFileIo().newOutputFile(path.toString()))
                 .createWriterFunc(GenericParquetWriter::buildWriter)
                 .forTable(icebergTable)
                 .overwrite()
@@ -503,13 +490,13 @@ public class TestIcebergV2
     {
         Path metadataDir = new Path(metastoreDir.toURI());
         String deleteFileName = "delete_file_" + UUID.randomUUID();
-        FileSystem fs = hdfsEnvironment.getFileSystem(new HdfsContext(SESSION), metadataDir);
+        TrinoFileSystem fs = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
 
         Schema deleteRowSchema = icebergTable.schema().select(overwriteValues.keySet());
         List<Integer> equalityFieldIds = overwriteValues.keySet().stream()
                 .map(name -> deleteRowSchema.findField(name).fieldId())
                 .collect(toImmutableList());
-        Parquet.DeleteWriteBuilder writerBuilder = Parquet.writeDeletes(HadoopOutputFile.fromPath(new Path(metadataDir, deleteFileName), fs))
+        Parquet.DeleteWriteBuilder writerBuilder = Parquet.writeDeletes(fs.toFileIo().newOutputFile(new Path(metadataDir, deleteFileName).toString()))
                 .forTable(icebergTable)
                 .rowSchema(deleteRowSchema)
                 .createWriterFunc(GenericParquetWriter::buildWriter)

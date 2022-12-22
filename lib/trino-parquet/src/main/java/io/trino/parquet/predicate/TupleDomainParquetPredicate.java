@@ -78,7 +78,6 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 
 public class TupleDomainParquetPredicate
-        implements Predicate
 {
     private final TupleDomain<ColumnDescriptor> effectivePredicate;
     private final List<ColumnDescriptor> columns;
@@ -91,13 +90,27 @@ public class TupleDomainParquetPredicate
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 
-    @Override
-    public Optional<List<ColumnDescriptor>> getIndexLookupCandidates(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id)
+    /**
+     * Should the Parquet Reader process a file section with the specified statistics,
+     * and if it should, then return the columns are candidates for further inspection of more
+     * granular statistics from column index and dictionary.
+     *
+     * @param valueCounts the number of values for a column in the segment; this can be used with
+     * Statistics to determine if a column is only null
+     * @param statistics column statistics
+     * @param id Parquet file name
+     *
+     * @return Optional.empty() if statistics were sufficient to eliminate the file section.
+     * Otherwise, a list of columns for which page-level indices and dictionary could be consulted
+     * to potentially eliminate the file section. An optional with empty list is returned if there is
+     * going to be no benefit in looking at column index or dictionary for any column.
+     */
+    public Optional<List<ColumnDescriptor>> getIndexLookupCandidates(
+            Map<ColumnDescriptor, Long> valueCounts,
+            Map<ColumnDescriptor, Statistics<?>> statistics,
+            ParquetDataSourceId id)
             throws ParquetCorruptionException
     {
-        if (numberOfRows == 0) {
-            return Optional.empty();
-        }
         if (effectivePredicate.isNone()) {
             return Optional.empty();
         }
@@ -118,10 +131,14 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
+            Long columnValueCount = valueCounts.get(column);
+            if (columnValueCount == null) {
+                throw new IllegalArgumentException(format("Missing columnValueCount for column %s in %s", column, id));
+            }
             Domain domain = getDomain(
                     column,
                     effectivePredicateDomain.getType(),
-                    numberOfRows,
+                    columnValueCount,
                     columnStatistics,
                     id,
                     timeZone);
@@ -137,7 +154,13 @@ public class TupleDomainParquetPredicate
         return Optional.of(candidateColumns.build());
     }
 
-    @Override
+    /**
+     * Should the Parquet Reader process a file section with the specified dictionary based on that
+     * single dictionary. This is safe to check repeatedly to avoid loading more parquet dictionaries
+     * if the section can already be eliminated.
+     *
+     * @param dictionary The single column dictionary
+     */
     public boolean matches(DictionaryDescriptor dictionary)
     {
         requireNonNull(dictionary, "dictionary is null");
@@ -152,16 +175,18 @@ public class TupleDomainParquetPredicate
         return effectivePredicateDomain == null || effectivePredicateMatches(effectivePredicateDomain, dictionary);
     }
 
-    @Override
-    public boolean matches(long numberOfRows, ColumnIndexStore columnIndexStore, ParquetDataSourceId id)
+    /**
+     * Should the Parquet Reader process a file section with the specified statistics.
+     *
+     * @param valueCounts the number of values for a column in the segment; this can be used with
+     * Statistics to determine if a column is only null
+     * @param columnIndexStore column index (statistics) store
+     * @param id Parquet file name
+     */
+    public boolean matches(Map<ColumnDescriptor, Long> valueCounts, ColumnIndexStore columnIndexStore, ParquetDataSourceId id)
             throws ParquetCorruptionException
     {
         requireNonNull(columnIndexStore, "columnIndexStore is null");
-
-        if (numberOfRows == 0) {
-            return false;
-        }
-
         if (effectivePredicate.isNone()) {
             return false;
         }
@@ -180,7 +205,11 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
-            Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnIndex, id, column, timeZone);
+            Long columnValueCount = valueCounts.get(column);
+            if (columnValueCount == null) {
+                throw new IllegalArgumentException(format("Missing columnValueCount for column %s in %s", column, id));
+            }
+            Domain domain = getDomain(effectivePredicateDomain.getType(), columnValueCount, columnIndex, id, column, timeZone);
             if (!effectivePredicateDomain.overlaps(domain)) {
                 return false;
             }
@@ -189,7 +218,12 @@ public class TupleDomainParquetPredicate
         return true;
     }
 
-    @Override
+    /**
+     * Convert Predicate to Parquet filter if possible.
+     *
+     * @param timeZone current Parquet timezone
+     * @return Converted Parquet filter or null if conversion not possible
+     */
     public Optional<FilterPredicate> toParquetFilter(DateTimeZone timeZone)
     {
         return Optional.ofNullable(convertToParquetFilter(timeZone));
@@ -204,7 +238,7 @@ public class TupleDomainParquetPredicate
     public static Domain getDomain(
             ColumnDescriptor column,
             Type type,
-            long rowCount,
+            long columnValuesCount,
             Statistics<?> statistics,
             ParquetDataSourceId id,
             DateTimeZone timeZone)
@@ -214,7 +248,7 @@ public class TupleDomainParquetPredicate
             return Domain.all(type);
         }
 
-        if (statistics.isNumNullsSet() && statistics.getNumNulls() == rowCount) {
+        if (statistics.isNumNullsSet() && statistics.getNumNulls() == columnValuesCount) {
             return Domain.onlyNull(type);
         }
 
@@ -406,7 +440,7 @@ public class TupleDomainParquetPredicate
     @VisibleForTesting
     public static Domain getDomain(
             Type type,
-            long rowCount,
+            long columnValuesCount,
             ColumnIndex columnIndex,
             ParquetDataSourceId id,
             ColumnDescriptor descriptor,
@@ -435,7 +469,7 @@ public class TupleDomainParquetPredicate
                 .sum();
         boolean hasNullValue = totalNullCount > 0;
 
-        if (hasNullValue && totalNullCount == rowCount) {
+        if (hasNullValue && totalNullCount == columnValuesCount) {
             return Domain.onlyNull(type);
         }
 

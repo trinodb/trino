@@ -22,7 +22,6 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
-import io.trino.connector.CatalogHandle;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -44,6 +43,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.Collections.shuffle;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,7 +55,6 @@ public class TestArbitraryDistributionSplitAssigner
 {
     private static final int FUZZ_TESTING_INVOCATION_COUNT = 100;
 
-    private static final CatalogHandle TESTING_CATALOG_HANDLE = CatalogHandle.createRootCatalogHandle("testing");
     private static final int STANDARD_SPLIT_SIZE_IN_BYTES = 1;
 
     private static final PlanNodeId PARTITIONED_1 = new PlanNodeId("partitioned-1");
@@ -602,12 +601,12 @@ public class TestArbitraryDistributionSplitAssigner
 
     private static Split createSplit(int id)
     {
-        return new Split(TESTING_CATALOG_HANDLE, new TestingConnectorSplit(id, OptionalInt.empty(), Optional.empty()));
+        return new Split(TEST_CATALOG_HANDLE, new TestingConnectorSplit(id, OptionalInt.empty(), Optional.empty()));
     }
 
     private static Split createSplit(int id, List<HostAddress> addresses)
     {
-        return new Split(TESTING_CATALOG_HANDLE, new TestingConnectorSplit(id, OptionalInt.empty(), Optional.of(addresses)));
+        return new Split(TEST_CATALOG_HANDLE, new TestingConnectorSplit(id, OptionalInt.empty(), Optional.of(addresses)));
     }
 
     private static ListMultimap<Integer, Split> createSplitsMultimap(List<Split> splits)
@@ -638,7 +637,7 @@ public class TestArbitraryDistributionSplitAssigner
                 }
             }
         }
-        assertEquals(taskDescriptor.getNodeRequirements().getCatalogHandle(), Optional.of(TESTING_CATALOG_HANDLE));
+        assertEquals(taskDescriptor.getNodeRequirements().getCatalogHandle(), Optional.of(TEST_CATALOG_HANDLE));
         assertThat(taskDescriptor.getNodeRequirements().getAddresses()).containsAnyElementsOf(hostRequirement == null ? ImmutableSet.of() : hostRequirement);
     }
 
@@ -665,7 +664,7 @@ public class TestArbitraryDistributionSplitAssigner
             targetPartitionSizeInBytes = STANDARD_SPLIT_SIZE_IN_BYTES * partitionedSplitsPerPartition;
         }
         return new ArbitraryDistributionSplitAssigner(
-                Optional.of(TESTING_CATALOG_HANDLE),
+                Optional.of(TEST_CATALOG_HANDLE),
                 partitionedSources,
                 replicatedSources,
                 targetPartitionSizeInBytes,

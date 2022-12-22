@@ -34,10 +34,9 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.execution.QueryManagerConfig.QUERY_MAX_RUN_TIME_HARD_LIMIT;
+import static io.trino.execution.QueryManagerConfig.MAX_TASK_RETRY_ATTEMPTS;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
@@ -327,15 +326,6 @@ public final class SystemSessionProperties
                         QUERY_MAX_RUN_TIME,
                         "Maximum run time of a query (includes the queueing time)",
                         queryManagerConfig.getQueryMaxRunTime(),
-                        queryManagerConfig.getQueryMaxRunTimeHardLimit()
-                                .<Consumer<Duration>>map(hardLimit -> value -> {
-                                    if (value.compareTo(hardLimit) > 0) {
-                                        throw new TrinoException(
-                                                INVALID_SESSION_PROPERTY,
-                                                format("%s must not exceed '%s' %s: %s", QUERY_MAX_RUN_TIME, QUERY_MAX_RUN_TIME_HARD_LIMIT, hardLimit, value));
-                                    }
-                                })
-                                .orElse(value -> {}),
                         false),
                 durationProperty(
                         QUERY_MAX_EXECUTION_TIME,
@@ -762,6 +752,13 @@ public final class SystemSessionProperties
                         TASK_RETRY_ATTEMPTS_PER_TASK,
                         "Maximum number of task retry attempts per single task",
                         queryManagerConfig.getTaskRetryAttemptsPerTask(),
+                        value -> {
+                            if (value < 0 || value > MAX_TASK_RETRY_ATTEMPTS) {
+                                throw new TrinoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s must be greater than or equal to 0 and not not greater than %s", TASK_RETRY_ATTEMPTS_PER_TASK, MAX_TASK_RETRY_ATTEMPTS));
+                            }
+                        },
                         false),
                 integerProperty(
                         MAX_TASKS_WAITING_FOR_NODE_PER_STAGE,

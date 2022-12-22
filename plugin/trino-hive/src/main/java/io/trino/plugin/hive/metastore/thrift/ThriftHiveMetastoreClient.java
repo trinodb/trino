@@ -71,6 +71,7 @@ import org.apache.thrift.TApplicationException;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TTransport;
+import org.apache.thrift.transport.TTransportException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -108,8 +109,9 @@ public class ThriftHiveMetastoreClient
     private static final Pattern TABLE_PARAMETER_SAFE_KEY_PATTERN = Pattern.compile("^[a-zA-Z_]+$");
     private static final Pattern TABLE_PARAMETER_SAFE_VALUE_PATTERN = Pattern.compile("^[a-zA-Z0-9\\s]*$");
 
-    private final TTransport transport;
-    protected final ThriftHiveMetastore.Iface client;
+    private final TransportSupplier transportSupplier;
+    private TTransport transport;
+    protected ThriftHiveMetastore.Iface client;
     private final String hostname;
 
     private final MetastoreSupportsDateStatistics metastoreSupportsDateStatistics;
@@ -120,7 +122,7 @@ public class ThriftHiveMetastoreClient
     private final AtomicInteger chosenAlterPartitionsAlternative;
 
     public ThriftHiveMetastoreClient(
-            TTransport transport,
+            TransportSupplier transportSupplier,
             String hostname,
             MetastoreSupportsDateStatistics metastoreSupportsDateStatistics,
             AtomicInteger chosenGetTableAlternative,
@@ -128,15 +130,9 @@ public class ThriftHiveMetastoreClient
             AtomicInteger chosenGetAllViewsAlternative,
             AtomicInteger chosenAlterTransactionalTableAlternative,
             AtomicInteger chosenAlterPartitionsAlternative)
+            throws TTransportException
     {
-        this.transport = requireNonNull(transport, "transport is null");
-        ThriftHiveMetastore.Client client = new ThriftHiveMetastore.Client(new TBinaryProtocol(transport));
-        if (log.isDebugEnabled()) {
-            this.client = newProxy(ThriftHiveMetastore.Iface.class, new LoggingInvocationHandler(client, PARAMETER_NAMES_PROVIDER, log::debug));
-        }
-        else {
-            this.client = client;
-        }
+        this.transportSupplier = requireNonNull(transportSupplier, "transportSupplier is null");
         this.hostname = requireNonNull(hostname, "hostname is null");
         this.metastoreSupportsDateStatistics = requireNonNull(metastoreSupportsDateStatistics, "metastoreSupportsDateStatistics is null");
         this.chosenGetTableAlternative = requireNonNull(chosenGetTableAlternative, "chosenGetTableAlternative is null");
@@ -144,10 +140,28 @@ public class ThriftHiveMetastoreClient
         this.chosenGetAllViewsAlternative = requireNonNull(chosenGetAllViewsAlternative, "chosenGetAllViewsAlternative is null");
         this.chosenAlterTransactionalTableAlternative = requireNonNull(chosenAlterTransactionalTableAlternative, "chosenAlterTransactionalTableAlternative is null");
         this.chosenAlterPartitionsAlternative = requireNonNull(chosenAlterPartitionsAlternative, "chosenAlterPartitionsAlternative is null");
+
+        connect();
+    }
+
+    private void connect()
+            throws TTransportException
+    {
+        transport = transportSupplier.createTransport();
+        ThriftHiveMetastore.Iface client = new ThriftHiveMetastore.Client(new TBinaryProtocol(transport));
+        if (log.isDebugEnabled()) {
+            client = newProxy(ThriftHiveMetastore.Iface.class, new LoggingInvocationHandler(client, PARAMETER_NAMES_PROVIDER, log::debug));
+        }
+        this.client = client;
     }
 
     @Override
     public void close()
+    {
+        disconnect();
+    }
+
+    private void disconnect()
     {
         transport.close();
     }
@@ -268,16 +282,6 @@ public class ThriftHiveMetastoreClient
                     return client.get_table_req(request).getTable();
                 },
                 () -> client.get_table(databaseName, tableName));
-    }
-
-    private Table getTableWithCapabilities(String databaseName, String tableName)
-            throws TException
-    {
-        GetTableRequest request = new GetTableRequest();
-        request.setDbName(databaseName);
-        request.setTblName(tableName);
-        request.setCapabilities(new ClientCapabilities(ImmutableList.of(ClientCapability.INSERT_ONLY_TABLES)));
-        return client.get_table_req(request).getTable();
     }
 
     @Override
@@ -739,7 +743,7 @@ public class ThriftHiveMetastoreClient
     }
 
     @SafeVarargs
-    private static <T> T alternativeCall(
+    private <T> T alternativeCall(
             Predicate<Exception> isValidExceptionalResponse,
             AtomicInteger chosenAlternative,
             AlternativeCall<T>... alternatives)
@@ -773,6 +777,10 @@ public class ThriftHiveMetastoreClient
                 else if (firstException != exception) {
                     firstException.addSuppressed(exception);
                 }
+                // Client that threw exception is in an unknown state. We need to open it again to
+                // make sure it will respond properly to the next call.
+                disconnect();
+                connect();
             }
         }
 
@@ -827,5 +835,11 @@ public class ThriftHiveMetastoreClient
     {
         void call(A arg)
                 throws TException;
+    }
+
+    public interface TransportSupplier
+    {
+        TTransport createTransport()
+                throws TTransportException;
     }
 }

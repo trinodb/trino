@@ -69,6 +69,7 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_DATA;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakePageSink.createPartitionValues;
 import static io.trino.plugin.deltalake.DeltaLakeSchemaProperties.buildHiveSchema;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockRowCount;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetOptimizedReaderEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetUseColumnIndex;
@@ -579,6 +580,7 @@ public class DeltaLakeUpdatablePageSource
                 parquetDateTimeZone,
                 new FileFormatDataSourceStats(),
                 parquetReaderOptions.withMaxReadBlockSize(getParquetMaxReadBlockSize(this.session))
+                        .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                         .withUseColumnIndex(isParquetUseColumnIndex(this.session))
                         .withBatchColumnReaders(isParquetOptimizedReaderEnabled(this.session)),
                 Optional.empty());

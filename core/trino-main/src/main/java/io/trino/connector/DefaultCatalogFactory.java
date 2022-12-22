@@ -29,6 +29,7 @@ import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -48,8 +49,8 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.connector.CatalogHandle.createInformationSchemaCatalogHandle;
-import static io.trino.connector.CatalogHandle.createSystemTablesCatalogHandle;
+import static io.trino.spi.connector.CatalogHandle.createInformationSchemaCatalogHandle;
+import static io.trino.spi.connector.CatalogHandle.createSystemTablesCatalogHandle;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

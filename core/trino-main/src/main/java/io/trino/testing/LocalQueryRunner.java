@@ -133,6 +133,7 @@ import io.trino.spi.ErrorType;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.Plugin;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.session.PropertyMetadata;
@@ -764,6 +765,20 @@ public class LocalQueryRunner
     {
         printPlan = true;
         return this;
+    }
+
+    public CatalogHandle getCatalogHandle(String catalogName)
+    {
+        return inTransaction(transactionSession -> getMetadata().getCatalogHandle(transactionSession, catalogName)).orElseThrow();
+    }
+
+    public TableHandle getTableHandle(String catalogName, String schemaName, String tableName)
+    {
+        return inTransaction(transactionSession ->
+                getMetadata().getTableHandle(
+                        transactionSession,
+                        new QualifiedObjectName(catalogName, schemaName, tableName))
+                .orElseThrow());
     }
 
     @Override

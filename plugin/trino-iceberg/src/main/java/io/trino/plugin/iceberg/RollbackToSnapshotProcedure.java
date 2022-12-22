@@ -46,14 +46,11 @@ public class RollbackToSnapshotProcedure
     }
 
     private final TrinoCatalogFactory catalogFactory;
-    private final ClassLoader classLoader;
 
     @Inject
     public RollbackToSnapshotProcedure(TrinoCatalogFactory catalogFactory)
     {
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
-        // this class is loaded by PluginClassLoader and we need its reference to be stored
-        this.classLoader = getClass().getClassLoader();
     }
 
     @Override
@@ -71,10 +68,7 @@ public class RollbackToSnapshotProcedure
 
     public void rollbackToSnapshot(ConnectorSession clientSession, String schema, String table, Long snapshotId)
     {
-        // this line guarantees that classLoader that we stored in the field will be used inside try/catch
-        // as we captured reference to PluginClassLoader during initialization of this class
-        // we can use it now to correctly execute the procedure
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             SchemaTableName schemaTableName = new SchemaTableName(schema, table);
             Table icebergTable = catalogFactory.create(clientSession.getIdentity()).loadTable(clientSession, schemaTableName);
             icebergTable.manageSnapshots().setCurrentSnapshot(snapshotId).commit();

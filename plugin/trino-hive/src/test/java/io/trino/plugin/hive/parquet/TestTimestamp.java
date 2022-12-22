@@ -40,7 +40,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.cycle;
+import static com.google.common.collect.Iterables.limit;
+import static com.google.common.collect.Iterables.transform;
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
@@ -51,6 +53,7 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
+import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
@@ -79,18 +82,33 @@ public class TestTimestamp
             case NANOSECONDS -> "TIMESTAMP(NANOS,true)";
         };
         MessageType parquetSchema = parseMessageType("message hive_timestamp { optional int64 test (" + logicalAnnotation + "); }");
-        List<Long> writeValues = ContiguousSet.create(Range.closedOpen((long) -1_000, (long) 1_000), DiscreteDomain.longs()).stream()
-                .collect(toImmutableList());
-        List<SqlTimestamp> timestampReadValues = writeValues.stream()
-                .map(value -> switch (timestamp) {
-                    case MILLISECONDS -> SqlTimestamp.fromMillis(timestamp.getPrecision(), value);
-                    case MICROSECONDS -> SqlTimestamp.newInstance(timestamp.getPrecision(), value, 0);
-                    case NANOSECONDS -> SqlTimestamp.newInstance(
-                            timestamp.getPrecision(),
-                            floorDiv(value, NANOSECONDS_PER_MICROSECOND),
-                            floorMod(value, NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND);
-                })
-                .collect(toImmutableList());
+
+        Iterable<Long> writeNullableDictionaryValues = limit(cycle(asList(1L, null, 3L, 5L, null, null, null, 7L, 11L, null, 13L, 17L)), 30_000);
+        testRoundTrip(parquetSchema, writeNullableDictionaryValues, timestamp);
+
+        Iterable<Long> writeDictionaryValues = limit(cycle(asList(1L, 3L, 5L, 7L, 11L, 13L, 17L)), 30_000);
+        testRoundTrip(parquetSchema, writeDictionaryValues, timestamp);
+
+        Iterable<Long> writeValues = ContiguousSet.create(Range.closedOpen((long) -1_000, (long) 1_000), DiscreteDomain.longs());
+        testRoundTrip(parquetSchema, writeValues, timestamp);
+    }
+
+    private static void testRoundTrip(MessageType parquetSchema, Iterable<Long> writeValues, HiveTimestampPrecision timestamp)
+            throws Exception
+    {
+        Iterable<SqlTimestamp> timestampReadValues = transform(writeValues, value -> {
+            if (value == null) {
+                return null;
+            }
+            return switch (timestamp) {
+                case MILLISECONDS -> SqlTimestamp.fromMillis(timestamp.getPrecision(), value);
+                case MICROSECONDS -> SqlTimestamp.newInstance(timestamp.getPrecision(), value, 0);
+                case NANOSECONDS -> SqlTimestamp.newInstance(
+                        timestamp.getPrecision(),
+                        floorDiv(value, NANOSECONDS_PER_MICROSECOND),
+                        floorMod(value, NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND);
+            };
+        });
 
         List<ObjectInspector> objectInspectors = singletonList(javaLongObjectInspector);
         List<String> columnNames = ImmutableList.of("test");
@@ -120,7 +138,7 @@ public class TestTimestamp
         }
     }
 
-    private static void testReadingAs(Type type, ConnectorSession session, ParquetTester.TempFile tempFile, List<String> columnNames, List<?> expectedValues)
+    private static void testReadingAs(Type type, ConnectorSession session, ParquetTester.TempFile tempFile, List<String> columnNames, Iterable<?> expectedValues)
              throws IOException
     {
         Iterator<?> expected = expectedValues.iterator();

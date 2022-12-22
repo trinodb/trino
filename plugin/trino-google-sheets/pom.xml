@@ -56,7 +56,7 @@
         <dependency>
             <groupId>com.google.api-client</groupId>
             <artifactId>google-api-client</artifactId>
-            <version>1.23.0</version>
+            <version>1.25.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>com.google.guava</groupId>
@@ -72,7 +72,7 @@
         <dependency>
             <groupId>com.google.apis</groupId>
             <artifactId>google-api-services-sheets</artifactId>
-            <version>v4-rev516-1.23.0</version>
+            <version>v4-rev612-1.25.0</version>
         </dependency>
 
         <dependency>
@@ -95,7 +95,7 @@
         <dependency>
             <groupId>com.google.http-client</groupId>
             <artifactId>google-http-client-jackson2</artifactId>
-            <version>1.23.0</version>
+            <version>1.25.0</version>
         </dependency>
 
         <dependency>

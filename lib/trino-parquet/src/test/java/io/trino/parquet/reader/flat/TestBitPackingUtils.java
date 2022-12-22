@@ -53,6 +53,25 @@ public class TestBitPackingUtils
     }
 
     @Test
+    public void testUnpackByte()
+    {
+        Random random = new Random(0);
+        byte[] values = new byte[100 + 8];
+        for (int packedByte = 0; packedByte < 256; packedByte++) {
+            for (int start = 0; start < 8; start++) {
+                for (int end = start + 1; end <= 8; end++) {
+                    int offset = random.nextInt(100);
+                    unpack(values, offset, (byte) packedByte, start, end);
+
+                    for (int bit = start; bit < end; bit++) {
+                        assertThat(values[offset + bit - start]).isEqualTo((byte) ((packedByte >>> bit) & 1));
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     public void testUnpack8()
     {
         Random random = new Random(0);
@@ -64,6 +83,21 @@ public class TestBitPackingUtils
 
             for (int bit = 0; bit < 8; bit++) {
                 assertThat(values[offset + bit]).isEqualTo(((packedByte >>> bit) & 1) == 1);
+            }
+        }
+    }
+
+    @Test
+    public void testUnpack8FromByte()
+    {
+        Random random = new Random(0);
+        byte[] values = new byte[100 + 8];
+        for (int packedByte = 0; packedByte < 256; packedByte++) {
+            int offset = random.nextInt(100);
+            BitPackingUtils.unpack8FromByte(values, offset, (byte) packedByte);
+
+            for (int bit = 0; bit < 8; bit++) {
+                assertThat(values[offset + bit]).isEqualTo((byte) ((packedByte >>> bit) & 1));
             }
         }
     }
@@ -81,6 +115,22 @@ public class TestBitPackingUtils
 
             for (int bit = 0; bit < 64; bit++) {
                 assertThat(values[offset + bit]).isEqualTo(((packedValue >>> bit) & 1) == 1);
+            }
+        }
+    }
+
+    @Test
+    public void testUnpack64FromLong()
+    {
+        Random random = new Random(1);
+        byte[] values = new byte[100 + 64];
+        for (int i = 0; i < 100_000; i++) {
+            int offset = random.nextInt(100);
+            long packedValue = random.nextLong();
+            BitPackingUtils.unpack64FromLong(values, offset, packedValue);
+
+            for (int bit = 0; bit < 64; bit++) {
+                assertThat(values[offset + bit]).isEqualTo((byte) ((packedValue >>> bit) & 1));
             }
         }
     }

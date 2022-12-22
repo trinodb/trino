@@ -34,6 +34,7 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.Strings.padEnd;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -410,6 +411,33 @@ public abstract class AbstractTestHiveViews
                 row("bigint"),
                 row("varchar"));
     }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testHiveViewWithTextualTypes()
+    {
+        onHive().executeQuery("DROP VIEW IF EXISTS hive_view_textual");
+        onHive().executeQuery("DROP TABLE IF EXISTS hive_table_textual");
+
+        // In Hive, columns with `char` type have a fixed length between 1 and 255, columns with `varchar` type can have a length between 1 and 65535
+        onHive().executeQuery("CREATE TABLE hive_table_textual(a_char_1 char(1), a_char_255 char(255), a_varchar_1 varchar(1), a_varchar_65535 varchar(65535), a_string string)");
+        onHive().executeQuery("CREATE VIEW hive_view_textual AS SELECT * FROM hive_table_textual");
+        onHive().executeQuery("INSERT INTO TABLE hive_table_textual VALUES ('a', 'rainy', 'i', 'calendar', 'Boston Red Sox')");
+
+        assertViewQuery(
+                "SELECT * FROM hive_view_textual",
+                queryAssert -> queryAssert.containsOnly(row("a", padEnd("rainy", 255, ' '), "i", "calendar", "Boston Red Sox")));
+        assertViewQuery(
+                "SELECT a_char_1, a_varchar_65535 FROM hive_view_textual WHERE a_string = 'Boston Red Sox'",
+                queryAssert -> queryAssert.containsOnly(row("a", "calendar")));
+
+        assertThat(onTrino().executeQuery("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = 'hive_view_textual'"))
+                .containsOnly(getExpectedHiveViewTextualColumnsTypes());
+
+        onHive().executeQuery("DROP VIEW hive_view_textual");
+        onHive().executeQuery("DROP TABLE hive_table_textual");
+    }
+
+    protected abstract List<QueryAssert.Row> getExpectedHiveViewTextualColumnsTypes();
 
     @Test(groups = HIVE_VIEWS)
     public void testNestedHiveViews()
