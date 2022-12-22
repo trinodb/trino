@@ -871,44 +871,15 @@ public class HiveMetadata
             return locationUri;
         });
 
-        String queryId = session.getQueryId();
         Database database = Database.builder()
                 .setDatabaseName(schemaName)
                 .setLocation(location)
                 .setOwnerType(accessControlMetadata.isUsingSystemSecurity() ? Optional.empty() : Optional.of(owner.getType()))
                 .setOwnerName(accessControlMetadata.isUsingSystemSecurity() ? Optional.empty() : Optional.of(owner.getName()))
-                .setParameters(ImmutableMap.of(PRESTO_QUERY_ID_NAME, queryId))
+                .setParameters(ImmutableMap.of(PRESTO_QUERY_ID_NAME, session.getQueryId()))
                 .build();
 
-        // Ensure the database has queryId set. This is relied on for exception handling
-        verify(
-                getQueryId(database).orElseThrow(() -> new IllegalArgumentException("Query id is not present")).equals(queryId),
-                "Database does not have correct query id set",
-                database);
-
-        try {
-            metastore.createDatabase(database);
-        }
-        catch (SchemaAlreadyExistsException e) {
-            // Ignore SchemaAlreadyExistsException when database looks like created by us.
-            // This may happen when an actually successful metastore create call is retried
-            // e.g. because of a timeout on our side.
-            Optional<Database> existingDatabase = metastore.getDatabase(schemaName);
-            if (existingDatabase.isEmpty() || !isCreatedBy(existingDatabase.get(), queryId)) {
-                throw e;
-            }
-        }
-    }
-
-    private static Optional<String> getQueryId(Database database)
-    {
-        return Optional.ofNullable(database.getParameters().get(PRESTO_QUERY_ID_NAME));
-    }
-
-    private static boolean isCreatedBy(Database database, String queryId)
-    {
-        Optional<String> databaseQueryId = getQueryId(database);
-        return databaseQueryId.isPresent() && databaseQueryId.get().equals(queryId);
+        metastore.createDatabase(session, database);
     }
 
     @Override
