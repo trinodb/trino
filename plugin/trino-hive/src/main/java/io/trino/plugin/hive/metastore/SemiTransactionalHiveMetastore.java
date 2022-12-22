@@ -36,6 +36,7 @@ import io.trino.plugin.hive.PartitionAndStatementId;
 import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.PartitionUpdateAndMergeResults;
+import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.TableInvalidationCallback;
 import io.trino.plugin.hive.acid.AcidOperation;
@@ -423,9 +424,36 @@ public class SemiTransactionalHiveMetastore
         return delegate.getAllViews(databaseName);
     }
 
-    public synchronized void createDatabase(Database database)
+    public synchronized void createDatabase(ConnectorSession session, Database database)
     {
-        setExclusive((delegate, hdfsEnvironment) -> delegate.createDatabase(database));
+        String queryId = session.getQueryId();
+
+        // Ensure the database has queryId set. This is relied on for exception handling
+        verify(
+                getQueryId(database).orElseThrow(() -> new IllegalArgumentException("Query id is not present")).equals(queryId),
+                "Database does not have correct query id set",
+                database);
+
+        setExclusive((delegate, hdfsEnvironment) -> {
+            try {
+                delegate.createDatabase(database);
+            }
+            catch (SchemaAlreadyExistsException e) {
+                // Ignore SchemaAlreadyExistsException when database looks like created by us.
+                // This may happen when an actually successful metastore create call is retried
+                // e.g. because of a timeout on our side.
+                Optional<Database> existingDatabase = delegate.getDatabase(database.getDatabaseName());
+                if (existingDatabase.isEmpty() || !isCreatedBy(existingDatabase.get(), queryId)) {
+                    throw e;
+                }
+            }
+        });
+    }
+
+    private static boolean isCreatedBy(Database database, String queryId)
+    {
+        Optional<String> databaseQueryId = getQueryId(database);
+        return databaseQueryId.isPresent() && databaseQueryId.get().equals(queryId);
     }
 
     public synchronized void dropDatabase(ConnectorSession session, String schemaName)
@@ -2889,6 +2917,11 @@ public class SemiTransactionalHiveMetastore
         catch (IOException e) {
             throw new TrinoException(HIVE_FILESYSTEM_ERROR, format("Failed to rename %s to %s", source, target), e);
         }
+    }
+
+    private static Optional<String> getQueryId(Database database)
+    {
+        return Optional.ofNullable(database.getParameters().get(PRESTO_QUERY_ID_NAME));
     }
 
     private static Optional<String> getQueryId(Table table)
