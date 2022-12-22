@@ -26,6 +26,7 @@ import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 
+import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -68,6 +69,10 @@ public class RollbackToSnapshotProcedure
 
     public void rollbackToSnapshot(ConnectorSession clientSession, String schema, String table, Long snapshotId)
     {
+        checkProcedureArgument(schema != null, "schema cannot be null");
+        checkProcedureArgument(table != null, "table cannot be null");
+        checkProcedureArgument(snapshotId != null, "snapshot_id cannot be null");
+
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             SchemaTableName schemaTableName = new SchemaTableName(schema, table);
             Table icebergTable = catalogFactory.create(clientSession.getIdentity()).loadTable(clientSession, schemaTableName);
