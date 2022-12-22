@@ -155,6 +155,7 @@ public final class SystemSessionProperties
     public static final String QUERY_RETRY_ATTEMPTS = "query_retry_attempts";
     public static final String TASK_RETRY_ATTEMPTS_OVERALL = "task_retry_attempts_overall";
     public static final String TASK_RETRY_ATTEMPTS_PER_TASK = "task_retry_attempts_per_task";
+    public static final String MAX_TASKS_WAITING_FOR_EXECUTION_PER_QUERY = "max_tasks_waiting_for_execution_per_query";
     public static final String MAX_TASKS_WAITING_FOR_NODE_PER_STAGE = "max_tasks_waiting_for_node_per_stage";
     public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
     public static final String RETRY_MAX_DELAY = "retry_max_delay";
@@ -759,6 +760,11 @@ public final class SystemSessionProperties
                                         format("%s must be greater than or equal to 0 and not not greater than %s", TASK_RETRY_ATTEMPTS_PER_TASK, MAX_TASK_RETRY_ATTEMPTS));
                             }
                         },
+                        false),
+                integerProperty(
+                        MAX_TASKS_WAITING_FOR_EXECUTION_PER_QUERY,
+                        "Maximum number of tasks waiting to be scheduled per query. Split enumeration is paused by the scheduler when this threshold is crossed",
+                        queryManagerConfig.getMaxTasksWaitingForExecutionPerQuery(),
                         false),
                 integerProperty(
                         MAX_TASKS_WAITING_FOR_NODE_PER_STAGE,
@@ -1456,6 +1462,11 @@ public final class SystemSessionProperties
     public static int getTaskRetryAttemptsPerTask(Session session)
     {
         return session.getSystemProperty(TASK_RETRY_ATTEMPTS_PER_TASK, Integer.class);
+    }
+
+    public static int getMaxTasksWaitingForExecutionPerQuery(Session session)
+    {
+        return session.getSystemProperty(MAX_TASKS_WAITING_FOR_EXECUTION_PER_QUERY, Integer.class);
     }
 
     public static int getMaxTasksWaitingForNodePerStage(Session session)
