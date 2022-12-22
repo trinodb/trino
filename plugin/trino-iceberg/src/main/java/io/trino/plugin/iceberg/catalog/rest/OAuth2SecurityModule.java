@@ -11,13 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.catalog.rest;
 
-public enum CatalogType
+import com.google.inject.Binder;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+
+import static io.airlift.configuration.ConfigBinder.configBinder;
+
+public class OAuth2SecurityModule
+        extends AbstractConfigurationAwareModule
 {
-    TESTING_FILE_METASTORE,
-    HIVE_METASTORE,
-    GLUE,
-    REST,
-    /**/;
+    @Override
+    protected void setup(Binder binder)
+    {
+        configBinder(binder).bindConfig(OAuth2SecurityConfig.class);
+        binder.bind(SecurityProperties.class).to(OAuth2SecurityProperties.class);
+    }
 }

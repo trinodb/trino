@@ -11,13 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.catalog.rest;
 
-public enum CatalogType
+import com.google.common.collect.ImmutableMap;
+
+import java.util.Map;
+
+public class NoneSecurityProperties
+        implements SecurityProperties
 {
-    TESTING_FILE_METASTORE,
-    HIVE_METASTORE,
-    GLUE,
-    REST,
-    /**/;
+    @Override
+    public Map<String, String> get()
+    {
+        return ImmutableMap.of();
+    }
 }

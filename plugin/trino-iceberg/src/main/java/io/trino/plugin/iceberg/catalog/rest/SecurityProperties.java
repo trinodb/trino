@@ -11,13 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.catalog.rest;
 
-public enum CatalogType
+import java.util.Map;
+
+public interface SecurityProperties
 {
-    TESTING_FILE_METASTORE,
-    HIVE_METASTORE,
-    GLUE,
-    REST,
-    /**/;
+    Map<String, String> get();
 }

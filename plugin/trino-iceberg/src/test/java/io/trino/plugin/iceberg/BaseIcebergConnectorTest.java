@@ -141,7 +141,7 @@ public abstract class BaseIcebergConnectorTest
 {
     private static final Pattern WITH_CLAUSE_EXTRACTOR = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
 
-    private final IcebergFileFormat format;
+    protected final IcebergFileFormat format;
 
     protected BaseIcebergConnectorTest(IcebergFileFormat format)
     {
@@ -4299,9 +4299,17 @@ public abstract class BaseIcebergConnectorTest
     public void testGetIcebergTableProperties()
     {
         assertUpdate("CREATE TABLE test_iceberg_get_table_props (x BIGINT)");
-        assertThat(query("SELECT * FROM \"test_iceberg_get_table_props$properties\""))
-                .matches(format("VALUES (VARCHAR 'write.format.default', VARCHAR '%s')", format.name()));
+        verifyIcebergTableProperties(computeActual("SELECT * FROM \"test_iceberg_get_table_props$properties\""));
         dropTable("test_iceberg_get_table_props");
+    }
+
+    protected void verifyIcebergTableProperties(MaterializedResult actual)
+    {
+        assertThat(actual).isNotNull();
+        MaterializedResult expected = resultBuilder(getSession())
+                .row("write.format.default", format.name())
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
     protected abstract boolean supportsIcebergFileStatistics(String typeName);
@@ -6143,9 +6151,7 @@ public abstract class BaseIcebergConnectorTest
 
         String baseTableName = "test_rename_target_" + randomNameSuffix();
 
-        int maxLength = 255;
-
-        String validTargetTableName = baseTableName + "z".repeat(maxLength - baseTableName.length());
+        String validTargetTableName = baseTableName + "z".repeat(maxTableRenameLength() - baseTableName.length());
         assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + validTargetTableName);
         assertTrue(getQueryRunner().tableExists(getSession(), validTargetTableName));
         assertQuery("SELECT x FROM " + validTargetTableName, "VALUES 123");
@@ -6156,6 +6162,11 @@ public abstract class BaseIcebergConnectorTest
         assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + invalidTargetTableName))
                 .satisfies(this::verifyTableNameLengthFailurePermissible);
         assertFalse(getQueryRunner().tableExists(getSession(), invalidTargetTableName));
+    }
+
+    protected int maxTableRenameLength()
+    {
+        return 255;
     }
 
     @Override
