@@ -166,7 +166,7 @@ this by running the commands generated upon installation.
 
    .. code-block:: text
 
-       POD_NAME=$(kubectl get pods -l "app=trino,release=my-trino-cluster,component=coordinator" -o name)
+       POD_NAME=$(kubectl get pods -l "app=trino,release=example-trino-cluster,component=coordinator" -o name)
 
 #. Create the tunnel from the coordinator pod to the client.
 
@@ -177,7 +177,7 @@ this by running the commands generated upon installation.
    Now you can connect to the Trino coordinator at ``http://localhost:8080``.
 
 #. To connect to Trino, you can use the
-   :doc:`commond-line interface </client/cli>`, a
+   :doc:`command-line interface </client/cli>`, a
    :doc:`JDBC client </client/jdbc>`, or any of the
    :doc:`other clients </client>`. For this example,
    :ref:`install the command-line interface <cli-installation>`, and connect to
