@@ -2535,7 +2535,7 @@ public abstract class BaseConnectorTest
     public void testCreateTableAsSelect()
     {
         String tableName = "test_ctas" + randomNameSuffix();
-        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)) {
             assertQueryFails("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name, regionkey FROM nation", "This connector does not support creating tables with data");
             return;
         }
@@ -2673,12 +2673,11 @@ public abstract class BaseConnectorTest
     @Test
     public void testCreateTableAsSelectNegativeDate()
     {
+        // Covered by testCreateTableAsSelect
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
         String tableName = "negative_date_" + randomNameSuffix();
 
-        if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)) {
-            assertQueryFails(format("CREATE TABLE %s AS SELECT DATE '-0001-01-01' AS dt", tableName), "This connector does not support creating tables with data");
-            return;
-        }
         if (!hasBehavior(SUPPORTS_NEGATIVE_DATE)) {
             assertQueryFails(format("CREATE TABLE %s AS SELECT DATE '-0001-01-01' AS dt", tableName), errorMessageForCreateTableAsSelectNegativeDate("-0001-01-01"));
             return;
