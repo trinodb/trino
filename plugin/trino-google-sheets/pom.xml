@@ -126,6 +126,13 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>node</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
@@ -167,12 +174,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>http-server</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>node</artifactId>
             <scope>test</scope>
         </dependency>
 

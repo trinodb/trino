@@ -1,0 +1,78 @@
+{
+    "data": {
+        "schemas": [
+            {
+                "schema": "hidden",
+                "owner": false
+            },
+            {
+                "schema": "secret",
+                "owner": false
+            },
+            {
+                "user": "admin",
+                "owner": true
+            },
+            {
+                "user": "bob",
+                "schema": "bob-schema",
+                "owner": true
+            }
+        ],
+        "tables": [
+            {
+                "schema": "secret",
+                "privileges": []
+            },
+            {
+                "user": "alice",
+                "schema": "alice-schema",
+                "privileges": [
+                    "SELECT"
+                ]
+            },
+            {
+                "user": "bob",
+                "schema": "bob-schema",
+                "table": "bob.*",
+                "privileges": [
+                    "SELECT"
+                ]
+            },
+            {
+                "schema": "specific-schema",
+                "table": "specific-table",
+                "privileges": [
+                    "SELECT"
+                ]
+            }
+        ],
+        "functions": [
+            {
+                "user": "alice",
+                "schema": "ptf_schema",
+                "function_kinds": [
+                    "TABLE"
+                ],
+                "function": "some_table_function",
+                "privileges": [
+                    "EXECUTE",
+                    "GRANT_EXECUTE"
+                ]
+            },
+            {
+                "user": "bob",
+                "function_kinds": [
+                    "SCALAR",
+                    "AGGREGATE",
+                    "WINDOW"
+                ],
+                "function": "some_function",
+                "privileges": [
+                    "EXECUTE",
+                    "GRANT_EXECUTE"
+                ]
+            }
+        ]
+    }
+}

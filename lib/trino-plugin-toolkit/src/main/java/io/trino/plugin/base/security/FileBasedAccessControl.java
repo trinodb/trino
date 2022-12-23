@@ -29,7 +29,6 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
-import java.io.File;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,7 +44,6 @@ import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivileg
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.OWNERSHIP;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.SELECT;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.UPDATE;
-import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
@@ -110,12 +108,11 @@ public class FileBasedAccessControl
     private final List<FunctionAccessControlRule> functionRules;
     private final Set<AnySchemaPermissionsRule> anySchemaPermissionsRules;
 
-    public FileBasedAccessControl(CatalogName catalogName, File configFile)
+    public FileBasedAccessControl(CatalogName catalogName, AccessControlRules rules)
     {
         this.catalogName = catalogName.toString();
 
-        AccessControlRules rules = parseJson(configFile.toPath(), AccessControlRules.class);
-        checkArgument(!rules.hasRoleRules(), "File connector access control does not support role rules: %s", configFile);
+        checkArgument(!rules.hasRoleRules(), "File connector access control does not support role rules");
 
         this.schemaRules = rules.getSchemaRules();
         this.tableRules = rules.getTableRules();

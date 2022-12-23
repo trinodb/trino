@@ -15,7 +15,7 @@ package io.trino.security;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.inject.ProvisionException;
+import com.google.inject.CreationException;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.plugin.base.security.FileBasedSystemAccessControl;
@@ -32,6 +32,7 @@ import org.testng.annotations.Test;
 import javax.security.auth.kerberos.KerberosPrincipal;
 
 import java.io.File;
+import java.io.UncheckedIOException;
 import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.Optional;
@@ -797,15 +798,15 @@ public class TestFileBasedSystemAccessControl
                 .execute(transactionId -> {
                     accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId), aliceView);
                 }))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageStartingWith("Invalid JSON file");
+                .isInstanceOf(UncheckedIOException.class)
+                .hasMessageStartingWith("Failed to convert JSON tree node");
         // test if file based cached control was not cached somewhere
         assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId), aliceView);
                 }))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageStartingWith("Invalid JSON file");
+                .isInstanceOf(UncheckedIOException.class)
+                .hasMessageStartingWith("Failed to convert JSON tree node");
 
         copy(new File(getResourcePath("catalog.json")), configFile);
         sleep(2);
@@ -820,16 +821,16 @@ public class TestFileBasedSystemAccessControl
     public void testAllowModeIsRequired()
     {
         assertThatThrownBy(() -> newAccessControlManager(createTestTransactionManager(), "catalog_allow_unset.json"))
-                .isInstanceOf(ProvisionException.class)
-                .hasMessageContaining("Invalid JSON file");
+                .isInstanceOf(CreationException.class)
+                .hasMessageContaining("Failed to convert JSON tree node");
     }
 
     @Test
     public void testAllowModeInvalidValue()
     {
         assertThatThrownBy(() -> newAccessControlManager(createTestTransactionManager(), "catalog_invalid_allow_value.json"))
-                .isInstanceOf(ProvisionException.class)
-                .hasMessageContaining("Invalid JSON file");
+                .isInstanceOf(CreationException.class)
+                .hasMessageContaining("Failed to convert JSON tree node");
     }
 
     private AccessControlManager newAccessControlManager(TransactionManager transactionManager, String resourceName)
@@ -855,7 +856,7 @@ public class TestFileBasedSystemAccessControl
     public void parseUnknownRules()
     {
         assertThatThrownBy(() -> parse("src/test/resources/security-config-file-with-unknown-rules.json"))
-                .hasMessageContaining("Invalid JSON");
+                .hasMessageContaining("Failed to convert JSON tree node");
     }
 
     private void parse(String path)
