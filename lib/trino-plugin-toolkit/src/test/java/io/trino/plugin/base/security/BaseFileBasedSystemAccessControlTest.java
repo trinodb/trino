@@ -162,11 +162,11 @@ public abstract class BaseFileBasedSystemAccessControlTest
         sleep(2);
 
         assertThatThrownBy(() -> accessControl.checkCanCreateView(alice, aliceView))
-                .hasMessageContaining("Invalid JSON file");
+                .hasMessageContaining("Failed to convert JSON tree node");
 
         // test if file based cached control was not cached somewhere
         assertThatThrownBy(() -> accessControl.checkCanCreateView(alice, aliceView))
-                .hasMessageContaining("Invalid JSON file");
+                .hasMessageContaining("Failed to convert JSON tree node");
 
         copy(new File(getResourcePath("file-based-system-catalog.json")), configFile);
         sleep(2);
@@ -1503,7 +1503,15 @@ public abstract class BaseFileBasedSystemAccessControlTest
     public void parseUnknownRules()
     {
         assertThatThrownBy(() -> newFileBasedSystemAccessControl("file-based-system-security-config-file-with-unknown-rules.json"))
-                .hasMessageContaining("Invalid JSON file");
+                .hasMessageContaining("Failed to convert JSON tree node");
+    }
+
+    @Test
+    public void testTableRulesForCheckCanInsertIntoTableWithJsonPointer()
+    {
+        File configFile = new File(getResourcePath("file-based-system-access-table-with-json-pointer.json"));
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl(configFile, ImmutableMap.of("security.json-pointer", "/data"));
+        assertTableRulesForCheckCanInsertIntoTable(accessControl);
     }
 
     protected SystemAccessControl newFileBasedSystemAccessControl(String rulesName)

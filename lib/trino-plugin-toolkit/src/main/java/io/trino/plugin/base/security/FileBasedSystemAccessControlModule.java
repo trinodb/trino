@@ -18,53 +18,66 @@ import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import com.google.inject.Scopes;
+import com.google.inject.Singleton;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.security.SystemAccessControl;
 
-import java.nio.file.Paths;
+import java.io.File;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode.ALL;
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class FileBasedSystemAccessControlModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     private static final Logger log = Logger.get(FileBasedSystemAccessControlModule.class);
 
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
         configBinder(binder).bindConfig(FileBasedAccessControlConfig.class);
+        install(conditionalModule(
+                FileBasedAccessControlConfig.class,
+                FileBasedAccessControlConfig::isHttp,
+                new HttpSystemAccessControlModule(),
+                new LocalSystemAccessControlModule()));
     }
 
     @Inject
     @Provides
-    public SystemAccessControl getSystemAccessControl(FileBasedAccessControlConfig config)
+    @Singleton
+    public SystemAccessControl getSystemAccessControl(
+            FileBasedAccessControlConfig config,
+            Supplier<FileBasedSystemAccessControlRules> rulesProvider)
     {
-        String configFileName = config.getConfigFile().getPath();
         Duration refreshPeriod = config.getRefreshPeriod();
         if (refreshPeriod != null) {
             return ForwardingSystemAccessControl.of(memoizeWithExpiration(
                     () -> {
-                        log.info("Refreshing system access control from %s", configFileName);
-                        return create(configFileName);
+                        log.info("Refreshing system access control from %s", config.getConfigFile());
+                        return create(rulesProvider.get());
                     },
                     refreshPeriod.toMillis(),
                     MILLISECONDS));
         }
-        return create(configFileName);
+        return create(rulesProvider.get());
     }
 
-    private SystemAccessControl create(String configFileName)
+    private SystemAccessControl create(FileBasedSystemAccessControlRules rules)
     {
-        FileBasedSystemAccessControlRules rules = parseJson(Paths.get(configFileName), FileBasedSystemAccessControlRules.class);
         List<CatalogAccessControlRule> catalogAccessControlRules;
         if (rules.getCatalogRules().isPresent()) {
             ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
@@ -96,5 +109,46 @@ public class FileBasedSystemAccessControlModule
                 .setCatalogSessionPropertyRules(rules.getCatalogSessionPropertyRules().orElse(ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL)))
                 .setFunctionRules(rules.getFunctionRules().orElse(ImmutableList.of(CatalogFunctionAccessControlRule.ALLOW_ALL)))
                 .build();
+    }
+
+    private static class LocalSystemAccessControlModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder) {}
+
+        @Inject
+        @Provides
+        @Singleton
+        public Supplier<FileBasedSystemAccessControlRules> getSystemAccessControlRules(
+                FileBasedAccessControlConfig config)
+        {
+            File configFile = new File(config.getConfigFile());
+            return () -> parseJson(configFile.toPath(), config.getJsonPointer(), FileBasedSystemAccessControlRules.class);
+        }
+    }
+
+    private static class HttpSystemAccessControlModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder)
+        {
+            httpClientBinder(binder).bindHttpClient("system-access-control", ForAccessControlRules.class)
+                    .withConfigDefaults(config -> config
+                            .setRequestTimeout(Duration.succinctDuration(10, TimeUnit.SECONDS))
+                            .setSelectorCount(1)
+                            .setMinThreads(1));
+            binder.bind(HttpBasedAccessControlRulesProvider.class).in(Scopes.SINGLETON);
+        }
+
+        @Inject
+        @Provides
+        @Singleton
+        public Supplier<FileBasedSystemAccessControlRules> getSystemAccessControlRules(
+                HttpBasedAccessControlRulesProvider rulesProvider)
+        {
+            return () -> rulesProvider.extract(FileBasedSystemAccessControlRules.class);
+        }
     }
 }
