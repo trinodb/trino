@@ -176,6 +176,7 @@
                     </execution>
                 </executions>
                 <configuration>
+                    <versionFormat>[0-9]+</versionFormat>
                     <ignoreSuggestionsFormat>xml</ignoreSuggestionsFormat>
                     <analysisConfiguration>
                         <revapi.filter>
