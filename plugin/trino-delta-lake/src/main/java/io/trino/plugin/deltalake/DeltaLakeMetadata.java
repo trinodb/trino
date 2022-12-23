@@ -1022,6 +1022,7 @@ public class DeltaLakeMetadata
             // Remove the transaction log entry if the table creation fails
             try {
                 Path transactionLogLocation = getTransactionLogDir(new Path(handle.getLocation()));
+                System.out.println("DEBUG (transactionLogLocation): " + transactionLogLocation);
                 FileSystem fs = hdfsEnvironment.getFileSystem(new HdfsContext(session), transactionLogLocation);
                 fs.delete(transactionLogLocation, true);
             }
