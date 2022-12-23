@@ -15,6 +15,7 @@ package io.trino.spi.connector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import io.trino.spi.Experimental;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
@@ -27,6 +28,7 @@ import static java.lang.Math.toIntExact;
 import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
+@Experimental(eta = "2023-02-01")
 public final class CatalogHandle
 {
     private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(CatalogHandle.class).instanceSize());
@@ -171,6 +173,7 @@ public final class CatalogHandle
         }
     }
 
+    @Experimental(eta = "2023-02-01")
     public static final class CatalogVersion
             implements Comparable<CatalogVersion>
     {
