@@ -245,6 +245,13 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>node</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>stats</artifactId>
@@ -388,12 +395,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>http-server</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>node</artifactId>
             <scope>test</scope>
         </dependency>
 

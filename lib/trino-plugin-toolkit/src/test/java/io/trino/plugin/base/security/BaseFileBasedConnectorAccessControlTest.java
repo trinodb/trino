@@ -642,7 +642,16 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     public void testInvalidRules()
     {
         assertThatThrownBy(() -> createAccessControl("invalid.json"))
-                .hasMessageContaining("Invalid JSON file");
+                .hasMessageContaining("Failed to convert JSON tree node");
+    }
+
+    @Test
+    public void testFilterSchemasWithJsonPointer()
+    {
+        File configFile = new File(getResourcePath("visibility-with-json-pointer.json"));
+        ConnectorAccessControl accessControl = createAccessControl(configFile,
+                ImmutableMap.of("security.json-pointer", "/data"));
+        assertFilterSchemas(accessControl);
     }
 
     @Test
