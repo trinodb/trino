@@ -30,6 +30,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.MoreCollectors.toOptional;
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.KILL_QUERY;
 import static io.trino.testing.TestingAccessControlManager.privilege;
@@ -68,7 +69,6 @@ public class TestKillQuery
 
     @Test(timeOut = 60_000)
     public void testKillQuery()
-            throws Exception
     {
         String testQueryId = "test_query_id_" + randomUUID().toString().replace("-", "");
         Future<?> queryFuture = executor.submit(() -> {
@@ -77,7 +77,7 @@ public class TestKillQuery
 
         Optional<Object> queryIdValue = Optional.empty();
         while (queryIdValue.isEmpty()) {
-            Thread.sleep(50);
+            sleepUninterruptibly(50, TimeUnit.MILLISECONDS);
             queryIdValue = computeActual(format(
                     "SELECT query_id FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'",
                     testQueryId))
