@@ -116,6 +116,7 @@ public class DeltaLakeParquetStatisticsUtils
             return (long) floatToRawIntBits((float) (double) jsonValue);
         }
         if (type == DOUBLE) {
+            //noinspection RedundantCast
             return (double) jsonValue;
         }
         if (type instanceof DecimalType decimalType) {
