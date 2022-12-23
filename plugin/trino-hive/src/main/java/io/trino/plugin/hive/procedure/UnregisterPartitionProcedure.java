@@ -79,18 +79,18 @@ public class UnregisterPartitionProcedure
                 UNREGISTER_PARTITION.bindTo(this));
     }
 
-    public void unregisterPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues)
+    public void unregisterPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumns, List<String> partitionValues)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doUnregisterPartition(session, accessControl, schemaName, tableName, partitionColumn, partitionValues);
+            doUnregisterPartition(session, accessControl, schemaName, tableName, partitionColumns, partitionValues);
         }
     }
 
-    private void doUnregisterPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues)
+    private void doUnregisterPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumns, List<String> partitionValues)
     {
         checkProcedureArgument(schemaName != null, "schema_name cannot be null");
         checkProcedureArgument(tableName != null, "table_name cannot be null");
-        checkProcedureArgument(partitionColumn != null, "partition_columns cannot be null");
+        checkProcedureArgument(partitionColumns != null, "partition_columns cannot be null");
         checkProcedureArgument(partitionValues != null, "partition_values cannot be null");
 
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
@@ -103,9 +103,9 @@ public class UnregisterPartitionProcedure
         accessControl.checkCanDeleteFromTable(null, schemaTableName);
 
         checkIsPartitionedTable(table);
-        checkPartitionColumns(table, partitionColumn);
+        checkPartitionColumns(table, partitionColumns);
 
-        String partitionName = FileUtils.makePartName(partitionColumn, partitionValues);
+        String partitionName = FileUtils.makePartName(partitionColumns, partitionValues);
 
         Partition partition = metastore.unsafeGetRawHiveMetastoreClosure().getPartition(schemaName, tableName, partitionValues)
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Partition '%s' does not exist", partitionName)));
