@@ -72,6 +72,11 @@ public class DictionaryBuilder
         this.containsNullElement = false;
     }
 
+    public static boolean isNullIndex(int index)
+    {
+        return index == NULL_POSITION;
+    }
+
     public long getSizeInBytes()
     {
         return elementBlock.getSizeInBytes();
