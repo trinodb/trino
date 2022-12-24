@@ -19,6 +19,9 @@ import com.google.common.collect.Maps;
 import io.jsonwebtoken.impl.DefaultJwtBuilder;
 import io.jsonwebtoken.jackson.io.JacksonSerializer;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.metastore.MetastoreUtil;
+import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergSchemaProperties;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -32,6 +35,7 @@ import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
+import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -56,13 +60,19 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
+import static io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations.ICEBERG_METASTORE_STORAGE_FORMAT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
+import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
+import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
+import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 
 public class TrinoRestCatalog
         implements TrinoCatalog
@@ -72,6 +82,8 @@ public class TrinoRestCatalog
     private final SessionType sessionType;
     private final String trinoVersion;
     private final boolean useUniqueTableLocation;
+    private final CachingHiveMetastore metastore;
+    private final boolean isUsingSystemSecurity;
 
     private final Map<String, Table> tableCache = new ConcurrentHashMap<>();
 
@@ -80,13 +92,17 @@ public class TrinoRestCatalog
             CatalogName catalogName,
             SessionType sessionType,
             String trinoVersion,
-            boolean useUniqueTableLocation)
+            boolean useUniqueTableLocation,
+            CachingHiveMetastore metastore,
+            boolean isUsingSystemSecurity)
     {
         this.restSessionCatalog = requireNonNull(restSessionCatalog, "restSessionCatalog is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.sessionType = requireNonNull(sessionType, "sessionType is null");
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.useUniqueTableLocation = useUniqueTableLocation;
+        this.metastore=requireNonNull(metastore, "metastore is null");
+        this.isUsingSystemSecurity=isUsingSystemSecurity;
     }
 
     @Override
@@ -208,7 +224,23 @@ public class TrinoRestCatalog
     @Override
     public void registerTable(ConnectorSession session, SchemaTableName tableName, String tableLocation, String metadataLocation)
     {
-        throw new TrinoException(NOT_SUPPORTED, "registerTable is not supported for Iceberg REST catalog");
+        Optional<String> owner = isUsingSystemSecurity ? Optional.empty() : Optional.of(session.getUser());
+
+        io.trino.plugin.hive.metastore.Table.Builder builder = io.trino.plugin.hive.metastore.Table.builder()
+            .setDatabaseName(tableName.getSchemaName())
+            .setTableName(tableName.getTableName())
+            .setOwner(owner)
+            // Table needs to be EXTERNAL, otherwise table rename in HMS would rename table directory and break table contents.
+            .setTableType(TableType.EXTERNAL_TABLE.name())
+            .withStorage(storage -> storage.setLocation(tableLocation))
+            .withStorage(storage -> storage.setStorageFormat(ICEBERG_METASTORE_STORAGE_FORMAT))
+            // This is a must-have property for the EXTERNAL_TABLE table type
+            .setParameter("EXTERNAL", "TRUE")
+            .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
+            .setParameter(METADATA_LOCATION_PROP, metadataLocation);
+
+        PrincipalPrivileges privileges = owner.map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
+        metastore.createTable(builder.build(), privileges);
     }
 
     @Override
