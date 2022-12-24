@@ -17,27 +17,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import io.airlift.slice.Slices;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.predicate.NullableValue;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.BooleanType;
-import io.trino.spi.type.DateType;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.MapType;
-import io.trino.spi.type.RealType;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -49,12 +36,12 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.newArrayList;
+import static io.trino.plugin.hive.HiveTestUtils.toNativeContainerValue;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBuckets;
@@ -363,73 +350,6 @@ public class TestHiveBucketing
                 return ObjectInspectorUtils.getBucketHashCode(objects, objectInspectors);
         }
         throw new IllegalArgumentException("Unsupported bucketing version: " + bucketingVersion);
-    }
-
-    private static Object toNativeContainerValue(Type type, Object hiveValue)
-    {
-        if (hiveValue == null) {
-            return null;
-        }
-
-        if (type instanceof ArrayType) {
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
-            for (Object subElement : (Iterable<?>) hiveValue) {
-                appendToBlockBuilder(type.getTypeParameters().get(0), subElement, subBlockBuilder);
-            }
-            blockBuilder.closeEntry();
-            return type.getObject(blockBuilder, 0);
-        }
-        if (type instanceof RowType) {
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
-            int field = 0;
-            for (Object subElement : (Iterable<?>) hiveValue) {
-                appendToBlockBuilder(type.getTypeParameters().get(field), subElement, subBlockBuilder);
-                field++;
-            }
-            blockBuilder.closeEntry();
-            return type.getObject(blockBuilder, 0);
-        }
-        if (type instanceof MapType) {
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
-            for (Entry<?, ?> entry : ((Map<?, ?>) hiveValue).entrySet()) {
-                appendToBlockBuilder(type.getTypeParameters().get(0), entry.getKey(), subBlockBuilder);
-                appendToBlockBuilder(type.getTypeParameters().get(1), entry.getValue(), subBlockBuilder);
-            }
-            blockBuilder.closeEntry();
-            return type.getObject(blockBuilder, 0);
-        }
-        if (type instanceof BooleanType) {
-            return hiveValue;
-        }
-        if (type instanceof TinyintType) {
-            return (long) (byte) hiveValue;
-        }
-        if (type instanceof SmallintType) {
-            return (long) (short) hiveValue;
-        }
-        if (type instanceof IntegerType) {
-            return (long) (int) hiveValue;
-        }
-        if (type instanceof BigintType) {
-            return hiveValue;
-        }
-        if (type instanceof RealType) {
-            return (long) Float.floatToRawIntBits((float) hiveValue);
-        }
-        if (type instanceof DoubleType) {
-            return hiveValue;
-        }
-        if (type instanceof VarcharType) {
-            return Slices.utf8Slice(hiveValue.toString());
-        }
-        if (type instanceof DateType) {
-            return (long) ((Date) hiveValue).toEpochDay();
-        }
-
-        throw new IllegalArgumentException("Unsupported bucketing type: " + type);
     }
 
     private static void appendToBlockBuilder(Type type, Object hiveValue, BlockBuilder blockBuilder)
