@@ -1671,6 +1671,7 @@ class StatementAnalyzer
 
             analysis.setTableFunctionAnalysis(node, new TableFunctionInvocationAnalysis(
                     catalogHandle,
+                    function.getSchema(),
                     function.getName(),
                     argumentsAnalysis.getPassedArguments(),
                     orderedTableArguments.build(),

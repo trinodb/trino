@@ -22,6 +22,7 @@ import io.trino.Session;
 import io.trino.metadata.TableFunctionHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ExpressionUtils;
@@ -465,7 +466,11 @@ class RelationPlanner
                 sources.build(),
                 sourceProperties.build(),
                 functionAnalysis.getCopartitioningLists(),
-                new TableFunctionHandle(functionAnalysis.getCatalogHandle(), functionAnalysis.getConnectorTableFunctionHandle(), functionAnalysis.getTransactionHandle()));
+                new TableFunctionHandle(
+                        functionAnalysis.getCatalogHandle(),
+                        new SchemaFunctionName(functionAnalysis.getSchemaName(), functionAnalysis.getFunctionName()),
+                        functionAnalysis.getConnectorTableFunctionHandle(),
+                        functionAnalysis.getTransactionHandle()));
 
         return new RelationPlan(root, analysis.getScope(node), outputSymbols.build(), outerContext);
     }
