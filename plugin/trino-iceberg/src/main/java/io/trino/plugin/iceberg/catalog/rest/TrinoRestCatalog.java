@@ -230,7 +230,6 @@ public class TrinoRestCatalog
             .setDatabaseName(tableName.getSchemaName())
             .setTableName(tableName.getTableName())
             .setOwner(owner)
-            // Table needs to be EXTERNAL, otherwise table rename in HMS would rename table directory and break table contents.
             .setTableType(TableType.EXTERNAL_TABLE.name())
             .withStorage(storage -> storage.setLocation(tableLocation))
             .withStorage(storage -> storage.setStorageFormat(ICEBERG_METASTORE_STORAGE_FORMAT))
