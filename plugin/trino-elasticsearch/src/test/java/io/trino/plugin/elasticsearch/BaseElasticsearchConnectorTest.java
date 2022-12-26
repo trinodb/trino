@@ -1723,6 +1723,40 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
+    public void testGeo_point()
+            throws IOException
+    {
+        String indexName = "geo_point";
+        @Language("JSON")
+        String properties = "" +
+                "{" +
+                "  \"properties\":{" +
+                "    \"geo_point\":   { \"type\": \"geo_point\" }" +
+                "  }" +
+                "}";
+        createIndex(indexName, properties);
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("geo_point", "40.715,-74.012")
+                .buildOrThrow());
+        Map<String, Double> geopointTestMap = ImmutableMap.of("lat", 40.722, "lon", -73.988);
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("geo_point", geopointTestMap)
+                .buildOrThrow());
+        double[] geoPointArray = new double[]{-73.983, 40.718};
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("geo_point", geoPointArray)
+                .buildOrThrow());
+
+        MaterializedResult allRows = computeActual("SELECT geo_point FROM geo_point");
+        MaterializedResult allExpected = resultBuilder(getSession(), allRows.getTypes())
+                .row("40.715,-74.012")
+                .row("40.722,-73.988")
+                .row("-73.983,40.718")
+                .build();
+        assertThat(allRows.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(allExpected.getMaterializedRows());
+    }
+
+    @Test
     public void testQueryStringError()
     {
         assertQueryFails("SELECT orderkey FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");

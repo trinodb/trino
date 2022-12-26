@@ -20,6 +20,7 @@ import io.trino.plugin.elasticsearch.decoders.BigintDecoder;
 import io.trino.plugin.elasticsearch.decoders.BooleanDecoder;
 import io.trino.plugin.elasticsearch.decoders.Decoder;
 import io.trino.plugin.elasticsearch.decoders.DoubleDecoder;
+import io.trino.plugin.elasticsearch.decoders.GeopointDecoder;
 import io.trino.plugin.elasticsearch.decoders.IdColumnDecoder;
 import io.trino.plugin.elasticsearch.decoders.IntegerDecoder;
 import io.trino.plugin.elasticsearch.decoders.IpAddressDecoder;
@@ -47,6 +48,7 @@ import io.trino.plugin.elasticsearch.decoders.VarcharDecoder;
         @JsonSubTypes.Type(value = RealDecoder.Descriptor.class, name = "real"),
         @JsonSubTypes.Type(value = DoubleDecoder.Descriptor.class, name = "double"),
         @JsonSubTypes.Type(value = VarcharDecoder.Descriptor.class, name = "varchar"),
+        @JsonSubTypes.Type(value = GeopointDecoder.Descriptor.class, name = "varchar"),
         @JsonSubTypes.Type(value = VarbinaryDecoder.Descriptor.class, name = "varbinary"),
         @JsonSubTypes.Type(value = IpAddressDecoder.Descriptor.class, name = "ipAddress"),
         @JsonSubTypes.Type(value = RowDecoder.Descriptor.class, name = "row"),
