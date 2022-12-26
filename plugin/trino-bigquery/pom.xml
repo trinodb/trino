@@ -455,6 +455,7 @@
                                 <include>**/TestBigQueryWithDifferentProjectIdConnectorSmokeTest.java</include>
                                 <include>**/TestBigQueryMetadataCaching.java</include>
                                 <include>**/TestBigQueryTypeMapping.java</include>
+                                <include>**/TestBigQueryArrowTypeMapping.java</include>
                                 <include>**/TestBigQueryMetadata.java</include>
                                 <include>**/TestBigQueryInstanceCleaner.java</include>
                             </includes>
