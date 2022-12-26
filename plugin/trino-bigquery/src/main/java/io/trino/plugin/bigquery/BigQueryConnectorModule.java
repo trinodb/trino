@@ -25,9 +25,17 @@ import io.trino.plugin.bigquery.ptf.Query;
 import io.trino.spi.NodeManager;
 import io.trino.spi.ptf.ConnectorTableFunction;
 
+import java.lang.management.ManagementFactory;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.bigquery.BigQueryConfig.EXPERIMENTAL_ARROW_SERIALIZATION_ENABLED;
+import static java.util.stream.Collectors.toSet;
 
 public class BigQueryConnectorModule
         extends AbstractConfigurationAwareModule
@@ -57,6 +65,10 @@ public class BigQueryConnectorModule
             binder.bind(BigQueryPageSinkProvider.class).in(Scopes.SINGLETON);
             binder.bind(ViewMaterializationCache.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(BigQueryConfig.class);
+            install(conditionalModule(
+                    BigQueryConfig.class,
+                    BigQueryConfig::isArrowSerializationEnabled,
+                    ClientModule::verifyPackageAccessAllowed));
             newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
             newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(BigQuerySessionProperties.class).in(Scopes.SINGLETON);
         }
@@ -66,6 +78,39 @@ public class BigQueryConnectorModule
         public static HeaderProvider createHeaderProvider(NodeManager nodeManager)
         {
             return FixedHeaderProvider.create("user-agent", "Trino/" + nodeManager.getCurrentNode().getVersion());
+        }
+
+        /**
+         * Apache Arrow requires reflective access to certain Java internals prohibited in Java 17.
+         * Adds an error to the {@code binder} if required --add-opens is not passed to the JVM.
+         */
+        private static void verifyPackageAccessAllowed(Binder binder)
+        {
+            if (Runtime.version().compareToIgnoreOptional(Runtime.Version.parse("17")) < 0) {
+                // No need to modify access before Java 17
+                return;
+            }
+
+            // Match an --add-opens argument that opens a package to unnamed modules.
+            // The first group is the opened package.
+            Pattern argPattern = Pattern.compile(
+                    "^--add-opens=(.*)=([A-Za-z0-9_.]+,)*ALL-UNNAMED(,[A-Za-z0-9_.]+)*$");
+            // We don't need to check for values in separate arguments because
+            // they are joined with "=" before we get them.
+
+            Set<String> openedModules = ManagementFactory.getRuntimeMXBean()
+                    .getInputArguments()
+                    .stream()
+                    .map(argPattern::matcher)
+                    .filter(Matcher::matches)
+                    .map(matcher -> matcher.group(1))
+                    .collect(toSet());
+
+            if (!openedModules.contains("java.base/java.nio")) {
+                binder.addError(
+                        "BigQuery connector requires additional JVM arguments to run on Java 17 when '" + EXPERIMENTAL_ARROW_SERIALIZATION_ENABLED + "' is enabled. " +
+                                "Please add '--add-opens=java.base/java.nio=ALL-UNNAMED' to the JVM configuration.");
+            }
         }
     }
 

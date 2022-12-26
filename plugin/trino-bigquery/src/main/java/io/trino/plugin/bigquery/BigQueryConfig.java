@@ -39,6 +39,7 @@ public class BigQueryConfig
 
     public static final int DEFAULT_MAX_READ_ROWS_RETRIES = 3;
     public static final String VIEWS_ENABLED = "bigquery.views-enabled";
+    public static final String EXPERIMENTAL_ARROW_SERIALIZATION_ENABLED = "bigquery.experimental.arrow-serialization.enabled";
 
     private Optional<String> projectId = Optional.empty();
     private Optional<String> parentProjectId = Optional.empty();
@@ -120,7 +121,7 @@ public class BigQueryConfig
         return arrowSerializationEnabled;
     }
 
-    @Config("bigquery.experimental.arrow-serialization.enabled")
+    @Config(EXPERIMENTAL_ARROW_SERIALIZATION_ENABLED)
     @ConfigDescription("Enables experimental Arrow serialization while reading data")
     public BigQueryConfig setArrowSerializationEnabled(boolean arrowSerializationEnabled)
     {
