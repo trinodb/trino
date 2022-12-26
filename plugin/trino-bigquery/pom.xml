@@ -476,6 +476,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestBigQueryCaseInsensitiveMapping.java</include>
+                                <!-- Also included here to make sure the case-insesitive project also gets cleaned up -->
                                 <include>**/TestBigQueryInstanceCleaner.java</include>
                             </includes>
                         </configuration>
