@@ -16,8 +16,6 @@ package io.trino.parquet.reader;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Multimap;
-import io.trino.parquet.ChunkReader;
 import io.trino.parquet.DiskRange;
 import io.trino.parquet.ParquetDataSource;
 import org.apache.parquet.format.Util;
@@ -143,9 +141,7 @@ public class TrinoColumnIndexStore
             ranges.put(column.getPath(), column.getDiskRange());
         }
 
-        Multimap<ColumnPath, ChunkReader> chunkReaders = dataSource.planRead(ranges, newSimpleAggregatedMemoryContext());
-        Map<ColumnPath, ChunkedInputStream> columnInputStreams = chunkReaders.asMap().entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> new ChunkedInputStream(entry.getValue())));
+        Map<ColumnPath, ChunkedInputStream> columnInputStreams = dataSource.planRead(ranges, newSimpleAggregatedMemoryContext());
         try {
             return indexMetadata.stream()
                     .collect(toImmutableMap(
