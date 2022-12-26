@@ -448,14 +448,11 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED</argLine>
                             <includes>
                                 <include>**/TestBigQueryAvroConnectorTest.java</include>
-                                <include>**/TestBigQueryArrowConnectorTest.java</include>
                                 <include>**/TestBigQueryWithDifferentProjectIdConnectorSmokeTest.java</include>
                                 <include>**/TestBigQueryMetadataCaching.java</include>
                                 <include>**/TestBigQueryTypeMapping.java</include>
-                                <include>**/TestBigQueryArrowTypeMapping.java</include>
                                 <include>**/TestBigQueryMetadata.java</include>
                                 <include>**/TestBigQueryInstanceCleaner.java</include>
                             </includes>
@@ -480,6 +477,29 @@
                             <includes>
                                 <include>**/TestBigQueryCaseInsensitiveMapping.java</include>
                                 <include>**/TestBigQueryInstanceCleaner.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Separate profile for Arrow related tests since they require extra JVM args -->
+        <profile>
+            <id>cloud-tests-arrow</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED</argLine>
+                            <includes>
+                                <include>**/TestBigQueryArrowConnectorTest.java</include>
+                                <include>**/TestBigQueryArrowTypeMapping.java</include>
                             </includes>
                         </configuration>
                     </plugin>
