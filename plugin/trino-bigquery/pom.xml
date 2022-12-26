@@ -392,6 +392,21 @@
         </dependency>
     </dependencies>
 
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredResourcePatterns>
+                        <ignoredResourcePattern>arrow-git.properties</ignoredResourcePattern>
+                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
     <profiles>
         <profile>
             <id>default</id>
@@ -416,16 +431,6 @@
                                 <exclude>**/TestBigQueryInstanceCleaner.java</exclude>
                                 <exclude>**/TestBigQueryCaseInsensitiveMapping.java</exclude>
                             </excludes>
-                        </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.basepom.maven</groupId>
-                        <artifactId>duplicate-finder-maven-plugin</artifactId>
-                        <configuration>
-                            <ignoredResourcePatterns>
-                                <ignoredResourcePattern>arrow-git.properties</ignoredResourcePattern>
-                                <ignoredResourcePattern>about.html</ignoredResourcePattern>
-                            </ignoredResourcePatterns>
                         </configuration>
                     </plugin>
                 </plugins>
