@@ -69,7 +69,6 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
 import static io.trino.parquet.ParquetWriteValidation.StatisticsValidation;
@@ -236,8 +235,7 @@ public class ParquetReader
             }
         }
         this.codecMetrics = ImmutableMap.copyOf(codecMetrics);
-        this.chunkReaders = dataSource.planRead(ranges, memoryContext).asMap().entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> new ChunkedInputStream(entry.getValue())));
+        this.chunkReaders = dataSource.planRead(ranges, memoryContext);
     }
 
     @Override
