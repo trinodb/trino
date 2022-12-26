@@ -45,7 +45,7 @@ public class TestParquetDataSource
                 testingInput,
                 new ParquetReaderOptions().withMaxBufferSize(maxBufferSize));
 
-        ListMultimap<String, ChunkReader> chunkReaders = dataSource.planRead(
+        ListMultimap<String, ChunkReader> chunkReaders = dataSource.planChunksRead(
                 ImmutableListMultimap.<String, DiskRange>builder()
                         .putAll("test", new DiskRange(0, 200), new DiskRange(400, 100), new DiskRange(700, 200))
                         .build(),
@@ -76,7 +76,7 @@ public class TestParquetDataSource
                 testingInput,
                 new ParquetReaderOptions().withMaxBufferSize(DataSize.ofBytes(500)));
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
-        ListMultimap<String, ChunkReader> chunkReaders = dataSource.planRead(ImmutableListMultimap.<String, DiskRange>builder()
+        ListMultimap<String, ChunkReader> chunkReaders = dataSource.planChunksRead(ImmutableListMultimap.<String, DiskRange>builder()
                         .put("1", new DiskRange(0, 200))
                         .put("2", new DiskRange(400, 100))
                         .put("3", new DiskRange(700, 200))

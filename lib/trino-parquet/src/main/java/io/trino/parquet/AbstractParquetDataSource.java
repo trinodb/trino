@@ -13,14 +13,17 @@
  */
 package io.trino.parquet;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.parquet.reader.ChunkedInputStream;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -32,6 +35,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.Math.toIntExact;
 import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
@@ -120,13 +124,23 @@ public abstract class AbstractParquetDataSource
     }
 
     @Override
-    public final <K> ListMultimap<K, ChunkReader> planRead(ListMultimap<K, DiskRange> diskRanges, AggregatedMemoryContext memoryContext)
+    public final <K> Map<K, ChunkedInputStream> planRead(ListMultimap<K, DiskRange> diskRanges, AggregatedMemoryContext memoryContext)
     {
         requireNonNull(diskRanges, "diskRanges is null");
 
         if (diskRanges.isEmpty()) {
-            return ImmutableListMultimap.of();
+            return ImmutableMap.of();
         }
+
+        return planChunksRead(diskRanges, memoryContext).asMap()
+                .entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> new ChunkedInputStream(entry.getValue())));
+    }
+
+    @VisibleForTesting
+    public <K> ListMultimap<K, ChunkReader> planChunksRead(ListMultimap<K, DiskRange> diskRanges, AggregatedMemoryContext memoryContext)
+    {
+        checkArgument(!diskRanges.isEmpty(), "diskRanges is empty");
 
         //
         // Note: this code does not use the stream APIs to avoid any extra object allocation
