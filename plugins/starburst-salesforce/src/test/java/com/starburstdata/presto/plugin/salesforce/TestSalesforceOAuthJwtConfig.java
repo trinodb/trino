@@ -20,7 +20,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestSalesforceOAuthConfig
+public class TestSalesforceOAuthJwtConfig
 {
     @Test
     public void testDefaults()
