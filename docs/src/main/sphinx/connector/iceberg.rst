@@ -288,22 +288,22 @@ subdirectory under the directory corresponding to the schema location.
 
 Create a schema on S3::
 
-  CREATE SCHEMA iceberg.my_s3_schema
+  CREATE SCHEMA example.example_s3_schema
   WITH (location = 's3://my-bucket/a/path/');
 
 Create a schema on a S3 compatible object storage such as MinIO::
 
-  CREATE SCHEMA iceberg.my_s3a_schema
+  CREATE SCHEMA example.example_s3a_schema
   WITH (location = 's3a://my-bucket/a/path/');
 
 Create a schema on HDFS::
 
-  CREATE SCHEMA iceberg.my_hdfs_schema
+  CREATE SCHEMA example.example_hdfs_schema
   WITH (location='hdfs://hadoop-master:9000/user/hive/warehouse/a/path/');
 
 Optionally, on HDFS, the location can be omitted::
 
-  CREATE SCHEMA iceberg.my_hdfs_schema;
+  CREATE SCHEMA example.example_hdfs_schema;
 
 .. _iceberg-create-table:
 
@@ -314,7 +314,7 @@ The Iceberg connector supports creating tables using the :doc:`CREATE
 TABLE </sql/create-table>` syntax. Optionally specify the
 :ref:`table properties <iceberg-table-properties>` supported by this connector::
 
-    CREATE TABLE my_table (
+    CREATE TABLE example_table (
         c1 integer,
         c2 date,
         c3 double
@@ -363,7 +363,7 @@ The Iceberg connector supports setting ``NOT NULL`` constraints on the table col
 The ``NOT NULL`` constraint can be set on the columns, while creating tables by
 using the :doc:`CREATE TABLE </sql/create-table>` syntax::
 
-    CREATE TABLE my_table (
+    CREATE TABLE example_table (
         year INTEGER NOT NULL,
         name VARCHAR NOT NULL,
         age INTEGER,
@@ -542,7 +542,7 @@ partitioning columns, that can match entire partitions. Given the table definiti
 from :ref:`Partitioned Tables <iceberg-tables>` section,
 the following SQL statement deletes all partitions for which ``country`` is ``US``::
 
-    DELETE FROM iceberg.testdb.customer_orders
+    DELETE FROM example.testdb.customer_orders
     WHERE country = 'US'
 
 A partition delete is performed if the ``WHERE`` clause meets these conditions.
@@ -704,7 +704,7 @@ Transform                             Description
 In this example, the table is partitioned by the month of ``order_date``, a hash of
 ``account_number`` (with 10 buckets), and ``country``::
 
-    CREATE TABLE iceberg.testdb.customer_orders (
+    CREATE TABLE example.testdb.customer_orders (
         order_id BIGINT,
         order_date DATE,
         account_number BIGINT,
@@ -724,7 +724,7 @@ For example, you could find the snapshot IDs for the ``customer_orders`` table
 by running the following query::
 
     SELECT snapshot_id
-    FROM iceberg.testdb."customer_orders$snapshots"
+    FROM example.testdb."customer_orders$snapshots"
     ORDER BY committed_at DESC
 
 Time travel queries
@@ -739,7 +739,7 @@ snapshot identifier corresponding to the version of the table that
 needs to be retrieved::
 
    SELECT *
-   FROM iceberg.testdb.customer_orders FOR VERSION AS OF 8954597067493422955
+   FROM example.testdb.customer_orders FOR VERSION AS OF 8954597067493422955
 
 A different approach of retrieving historical data is to specify
 a point in time in the past, such as a day or week ago. The latest snapshot
@@ -747,7 +747,7 @@ of the table taken before or at the specified timestamp in the query is
 internally used for providing the previous state of the table::
 
    SELECT *
-   FROM iceberg.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09:59:29.803 Europe/Vienna'
+   FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09:59:29.803 Europe/Vienna'
 
 Rolling back to a previous snapshot
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -755,13 +755,13 @@ Rolling back to a previous snapshot
 Use the ``$snapshots`` metadata table to determine the latest snapshot ID of the table like in the following query::
 
     SELECT snapshot_id
-    FROM iceberg.testdb."customer_orders$snapshots"
+    FROM example.testdb."customer_orders$snapshots"
     ORDER BY committed_at DESC LIMIT 1
 
 The procedure ``system.rollback_to_snapshot`` allows the caller to roll back
 the state of the table to a previous snapshot id::
 
-    CALL iceberg.system.rollback_to_snapshot('testdb', 'customer_orders', 8954597067493422955)
+    CALL example.system.rollback_to_snapshot('testdb', 'customer_orders', 8954597067493422955)
 
 Schema evolution
 ----------------
@@ -781,14 +781,14 @@ The procedure ``system.register_table`` allows the caller to register an
 existing Iceberg table in the metastore, using its existing metadata and data
 files::
 
-    CALL iceberg.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 'hdfs://hadoop-master:9000/user/hive/warehouse/customer_orders-581fad8517934af6be1857a903559d44')
+    CALL example.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 'hdfs://hadoop-master:9000/user/hive/warehouse/customer_orders-581fad8517934af6be1857a903559d44')
 
 In addition, you can provide a file name to register a table
 with specific metadata. This may be used to register the table with
 some specific table state, or may be necessary if the connector cannot
 automatically figure out the metadata version to use::
 
-    CALL iceberg.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 'hdfs://hadoop-master:9000/user/hive/warehouse/customer_orders-581fad8517934af6be1857a903559d44', metadata_file_name => '00003-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json')
+    CALL example.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 'hdfs://hadoop-master:9000/user/hive/warehouse/customer_orders-581fad8517934af6be1857a903559d44', metadata_file_name => '00003-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json')
 
 To prevent unauthorized users from accessing data, this procedure is disabled by default.
 The procedure is enabled only when ``iceberg.register-table-procedure.enabled`` is set to ``true``.
@@ -835,7 +835,7 @@ Property name                                      Description
 ================================================== ================================================================
 
 The table definition below specifies format Parquet, partitioning by columns ``c1`` and ``c2``,
-and a file system location of ``/var/my_tables/test_table``::
+and a file system location of ``/var/example_tables/test_table``::
 
     CREATE TABLE test_table (
         c1 integer,
@@ -844,10 +844,10 @@ and a file system location of ``/var/my_tables/test_table``::
     WITH (
         format = 'PARQUET',
         partitioning = ARRAY['c1', 'c2'],
-        location = '/var/my_tables/test_table')
+        location = '/var/example_tables/test_table')
 
 The table definition below specifies format ORC, bloom filter index by columns ``c1`` and ``c2``,
-fpp is 0.05, and a file system location of ``/var/my_tables/test_table``::
+fpp is 0.05, and a file system location of ``/var/example_tables/test_table``::
 
     CREATE TABLE test_table (
         c1 integer,
@@ -855,7 +855,7 @@ fpp is 0.05, and a file system location of ``/var/my_tables/test_table``::
         c3 double)
     WITH (
         format = 'ORC',
-        location = '/var/my_tables/test_table',
+        location = '/var/example_tables/test_table',
         orc_bloom_filter_columns = ARRAY['c1', 'c2'],
         orc_bloom_filter_fpp = 0.05)
 
@@ -876,18 +876,18 @@ can be selected directly, or used in conditional statements. For example, you
 can inspect the file path for each record::
 
     SELECT *, "$path", "$file_modified_time"
-    FROM iceberg.web.page_views;
+    FROM example.web.page_views;
 
 Retrieve all records that belong to a specific file using ``"$path"`` filter::
 
     SELECT *
-    FROM iceberg.web.page_views
+    FROM example.web.page_views
     WHERE "$path" = '/usr/iceberg/table/web.page_views/data/file_01.parquet'
 
 Retrieve all records that belong to a specific file using ``"$file_modified_time"`` filter::
 
     SELECT *
-    FROM iceberg.web.page_views
+    FROM example.web.page_views
     WHERE "$file_modified_time" = CAST('2022-07-01 01:02:03.456 UTC' AS timestamp with time zone)
 
 .. _iceberg-metadata-tables:

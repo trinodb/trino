@@ -17,8 +17,8 @@ Configuration
 -------------
 
 To configure the Elasticsearch connector, create a catalog properties file
-``etc/catalog/elasticsearch.properties`` with the following contents,
-replacing the properties as appropriate:
+``etc/catalog/example.properties`` with the following contents, replacing the
+properties as appropriate for your setup:
 
 .. code-block:: text
 
@@ -462,7 +462,7 @@ documents in the ``orders`` index where the country name is ``ALGERIA``::
       *
     FROM
       TABLE(
-        elasticsearch.system.raw_query(
+        example.system.raw_query(
           schema => 'sales',
           index => 'orders',
           query => '{
