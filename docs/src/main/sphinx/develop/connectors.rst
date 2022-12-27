@@ -252,7 +252,7 @@ Otherwise, these methods return a result object containing a new table handle.
 The new table handle represents the virtual table derived from applying the
 operation (filter, project, limit, etc.) to the table produced by the table
 scan node. Once the query actually runs, ``ConnectorRecordSetProvider`` or
-``ConnectorPageSourceProvider`` use whatever optimizations were pushed down to
+``ConnectorPageSourceProvider`` can use whatever optimizations were pushed down to
 ``ConnectorTableHandle``.
 
 The returned table handle is later passed to other services that the connector
@@ -304,10 +304,10 @@ Predicate pushdown
 ^^^^^^^^^^^^^^^^^^
 
 When executing a query with a ``WHERE`` clause, the query plan can
-contain a ``ScanFilterProject`` operation with a predicate constraint.
+contain a ``ScanFilterProject`` plan node/node with a predicate constraint.
 
 A predicate constraint is a description of the constraint imposed on the
-results of the query as expressed in the ``WHERE`` clause. For example,
+results of the stage/fragment as expressed in the ``WHERE`` clause. For example,
 ``WHERE x > 5 AND y = 3`` translates into a constraint where the
 ``summary`` field means the ``x`` column's domain must be greater than
 ``5`` and the ``y`` column domain equals ``3``.
