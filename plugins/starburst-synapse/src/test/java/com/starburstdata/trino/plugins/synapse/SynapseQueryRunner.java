@@ -24,6 +24,7 @@ import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import static com.starburstdata.trino.plugins.synapse.SynapseServer.JDBC_URL;
 import static com.starburstdata.trino.plugins.synapse.SynapseServer.PASSWORD;
@@ -75,9 +76,24 @@ public final class SynapseQueryRunner
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
+        return createSynapseQueryRunner(extraProperties, synapseServer, catalogName, connectorProperties, Map.of(), tables, runner -> {});
+    }
+
+    public static DistributedQueryRunner createSynapseQueryRunner(
+            Map<String, String> extraProperties,
+            SynapseServer synapseServer,
+            String catalogName,
+            Map<String, String> connectorProperties,
+            Map<String, String> coordinatorProperties,
+            Iterable<TpchTable<?>> tables,
+            Consumer<QueryRunner> moreSetup)
+            throws Exception
+    {
         Session session = createSession(USERNAME, catalogName);
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
+                .setAdditionalSetup(moreSetup)
                 .build();
         try {
             queryRunner.installPlugin(new JmxPlugin());
