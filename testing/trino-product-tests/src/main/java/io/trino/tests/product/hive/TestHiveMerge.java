@@ -63,7 +63,7 @@ public class TestHiveMerge
 
                 onTrino().executeQuery(sql);
 
-                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Aaron", 11, "Arches"), row("Ed", 7, "Etherville"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"));
+                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("Aaron", 11, "Arches"), row("Ed", 7, "Etherville"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"));
             });
         });
     }
@@ -88,7 +88,7 @@ public class TestHiveMerge
 
                 onTrino().executeQuery(sql);
 
-                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Aaron", 11, "Arches"), row("Ed", 7, "Etherville"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"));
+                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("Aaron", 11, "Arches"), row("Ed", 7, "Etherville"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"));
             });
         });
     }
@@ -111,7 +111,7 @@ public class TestHiveMerge
             onHive().executeQuery(builder.toString());
 
             onTrino().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')", targetTable));
-            verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Dave", "dates"), row("Lou", "limes"), row("Carol", "candles"));
+            verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("Dave", "dates"), row("Lou", "limes"), row("Carol", "candles"));
 
             withTemporaryTable("merge_update_with_various_formats_source", true, false, NONE, sourceTable -> {
                 onTrino().executeQuery(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) WITH (transactional = true)", sourceTable));
@@ -125,7 +125,7 @@ public class TestHiveMerge
 
                 onTrino().executeQuery(sql);
 
-                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Dave", "dates"), row("Carol_Craig", "candles"), row("Joe", "jellybeans"));
+                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("Dave", "dates"), row("Carol_Craig", "candles"), row("Joe", "jellybeans"));
             });
         });
     }
@@ -137,7 +137,7 @@ public class TestHiveMerge
             onTrino().executeQuery(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) WITH (transactional = true)", targetTable));
 
             onTrino().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')", targetTable));
-            verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Dave", "dates"), row("Lou", "limes"), row("Carol", "candles"));
+            verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("Dave", "dates"), row("Lou", "limes"), row("Carol", "candles"));
 
             withTemporaryTable("merge_with_various_formats_failure_source", true, false, NONE, sourceTable -> {
                 onTrino().executeQuery(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) WITH (transactional = true)", sourceTable));
@@ -151,7 +151,7 @@ public class TestHiveMerge
 
                 onTrino().executeQuery(sql);
 
-                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Dave", "dates"), row("Carol_Craig", "candles"), row("Joe", "jellybeans"));
+                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("Dave", "dates"), row("Carol_Craig", "candles"), row("Joe", "jellybeans"));
             });
         });
     }
@@ -276,7 +276,7 @@ public class TestHiveMerge
                     "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
                     "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)");
 
-            verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Aaron", 11, "Arches"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"), row("Ed", 7, "Etherville"));
+            verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("Aaron", 11, "Arches"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"), row("Ed", 7, "Etherville"));
         });
     }
 
@@ -294,7 +294,7 @@ public class TestHiveMerge
                     "ON (t.customer = s.customer)" +
                     "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)");
 
-            verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Aaron", 11, "Antioch"), row("Bill", 7, "Buena"), row("Carol", 9, "Centreville"), row("Dave", 22, "Darbyshire"));
+            verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("Aaron", 11, "Antioch"), row("Bill", 7, "Buena"), row("Carol", 9, "Centreville"), row("Dave", 22, "Darbyshire"));
         });
     }
 
@@ -315,7 +315,7 @@ public class TestHiveMerge
                     "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)";
             onTrino().executeQuery(query);
 
-            verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Aaron", 11, "Arches"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"), row("Ed", 7, "Etherville"));
+            verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("Aaron", 11, "Arches"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"), row("Ed", 7, "Etherville"));
         });
     }
 
@@ -335,7 +335,7 @@ public class TestHiveMerge
                 onTrino().executeQuery(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
                         "    WHEN MATCHED THEN UPDATE SET customer = CONCAT(t.customer, '_updated'), purchases = s.purchases + t.purchases, address = s.address");
 
-                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Dave_updated", 22, "Darbyshire"), row("Aaron_updated", 11, "Arches"), row("Bill", 7, "Buena"), row("Carol_updated", 12, "Centreville"));
+                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("Dave_updated", 22, "Darbyshire"), row("Aaron_updated", 11, "Arches"), row("Bill", 7, "Buena"), row("Carol_updated", 12, "Centreville"));
             });
         });
     }
@@ -356,7 +356,7 @@ public class TestHiveMerge
                 onTrino().executeQuery(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
                         "    WHEN MATCHED THEN DELETE");
 
-                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Bill", 7, "Buena"));
+                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("Bill", 7, "Buena"));
             });
         });
     }
@@ -380,7 +380,7 @@ public class TestHiveMerge
 
                 onTrino().executeQuery(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
                         "    WHEN MATCHED AND s.address = 'Adelphi' THEN UPDATE SET address = s.address");
-                verifySelectForTrinoAndHive("SELECT customer, purchases, address FROM " + targetTable, "TRUE", row("Aaron", 5, "Adelphi"), row("Bill", 7, "Antioch"));
+                verifySelectForTrinoAndHive("SELECT customer, purchases, address FROM " + targetTable, row("Aaron", 5, "Adelphi"), row("Bill", 7, "Antioch"));
             });
         });
     }
@@ -418,7 +418,7 @@ public class TestHiveMerge
 
                 onTrino().executeQuery(sql);
 
-                verifySelectForTrinoAndHive("SELECT customer, purchases, address FROM " + targetTable, "TRUE", row("Aaron", 11, "Arches"), row("Ed", 7, "Etherville"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"));
+                verifySelectForTrinoAndHive("SELECT customer, purchases, address FROM " + targetTable, row("Aaron", 11, "Arches"), row("Ed", 7, "Etherville"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"));
             });
         });
     }
@@ -457,7 +457,7 @@ public class TestHiveMerge
 
                 onTrino().executeQuery(sql);
 
-                verifySelectForTrinoAndHive("SELECT customer, purchases, address FROM " + targetTable, "TRUE", row("Aaron", 11, "Arches"), row("Ed", 7, "Etherville"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"));
+                verifySelectForTrinoAndHive("SELECT customer, purchases, address FROM " + targetTable, row("Aaron", 11, "Arches"), row("Ed", 7, "Etherville"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"));
             });
         });
     }
@@ -514,7 +514,7 @@ public class TestHiveMerge
                     "    WHEN MATCHED THEN UPDATE SET purCHases = s.PurchaseS + t.pUrchases, aDDress = s.addrESs" +
                     "    WHEN NOT MATCHED THEN INSERT (CUSTOMER, purchases, addRESS) VALUES(s.custoMer, s.Purchases, s.ADDress)");
 
-            verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Aaron", 11, "Arches"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"), row("Ed", 7, "Etherville"));
+            verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("Aaron", 11, "Arches"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"), row("Ed", 7, "Etherville"));
         });
     }
 
@@ -537,7 +537,7 @@ public class TestHiveMerge
                         format("    WHEN MATCHED THEN UPDATE SET purchases = %s.pURCHases + %s.pUrchases, aDDress = %s.addrESs", sourceTable, targetTable, sourceTable) +
                         format("    WHEN NOT MATCHED THEN INSERT (cusTomer, purchases, addRESS) VALUES(%s.custoMer, %s.Purchases, %s.ADDress)", sourceTable, sourceTable, sourceTable));
 
-                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Aaron", 11, "Arches"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"), row("Ed", 7, "Etherville"));
+                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("Aaron", 11, "Arches"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"), row("Ed", 7, "Etherville"));
             });
         });
     }
@@ -561,7 +561,7 @@ public class TestHiveMerge
                         "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
                         "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)");
 
-                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE",
+                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable,
                         row("Aaron", 11, "Arches"), row("Bill", 7, "Buena"), row("Dave", 11, "Darbyshire"), row("Dave", 11, "Devon"), row("Ed", 7, "Etherville"));
 
                 onTrino().executeQuery(format("MERGE INTO %s t USING %s s", targetTable, sourceTable) +
@@ -573,11 +573,11 @@ public class TestHiveMerge
                         "    WHEN NOT MATCHED" +
                         "        THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)");
 
-                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE",
+                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable,
                         row("Aaron", 17, "Arches/Arches"), row("Bill", 7, "Buena"), row("Carol", 9, "Centreville"), row("Dave", 22, "Darbyshire/Darbyshire"), row("Ed", 14, "Etherville/Etherville"));
 
                 onTrino().executeQuery(format("INSERT INTO %s (customer, purchases, address) VALUES('Fred', 30, 'Franklin')", targetTable));
-                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE",
+                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable,
                         row("Aaron", 17, "Arches/Arches"), row("Bill", 7, "Buena"), row("Carol", 9, "Centreville"), row("Dave", 22, "Darbyshire/Darbyshire"), row("Ed", 14, "Etherville/Etherville"), row("Fred", 30, "Franklin"));
             });
         });
@@ -603,7 +603,7 @@ public class TestHiveMerge
                         "        THEN DELETE");
 
                 // BUG: The actual row are [Dave, 11, Devon].  Why did the wrong one get deleted?
-                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Dave", 11, "Darbyshire"));
+                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("Dave", 11, "Darbyshire"));
             });
         });
     }
@@ -625,7 +625,7 @@ public class TestHiveMerge
                         "    ON (t.col1 + 1 = s.col1)" +
                         "    WHEN MATCHED THEN UPDATE SET col1 = s.col1, col2 = s.col2, col3 = s.col3, col4 = s.col4, col5 = s.col5, col6 = s.col6");
 
-                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE", row(2, 3, 4, 5, 6.0, 7.0));
+                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row(2, 3, 4, 5, 6.0, 7.0));
             });
         });
     }
@@ -650,7 +650,7 @@ public class TestHiveMerge
                         "    WHEN NOT MATCHED AND s.region_name = 'EUROPE'" +
                         "        THEN INSERT VALUES(s.nation_name, (SELECT 'EUROPE'))");
 
-                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE", row("FRANCE", "EUROPE"), row("GERMANY", "EUROPE"), row("RUSSIA", "EUROPE"));
+                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("FRANCE", "EUROPE"), row("GERMANY", "EUROPE"), row("RUSSIA", "EUROPE"));
             });
         });
     }
@@ -673,7 +673,7 @@ public class TestHiveMerge
                     "    WHEN MATCHED" +
                     "        THEN UPDATE SET name = 'EUROPEAN'");
 
-            verifySelectForTrinoAndHive("SELECT name  FROM " + targetTable, "name LIKE('EU%')", row("EUROPEAN"));
+            verifySelectForTrinoAndHive("SELECT name  FROM %s WHERE name LIKE('EU%%')".formatted(targetTable), row("EUROPEAN"));
         });
     }
 
@@ -691,7 +691,7 @@ public class TestHiveMerge
 
             onTrino().executeQuery(sql);
 
-            verifySelectForTrinoAndHive(format("SELECT count(*) FROM %s t", targetTable), "mod(t.orderkey, 3) = 1", row(0));
+            verifySelectForTrinoAndHive(format("SELECT count(*) FROM %s t WHERE mod(t.orderkey, 3) = 1", targetTable), row(0));
         });
     }
 
@@ -709,7 +709,7 @@ public class TestHiveMerge
                       ON (FALSE)
                         WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
                     """.formatted(targetTable));
-            verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Aaron", 11, "Antioch"), row("Bill", 7, "Buena"), row("Carol", 9, "Centreville"));
+            verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("Aaron", 11, "Antioch"), row("Bill", 7, "Buena"), row("Carol", 9, "Centreville"));
 
             // Test a constant-folded false expression
             onTrino().executeQuery("""
@@ -717,7 +717,7 @@ public class TestHiveMerge
                       ON (t.customer != t.customer)
                         WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
                     """.formatted(targetTable));
-            verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Aaron", 11, "Antioch"), row("Bill", 7, "Buena"), row("Carol", 9, "Centreville"), row("Dave", 22, "Darbyshire"));
+            verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("Aaron", 11, "Antioch"), row("Bill", 7, "Buena"), row("Carol", 9, "Centreville"), row("Dave", 22, "Darbyshire"));
 
             onTrino().executeQuery("""
                     MERGE INTO %s t USING (VALUES ('Ed', 7, 'Etherville')) AS s(customer, purchases, address)
@@ -725,7 +725,7 @@ public class TestHiveMerge
                         WHEN MATCHED THEN UPDATE SET customer = concat(s.customer, '_fooled_you')
                         WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
                     """.formatted(targetTable));
-            verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Aaron", 11, "Antioch"), row("Bill", 7, "Buena"), row("Carol", 9, "Centreville"), row("Dave", 22, "Darbyshire"), row("Ed", 7, "Etherville"));
+            verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("Aaron", 11, "Antioch"), row("Bill", 7, "Buena"), row("Carol", 9, "Centreville"), row("Dave", 22, "Darbyshire"), row("Ed", 7, "Etherville"));
         });
     }
 
