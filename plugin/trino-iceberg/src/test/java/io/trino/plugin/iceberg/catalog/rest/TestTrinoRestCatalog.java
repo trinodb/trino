@@ -35,7 +35,7 @@ import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Sess
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -72,7 +72,7 @@ public class TestTrinoRestCatalog
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
 
-        String namespace = "testNonLowercaseNamespace" + randomTableSuffix();
+        String namespace = "testNonLowercaseNamespace" + randomNameSuffix();
         String schema = namespace.toLowerCase(ENGLISH);
 
         catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));

@@ -21,7 +21,7 @@ import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
 
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergFaultTolerantExecutionTest
@@ -36,7 +36,7 @@ public class TestIcebergFaultTolerantExecutionTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        MinioStorage minioStorage = closeAfterClass(new MinioStorage("test-exchange-spooling-" + randomTableSuffix()));
+        MinioStorage minioStorage = closeAfterClass(new MinioStorage("test-exchange-spooling-" + randomNameSuffix()));
         minioStorage.start();
 
         return IcebergQueryRunner.builder()

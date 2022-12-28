@@ -25,7 +25,7 @@ import io.trino.testing.QueryRunner;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -33,7 +33,7 @@ public class TestDeltaFaultTolerantExecutionTest
         extends BaseFaultTolerantExecutionTest
 {
     private static final String SCHEMA = "fte_preferred_write_partitioning";
-    private static final String BUCKET_NAME = "test-fte-preferred-write-partitioning-" + randomTableSuffix();
+    private static final String BUCKET_NAME = "test-fte-preferred-write-partitioning-" + randomNameSuffix();
 
     public TestDeltaFaultTolerantExecutionTest()
     {
