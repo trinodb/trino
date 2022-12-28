@@ -67,7 +67,67 @@ public final class DateTimeUtils
         // - the required format is 'YYYY-MM-DD'
         // - all components should be unsigned numbers
         // https://github.com/trinodb/trino/issues/10677
+        int days = tryParseDateYyyyMmDd(value);
+        if (days != Integer.MIN_VALUE) {
+            return days;
+        }
         return toIntExact(TimeUnit.MILLISECONDS.toDays(DATE_FORMATTER.parseMillis(value)));
+    }
+
+    /**
+     * Check if the date is in format yyyy-MM-dd, if yes, return the epoch days; otherwise
+     * return Integer.MIN_VALUE, indicating the parse failed, and should fall back to generic
+     * parsing. Mixing the format checking and parsing in one pass for better performance.
+     * @param value date string to be parsed
+     * @return the number of days since 1970-01-01
+     */
+    public static int tryParseDateYyyyMmDd(String value)
+    {
+        if (value.length() != 10) {
+            return Integer.MIN_VALUE;
+        }
+        // year
+        int year = value.charAt(0) - '0';
+        if (year < 0 || year > 9) {
+            return Integer.MIN_VALUE;
+        }
+        for (int i = 1; i < 4; i++) {
+            int t = value.charAt(i) - '0';
+            if (t < 0 || t > 9) {
+                return Integer.MIN_VALUE;
+            }
+            year = ((year << 3) + (year << 1)) + t;
+        }
+        if (value.charAt(4) != '-') {
+            return Integer.MIN_VALUE;
+        }
+
+        // month
+        int month = value.charAt(5) - '0';
+        if (month < 0 || month > 9) {
+            return Integer.MIN_VALUE;
+        }
+        int t = value.charAt(6) - '0';
+        if (t < 0 || t > 9) {
+            return Integer.MIN_VALUE;
+        }
+        month = ((month << 3) + (month << 1)) + t;
+        if (value.charAt(7) != '-') {
+            return Integer.MIN_VALUE;
+        }
+
+        // day
+        int day = value.charAt(8) - '0';
+        if (day < 0 || day > 9) {
+            return Integer.MIN_VALUE;
+        }
+        t = value.charAt(9) - '0';
+        if (t < 0 || t > 9) {
+            return Integer.MIN_VALUE;
+        }
+        day = ((day << 3) + (day << 1)) + t;
+        java.time.LocalDate ld = java.time.LocalDate.of(year, month, day);
+        return toIntExact(ld.toEpochDay());
     }
 
     public static String printDate(int days)
