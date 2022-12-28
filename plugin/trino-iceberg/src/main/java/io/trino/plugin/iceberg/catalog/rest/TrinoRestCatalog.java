@@ -21,7 +21,6 @@ import io.jsonwebtoken.jackson.io.JacksonSerializer;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergSchemaProperties;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
