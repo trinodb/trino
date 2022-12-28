@@ -15,11 +15,15 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.log.Logger;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
+import org.apache.iceberg.catalog.Catalog;
+import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
+import org.assertj.core.util.Files;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -31,6 +35,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_ACCESS_KEY;
 import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_SECRET_KEY;
+import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
@@ -134,6 +139,40 @@ public final class IcebergQueryRunner
                 closeAllSuppress(e, queryRunner);
                 throw e;
             }
+        }
+    }
+
+    public static final class IcebergRestQueryRunnerMain
+    {
+        private IcebergRestQueryRunnerMain() {}
+
+        public static void main(String[] args)
+                throws Exception
+        {
+            File warehouseLocation = Files.newTemporaryFolder();
+            warehouseLocation.deleteOnExit();
+
+            Catalog backend = backendCatalog(warehouseLocation);
+
+            DelegatingRestSessionCatalog delegatingCatalog = DelegatingRestSessionCatalog.builder()
+                    .delegate(backend)
+                    .build();
+
+            TestingHttpServer testServer = delegatingCatalog.testServer();
+            testServer.start();
+
+            DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
+                    .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                    .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
+                    .setIcebergProperties(ImmutableMap.of(
+                            "iceberg.catalog.type", "rest",
+                            "iceberg.rest-catalog.uri", testServer.getBaseUrl().toString()))
+                    .setInitialTables(TpchTable.getTables())
+                    .build();
+
+            Logger log = Logger.get(IcebergQueryRunner.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
     }
 
