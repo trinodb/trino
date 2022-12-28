@@ -76,23 +76,23 @@ public class TestHudiSparkCompatibility
             String lastCommitTimeSync = (String) onHudi().executeQuery("show TBLPROPERTIES " + tableName + " ('last_commit_time_sync')").project(2).getOnlyValue();
             Assertions.assertThat((String) onHudi().executeQuery("SHOW CREATE TABLE default." + tableName).getOnlyValue())
                     .isEqualTo(format("""
-                                    CREATE TABLE `default`.`%s` (
-                                      `_hoodie_commit_time` STRING,
-                                      `_hoodie_commit_seqno` STRING,
-                                      `_hoodie_record_key` STRING,
-                                      `_hoodie_partition_path` STRING,
-                                      `_hoodie_file_name` STRING,
-                                      `id` BIGINT,
-                                      `name` STRING,
-                                      `price` INT,
-                                      `ts` BIGINT)
+                                    CREATE TABLE default.%s (
+                                      _hoodie_commit_time STRING,
+                                      _hoodie_commit_seqno STRING,
+                                      _hoodie_record_key STRING,
+                                      _hoodie_partition_path STRING,
+                                      _hoodie_file_name STRING,
+                                      id BIGINT,
+                                      name STRING,
+                                      price INT,
+                                      ts BIGINT)
                                     USING hudi
                                     LOCATION 's3://%s/%s'
                                     TBLPROPERTIES (
-                                      'primaryKey' = 'id',
                                       'last_commit_time_sync' = '%s',
-                                      'type' = 'cow',
-                                      'preCombineField' = 'ts')
+                                      'preCombineField' = 'ts',
+                                      'primaryKey' = 'id',
+                                      'type' = 'cow')
                                     """,
                             tableName,
                             bucketName,
