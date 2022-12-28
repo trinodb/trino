@@ -379,7 +379,8 @@ public final class DateTimeFunctions
             try {
                 int days = DateTimeUtils.parseDate(dateTime.toStringUtf8());
                 return scaleEpochMillisToMicros(days * MILLIS_PER_DAY);
-            } catch (DateTimeException e) {
+            }
+            catch (DateTimeException e) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
             }
         }
