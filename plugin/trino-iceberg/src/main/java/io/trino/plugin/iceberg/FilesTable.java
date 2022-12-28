@@ -138,16 +138,16 @@ public class FilesTable
                         .filter(entry -> idToTypeMapping.containsKey(entry.getKey()))
                         .collect(toImmutableMap(
                                 Map.Entry<Integer, ByteBuffer>::getKey,
-                                entry -> Transforms.identity(idToTypeMapping.get(entry.getKey())).toHumanString(
-                                        Conversions.fromByteBuffer(idToTypeMapping.get(entry.getKey()), entry.getValue())))));
+                                entry -> Transforms.identity().toHumanString(
+                                        idToTypeMapping.get(entry.getKey()), Conversions.fromByteBuffer(idToTypeMapping.get(entry.getKey()), entry.getValue())))));
             }
             if (checkNonNull(dataFile.upperBounds(), pagesBuilder)) {
                 pagesBuilder.appendIntegerVarcharMap(dataFile.upperBounds().entrySet().stream()
                         .filter(entry -> idToTypeMapping.containsKey(entry.getKey()))
                         .collect(toImmutableMap(
                                 Map.Entry<Integer, ByteBuffer>::getKey,
-                                entry -> Transforms.identity(idToTypeMapping.get(entry.getKey())).toHumanString(
-                                        Conversions.fromByteBuffer(idToTypeMapping.get(entry.getKey()), entry.getValue())))));
+                                entry -> Transforms.identity().toHumanString(
+                                        idToTypeMapping.get(entry.getKey()), Conversions.fromByteBuffer(idToTypeMapping.get(entry.getKey()), entry.getValue())))));
             }
             if (checkNonNull(dataFile.keyMetadata(), pagesBuilder)) {
                 pagesBuilder.appendVarbinary(Slices.wrappedBuffer(dataFile.keyMetadata()));
