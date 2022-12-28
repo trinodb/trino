@@ -173,6 +173,16 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: rm -rf ~/.m2/repository
 
+  qodana-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          - fetch-depth: 0
+      - name: Qodana Scan
+        uses: JetBrains/qodana-action@v2022.3.0
+
   web-ui-checks:
     runs-on: ubuntu-latest
     timeout-minutes: 30

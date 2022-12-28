@@ -1,0 +1,16 @@
+version: "1.0"
+linter: jetbrains/qodana-jvm-community:2022.3
+profile:
+  name: qodana.recommended
+failThreshold: 1
+exclude:
+  - name: All
+    paths:
+      - .mvn
+  - name: CommentTypo
+  - name: IdentifierTypo
+  - name: JsonStandardCompliance
+  - name: MarkupAttributeTypo
+  - name: MarkupTextTypo
+  - name: StringLiteralTypo
+  - name: UnstableApiUsage
