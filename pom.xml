@@ -73,7 +73,7 @@
         <dep.wire.version>3.2.2</dep.wire.version>
         <dep.kotlin.version>1.4.0</dep.kotlin.version>
 
-        <dep.docker.images.version>72</dep.docker.images.version>
+        <dep.docker.images.version>75</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
