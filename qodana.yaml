@@ -9,6 +9,7 @@ exclude:
       - .mvn
   - name: CommentTypo
   - name: IdentifierTypo
+  - name: JavaAnnotator
   - name: JsonStandardCompliance
   - name: MarkupAttributeTypo
   - name: MarkupTextTypo
