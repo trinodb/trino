@@ -82,8 +82,6 @@ public class TrinoRestCatalog
     private final SessionType sessionType;
     private final String trinoVersion;
     private final boolean useUniqueTableLocation;
-    private final CachingHiveMetastore metastore;
-    private final boolean isUsingSystemSecurity;
 
     private final Map<String, Table> tableCache = new ConcurrentHashMap<>();
 
@@ -92,17 +90,13 @@ public class TrinoRestCatalog
             CatalogName catalogName,
             SessionType sessionType,
             String trinoVersion,
-            boolean useUniqueTableLocation,
-            CachingHiveMetastore metastore,
-            boolean isUsingSystemSecurity)
+            boolean useUniqueTableLocation)
     {
         this.restSessionCatalog = requireNonNull(restSessionCatalog, "restSessionCatalog is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.sessionType = requireNonNull(sessionType, "sessionType is null");
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.useUniqueTableLocation = useUniqueTableLocation;
-        this.metastore=requireNonNull(metastore, "metastore is null");
-        this.isUsingSystemSecurity=isUsingSystemSecurity;
     }
 
     @Override
@@ -224,7 +218,7 @@ public class TrinoRestCatalog
     @Override
     public void registerTable(ConnectorSession session, SchemaTableName tableName, String tableLocation, String metadataLocation)
     {
-        Optional<String> owner = isUsingSystemSecurity ? Optional.empty() : Optional.of(session.getUser());
+        Optional<String> owner = Optional.of(session.getUser());
 
         io.trino.plugin.hive.metastore.Table.Builder builder = io.trino.plugin.hive.metastore.Table.builder()
             .setDatabaseName(tableName.getSchemaName())
@@ -239,7 +233,6 @@ public class TrinoRestCatalog
             .setParameter(METADATA_LOCATION_PROP, metadataLocation);
 
         PrincipalPrivileges privileges = owner.map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
-        metastore.createTable(builder.build(), privileges);
     }
 
     @Override
