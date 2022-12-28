@@ -335,13 +335,6 @@ public class TrinoHiveCatalog
     }
 
     @Override
-    public void updateTableComment(ConnectorSession session, SchemaTableName schemaTableName, Optional<String> comment)
-    {
-        metastore.commentTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), comment);
-        super.updateTableComment(session, schemaTableName, comment);
-    }
-
-    @Override
     public void updateViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
     {
         io.trino.plugin.hive.metastore.Table view = metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
