@@ -164,13 +164,11 @@ public class BigQuerySplitManager
                 numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
             }
             else {
-                // no filters, so we can take the value from the table info when the object is TABLE
                 TableInfo tableInfo = client.getTable(remoteTableId)
                         .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(remoteTableId.getDataset(), remoteTableId.getTable())));
-                if (tableInfo.getDefinition().getType() == TABLE) {
-                    numberOfRows = tableInfo.getNumRows().longValue();
-                }
-                else if (tableInfo.getDefinition().getType() == VIEW) {
+                // Note that we cannot use row count from TableInfo because for writes via insertAll/streaming API the number is incorrect until the streaming buffer is flushed
+                // (and there's no mechanism to trigger an on-demand flush). This can lead to incorrect results for queries with empty projections.
+                if (tableInfo.getDefinition().getType() == TABLE || tableInfo.getDefinition().getType() == VIEW) {
                     String sql = client.selectSql(remoteTableId, "COUNT(*)");
                     TableResult result = client.query(sql, isQueryResultsCacheEnabled(session), createDisposition(session));
                     numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();

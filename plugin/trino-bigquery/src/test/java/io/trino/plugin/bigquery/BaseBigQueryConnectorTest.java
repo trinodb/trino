@@ -38,8 +38,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
-import static java.lang.String.join;
-import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
@@ -203,6 +201,18 @@ public abstract class BaseBigQueryConnectorTest
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_table_if_not_exists", "(col1 int)")) {
             assertUpdate("CREATE TABLE IF NOT EXISTS " + table.getName() + "(col1 int)");
+        }
+    }
+
+    @Test
+    public void testEmptyProjection()
+    {
+        // Regression test for https://github.com/trinodb/trino/issues/14981
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_emtpy_projection",
+                " AS SELECT * FROM region")) {
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 5");
         }
     }
 
@@ -789,19 +799,6 @@ public abstract class BaseBigQueryConnectorTest
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_array_", "(a ARRAY<DOUBLE>, b ARRAY<BIGINT>)")) {
             assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (ARRAY[1.23E1], ARRAY[1.23E1])", 1);
             assertQuery("SELECT a[1], b[1] FROM " + table.getName(), "VALUES (12.3, 12)");
-        }
-    }
-
-    @Override
-    public void testInsertSameValues()
-    {
-        // TODO Remove override once https://github.com/trinodb/trino/issues/14981 is addressed
-        //  queries with empty projections (count(*)) can return incorrect results for tables which are written to recently
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
-                "insert_same_values",
-                "AS " + join(" UNION ALL ", nCopies(2, "SELECT * FROM region")))) {
-            assertThat(computeActual("SELECT regionkey FROM " + table.getName()).getRowCount()).isEqualTo(10);
         }
     }
 
