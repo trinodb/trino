@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import io.airlift.concurrent.ThreadLocalCache;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import io.trino.operator.scalar.timestamptz.CurrentTimestamp;
 import io.trino.spi.TrinoException;
@@ -29,6 +30,7 @@ import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.type.DateTimes;
+import io.trino.util.DateTimeUtils;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeField;
 import org.joda.time.Days;
@@ -40,6 +42,7 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.ISODateTimeFormat;
 
 import java.math.BigInteger;
+import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
@@ -85,6 +88,8 @@ public final class DateTimeFunctions
     private static final int MILLISECONDS_IN_HOUR = 60 * MILLISECONDS_IN_MINUTE;
     private static final int MILLISECONDS_IN_DAY = 24 * MILLISECONDS_IN_HOUR;
     private static final int PIVOT_YEAR = 2020; // yy = 70 will correspond to 1970 but 69 to 2069
+    private static final Slice YmD = Slices.utf8Slice("%Y-%m-%d");
+    private static final long MILLIS_PER_DAY = 24 * 3600 * 1000;
 
     private DateTimeFunctions() {}
 
@@ -370,6 +375,15 @@ public final class DateTimeFunctions
     @SqlType("timestamp(3)") // TODO: increase precision?
     public static long dateParse(ConnectorSession session, @SqlType("varchar(x)") Slice dateTime, @SqlType("varchar(y)") Slice formatString)
     {
+        if (YmD.equals(formatString)) {
+            try {
+                int days = DateTimeUtils.parseDate(dateTime.toStringUtf8());
+                return scaleEpochMillisToMicros(days * MILLIS_PER_DAY);
+            } catch (DateTimeException e) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
+            }
+        }
+
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
                 .withZoneUTC()
                 .withLocale(session.getLocale());
