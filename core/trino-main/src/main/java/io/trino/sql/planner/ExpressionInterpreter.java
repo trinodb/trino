@@ -181,12 +181,13 @@ public class ExpressionInterpreter
     private final Map<NodeRef<Expression>, Type> expressionTypes;
     private final InterpretedFunctionInvoker functionInvoker;
     private final TypeCoercion typeCoercion;
+    private final TypeProvider typeProvider;
 
     // identity-based cache for LIKE expressions with constant pattern and escape char
     private final IdentityHashMap<LikePredicate, LikeMatcher> likePatternCache = new IdentityHashMap<>();
     private final IdentityHashMap<InListExpression, Set<?>> inListCache = new IdentityHashMap<>();
 
-    public ExpressionInterpreter(Expression expression, PlannerContext plannerContext, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
+    public ExpressionInterpreter(Expression expression, PlannerContext plannerContext, Session session, Map<NodeRef<Expression>, Type> expressionTypes, TypeProvider typeProvider)
     {
         this.expression = requireNonNull(expression, "expression is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
@@ -199,6 +200,7 @@ public class ExpressionInterpreter
         verify((expressionTypes.containsKey(NodeRef.of(expression))));
         this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
         this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+        this.typeProvider = requireNonNull(typeProvider, "typeProvider is null");
     }
 
     public static Object evaluateConstantExpression(
@@ -268,7 +270,7 @@ public class ExpressionInterpreter
         analyzer.analyze(resolved, Scope.create());
 
         // evaluate the expression
-        return new ExpressionInterpreter(resolved, plannerContext, session, analyzer.getExpressionTypes()).evaluate();
+        return new ExpressionInterpreter(resolved, plannerContext, session, analyzer.getExpressionTypes(), TypeProvider.empty()).evaluate();
     }
 
     public Type getType()

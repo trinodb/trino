@@ -302,7 +302,7 @@ public class TestLiteralEncoder
 
     private Object getExpressionValue(Expression expression)
     {
-        return new ExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, getExpressionTypes(expression)).evaluate();
+        return new ExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, getExpressionTypes(expression), TypeProvider.empty()).evaluate();
     }
 
     private Type getExpressionType(Expression expression)

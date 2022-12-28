@@ -200,7 +200,7 @@ public class PushAggregationIntoTableScan
                     Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(session, context.getSymbolAllocator().getTypes(), translated);
                     translated = literalEncoder.toExpression(
                             session,
-                            new ExpressionInterpreter(translated, plannerContext, session, translatedExpressionTypes)
+                            new ExpressionInterpreter(translated, plannerContext, session, translatedExpressionTypes, context.getSymbolAllocator().getTypes())
                                     .optimize(NoOpSymbolResolver.INSTANCE),
                             translatedExpressionTypes.get(NodeRef.of(translated)));
                     return translated;

@@ -54,7 +54,7 @@ public class RemoveRedundantDateTrunc
             return expression;
         }
         Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, expression);
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(session, plannerContext, expressionTypes), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(session, plannerContext, expressionTypes, types), expression);
     }
 
     private static class Visitor
@@ -63,12 +63,14 @@ public class RemoveRedundantDateTrunc
         private final Session session;
         private final PlannerContext plannerContext;
         private final Map<NodeRef<Expression>, Type> expressionTypes;
+        private final TypeProvider types;
 
-        public Visitor(Session session, PlannerContext plannerContext, Map<NodeRef<Expression>, Type> expressionTypes)
+        public Visitor(Session session, PlannerContext plannerContext, Map<NodeRef<Expression>, Type> expressionTypes, TypeProvider types)
         {
             this.session = requireNonNull(session, "session is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.expressionTypes = requireNonNull(expressionTypes, "expressionTypes is null");
+            this.types = requireNonNull(types, "types is null");
         }
 
         @Override
@@ -78,7 +80,7 @@ public class RemoveRedundantDateTrunc
             if (functionName.equals("date_trunc") && node.getArguments().size() == 2) {
                 Expression unitExpression = node.getArguments().get(0);
                 if (getType(unitExpression) instanceof VarcharType && isEffectivelyLiteral(plannerContext, session, unitExpression)) {
-                    Slice unitValue = (Slice) new ExpressionInterpreter(unitExpression, plannerContext, session, expressionTypes)
+                    Slice unitValue = (Slice) new ExpressionInterpreter(unitExpression, plannerContext, session, expressionTypes, types)
                             .optimize(NoOpSymbolResolver.INSTANCE);
                     if (unitValue != null && "day".equals(unitValue.toStringUtf8().toLowerCase(Locale.ENGLISH))) {
                         Expression argument = node.getArguments().get(1);

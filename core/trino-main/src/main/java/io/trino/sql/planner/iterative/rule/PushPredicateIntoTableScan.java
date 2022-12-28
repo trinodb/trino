@@ -288,7 +288,7 @@ public class PushPredicateIntoTableScan
             Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), translatedExpression);
             translatedExpression = literalEncoder.toExpression(
                     session,
-                    new ExpressionInterpreter(translatedExpression, plannerContext, session, translatedExpressionTypes)
+                    new ExpressionInterpreter(translatedExpression, plannerContext, session, translatedExpressionTypes, symbolAllocator.getTypes())
                             .optimize(NoOpSymbolResolver.INSTANCE),
                     translatedExpressionTypes.get(NodeRef.of(translatedExpression)));
             remainingDecomposedPredicate = combineConjuncts(plannerContext.getMetadata(), translatedExpression, expressionTranslation.remainingExpression());

@@ -50,7 +50,7 @@ public class SimplifyExpressions
         expression = extractCommonPredicates(plannerContext.getMetadata(), expression);
         expression = normalizeOrExpression(expression);
         expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, plannerContext, session, expressionTypes);
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, plannerContext, session, expressionTypes, symbolAllocator.getTypes());
         Object optimized = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
         return new LiteralEncoder(plannerContext).toExpression(session, optimized, expressionTypes.get(NodeRef.of(expression)));
     }

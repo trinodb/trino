@@ -179,7 +179,7 @@ public class UnwrapCastInComparison
                 return expression;
             }
 
-            Object right = new ExpressionInterpreter(expression.getRight(), plannerContext, session, typeAnalyzer.getTypes(session, types, expression.getRight()))
+            Object right = new ExpressionInterpreter(expression.getRight(), plannerContext, session, typeAnalyzer.getTypes(session, types, expression.getRight()), types)
                     .optimize(NoOpSymbolResolver.INSTANCE);
 
             ComparisonExpression.Operator operator = expression.getOperator();
