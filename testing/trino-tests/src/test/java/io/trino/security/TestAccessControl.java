@@ -877,6 +877,18 @@ public class TestAccessControl
                 "CREATE TABLE mock.default.new_table (pk bigint) WITH (DOUBLE_TABLE_PROPERTY = 1.0)",
                 "Cannot access properties: \\[double_table_property]");
         assertAccessDenied(
+                "CREATE TABLE mock.default.new_table WITH (double_table_property = 0.0) AS SELECT 1 pk", // default value
+                "Cannot access properties: \\[double_table_property]");
+        assertAccessDenied(
+                "CREATE TABLE mock.default.new_table WITH (double_table_property = 1.0) AS SELECT 1 pk",
+                "Cannot access properties: \\[double_table_property]");
+        assertAccessDenied(
+                "CREATE TABLE mock.default.new_table WITH (double_table_property = 1.0, another_property = 1) AS SELECT 1 pk",
+                "Cannot access properties: \\[another_property, double_table_property]");
+        assertAccessDenied(
+                "CREATE TABLE mock.default.new_table WITH (DOUBLE_TABLE_PROPERTY = 1.0) AS SELECT 1 pk",
+                "Cannot access properties: \\[double_table_property]");
+        assertAccessDenied(
                 "CREATE SCHEMA mock.new_schema WITH (boolean_schema_property = false)", // default value
                 "Cannot access properties: \\[boolean_schema_property]");
         assertAccessDenied(

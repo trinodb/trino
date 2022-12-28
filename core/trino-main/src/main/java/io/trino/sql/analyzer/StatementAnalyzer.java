@@ -890,7 +890,15 @@ class StatementAnalyzer
                     accessControl,
                     analysis.getParameters(),
                     true);
-            accessControl.checkCanCreateTable(session.toSecurityContext(), targetTable, properties);
+            Set<String> specifiedPropertyKeys = node.getProperties().stream()
+                    // property names are case-insensitive and normalized to lower case
+                    .map(property -> property.getName().getValue().toLowerCase(ENGLISH))
+                    .collect(toImmutableSet());
+            Map<String, Object> explicitlySetProperties = properties.keySet().stream()
+                    .peek(key -> verify(key.equals(key.toLowerCase(ENGLISH)), "Property name '%s' not in lower-case", key))
+                    .filter(specifiedPropertyKeys::contains)
+                    .collect(toImmutableMap(Function.identity(), properties::get));
+            accessControl.checkCanCreateTable(session.toSecurityContext(), targetTable, explicitlySetProperties);
 
             // analyze the query that creates the table
             Scope queryScope = analyze(node.getQuery(), createScope(scope));
