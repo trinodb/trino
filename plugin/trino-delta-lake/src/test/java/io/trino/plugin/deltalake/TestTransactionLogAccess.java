@@ -315,13 +315,13 @@ public class TestTransactionLogAccess
                     ImmutableSet.of(
                             new CommitInfoEntry(0, 1579190200860L, "671960514434781", "michal.slizak@starburstdata.com", "WRITE",
                                     ImmutableMap.of("mode", "Append", "partitionBy", "[\"age\"]"), null, new CommitInfoEntry.Notebook("3040849856940931"),
-                                    "0116-154224-guppy476", 10L, "WriteSerializable", true),
+                                    "0116-154224-guppy476", 10L, "WriteSerializable", Optional.of(true)),
                             new CommitInfoEntry(0, 1579190206644L, "671960514434781", "michal.slizak@starburstdata.com", "WRITE",
                                     ImmutableMap.of("mode", "Append", "partitionBy", "[\"age\"]"), null, new CommitInfoEntry.Notebook("3040849856940931"),
-                                    "0116-154224-guppy476", 11L, "WriteSerializable", true),
+                                    "0116-154224-guppy476", 11L, "WriteSerializable", Optional.of(true)),
                             new CommitInfoEntry(0, 1579190210571L, "671960514434781", "michal.slizak@starburstdata.com", "WRITE",
                                     ImmutableMap.of("mode", "Append", "partitionBy", "[\"age\"]"), null, new CommitInfoEntry.Notebook("3040849856940931"),
-                                    "0116-154224-guppy476", 12L, "WriteSerializable", true)));
+                                    "0116-154224-guppy476", 12L, "WriteSerializable", Optional.of(true))));
         }
     }
 
