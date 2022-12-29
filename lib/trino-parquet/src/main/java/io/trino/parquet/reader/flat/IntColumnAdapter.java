@@ -18,6 +18,8 @@ import io.trino.spi.block.IntArrayBlock;
 
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.sizeOf;
+
 public class IntColumnAdapter
         implements ColumnAdapter<int[]>
 {
@@ -53,5 +55,11 @@ public class IntColumnAdapter
         for (int i = 0; i < length; i++) {
             values[offset + i] = dictionary[ids[i]];
         }
+    }
+
+    @Override
+    public long getSizeInBytes(int[] values)
+    {
+        return sizeOf(values);
     }
 }

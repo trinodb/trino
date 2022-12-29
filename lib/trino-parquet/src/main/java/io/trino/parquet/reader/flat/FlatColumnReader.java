@@ -15,6 +15,7 @@ package io.trino.parquet.reader.flat;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DataPageV2;
@@ -56,6 +57,7 @@ public class FlatColumnReader<BufferType>
     private final PrimitiveField field;
     private final ValueDecodersProvider<BufferType> decodersProvider;
     private final ColumnAdapter<BufferType> columnAdapter;
+    private final LocalMemoryContext memoryContext;
     private PageReader pageReader;
     private RowRangesIterator rowRanges;
 
@@ -68,11 +70,16 @@ public class FlatColumnReader<BufferType>
 
     private int nextBatchSize;
 
-    public FlatColumnReader(PrimitiveField field, ValueDecodersProvider<BufferType> decodersProvider, ColumnAdapter<BufferType> columnAdapter)
+    public FlatColumnReader(
+            PrimitiveField field,
+            ValueDecodersProvider<BufferType> decodersProvider,
+            ColumnAdapter<BufferType> columnAdapter,
+            LocalMemoryContext memoryContext)
     {
         this.field = requireNonNull(field, "field is null");
         this.decodersProvider = requireNonNull(decodersProvider, "decoders is null");
         this.columnAdapter = requireNonNull(columnAdapter, "columnAdapter is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
     private void seek()
@@ -259,6 +266,13 @@ public class FlatColumnReader<BufferType>
         else if (page instanceof DataPageV2) {
             readFlatPageV2((DataPageV2) page);
         }
+        // For a compressed data page, the memory used by the decompressed values data needs to be accounted
+        // for separately as ParquetCompressionUtils#decompress allocates a new byte array for the decompressed result.
+        // For an uncompressed data page, we read directly from input Slices whose memory usage is already accounted
+        // for in AbstractParquetDataSource#ReferenceCountedReader.
+        int dataPageSizeInBytes = pageReader.arePagesCompressed() ? page.getUncompressedSize() : 0;
+        long dictionarySizeInBytes = dictionaryDecoder == null ? 0 : dictionaryDecoder.getRetainedSizeInBytes();
+        memoryContext.setBytes(dataPageSizeInBytes + dictionarySizeInBytes);
 
         remainingPageValueCount = page.getValueCount();
         return page;

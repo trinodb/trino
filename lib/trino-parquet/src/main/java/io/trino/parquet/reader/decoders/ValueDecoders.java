@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.reader.decoders;
 
+import io.airlift.slice.Slice;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
@@ -259,9 +260,10 @@ public final class ValueDecoders
     {
         int size = dictionaryPage.getDictionarySize();
         T dictionary = columnAdapter.createBuffer(size);
-        plainValuesDecoder.init(new SimpleSliceInputStream(dictionaryPage.getSlice()));
+        Slice dictionarySlice = dictionaryPage.getSlice();
+        plainValuesDecoder.init(new SimpleSliceInputStream(dictionarySlice));
         plainValuesDecoder.read(dictionary, 0, size);
-        return new DictionaryDecoder<>(dictionary, columnAdapter);
+        return new DictionaryDecoder<>(dictionary, columnAdapter, columnAdapter.getSizeInBytes(dictionary));
     }
 
     private static ValuesReader getApacheParquetReader(ParquetEncoding encoding, PrimitiveField field)
