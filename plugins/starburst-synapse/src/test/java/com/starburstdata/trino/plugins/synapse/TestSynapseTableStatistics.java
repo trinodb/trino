@@ -34,8 +34,8 @@ import java.util.function.Consumer;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static com.starburstdata.trino.plugins.synapse.SynapseQueryRunner.createSynapseQueryRunner;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.sql.TestTable.fromColumns;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.NATION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,7 +60,7 @@ public class TestSynapseTableStatistics
     @Test
     public void testNotAnalyzed()
     {
-        String tableName = "test_stats_not_analyzed_" + randomTableSuffix();
+        String tableName = "test_stats_not_analyzed_" + randomNameSuffix();
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.nation", tableName));
         try {
             assertQuery(
@@ -81,7 +81,7 @@ public class TestSynapseTableStatistics
     @Test
     public void testBasic()
     {
-        String tableName = "test_stats_" + randomTableSuffix();
+        String tableName = "test_stats_" + randomNameSuffix();
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.nation", tableName));
         try {
             gatherStats(tableName);
@@ -117,7 +117,7 @@ public class TestSynapseTableStatistics
     @Test
     public void testAllNulls()
     {
-        String tableName = "test_stats_table_all_nulls_" + randomTableSuffix();
+        String tableName = "test_stats_table_all_nulls_" + randomNameSuffix();
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.nation WHERE false", tableName));
         try {
             computeActual(format("INSERT INTO %s (nationkey) VALUES NULL, NULL, NULL", tableName));
@@ -140,7 +140,7 @@ public class TestSynapseTableStatistics
     @Test
     public void testNullsFraction()
     {
-        String tableName = "test_stats_table_with_nulls_" + randomTableSuffix();
+        String tableName = "test_stats_table_with_nulls_" + randomNameSuffix();
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " AS " +
                         "SELECT " +
@@ -166,7 +166,7 @@ public class TestSynapseTableStatistics
     @Test
     public void testAverageColumnLength()
     {
-        String tableName = "test_stats_table_avg_col_len_" + randomTableSuffix();
+        String tableName = "test_stats_table_avg_col_len_" + randomNameSuffix();
         computeActual("" +
                 "CREATE TABLE " + tableName + " AS SELECT " +
                 "  nationkey, " +
@@ -200,7 +200,7 @@ public class TestSynapseTableStatistics
     @Test
     public void testPartitionedTable()
     {
-        String tableName = "test_stats_partitioned_table_" + randomTableSuffix();
+        String tableName = "test_stats_partitioned_table_" + randomNameSuffix();
         synapseServer.execute(format("CREATE TABLE %s WITH " +
                 "(DISTRIBUTION = ROUND_ROBIN, " +
                 "PARTITION (nationkey RANGE LEFT FOR VALUES (12))) " +
@@ -225,7 +225,7 @@ public class TestSynapseTableStatistics
     @Test
     public void testView()
     {
-        String tableName = "dbo.test_stats_view_" + randomTableSuffix();
+        String tableName = "dbo.test_stats_view_" + randomNameSuffix();
         synapseServer.execute("DROP VIEW IF EXISTS " + tableName);
         synapseServer.execute("CREATE VIEW " + tableName + " AS SELECT * FROM nation");
         try {
@@ -289,12 +289,12 @@ public class TestSynapseTableStatistics
     public Object[][] testCaseColumnNamesDataProvider()
     {
         return new Object[][] {
-                {format("TEST_STATS_MIXED_UNQUOTED_UPPER_%s", randomTableSuffix())},
-                {format("test_stats_mixed_unquoted_lower_%s", randomTableSuffix())},
-                {format("test_stats_mixed_uNQuoTeD_miXED_%s", randomTableSuffix())},
-                {format("\"TEST_STATS_MIXED_QUOTED_UPPER_%s\"", randomTableSuffix())},
-                {format("\"test_stats_mixed_quoted_lower_%s\"", randomTableSuffix())},
-                {format("\"test_stats_mixed_QuoTeD_miXED_%s\"", randomTableSuffix())},
+                {format("TEST_STATS_MIXED_UNQUOTED_UPPER_%s", randomNameSuffix())},
+                {format("test_stats_mixed_unquoted_lower_%s", randomNameSuffix())},
+                {format("test_stats_mixed_uNQuoTeD_miXED_%s", randomNameSuffix())},
+                {format("\"TEST_STATS_MIXED_QUOTED_UPPER_%s\"", randomNameSuffix())},
+                {format("\"test_stats_mixed_quoted_lower_%s\"", randomNameSuffix())},
+                {format("\"test_stats_mixed_QuoTeD_miXED_%s\"", randomNameSuffix())},
         };
     }
 
@@ -331,7 +331,7 @@ public class TestSynapseTableStatistics
     @Test
     public void testShowStatsAfterCreateIndex()
     {
-        String tableName = "test_stats_create_index_" + randomTableSuffix();
+        String tableName = "test_stats_create_index_" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.nation", tableName));
 

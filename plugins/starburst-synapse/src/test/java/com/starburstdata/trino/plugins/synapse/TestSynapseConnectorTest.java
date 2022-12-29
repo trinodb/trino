@@ -32,7 +32,7 @@ import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -219,7 +219,7 @@ public class TestSynapseConnectorTest
     @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
     public void testCreateTableAsSelectWriteBulkiness(boolean bulkCopyForWrite)
     {
-        String table = "bulk_copy_ctas_" + randomTableSuffix();
+        String table = "bulk_copy_ctas_" + randomNameSuffix();
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty(CATALOG, BULK_COPY_FOR_WRITE, Boolean.toString(bulkCopyForWrite))
                 .build();
@@ -238,7 +238,7 @@ public class TestSynapseConnectorTest
     @Test
     public void testSpecialCharacterColumnNameFailToRename()
     {
-        String table = "special_column_name_" + randomTableSuffix();
+        String table = "special_column_name_" + randomNameSuffix();
         String specialCharacterColumnName = "\"" + "[tricky]" + "\"";
         String normalColumnName = "normal";
         Session session = Session.builder(getSession()).build();
@@ -252,7 +252,7 @@ public class TestSynapseConnectorTest
     @Test(dataProvider = "doubleTrueFalse")
     public void testInsertWriteBulkiness(boolean nonTransactionalInsert, boolean bulkCopyForWrite)
     {
-        String table = "bulk_copy_insert_" + randomTableSuffix();
+        String table = "bulk_copy_insert_" + randomNameSuffix();
         assertQuerySucceeds(format("CREATE TABLE %s as SELECT * FROM tpch.tiny.customer WHERE 0 = 1", table));
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty(CATALOG, NON_TRANSACTIONAL_INSERT, Boolean.toString(nonTransactionalInsert))
@@ -276,7 +276,7 @@ public class TestSynapseConnectorTest
         // TODO: Remove override once superclass uses smaller tables to test (because INSERTs to Synapse are slow)
         skipTestUnless(hasBehavior(SUPPORTS_DELETE) && hasBehavior(SUPPORTS_CREATE_TABLE));
 
-        String tableName = "test_delete_" + randomTableSuffix();
+        String tableName = "test_delete_" + randomNameSuffix();
 
         // delete successive parts of the table
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", "SELECT count(*) FROM nation");

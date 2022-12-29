@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.jdbcBuilder;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 
 public class TestSnowflakeTableStatistics
@@ -57,7 +57,7 @@ public class TestSnowflakeTableStatistics
     @Test
     public void testBasic()
     {
-        String tableName = "test_stats_orders_" + randomTableSuffix();
+        String tableName = "test_stats_orders_" + randomNameSuffix();
         computeActual(format("CREATE TABLE %s AS SELECT name, nationkey, comment FROM tpch.tiny.nation", tableName));
         try {
             assertQuery(

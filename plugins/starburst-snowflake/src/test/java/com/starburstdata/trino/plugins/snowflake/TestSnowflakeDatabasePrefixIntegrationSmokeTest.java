@@ -25,7 +25,7 @@ import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.jdb
 import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeClient.DATABASE_SEPARATOR;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.QueryAssertions.assertContains;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -66,7 +66,7 @@ public class TestSnowflakeDatabasePrefixIntegrationSmokeTest
     @Test
     public void testCreateSchema()
     {
-        String schemaName = format("%s.test_schema_create_%s", normalizedDatabaseName, randomTableSuffix());
+        String schemaName = format("%s.test_schema_create_%s", normalizedDatabaseName, randomNameSuffix());
         assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(schemaName);
         assertUpdate(format("CREATE SCHEMA \"%s\"", schemaName));
         assertUpdate(format("CREATE SCHEMA IF NOT EXISTS \"%s\"", schemaName));
@@ -162,7 +162,7 @@ public class TestSnowflakeDatabasePrefixIntegrationSmokeTest
     {
         try (TestTable table = new TestTable(snowflakeExecutor, "public.base_table", "(a STRING)", ImmutableList.of("'value-1'"))) {
             String tableName = table.getName().split("\\.")[1];
-            String newTableName = "create_as_select" + randomTableSuffix();
+            String newTableName = "create_as_select" + randomNameSuffix();
             assertUpdate(
                     format(
                             "CREATE TABLE %s AS SELECT * FROM %s",
@@ -176,8 +176,8 @@ public class TestSnowflakeDatabasePrefixIntegrationSmokeTest
     @Test
     public void testCreateWithDotAsSelect()
     {
-        String baseTable = databaseSchemaTableName(normalizedDatabaseName, "public", "\"base_table.with_dot_" + randomTableSuffix() + "\"");
-        String newTableName = databaseSchemaTableName(normalizedDatabaseName, "public", "\"create_as_select.with_dot_" + randomTableSuffix() + "\"");
+        String baseTable = databaseSchemaTableName(normalizedDatabaseName, "public", "\"base_table.with_dot_" + randomNameSuffix() + "\"");
+        String newTableName = databaseSchemaTableName(normalizedDatabaseName, "public", "\"create_as_select.with_dot_" + randomNameSuffix() + "\"");
 
         try {
             assertUpdate(format("CREATE TABLE %s (column1 BIGINT)", baseTable));

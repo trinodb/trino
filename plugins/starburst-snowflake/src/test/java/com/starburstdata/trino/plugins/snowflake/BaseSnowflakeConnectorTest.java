@@ -45,8 +45,8 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTim
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -271,7 +271,7 @@ public abstract class BaseSnowflakeConnectorTest
     public void testViews()
             throws SQLException
     {
-        String viewName = "test_view_" + randomTableSuffix();
+        String viewName = "test_view_" + randomNameSuffix();
         server.executeOnDatabase(testDatabase.getName(), format("CREATE VIEW %s.%s AS SELECT * FROM orders", TEST_SCHEMA, viewName));
         assertTrue(getQueryRunner().tableExists(getSession(), viewName));
         assertQuery(format("SELECT orderkey FROM %s", viewName), "SELECT orderkey FROM orders");

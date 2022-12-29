@@ -52,7 +52,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 
@@ -778,31 +778,31 @@ public abstract class BaseSnowflakeTypeMappingTest
     {
         return new CreateAsSelectDataSetup(
                 new TrinoSqlExecutor(getQueryRunner()),
-                "test_table_" + randomTableSuffix());
+                "test_table_" + randomNameSuffix());
     }
 
     protected DataSetup trinoCreateAsSelect(Session session)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), "test_table_" + randomTableSuffix());
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), "test_table_" + randomNameSuffix());
     }
 
     protected DataSetup trinoCreateAndInsert()
     {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner()), "test_insert_table_" + randomTableSuffix());
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner()), "test_insert_table_" + randomNameSuffix());
     }
 
     protected DataSetup snowflakeCreateAsSelect()
     {
         return new CreateAsSelectDataSetup(
                 getSqlExecutor(),
-                "test_table_" + randomTableSuffix());
+                "test_table_" + randomNameSuffix());
     }
 
     protected DataSetup snowflakeCreateAndInsert()
     {
         return new CreateAndInsertDataSetup(
                 getSqlExecutor(),
-                "test_table_" + randomTableSuffix());
+                "test_table_" + randomNameSuffix());
     }
 
     protected SqlExecutor getSqlExecutor()

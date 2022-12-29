@@ -24,7 +24,7 @@ import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.JOIN_PUSHDOWN_E
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
@@ -119,7 +119,7 @@ public abstract class AbstractDynamicFilteringTest
     @Test(timeOut = 240_000)
     public void testDynamicFilteringDomainCompactionThreshold()
     {
-        String tableName = "orderkeys_" + randomTableSuffix();
+        String tableName = "orderkeys_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (orderkey) AS VALUES 30000, 60000", 2);
         String query = "SELECT * FROM orders a " +
                 "JOIN " + tableName + " b ON a.orderkey = b.orderkey";

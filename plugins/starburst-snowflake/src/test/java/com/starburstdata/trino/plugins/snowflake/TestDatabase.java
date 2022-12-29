@@ -14,7 +14,7 @@ import io.trino.testing.sql.SqlExecutor;
 import java.io.Closeable;
 import java.util.Locale;
 
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -30,7 +30,7 @@ public class TestDatabase
     public TestDatabase(SqlExecutor sqlExecutor, String namePrefix)
     {
         this.sqlExecutor = requireNonNull(sqlExecutor, "sqlExecutor is null");
-        this.name = format("%s%s_%s", tmpDatabasePrefix, namePrefix, randomTableSuffix()).toUpperCase(Locale.ENGLISH);
+        this.name = format("%s%s_%s", tmpDatabasePrefix, namePrefix, randomNameSuffix()).toUpperCase(Locale.ENGLISH);
         sqlExecutor.execute(format("CREATE DATABASE IF NOT EXISTS %s COMMENT = '%s'", name, tmpDatabaseComment));
     }
 
