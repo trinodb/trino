@@ -30,6 +30,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.deltalake.expression.SparkExpressionParser;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.NotADeltaLakeTableException;
@@ -42,12 +43,14 @@ import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CdfFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry.Format;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
+import io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionConflictException;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriter;
@@ -94,6 +97,7 @@ import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
@@ -141,6 +145,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -405,18 +410,24 @@ public class DeltaLakeMetadata
     public DeltaLakeTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         requireNonNull(tableName, "tableName is null");
-        Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+        if (!DeltaLakeTableName.isDataTable(tableName.getTableName())) {
+            // Pretend the table does not exist to produce better error message in case of table redirects to Hive
+            return null;
+        }
+        DeltaLakeTableName deltaLakeTableName = DeltaLakeTableName.from(tableName.getTableName());
+        SchemaTableName dataTableName = new SchemaTableName(tableName.getSchemaName(), deltaLakeTableName.getTableName());
+        Optional<Table> table = metastore.getTable(dataTableName.getSchemaName(), dataTableName.getTableName());
         if (table.isEmpty()) {
             return null;
         }
 
-        TableSnapshot tableSnapshot = metastore.getSnapshot(tableName, session);
+        TableSnapshot tableSnapshot = metastore.getSnapshot(dataTableName, session);
         Optional<MetadataEntry> metadata = metastore.getMetadata(tableSnapshot, session);
         metadata.ifPresent(metadataEntry -> verifySupportedColumnMapping(getColumnMappingMode(metadataEntry)));
         return new DeltaLakeTableHandle(
-                tableName.getSchemaName(),
-                tableName.getTableName(),
-                metastore.getTableLocation(tableName, session),
+                dataTableName.getSchemaName(),
+                dataTableName.getTableName(),
+                metastore.getTableLocation(dataTableName, session),
                 metadata,
                 TupleDomain.all(),
                 TupleDomain.all(),
@@ -2430,6 +2441,48 @@ public class DeltaLakeMetadata
         return fileName.startsWith(queryId + "-");
     }
 
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        return getRawSystemTable(session, tableName)
+                .map(systemTable -> new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
+    }
+
+    private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        if (DeltaLakeTableName.isDataTable(tableName.getTableName())) {
+            return Optional.empty();
+        }
+
+        // Only when dealing with an actual system table proceed to retrieve the table handle
+        String name = DeltaLakeTableName.tableNameFrom(tableName.getTableName());
+        DeltaLakeTableHandle tableHandle;
+        try {
+            tableHandle = getTableHandle(session, new SchemaTableName(tableName.getSchemaName(), name));
+        }
+        catch (NotADeltaLakeTableException e) {
+            // avoid dealing with non Delta Lake tables
+            return Optional.empty();
+        }
+        if (tableHandle == null) {
+            return Optional.empty();
+        }
+
+        Optional<DeltaLakeTableType> tableType = DeltaLakeTableName.tableTypeFrom(tableName.getTableName());
+        if (tableType.isEmpty()) {
+            return Optional.empty();
+        }
+        DeltaLakeTableName deltaLakeTableName = new DeltaLakeTableName(name, tableType.get());
+        SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), deltaLakeTableName.getTableNameWithType());
+        return switch (deltaLakeTableName.getTableType()) {
+            case DATA -> Optional.empty(); // Handled above
+            case HISTORY -> Optional.of(new DeltaLakeHistoryTable(
+                    systemTableName,
+                    getCommitInfoEntries(tableHandle.getSchemaTableName(), session),
+                    typeManager));
+        };
+    }
+
     private static Map<String, DeltaLakeColumnStatistics> toDeltaLakeColumnStatistics(Collection<ComputedStatistics> computedStatistics)
     {
         // Only statistics for whole table are collected
@@ -2504,6 +2557,23 @@ public class DeltaLakeMetadata
     public DeltaLakeMetastore getMetastore()
     {
         return metastore;
+    }
+
+    private List<CommitInfoEntry> getCommitInfoEntries(SchemaTableName table, ConnectorSession session)
+    {
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        try {
+            return TransactionLogTail.loadNewTail(fileSystem, new Path(metastore.getTableLocation(table, session)), Optional.empty()).getFileEntries().stream()
+                    .map(DeltaLakeTransactionLogEntry::getCommitInfo)
+                    .filter(Objects::nonNull)
+                    .collect(toImmutableList());
+        }
+        catch (TrinoException e) {
+            throw e;
+        }
+        catch (IOException | RuntimeException e) {
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting commit info entries for " + table, e);
+        }
     }
 
     private static ColumnMetadata getColumnMetadata(DeltaLakeColumnHandle column, @Nullable String comment, boolean nullability)
