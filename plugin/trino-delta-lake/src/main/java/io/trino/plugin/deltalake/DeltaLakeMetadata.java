@@ -1241,7 +1241,7 @@ public class DeltaLakeMetadata
                         "trino-" + nodeVersion + "-" + nodeId,
                         0,
                         ISOLATION_LEVEL,
-                        true));
+                        Optional.of(true)));
 
         transactionLogWriter.appendProtocolEntry(protocolEntry);
 
@@ -1389,7 +1389,7 @@ public class DeltaLakeMetadata
                             "trino-" + nodeVersion + "-" + nodeId,
                             handle.getReadVersion(), // it is not obvious why we need to persist this readVersion
                             ISOLATION_LEVEL,
-                            true));
+                            Optional.of(true)));
 
             // Note: during writes we want to preserve original case of partition columns
             List<String> partitionColumns = handle.getMetadataEntry().getOriginalPartitionColumns();
@@ -1523,7 +1523,7 @@ public class DeltaLakeMetadata
                             "trino-" + nodeVersion + "-" + nodeId,
                             handle.getReadVersion(),
                             ISOLATION_LEVEL,
-                            true));
+                            Optional.of(true)));
             // TODO: Delta writes another field "operationMetrics" (https://github.com/trinodb/trino/issues/12005)
 
             long writeTimestamp = Instant.now().toEpochMilli();
@@ -1734,7 +1734,7 @@ public class DeltaLakeMetadata
                             "trino-" + nodeVersion + "-" + nodeId,
                             readVersion,
                             ISOLATION_LEVEL,
-                            true));
+                            Optional.of(true)));
             // TODO: Delta writes another field "operationMetrics" that I haven't
             //   seen before. It contains delete/update metrics. Investigate/include it.
 
