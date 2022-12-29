@@ -220,7 +220,6 @@ public abstract class BaseTrinoCatalogTest
 
     @Test
     public void testUseUniqueTableLocations()
-            throws IOException
     {
         TrinoCatalog catalog = createTrinoCatalog(true);
         String namespace = "test_unique_table_locations_" + randomNameSuffix();
