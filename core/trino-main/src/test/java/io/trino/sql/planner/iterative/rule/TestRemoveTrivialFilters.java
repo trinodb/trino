@@ -63,4 +63,18 @@ public class TestRemoveTrivialFilters
                                 ImmutableList.of(expressions("1")))))
                 .matches(values("a"));
     }
+
+    @Test
+    public void testRemovesCastNull()
+    {
+        tester().assertThat(new RemoveTrivialFilters())
+                .on(p -> p.filter(
+                        expression("CAST(null AS boolean)"),
+                        p.values(
+                                ImmutableList.of(p.symbol("a")),
+                                ImmutableList.of(expressions("1")))))
+                .matches(values(
+                        ImmutableList.of("a"),
+                        ImmutableList.of()));
+    }
 }

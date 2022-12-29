@@ -343,20 +343,6 @@ public class TestUnwrapCastInComparison
     @Test
     public void testNull()
     {
-        testUnwrap("smallint", "a = CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
-
-        testUnwrap("bigint", "a = CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
-
-        testUnwrap("smallint", "a <> CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
-
-        testUnwrap("smallint", "a > CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
-
-        testUnwrap("smallint", "a < CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
-
-        testUnwrap("smallint", "a >= CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
-
-        testUnwrap("smallint", "a <= CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
-
         testUnwrap("smallint", "a IS DISTINCT FROM CAST(NULL AS DOUBLE)", "NOT (CAST(a AS DOUBLE) IS NULL)");
 
         testUnwrap("bigint", "a IS DISTINCT FROM CAST(NULL AS DOUBLE)", "NOT (CAST(a AS DOUBLE) IS NULL)");
@@ -499,11 +485,6 @@ public class TestUnwrapCastInComparison
         testUnwrap(utcSession, "date", "a IS NOT DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000000000 UTC'", "a IS NOT DISTINCT FROM DATE '1981-06-22'");
 
         // null date literal
-        testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) = NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) < NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) <= NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) > NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) >= NULL", "CAST(NULL AS BOOLEAN)");
         testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) IS DISTINCT FROM NULL", "NOT(CAST(a AS TIMESTAMP WITH TIME ZONE) IS NULL)");
 
         // timestamp with time zone value on the left
@@ -704,11 +685,6 @@ public class TestUnwrapCastInComparison
         testUnwrap("timestamp(12)", "CAST(a AS DATE) IS NOT DISTINCT FROM DATE '1981-06-22'", "(NOT a IS NULL) AND a >= TIMESTAMP '1981-06-22 00:00:00.000000000000' AND a < TIMESTAMP '1981-06-23 00:00:00.000000000000'");
 
         // null date literal
-        testUnwrap("timestamp(3)", "CAST(a AS DATE) = NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("timestamp(3)", "CAST(a AS DATE) < NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("timestamp(3)", "CAST(a AS DATE) <= NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("timestamp(3)", "CAST(a AS DATE) > NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("timestamp(3)", "CAST(a AS DATE) >= NULL", "CAST(NULL AS BOOLEAN)");
         testUnwrap("timestamp(3)", "CAST(a AS DATE) IS DISTINCT FROM NULL", "NOT(CAST(a AS DATE) IS NULL)");
 
         // non-optimized expression on the right
@@ -770,11 +746,6 @@ public class TestUnwrapCastInComparison
         testUnwrap("timestamp(12)", "date(a) IS NOT DISTINCT FROM DATE '1981-06-22'", "(NOT a IS NULL) AND a >= TIMESTAMP '1981-06-22 00:00:00.000000000000' AND a < TIMESTAMP '1981-06-23 00:00:00.000000000000'");
 
         // null date literal
-        testUnwrap("timestamp(3)", "date(a) = NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("timestamp(3)", "date(a) < NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("timestamp(3)", "date(a) <= NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("timestamp(3)", "date(a) > NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("timestamp(3)", "date(a) >= NULL", "CAST(NULL AS BOOLEAN)");
         testUnwrap("timestamp(3)", "date(a) IS DISTINCT FROM NULL", "NOT(CAST(a AS DATE) IS NULL)");
 
         // non-optimized expression on the right

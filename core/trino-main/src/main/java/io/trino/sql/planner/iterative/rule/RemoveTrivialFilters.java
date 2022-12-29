@@ -18,6 +18,7 @@ import io.trino.matching.Pattern;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NullLiteral;
 
@@ -46,10 +47,23 @@ public class RemoveTrivialFilters
             return Result.ofPlanNode(filterNode.getSource());
         }
 
-        if (predicate.equals(FALSE_LITERAL) || predicate instanceof NullLiteral) {
+        if (predicate.equals(FALSE_LITERAL) || isConstantNull(predicate)) {
             return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), filterNode.getOutputSymbols(), emptyList()));
         }
 
         return Result.empty();
+    }
+
+    private boolean isConstantNull(Expression expression)
+    {
+        if (expression instanceof NullLiteral) {
+            return true;
+        }
+
+        if (expression instanceof Cast cast) {
+            return cast.getExpression() instanceof NullLiteral;
+        }
+
+        return false;
     }
 }
