@@ -138,6 +138,11 @@ public class CommitInfoEntry
         return isBlindAppend;
     }
 
+    public CommitInfoEntry withVersion(long version)
+    {
+        return new CommitInfoEntry(version, timestamp, userId, userName, operation, operationParameters, job, notebook, clusterId, readVersion, isolationLevel, isBlindAppend);
+    }
+
     @Override
     public String toString()
     {
