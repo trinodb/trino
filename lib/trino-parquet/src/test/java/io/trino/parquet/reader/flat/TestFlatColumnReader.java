@@ -16,6 +16,7 @@ package io.trino.parquet.reader.flat;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DataPageV2;
@@ -29,7 +30,6 @@ import io.trino.parquet.reader.PageReader;
 import io.trino.parquet.reader.TestingColumnReader;
 import io.trino.parquet.reader.TestingColumnReader.ColumnReaderFormat;
 import io.trino.parquet.reader.TestingColumnReader.DataPageVersion;
-import io.trino.parquet.reader.decoders.ValueDecoders;
 import io.trino.spi.block.Block;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -39,6 +39,7 @@ import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridValuesWrite
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
 import org.apache.parquet.schema.Types.PrimitiveBuilder;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
@@ -50,6 +51,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetEncoding.BIT_PACKED;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.RLE;
@@ -57,7 +59,6 @@ import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.reader.TestingColumnReader.DataPageVersion.V1;
 import static io.trino.parquet.reader.TestingColumnReader.PLAIN_WRITER;
 import static io.trino.parquet.reader.TestingColumnReader.getDictionaryPage;
-import static io.trino.parquet.reader.flat.IntColumnAdapter.INT_ADAPTER;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
@@ -74,14 +75,14 @@ import static org.joda.time.DateTimeZone.UTC;
 public class TestFlatColumnReader
 {
     private static final PrimitiveType TYPE = new PrimitiveType(REQUIRED, INT32, "");
-    private static final PrimitiveField NULLABLE_FIELD = new PrimitiveField(INTEGER, false, new ColumnDescriptor(new String[] {}, TYPE, 0, 0), 0);
-    private static final PrimitiveField FIELD = new PrimitiveField(INTEGER, true, new ColumnDescriptor(new String[] {}, TYPE, 0, 0), 0);
+    private static final PrimitiveField NULLABLE_FIELD = new PrimitiveField(INTEGER, false, new ColumnDescriptor(new String[] {"test"}, TYPE, 0, 0), 0);
+    private static final PrimitiveField FIELD = new PrimitiveField(INTEGER, true, new ColumnDescriptor(new String[] {"test"}, TYPE, 0, 0), 0);
 
     @Test
     public void testReadPageV1BitPacked()
             throws IOException
     {
-        FlatColumnReader<int[]> reader = new FlatColumnReader<>(NULLABLE_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER);
+        FlatColumnReader<?> reader = (FlatColumnReader<?>) createColumnReader(NULLABLE_FIELD);
         reader.setPageReader(getSimplePageReaderMock(BIT_PACKED), Optional.empty());
         reader.prepareNextRead(1);
 
@@ -94,7 +95,7 @@ public class TestFlatColumnReader
     public void testReadPageV1BitPackedNoNulls()
             throws IOException
     {
-        FlatColumnReader<int[]> reader = new FlatColumnReader<>(FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER);
+        FlatColumnReader<?> reader = (FlatColumnReader<?>) createColumnReader(FIELD);
         reader.setPageReader(getSimplePageReaderMock(BIT_PACKED), Optional.empty());
         reader.prepareNextRead(1);
 
@@ -105,7 +106,7 @@ public class TestFlatColumnReader
     public void testReadPageV1RleNoNulls()
             throws IOException
     {
-        FlatColumnReader<int[]> reader = new FlatColumnReader<>(FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER);
+        FlatColumnReader<?> reader = (FlatColumnReader<?>) createColumnReader(FIELD);
         assertThat(FIELD.isRequired()).isTrue();
         assertThat(FIELD.getDescriptor().getMaxDefinitionLevel()).isEqualTo(0);
         reader.setPageReader(getSimplePageReaderMock(RLE), Optional.empty());
@@ -120,7 +121,7 @@ public class TestFlatColumnReader
     public void testReadPageV1RleOnlyNulls()
             throws IOException
     {
-        FlatColumnReader<int[]> reader = new FlatColumnReader<>(NULLABLE_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER);
+        FlatColumnReader<?> reader = (FlatColumnReader<?>) createColumnReader(NULLABLE_FIELD);
         assertThat(NULLABLE_FIELD.isRequired()).isFalse();
         assertThat(NULLABLE_FIELD.getDescriptor().getMaxDefinitionLevel()).isEqualTo(0);
         reader.setPageReader(getNullOnlyPageReaderMock(), Optional.empty());
@@ -447,6 +448,37 @@ public class TestFlatColumnReader
         format.assertBlock(values2, actual2, 1, 0, 2);
     }
 
+    @Test(dataProvider = "dictionaryReadersWithPageVersions", dataProviderClass = TestingColumnReader.class)
+    public <T> void testMemoryUsage(DataPageVersion version, ColumnReaderFormat<T> format)
+            throws IOException
+    {
+        // Create reader
+        PrimitiveField field = createField(format, true);
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
+        ColumnReader reader = ColumnReaderFactory.create(field, UTC, memoryContext, true);
+        if (!(reader instanceof FlatColumnReader<?>)) {
+            throw new SkipException("Memory usage is tracked only in batched column readers");
+        }
+        // Write data
+        DictionaryValuesWriter dictionaryWriter = format.getDictionaryWriter();
+        format.write(dictionaryWriter, new Integer[] {1, 2, 3});
+        DataPage page1 = createDataPage(version, RLE_DICTIONARY, dictionaryWriter, 3);
+        format.resetAndWrite(dictionaryWriter, new Integer[] {2, 4, 5, 3, 7});
+        DataPage page2 = createDataPage(version, RLE_DICTIONARY, dictionaryWriter, 5);
+        DictionaryPage dictionaryPage = getDictionaryPage(dictionaryWriter);
+        // Read and assert
+        assertThat(memoryContext.getBytes()).isEqualTo(0);
+        reader.setPageReader(getPageReaderMock(List.of(page1, page2), dictionaryPage), Optional.empty());
+        assertThat(memoryContext.getBytes()).isEqualTo(0);
+        readBlock(reader, 3);
+        long memoryUsage = memoryContext.getBytes();
+        assertThat(memoryUsage).isGreaterThan(0);
+        readBlock(reader, 4);
+        // For uncompressed pages, only the dictionary needs to be accounted for
+        // That's why memory usage does not change on reading the 2nd page
+        assertThat(memoryContext.getBytes()).isEqualTo(memoryUsage);
+    }
+
     private Block readBlock(ColumnReader reader, int valueCount)
     {
         reader.prepareNextRead(valueCount);
@@ -592,6 +624,6 @@ public class TestFlatColumnReader
 
     private static ColumnReader createColumnReader(PrimitiveField field)
     {
-        return ColumnReaderFactory.create(field, UTC, true);
+        return ColumnReaderFactory.create(field, UTC, newSimpleAggregatedMemoryContext(), true);
     }
 }

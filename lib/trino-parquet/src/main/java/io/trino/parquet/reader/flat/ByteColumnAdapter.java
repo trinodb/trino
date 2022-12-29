@@ -18,6 +18,8 @@ import io.trino.spi.block.ByteArrayBlock;
 
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.sizeOf;
+
 public class ByteColumnAdapter
         implements ColumnAdapter<byte[]>
 {
@@ -53,5 +55,11 @@ public class ByteColumnAdapter
         for (int i = 0; i < length; i++) {
             values[offset + i] = dictionary[ids[i]];
         }
+    }
+
+    @Override
+    public long getSizeInBytes(byte[] values)
+    {
+        return sizeOf(values);
     }
 }

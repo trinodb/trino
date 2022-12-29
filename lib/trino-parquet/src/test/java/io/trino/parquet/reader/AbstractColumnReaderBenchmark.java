@@ -38,6 +38,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static io.trino.jmh.Benchmarks.benchmark;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -101,7 +102,7 @@ public abstract class AbstractColumnReaderBenchmark<VALUES>
     public int read()
             throws IOException
     {
-        ColumnReader columnReader = ColumnReaderFactory.create(field, UTC, true);
+        ColumnReader columnReader = ColumnReaderFactory.create(field, UTC, newSimpleAggregatedMemoryContext(), true);
         columnReader.setPageReader(new PageReader(UNCOMPRESSED, new LinkedList<>(dataPages).iterator(), false, false), Optional.empty());
         int rowsRead = 0;
         while (rowsRead < dataPositions) {

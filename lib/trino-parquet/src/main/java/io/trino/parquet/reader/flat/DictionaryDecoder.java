@@ -28,13 +28,15 @@ public final class DictionaryDecoder<T>
 {
     private final T dictionary;
     private final ColumnAdapter<T> columnAdapter;
+    private final long retainedSizeInBytes;
 
     private RunLengthBitPackingHybridDecoder dictionaryIdsReader;
 
-    public DictionaryDecoder(T dictionary, ColumnAdapter<T> columnAdapter)
+    public DictionaryDecoder(T dictionary, ColumnAdapter<T> columnAdapter, long retainedSizeInBytes)
     {
         this.columnAdapter = requireNonNull(columnAdapter, "columnAdapter is null");
         this.dictionary = requireNonNull(dictionary, "dictionary is null");
+        this.retainedSizeInBytes = retainedSizeInBytes;
     }
 
     @Override
@@ -70,5 +72,10 @@ public final class DictionaryDecoder<T>
         catch (IOException e) {
             throw new ParquetDecodingException(e);
         }
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return retainedSizeInBytes;
     }
 }

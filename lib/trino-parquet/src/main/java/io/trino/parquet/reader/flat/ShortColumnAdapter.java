@@ -18,6 +18,8 @@ import io.trino.spi.block.ShortArrayBlock;
 
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.sizeOf;
+
 public class ShortColumnAdapter
         implements ColumnAdapter<short[]>
 {
@@ -53,5 +55,11 @@ public class ShortColumnAdapter
         for (int i = 0; i < length; i++) {
             values[offset + i] = dictionary[ids[i]];
         }
+    }
+
+    @Override
+    public long getSizeInBytes(short[] values)
+    {
+        return sizeOf(values);
     }
 }
