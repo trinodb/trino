@@ -104,4 +104,10 @@ public class BinaryColumnAdapter
 
         values.addChunk(Slices.wrappedBuffer(outputChunk));
     }
+
+    @Override
+    public long getSizeInBytes(BinaryBuffer values)
+    {
+        return values.getRetainedSize();
+    }
 }

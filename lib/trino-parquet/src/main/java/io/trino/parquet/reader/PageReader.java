@@ -172,6 +172,11 @@ public final class PageReader
         compressedPages.next();
     }
 
+    public boolean arePagesCompressed()
+    {
+        return codec != CompressionCodecName.UNCOMPRESSED;
+    }
+
     private void verifyDictionaryPageRead()
     {
         if (hasDictionaryPage) {

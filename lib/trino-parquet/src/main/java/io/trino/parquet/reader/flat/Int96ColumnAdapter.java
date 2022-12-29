@@ -18,6 +18,8 @@ import io.trino.spi.block.Int96ArrayBlock;
 
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.sizeOf;
+
 public class Int96ColumnAdapter
         implements ColumnAdapter<Int96ColumnAdapter.Int96Buffer>
 {
@@ -55,6 +57,12 @@ public class Int96ColumnAdapter
             values.longs[offset + i] = dictionary.longs[ids[i]];
             values.ints[offset + i] = dictionary.ints[ids[i]];
         }
+    }
+
+    @Override
+    public long getSizeInBytes(Int96Buffer values)
+    {
+        return sizeOf(values.longs) + sizeOf(values.ints);
     }
 
     public static class Int96Buffer

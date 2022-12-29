@@ -120,6 +120,7 @@ public class ParquetReader
     private final ParquetReaderOptions options;
     private int maxBatchSize;
 
+    private AggregatedMemoryContext currentRowGroupMemoryContext;
     private final Map<ChunkKey, ChunkedInputStream> chunkReaders;
     private final List<Optional<ColumnIndexStore>> columnIndexStore;
     private final Optional<ParquetWriteValidation> writeValidation;
@@ -170,6 +171,7 @@ public class ParquetReader
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+        this.currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
         this.options = requireNonNull(options, "options is null");
         this.maxBatchSize = options.getMaxReadBlockRowCount();
         this.columnReaders = new HashMap<>();
@@ -242,6 +244,10 @@ public class ParquetReader
     public void close()
             throws IOException
     {
+        // Release memory usage from column readers
+        columnReaders.clear();
+        currentRowGroupMemoryContext.close();
+
         for (ChunkedInputStream chunkedInputStream : chunkReaders.values()) {
             chunkedInputStream.close();
         }
@@ -299,6 +305,8 @@ public class ParquetReader
     private boolean advanceToNextRowGroup()
             throws IOException
     {
+        currentRowGroupMemoryContext.close();
+        currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
         freeCurrentRowGroupBuffers();
 
         if (currentRowGroup >= 0 && rowGroupStatisticsValidation.isPresent()) {
@@ -472,7 +480,9 @@ public class ParquetReader
     private void initializeColumnReaders()
     {
         for (PrimitiveField field : primitiveFields) {
-            columnReaders.put(field.getId(), ColumnReaderFactory.create(field, timeZone, options.useBatchColumnReaders()));
+            columnReaders.put(
+                    field.getId(),
+                    ColumnReaderFactory.create(field, timeZone, currentRowGroupMemoryContext, options.useBatchColumnReaders()));
         }
     }
 

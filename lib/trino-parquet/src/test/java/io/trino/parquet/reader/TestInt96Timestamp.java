@@ -39,6 +39,7 @@ import java.util.OptionalLong;
 import java.util.function.BiFunction;
 
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.reader.TestingColumnReader.encodeInt96Timestamp;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
@@ -105,7 +106,7 @@ public class TestInt96Timestamp
                 null,
                 false);
         // Read and assert
-        ColumnReader reader = ColumnReaderFactory.create(field, DateTimeZone.UTC, true);
+        ColumnReader reader = ColumnReaderFactory.create(field, DateTimeZone.UTC, newSimpleAggregatedMemoryContext(), true);
         reader.setPageReader(
                 new PageReader(UNCOMPRESSED, List.of(dataPage).iterator(), false, false),
                 Optional.empty());

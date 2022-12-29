@@ -47,4 +47,6 @@ public interface ColumnAdapter<BufferType>
     }
 
     void decodeDictionaryIds(BufferType values, int offset, int length, int[] ids, BufferType dictionary);
+
+    long getSizeInBytes(BufferType values);
 }

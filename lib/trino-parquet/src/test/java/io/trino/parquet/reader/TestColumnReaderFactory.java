@@ -19,6 +19,7 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.schema.PrimitiveType;
 import org.testng.annotations.Test;
 
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
@@ -35,9 +36,9 @@ public class TestColumnReaderFactory
                 false,
                 new ColumnDescriptor(new String[] {"test"}, new PrimitiveType(OPTIONAL, INT32, "test"), 0, 1),
                 0);
-        assertThat(ColumnReaderFactory.create(field, UTC, false))
+        assertThat(ColumnReaderFactory.create(field, UTC, newSimpleAggregatedMemoryContext(), false))
                 .isNotInstanceOf(FlatColumnReader.class);
-        assertThat(ColumnReaderFactory.create(field, UTC, true))
+        assertThat(ColumnReaderFactory.create(field, UTC, newSimpleAggregatedMemoryContext(), true))
                 .isInstanceOf(FlatColumnReader.class);
     }
 
@@ -49,9 +50,9 @@ public class TestColumnReaderFactory
                 false,
                 new ColumnDescriptor(new String[] {"level1", "level2"}, new PrimitiveType(OPTIONAL, INT32, "test"), 1, 2),
                 0);
-        assertThat(ColumnReaderFactory.create(field, UTC, false))
+        assertThat(ColumnReaderFactory.create(field, UTC, newSimpleAggregatedMemoryContext(), false))
                 .isNotInstanceOf(FlatColumnReader.class);
-        assertThat(ColumnReaderFactory.create(field, UTC, true))
+        assertThat(ColumnReaderFactory.create(field, UTC, newSimpleAggregatedMemoryContext(), true))
                 .isNotInstanceOf(FlatColumnReader.class);
     }
 }
