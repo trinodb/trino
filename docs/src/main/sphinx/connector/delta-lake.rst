@@ -616,6 +616,89 @@ Write operations are supported for tables stored on the following systems:
   make sure that no concurrent data modifications are run to avoid data
   corruption.
 
+Metadata tables
+---------------
+
+The connector exposes several metadata tables for each Delta Lake table.
+These metadata tables contain information about the internal structure
+of the Delta Lake table. You can query each metadata table by appending the
+metadata table name to the table name::
+
+   SELECT * FROM "test_table$data"
+
+``$data`` table
+^^^^^^^^^^^^^^^
+
+The ``$data`` table is an alias for the Delta Lake table itself.
+
+The statement::
+
+    SELECT * FROM "test_table$data"
+
+is equivalent to::
+
+    SELECT * FROM test_table
+
+``$history`` table
+^^^^^^^^^^^^^^^^^^
+
+The ``$history`` table provides a log of the metadata changes performed on
+the Delta Lake table.
+
+You can retrieve the changelog of the Delta Lake table ``test_table``
+by using the following query::
+
+    SELECT * FROM "test_table$history"
+
+.. code-block:: text
+
+     version |               timestamp               | user_id | user_name |  operation   |         operation_parameters          |                 cluster_id      | read_version |  isolation_level  | is_blind_append
+    ---------+---------------------------------------+---------+-----------+--------------+---------------------------------------+---------------------------------+--------------+-------------------+----------------
+           2 | 2023-01-19 07:40:54.684 Europe/Vienna | trino   | trino     | WRITE        | {queryId=20230119_064054_00008_4vq5t} | trino-406-trino-coordinator     |            2 | WriteSerializable | true
+           1 | 2023-01-19 07:40:41.373 Europe/Vienna | trino   | trino     | ADD COLUMNS  | {queryId=20230119_064041_00007_4vq5t} | trino-406-trino-coordinator     |            0 | WriteSerializable | true
+           0 | 2023-01-19 07:40:10.497 Europe/Vienna | trino   | trino     | CREATE TABLE | {queryId=20230119_064010_00005_4vq5t} | trino-406-trino-coordinator     |            0 | WriteSerializable | true
+
+The output of the query has the following columns:
+
+.. list-table:: History columns
+  :widths: 30, 30, 40
+  :header-rows: 1
+
+  * - Name
+    - Type
+    - Description
+  * - ``version``
+    - ``bigint``
+    - The version of the table corresponding to the operation
+  * - ``timestamp``
+    - ``timestamp(3) with time zone``
+    - The time when the table version became active
+  * - ``user_id``
+    - ``varchar``
+    - The identifier for the user which performed the operation
+  * - ``user_name``
+    - ``varchar``
+    - The username for the user which performed the operation
+  * - ``operation``
+    - ``varchar``
+    - The name of the operation performed on the table
+  * - ``operation_parameters``
+    - ``map(varchar, varchar)``
+    - Parameters of the operation
+  * - ``cluster_id``
+    - ``varchar``
+    - The ID of the cluster which ran the operation
+  * - ``read_version``
+    - ``bigint``
+    - The version of the table which was read in order to perform the operation
+  * - ``isolation_level``
+    - ``varchar``
+    - The level of isolation used to perform the operation
+  * - ``is_blind_append``
+    - ``boolean``
+    - Whether or not the operation appended data
+
+
 Performance
 -----------
 
