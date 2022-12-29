@@ -408,9 +408,6 @@ public class TestSynapseTableStatistics
                         handle(String.valueOf(materializedRow.getField(0))),
                         statistics);
             }
-            else {
-                continue;
-            }
         }
         return Optional.of(tableStatistics.build());
     }
