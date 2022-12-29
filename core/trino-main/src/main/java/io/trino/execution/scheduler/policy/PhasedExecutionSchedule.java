@@ -34,9 +34,8 @@ import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
-import org.jgrapht.DirectedGraph;
-import org.jgrapht.EdgeFactory;
-import org.jgrapht.alg.StrongConnectivityInspector;
+import org.jgrapht.Graph;
+import org.jgrapht.alg.connectivity.KosarajuStrongConnectivityInspector;
 import org.jgrapht.graph.DefaultDirectedGraph;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -83,11 +82,11 @@ public class PhasedExecutionSchedule
      * Graph representing a before -> after relationship between fragments.
      * Destination fragment should be started only when source stage is completed.
      */
-    private final DirectedGraph<PlanFragmentId, FragmentsEdge> fragmentDependency;
+    private final Graph<PlanFragmentId, FragmentsEdge> fragmentDependency;
     /**
      * Graph representing topology between fragments (e.g. child -> parent relationship).
      */
-    private final DirectedGraph<PlanFragmentId, FragmentsEdge> fragmentTopology;
+    private final Graph<PlanFragmentId, FragmentsEdge> fragmentTopology;
     /**
      * Fragments sorted using in-order tree scan where join build side
      * is visited before probe side.
@@ -114,8 +113,8 @@ public class PhasedExecutionSchedule
 
     private PhasedExecutionSchedule(Collection<StageExecution> stages, DynamicFilterService dynamicFilterService)
     {
-        fragmentDependency = new DefaultDirectedGraph<>(new FragmentsEdgeFactory());
-        fragmentTopology = new DefaultDirectedGraph<>(new FragmentsEdgeFactory());
+        fragmentDependency = new DefaultDirectedGraph<>(FragmentsEdge.class);
+        fragmentTopology = new DefaultDirectedGraph<>(FragmentsEdge.class);
         stagesByFragmentId = stages.stream()
                 .collect(toImmutableMap(stage -> stage.getFragment().getId(), identity()));
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
@@ -178,7 +177,7 @@ public class PhasedExecutionSchedule
     }
 
     @VisibleForTesting
-    DirectedGraph<PlanFragmentId, FragmentsEdge> getFragmentDependency()
+    Graph<PlanFragmentId, FragmentsEdge> getFragmentDependency()
     {
         return fragmentDependency;
     }
@@ -305,7 +304,8 @@ public class PhasedExecutionSchedule
         visitor.processAllFragments();
 
         // Make sure there are no strongly connected components as it would mean circular dependency between stages
-        List<Set<PlanFragmentId>> components = new StrongConnectivityInspector<>(fragmentDependency).stronglyConnectedSets();
+        List<Set<PlanFragmentId>> components =
+                new KosarajuStrongConnectivityInspector<>(fragmentDependency).stronglyConnectedSets();
         verify(components.size() == fragmentDependency.vertexSet().size(), "circular dependency between stages");
 
         return visitor.getNonLazyFragments();
@@ -489,8 +489,10 @@ public class PhasedExecutionSchedule
             List<FragmentSubGraph> subGraphs = node.getSourceFragmentIds().stream()
                     .map(this::processFragment)
                     .collect(toImmutableList());
-            node.getSourceFragmentIds()
-                    .forEach(sourceFragmentId -> fragmentTopology.addEdge(sourceFragmentId, currentFragmentId));
+            node.getSourceFragmentIds().forEach(sourceFragmentId -> {
+                FragmentsEdge edge = new FragmentsEdge(sourceFragmentId, currentFragmentId);
+                fragmentTopology.addEdge(sourceFragmentId, currentFragmentId, edge);
+            });
             return new FragmentSubGraph(
                     subGraphs.stream()
                             .flatMap(source -> source.getUpstreamFragments().stream())
@@ -533,7 +535,8 @@ public class PhasedExecutionSchedule
         {
             for (PlanFragmentId targetFragment : targetFragments) {
                 for (PlanFragmentId sourceFragment : sourceFragments) {
-                    fragmentDependency.addEdge(sourceFragment, targetFragment);
+                    FragmentsEdge edge = new FragmentsEdge(sourceFragment, targetFragment);
+                    fragmentDependency.addEdge(sourceFragment, targetFragment, edge);
                 }
             }
         }
@@ -578,16 +581,6 @@ public class PhasedExecutionSchedule
         public boolean isCurrentFragmentLazy()
         {
             return currentFragmentLazy;
-        }
-    }
-
-    private static class FragmentsEdgeFactory
-            implements EdgeFactory<PlanFragmentId, FragmentsEdge>
-    {
-        @Override
-        public FragmentsEdge createEdge(PlanFragmentId sourceVertex, PlanFragmentId targetVertex)
-        {
-            return new FragmentsEdge(sourceVertex, targetVertex);
         }
     }
 

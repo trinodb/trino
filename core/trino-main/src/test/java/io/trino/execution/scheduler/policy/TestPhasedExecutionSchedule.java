@@ -34,7 +34,7 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.jgrapht.DirectedGraph;
+import org.jgrapht.Graph;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -82,7 +82,7 @@ public class TestPhasedExecutionSchedule
         assertThat(schedule.getSortedFragments()).containsExactly(buildFragment.getId(), probeFragment.getId(), joinFragment.getId());
 
         // single dependency between build and probe stages
-        DirectedGraph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
+        Graph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
         assertThat(dependencies.edgeSet()).containsExactlyInAnyOrder(new FragmentsEdge(buildFragment.getId(), probeFragment.getId()));
 
         // build and join stage should start immediately
@@ -120,7 +120,7 @@ public class TestPhasedExecutionSchedule
         assertThat(schedule.getSortedFragments()).containsExactly(buildFragment.getId(), joinSourceFragment.getId());
 
         // single dependency between build and join stages
-        DirectedGraph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
+        Graph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
         assertThat(dependencies.edgeSet()).containsExactlyInAnyOrder(new FragmentsEdge(buildFragment.getId(), joinSourceFragment.getId()));
 
         // build stage should start immediately
@@ -149,7 +149,7 @@ public class TestPhasedExecutionSchedule
         assertThat(schedule.getSortedFragments()).containsExactly(buildFragment.getId(), sourceFragment.getId(), aggregationFragment.getId(), joinFragment.getId());
 
         // aggregation and source stage should start immediately, join stage should wait for build stage to complete
-        DirectedGraph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
+        Graph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
         assertThat(dependencies.edgeSet()).containsExactly(new FragmentsEdge(buildFragment.getId(), joinFragment.getId()));
         assertThat(getSchedulingFragments(schedule)).containsExactly(buildFragment.getId(), sourceFragment.getId(), aggregationFragment.getId());
     }
@@ -171,7 +171,7 @@ public class TestPhasedExecutionSchedule
         assertThat(schedule.getSortedFragments()).containsExactly(buildFragment.getId(), sourceFragment.getId(), aggregationFragment.getId(), joinFragment.getId());
 
         // aggregation and source stage should start immediately, join stage should wait for build stage to complete
-        DirectedGraph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
+        Graph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
         assertThat(dependencies.edgeSet()).containsExactly(new FragmentsEdge(buildFragment.getId(), joinFragment.getId()));
         assertThat(getSchedulingFragments(schedule)).containsExactly(buildFragment.getId(), sourceFragment.getId(), aggregationFragment.getId());
 
@@ -205,7 +205,7 @@ public class TestPhasedExecutionSchedule
                 broadcastBuildStage, partitionedBuildStage, probeStage, joinStage), dynamicFilterService);
 
         // join stage should start immediately because partitioned join forces that
-        DirectedGraph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
+        Graph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
         assertThat(dependencies.edgeSet()).containsExactlyInAnyOrder(
                 new FragmentsEdge(broadcastBuildFragment.getId(), probeFragment.getId()),
                 new FragmentsEdge(partitionedBuildFragment.getId(), probeFragment.getId()),
@@ -240,7 +240,7 @@ public class TestPhasedExecutionSchedule
                 nestedJoinBuildStage, nestedJoinProbeStage, nestedJoinStage, joinSourceStage), dynamicFilterService);
 
         // nestedJoinStage and nestedJoinProbeStage should start immediately
-        DirectedGraph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
+        Graph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
         assertThat(dependencies.edgeSet()).containsExactlyInAnyOrder(
                 new FragmentsEdge(nestedJoinBuildFragment.getId(), joinSourceFragment.getId()),
                 new FragmentsEdge(nestedJoinFragment.getId(), joinSourceFragment.getId()),

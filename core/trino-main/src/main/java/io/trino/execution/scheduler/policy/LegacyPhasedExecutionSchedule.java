@@ -28,8 +28,8 @@ import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.UnionNode;
-import org.jgrapht.DirectedGraph;
-import org.jgrapht.alg.StrongConnectivityInspector;
+import org.jgrapht.Graph;
+import org.jgrapht.alg.connectivity.KosarajuStrongConnectivityInspector;
 import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.traverse.TopologicalOrderIterator;
@@ -131,7 +131,7 @@ public class LegacyPhasedExecutionSchedule
         // Build a graph where the plan fragments are vertexes and the edges represent
         // a before -> after relationship.  For example, a join hash build has an edge
         // to the join probe.
-        DirectedGraph<PlanFragmentId, DefaultEdge> graph = new DefaultDirectedGraph<>(DefaultEdge.class);
+        Graph<PlanFragmentId, DefaultEdge> graph = new DefaultDirectedGraph<>(DefaultEdge.class);
         fragments.forEach(fragment -> graph.addVertex(fragment.getId()));
 
         Visitor visitor = new Visitor(fragments, graph);
@@ -142,7 +142,8 @@ public class LegacyPhasedExecutionSchedule
         // Computes all the strongly connected components of the directed graph.
         // These are the "phases" which hold the set of fragments that must be started
         // at the same time to avoid deadlock.
-        List<Set<PlanFragmentId>> components = new StrongConnectivityInspector<>(graph).stronglyConnectedSets();
+        List<Set<PlanFragmentId>> components =
+                new KosarajuStrongConnectivityInspector<>(graph).stronglyConnectedSets();
 
         Map<PlanFragmentId, Set<PlanFragmentId>> componentMembership = new HashMap<>();
         for (Set<PlanFragmentId> component : components) {
@@ -152,7 +153,7 @@ public class LegacyPhasedExecutionSchedule
         }
 
         // build graph of components (phases)
-        DirectedGraph<Set<PlanFragmentId>, DefaultEdge> componentGraph = new DefaultDirectedGraph<>(DefaultEdge.class);
+        Graph<Set<PlanFragmentId>, DefaultEdge> componentGraph = new DefaultDirectedGraph<>(DefaultEdge.class);
         components.forEach(componentGraph::addVertex);
         for (DefaultEdge edge : graph.edgeSet()) {
             PlanFragmentId source = graph.getEdgeSource(edge);
@@ -173,10 +174,10 @@ public class LegacyPhasedExecutionSchedule
             extends PlanVisitor<Set<PlanFragmentId>, PlanFragmentId>
     {
         private final Map<PlanFragmentId, PlanFragment> fragments;
-        private final DirectedGraph<PlanFragmentId, DefaultEdge> graph;
+        private final Graph<PlanFragmentId, DefaultEdge> graph;
         private final Map<PlanFragmentId, Set<PlanFragmentId>> fragmentSources = new HashMap<>();
 
-        public Visitor(Collection<PlanFragment> fragments, DirectedGraph<PlanFragmentId, DefaultEdge> graph)
+        public Visitor(Collection<PlanFragment> fragments, Graph<PlanFragmentId, DefaultEdge> graph)
         {
             this.fragments = fragments.stream()
                     .collect(toImmutableMap(PlanFragment::getId, identity()));
