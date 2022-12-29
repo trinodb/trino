@@ -24,6 +24,8 @@ public interface ConnectorMergeSink
     int INSERT_OPERATION_NUMBER = 1;
     int DELETE_OPERATION_NUMBER = 2;
     int UPDATE_OPERATION_NUMBER = 3;
+    int UPDATE_INSERT_OPERATION_NUMBER = 4;
+    int UPDATE_DELETE_OPERATION_NUMBER = 5;
 
     /**
      * Store the page resulting from a merge. The page consists of {@code n} channels, numbered {@code 0..n-1}:
@@ -34,6 +36,8 @@ public interface ConnectorMergeSink
      *         <li>{@link #INSERT_OPERATION_NUMBER}</li>
      *         <li>{@link #DELETE_OPERATION_NUMBER}</li>
      *         <li>{@link #UPDATE_OPERATION_NUMBER}</li>
+     *         <li>{@link #UPDATE_INSERT_OPERATION_NUMBER}</li>
+     *         <li>{@link #UPDATE_DELETE_OPERATION_NUMBER}</li>
      *     </ul>
      *     <li>Block {@code n-1} is a connector-specific rowId column, whose handle was previously returned by
      *         {@link ConnectorMetadata#getMergeRowIdColumnHandle(ConnectorSession, ConnectorTableHandle) getMergeRowIdColumnHandle()}
