@@ -28,6 +28,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.stream.IntStream;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -105,5 +106,36 @@ public class TestParquetDataSource
         secondReader.free();
         // both readers using merged reader are freed, all memory is released
         assertEquals(memoryContext.getBytes(), 0);
+    }
+
+    @Test
+    public void testChunkedInputStreamLazyLoading()
+            throws IOException
+    {
+        Slice testingInput = Slices.wrappedIntArray(IntStream.range(0, 1000).toArray());
+        TestingParquetDataSource dataSource = new TestingParquetDataSource(
+                testingInput,
+                new ParquetReaderOptions()
+                        .withMaxBufferSize(DataSize.ofBytes(500))
+                        .withMaxMergeDistance(DataSize.ofBytes(0)));
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
+        Map<String, ChunkedInputStream> inputStreams = dataSource.planRead(
+                ImmutableListMultimap.<String, DiskRange>builder()
+                        .put("1", new DiskRange(0, 200))
+                        .put("1", new DiskRange(250, 50))
+                        .put("2", new DiskRange(400, 100))
+                        .put("2", new DiskRange(700, 200))
+                        .build(),
+                memoryContext);
+        assertThat(memoryContext.getBytes()).isEqualTo(0);
+
+        inputStreams.get("1").getSlice(200);
+        assertThat(memoryContext.getBytes()).isEqualTo(200);
+
+        inputStreams.get("2").getSlice(100);
+        assertThat(memoryContext.getBytes()).isEqualTo(200 + 100);
+
+        inputStreams.get("1").close();
+        assertThat(memoryContext.getBytes()).isEqualTo(100);
     }
 }

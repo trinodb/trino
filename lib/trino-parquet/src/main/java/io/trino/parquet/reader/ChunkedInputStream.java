@@ -27,6 +27,7 @@ import java.util.Iterator;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.io.ByteStreams.readFully;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -41,21 +42,21 @@ public final class ChunkedInputStream
 {
     private final Iterator<? extends ChunkReader> chunks;
     private ChunkReader currentChunkReader;
-    private BasicSliceInput current;
+    // current is explicitly initialized to EMPTY_SLICE as this field is set to null when the stream is closed
+    private BasicSliceInput current = EMPTY_SLICE.getInput();
 
     public ChunkedInputStream(Collection<? extends ChunkReader> chunks)
     {
         requireNonNull(chunks, "chunks is null");
         checkArgument(!chunks.isEmpty(), "At least one chunk is expected but got none");
         this.chunks = chunks.iterator();
-        readNextChunk();
     }
 
     public Slice getSlice(int length)
             throws IOException
     {
         if (length == 0) {
-            return Slices.EMPTY_SLICE;
+            return EMPTY_SLICE;
         }
         ensureOpen();
         while (!current.isReadable()) {
@@ -122,8 +123,9 @@ public final class ChunkedInputStream
             // already closed
             return;
         }
-        currentChunkReader.free();
-
+        if (currentChunkReader != null) {
+            currentChunkReader.free();
+        }
         while (chunks.hasNext()) {
             chunks.next().free();
         }
