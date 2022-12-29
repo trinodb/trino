@@ -14,7 +14,6 @@
 package io.trino.sql.planner;
 
 import io.trino.Session;
-import io.trino.spi.type.CharType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import org.testng.annotations.Test;
@@ -70,17 +69,8 @@ public class TestUnwrapCastInComparison
         // -2^64 constant
         testUnwrap("bigint", "a = DOUBLE '-18446744073709551616'", "a IS NULL AND NULL");
 
-        // shorter varchar and char
-        testNoUnwrap("varchar(1)", "= CAST('abc' AS char(3))", "char(3)");
         // varchar and char, same length
         testUnwrap("varchar(3)", "a = CAST('abc' AS char(3))", "a = 'abc'");
-        testNoUnwrap("varchar(3)", "= CAST('ab' AS char(3))", "char(3)");
-        // longer varchar and char
-        testUnwrap("varchar(10)", "a = CAST('abc' AS char(3))", "CAST(a AS char(10)) = CAST('abc' AS char(10))"); // actually unwrapping didn't happen
-        // unbounded varchar and char
-        testUnwrap("varchar", "a = CAST('abc' AS char(3))", "CAST(a AS char(65536)) = CAST('abc' AS char(65536))"); // actually unwrapping didn't happen
-        // unbounded varchar and char of maximum length (could be unwrapped, but currently it is not)
-        testNoUnwrap("varchar", format("= CAST('abc' AS char(%s))", CharType.MAX_LENGTH), "char(65536)");
     }
 
     @Test
@@ -341,28 +331,6 @@ public class TestUnwrapCastInComparison
     }
 
     @Test
-    public void testNull()
-    {
-        testUnwrap("smallint", "a = CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
-
-        testUnwrap("bigint", "a = CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
-
-        testUnwrap("smallint", "a <> CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
-
-        testUnwrap("smallint", "a > CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
-
-        testUnwrap("smallint", "a < CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
-
-        testUnwrap("smallint", "a >= CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
-
-        testUnwrap("smallint", "a <= CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
-
-        testUnwrap("smallint", "a IS DISTINCT FROM CAST(NULL AS DOUBLE)", "NOT (CAST(a AS DOUBLE) IS NULL)");
-
-        testUnwrap("bigint", "a IS DISTINCT FROM CAST(NULL AS DOUBLE)", "NOT (CAST(a AS DOUBLE) IS NULL)");
-    }
-
-    @Test
     public void testNaN()
     {
         testUnwrap("smallint", "a = nan()", "a IS NULL AND NULL");
@@ -498,14 +466,6 @@ public class TestUnwrapCastInComparison
         testUnwrap(utcSession, "date", "a IS NOT DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000000 UTC'", "a IS NOT DISTINCT FROM DATE '1981-06-22'");
         testUnwrap(utcSession, "date", "a IS NOT DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000000000 UTC'", "a IS NOT DISTINCT FROM DATE '1981-06-22'");
 
-        // null date literal
-        testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) = NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) < NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) <= NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) > NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) >= NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) IS DISTINCT FROM NULL", "NOT(CAST(a AS TIMESTAMP WITH TIME ZONE) IS NULL)");
-
         // timestamp with time zone value on the left
         testUnwrap(utcSession, "date", "TIMESTAMP '1981-06-22 00:00:00 UTC' = a", "a = DATE '1981-06-22'");
     }
@@ -555,18 +515,6 @@ public class TestUnwrapCastInComparison
         testUnwrap(warsawSession, "timestamp(6)", "a > TIMESTAMP '2020-03-29 00:59:59.999999 UTC'", "a > TIMESTAMP '2020-03-29 01:59:59.999999'");
         testUnwrap(warsawSession, "timestamp(9)", "a > TIMESTAMP '2020-03-29 00:59:59.999999999 UTC'", "a > TIMESTAMP '2020-03-29 01:59:59.999999999'");
         testUnwrap(warsawSession, "timestamp(12)", "a > TIMESTAMP '2020-03-29 00:59:59.999999999999 UTC'", "a > TIMESTAMP '2020-03-29 01:59:59.999999999999'");
-        // first within
-        testNoUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-03-29 01:00:00 UTC'", "timestamp(0) with time zone");
-        testNoUnwrap(warsawSession, "timestamp(3)", "> TIMESTAMP '2020-03-29 01:00:00.000 UTC'", "timestamp(3) with time zone");
-        testNoUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-03-29 01:00:00.000000 UTC'", "timestamp(6) with time zone");
-        testNoUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-03-29 01:00:00.000000000 UTC'", "timestamp(9) with time zone");
-        testNoUnwrap(warsawSession, "timestamp(12)", "> TIMESTAMP '2020-03-29 01:00:00.000000000000 UTC'", "timestamp(12) with time zone");
-        // last within
-        testNoUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-03-29 01:59:59 UTC'", "timestamp(0) with time zone");
-        testNoUnwrap(warsawSession, "timestamp(3)", "> TIMESTAMP '2020-03-29 01:59:59.999 UTC'", "timestamp(3) with time zone");
-        testNoUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-03-29 01:59:59.999999 UTC'", "timestamp(6) with time zone");
-        testNoUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-03-29 01:59:59.999999999 UTC'", "timestamp(9) with time zone");
-        testNoUnwrap(warsawSession, "timestamp(12)", "> TIMESTAMP '2020-03-29 01:59:59.999999999999 UTC'", "timestamp(12) with time zone");
         // first after
         testUnwrap(warsawSession, "timestamp(0)", "a > TIMESTAMP '2020-03-29 02:00:00 UTC'", "a > TIMESTAMP '2020-03-29 04:00:00'");
         testUnwrap(warsawSession, "timestamp(3)", "a > TIMESTAMP '2020-03-29 02:00:00.000 UTC'", "a > TIMESTAMP '2020-03-29 04:00:00.000'");
@@ -703,14 +651,6 @@ public class TestUnwrapCastInComparison
         testUnwrap("timestamp(9)", "CAST(a AS DATE) IS NOT DISTINCT FROM DATE '1981-06-22'", "(NOT a IS NULL) AND a >= TIMESTAMP '1981-06-22 00:00:00.000000000' AND a < TIMESTAMP '1981-06-23 00:00:00.000000000'");
         testUnwrap("timestamp(12)", "CAST(a AS DATE) IS NOT DISTINCT FROM DATE '1981-06-22'", "(NOT a IS NULL) AND a >= TIMESTAMP '1981-06-22 00:00:00.000000000000' AND a < TIMESTAMP '1981-06-23 00:00:00.000000000000'");
 
-        // null date literal
-        testUnwrap("timestamp(3)", "CAST(a AS DATE) = NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("timestamp(3)", "CAST(a AS DATE) < NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("timestamp(3)", "CAST(a AS DATE) <= NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("timestamp(3)", "CAST(a AS DATE) > NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("timestamp(3)", "CAST(a AS DATE) >= NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("timestamp(3)", "CAST(a AS DATE) IS DISTINCT FROM NULL", "NOT(CAST(a AS DATE) IS NULL)");
-
         // non-optimized expression on the right
         testUnwrap("timestamp(3)", "CAST(a AS DATE) = DATE '1981-06-22' + INTERVAL '2' DAY", "a >= TIMESTAMP '1981-06-24 00:00:00.000' AND a < TIMESTAMP '1981-06-25 00:00:00.000'");
 
@@ -768,14 +708,6 @@ public class TestUnwrapCastInComparison
         testUnwrap("timestamp(6)", "date(a) IS NOT DISTINCT FROM DATE '1981-06-22'", "(NOT a IS NULL) AND a >= TIMESTAMP '1981-06-22 00:00:00.000000' AND a < TIMESTAMP '1981-06-23 00:00:00.000000'");
         testUnwrap("timestamp(9)", "date(a) IS NOT DISTINCT FROM DATE '1981-06-22'", "(NOT a IS NULL) AND a >= TIMESTAMP '1981-06-22 00:00:00.000000000' AND a < TIMESTAMP '1981-06-23 00:00:00.000000000'");
         testUnwrap("timestamp(12)", "date(a) IS NOT DISTINCT FROM DATE '1981-06-22'", "(NOT a IS NULL) AND a >= TIMESTAMP '1981-06-22 00:00:00.000000000000' AND a < TIMESTAMP '1981-06-23 00:00:00.000000000000'");
-
-        // null date literal
-        testUnwrap("timestamp(3)", "date(a) = NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("timestamp(3)", "date(a) < NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("timestamp(3)", "date(a) <= NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("timestamp(3)", "date(a) > NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("timestamp(3)", "date(a) >= NULL", "CAST(NULL AS BOOLEAN)");
-        testUnwrap("timestamp(3)", "date(a) IS DISTINCT FROM NULL", "NOT(CAST(a AS DATE) IS NULL)");
 
         // non-optimized expression on the right
         testUnwrap("timestamp(3)", "date(a) = DATE '1981-06-22' + INTERVAL '2' DAY", "a >= TIMESTAMP '1981-06-24 00:00:00.000' AND a < TIMESTAMP '1981-06-25 00:00:00.000'");
