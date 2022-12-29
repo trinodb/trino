@@ -59,6 +59,7 @@ public final class EnvMultinodeAllConnectors
                         "hive",
                         "hudi",
                         "iceberg",
+                        "influxdb",
                         "kafka",
                         "kinesis",
                         "kudu",

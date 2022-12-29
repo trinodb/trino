@@ -86,6 +86,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/influxdb">
+        <artifact id="${project.groupId}:trino-influxdb:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/memory">
         <artifact id="${project.groupId}:trino-memory:zip:${project.version}">
             <unpack />
