@@ -81,13 +81,12 @@ public class TestChunkedInputStream
 
         // verify available
         ChunkedInputStream availableInput = input(slices);
-        assertEquals(availableInput.available(), chunks.get(0).length);
-        availableInput.skipNBytes(chunks.get(0).length);
+        // nothing is read initially
         assertEquals(availableInput.available(), 0);
-        if (chunks.size() > 1) {
+        for (byte[] chunk : chunks) {
             availableInput.read();
-            assertEquals(availableInput.available(), chunks.get(1).length - 1);
-            availableInput.skipNBytes(chunks.get(1).length - 1);
+            assertEquals(availableInput.available(), chunk.length - 1);
+            availableInput.skipNBytes(chunk.length - 1);
             assertEquals(availableInput.available(), 0);
         }
     }
