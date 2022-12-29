@@ -152,6 +152,11 @@ public class DeltaLakeTransactionLogEntry
         return cdfFileEntry;
     }
 
+    public DeltaLakeTransactionLogEntry withCommitInfo(CommitInfoEntry commitInfo)
+    {
+        return new DeltaLakeTransactionLogEntry(txn, add, remove, metaData, protocol, commitInfo, cdfFileEntry);
+    }
+
     @Override
     public String toString()
     {
