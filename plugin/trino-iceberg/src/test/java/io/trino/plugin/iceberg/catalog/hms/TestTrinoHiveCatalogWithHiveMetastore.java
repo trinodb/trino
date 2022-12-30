@@ -86,7 +86,7 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                         new HdfsConfigurationInitializer(
                                 new HdfsConfig(),
                                 Set.of(new TrinoS3ConfigurationInitializer(new HiveS3Config()
-                                        .setS3Endpoint(dataLake.getMinioAddress())
+                                        .setS3Endpoint(dataLake.getMinio().getMinioAddress())
                                         .setS3SslEnabled(false)
                                         .setS3AwsAccessKey(MINIO_ACCESS_KEY)
                                         .setS3AwsSecretKey(MINIO_SECRET_KEY)

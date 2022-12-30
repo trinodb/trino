@@ -80,7 +80,7 @@ public class TestDeltaLakeDynamicFiltering
                 DELTA_CATALOG,
                 "default",
                 ImmutableMap.of("delta.register-table-procedure.enabled", "true"),
-                hiveMinioDataLake.getMinioAddress(),
+                hiveMinioDataLake.getMinio().getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
 
         ImmutableList.of(LINE_ITEM, ORDERS).forEach(table -> {

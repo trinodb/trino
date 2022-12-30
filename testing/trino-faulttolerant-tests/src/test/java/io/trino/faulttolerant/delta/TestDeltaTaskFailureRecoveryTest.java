@@ -60,7 +60,7 @@ public class TestDeltaTaskFailureRecoveryTest
                 configProperties,
                 coordinatorProperties,
                 ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
-                hiveMinioDataLake.getMinioAddress(),
+                hiveMinioDataLake.getMinio().getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop(),
                 runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
