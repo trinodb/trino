@@ -52,6 +52,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
@@ -159,7 +160,9 @@ import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.FunctionCallBuilder.resolve;
 import static io.trino.sql.planner.ResolvedFunctionCallRewriter.rewriteResolvedFunctions;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
+import static io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan.splitExpression;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsReference;
 import static io.trino.type.LikeFunctions.isLikePattern;
 import static io.trino.type.LikeFunctions.unescapeLiteralLikePattern;
@@ -969,6 +972,26 @@ public class ExpressionInterpreter
         @Override
         protected Object visitLogicalExpression(LogicalExpression node, Object context)
         {
+            // Try simplifying expressions using TupleDomain, e.g. a > 1 and a > 2 => a > 2
+            PushPredicateIntoTableScan.SplitExpression splitExpression = splitExpression(plannerContext, node);
+            if (splitExpression.getNonDeterministicPredicate() == TRUE_LITERAL) {
+                DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(
+                        plannerContext,
+                        session,
+                        splitExpression.getDeterministicPredicate(),
+                        typeProvider);
+                DomainTranslator domainTranslator = new DomainTranslator(plannerContext);
+                if (decomposedPredicate.getRemainingExpression() == TRUE_LITERAL) {
+                    if (decomposedPredicate.getTupleDomain().isNone()) {
+                        return false;
+                    }
+                    else if (decomposedPredicate.getTupleDomain().isAll()) {
+                        return true;
+                    }
+                    return domainTranslator.toPredicate(session, decomposedPredicate.getTupleDomain());
+                }
+            }
+
             List<Object> terms = new ArrayList<>();
             List<Type> types = new ArrayList<>();
 

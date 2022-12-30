@@ -188,9 +188,9 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("NULL OR false", "NULL");
 
         assertOptimizedEquals("bound_string='z' OR true", "true");
-        assertOptimizedEquals("bound_string='z' OR false", "bound_string='z'");
+        assertOptimizedMatches("bound_string='z' OR false", "bound_string = CAST('z' AS varchar(" + TEST_VARCHAR_TYPE_LENGTH + "))");
         assertOptimizedEquals("true OR bound_string='z'", "true");
-        assertOptimizedEquals("false OR bound_string='z'", "bound_string='z'");
+        assertOptimizedMatches("false OR bound_string='z'", "bound_string = CAST('z' AS varchar(" + TEST_VARCHAR_TYPE_LENGTH + "))");
 
         assertOptimizedEquals("bound_string='z' OR bound_long=1+1", "bound_string='z' OR bound_long=2");
     }
@@ -1872,6 +1872,18 @@ public class TestExpressionInterpreter
         optimize("INTERVAL '3' YEAR * unbound_long");
 
         assertEquals(optimize("X'1234'"), Slices.wrappedBuffer((byte) 0x12, (byte) 0x34));
+    }
+
+    @Test
+    public void testLogical()
+    {
+        assertOptimizedMatches("bound_integer > 1 AND bound_integer > 2", "bound_integer > 2");
+        assertOptimizedMatches("bound_integer > 1 OR bound_integer > 2", "bound_integer > 1");
+        assertOptimizedEquals("bound_integer > 1 AND bound_integer < 1", "false");
+        assertOptimizedMatches("bound_integer > 1 OR bound_integer < 1", "bound_integer <> 1");
+        assertOptimizedMatches("bound_integer > 1 OR bound_integer <= 1", "NOT (bound_integer IS NULL)");
+        assertOptimizedMatches("bound_integer > 1 AND bound_integer > 2 AND bound_long > 3", "bound_integer > 2 AND bound_long > BIGINT '3'");
+        assertOptimizedEquals("bound_integer > 1 AND bound_integer > 2 OR bound_long > 3", "true");
     }
 
     private static void assertLike(byte[] value, String pattern, boolean expected)
