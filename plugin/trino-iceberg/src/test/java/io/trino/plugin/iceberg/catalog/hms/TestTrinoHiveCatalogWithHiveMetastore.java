@@ -47,10 +47,10 @@ import java.util.Set;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_ACCESS_KEY;
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_SECRET_KEY;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
+import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestTrinoHiveCatalogWithHiveMetastore
