@@ -156,7 +156,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
         deltaLakeProperties.put("hive.metastore.uri", "thrift://" + hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint());
         deltaLakeProperties.put("hive.s3.aws-access-key", MINIO_ACCESS_KEY);
         deltaLakeProperties.put("hive.s3.aws-secret-key", MINIO_SECRET_KEY);
-        deltaLakeProperties.put("hive.s3.endpoint", hiveMinioDataLake.getMinioAddress());
+        deltaLakeProperties.put("hive.s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress());
         deltaLakeProperties.put("hive.s3.path-style-access", "true");
         deltaLakeProperties.put("hive.metastore", "test"); // use test value so we do not get clash with default bindings)
         deltaLakeProperties.put("hive.metastore-timeout", "1m"); // read timed out sometimes happens with the default timeout

@@ -77,7 +77,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
                 DELTA_CATALOG,
                 SCHEMA,
                 queryRunnerProperties.buildOrThrow(),
-                hiveMinioDataLake.getMinioAddress(),
+                hiveMinioDataLake.getMinio().getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
     }
 
