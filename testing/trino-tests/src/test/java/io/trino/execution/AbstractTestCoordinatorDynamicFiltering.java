@@ -152,7 +152,9 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         "JOIN tpch.tiny.lineitem l2 ON l1.orderkey = l2.orderkey AND l1.suppkey = l2.suppkey " +
                         "WHERE l2.suppkey BETWEEN 1 AND 10",
                 Set.of(ORDERKEY_HANDLE, SUPP_KEY_HANDLE),
-                TupleDomain.all());
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        multipleValues(BIGINT, LongStream.rangeClosed(1L, 10L).boxed().collect(toImmutableList())))));
     }
 
     @Test(timeOut = 30_000, dataProvider = "testJoinDistributionType")
