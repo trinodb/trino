@@ -345,11 +345,11 @@ public class IcebergMetadata
             throw new TrinoException(NOT_SUPPORTED, "Read table with start version is not supported");
         }
 
-        IcebergTableName name = IcebergTableName.from(tableName.getTableName());
-        if (name.getTableType() != DATA) {
+        if (!IcebergTableName.isDataTable(tableName.getTableName())) {
             // Pretend the table does not exist to produce better error message in case of table redirects to Hive
             return null;
         }
+        IcebergTableName name = IcebergTableName.from(tableName.getTableName());
 
         BaseTable table;
         try {
@@ -437,15 +437,15 @@ public class IcebergMetadata
 
     private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
-        IcebergTableName name = IcebergTableName.from(tableName.getTableName());
-        if (name.getTableType() == DATA) {
+        if (IcebergTableName.isDataTable(tableName.getTableName())) {
             return Optional.empty();
         }
 
-        // load the base table for the system table
+        // Only when dealing with an actual system table proceed to retrieve the base table for the system table
+        String name = IcebergTableName.tableNameFrom(tableName.getTableName());
         Table table;
         try {
-            table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
+            table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), name));
         }
         catch (TableNotFoundException e) {
             return Optional.empty();
@@ -455,25 +455,21 @@ public class IcebergMetadata
             return Optional.empty();
         }
 
-        SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
-        switch (name.getTableType()) {
-            case DATA:
-                // Handled above.
-                break;
-            case HISTORY:
-                return Optional.of(new HistoryTable(systemTableName, table));
-            case SNAPSHOTS:
-                return Optional.of(new SnapshotsTable(systemTableName, typeManager, table));
-            case PARTITIONS:
-                return Optional.of(new PartitionTable(systemTableName, typeManager, table, getCurrentSnapshotId(table)));
-            case MANIFESTS:
-                return Optional.of(new ManifestsTable(systemTableName, table, getCurrentSnapshotId(table)));
-            case FILES:
-                return Optional.of(new FilesTable(systemTableName, typeManager, table, getCurrentSnapshotId(table)));
-            case PROPERTIES:
-                return Optional.of(new PropertiesTable(systemTableName, table));
+        Optional<TableType> tableType = IcebergTableName.tableTypeFrom(tableName.getTableName());
+        if (tableType.isEmpty()) {
+            return Optional.empty();
         }
-        return Optional.empty();
+        IcebergTableName icebergTableName = new IcebergTableName(name, tableType.get());
+        SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), icebergTableName.getTableNameWithType());
+        return switch (icebergTableName.getTableType()) {
+            case DATA -> Optional.empty(); // Handled above.
+            case HISTORY -> Optional.of(new HistoryTable(systemTableName, table));
+            case SNAPSHOTS -> Optional.of(new SnapshotsTable(systemTableName, typeManager, table));
+            case PARTITIONS -> Optional.of(new PartitionTable(systemTableName, typeManager, table, getCurrentSnapshotId(table)));
+            case MANIFESTS -> Optional.of(new ManifestsTable(systemTableName, table, getCurrentSnapshotId(table)));
+            case FILES -> Optional.of(new FilesTable(systemTableName, typeManager, table, getCurrentSnapshotId(table)));
+            case PROPERTIES -> Optional.of(new PropertiesTable(systemTableName, table));
+        };
     }
 
     @Override
