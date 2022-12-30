@@ -289,6 +289,8 @@ processed in MariaDB. This can be useful for accessing native features which are
 not available in Trino or for improving query performance in situations where
 running a query natively may be faster.
 
+.. include:: query-passthrough-warning.fragment
+
 .. include:: polymorphic-table-function-ordering.fragment
 
 As an example, select the age of employees by using ``TIMESTAMPDIFF`` and

@@ -342,6 +342,8 @@ processed by BigQuery. This can be useful for accessing native features which ar
 not available in Trino or for improving query performance in situations where
 running a query natively may be faster.
 
+.. include:: query-passthrough-warning.fragment
+
 .. include:: polymorphic-table-function-ordering.fragment
 
 For example, group and concatenate all employee IDs by manager ID::
