@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.s3;
 
 import com.amazonaws.services.s3.AmazonS3;
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.containers.Minio;
 import io.trino.testing.minio.MinioClient;
 import io.trino.util.AutoCloseableCloser;
@@ -28,6 +27,8 @@ import java.net.URI;
 
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
+import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertTrue;
@@ -35,9 +36,6 @@ import static org.testng.Assert.assertTrue;
 public class TestTrinoS3FileSystemMinio
         extends BaseTestTrinoS3FileSystemObjectStorage
 {
-    public static final String MINIO_ACCESS_KEY = "accesskey";
-    public static final String MINIO_SECRET_KEY = "secretkey";
-
     private final String bucketName = "trino-ci-test";
 
     private Minio minio;
@@ -48,12 +46,7 @@ public class TestTrinoS3FileSystemMinio
     public void setup()
             throws Exception
     {
-        minio = Minio.builder()
-                .withEnvVars(ImmutableMap.<String, String>builder()
-                        .put("MINIO_ACCESS_KEY", MINIO_ACCESS_KEY)
-                        .put("MINIO_SECRET_KEY", MINIO_SECRET_KEY)
-                        .buildOrThrow())
-                .build();
+        minio = Minio.builder().build();
         minio.start();
 
         minioClient = minio.createMinioClient();
