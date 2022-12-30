@@ -63,7 +63,7 @@ public class TestPredicatePushdown
                 ImmutableMap.of(
                         "delta.enable-non-concurrent-writes", "true",
                         "delta.register-table-procedure.enabled", "true"),
-                hiveMinioDataLake.getMinioAddress(),
+                hiveMinioDataLake.getMinio().getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
     }
 

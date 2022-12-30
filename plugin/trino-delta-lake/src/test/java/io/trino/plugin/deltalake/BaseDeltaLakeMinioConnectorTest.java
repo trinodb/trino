@@ -83,7 +83,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                 ImmutableMap.of(
                         "delta.enable-non-concurrent-writes", "true",
                         "delta.register-table-procedure.enabled", "true"),
-                hiveMinioDataLake.getMinioAddress(),
+                hiveMinioDataLake.getMinio().getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
         queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = 's3://" + bucketName + "/" + SCHEMA + "')");
         TpchTable.getTables().forEach(table -> {

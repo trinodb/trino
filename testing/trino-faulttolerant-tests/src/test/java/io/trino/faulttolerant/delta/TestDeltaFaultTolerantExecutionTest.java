@@ -55,7 +55,7 @@ public class TestDeltaFaultTolerantExecutionTest
                 FaultTolerantExecutionConnectorTestHelper.getExtraProperties(),
                 ImmutableMap.of(),
                 ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
-                hiveMinioDataLake.getMinioAddress(),
+                hiveMinioDataLake.getMinio().getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop(),
                 instance -> {
                     instance.installPlugin(new FileSystemExchangePlugin());

@@ -52,7 +52,7 @@ public class TestDeltaLakePreferredPartitioning
                 ImmutableMap.of(
                         "delta.enable-non-concurrent-writes", "true",
                         "delta.max-partitions-per-writer", String.valueOf(WRITE_PARTITIONING_TEST_PARTITIONS_COUNT - 1)),
-                hiveMinioDataLake.getMinioAddress(),
+                hiveMinioDataLake.getMinio().getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
     }
 
