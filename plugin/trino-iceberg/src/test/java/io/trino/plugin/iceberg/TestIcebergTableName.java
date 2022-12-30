@@ -15,9 +15,13 @@ package io.trino.plugin.iceberg;
 
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestIcebergTableName
 {
@@ -38,6 +42,42 @@ public class TestIcebergTableName
         assertInvalid("xyz$data@456", "Invalid Iceberg table name: xyz$data@456");
         assertInvalid("abc$partitions@456", "Invalid Iceberg table name: abc$partitions@456");
         assertInvalid("abc$manifests@456", "Invalid Iceberg table name: abc$manifests@456");
+    }
+
+    @Test
+    public void testIsDataTable()
+    {
+        assertTrue(IcebergTableName.isDataTable("abc"));
+        assertTrue(IcebergTableName.isDataTable("abc$data"));
+
+        assertFalse(IcebergTableName.isDataTable("abc$history"));
+        assertFalse(IcebergTableName.isDataTable("abc$invalid"));
+    }
+
+    @Test
+    public void testTableNameFrom()
+    {
+        assertEquals(IcebergTableName.tableNameFrom("abc"), "abc");
+        assertEquals(IcebergTableName.tableNameFrom("abc$data"), "abc");
+        assertEquals(IcebergTableName.tableNameFrom("abc$history"), "abc");
+        assertEquals(IcebergTableName.tableNameFrom("abc$invalid"), "abc");
+    }
+
+    @Test
+    public void testTableTypeFrom()
+    {
+        assertEquals(IcebergTableName.tableTypeFrom("abc"), Optional.of(TableType.DATA));
+        assertEquals(IcebergTableName.tableTypeFrom("abc$data"), Optional.of(TableType.DATA));
+        assertEquals(IcebergTableName.tableTypeFrom("abc$history"), Optional.of(TableType.HISTORY));
+
+        assertEquals(IcebergTableName.tableTypeFrom("abc$invalid"), Optional.empty());
+    }
+
+    @Test
+    public void testGetTableNameWithType()
+    {
+        assertEquals(new IcebergTableName("abc", TableType.DATA).getTableNameWithType(), "abc$data");
+        assertEquals(new IcebergTableName("abc", TableType.HISTORY).getTableNameWithType(), "abc$history");
     }
 
     private static void assertInvalid(String inputName, String message)
