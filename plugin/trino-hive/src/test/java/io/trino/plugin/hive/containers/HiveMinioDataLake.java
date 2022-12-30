@@ -140,12 +140,6 @@ public class HiveMinioDataLake
         return bucketName;
     }
 
-    @Deprecated
-    public String getMinioAddress()
-    {
-        return getMinio().getMinioAddress();
-    }
-
     @Override
     public void close()
             throws Exception
