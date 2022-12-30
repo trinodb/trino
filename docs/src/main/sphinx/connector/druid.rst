@@ -134,6 +134,8 @@ processed in Druid. This can be useful for accessing native features which are
 not available in Trino or for improving query performance in situations where
 running a query natively may be faster.
 
+.. include:: query-passthrough-warning.fragment
+
 .. include:: polymorphic-table-function-ordering.fragment
 
 As an example, query the ``example`` catalog and use ``STRING_TO_MV`` and
