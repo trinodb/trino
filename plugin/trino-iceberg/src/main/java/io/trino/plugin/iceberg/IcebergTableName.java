@@ -16,11 +16,14 @@ package io.trino.plugin.iceberg;
 import io.trino.spi.TrinoException;
 
 import java.util.Locale;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergTableName
@@ -69,7 +72,7 @@ public class IcebergTableName
         String table = match.group("table");
         String typeString = match.group("type");
 
-        TableType type = TableType.DATA;
+        TableType type = DATA;
         if (typeString != null) {
             try {
                 type = TableType.valueOf(typeString.toUpperCase(Locale.ROOT));
@@ -80,5 +83,54 @@ public class IcebergTableName
         }
 
         return new IcebergTableName(table, type);
+    }
+
+    public static String tableNameFrom(String name)
+    {
+        Matcher match = TABLE_PATTERN.matcher(name);
+        if (!match.matches()) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid Iceberg table name: " + name);
+        }
+
+        return match.group("table");
+    }
+
+    public static Optional<TableType> tableTypeFrom(String name)
+    {
+        Matcher match = TABLE_PATTERN.matcher(name);
+        if (!match.matches()) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid Iceberg table name: " + name);
+        }
+        String typeString = match.group("type");
+        if (typeString == null) {
+            return Optional.of(DATA);
+        }
+        try {
+            return Optional.of(TableType.valueOf(typeString.toUpperCase(ENGLISH)));
+        }
+        catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
+    }
+
+    public static boolean isDataTable(String name)
+    {
+        Matcher match = TABLE_PATTERN.matcher(name);
+        if (!match.matches()) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid Iceberg table name: " + name);
+        }
+        String typeString = match.group("type");
+        if (typeString == null) {
+            return true;
+        }
+        else {
+            try {
+                TableType type = TableType.valueOf(typeString.toUpperCase(ENGLISH));
+                return type == DATA;
+            }
+            catch (IllegalArgumentException e) {
+                return false;
+            }
+        }
     }
 }
