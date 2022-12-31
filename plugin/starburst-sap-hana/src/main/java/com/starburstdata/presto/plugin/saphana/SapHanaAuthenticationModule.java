@@ -27,7 +27,9 @@ import io.trino.plugin.jdbc.IdentityCacheMapping;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static com.starburstdata.presto.plugin.saphana.SapHanaAuthenticationType.PASSWORD;
+import static com.starburstdata.presto.plugin.saphana.SapHanaAuthenticationType.PASSWORD_PASS_THROUGH;
+import static com.starburstdata.presto.plugin.toolkit.guice.Modules.enumConditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class SapHanaAuthenticationModule
@@ -36,15 +38,11 @@ public class SapHanaAuthenticationModule
     @Override
     protected void setup(Binder binder)
     {
-        install(conditionalModule(
+        install(enumConditionalModule(
                 SapHanaAuthenticationConfig.class,
-                config -> config.getAuthenticationType() == SapHanaAuthenticationType.PASSWORD,
-                new PasswordModule()));
-
-        install(conditionalModule(
-                SapHanaAuthenticationConfig.class,
-                config -> config.getAuthenticationType() == SapHanaAuthenticationType.PASSWORD_PASS_THROUGH,
-                new SapHanaPasswordPassThroughModule()));
+                SapHanaAuthenticationConfig::getAuthenticationType,
+                PASSWORD, new PasswordModule(),
+                PASSWORD_PASS_THROUGH, new SapHanaPasswordPassThroughModule()));
     }
 
     private class PasswordModule
