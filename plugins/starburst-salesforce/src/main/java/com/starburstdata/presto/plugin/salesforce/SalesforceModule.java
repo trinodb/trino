@@ -35,7 +35,7 @@ import static com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule.no
 import static com.starburstdata.presto.plugin.salesforce.SalesforceConfig.SalesforceAuthenticationType.OAUTH_JWT;
 import static com.starburstdata.presto.plugin.salesforce.SalesforceConfig.SalesforceAuthenticationType.PASSWORD;
 import static com.starburstdata.presto.plugin.salesforce.SalesforceConnectionFactory.CDATA_OEM_KEY;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static com.starburstdata.presto.plugin.toolkit.guice.Modules.enumConditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
@@ -54,18 +54,14 @@ public class SalesforceModule
         install(new CredentialProviderModule());
         install(noImpersonationModuleWithCredentialProvider());
 
-        install(conditionalModule(
+        install(enumConditionalModule(
                 SalesforceConfig.class,
-                config -> config.getAuthenticationType() == PASSWORD,
-                authenticationBinder -> {
+                SalesforceConfig::getAuthenticationType,
+                PASSWORD, authenticationBinder -> {
                     configBinder(authenticationBinder).bindConfig(SalesforcePasswordConfig.class);
                     binder.bind(ConnectionUrlProvider.class).to(PasswordConnectionUrlProvider.class).in(Scopes.SINGLETON);
-                }));
-
-        install(conditionalModule(
-                SalesforceConfig.class,
-                config -> config.getAuthenticationType() == OAUTH_JWT,
-                authenticationBinder -> {
+                },
+                OAUTH_JWT, authenticationBinder -> {
                     configBinder(authenticationBinder).bindConfig(SalesforceOAuthJwtConfig.class);
                     binder.bind(ConnectionUrlProvider.class).to(OAuthJwtConnectionUrlProvider.class).in(Scopes.SINGLETON);
                 }));
