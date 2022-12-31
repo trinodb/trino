@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.starburstdata.presto.plugin.toolkit.guice.Modules.enumConditionalModule;
 import static com.starburstdata.trino.plugin.stargate.StargateAuthenticationType.KERBEROS;
 import static com.starburstdata.trino.plugin.stargate.StargateAuthenticationType.PASSWORD;
 import static com.starburstdata.trino.plugin.stargate.StargateAuthenticationType.PASSWORD_PASS_THROUGH;
@@ -47,30 +48,12 @@ public class StargateAuthenticationModule
     @Override
     protected void setup(Binder binder)
     {
-        install(conditionalModule(
+        install(enumConditionalModule(
                 StargateConfig.class,
-                config -> config.getAuthenticationType() == PASSWORD_PASS_THROUGH,
-                new StargatePasswordPassThroughModule()));
-
-        install(conditionalModule(
-                StargateConfig.class,
-                config -> config.getAuthenticationType() == PASSWORD && !config.isImpersonationEnabled(),
-                new PasswordModule()));
-
-        install(conditionalModule(
-                StargateConfig.class,
-                config -> config.getAuthenticationType() == PASSWORD && config.isImpersonationEnabled(),
-                new PasswordWithImpersonationModule()));
-
-        install(conditionalModule(
-                StargateConfig.class,
-                config -> config.getAuthenticationType() == KERBEROS && !config.isImpersonationEnabled(),
-                new KerberosModule()));
-
-        install(conditionalModule(
-                StargateConfig.class,
-                config -> config.getAuthenticationType() == KERBEROS && config.isImpersonationEnabled(),
-                new KerberosWithImpersonationModule()));
+                StargateConfig::getAuthenticationType,
+                PASSWORD_PASS_THROUGH, new StargatePasswordPassThroughModule(),
+                PASSWORD, conditionalModule(StargateConfig.class, StargateConfig::isImpersonationEnabled, new PasswordWithImpersonationModule(), new PasswordModule()),
+                KERBEROS, conditionalModule(StargateConfig.class, StargateConfig::isImpersonationEnabled, new KerberosWithImpersonationModule(), new KerberosModule())));
     }
 
     private static class StargatePasswordPassThroughModule
