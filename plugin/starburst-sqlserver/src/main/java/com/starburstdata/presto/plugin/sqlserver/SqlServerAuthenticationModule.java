@@ -49,6 +49,8 @@ import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SqlServerAuthenticationType.NTLM_PASSWORD_PASS_THROUGH;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SqlServerAuthenticationType.PASSWORD;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SqlServerAuthenticationType.PASSWORD_PASS_THROUGH;
+import static com.starburstdata.presto.plugin.toolkit.guice.Modules.enumConditionalModule;
+import static com.starburstdata.presto.plugin.toolkit.guice.Modules.option;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
@@ -58,35 +60,15 @@ public class SqlServerAuthenticationModule
     @Override
     protected void setup(Binder binder)
     {
-        install(conditionalModule(
+        install(enumConditionalModule(
                 StarburstSqlServerConfig.class,
-                config -> config.getAuthenticationType() == PASSWORD,
-                new PasswordModule()));
-
-        install(conditionalModule(
-                StarburstSqlServerConfig.class,
-                config -> config.getAuthenticationType() == PASSWORD_PASS_THROUGH,
-                new SqlServerPasswordPassThroughModule()));
-
-        install(conditionalModule(
-                StarburstSqlServerConfig.class,
-                config -> config.getAuthenticationType() == KERBEROS,
-                new KerberosModule()));
-
-        install(conditionalModule(
-                StarburstSqlServerConfig.class,
-                config -> config.getAuthenticationType() == KERBEROS_PASS_THROUGH,
-                new KerberosPassThroughModule()));
-
-        install(conditionalModule(
-                StarburstSqlServerConfig.class,
-                config -> config.getAuthenticationType() == NTLM_PASSWORD,
-                new NtlmPasswordModule()));
-
-        install(conditionalModule(
-                StarburstSqlServerConfig.class,
-                config -> config.getAuthenticationType() == NTLM_PASSWORD_PASS_THROUGH,
-                new NtlmPassthroughModule()));
+                StarburstSqlServerConfig::getAuthenticationType,
+                option(PASSWORD, new PasswordModule()),
+                option(PASSWORD_PASS_THROUGH, new SqlServerPasswordPassThroughModule()),
+                option(KERBEROS, new KerberosModule()),
+                option(KERBEROS_PASS_THROUGH, new KerberosPassThroughModule()),
+                option(NTLM_PASSWORD, new NtlmPasswordModule()),
+                option(NTLM_PASSWORD_PASS_THROUGH, new NtlmPassthroughModule())));
     }
 
     private static class PasswordModule
