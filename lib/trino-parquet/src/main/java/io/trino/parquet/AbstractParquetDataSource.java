@@ -326,9 +326,9 @@ public abstract class AbstractParquetDataSource
 
             if (data == null) {
                 byte[] buffer = new byte[toIntExact(range.getLength())];
+                readerMemoryUsage.setBytes(buffer.length);
                 readFully(range.getOffset(), buffer, 0, buffer.length);
                 data = Slices.wrappedBuffer(buffer);
-                readerMemoryUsage.setBytes(data.length());
             }
 
             return data;
