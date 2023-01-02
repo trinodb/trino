@@ -16,6 +16,9 @@ package io.trino.execution.scheduler.policy;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.graph.EndpointPair;
+import com.google.common.graph.GraphBuilder;
+import com.google.common.graph.MutableGraph;
 import io.trino.execution.scheduler.StageExecution;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -28,10 +31,8 @@ import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.UnionNode;
-import org.jgrapht.DirectedGraph;
-import org.jgrapht.alg.StrongConnectivityInspector;
-import org.jgrapht.graph.DefaultDirectedGraph;
-import org.jgrapht.graph.DefaultEdge;
+import org.jgrapht.alg.connectivity.KosarajuStrongConnectivityInspector;
+import org.jgrapht.graph.guava.MutableGraphAdapter;
 import org.jgrapht.traverse.TopologicalOrderIterator;
 
 import javax.annotation.concurrent.NotThreadSafe;
@@ -131,8 +132,8 @@ public class LegacyPhasedExecutionSchedule
         // Build a graph where the plan fragments are vertexes and the edges represent
         // a before -> after relationship.  For example, a join hash build has an edge
         // to the join probe.
-        DirectedGraph<PlanFragmentId, DefaultEdge> graph = new DefaultDirectedGraph<>(DefaultEdge.class);
-        fragments.forEach(fragment -> graph.addVertex(fragment.getId()));
+        MutableGraph<PlanFragmentId> graph = GraphBuilder.directed().build();
+        fragments.forEach(fragment -> graph.addNode(fragment.getId()));
 
         Visitor visitor = new Visitor(fragments, graph);
         for (PlanFragment fragment : fragments) {
@@ -142,7 +143,7 @@ public class LegacyPhasedExecutionSchedule
         // Computes all the strongly connected components of the directed graph.
         // These are the "phases" which hold the set of fragments that must be started
         // at the same time to avoid deadlock.
-        List<Set<PlanFragmentId>> components = new StrongConnectivityInspector<>(graph).stronglyConnectedSets();
+        List<Set<PlanFragmentId>> components = new KosarajuStrongConnectivityInspector<>(new MutableGraphAdapter<>(graph)).stronglyConnectedSets();
 
         Map<PlanFragmentId, Set<PlanFragmentId>> componentMembership = new HashMap<>();
         for (Set<PlanFragmentId> component : components) {
@@ -152,20 +153,20 @@ public class LegacyPhasedExecutionSchedule
         }
 
         // build graph of components (phases)
-        DirectedGraph<Set<PlanFragmentId>, DefaultEdge> componentGraph = new DefaultDirectedGraph<>(DefaultEdge.class);
-        components.forEach(componentGraph::addVertex);
-        for (DefaultEdge edge : graph.edgeSet()) {
-            PlanFragmentId source = graph.getEdgeSource(edge);
-            PlanFragmentId target = graph.getEdgeTarget(edge);
+        MutableGraph<Set<PlanFragmentId>> componentGraph = GraphBuilder.directed().build();
+        components.forEach(componentGraph::addNode);
+        for (EndpointPair<PlanFragmentId> edge : graph.edges()) {
+            PlanFragmentId source = edge.source();
+            PlanFragmentId target = edge.target();
 
             Set<PlanFragmentId> from = componentMembership.get(source);
             Set<PlanFragmentId> to = componentMembership.get(target);
             if (!from.equals(to)) { // the topological order iterator below doesn't include vertices that have self-edges, so don't add them
-                componentGraph.addEdge(from, to);
+                componentGraph.putEdge(from, to);
             }
         }
 
-        List<Set<PlanFragmentId>> schedulePhases = ImmutableList.copyOf(new TopologicalOrderIterator<>(componentGraph));
+        List<Set<PlanFragmentId>> schedulePhases = ImmutableList.copyOf(new TopologicalOrderIterator<>(new MutableGraphAdapter<>(componentGraph)));
         return schedulePhases;
     }
 
@@ -173,10 +174,10 @@ public class LegacyPhasedExecutionSchedule
             extends PlanVisitor<Set<PlanFragmentId>, PlanFragmentId>
     {
         private final Map<PlanFragmentId, PlanFragment> fragments;
-        private final DirectedGraph<PlanFragmentId, DefaultEdge> graph;
+        private final MutableGraph<PlanFragmentId> graph;
         private final Map<PlanFragmentId, Set<PlanFragmentId>> fragmentSources = new HashMap<>();
 
-        public Visitor(Collection<PlanFragment> fragments, DirectedGraph<PlanFragmentId, DefaultEdge> graph)
+        public Visitor(Collection<PlanFragment> fragments, MutableGraph<PlanFragmentId> graph)
         {
             this.fragments = fragments.stream()
                     .collect(toImmutableMap(PlanFragment::getId, identity()));
@@ -231,7 +232,7 @@ public class LegacyPhasedExecutionSchedule
 
             for (PlanFragmentId buildSource : buildSources) {
                 for (PlanFragmentId probeSource : probeSources) {
-                    graph.addEdge(buildSource, probeSource);
+                    graph.putEdge(buildSource, probeSource);
                 }
             }
 
@@ -249,7 +250,7 @@ public class LegacyPhasedExecutionSchedule
             Set<PlanFragmentId> previousFragmentSources = ImmutableSet.of();
             for (PlanFragmentId remoteFragment : node.getSourceFragmentIds()) {
                 // this current fragment depends on the remote fragment
-                graph.addEdge(currentFragmentId, remoteFragment);
+                graph.putEdge(currentFragmentId, remoteFragment);
 
                 // get all sources for the remote fragment
                 Set<PlanFragmentId> remoteFragmentSources = processFragment(remoteFragment);
@@ -322,7 +323,7 @@ public class LegacyPhasedExecutionSchedule
         {
             for (PlanFragmentId targetFragment : targetFragments) {
                 for (PlanFragmentId sourceFragment : sourceFragments) {
-                    graph.addEdge(sourceFragment, targetFragment);
+                    graph.putEdge(sourceFragment, targetFragment);
                 }
             }
         }
