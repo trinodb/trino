@@ -51,6 +51,7 @@ import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
@@ -156,6 +157,7 @@ public final class IcebergUtil
     public static final String METADATA_FOLDER_NAME = "metadata";
     public static final String METADATA_FILE_EXTENSION = ".metadata.json";
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
+    static final String TRINO_QUERY_ID_NAME = "trino_query_id";
 
     private IcebergUtil() {}
 
@@ -668,5 +670,11 @@ public final class IcebergUtil
     public static String fileName(String path)
     {
         return path.substring(path.lastIndexOf('/') + 1);
+    }
+
+    public static void commit(SnapshotUpdate<?> update, ConnectorSession session)
+    {
+        update.set(TRINO_QUERY_ID_NAME, session.getQueryId());
+        update.commit();
     }
 }
