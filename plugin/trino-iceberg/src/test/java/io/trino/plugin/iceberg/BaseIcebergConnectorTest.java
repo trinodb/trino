@@ -99,6 +99,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.EXTENDED_STATISTICS_ENABLED;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
+import static io.trino.plugin.iceberg.IcebergUtil.TRINO_QUERY_ID_NAME;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -6228,6 +6229,78 @@ public abstract class BaseIcebergConnectorTest
         return 255;
     }
 
+    @Test
+    public void testSnapshotSummariesHaveTrinoQueryIdFormatV1()
+    {
+        String tableName = "test_snapshot_query_ids_v1" + randomNameSuffix();
+
+        // Create empty table
+        assertQueryIdStored(tableName, executeWithQueryId(format("CREATE TABLE %s (a bigint, b bigint) WITH (format_version = 1, partitioning = ARRAY['a'])", tableName)));
+
+        // Insert some records, creating 3 partitions
+        assertQueryIdStored(tableName, executeWithQueryId(format("INSERT INTO %s VALUES (1, 100), (2, 300), (2, 350), (3, 250)", tableName)));
+
+        // Delete whole partition
+        assertQueryIdStored(tableName, executeWithQueryId(format("DELETE FROM %s WHERE a = 2", tableName)));
+
+        // Insert some more and then optimize
+        assertQueryIdStored(tableName, executeWithQueryId(format("INSERT INTO %s VALUES (1, 400)", tableName)));
+        assertQueryIdStored(tableName, executeWithQueryId(format("ALTER TABLE %s EXECUTE OPTIMIZE", tableName)));
+    }
+
+    @Test
+    public void testSnapshotSummariesHaveTrinoQueryIdFormatV2()
+    {
+        String tableName = "test_snapshot_query_ids_v2" + randomNameSuffix();
+        String sourceTableName = "test_source_table_for_ctas" + randomNameSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", sourceTableName));
+        assertUpdate(format("INSERT INTO %s VALUES (1, 1), (1, 4), (1, 20), (2, 2)", sourceTableName), 4);
+
+        // Create table with CTAS
+        assertQueryIdStored(tableName, executeWithQueryId(format("CREATE TABLE %s WITH (format_version = 2, partitioning = ARRAY['a']) " +
+                "AS SELECT * FROM %s", tableName, sourceTableName)));
+
+        // Insert records
+        assertQueryIdStored(tableName, executeWithQueryId(format("INSERT INTO %s VALUES (1, 100), (2, 300), (3, 250)", tableName)));
+
+        // Delete a whole partition
+        assertQueryIdStored(tableName, executeWithQueryId(format("DELETE FROM %s WHERE a = 2", tableName)));
+
+        // Delete an individual row
+        assertQueryIdStored(tableName, executeWithQueryId(format("DELETE FROM %s WHERE a = 1 AND b = 4", tableName)));
+
+        // Update an individual row
+        assertQueryIdStored(tableName, executeWithQueryId(format("UPDATE %s SET b = 900 WHERE a = 1 AND b = 1", tableName)));
+
+        // Merge
+        assertQueryIdStored(tableName, executeWithQueryId(format("MERGE INTO %s t USING %s s ON t.a = s.a AND t.b = s.b " +
+                "WHEN MATCHED THEN UPDATE SET b = t.b * 50", tableName, sourceTableName)));
+    }
+
+    @Test
+    public void testMaterializedViewSnapshotSummariesHaveTrinoQueryId()
+    {
+        String matViewName = "test_materialized_view_snapshot_query_ids" + randomNameSuffix();
+        String sourceTableName = "test_source_table_for_mat_view" + randomNameSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", sourceTableName));
+        assertUpdate(format("INSERT INTO %s VALUES (1, 1), (1, 4), (2, 2)", sourceTableName), 3);
+
+        // create a materialized view
+        QueryId matViewCreateQueryId = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), format("CREATE MATERIALIZED VIEW %s WITH (partitioning = ARRAY['a']) AS SELECT * FROM %s", matViewName, sourceTableName))
+                .getQueryId();
+
+        // fetch the underlying storage table name so we can inspect its snapshot summary after the REFRESH
+        // running queries against "materialized_view$snapshots" is not supported
+        String storageTable = (String) getDistributedQueryRunner()
+                .execute(getSession(), format("SELECT storage_table FROM system.metadata.materialized_views WHERE name = '%s'", matViewName))
+                .getOnlyValue();
+
+        assertQueryIdStored(storageTable, matViewCreateQueryId);
+
+        assertQueryIdStored(storageTable, executeWithQueryId(format("REFRESH MATERIALIZED VIEW %s", matViewName)));
+    }
+
     @Override
     protected OptionalInt maxTableNameLength()
     {
@@ -6326,5 +6399,27 @@ public abstract class BaseIcebergConnectorTest
                 .getMaterializedRows().stream()
                 .map(row -> (Long) row.getField(idField))
                 .collect(toList());
+    }
+
+    private String getFieldFromLatestSnapshotSummary(String tableName, String summaryFieldName)
+    {
+        return getQueryRunner().execute(format("SELECT json_extract_scalar(CAST(SUMMARY AS JSON), '$.%s') FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", summaryFieldName, tableName))
+                .getOnlyColumn()
+                .map(String.class::cast)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(format("Table '%s' has zero snapshots or does not have the '%s' field in its snapshot summary.", tableName, summaryFieldName)));
+    }
+
+    private QueryId executeWithQueryId(String sql)
+    {
+        return getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), sql)
+                .getQueryId();
+    }
+
+    private void assertQueryIdStored(String tableName, QueryId queryId)
+    {
+        assertThat(getFieldFromLatestSnapshotSummary(tableName, TRINO_QUERY_ID_NAME))
+                .isEqualTo(queryId.toString());
     }
 }

@@ -169,4 +169,11 @@ public class TestTrinoRestCatalogConnectorTest
         assertThatThrownBy(super::testRenameSchema)
                 .hasMessageContaining("renameNamespace is not supported for Iceberg REST catalog");
     }
+
+    @Override
+    public void testMaterializedViewSnapshotSummariesHaveTrinoQueryId()
+    {
+        assertThatThrownBy(super::testMaterializedViewSnapshotSummariesHaveTrinoQueryId)
+                .hasMessageContaining("createMaterializedView is not supported for Iceberg REST catalog");
+    }
 }
