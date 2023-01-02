@@ -31,6 +31,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TypeManager;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
+import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -57,6 +58,7 @@ import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalPropertie
 import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.getStorageSchema;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergUtil.commit;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static java.lang.String.format;
@@ -203,7 +205,8 @@ public abstract class AbstractTrinoCatalog
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, storageTableProperties, Optional.empty());
         Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session);
-        transaction.newAppend().commit();
+        AppendFiles appendFiles = transaction.newAppend();
+        commit(appendFiles, session);
         transaction.commitTransaction();
         return storageTable;
     }
