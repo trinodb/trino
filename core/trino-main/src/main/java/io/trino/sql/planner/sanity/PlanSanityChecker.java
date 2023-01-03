@@ -16,11 +16,14 @@ package io.trino.sql.planner.sanity;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Multimap;
 import io.trino.Session;
+import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanNode;
+
+import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 
 /**
  * It is going to be executed to verify logical planner correctness
@@ -72,7 +75,28 @@ public final class PlanSanityChecker
             TypeProvider types,
             WarningCollector warningCollector)
     {
-        checkers.get(Stage.FINAL).forEach(checker -> checker.validate(planNode, session, plannerContext, typeAnalyzer, types, warningCollector));
+        try {
+            checkers.get(Stage.FINAL).forEach(checker -> checker.validate(planNode, session, plannerContext, typeAnalyzer, types, warningCollector));
+        }
+        catch (RuntimeException e) {
+            try {
+                int nestLevel = 4; // so that it renders reasonably within exception stacktrace
+                String explain = textLogicalPlan(
+                        planNode,
+                        types,
+                        plannerContext.getMetadata(),
+                        plannerContext.getFunctionManager(),
+                        StatsAndCosts.empty(),
+                        session,
+                        nestLevel,
+                        false);
+                e.addSuppressed(new Exception("Current plan:\n" + explain));
+            }
+            catch (RuntimeException ignore) {
+                // ignored
+            }
+            throw e;
+        }
     }
 
     public void validateIntermediatePlan(PlanNode planNode,
@@ -82,7 +106,28 @@ public final class PlanSanityChecker
             TypeProvider types,
             WarningCollector warningCollector)
     {
-        checkers.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, plannerContext, typeAnalyzer, types, warningCollector));
+        try {
+            checkers.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, plannerContext, typeAnalyzer, types, warningCollector));
+        }
+        catch (RuntimeException e) {
+            try {
+                int nestLevel = 4; // so that it renders reasonably within exception stacktrace
+                String explain = textLogicalPlan(
+                        planNode,
+                        types,
+                        plannerContext.getMetadata(),
+                        plannerContext.getFunctionManager(),
+                        StatsAndCosts.empty(),
+                        session,
+                        nestLevel,
+                        false);
+                e.addSuppressed(new Exception("Current plan:\n" + explain));
+            }
+            catch (RuntimeException ignore) {
+                // ignored
+            }
+            throw e;
+        }
     }
 
     public interface Checker

@@ -16,7 +16,6 @@ package io.trino.sql.planner.sanity;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.operator.RetryPolicy;
 import io.trino.sql.DynamicFilters;
@@ -49,7 +48,6 @@ import static com.google.common.collect.Sets.intersection;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.operator.join.JoinUtils.getJoinDynamicFilters;
 import static io.trino.operator.join.JoinUtils.getSemiJoinDynamicFilterId;
-import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 
 /**
  * When dynamic filter assignments are present on a Join node, they should be consumed by a Filter node on it's probe side
@@ -65,32 +63,6 @@ public class DynamicFiltersChecker
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
-    {
-        try {
-            validate(plan, session);
-        }
-        catch (RuntimeException e) {
-            try {
-                int nestLevel = 4; // so that it renders reasonably within exception stacktrace
-                String explain = textLogicalPlan(
-                        plan,
-                        types,
-                        plannerContext.getMetadata(),
-                        plannerContext.getFunctionManager(),
-                        StatsAndCosts.empty(),
-                        session,
-                        nestLevel,
-                        false);
-                e.addSuppressed(new Exception("Current plan:\n" + explain));
-            }
-            catch (RuntimeException ignore) {
-                // ignored
-            }
-            throw e;
-        }
-    }
-
-    private void validate(PlanNode plan, Session session)
     {
         RetryPolicy retryPolicy = getRetryPolicy(session);
         plan.accept(new PlanVisitor<Set<DynamicFilterId>, Void>()
