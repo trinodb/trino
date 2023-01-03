@@ -191,8 +191,8 @@ To write out each page of merged rows, the Trino engine calls
 method iterates over the rows in the page, performing updates and deletes
 in the ``MATCHED`` cases, and inserts in the ``NOT MATCHED`` cases.
 
-For some ``RowChangeParadigm``s, ``UPDATE`` operations translated into the
-corresponding ``DELETE`` and ``INSERT`` operations before
+For some values of ``RowChangeParadigm``, ``UPDATE`` operations are translated
+into the corresponding ``DELETE`` and ``INSERT`` operations before
 ``storeMergedRows(Page)`` is called.
 
 To complete the ``MERGE`` operation, the Trino engine calls
@@ -280,7 +280,7 @@ originally passed to ``ConnectorMetadata.beginMerge()``.
 ``ConnectorPageSinkProvider`` API
 ---------------------------------
 
-To support SQL ``MERGE``,, ``ConnectorPageSinkProvider`` must implement
+To support SQL ``MERGE``, ``ConnectorPageSinkProvider`` must implement
 the method that creates the ``ConnectorMergeSink``:
 
 * ``createMergeSink``::
@@ -322,7 +322,7 @@ The only interesting methods are:
 
 * ``finish``::
 
-    ``CompletableFuture<Collection<Slice>> finish()``
+    CompletableFuture<Collection<Slice>> finish()
 
   The Trino engine calls ``finish()`` when all the data has been processed by
   a specific ``ConnectorMergeSink`` instance.  The connector returns a future
@@ -365,9 +365,9 @@ methods.
         ConnectorSession session,
         ConnectorTableHandle tableHandle)
 
-    This method is called during query planning to get the table layout to be
-    used for rows inserted by the ``MERGE`` operation.  For some connectors,
-    this layout will be used for rows deleted as well.
+  This method is called during query planning to get the table layout to be
+  used for rows inserted by the ``MERGE`` operation.  For some connectors,
+  this layout will be used for rows deleted as well.
 
 * ``getUpdateLayout()``::
 
@@ -375,11 +375,11 @@ methods.
         ConnectorSession session,
         ConnectorTableHandle tableHandle)
 
-    This method is called during query planning to get the table layout to
-    be used for rows deleted by the ``MERGE`` operation.  If the optional
-    return value is present, the Trino engine will use the layout for
-    updated rows.  Otherwise, it will use the result of
-    ``ConnectorMetadata.getInsertLayout`` to distribute updated rows.
+  This method is called during query planning to get the table layout to
+  be used for rows deleted by the ``MERGE`` operation.  If the optional
+  return value is present, the Trino engine will use the layout for
+  updated rows.  Otherwise, it will use the result of
+  ``ConnectorMetadata.getInsertLayout`` to distribute updated rows.
 
 * ``beginMerge()``::
 
