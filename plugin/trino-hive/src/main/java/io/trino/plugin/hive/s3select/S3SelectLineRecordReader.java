@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.s3select;
 
+import com.amazonaws.AbortedException;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.CompressionType;
 import com.amazonaws.services.s3.model.InputSerialization;
@@ -184,7 +185,7 @@ public abstract class S3SelectLineRecordReader
             return retry()
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(BACKOFF_MIN_SLEEP, maxBackoffTime, maxRetryTime, 2.0)
-                    .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class)
+                    .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, AbortedException.class)
                     .run("readRecordsContentStream", () -> {
                         if (isFirstLine) {
                             recordsFromS3 = 0;
@@ -212,11 +213,11 @@ public abstract class S3SelectLineRecordReader
                         }
                     });
         }
+        catch (InterruptedException | AbortedException e) {
+            Thread.currentThread().interrupt();
+            throw new InterruptedIOException();
+        }
         catch (Exception e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-                throw new InterruptedIOException();
-            }
             throwIfInstanceOf(e, IOException.class);
             throwIfUnchecked(e);
             throw new RuntimeException(e);

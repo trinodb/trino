@@ -918,7 +918,7 @@ public class TrinoS3FileSystem
             return retry()
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(BACKOFF_MIN_SLEEP, maxBackoffTime, maxRetryTime, 2.0)
-                    .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class)
+                    .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, AbortedException.class)
                     .onRetry(STATS::newGetMetadataRetry)
                     .run("getS3ObjectMetadata", () -> {
                         try {
@@ -943,7 +943,7 @@ public class TrinoS3FileSystem
                         }
                     });
         }
-        catch (InterruptedException e) {
+        catch (InterruptedException | AbortedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         }
@@ -1227,7 +1227,7 @@ public class TrinoS3FileSystem
             return retry()
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(BACKOFF_MIN_SLEEP, maxBackoffTime, maxRetryTime, 2.0)
-                    .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class)
+                    .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, AbortedException.class)
                     .onRetry(STATS::newInitiateMultipartUploadRetry)
                     .run("initiateMultipartUpload", () -> {
                         try {
@@ -1261,10 +1261,11 @@ public class TrinoS3FileSystem
                         }
                     });
         }
+        catch (InterruptedException | AbortedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
         catch (Exception e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
             throwIfUnchecked(e);
             throw new RuntimeException(e);
         }
@@ -1329,7 +1330,7 @@ public class TrinoS3FileSystem
                 return retry()
                         .maxAttempts(maxAttempts)
                         .exponentialBackoff(BACKOFF_MIN_SLEEP, maxBackoffTime, maxRetryTime, 2.0)
-                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, EOFException.class)
+                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, EOFException.class, AbortedException.class)
                         .onRetry(STATS::newGetObjectRetry)
                         .run("getS3Object", () -> {
                             InputStream stream;
@@ -1504,7 +1505,7 @@ public class TrinoS3FileSystem
                 return retry()
                         .maxAttempts(maxAttempts)
                         .exponentialBackoff(BACKOFF_MIN_SLEEP, maxBackoffTime, maxRetryTime, 2.0)
-                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class)
+                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, AbortedException.class)
                         .onRetry(STATS::newGetObjectRetry)
                         .run("getS3Object", () -> {
                             try {
@@ -1575,7 +1576,7 @@ public class TrinoS3FileSystem
         private static RuntimeException propagate(Exception e)
                 throws IOException
         {
-            if (e instanceof InterruptedException) {
+            if (e instanceof InterruptedException | e instanceof AbortedException) {
                 Thread.currentThread().interrupt();
                 throw new InterruptedIOException();
             }
