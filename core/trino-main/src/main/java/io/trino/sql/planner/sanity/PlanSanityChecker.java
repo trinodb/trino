@@ -68,7 +68,8 @@ public final class PlanSanityChecker
                 .build();
     }
 
-    public void validateFinalPlan(PlanNode planNode,
+    public void validateFinalPlan(
+            PlanNode planNode,
             Session session,
             PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
@@ -99,7 +100,8 @@ public final class PlanSanityChecker
         }
     }
 
-    public void validateIntermediatePlan(PlanNode planNode,
+    public void validateIntermediatePlan(
+            PlanNode planNode,
             Session session,
             PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
@@ -132,7 +134,8 @@ public final class PlanSanityChecker
 
     public interface Checker
     {
-        void validate(PlanNode planNode,
+        void validate(
+                PlanNode planNode,
                 Session session,
                 PlannerContext plannerContext,
                 TypeAnalyzer typeAnalyzer,
