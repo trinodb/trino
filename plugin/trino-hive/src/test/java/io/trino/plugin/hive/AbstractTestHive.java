@@ -3925,6 +3925,9 @@ public abstract class AbstractTestHive
             doCreateView(temporaryCreateView, false);
             fail("create existing should fail");
         }
+        catch (TableAlreadyExistsException e) {
+            assertEquals(e.getTableName(), temporaryCreateView);
+        }
         catch (ViewAlreadyExistsException e) {
             assertEquals(e.getViewName(), temporaryCreateView);
         }

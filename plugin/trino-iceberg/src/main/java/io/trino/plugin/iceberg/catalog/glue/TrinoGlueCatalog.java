@@ -38,6 +38,7 @@ import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
+import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.TrinoViewUtil;
 import io.trino.plugin.hive.ViewAlreadyExistsException;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
@@ -550,7 +551,7 @@ public class TrinoGlueCatalog
         Failsafe.with(new RetryPolicy<>()
                 .withMaxRetries(3)
                 .withDelay(Duration.ofMillis(100))
-                .abortIf(throwable -> !replace || throwable instanceof ViewAlreadyExistsException))
+                .abortIf(throwable -> !replace || throwable instanceof ViewAlreadyExistsException || throwable instanceof TableAlreadyExistsException))
                 .run(() -> doCreateView(session, schemaViewName, viewTableInput, replace));
     }
 
@@ -559,8 +560,7 @@ public class TrinoGlueCatalog
         Optional<com.amazonaws.services.glue.model.Table> existing = getTable(session, schemaViewName);
         if (existing.isPresent()) {
             if (!replace || !isPrestoView(firstNonNull(existing.get().getParameters(), ImmutableMap.of()))) {
-                // TODO: ViewAlreadyExists is misleading if the name is used by a table https://github.com/trinodb/trino/issues/10037
-                throw new ViewAlreadyExistsException(schemaViewName);
+                throw new TableAlreadyExistsException(schemaViewName);
             }
 
             stats.getUpdateTable().call(() ->

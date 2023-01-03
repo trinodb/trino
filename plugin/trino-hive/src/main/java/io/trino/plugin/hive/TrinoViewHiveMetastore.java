@@ -87,7 +87,7 @@ public final class TrinoViewHiveMetastore
         Optional<io.trino.plugin.hive.metastore.Table> existing = metastore.getTable(schemaViewName.getSchemaName(), schemaViewName.getTableName());
         if (existing.isPresent()) {
             if (!replace || !isPrestoView(existing.get())) {
-                throw new ViewAlreadyExistsException(schemaViewName);
+                throw new TableAlreadyExistsException(schemaViewName);
             }
 
             metastore.replaceTable(schemaViewName.getSchemaName(), schemaViewName.getTableName(), table, principalPrivileges);

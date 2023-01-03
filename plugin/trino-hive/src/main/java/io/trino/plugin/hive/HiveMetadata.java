@@ -2605,7 +2605,7 @@ public class HiveMetadata
         Optional<Table> existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
             if (!replace || !isPrestoView(existing.get())) {
-                throw new ViewAlreadyExistsException(viewName);
+                throw new TableAlreadyExistsException(viewName);
             }
 
             metastore.replaceTable(viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges);
