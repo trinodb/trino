@@ -25,7 +25,6 @@ import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_HEADER_AND_QUOTES;
 import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_QUOTES;
 import static io.trino.cli.CsvPrinter.CsvOutputFormat.STANDARD;
 import static io.trino.cli.TestAlignedTablePrinter.item;
-import static io.trino.cli.TestAlignedTablePrinter.list;
 import static io.trino.cli.TestAlignedTablePrinter.map;
 import static io.trino.cli.TestAlignedTablePrinter.row;
 import static io.trino.cli.TestAlignedTablePrinter.rows;
@@ -209,7 +208,7 @@ public class TestCsvPrinter
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("list", "value");
         OutputPrinter printer = new CsvPrinter(fieldNames, writer, STANDARD);
-        printRows(printer, row(list("value".getBytes(UTF_8)), "value"));
+        printRows(printer, row(ImmutableList.of("value".getBytes(UTF_8)), "value"));
         printer.finish();
 
         String expected = "\"list\",\"value\"\n" +

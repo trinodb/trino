@@ -84,7 +84,7 @@ public class TestAlignedTablePrinter
 
         byte[] value = "hello".getBytes(UTF_8);
 
-        printer.printRows(rows(row(list(value))), true);
+        printer.printRows(rows(row(ImmutableList.of(value))), true);
         printer.finish();
 
         String expected = "" +

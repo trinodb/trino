@@ -1155,15 +1155,6 @@ public abstract class BaseHiveConnectorTest
                                                                         ImmutableSet.of(
                                                                                 new FormattedRange(
                                                                                         new FormattedMarker(Optional.of("100"), EXACTLY),
-                                                                                        new FormattedMarker(Optional.of("100"), EXACTLY))))),
-                                                        new ColumnConstraint(
-                                                                "orderkey",
-                                                                BIGINT,
-                                                                new FormattedDomain(
-                                                                        false,
-                                                                        ImmutableSet.of(
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.of("100"), EXACTLY),
                                                                                         new FormattedMarker(Optional.of("100"), EXACTLY))))))),
                                         estimate)),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
