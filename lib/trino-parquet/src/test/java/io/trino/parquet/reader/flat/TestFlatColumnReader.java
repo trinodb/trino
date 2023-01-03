@@ -45,7 +45,6 @@ import javax.annotation.Nullable;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -145,7 +144,7 @@ public class TestFlatColumnReader
         DataPage page = createDataPage(version, RLE_DICTIONARY, dictionaryWriter, 2);
         DictionaryPage dictionaryPage = getDictionaryPage(dictionaryWriter);
         // Read and assert
-        reader.setPageReader(getPageReaderMock(new LinkedList<>(List.of(page)), dictionaryPage), Optional.empty());
+        reader.setPageReader(getPageReaderMock(List.of(page), dictionaryPage), Optional.empty());
         reader.prepareNextRead(2);
         Block actual = reader.readPrimitive().getBlock();
         format.assertBlock(values, actual);
@@ -164,7 +163,7 @@ public class TestFlatColumnReader
         DataPage page = createNullableDataPage(version, RLE_DICTIONARY, dictionaryWriter, false, true);
         DictionaryPage dictionaryPage = getDictionaryPage(dictionaryWriter);
         // Read and assert
-        reader.setPageReader(getPageReaderMock(new LinkedList<>(List.of(page)), dictionaryPage), Optional.empty());
+        reader.setPageReader(getPageReaderMock(List.of(page), dictionaryPage), Optional.empty());
         reader.prepareNextRead(2);
         Block actual = reader.readPrimitive().getBlock();
         format.assertBlock(values, actual);
@@ -183,7 +182,7 @@ public class TestFlatColumnReader
         DataPage page = createNullableDataPage(version, RLE_DICTIONARY, dictionaryWriter, false, false);
         DictionaryPage dictionaryPage = getDictionaryPage(dictionaryWriter);
         // Read and assert
-        reader.setPageReader(getPageReaderMock(new LinkedList<>(List.of(page)), dictionaryPage), Optional.empty());
+        reader.setPageReader(getPageReaderMock(List.of(page), dictionaryPage), Optional.empty());
         reader.prepareNextRead(2);
         Block actual = reader.readPrimitive().getBlock();
         format.assertBlock(values, actual);
@@ -202,7 +201,7 @@ public class TestFlatColumnReader
         DataPage page = createNullableDataPage(version, RLE_DICTIONARY, dictionaryWriter, false, false);
         DictionaryPage dictionaryPage = getDictionaryPage(dictionaryWriter);
         // Read and assert
-        reader.setPageReader(getPageReaderMock(new LinkedList<>(List.of(page)), dictionaryPage, false), Optional.empty());
+        reader.setPageReader(getPageReaderMock(List.of(page), dictionaryPage, false), Optional.empty());
         reader.prepareNextRead(2);
         Block actual = reader.readPrimitive().getBlock();
         format.assertBlock(values, actual);
@@ -223,7 +222,7 @@ public class TestFlatColumnReader
         DataPage page = createNullableDataPage(version, RLE_DICTIONARY, dictionaryWriter, true, true);
         DictionaryPage dictionaryPage = getDictionaryPage(dictionaryWriter);
         // Read and assert
-        reader.setPageReader(getPageReaderMock(new LinkedList<>(List.of(page)), dictionaryPage), Optional.empty());
+        reader.setPageReader(getPageReaderMock(List.of(page), dictionaryPage), Optional.empty());
         reader.prepareNextRead(2);
         Block actual = reader.readPrimitive().getBlock();
         format.assertBlock(values, actual);
@@ -245,7 +244,7 @@ public class TestFlatColumnReader
         T[] values3 = format.resetAndWrite(writer, new Integer[] {4});
         DataPage page3 = createDataPage(version, PLAIN, writer, 1);
         // Read and assert
-        reader.setPageReader(getPageReaderMock(new LinkedList<>(List.of(page1, page2, page3)), null), Optional.empty());
+        reader.setPageReader(getPageReaderMock(List.of(page1, page2, page3), null), Optional.empty());
         Block actual1 = readBlock(reader, 1); // Parquet/Trino page size the same
         Block actual2 = readBlock(reader, 1); // Parquet page bigger than Trino
         Block actual3 = readBlock(reader, 2); // Parquet page smaller than Trino
@@ -272,7 +271,7 @@ public class TestFlatColumnReader
         DataPage page2 = createDataPage(version, PLAIN, writer, 1);
         DictionaryPage dictionaryPage = getDictionaryPage(dictionaryWriter);
         // Read and assert
-        reader.setPageReader(getPageReaderMock(new LinkedList<>(List.of(page1, page2)), dictionaryPage), Optional.empty());
+        reader.setPageReader(getPageReaderMock(List.of(page1, page2), dictionaryPage), Optional.empty());
         reader.prepareNextRead(3);
         Block actual = reader.readPrimitive().getBlock();
         format.assertBlock(values1, actual, 0, 0, 2);
@@ -293,7 +292,7 @@ public class TestFlatColumnReader
         T[] values2 = format.write(writer, new Integer[] {null, null});
         DataPage page2 = createNullableDataPage(version, PLAIN, writer, true, true);
         // Read and assert
-        reader.setPageReader(getPageReaderMock(new LinkedList<>(List.of(page1, page2)), null), Optional.empty());
+        reader.setPageReader(getPageReaderMock(List.of(page1, page2), null), Optional.empty());
         // Deliberate mismatch between Trino/Parquet page sizes
         Block actual1 = readBlock(reader, 2);
         Block actual2 = readBlock(reader, 1);
@@ -319,7 +318,7 @@ public class TestFlatColumnReader
         T[] values3 = format.resetAndWrite(writer, new Integer[] {3, null, 4});
         DataPage page3 = createNullableDataPage(version, PLAIN, writer, false, true, false);
         // Read and assert
-        reader.setPageReader(getPageReaderMock(new LinkedList<>(List.of(page1, page2, page3)), null), Optional.empty());
+        reader.setPageReader(getPageReaderMock(List.of(page1, page2, page3), null), Optional.empty());
         // Deliberate mismatch between Trino/Parquet page sizes
         Block actual1 = readBlock(reader, 2);
         Block actual2 = readBlock(reader, 2);
@@ -343,7 +342,7 @@ public class TestFlatColumnReader
         T[] values1 = format.write(writer, new Integer[] {1, 2});
         DataPage page1 = createNullableDataPage(version, PLAIN, writer, false, false);
         // Read and assert
-        reader.setPageReader(getPageReaderMock(new LinkedList<>(List.of(page1)), null), Optional.empty());
+        reader.setPageReader(getPageReaderMock(List.of(page1), null), Optional.empty());
         // Deliberate mismatch between Trino/Parquet page sizes
         Block actual1 = readBlock(reader, 2);
 
@@ -362,7 +361,7 @@ public class TestFlatColumnReader
         T[] values1 = format.write(writer, new Integer[] {1, 2});
         DataPage page1 = createNullableDataPage(version, PLAIN, writer, false, false);
         // Read and assert
-        reader.setPageReader(getPageReaderMock(new LinkedList<>(List.of(page1)), null, true), Optional.empty());
+        reader.setPageReader(getPageReaderMock(List.of(page1), null, true), Optional.empty());
         // Deliberate mismatch between Trino/Parquet page sizes
         Block actual1 = readBlock(reader, 2);
         assertThat(actual1.mayHaveNull()).isFalse();
@@ -385,7 +384,7 @@ public class TestFlatColumnReader
         DataPage page2 = createDataPage(version, PLAIN, writer, 3);
         DictionaryPage dictionaryPage = getDictionaryPage(dictionaryWriter);
         // Read and assert
-        reader.setPageReader(getPageReaderMock(new LinkedList<>(List.of(page1, page2)), dictionaryPage), Optional.empty());
+        reader.setPageReader(getPageReaderMock(List.of(page1, page2), dictionaryPage), Optional.empty());
         // Deliberate mismatch between Trino/Parquet page sizes
         Block actual1 = readBlock(reader, 2); // Only dictionary
         Block actual2 = readBlock(reader, 2); // Mixed
@@ -413,7 +412,7 @@ public class TestFlatColumnReader
         T[] values3 = format.resetAndWrite(writer, new Integer[] {2});
         DataPage page3 = createNullableDataPage(version, PLAIN, writer, false);
         // Read and assert
-        reader.setPageReader(getPageReaderMock(new LinkedList<>(List.of(page1, page2, page3)), null), Optional.empty());
+        reader.setPageReader(getPageReaderMock(List.of(page1, page2, page3), null), Optional.empty());
         // Deliberate mismatch between Trino/Parquet page sizes
         Block actual = readBlock(reader, 3);
 
@@ -438,7 +437,7 @@ public class TestFlatColumnReader
         DataPage page2 = createDataPage(version, RLE_DICTIONARY, dictionaryWriter, 3);
         DictionaryPage dictionaryPage = getDictionaryPage(dictionaryWriter);
         // Read and assert
-        reader.setPageReader(getPageReaderMock(new LinkedList<>(List.of(page1, page2)), dictionaryPage), Optional.empty());
+        reader.setPageReader(getPageReaderMock(List.of(page1, page2), dictionaryPage), Optional.empty());
         reader.prepareNextRead(1); // skip
         Block actual = readBlock(reader, 2);
         reader.prepareNextRead(1); // skip
@@ -539,11 +538,10 @@ public class TestFlatColumnReader
     private static PageReader getSimplePageReaderMock(ParquetEncoding encoding)
             throws IOException
     {
-        LinkedList<DataPage> pages = new LinkedList<>();
         ValuesWriter writer = PLAIN_WRITER.apply(1);
         writer.writeInteger(42);
         byte[] valueBytes = writer.getBytes().toByteArray();
-        pages.add(new DataPageV1(
+        List<DataPage> pages = ImmutableList.of(new DataPageV1(
                 Slices.wrappedBuffer(valueBytes),
                 1,
                 valueBytes.length,
@@ -557,11 +555,10 @@ public class TestFlatColumnReader
     private static PageReader getNullOnlyPageReaderMock()
             throws IOException
     {
-        LinkedList<DataPage> pages = new LinkedList<>();
         RunLengthBitPackingHybridValuesWriter nullsWriter = new RunLengthBitPackingHybridValuesWriter(1, 1, 1, HeapByteBufferAllocator.getInstance());
         nullsWriter.writeInteger(0);
         byte[] nullBytes = nullsWriter.getBytes().toByteArray();
-        pages.add(new DataPageV1(
+        List<DataPage> pages = ImmutableList.of(new DataPageV1(
                 Slices.wrappedBuffer(nullBytes),
                 1,
                 nullBytes.length,
@@ -572,12 +569,12 @@ public class TestFlatColumnReader
         return new PageReader(UNCOMPRESSED, pages.iterator(), false, false);
     }
 
-    private static PageReader getPageReaderMock(LinkedList<DataPage> dataPages, @Nullable DictionaryPage dictionaryPage)
+    private static PageReader getPageReaderMock(List<DataPage> dataPages, @Nullable DictionaryPage dictionaryPage)
     {
         return getPageReaderMock(dataPages, dictionaryPage, false);
     }
 
-    private static PageReader getPageReaderMock(LinkedList<DataPage> dataPages, @Nullable DictionaryPage dictionaryPage, boolean hasNoNulls)
+    private static PageReader getPageReaderMock(List<DataPage> dataPages, @Nullable DictionaryPage dictionaryPage, boolean hasNoNulls)
     {
         if (dictionaryPage != null) {
             return new PageReader(
