@@ -840,6 +840,26 @@ public abstract class BaseBigQueryConnectorTest
                 .hasMessageContaining("Fields must contain only letters, numbers, and underscores, start with a letter or underscore, and be at most 300 characters long.");
     }
 
+    @Test
+    public void testCollate()
+    {
+        try (TestTable table = new TestTable(bigQuerySqlExecutor, "test.test_collate", "(col1 STRING)")) {
+            onBigQuery(format("""
+                    INSERT INTO %s
+                        WITH data_values AS (
+                          SELECT *
+                          FROM UNNEST([
+                            COLLATE('B', 'und:ci'),
+                            'b',
+                            'a'
+                          ]) AS character
+                          ORDER BY character)
+                        SELECT * FROM data_values
+                    """, table.getName()));
+            assertQuery(format("SELECT * FROM %s", table.getName()), "VALUES ('a'), ('B'), ('b')");
+        }
+    }
+
     private void onBigQuery(@Language("SQL") String sql)
     {
         bigQuerySqlExecutor.execute(sql);
