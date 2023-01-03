@@ -3,17 +3,17 @@ Supporting ``MERGE``
 ====================
 
 The Trino engine provides APIs to support row-level SQL ``MERGE``.
-To implement ``MERGE``, a connector must provide an implementation
-of ``ConnectorMergeSink``, which is typically layered on top of a
-``ConnectorPageSink``, and define ``ConnectorMetadata``
-methods to get a "rowId" column handle; get the row change paradigm;
-and to start and complete the ``MERGE`` operation.
+To implement ``MERGE``, a connector must provide the following:
 
-The Trino engine machinery used to implement SQL ``MERGE`` has now
-been used to support SQL ``DELETE`` and ``UPDATE``, replacing the
-previous implementations. This means that all a connector needs to
-do is implement support for SQL ``MERGE``, and the connector gets
-all the DML operations.
+* An implementation of ``ConnectorMergeSink``, which is typically
+  layered on top of a ``ConnectorPageSink``.
+* Methods in ``ConnectorMetadata`` to get a "rowId" column handle, get the
+  row change paradigm, and to start and complete the ``MERGE`` operation.
+
+The Trino engine machinery used to implement SQL ``MERGE`` is also used to
+support SQL ``DELETE`` and ``UPDATE``. This means that all a connector needs to
+do is implement support for SQL ``MERGE``, and the connector gets all the Data
+Modification Language (DML) operations.
 
 Standard SQL ``MERGE``
 ----------------------
@@ -92,17 +92,17 @@ a table or an arbitrary query. For each row in the source table or query,
 
 * the data column values from the ``UPDATE`` or ``INSERT`` cases. For the
   ``DELETE`` cases, only the partition columns, which determine
-  partitioning and bucketing, are non-NULL.
+  partitioning and bucketing, are non-null.
 * a boolean column containing ``true`` for source rows that matched some
   target row, and ``false`` otherwise.
 * an integer that identifies whether the merge case operation is ``UPDATE``,
   ``DELETE`` or ``INSERT``, or a source row for which no case matched. If a
-  source row does not match any merge case, all data column values except
+  source row doesn't match any merge case, all data column values except
   those that determine distribution are null, and the operation number
   is -1.
 
 A ``SearchedCaseExpression`` is constructed from ``RIGHT JOIN`` result
-to represent the ``WHEN`` clauses of the ``MERGE``. In the example above
+to represent the ``WHEN`` clauses of the ``MERGE``. In the example preceding
 the ``MERGE`` is executed as if the ``SearchedCaseExpression`` were written as::
 
    SELECT
@@ -136,7 +136,7 @@ Like ``DELETE`` and ``UPDATE``, ``MERGE`` target table rows are identified by
 a connector-specific ``rowId`` column handle. For ``MERGE``, the ``rowId``
 handle is returned by ``ConnectorMetadata.getMergeRowIdColumnHandle(...)``.
 
-``MERGE`` Redistribution
+``MERGE`` redistribution
 ------------------------
 
 The Trino ``MERGE`` implementation allows ``UPDATE`` to change
@@ -152,8 +152,8 @@ rowId order for deleted rows must sort the deleted rows before storing
 them.
 
 To ensure that all inserted rows for a given partition end up on a
-single node, the redistribution hash on the partition key/bucket column(s)
-is applied to the page partition key(s). As a result of the hash, all
+single node, the redistribution hash on the partition key/bucket columns
+is applied to the page partition keys. As a result of the hash, all
 rows for a specific partition/bucket hash together, whether they
 were ``MATCHED`` rows or ``NOT MATCHED`` rows.
 
@@ -191,9 +191,9 @@ To write out each page of merged rows, the Trino engine calls
 method iterates over the rows in the page, performing updates and deletes
 in the ``MATCHED`` cases, and inserts in the ``NOT MATCHED`` cases.
 
-For some values of ``RowChangeParadigm``, ``UPDATE`` operations are translated
-into the corresponding ``DELETE`` and ``INSERT`` operations before
-``storeMergedRows(Page)`` is called.
+When using ``RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW``, the engine
+translates ``UPDATE`` operations into a pair of ``DELETE`` and ``INSERT``
+operations before ``storeMergedRows(Page)`` is called.
 
 To complete the ``MERGE`` operation, the Trino engine calls
 ``ConnectorMetadata.finishMerge(...)``, passing the table handle
@@ -224,7 +224,7 @@ The page supplied to ``transformPage()`` consists of:
   null if not matched
 * The merge case ``RowBlock``
 * The integer case number block
-* The byte is_distinct block, with value 0 if not distinct.
+* The byte ``is_distinct`` block, with value 0 if not distinct.
 
 The merge case ``RowBlock`` has the following layout:
 
@@ -264,9 +264,9 @@ table with a unique id, using an ``AssignUniqueId`` node above the
 target table scan. The projected results from the ``RIGHT JOIN``
 have these unique ids for matched target table rows as well as
 the ``WHEN`` clause number. A ``MarkDistinct`` node adds an
-"is_distinct" column which is true if no other row has the same
+``is_distinct`` column which is true if no other row has the same
 unique id and ``WHEN`` clause number, and false otherwise. If
-any row has "is_distinct" = false, a
+any row has ``is_distinct`` equal to false, a
 ``MERGE_TARGET_ROW_MULTIPLE_MATCHES`` exception is raised and
 the ``MERGE`` operation fails.
 
@@ -293,7 +293,7 @@ the method that creates the ``ConnectorMergeSink``:
 ``ConnectorMergeSink`` API
 --------------------------
 
-As mentioned above, to support ``MERGE``, the connector must define an
+To support ``MERGE``, the connector must define an
 implementation of ``ConnectorMergeSink``, usually layered over the
 connector's ``ConnectorPageSink``.
 
@@ -343,9 +343,11 @@ methods.
         ConnectorTableHandle tableHandle)
 
   This method is called as the engine starts processing a ``MERGE`` statement.
-  The connector must return a ``RowChangeParadigm`` enum instance. If the
-  connector does not support ``MERGE`` it should throw a ``NOT_SUPPORTED``
-  exception, meaning that SQL ``MERGE`` is not supported by the connector.
+  The connector must return a ``RowChangeParadigm`` enumeration instance. If
+  the connector doesn't support ``MERGE``, then it should throw a
+  ``NOT_SUPPORTED`` exception to indicate that SQL ``MERGE`` isn't supported by
+  the connector. Note that the default implementation already throws this
+  exception when the method isn't implemented.
 
 * ``getMergeRowIdColumnHandle()``::
 
@@ -366,7 +368,7 @@ methods.
 
   This method is called during query planning to get the table layout to be
   used for rows inserted by the ``MERGE`` operation. For some connectors,
-  this layout will be used for rows deleted as well.
+  this layout is used for rows deleted as well.
 
 * ``getUpdateLayout()``::
 
@@ -374,11 +376,11 @@ methods.
         ConnectorSession session,
         ConnectorTableHandle tableHandle)
 
-  This method is called during query planning to get the table layout to
-  be used for rows deleted by the ``MERGE`` operation. If the optional
-  return value is present, the Trino engine will use the layout for
-  updated rows. Otherwise, it will use the result of
-  ``ConnectorMetadata.getInsertLayout`` to distribute updated rows.
+  This method is called during query planning to get the table layout to be
+  used for rows deleted by the ``MERGE`` operation. If the optional return
+  value is present, the Trino engine uses the layout for updated rows.
+  Otherwise, it uses the result of ``ConnectorMetadata.getInsertLayout`` to
+  distribute updated rows.
 
 * ``beginMerge()``::
 
@@ -392,10 +394,9 @@ methods.
 
   ``beginMerge()`` performs any orchestration needed in the connector to
   start processing the ``MERGE``. This orchestration varies from connector
-  to connector. In the case of Hive connector operating on ACID tables,
+  to connector. In the case of Hive connector operating on transactional tables,
   for example, ``beginMerge()`` checks that the table is transactional and
-  that all updated columns are writable, and starts a Hive Metastore
-  transaction.
+  starts a Hive Metastore transaction.
 
   ``beginMerge()`` returns a ``ConnectorMergeTableHandle`` with any added
   information the connector needs when the handle is passed back to
@@ -415,5 +416,5 @@ methods.
   ``finishMerge()``, passing the table handle and that collection of
   ``Slice`` fragments. In response, the connector takes appropriate actions
   to complete the ``MERGE`` operation. Those actions might include
-  committing an underlying transaction (if any) or freeing any other
+  committing an underlying transaction, if any, or freeing any other
   resources.
