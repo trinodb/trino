@@ -47,11 +47,11 @@ public class NodeSchedulerConfig
     private boolean includeCoordinator = true;
     private int maxSplitsPerNode = 100;
     private int minPendingSplitsPerTask = 10;
-    private int maxAdjustedPendingSplitsWeightPerTask = 500;
+    private int maxAdjustedPendingSplitsWeightPerTask = 2000;
     private NodeSchedulerPolicy nodeSchedulerPolicy = NodeSchedulerPolicy.UNIFORM;
     private boolean optimizedLocalScheduling = true;
     private SplitsBalancingPolicy splitsBalancingPolicy = SplitsBalancingPolicy.STAGE;
-    private int maxUnacknowledgedSplitsPerTask = 500;
+    private int maxUnacknowledgedSplitsPerTask = 2000;
     private Duration allowedNoMatchingNodePeriod = new Duration(2, TimeUnit.MINUTES);
     private NodeAllocatorType nodeAllocatorType = NodeAllocatorType.BIN_PACKING;
 
