@@ -233,7 +233,7 @@ public class TestAddExchangesPlans
                                                         values(
                                                                 ImmutableList.of("field", "partition2", "partition1"),
                                                                 ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("1")))))),
-                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition3", "partition3"),
+                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition3"),
                                                 project(
                                                         values(
                                                                 ImmutableList.of("partition3", "partition4", "field_0"),
