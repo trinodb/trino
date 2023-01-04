@@ -22,7 +22,7 @@ Configuration
 -------------
 
 To configure the Pinot connector, create a catalog properties file
-e.g. ``etc/catalog/pinot.properties`` with at least the following contents:
+e.g. ``etc/catalog/example.properties`` with at least the following contents:
 
 .. code-block:: text
 
@@ -115,12 +115,12 @@ Querying Pinot tables
 The Pinot connector automatically exposes all tables in the default schema of the catalog.
 You can list all tables in the pinot catalog with the following query::
 
-    SHOW TABLES FROM pinot.default;
+    SHOW TABLES FROM example.default;
 
 You can list columns in the flight_status table::
 
-    DESCRIBE pinot.default.flight_status;
-    SHOW COLUMNS FROM pinot.default.flight_status;
+    DESCRIBE example.default.flight_status;
+    SHOW COLUMNS FROM example.default.flight_status;
 
 Queries written with SQL are fully supported and can include filters and limits::
 
@@ -137,7 +137,7 @@ Filters and limits in the outer query are pushed down to Pinot.
 Let's look at an example query::
 
     SELECT *
-    FROM pinot.default."SELECT MAX(col1), COUNT(col2) FROM pinot_table GROUP BY col3, col4"
+    FROM example.default."SELECT MAX(col1), COUNT(col2) FROM pinot_table GROUP BY col3, col4"
     WHERE col3 IN ('FOO', 'BAR') AND col4 > 50
     LIMIT 30000
 

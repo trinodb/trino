@@ -23,7 +23,7 @@ Configuration
 -------------
 
 To configure the Phoenix connector, create a catalog properties file
-``etc/catalog/phoenix.properties`` with the following contents,
+``etc/catalog/example.properties`` with the following contents,
 replacing ``host1,host2,host3`` with a comma-separated list of the ZooKeeper
 nodes used for discovery of the HBase cluster:
 
@@ -72,25 +72,25 @@ Querying Phoenix tables
 The default empty schema in Phoenix maps to a schema named ``default`` in Trino.
 You can see the available Phoenix schemas by running ``SHOW SCHEMAS``::
 
-    SHOW SCHEMAS FROM phoenix;
+    SHOW SCHEMAS FROM example;
 
 If you have a Phoenix schema named ``web``, you can view the tables
 in this schema by running ``SHOW TABLES``::
 
-    SHOW TABLES FROM phoenix.web;
+    SHOW TABLES FROM example.web;
 
 You can see a list of the columns in the ``clicks`` table in the ``web`` schema
 using either of the following::
 
-    DESCRIBE phoenix.web.clicks;
-    SHOW COLUMNS FROM phoenix.web.clicks;
+    DESCRIBE example.web.clicks;
+    SHOW COLUMNS FROM example.web.clicks;
 
 Finally, you can access the ``clicks`` table in the ``web`` schema::
 
-    SELECT * FROM phoenix.web.clicks;
+    SELECT * FROM example.web.clicks;
 
 If you used a different name for your catalog properties file, use
-that catalog name instead of ``phoenix`` in the above examples.
+that catalog name instead of ``example`` in the above examples.
 
 .. _phoenix-type-mapping:
 
@@ -216,7 +216,7 @@ Table properties - Phoenix
 
 Table property usage example::
 
-    CREATE TABLE myschema.scientists (
+    CREATE TABLE example_schema.scientists (
       recordkey VARCHAR,
       birthday DATE,
       name VARCHAR,
