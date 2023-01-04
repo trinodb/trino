@@ -103,4 +103,14 @@ public class QueryPeriod
     {
         return "FOR " + rangeType.toString() + " AS OF " + end.get().toString();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return rangeType.equals(((QueryPeriod) other).rangeType);
+    }
 }
