@@ -576,7 +576,7 @@ public class TableFunctionOperator
                         // empty PagesIndex can only be passed once as the result of PartitionAndSort. Neither this nor any future instance of Process will ever get an empty PagesIndex again.
                         processEmpty = false;
                         return WorkProcessor.ProcessState.ofResult(new EmptyTableFunctionPartition(
-                                tableFunctionProvider.get(functionHandle),
+                                tableFunctionProvider.getDataProcessor(functionHandle),
                                 properChannelsCount,
                                 passThroughSourcesCount,
                                 passThroughSpecifications.stream()
@@ -596,7 +596,7 @@ public class TableFunctionOperator
                         pagesIndex,
                         partitionStart,
                         partitionEnd,
-                        tableFunctionProvider.get(functionHandle),
+                        tableFunctionProvider.getDataProcessor(functionHandle),
                         properChannelsCount,
                         passThroughSourcesCount,
                         requiredChannels,
