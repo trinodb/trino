@@ -16,6 +16,9 @@ package io.trino.tests;
 import com.google.common.collect.ImmutableSet;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
+import io.trino.connector.TestingTableFunctions.ConstantFunction;
+import io.trino.connector.TestingTableFunctions.ConstantFunction.ConstantFunctionHandle;
+import io.trino.connector.TestingTableFunctions.ConstantFunction.ConstantFunctionProcessorProvider;
 import io.trino.connector.TestingTableFunctions.IdentityFunction;
 import io.trino.connector.TestingTableFunctions.IdentityFunction.IdentityFunctionProcessorProvider;
 import io.trino.connector.TestingTableFunctions.IdentityPassThroughFunction;
@@ -52,8 +55,10 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.connector.TestingTableFunctions.ConstantFunction.getConstantFunctionSplitSource;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTableFunctionInvocation
         extends AbstractTestQueryFramework
@@ -86,7 +91,8 @@ public class TestTableFunctionInvocation
                         new TestInputsFunction(),
                         new PassThroughInputFunction(),
                         new TestInputFunction(),
-                        new TestSingleInputRowSemanticsFunction()))
+                        new TestSingleInputRowSemanticsFunction(),
+                        new ConstantFunction()))
                 .withApplyTableFunction((session, handle) -> {
                     if (handle instanceof SimpleTableFunctionHandle functionHandle) {
                         return Optional.of(new TableFunctionApplicationResult<>(functionHandle.getTableHandle(), functionHandle.getTableHandle().getColumns().orElseThrow()));
@@ -137,10 +143,16 @@ public class TestTableFunctionInvocation
                         else if (name.equals(new SchemaFunctionName("system", "test_single_input_function"))) {
                             return new TestSingleInputFunctionProcessorProvider();
                         }
+                        else if (name.equals(new SchemaFunctionName("system", "constant"))) {
+                            return new ConstantFunctionProcessorProvider();
+                        }
 
                         return null;
                     }
                 }))
+                .withTableFunctionSplitSource(
+                        new SchemaFunctionName("system", "constant"),
+                        handle -> getConstantFunctionSplitSource((ConstantFunctionHandle) handle))
                 .build()));
         queryRunner.createCatalog(TESTING_CATALOG, "mock");
 
@@ -609,5 +621,47 @@ public class TestTableFunctionInvocation
                 FROM TABLE(system.test_single_input_function(TABLE(VALUES (true), (false), (true))))
                 """))
                 .matches("VALUES true");
+    }
+
+    @Test
+    public void testConstantFunction()
+    {
+        assertThat(query("""
+                SELECT *
+                FROM TABLE(system.constant(5))
+                """))
+                .matches("VALUES 5");
+
+        assertThat(query("""
+                SELECT *
+                FROM TABLE(system.constant(2, 10))
+                """))
+                .matches("VALUES (2), (2), (2), (2), (2), (2), (2), (2), (2), (2)");
+
+        assertThat(query("""
+                SELECT *
+                FROM TABLE(system.constant(null, 3))
+                """))
+                .matches("VALUES (CAST(null AS integer)), (null), (null)");
+
+        // value as constant expression
+        assertThat(query("""
+                SELECT *
+                FROM TABLE(system.constant(5 * 4, 3))
+                """))
+                .matches("VALUES (20), (20), (20)");
+
+        // value out of range for INTEGER type: Integer.MAX_VALUE + 1
+        assertThatThrownBy(() -> query("""
+                SELECT *
+                FROM TABLE(system.constant(2147483648, 3))
+                """))
+                .hasMessage("line 2:28: Cannot cast type bigint to integer");
+
+        assertThat(query("""
+                SELECT count(*), count(DISTINCT constant_column), min(constant_column)
+                FROM TABLE(system.constant(2, 1000000))
+                """))
+                .matches("VALUES (BIGINT '1000000', BIGINT '1', 2)");
     }
 }

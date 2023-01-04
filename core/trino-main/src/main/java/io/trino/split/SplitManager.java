@@ -16,6 +16,7 @@ package io.trino.split;
 import io.trino.Session;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.QueryManagerConfig;
+import io.trino.metadata.TableFunctionHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -67,5 +68,19 @@ public class SplitManager
             splitSource = new BufferingSplitSource(splitSource, minScheduleSplitBatchSize);
         }
         return splitSource;
+    }
+
+    public SplitSource getSplits(Session session, TableFunctionHandle function)
+    {
+        CatalogHandle catalogHandle = function.getCatalogHandle();
+        ConnectorSplitManager splitManager = splitManagerProvider.getService(catalogHandle);
+
+        ConnectorSplitSource source = splitManager.getSplits(
+                function.getTransactionHandle(),
+                session.toConnectorSession(catalogHandle),
+                function.getSchemaFunctionName(),
+                function.getFunctionHandle());
+
+        return new ConnectorAwareSplitSource(catalogHandle, source);
     }
 }

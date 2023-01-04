@@ -84,6 +84,7 @@ import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.function.FunctionProvider;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.ptf.ConnectorTableFunction;
@@ -168,6 +169,7 @@ public class MockConnector
     private final Supplier<List<PropertyMetadata<?>>> tableProperties;
     private final Supplier<List<PropertyMetadata<?>>> columnProperties;
     private final List<PropertyMetadata<?>> sessionProperties;
+    private final Map<SchemaFunctionName, Function<ConnectorTableFunctionHandle, ConnectorSplitSource>> tableFunctionSplitsSources;
 
     MockConnector(
             List<PropertyMetadata<?>> sessionProperties,
@@ -209,7 +211,8 @@ public class MockConnector
             Supplier<List<PropertyMetadata<?>>> schemaProperties,
             Supplier<List<PropertyMetadata<?>>> tableProperties,
             Supplier<List<PropertyMetadata<?>>> columnProperties,
-            boolean supportsReportingWrittenBytes)
+            boolean supportsReportingWrittenBytes,
+            Map<SchemaFunctionName, Function<ConnectorTableFunctionHandle, ConnectorSplitSource>> tableFunctionSplitsSources)
     {
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
@@ -251,6 +254,7 @@ public class MockConnector
         this.schemaProperties = requireNonNull(schemaProperties, "schemaProperties is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
         this.columnProperties = requireNonNull(columnProperties, "columnProperties is null");
+        this.tableFunctionSplitsSources = ImmutableMap.copyOf(tableFunctionSplitsSources);
     }
 
     @Override
@@ -297,6 +301,14 @@ public class MockConnector
                     Constraint constraint)
             {
                 return new FixedSplitSource(ImmutableList.of(MOCK_CONNECTOR_SPLIT));
+            }
+
+            @Override
+            public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, SchemaFunctionName name, ConnectorTableFunctionHandle functionHandle)
+            {
+                Function<ConnectorTableFunctionHandle, ConnectorSplitSource> splitSourceProvider = tableFunctionSplitsSources.get(name);
+                requireNonNull(splitSourceProvider, "missing ConnectorSplitSource for table function " + name);
+                return splitSourceProvider.apply(functionHandle);
             }
         };
     }
