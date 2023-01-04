@@ -72,7 +72,7 @@ public interface QueryRunner
 
     StatsCalculator getStatsCalculator();
 
-    TestingGroupProvider getGroupProvider();
+    TestingGroupProviderManager getGroupProvider();
 
     TestingAccessControlManager getAccessControl();
 

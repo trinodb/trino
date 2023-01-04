@@ -51,7 +51,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingAccessControlManager;
-import io.trino.testing.TestingGroupProvider;
+import io.trino.testing.TestingGroupProviderManager;
 import io.trino.transaction.TransactionManager;
 
 import java.io.IOException;
@@ -277,7 +277,7 @@ public final class ThriftQueryRunner
         }
 
         @Override
-        public TestingGroupProvider getGroupProvider()
+        public TestingGroupProviderManager getGroupProvider()
         {
             return source.getGroupProvider();
         }
