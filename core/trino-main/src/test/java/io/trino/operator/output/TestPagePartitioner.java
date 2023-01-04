@@ -32,6 +32,7 @@ import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.DriverContext;
 import io.trino.operator.OperatorContext;
+import io.trino.operator.OperatorFactory;
 import io.trino.operator.OutputFactory;
 import io.trino.operator.PartitionFunction;
 import io.trino.spi.Page;
@@ -74,6 +75,7 @@ import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -140,7 +142,7 @@ public class TestPagePartitioner
         Page page = new Page(createLongsBlock(ImmutableList.of()));
 
         pagePartitioner.partitionPage(page);
-        pagePartitioner.forceFlush();
+        pagePartitioner.close();
 
         List<Object> partitioned = readLongs(outputBuffer.getEnqueuedDeserialized(), 0);
         assertThat(partitioned).isEmpty();
@@ -378,7 +380,7 @@ public class TestPagePartitioner
         mode1.partitionPage(pagePartitioner, input);
         mode2.partitionPage(pagePartitioner, input);
 
-        pagePartitioner.forceFlush();
+        pagePartitioner.close();
 
         List<Object> partitioned = readChannel(outputBuffer.getEnqueuedDeserialized(), 1, type);
         assertThat(partitioned).containsExactlyInAnyOrderElementsOf(expected); // output of the PagePartitioner can be reordered
@@ -437,7 +439,7 @@ public class TestPagePartitioner
         for (Page page : pages) {
             partitioningMode.partitionPage(pagePartitioner, page);
         }
-        pagePartitioner.forceFlush();
+        pagePartitioner.close();
     }
 
     private static List<Object> readLongs(Stream<Page> pages, int channel)
@@ -592,11 +594,15 @@ public class TestPagePartitioner
                     nullChannel,
                     outputBuffer,
                     PARTITION_MAX_MEMORY,
-                    POSITIONS_APPENDER_FACTORY);
-
-            return (PartitionedOutputOperator) operatorFactory
-                    .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), PAGES_SERDE_FACTORY)
+                    POSITIONS_APPENDER_FACTORY,
+                    Optional.empty(),
+                    newSimpleAggregatedMemoryContext(),
+                    1);
+            OperatorFactory factory = operatorFactory.createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), PAGES_SERDE_FACTORY);
+            PartitionedOutputOperator operator = (PartitionedOutputOperator) factory
                     .createOperator(driverContext);
+            factory.noMoreOperators();
+            return operator;
         }
 
         public PagePartitioner build()
@@ -605,7 +611,7 @@ public class TestPagePartitioner
 
             OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("plan-node-0"), PartitionedOutputOperator.class.getSimpleName());
 
-            return new PagePartitioner(
+            PagePartitioner pagePartitioner = new PagePartitioner(
                     partitionFunction,
                     partitionChannels,
                     partitionConstants,
@@ -615,9 +621,12 @@ public class TestPagePartitioner
                     PAGES_SERDE_FACTORY,
                     types,
                     PARTITION_MAX_MEMORY,
-                    operatorContext,
                     POSITIONS_APPENDER_FACTORY,
-                    Optional.empty());
+                    Optional.empty(),
+                    newSimpleAggregatedMemoryContext());
+            pagePartitioner.setupOperator(operatorContext);
+
+            return pagePartitioner;
         }
 
         private DriverContext buildDriverContext()

@@ -178,6 +178,7 @@ public final class SystemSessionProperties
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
     public static final String FAULT_TOLERANT_EXECUTION_EVENT_DRIVEN_SCHEDULER_ENABLED = "fault_tolerant_execution_event_driven_scheduler_enabled";
     public static final String FAULT_TOLERANT_EXECUTION_FORCE_PREFERRED_WRITE_PARTITIONING_ENABLED = "fault_tolerant_execution_force_preferred_write_partitioning_enabled";
+    public static final String PAGE_PARTITIONING_BUFFER_POOL_SIZE = "page_partitioning_buffer_pool_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -885,6 +886,10 @@ public final class SystemSessionProperties
                         FAULT_TOLERANT_EXECUTION_FORCE_PREFERRED_WRITE_PARTITIONING_ENABLED,
                         "Force preferred write partitioning for fault tolerant execution",
                         queryManagerConfig.isFaultTolerantExecutionForcePreferredWritePartitioningEnabled(),
+                        true),
+                integerProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE,
+                        "Maximum number of free buffers in the per task partitioned page buffer pool. Setting this to zero effectively disables the pool",
+                        taskManagerConfig.getPagePartitioningBufferPoolSize(),
                         true));
     }
 
@@ -1581,5 +1586,10 @@ public final class SystemSessionProperties
             return false;
         }
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_FORCE_PREFERRED_WRITE_PARTITIONING_ENABLED, Boolean.class);
+    }
+
+    public static int getPagePartitioningBufferPoolSize(Session session)
+    {
+        return session.getSystemProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE, Integer.class);
     }
 }

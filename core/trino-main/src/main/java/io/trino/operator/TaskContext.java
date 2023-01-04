@@ -31,6 +31,7 @@ import io.trino.execution.TaskStateMachine;
 import io.trino.execution.buffer.LazyOutputBuffer;
 import io.trino.memory.QueryContext;
 import io.trino.memory.QueryContextVisitor;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.spi.predicate.Domain;
@@ -283,6 +284,11 @@ public class TaskContext
     public LocalMemoryContext localMemoryContext()
     {
         return taskMemoryContext.localUserMemoryContext();
+    }
+
+    public AggregatedMemoryContext newAggregateMemoryContext()
+    {
+        return taskMemoryContext.newAggregateUserMemoryContext();
     }
 
     public boolean isPerOperatorCpuTimerEnabled()
