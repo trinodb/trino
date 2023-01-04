@@ -206,7 +206,7 @@ public final class TransactionLogParser
             }
         }
         catch (RuntimeException e) {
-            return new TrinoException(
+            throw new TrinoException(
                     GENERIC_INTERNAL_ERROR,
                     format("Unable to parse value [%s] from column %s with type %s", valueString, column.getName(), column.getType()),
                     e);
