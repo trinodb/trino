@@ -46,6 +46,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -1024,5 +1025,21 @@ public class TestPostgreSqlConnectorTest
     protected void verifyColumnNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching("Column name must be shorter than or equal to '63' characters but got '64': '.*'");
+    }
+
+    @Override
+    protected void verifySetColumnTypeFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("(?s)ERROR: .*(cannot be cast automatically to type|out of range).*");
+    }
+
+    @Override
+    protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
+    {
+        // The connector returns UTC instead of the given time zone
+        if (setup.sourceColumnType().equals("timestamp(3) with time zone")) {
+            return Optional.of(new SetColumnTypeSetup(setup.sourceColumnType(), setup.sourceValueLiteral(), setup.newColumnType(), "timestamp '2020-02-12 14:03:00.123000 +00:00'"));
+        }
+        return Optional.of(setup);
     }
 }

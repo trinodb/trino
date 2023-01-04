@@ -241,6 +241,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        stats.getSetColumnType().wrap(() -> delegate().setColumnType(session, handle, column, type));
+    }
+
+    @Override
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
         stats.getRenameTable().wrap(() -> delegate().renameTable(session, handle, newTableName));

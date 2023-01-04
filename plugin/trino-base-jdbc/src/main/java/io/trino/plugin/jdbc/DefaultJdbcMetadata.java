@@ -61,6 +61,7 @@ import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.type.Type;
 
 import java.sql.Types;
 import java.util.ArrayList;
@@ -905,6 +906,15 @@ public class DefaultJdbcMetadata
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
         verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
         jdbcClient.renameColumn(session, tableHandle, columnHandle, target);
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, ConnectorTableHandle table, ColumnHandle column, Type type)
+    {
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
+        verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
+        jdbcClient.setColumnType(session, tableHandle, columnHandle, type);
     }
 
     @Override

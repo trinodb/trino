@@ -91,6 +91,7 @@ public class TestMongoConnectorTest
                 return false;
 
             case SUPPORTS_RENAME_COLUMN:
+            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
             case SUPPORTS_NOT_NULL_CONSTRAINT:

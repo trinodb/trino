@@ -234,6 +234,9 @@ public abstract class BaseHiveConnectorTest
             case SUPPORTS_COMMENT_ON_VIEW_COLUMN:
                 return true;
 
+            case SUPPORTS_SET_COLUMN_TYPE:
+                return false;
+
             case SUPPORTS_CREATE_VIEW:
                 return true;
 

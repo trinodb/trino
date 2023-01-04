@@ -742,6 +742,12 @@ public class PhoenixClient
         return properties.buildOrThrow();
     }
 
+    @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
+    }
+
     private static LongReadFunction dateReadFunction()
     {
         return (resultSet, index) -> {
