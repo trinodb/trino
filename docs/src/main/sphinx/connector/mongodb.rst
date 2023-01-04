@@ -24,7 +24,7 @@ Configuration
 -------------
 
 To configure the MongoDB connector, create a catalog properties file
-``etc/catalog/mongodb.properties`` with the following contents,
+``etc/catalog/example.properties`` with the following contents,
 replacing the properties as appropriate:
 
 .. code-block:: text
@@ -526,7 +526,7 @@ For example, get all rows where ``regionkey`` field is 0::
       *
     FROM
       TABLE(
-        mongodb.system.query(
+        example.system.query(
           database => 'tpch',
           collection => 'region',
           filter => '{ regionkey: 0 }'
