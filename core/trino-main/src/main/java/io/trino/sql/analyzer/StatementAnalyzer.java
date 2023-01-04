@@ -4609,8 +4609,11 @@ class StatementAnalyzer
 
             ExpressionAnalysis expressionAnalysis;
             try {
+                Identity filterIdentity = Identity.forUser(filter.getIdentity())
+                        .withGroups(groupProvider.getGroups(filter.getIdentity()))
+                        .build();
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        createViewSession(filter.getCatalog(), filter.getSchema(), Identity.ofUser(filter.getIdentity()), session.getPath()), // TODO: path should be included in row filter
+                        createViewSession(filter.getCatalog(), filter.getSchema(), filterIdentity, session.getPath()), // TODO: path should be included in row filter
                         plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
@@ -4664,8 +4667,11 @@ class StatementAnalyzer
             verifyNoAggregateWindowOrGroupingFunctions(session, metadata, expression, format("Column mask for '%s.%s'", table.getName(), column));
 
             try {
+                Identity maskIdentity = Identity.forUser(mask.getIdentity())
+                        .withGroups(groupProvider.getGroups(mask.getIdentity()))
+                        .build();
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        createViewSession(mask.getCatalog(), mask.getSchema(), Identity.ofUser(mask.getIdentity()), session.getPath()), // TODO: path should be included in row filter
+                        createViewSession(mask.getCatalog(), mask.getSchema(), maskIdentity, session.getPath()), // TODO: path should be included in row filter
                         plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
