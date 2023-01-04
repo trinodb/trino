@@ -310,7 +310,11 @@ public class SplitSourceFactory
         public Map<PlanNodeId, SplitSource> visitTableFunctionProcessor(TableFunctionProcessorNode node, Void context)
         {
             if (node.getSource().isEmpty()) {
-                return ImmutableMap.of(); // TODO optional splits for table function without sources
+                // this is a source node, so produce splits
+                SplitSource splitSource = splitManager.getSplits(session, node.getHandle());
+                splitSources.add(splitSource);
+
+                return ImmutableMap.of(node.getId(), splitSource);
             }
 
             return node.getSource().orElseThrow().accept(this, context);

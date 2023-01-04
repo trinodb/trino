@@ -13,13 +13,19 @@
  */
 package io.trino.tests;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
+import io.trino.connector.TestingTableFunctions.ConstantFunction;
+import io.trino.connector.TestingTableFunctions.ConstantFunction.ConstantFunctionHandle;
+import io.trino.connector.TestingTableFunctions.ConstantFunction.ConstantFunctionProcessorProvider;
 import io.trino.connector.TestingTableFunctions.EmptyOutputFunction;
 import io.trino.connector.TestingTableFunctions.EmptyOutputFunction.EmptyOutputProcessorProvider;
 import io.trino.connector.TestingTableFunctions.EmptyOutputWithPassThroughFunction;
 import io.trino.connector.TestingTableFunctions.EmptyOutputWithPassThroughFunction.EmptyOutputWithPassThroughProcessorProvider;
+import io.trino.connector.TestingTableFunctions.EmptySourceFunction;
+import io.trino.connector.TestingTableFunctions.EmptySourceFunction.EmptySourceFunctionProcessorProvider;
 import io.trino.connector.TestingTableFunctions.IdentityFunction;
 import io.trino.connector.TestingTableFunctions.IdentityFunction.IdentityFunctionProcessorProvider;
 import io.trino.connector.TestingTableFunctions.IdentityPassThroughFunction;
@@ -37,6 +43,7 @@ import io.trino.connector.TestingTableFunctions.TestInputsFunction.TestInputsFun
 import io.trino.connector.TestingTableFunctions.TestSingleInputRowSemanticsFunction;
 import io.trino.connector.TestingTableFunctions.TestSingleInputRowSemanticsFunction.TestSingleInputFunctionProcessorProvider;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
@@ -56,8 +63,11 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.connector.MockConnector.MockConnectorSplit.MOCK_CONNECTOR_SPLIT;
+import static io.trino.connector.TestingTableFunctions.ConstantFunction.getConstantFunctionSplitSource;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTableFunctionInvocation
         extends AbstractTestQueryFramework
@@ -92,7 +102,9 @@ public class TestTableFunctionInvocation
                         new TestInputsFunction(),
                         new PassThroughInputFunction(),
                         new TestInputFunction(),
-                        new TestSingleInputRowSemanticsFunction()))
+                        new TestSingleInputRowSemanticsFunction(),
+                        new ConstantFunction(),
+                        new EmptySourceFunction()))
                 .withApplyTableFunction((session, handle) -> {
                     if (handle instanceof SimpleTableFunctionHandle functionHandle) {
                         return Optional.of(new TableFunctionApplicationResult<>(functionHandle.getTableHandle(), functionHandle.getTableHandle().getColumns().orElseThrow()));
@@ -149,10 +161,22 @@ public class TestTableFunctionInvocation
                         else if (name.equals(new SchemaFunctionName("system", "test_single_input_function"))) {
                             return new TestSingleInputFunctionProcessorProvider();
                         }
+                        else if (name.equals(new SchemaFunctionName("system", "constant"))) {
+                            return new ConstantFunctionProcessorProvider();
+                        }
+                        else if (name.equals(new SchemaFunctionName("system", "empty_source"))) {
+                            return new EmptySourceFunctionProcessorProvider();
+                        }
 
                         return null;
                     }
                 }))
+                .withTableFunctionSplitSource(
+                        new SchemaFunctionName("system", "constant"),
+                        handle -> getConstantFunctionSplitSource((ConstantFunctionHandle) handle))
+                .withTableFunctionSplitSource(
+                        new SchemaFunctionName("system", "empty_source"),
+                        handle -> new FixedSplitSource(ImmutableList.of(MOCK_CONNECTOR_SPLIT)))
                 .build()));
         queryRunner.createCatalog(TESTING_CATALOG, "mock");
 
@@ -332,6 +356,13 @@ public class TestTableFunctionInvocation
                 FROM TABLE(system.empty_output_with_pass_through(TABLE(SELECT * FROM tpch.tiny.orders WHERE false) PARTITION BY orderstatus))
                 """))
                 .matches("SELECT true, * FROM tpch.tiny.orders WHERE false");
+
+        // function empty_source returns an empty Page for each Split it processes
+        assertThat(query("""
+                SELECT *
+                FROM TABLE(system.empty_source())
+                """))
+                .matches("SELECT true WHERE false");
     }
 
     @Test
@@ -683,5 +714,47 @@ public class TestTableFunctionInvocation
                 FROM TABLE(system.test_single_input_function(TABLE(VALUES (true), (false), (true))))
                 """))
                 .matches("VALUES true");
+    }
+
+    @Test
+    public void testConstantFunction()
+    {
+        assertThat(query("""
+                SELECT *
+                FROM TABLE(system.constant(5))
+                """))
+                .matches("VALUES 5");
+
+        assertThat(query("""
+                SELECT *
+                FROM TABLE(system.constant(2, 10))
+                """))
+                .matches("VALUES (2), (2), (2), (2), (2), (2), (2), (2), (2), (2)");
+
+        assertThat(query("""
+                SELECT *
+                FROM TABLE(system.constant(null, 3))
+                """))
+                .matches("VALUES (CAST(null AS integer)), (null), (null)");
+
+        // value as constant expression
+        assertThat(query("""
+                SELECT *
+                FROM TABLE(system.constant(5 * 4, 3))
+                """))
+                .matches("VALUES (20), (20), (20)");
+
+        // value out of range for INTEGER type: Integer.MAX_VALUE + 1
+        assertThatThrownBy(() -> query("""
+                SELECT *
+                FROM TABLE(system.constant(2147483648, 3))
+                """))
+                .hasMessage("line 2:28: Cannot cast type bigint to integer");
+
+        assertThat(query("""
+                SELECT count(*), count(DISTINCT constant_column), min(constant_column)
+                FROM TABLE(system.constant(2, 1000000))
+                """))
+                .matches("VALUES (BIGINT '1000000', BIGINT '1', 2)");
     }
 }
