@@ -17,9 +17,9 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.ptf.TableFunctionDataProcessor;
 import io.trino.spi.ptf.TableFunctionProcessState;
 import io.trino.spi.ptf.TableFunctionProcessState.TableFunctionResult;
-import io.trino.spi.ptf.TableFunctionProcessor;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -42,12 +42,12 @@ import static java.util.Objects.requireNonNull;
 public class EmptyTableFunctionPartition
         implements TableFunctionPartition
 {
-    private final TableFunctionProcessor tableFunction;
+    private final TableFunctionDataProcessor tableFunction;
     private final int properChannelsCount;
     private final int passThroughSourcesCount;
     private final Type[] passThroughTypes;
 
-    public EmptyTableFunctionPartition(TableFunctionProcessor tableFunction, int properChannelsCount, int passThroughSourcesCount, List<Type> passThroughTypes)
+    public EmptyTableFunctionPartition(TableFunctionDataProcessor tableFunction, int properChannelsCount, int passThroughSourcesCount, List<Type> passThroughTypes)
     {
         this.tableFunction = requireNonNull(tableFunction, "tableFunction is null");
         this.properChannelsCount = properChannelsCount;

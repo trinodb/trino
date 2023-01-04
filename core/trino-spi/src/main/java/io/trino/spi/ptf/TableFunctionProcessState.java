@@ -23,7 +23,7 @@ import static io.trino.spi.ptf.TableFunctionProcessState.Type.BLOCKED;
 import static io.trino.spi.ptf.TableFunctionProcessState.Type.FORWARD;
 
 /**
- * The result of processing input by {@link TableFunctionProcessor}.
+ * The result of processing input by {@link TableFunctionDataProcessor} or {@link TableFunctionSplitProcessor}.
  * It can optionally include a {@link Page} of output data. The returned {@link Page} should consist of:
  * - proper columns produced by the table function
  * - one column of type {@code BIGINT} for each table function's input table having the pass-through property (see {@link TableArgumentSpecification#isPassThroughColumns}),

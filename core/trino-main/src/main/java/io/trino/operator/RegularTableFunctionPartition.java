@@ -22,9 +22,9 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.ptf.TableFunctionDataProcessor;
 import io.trino.spi.ptf.TableFunctionProcessState;
 import io.trino.spi.ptf.TableFunctionProcessState.TableFunctionResult;
-import io.trino.spi.ptf.TableFunctionProcessor;
 import io.trino.spi.type.Type;
 
 import java.util.Arrays;
@@ -57,7 +57,7 @@ public class RegularTableFunctionPartition
     private final int partitionEnd;
     private final Iterator<Page> sortedPages;
 
-    private final TableFunctionProcessor tableFunction;
+    private final TableFunctionDataProcessor tableFunction;
     private final int properChannelsCount;
     private final int passThroughSourcesCount;
 
@@ -77,7 +77,7 @@ public class RegularTableFunctionPartition
             PagesIndex pagesIndex,
             int partitionStart,
             int partitionEnd,
-            TableFunctionProcessor tableFunction,
+            TableFunctionDataProcessor tableFunction,
             int properChannelsCount,
             int passThroughSourcesCount,
             List<List<Integer>> requiredChannels,

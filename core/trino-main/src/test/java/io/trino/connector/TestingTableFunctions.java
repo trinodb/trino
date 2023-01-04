@@ -35,9 +35,9 @@ import io.trino.spi.ptf.ScalarArgumentSpecification;
 import io.trino.spi.ptf.TableArgument;
 import io.trino.spi.ptf.TableArgumentSpecification;
 import io.trino.spi.ptf.TableFunctionAnalysis;
+import io.trino.spi.ptf.TableFunctionDataProcessor;
 import io.trino.spi.ptf.TableFunctionProcessState;
 import io.trino.spi.ptf.TableFunctionProcessState.TableFunctionResult;
-import io.trino.spi.ptf.TableFunctionProcessor;
 import io.trino.spi.ptf.TableFunctionProcessorProvider;
 import io.trino.spi.type.RowType;
 
@@ -498,7 +498,7 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
             {
                 return input -> {
                     if (input == null) {
@@ -541,14 +541,14 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
             {
                 return new IdentityPassThroughFunctionProcessor();
             }
         }
 
         public static class IdentityPassThroughFunctionProcessor
-                implements TableFunctionProcessor
+                implements TableFunctionDataProcessor
         {
             private long processedPositions; // stateful
 
@@ -628,14 +628,14 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
             {
                 return new RepeatFunctionProcessor(((RepeatFunctionHandle) handle).getCount());
             }
         }
 
         public static class RepeatFunctionProcessor
-                implements TableFunctionProcessor
+                implements TableFunctionDataProcessor
         {
             private final long count;
 
@@ -733,7 +733,7 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
             {
                 BlockBuilder resultBuilder = BOOLEAN.createBlockBuilder(null, 1);
                 BOOLEAN.writeBoolean(resultBuilder, true);
@@ -788,14 +788,14 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
             {
                 return new PassThroughInputProcessor();
             }
         }
 
         private static class PassThroughInputProcessor
-                implements TableFunctionProcessor
+                implements TableFunctionDataProcessor
         {
             private boolean input1Present;
             private boolean input2Present;
@@ -885,14 +885,14 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
             {
                 return new TestInputProcessor();
             }
         }
 
         private static class TestInputProcessor
-                implements TableFunctionProcessor
+                implements TableFunctionDataProcessor
         {
             private boolean processorGotInput;
             private boolean finished;
@@ -943,7 +943,7 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
             {
                 BlockBuilder builder = BOOLEAN.createBlockBuilder(null, 1);
                 BOOLEAN.writeBoolean(builder, true);
