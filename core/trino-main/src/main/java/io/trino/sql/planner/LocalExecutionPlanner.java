@@ -62,6 +62,7 @@ import io.trino.operator.FilterAndProjectOperator;
 import io.trino.operator.GroupIdOperator;
 import io.trino.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import io.trino.operator.HashSemiJoinOperator;
+import io.trino.operator.LeafTableFunctionOperator.LeafTableFunctionOperatorFactory;
 import io.trino.operator.LimitOperator.LimitOperatorFactory;
 import io.trino.operator.LocalPlannerAware;
 import io.trino.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
@@ -1670,13 +1671,14 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableFunctionProcessor(TableFunctionProcessorNode node, LocalExecutionPlanContext context)
         {
+            TableFunctionProcessorProvider processorProvider = plannerContext.getFunctionManager().getTableFunctionProcessorProvider(node.getHandle());
+
             if (node.getSource().isEmpty()) {
-                throw new UnsupportedOperationException("table function operator is not yet implemented for table functions without input tables"); // TODO
+                OperatorFactory operatorFactory = new LeafTableFunctionOperatorFactory(context.getNextOperatorId(), node.getId(), processorProvider, node.getHandle().getFunctionHandle());
+                return new PhysicalOperation(operatorFactory, makeLayout(node), context);
             }
 
             PhysicalOperation source = node.getSource().orElseThrow().accept(this, context);
-
-            TableFunctionProcessorProvider processorProvider = plannerContext.getFunctionManager().getTableFunctionProcessorProvider(node.getHandle());
 
             int properChannelsCount = node.getProperOutputs().size();
 
