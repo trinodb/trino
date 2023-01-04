@@ -297,6 +297,7 @@ public abstract class BaseJdbcClient
 
         try (Connection connection = connectionFactory.openConnection(session);
                 ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
+            Map<String, CaseSensitivity> caseSensitivityMapping = getCaseSensitivityForColumns(session, connection, tableHandle);
             int allColumns = 0;
             List<JdbcColumnHandle> columns = new ArrayList<>();
             while (resultSet.next()) {
@@ -312,7 +313,7 @@ public abstract class BaseJdbcClient
                         getInteger(resultSet, "COLUMN_SIZE"),
                         getInteger(resultSet, "DECIMAL_DIGITS"),
                         Optional.empty(),
-                        Optional.empty());
+                        Optional.ofNullable(caseSensitivityMapping.get(columnName)));
                 Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
                 log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
@@ -346,6 +347,11 @@ public abstract class BaseJdbcClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, JdbcTableHandle tableHandle)
+    {
+        return ImmutableMap.of();
     }
 
     protected static Optional<Integer> getInteger(ResultSet resultSet, String columnLabel)
