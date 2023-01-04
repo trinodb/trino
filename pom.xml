@@ -61,7 +61,7 @@
         <dep.tempto.version>190</dep.tempto.version>
         <dep.gcs.version>2.2.8</dep.gcs.version>
         <dep.errorprone.version>2.15.0</dep.errorprone.version>
-        <dep.testcontainers.version>1.17.3</dep.testcontainers.version>
+        <dep.testcontainers.version>1.17.6</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.coral.version>2.0.77</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
@@ -1623,7 +1623,7 @@
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-compress</artifactId>
-                <version>1.21</version>
+                <version>1.22</version>
             </dependency>
 
             <dependency>
