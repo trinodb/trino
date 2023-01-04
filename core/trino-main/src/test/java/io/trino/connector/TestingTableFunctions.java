@@ -17,11 +17,15 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.ptf.AbstractConnectorTableFunction;
@@ -39,7 +43,9 @@ import io.trino.spi.ptf.TableFunctionDataProcessor;
 import io.trino.spi.ptf.TableFunctionProcessorProvider;
 import io.trino.spi.ptf.TableFunctionProcessorState;
 import io.trino.spi.ptf.TableFunctionProcessorState.Processed;
+import io.trino.spi.ptf.TableFunctionSplitProcessor;
 import io.trino.spi.type.RowType;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Map;
@@ -50,6 +56,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.connector.TestingTableFunctions.ConstantFunction.ConstantFunctionSplit.DEFAULT_SPLIT_SIZE;
 import static io.trino.spi.ptf.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.ptf.ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH;
 import static io.trino.spi.ptf.TableFunctionProcessorState.Finished.FINISHED;
@@ -60,6 +67,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class TestingTableFunctions
@@ -1062,6 +1070,263 @@ public class TestingTableFunctions
                     }
                     return usedInputAndProduced(result);
                 };
+            }
+        }
+    }
+
+    public static class ConstantFunction
+            extends AbstractConnectorTableFunction
+    {
+        public ConstantFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "constant",
+                    ImmutableList.of(
+                            ScalarArgumentSpecification.builder()
+                                    .name("VALUE")
+                                    .type(INTEGER)
+                                    .build(),
+                            ScalarArgumentSpecification.builder()
+                                    .name("N")
+                                    .type(INTEGER)
+                                    .defaultValue(1L)
+                                    .build()),
+                    new DescribedTable(Descriptor.descriptor(
+                            ImmutableList.of("constant_column"),
+                            ImmutableList.of(INTEGER))));
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            ScalarArgument count = (ScalarArgument) arguments.get("N");
+            requireNonNull(count.getValue(), "count value for function repeat() is null");
+            checkArgument((long) count.getValue() > 0, "count value for function repeat() must be positive");
+
+            return TableFunctionAnalysis.builder()
+                    .handle(new ConstantFunctionHandle((Long) ((ScalarArgument) arguments.get("VALUE")).getValue(), (long) count.getValue()))
+                    .build();
+        }
+
+        public static class ConstantFunctionHandle
+                implements ConnectorTableFunctionHandle
+        {
+            private final Long value;
+            private final long count;
+
+            @JsonCreator
+            public ConstantFunctionHandle(@JsonProperty("value") Long value, @JsonProperty("count") long count)
+            {
+                this.value = value;
+                this.count = count;
+            }
+
+            @JsonProperty
+            public Long getValue()
+            {
+                return value;
+            }
+
+            @JsonProperty
+            public long getCount()
+            {
+                return count;
+            }
+        }
+
+        public static class ConstantFunctionProcessorProvider
+                implements TableFunctionProcessorProvider
+        {
+            @Override
+            public TableFunctionSplitProcessor getSplitProcessor(ConnectorTableFunctionHandle handle)
+            {
+                return new ConstantFunctionProcessor(((ConstantFunctionHandle) handle).getValue());
+            }
+        }
+
+        public static class ConstantFunctionProcessor
+                implements TableFunctionSplitProcessor
+        {
+            private static final int PAGE_SIZE = 1000;
+
+            private final Long value;
+
+            private long fullPagesCount;
+            private long processedPages;
+            private int reminder;
+            private Block block;
+
+            public ConstantFunctionProcessor(Long value)
+            {
+                this.value = value;
+            }
+
+            @Override
+            public TableFunctionProcessorState process(ConnectorSplit split)
+            {
+                boolean usedData = false;
+
+                if (split != null) {
+                    long count = ((ConstantFunctionSplit) split).getCount();
+                    this.fullPagesCount = count / PAGE_SIZE;
+                    this.reminder = toIntExact(count % PAGE_SIZE);
+                    if (fullPagesCount > 0) {
+                        BlockBuilder builder = INTEGER.createBlockBuilder(null, PAGE_SIZE);
+                        if (value == null) {
+                            for (int i = 0; i < PAGE_SIZE; i++) {
+                                builder.appendNull();
+                            }
+                        }
+                        else {
+                            for (int i = 0; i < PAGE_SIZE; i++) {
+                                builder.writeInt(toIntExact(value));
+                            }
+                        }
+                        this.block = builder.build();
+                    }
+                    else {
+                        BlockBuilder builder = INTEGER.createBlockBuilder(null, reminder);
+                        if (value == null) {
+                            for (int i = 0; i < reminder; i++) {
+                                builder.appendNull();
+                            }
+                        }
+                        else {
+                            for (int i = 0; i < reminder; i++) {
+                                builder.writeInt(toIntExact(value));
+                            }
+                        }
+                        this.block = builder.build();
+                    }
+                    usedData = true;
+                }
+
+                if (processedPages < fullPagesCount) {
+                    processedPages++;
+                    Page result = new Page(block);
+                    if (usedData) {
+                        return usedInputAndProduced(result);
+                    }
+                    return produced(result);
+                }
+
+                if (reminder > 0) {
+                    Page result = new Page(block.getRegion(0, toIntExact(reminder)));
+                    reminder = 0;
+                    if (usedData) {
+                        return usedInputAndProduced(result);
+                    }
+                    return produced(result);
+                }
+
+                return FINISHED;
+            }
+        }
+
+        public static ConnectorSplitSource getConstantFunctionSplitSource(ConstantFunctionHandle handle)
+        {
+            long splitSize = DEFAULT_SPLIT_SIZE;
+            ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
+            for (long i = 0; i < handle.getCount() / splitSize; i++) {
+                splits.add(new ConstantFunctionSplit(splitSize));
+            }
+            long remainingSize = handle.getCount() % splitSize;
+            if (remainingSize > 0) {
+                splits.add(new ConstantFunctionSplit(remainingSize));
+            }
+            return new FixedSplitSource(splits.build());
+        }
+
+        public static final class ConstantFunctionSplit
+                implements ConnectorSplit
+        {
+            private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ConstantFunctionSplit.class).instanceSize());
+            public static final int DEFAULT_SPLIT_SIZE = 5500;
+
+            private final long count;
+
+            @JsonCreator
+            public ConstantFunctionSplit(@JsonProperty("count") long count)
+            {
+                this.count = count;
+            }
+
+            @JsonProperty
+            public long getCount()
+            {
+                return count;
+            }
+
+            @Override
+            public boolean isRemotelyAccessible()
+            {
+                return true;
+            }
+
+            @Override
+            public List<HostAddress> getAddresses()
+            {
+                return ImmutableList.of();
+            }
+
+            @Override
+            public Object getInfo()
+            {
+                return count;
+            }
+
+            @Override
+            public long getRetainedSizeInBytes()
+            {
+                return INSTANCE_SIZE;
+            }
+        }
+    }
+
+    public static class EmptySourceFunction
+            extends AbstractConnectorTableFunction
+    {
+        public EmptySourceFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "empty_source",
+                    ImmutableList.of(),
+                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))));
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(new EmptyTableFunctionHandle())
+                    .build();
+        }
+
+        public static class EmptySourceFunctionProcessorProvider
+                implements TableFunctionProcessorProvider
+        {
+            @Override
+            public TableFunctionSplitProcessor getSplitProcessor(ConnectorTableFunctionHandle handle)
+            {
+                return new EmptySourceFunctionProcessor();
+            }
+        }
+
+        public static class EmptySourceFunctionProcessor
+                implements TableFunctionSplitProcessor
+        {
+            private static final Page EMPTY_PAGE = new Page(BOOLEAN.createBlockBuilder(null, 0).build());
+
+            @Override
+            public TableFunctionProcessorState process(ConnectorSplit split)
+            {
+                if (split == null) {
+                    return FINISHED;
+                }
+
+                return usedInputAndProduced(EMPTY_PAGE);
             }
         }
     }
