@@ -102,6 +102,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.PRIMITIVE;
 
 public class ParquetPageSourceFactory
@@ -142,6 +143,16 @@ public class ParquetPageSourceFactory
         this.stats = requireNonNull(stats, "stats is null");
         options = config.toParquetReaderOptions();
         timeZone = hiveConfig.getParquetDateTimeZone();
+    }
+
+    public static Properties stripUnnecessaryProperties(Properties schema)
+    {
+        if (PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
+            Properties stripped = new Properties();
+            stripped.put(SERIALIZATION_LIB, schema.getProperty(SERIALIZATION_LIB));
+            return stripped;
+        }
+        return schema;
     }
 
     @Override

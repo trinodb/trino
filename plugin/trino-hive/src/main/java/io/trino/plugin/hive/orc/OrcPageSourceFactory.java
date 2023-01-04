@@ -116,6 +116,7 @@ import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.isFullAcidTable;
+import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 
 public class OrcPageSourceFactory
         implements HivePageSourceFactory
@@ -163,6 +164,16 @@ public class OrcPageSourceFactory
         this.legacyTimeZone = legacyTimeZone;
         this.domainCompactionThreshold = domainCompactionThreshold;
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+    }
+
+    public static Properties stripUnnecessaryProperties(Properties schema)
+    {
+        if (isDeserializerClass(schema, OrcSerde.class) && !isFullAcidTable(Maps.fromProperties(schema))) {
+            Properties stripped = new Properties();
+            stripped.put(SERIALIZATION_LIB, schema.getProperty(SERIALIZATION_LIB));
+            return stripped;
+        }
+        return schema;
     }
 
     @Override

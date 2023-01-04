@@ -86,6 +86,7 @@ import static org.apache.hadoop.hive.serde.serdeConstants.FIELD_DELIM;
 import static org.apache.hadoop.hive.serde.serdeConstants.MAPKEY_DELIM;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LAST_COLUMN_TAKES_REST;
+import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_NULL_FORMAT;
 import static org.apache.hadoop.hive.serde2.lazy.LazySerDeParameters.SERIALIZATION_EXTEND_NESTING_LEVELS;
 import static org.apache.hadoop.hive.serde2.lazy.LazyUtils.getByte;
@@ -109,6 +110,16 @@ public class RcFilePageSourceFactory
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.timeZone = hiveConfig.getRcfileDateTimeZone();
+    }
+
+    public static Properties stripUnnecessaryProperties(Properties schema)
+    {
+        if (LazyBinaryColumnarSerDe.class.getName().equals(getDeserializerClassName(schema))) {
+            Properties stripped = new Properties();
+            stripped.put(SERIALIZATION_LIB, schema.getProperty(SERIALIZATION_LIB));
+            return stripped;
+        }
+        return schema;
     }
 
     @Override
