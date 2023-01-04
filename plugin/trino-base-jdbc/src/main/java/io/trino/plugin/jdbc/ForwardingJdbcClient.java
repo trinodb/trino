@@ -320,6 +320,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        delegate().setColumnType(session, handle, column, type);
+    }
+
+    @Override
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
         delegate().renameTable(session, handle, newTableName);
