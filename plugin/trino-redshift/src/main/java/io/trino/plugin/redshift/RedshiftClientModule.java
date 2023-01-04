@@ -54,16 +54,14 @@ public class RedshiftClientModule
     @Singleton
     @Provides
     @ForBaseJdbc
-    public static ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
-    {
-        return new DriverConnectionFactory(new Driver(), config.getConnectionUrl(), getDriverProperties(), credentialProvider);
-    }
-
-    private static Properties getDriverProperties()
+    public static ConnectionFactory getConnectionFactory(
+            BaseJdbcConfig config,
+            CredentialProvider credentialProvider)
     {
         Properties properties = new Properties();
         properties.put("reWriteBatchedInserts", "true");
         properties.put("reWriteBatchedInsertsSize", "512");
-        return properties;
+
+        return new DriverConnectionFactory(new Driver(), config.getConnectionUrl(), properties, credentialProvider);
     }
 }
