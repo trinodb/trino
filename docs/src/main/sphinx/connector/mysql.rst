@@ -22,11 +22,10 @@ To connect to MySQL, you need:
 Configuration
 -------------
 
-To configure the MySQL connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``mysql.properties``, to
-mount the MySQL connector as the ``mysql`` catalog.
-Create the file with the following contents, replacing the
-connection properties as appropriate for your setup:
+To configure the MySQL connector, create a catalog properties file in
+``etc/catalog`` named, for example, ``example.properties``, to mount the MySQL
+connector as the ``mysql`` catalog. Create the file with the following contents,
+replacing the connection properties as appropriate for your setup:
 
 .. code-block:: text
 
@@ -266,25 +265,25 @@ Querying MySQL
 The MySQL connector provides a schema for every MySQL *database*.
 You can see the available MySQL databases by running ``SHOW SCHEMAS``::
 
-    SHOW SCHEMAS FROM mysql;
+    SHOW SCHEMAS FROM example;
 
 If you have a MySQL database named ``web``, you can view the tables
 in this database by running ``SHOW TABLES``::
 
-    SHOW TABLES FROM mysql.web;
+    SHOW TABLES FROM example.web;
 
 You can see a list of the columns in the ``clicks`` table in the ``web`` database
 using either of the following::
 
-    DESCRIBE mysql.web.clicks;
-    SHOW COLUMNS FROM mysql.web.clicks;
+    DESCRIBE example.web.clicks;
+    SHOW COLUMNS FROM example.web.clicks;
 
 Finally, you can access the ``clicks`` table in the ``web`` database::
 
-    SELECT * FROM mysql.web.clicks;
+    SELECT * FROM example.web.clicks;
 
 If you used a different name for your catalog properties file, use
-that catalog name instead of ``mysql`` in the above examples.
+that catalog name instead of ``example`` in the above examples.
 
 .. _mysql-sql-support:
 
@@ -332,7 +331,7 @@ For example, group and concatenate all employee IDs by manager ID::
       *
     FROM
       TABLE(
-        mysql.system.query(
+        example.system.query(
           query => 'SELECT
             manager_id, GROUP_CONCAT(employee_id)
           FROM
