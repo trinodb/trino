@@ -5609,6 +5609,22 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testSubqueryContainVersionedTable()
+    {
+        String tableName = "test_subquery_versioned" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 id", 1);
+        long snapshotId = getCurrentSnapshotId(tableName);
+        String timestamp = timestampLiteral(getCommittedAtInEpochMilliseconds(tableName, snapshotId), 9);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+
+        assertQuery("SELECT * FROM " + tableName + " WHERE id = (SELECT id FROM " + tableName + " FOR VERSION AS OF " + snapshotId + ")", "VALUES 1");
+        assertQuery("SELECT * FROM " + tableName + " WHERE id = (SELECT id FROM " + tableName + " FOR TIMESTAMP AS OF " + timestamp + ")", "VALUES 1");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testReadingFromSpecificSnapshot()
     {
         String tableName = "test_reading_snapshot" + randomNameSuffix();
