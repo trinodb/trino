@@ -33,6 +33,7 @@ import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 
@@ -68,6 +69,7 @@ public class DeltaLakeConnector
     // Delta lake is not transactional but we use Trino transaction boundaries to create a per-query
     // caching Hive metastore clients. DeltaLakeTransactionManager is used to store those.
     private final DeltaLakeTransactionManager transactionManager;
+    private final Set<ConnectorTableFunction> tableFunctions;
 
     public DeltaLakeConnector(
             LifeCycleManager lifeCycleManager,
@@ -84,7 +86,8 @@ public class DeltaLakeConnector
             List<PropertyMetadata<?>> analyzeProperties,
             Optional<ConnectorAccessControl> accessControl,
             Set<EventListener> eventListeners,
-            DeltaLakeTransactionManager transactionManager)
+            DeltaLakeTransactionManager transactionManager,
+            Set<ConnectorTableFunction> tableFunctions)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -104,6 +107,7 @@ public class DeltaLakeConnector
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.eventListeners = ImmutableSet.copyOf(requireNonNull(eventListeners, "eventListeners is null"));
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.tableFunctions = requireNonNull(tableFunctions, "tableFunctions is null");
     }
 
     @Override
@@ -222,5 +226,11 @@ public class DeltaLakeConnector
     public Set<ConnectorCapabilities> getCapabilities()
     {
         return immutableEnumSet(NOT_NULL_COLUMN_CONSTRAINT);
+    }
+
+    @Override
+    public Set<ConnectorTableFunction> getTableFunctions()
+    {
+        return tableFunctions;
     }
 }
