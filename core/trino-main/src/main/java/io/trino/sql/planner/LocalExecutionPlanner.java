@@ -292,6 +292,7 @@ import static io.trino.SystemSessionProperties.getAdaptivePartialAggregationUniq
 import static io.trino.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
+import static io.trino.SystemSessionProperties.getPagePartitioningBufferPoolSize;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static io.trino.SystemSessionProperties.getTaskScaleWritersMaxWriterCount;
@@ -580,7 +581,10 @@ public class LocalExecutionPlanner
                         nullChannel,
                         outputBuffer,
                         maxPagePartitioningBufferSize,
-                        positionsAppenderFactory));
+                        positionsAppenderFactory,
+                        taskContext.getSession().getExchangeEncryptionKey(),
+                        taskContext.newAggregateMemoryContext(),
+                        getPagePartitioningBufferPoolSize(taskContext.getSession())));
     }
 
     public LocalExecutionPlan plan(
