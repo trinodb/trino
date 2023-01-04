@@ -113,6 +113,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
 
             case SUPPORTS_DROP_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
+            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
             case SUPPORTS_DELETE:

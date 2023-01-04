@@ -124,6 +124,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_TYPE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_COLUMN_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TRUNCATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
@@ -2184,6 +2185,169 @@ public abstract class BaseConnectorTest
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME COLUMN columnNotExists TO y");
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME COLUMN IF EXISTS columnNotExists TO y");
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
+    public void testSetColumnType()
+    {
+        if (!hasBehavior(SUPPORTS_SET_COLUMN_TYPE)) {
+            assertQueryFails("ALTER TABLE nation ALTER COLUMN nationkey SET DATA TYPE bigint", "This connector does not support setting column types");
+            return;
+        }
+
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_", "AS SELECT CAST(123 AS integer) AS col")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE bigint");
+
+            assertEquals(getColumnType(table.getName(), "col"), "bigint");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES bigint '123'");
+        }
+    }
+
+    @Test(dataProvider = "setColumnTypesDataProvider")
+    public void testSetColumnTypes(SetColumnTypeSetup setup)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_", " AS SELECT CAST(" + setup.sourceValueLiteral + " AS " + setup.sourceColumnType + ") AS col")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE " + setup.newColumnType);
+
+            assertEquals(getColumnType(table.getName(), "col"), setup.newColumnType);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES " + setup.newValueLiteral);
+        }
+        catch (Exception e) {
+            verifyUnsupportedTypeException(e, setup.sourceColumnType);
+            throw new SkipException("Unsupported column type: " + setup.sourceColumnType);
+        }
+    }
+
+    @DataProvider
+    public Object[][] setColumnTypesDataProvider()
+    {
+        return setColumnTypeSetupData().stream()
+                .map(this::filterSetColumnTypesDataProvider)
+                .flatMap(Optional::stream)
+                .collect(toDataProvider());
+    }
+
+    protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
+    {
+        return Optional.of(setup);
+    }
+
+    private List<SetColumnTypeSetup> setColumnTypeSetupData()
+    {
+        return ImmutableList.<SetColumnTypeSetup>builder()
+                .add(new SetColumnTypeSetup("tinyint", "tinyint '127'", "smallint", "smallint '127'"))
+                .add(new SetColumnTypeSetup("smallint", "smallint '32767'", "integer", "32767"))
+                .add(new SetColumnTypeSetup("integer", "2147483647", "bigint", "bigint '2147483647'"))
+                .add(new SetColumnTypeSetup("bigint", "bigint '-2147483648'", "integer", "-2147483648"))
+                .add(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(10,3)", "12.345")) // short decimal -> short decimal
+                .add(new SetColumnTypeSetup("decimal(28,3)", "12.345", "decimal(38,3)", "12.345")) // long decimal -> long decimal
+                .add(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(38,3)", "12.345")) // short decimal -> long decimal
+                .add(new SetColumnTypeSetup("decimal(5,3)", "12.340", "decimal(5,2)", "12.34"))
+                .add(new SetColumnTypeSetup("decimal(5,3)", "12.349", "decimal(5,2)", "12.35"))
+                .add(new SetColumnTypeSetup("time(3)", "time '15:03:00.123'", "time(6)", "time '15:03:00.123000'"))
+                .add(new SetColumnTypeSetup("time(6)", "time '15:03:00.123000'", "time(3)", "time '15:03:00.123'"))
+                .add(new SetColumnTypeSetup("time(6)", "time '15:03:00.123999'", "time(3)", "time '15:03:00.124'"))
+                .add(new SetColumnTypeSetup("timestamp(3)", "timestamp '2020-02-12 15:03:00.123'", "timestamp(6)", "timestamp '2020-02-12 15:03:00.123000'"))
+                .add(new SetColumnTypeSetup("timestamp(6)", "timestamp '2020-02-12 15:03:00.123000'", "timestamp(3)", "timestamp '2020-02-12 15:03:00.123'"))
+                .add(new SetColumnTypeSetup("timestamp(6)", "timestamp '2020-02-12 15:03:00.123999'", "timestamp(3)", "timestamp '2020-02-12 15:03:00.124'"))
+                .add(new SetColumnTypeSetup("timestamp(3) with time zone", "timestamp '2020-02-12 15:03:00.123 +01:00'", "timestamp(6) with time zone", "timestamp '2020-02-12 15:03:00.123000 +01:00'"))
+                .add(new SetColumnTypeSetup("varchar(100)", "'shorten-varchar'", "varchar(50)", "'shorten-varchar'"))
+                .add(new SetColumnTypeSetup("char(100)", "'shorten-char'", "char(50)", "cast('shorten-char' as char(50))"))
+                .add(new SetColumnTypeSetup("char(100)", "'char-to-varchar'", "varchar", "'char-to-varchar'"))
+                .add(new SetColumnTypeSetup("varchar", "'varchar-to-char'", "char(100)", "cast('varchar-to-char' as char(100))"))
+                .build();
+    }
+
+    public record SetColumnTypeSetup(String sourceColumnType, String sourceValueLiteral, String newColumnType, String newValueLiteral)
+    {
+        public SetColumnTypeSetup
+        {
+            requireNonNull(sourceColumnType, "sourceColumnType is null");
+            requireNonNull(sourceValueLiteral, "sourceValueLiteral is null");
+            requireNonNull(newColumnType, "newColumnType is null");
+            requireNonNull(newValueLiteral, "newValueLiteral is null");
+        }
+    }
+
+    @Test
+    public void testSetColumnTypeWithNotNull()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_null_", "(col int NOT NULL)")) {
+            assertFalse(columnIsNullable(table.getName(), "col"));
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE bigint");
+            assertFalse(columnIsNullable(table.getName(), "col"));
+        }
+    }
+
+    @Test
+    public void testSetColumnTypeWithComment()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_comment_", "(col int COMMENT 'test')")) {
+            assertEquals(getColumnComment(table.getName(), "col"), "test comment");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE bigint");
+            assertEquals(getColumnComment(table.getName(), "col"), "test comment");
+        }
+    }
+
+    @Test
+    public void testSetColumnTypeWithDefaultColumn()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_INSERT));
+
+        try (TestTable table = createTableWithDefaultColumns()) {
+            // col_default column inserts 43 by default
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col_default SET DATA TYPE bigint");
+            assertUpdate("INSERT INTO " + table.getName() + " (col_required, col_required2) VALUES (1, 10)", 1);
+            assertQuery("SELECT col_default FROM " + table.getName(), "VALUES 43");
+        }
+    }
+
+    @Test
+    public void testSetColumnIncompatibleType()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_invalid_column_type_", "AS SELECT 'test' AS col")) {
+            assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE integer"))
+                    .satisfies(this::verifySetColumnTypeFailurePermissible);
+        }
+    }
+
+    @Test
+    public void testSetColumnOutOfRangeType()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_invalid_range_", "AS SELECT CAST(9223372036854775807 AS bigint) AS col")) {
+            assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE integer"))
+                    .satisfies(this::verifySetColumnTypeFailurePermissible);
+        }
+    }
+
+    protected void verifySetColumnTypeFailurePermissible(Throwable e)
+    {
+        throw new AssertionError("Unexpected set column type failure", e);
+    }
+
+    private String getColumnType(String tableName, String columnName)
+    {
+        return (String) computeScalar(format("SELECT data_type FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = '%s' AND column_name = '%s'",
+                tableName,
+                columnName));
     }
 
     @Test

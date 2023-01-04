@@ -275,6 +275,12 @@ public class TestJdbcConnectorTest
     }
 
     @Override
+    protected void verifySetColumnTypeFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("(?s).*(Data conversion error converting|value out of range).*");
+    }
+
+    @Override
     protected JdbcSqlExecutor onRemoteDatabase()
     {
         return new JdbcSqlExecutor(properties.get("connection-url"), new Properties());
