@@ -52,6 +52,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
+import io.trino.testing.TestingGroupProvider;
 import io.trino.testing.TestingSession;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -111,6 +112,7 @@ public class TestAccessControl
         extends AbstractTestQueryFramework
 {
     private final AtomicReference<SystemAccessControl> systemAccessControl = new AtomicReference<>(new DefaultSystemAccessControl());
+    private final TestingGroupProvider groupProvider = new TestingGroupProvider();
     private TestingSystemSecurityMetadata systemSecurityMetadata;
 
     @Override
@@ -137,6 +139,7 @@ public class TestAccessControl
                     }
                 })
                 .build();
+        queryRunner.getGroupProvider().setConfiguredGroupProvider(groupProvider);
         queryRunner.installPlugin(new BlackHolePlugin());
         queryRunner.createCatalog("blackhole", "blackhole");
         queryRunner.installPlugin(new MemoryPlugin());
@@ -222,7 +225,7 @@ public class TestAccessControl
         requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null")
                 .reset();
         getQueryRunner().getAccessControl().reset();
-        getQueryRunner().getGroupProvider().reset();
+        groupProvider.reset();
     }
 
     @Test
@@ -363,7 +366,7 @@ public class TestAccessControl
                 .hasMessageMatching("Access Denied: View owner does not have sufficient privileges: View owner 'test_view_access_owner' cannot create view that selects from \\w+.\\w+.orders");
 
         // verify view can be queried when owner is in group
-        getQueryRunner().getGroupProvider().setUserGroups(ImmutableMap.of(viewOwnerSession.getUser(), ImmutableSet.of("testgroup")));
+        groupProvider.setUserGroups(ImmutableMap.of(viewOwnerSession.getUser(), ImmutableSet.of("testgroup")));
         getQueryRunner().execute(getSession(), "SELECT * FROM " + columnAccessViewName);
 
         // change access denied exception to view

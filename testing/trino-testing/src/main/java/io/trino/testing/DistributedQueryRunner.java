@@ -391,7 +391,7 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public TestingGroupProvider getGroupProvider()
+    public TestingGroupProviderManager getGroupProvider()
     {
         return coordinator.getGroupProvider();
     }
