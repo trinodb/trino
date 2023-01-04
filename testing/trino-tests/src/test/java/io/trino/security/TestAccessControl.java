@@ -23,6 +23,7 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
@@ -46,6 +47,7 @@ import io.trino.spi.security.SelectedRole;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.security.ViewExpression;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DataProviders;
 import io.trino.testing.DistributedQueryRunner;
@@ -955,6 +957,35 @@ public class TestAccessControl
         assertAccessAllowed("CREATE TABLE mock.default.new_table (pk bigint)");
         assertAccessAllowed("CREATE SCHEMA mock.new_schema");
         assertAccessAllowed("CREATE MATERIALIZED VIEW mock.default.new_materialized_view AS SELECT 1 a");
+    }
+
+    @Test
+    public void testAccessControlWithGroupsAndColumnMask()
+    {
+        groupProvider.setUserGroups(ImmutableMap.of(getSession().getUser(), ImmutableSet.of("group")));
+        TestingAccessControlManager accessControlManager = getQueryRunner().getAccessControl();
+        accessControlManager.denyIdentityTable((identity, table) -> (identity.getGroups().contains("group") && "orders".equals(table)));
+        accessControlManager.columnMask(
+                new QualifiedObjectName("blackhole", "default", "orders"),
+                "comment",
+                getSession().getUser(),
+                new ViewExpression(getSession().getUser(), Optional.empty(), Optional.empty(), "substr(comment,1,3)"));
+
+        assertAccessAllowed("SELECT comment FROM orders");
+    }
+
+    @Test
+    public void testAccessControlWithGroupsAndRowFilter()
+    {
+        groupProvider.setUserGroups(ImmutableMap.of(getSession().getUser(), ImmutableSet.of("group")));
+        TestingAccessControlManager accessControlManager = getQueryRunner().getAccessControl();
+        accessControlManager.denyIdentityTable((identity, table) -> (identity.getGroups().contains("group") && "nation".equals(table)));
+        accessControlManager.rowFilter(
+                new QualifiedObjectName("blackhole", "default", "nation"),
+                getSession().getUser(),
+                new ViewExpression(getSession().getUser(), Optional.empty(), Optional.empty(), "nationkey % 2 = 0"));
+
+        assertAccessAllowed("SELECT nationkey FROM nation");
     }
 
     private static final class DenySetPropertiesSystemAccessControl
