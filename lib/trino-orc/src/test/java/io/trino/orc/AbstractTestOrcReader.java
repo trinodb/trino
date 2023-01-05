@@ -23,6 +23,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
+import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.SqlVarbinary;
@@ -53,6 +54,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
@@ -314,6 +316,25 @@ public abstract class AbstractTestOrcReader
                 .buildOrThrow();
         map.forEach((expected, value) -> assertEquals(value.toString(), expected));
         tester.testRoundTrip(TIMESTAMP_MILLIS, newArrayList(limit(cycle(map.values()), 30_000)));
+    }
+
+    @Test
+    public void testTimeMicros()
+            throws Exception
+    {
+        Map<String, SqlTime> map = ImmutableMap.<String, SqlTime>builder()
+                .put("00:00:00.000000", SqlTime.newInstance(6, 0L))
+                .put("12:05:19.257000", SqlTime.newInstance(6, 43519257000000000L))
+                .put("17:37:07.638000", SqlTime.newInstance(6, 63427638000000000L))
+                .put("05:17:37.346000", SqlTime.newInstance(6, 19057346000000000L))
+                .put("06:09:00.988000", SqlTime.newInstance(6, 22140988000000000L))
+                .put("13:31:34.185000", SqlTime.newInstance(6, 48694185000000000L))
+                .put("01:09:07.185000", SqlTime.newInstance(6, 4147185000000000L))
+                .put("20:43:39.822000", SqlTime.newInstance(6, 74619822000000000L))
+                .put("23:59:59.999000", SqlTime.newInstance(6, 86399999000000000L))
+                .buildOrThrow();
+        map.forEach((expected, value) -> assertEquals(value.toString(), expected));
+        tester.testRoundTrip(TIME_MICROS, newArrayList(limit(cycle(map.values()), 30_000)));
     }
 
     @Test
