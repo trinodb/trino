@@ -132,12 +132,6 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName, Map<String, Object> properties)
     {
-        checkCanCreateSchema(context, schemaName);
-    }
-
-    @Override
-    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
-    {
         if (!isAdmin(context)) {
             denyCreateSchema(schemaName);
         }

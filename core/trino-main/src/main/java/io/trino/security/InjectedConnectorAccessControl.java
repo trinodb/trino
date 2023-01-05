@@ -14,7 +14,6 @@
 package io.trino.security;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -58,13 +57,6 @@ public class InjectedConnectorAccessControl
     {
         checkArgument(context == null, "context must be null");
         accessControl.checkCanCreateSchema(securityContext, getCatalogSchemaName(schemaName), properties);
-    }
-
-    @Override
-    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
-    {
-        checkArgument(context == null, "context must be null");
-        accessControl.checkCanCreateSchema(securityContext, getCatalogSchemaName(schemaName), ImmutableMap.of());
     }
 
     @Override
