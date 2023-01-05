@@ -58,7 +58,6 @@ import org.apache.hadoop.hive.ql.exec.Utilities;
 import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
-import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -460,11 +459,6 @@ public final class HiveUtil
 
     private static Class<? extends Deserializer> getDeserializerClass(String name)
     {
-        // legacy name for Parquet
-        if ("parquet.hive.serde.ParquetHiveSerDe".equals(name)) {
-            return ParquetHiveSerDe.class;
-        }
-
         if (AVRO_SERDE_CLASS.equals(name)) {
             return TrinoAvroSerDe.class;
         }
