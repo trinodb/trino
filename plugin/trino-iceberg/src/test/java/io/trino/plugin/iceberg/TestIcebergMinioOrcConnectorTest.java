@@ -135,6 +135,23 @@ public class TestIcebergMinioOrcConnectorTest
         }
     }
 
+    @Test
+    public void testTimeType()
+    {
+        // Regression test for https://github.com/trinodb/trino/issues/15603
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_time", "(col time(6))")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (TIME '13:30:00'), (TIME '14:30:00'), (NULL)", 3);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES '13:30:00', '14:30:00', NULL");
+            assertQuery(
+                    "SHOW STATS FOR " + table.getName(),
+                    """
+                            VALUES
+                            ('col', null, 2.0, 0.33333333333, null, null, null),
+                            (null, null, null, null, 3, null, null)
+                            """);
+        }
+    }
+
     @Override
     public void testDropAmbiguousRowFieldCaseSensitivity()
     {
