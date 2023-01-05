@@ -51,6 +51,7 @@ public class TestExponentialGrowthPartitionMemoryEstimator
                 nodeManager,
                 () -> ImmutableMap.of(new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false).getNodeIdentifier(), Optional.of(buildWorkerMemoryInfo(DataSize.ofBytes(0)))),
                 false,
+                true,
                 Duration.of(1, MINUTES),
                 DataSize.ofBytes(0),
                 Ticker.systemTicker());
@@ -77,6 +78,14 @@ public class TestExponentialGrowthPartitionMemoryEstimator
                         new MemoryRequirements(DataSize.of(50, MEGABYTE)),
                         DataSize.of(10, MEGABYTE),
                         StandardErrorCode.CLUSTER_OUT_OF_MEMORY.toErrorCode()))
+                .isEqualTo(new MemoryRequirements(DataSize.of(150, MEGABYTE)));
+
+        assertThat(
+                estimator.getNextRetryMemoryRequirements(
+                        session,
+                        new MemoryRequirements(DataSize.of(50, MEGABYTE)),
+                        DataSize.of(10, MEGABYTE),
+                        StandardErrorCode.TOO_MANY_REQUESTS_FAILED.toErrorCode()))
                 .isEqualTo(new MemoryRequirements(DataSize.of(150, MEGABYTE)));
 
         assertThat(

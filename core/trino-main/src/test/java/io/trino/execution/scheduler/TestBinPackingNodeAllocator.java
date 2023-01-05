@@ -101,6 +101,7 @@ public class TestBinPackingNodeAllocator
                 nodeManager,
                 () -> workerMemoryInfos,
                 false,
+                false,
                 Duration.of(1, MINUTES),
                 taskRuntimeMemoryEstimationOverhead,
                 ticker);
