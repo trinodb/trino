@@ -791,6 +791,8 @@ by running the following query::
     FROM example.testdb."customer_orders$snapshots"
     ORDER BY committed_at DESC
 
+.. _iceberg-time-travel:
+
 Time travel queries
 ^^^^^^^^^^^^^^^^^^^
 
