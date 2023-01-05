@@ -45,6 +45,8 @@ public class MemoryManagerConfig
     private DataSize faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead = DataSize.of(1, GIGABYTE);
     private LowMemoryQueryKillerPolicy lowMemoryQueryKillerPolicy = LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     private LowMemoryTaskKillerPolicy lowMemoryTaskKillerPolicy = LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
+    private boolean faultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled = true;
+
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
      */
@@ -187,6 +189,19 @@ public class MemoryManagerConfig
         checkArgument(faultTolerantExecutionTaskMemoryEstimationQuantile >= 0.0 && faultTolerantExecutionTaskMemoryEstimationQuantile <= 1.0,
                 "fault-tolerant-execution-task-memory-estimation-quantile must not be in [0.0, 1.0] range");
         this.faultTolerantExecutionTaskMemoryEstimationQuantile = faultTolerantExecutionTaskMemoryEstimationQuantile;
+        return this;
+    }
+
+    public boolean isFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled()
+    {
+        return faultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled;
+    }
+
+    @Config("fault-tolerant-execution.memory-requirement-increase-on-worker-crash-enabled")
+    @ConfigDescription("Increase memory requirement for tasks failed due to a suspected worker crash")
+    public MemoryManagerConfig setFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled(boolean faultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled)
+    {
+        this.faultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled = faultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled;
         return this;
     }
 
