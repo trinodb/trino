@@ -2252,6 +2252,23 @@ public abstract class AbstractTestJoinQueries
                 "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM small_part RIGHT JOIN lineitem ON  small_part.partkey = lineitem.partkey");
     }
 
+    @Test(timeOut = 30_000)
+    public void testRightJoinWithOuterJoinInLookupSource()
+    {
+        assertQuery(
+                noJoinReordering(),
+                "SELECT * FROM nation n1 " +
+                        "RIGHT JOIN " +
+                        "(SELECT n.nationkey FROM (SELECT * FROM lineitem WHERE suppkey BETWEEN 20 and 30) l LEFT JOIN nation n on l.suppkey = n.nationkey) n2" +
+                        " ON n1.nationkey = n2.nationkey + 1");
+        assertQuery(
+                noJoinReordering(),
+                "SELECT * FROM nation n1 " +
+                        "RIGHT JOIN " +
+                        "(SELECT n.nationkey FROM (SELECT * FROM lineitem WHERE suppkey BETWEEN 20 and 30) l RIGHT JOIN nation n on l.suppkey = n.nationkey) n2 " +
+                        "ON n1.nationkey = n2.nationkey + 1");
+    }
+
     @Test
     public void testEquijoinOnDifferentTypesWithFilter()
     {
