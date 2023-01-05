@@ -54,7 +54,7 @@ import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.DefaultCodec;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.hive.common.util.ReflectionUtil;
+import org.apache.hadoop.util.ReflectionUtils;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
@@ -795,7 +795,7 @@ public class HiveWriterFactory
 
         try {
             Class<? extends CompressionCodec> codecClass = conf.getClassByName(compressionCodecClass).asSubclass(CompressionCodec.class);
-            return ReflectionUtil.newInstance(codecClass, conf).getDefaultExtension();
+            return ReflectionUtils.newInstance(codecClass, conf).getDefaultExtension();
         }
         catch (ClassNotFoundException e) {
             throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Compression codec not found: " + compressionCodecClass, e);
