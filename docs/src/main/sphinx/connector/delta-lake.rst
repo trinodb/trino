@@ -217,6 +217,9 @@ connector.
       - A decimal value in the range (0, 1] used as a minimum for weights assigned to each split. A low value may improve performance
         on tables with small files. A higher value may improve performance for queries with highly skewed aggregations or joins.
       - 0.05
+    * - ``parquet.max-read-block-row-count``
+      - Sets the maximum number of rows read in a batch.
+      - ``8192``
     * - ``parquet.optimized-writer.enabled``
       - Whether the optimized writer should be used when writing Parquet files.
         The equivalent catalog session property is
