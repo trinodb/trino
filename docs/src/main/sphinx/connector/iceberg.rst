@@ -228,6 +228,9 @@ with Parquet files performed by the Iceberg connector.
     * - Property Name
       - Description
       - Default
+    * - ``parquet.max-read-block-row-count``
+      - Sets the maximum number of rows read in a batch.
+      - ``8192``
     * - ``parquet.optimized-reader.enabled``
       - Whether batched column readers should be used when reading Parquet files
         for improved performance. Set this property to ``false`` to disable the
