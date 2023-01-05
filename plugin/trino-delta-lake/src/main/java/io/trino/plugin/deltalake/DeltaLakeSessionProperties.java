@@ -161,7 +161,7 @@ public final class DeltaLakeSessionProperties
                         false),
                 booleanProperty(
                         EXTENDED_STATISTICS_ENABLED,
-                        "Use extended statistics collected by ANALYZE",
+                        "Enable collection (ANALYZE) and use of extended statistics.",
                         deltaLakeConfig.isExtendedStatisticsEnabled(),
                         false),
                 booleanProperty(
