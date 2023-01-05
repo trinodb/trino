@@ -91,7 +91,7 @@ public class TestingTaskSourceFactory
         for (RemoteSourceNode remoteSource : remoteSources) {
             checkArgument(remoteSource.getExchangeType() == REPLICATE, "expected exchange type to be REPLICATE, got: %s", remoteSource.getExchangeType());
             for (PlanFragmentId fragmentId : remoteSource.getSourceFragmentIds()) {
-                Collection<ExchangeSourceHandle> handles = requireNonNull(exchangeSourceHandles.get(fragmentId), () -> "exchange source handle is missing for fragment: " + fragmentId);
+                Collection<ExchangeSourceHandle> handles = exchangeSourceHandles.get(fragmentId);
                 checkArgument(handles.size() == 1, "single exchange source handle is expected, got: %s", handles);
                 result.putAll(remoteSource.getId(), handles);
             }
