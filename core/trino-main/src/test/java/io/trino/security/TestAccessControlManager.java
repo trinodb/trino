@@ -209,6 +209,7 @@ public class TestAccessControlManager
         }
     }
 
+    // TODO: need to properly handle the ordering of multiple masks as they are not allowed currently
     @Test
     public void testColumnMaskOrdering()
     {
@@ -259,16 +260,16 @@ public class TestAccessControlManager
                 }
             })));
 
-            transaction(transactionManager, accessControlManager)
+            assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
                     .execute(transactionId -> {
-                        List<ViewExpression> masks = accessControlManager.getColumnMasks(
+                        accessControlManager.getColumnMasks(
                                 context(transactionId),
                                 new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "table"),
                                 "column",
                                 BIGINT);
-                        assertEquals(masks.get(0).getExpression(), "connector mask");
-                        assertEquals(masks.get(1).getExpression(), "system mask");
-                    });
+                    }))
+                    .isInstanceOf(TrinoException.class)
+                    .hasMessageMatching("Multiple masks on a single column is not supported: column");
         }
     }
 

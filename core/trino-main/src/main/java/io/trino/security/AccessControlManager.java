@@ -1267,7 +1267,14 @@ public class AccessControlManager
                     .forEach(masks::add);
         }
 
-        return masks.build();
+        // Currently the use case of multiple masks on a single column is not supported, the reason being there's no guarantee about the order
+        // in which masks will be applied and whether the functions from different masks are compatible with each other.
+        List<ViewExpression> combinedMasks = masks.build();
+        if (combinedMasks.size() > 1) {
+            throw new TrinoException(NOT_SUPPORTED, format("Multiple masks on a single column is not supported: %s", columnName));
+        }
+
+        return combinedMasks;
     }
 
     private ConnectorAccessControl getConnectorAccessControl(TransactionId transactionId, String catalogName)
