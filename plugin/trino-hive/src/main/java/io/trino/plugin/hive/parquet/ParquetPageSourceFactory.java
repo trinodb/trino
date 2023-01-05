@@ -99,6 +99,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.isParquetUseColumnIndex
 import static io.trino.plugin.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static io.trino.plugin.hive.HiveSessionProperties.useParquetBloomFilter;
 import static io.trino.plugin.hive.parquet.ParquetPageSource.handleException;
+import static io.trino.plugin.hive.util.HiveClassNames.PARQUET_HIVE_SERDE_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
@@ -125,7 +126,7 @@ public class ParquetPageSourceFactory
             Optional.empty());
 
     private static final Set<String> PARQUET_SERDE_CLASS_NAMES = ImmutableSet.<String>builder()
-            .add("org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe")
+            .add(PARQUET_HIVE_SERDE_CLASS)
             .add("parquet.hive.serde.ParquetHiveSerDe")
             .build();
 

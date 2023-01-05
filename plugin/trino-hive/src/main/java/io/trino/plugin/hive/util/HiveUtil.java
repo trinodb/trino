@@ -62,7 +62,6 @@ import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
-import org.apache.hadoop.hive.serde2.avro.AvroSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
@@ -139,6 +138,8 @@ import static io.trino.plugin.hive.HiveType.toHiveTypes;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
+import static io.trino.plugin.hive.util.HiveClassNames.AVRO_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -433,11 +434,6 @@ public final class HiveUtil
         }
     }
 
-    public static boolean isDeserializerClass(Properties schema, Class<?> deserializerClass)
-    {
-        return getDeserializerClassName(schema).equals(deserializerClass.getName());
-    }
-
     public static String getDeserializerClassName(Properties schema)
     {
         String name = schema.getProperty(SERIALIZATION_LIB);
@@ -451,7 +447,7 @@ public final class HiveUtil
 
         // for collection delimiter, Hive 1.x, 2.x uses "colelction.delim" but Hive 3.x uses "collection.delim"
         // see also https://issues.apache.org/jira/browse/HIVE-16922
-        if (name.equals("org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe")) {
+        if (name.equals(LAZY_SIMPLE_SERDE_CLASS)) {
             if (schema.containsKey("colelction.delim") && !schema.containsKey(COLLECTION_DELIM)) {
                 schema.setProperty(COLLECTION_DELIM, schema.getProperty("colelction.delim"));
             }
@@ -469,7 +465,7 @@ public final class HiveUtil
             return ParquetHiveSerDe.class;
         }
 
-        if (AvroSerDe.class.getName().equals(name)) {
+        if (AVRO_SERDE_CLASS.equals(name)) {
             return TrinoAvroSerDe.class;
         }
 

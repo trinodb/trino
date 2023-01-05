@@ -54,7 +54,6 @@ import io.trino.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
-import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -103,7 +102,8 @@ import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.mergedRowC
 import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.updatedRowColumns;
 import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.updatedRowColumnsWithOriginalFiles;
 import static io.trino.plugin.hive.orc.OrcPageSource.handleException;
-import static io.trino.plugin.hive.util.HiveUtil.isDeserializerClass;
+import static io.trino.plugin.hive.util.HiveClassNames.ORC_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -168,7 +168,7 @@ public class OrcPageSourceFactory
 
     public static Properties stripUnnecessaryProperties(Properties schema)
     {
-        if (isDeserializerClass(schema, OrcSerde.class) && !isFullAcidTable(Maps.fromProperties(schema))) {
+        if (ORC_SERDE_CLASS.equals(getDeserializerClassName(schema)) && !isFullAcidTable(Maps.fromProperties(schema))) {
             Properties stripped = new Properties();
             stripped.put(SERIALIZATION_LIB, schema.getProperty(SERIALIZATION_LIB));
             return stripped;
@@ -192,7 +192,7 @@ public class OrcPageSourceFactory
             boolean originalFile,
             AcidTransaction transaction)
     {
-        if (!isDeserializerClass(schema, OrcSerde.class)) {
+        if (!ORC_SERDE_CLASS.equals(getDeserializerClassName(schema))) {
             return Optional.empty();
         }
 

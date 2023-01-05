@@ -61,11 +61,7 @@ import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
-import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
-import org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat;
-import org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat;
-import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -106,6 +102,10 @@ import static io.trino.plugin.hive.HiveSessionProperties.getTemporaryStagingDire
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyOnline;
 import static io.trino.plugin.hive.s3.HiveS3Module.EMR_FS_CLASS_NAME;
+import static io.trino.plugin.hive.util.HiveClassNames.AVRO_CONTAINER_OUTPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static io.trino.plugin.hive.util.HiveUtil.isArrayType;
 import static io.trino.plugin.hive.util.HiveUtil.isMapType;
@@ -181,16 +181,16 @@ public final class HiveWriteUtils
     {
         try {
             boolean compress = HiveConf.getBoolVar(conf, COMPRESSRESULT);
-            if (outputFormatName.equals(MapredParquetOutputFormat.class.getName())) {
+            if (outputFormatName.equals(MAPRED_PARQUET_OUTPUT_FORMAT_CLASS)) {
                 return ParquetRecordWriter.create(target, conf, properties, session);
             }
-            if (outputFormatName.equals(HiveIgnoreKeyTextOutputFormat.class.getName())) {
+            if (outputFormatName.equals(HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS)) {
                 return new TextRecordWriter(target, conf, properties, compress, textHeaderWriter);
             }
-            if (outputFormatName.equals(HiveSequenceFileOutputFormat.class.getName())) {
+            if (outputFormatName.equals(HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS)) {
                 return new SequenceFileRecordWriter(target, conf, Text.class, compress);
             }
-            if (outputFormatName.equals(AvroContainerOutputFormat.class.getName())) {
+            if (outputFormatName.equals(AVRO_CONTAINER_OUTPUT_FORMAT_CLASS)) {
                 return new AvroRecordWriter(target, conf, compress, properties);
             }
             Object writer = Class.forName(outputFormatName).getConstructor().newInstance();

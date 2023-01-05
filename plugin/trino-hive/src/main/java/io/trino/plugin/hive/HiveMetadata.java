@@ -125,7 +125,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
-import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.serde.serdeConstants;
 import org.apache.hadoop.hive.serde2.OpenCSVSerde;
 import org.apache.hadoop.mapred.JobConf;
@@ -270,6 +269,7 @@ import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat
 import static io.trino.plugin.hive.util.CompressionConfigUtil.configureCompression;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketHandle;
 import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
+import static io.trino.plugin.hive.util.HiveClassNames.ORC_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.columnMetadataGetter;
 import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.getRegularColumnHandles;
@@ -1774,7 +1774,7 @@ public class HiveMetadata
         }
 
         HiveCompressionCodec compression = selectCompressionCodec(session, format);
-        if (format.getOutputFormat().equals(OrcOutputFormat.class.getName()) && (compression == HiveCompressionCodec.ZSTD)) {
+        if (format.getOutputFormat().equals(ORC_OUTPUT_FORMAT_CLASS) && (compression == HiveCompressionCodec.ZSTD)) {
             compression = HiveCompressionCodec.GZIP; // ZSTD not supported by Hive ORC writer
         }
         JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(new HdfsContext(session), path));

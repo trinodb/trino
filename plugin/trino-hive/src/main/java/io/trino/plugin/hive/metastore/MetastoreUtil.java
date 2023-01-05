@@ -44,7 +44,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.ProtectMode;
-import org.apache.hadoop.hive.serde2.avro.AvroSerDe;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -66,6 +65,7 @@ import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
 import static io.trino.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.NUM_ROWS;
+import static io.trino.plugin.hive.util.HiveClassNames.AVRO_SERDE_CLASS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -155,7 +155,7 @@ public final class MetastoreUtil
             schema.setProperty(param.getKey(), (param.getValue() != null) ? param.getValue() : "");
         }
 
-        if (sd.getStorageFormat().getSerde().equals(AvroSerDe.class.getName()) && tableSd.isPresent()) {
+        if (sd.getStorageFormat().getSerde().equals(AVRO_SERDE_CLASS) && tableSd.isPresent()) {
             for (Map.Entry<String, String> param : tableSd.get().getSerdeParameters().entrySet()) {
                 schema.setProperty(param.getKey(), nullToEmpty(param.getValue()));
             }

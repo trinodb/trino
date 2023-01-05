@@ -36,6 +36,7 @@ import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveSessionProperties.isS3SelectPushdownEnabled;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.trino.plugin.hive.s3select.S3SelectSerDeDataTypeMapper.getDataType;
+import static io.trino.plugin.hive.util.HiveClassNames.TEXT_INPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getCompressionCodec;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.HiveUtil.getInputFormatName;
@@ -86,7 +87,7 @@ public final class S3SelectPushdown
     {
         String inputFormat = getInputFormatName(schema);
 
-        if (TextInputFormat.class.getName().equals(inputFormat)) {
+        if (TEXT_INPUT_FORMAT_CLASS.equals(inputFormat)) {
             if (!Objects.equals(schema.getProperty(SKIP_HEADER_COUNT_KEY, "0"), "0")) {
                 // S3 Select supports skipping one line of headers, but it was returning incorrect results for trino-hive-hadoop2/conf/files/test_table_with_header.csv.gz
                 // TODO https://github.com/trinodb/trino/issues/2349
