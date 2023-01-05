@@ -558,7 +558,9 @@ public class TrinoGlueCatalog
     {
         Optional<com.amazonaws.services.glue.model.Table> existing = getTable(session, schemaViewName);
         if (existing.isPresent()) {
-            if (!replace || !isPrestoView(firstNonNull(existing.get().getParameters(), ImmutableMap.of()))) {
+            com.amazonaws.services.glue.model.Table existingTable = existing.get();
+            boolean shouldReplace = isPrestoView(existingTable.getParameters()) && !isTrinoMaterializedView(existingTable.getTableType(), existingTable.getParameters());
+            if (!replace || !shouldReplace) {
                 // TODO: ViewAlreadyExists is misleading if the name is used by a table https://github.com/trinodb/trino/issues/10037
                 throw new ViewAlreadyExistsException(schemaViewName);
             }
