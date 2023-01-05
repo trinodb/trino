@@ -41,6 +41,7 @@ import io.trino.orc.metadata.statistics.StatisticsHasher;
 import io.trino.orc.metadata.statistics.StringStatistics;
 import io.trino.orc.metadata.statistics.StringStatisticsBuilder;
 import io.trino.orc.metadata.statistics.StripeStatistics;
+import io.trino.orc.metadata.statistics.TimeMicrosStatisticsBuilder;
 import io.trino.orc.metadata.statistics.TimestampStatisticsBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -93,6 +94,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
@@ -625,6 +627,11 @@ public class OrcWriteValidation
             }
             else if (VARBINARY.equals(type) || UUID.equals(type)) {
                 statisticsBuilder = new BinaryStatisticsBuilder();
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (TIME_MICROS.equals(type)) {
+                statisticsBuilder = new TimeMicrosStatisticsBuilder(new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
