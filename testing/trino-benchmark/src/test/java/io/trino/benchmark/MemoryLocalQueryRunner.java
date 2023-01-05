@@ -23,9 +23,6 @@ import io.trino.execution.TaskId;
 import io.trino.execution.TaskStateMachine;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
-import io.trino.metadata.Metadata;
-import io.trino.metadata.QualifiedObjectName;
-import io.trino.metadata.TableHandle;
 import io.trino.operator.Driver;
 import io.trino.operator.TaskContext;
 import io.trino.plugin.memory.MemoryConnectorFactory;
@@ -39,11 +36,9 @@ import org.intellij.lang.annotations.Language;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.assertTrue;
 
 public class MemoryLocalQueryRunner
         implements AutoCloseable
@@ -122,15 +117,6 @@ public class MemoryLocalQueryRunner
                 ImmutableMap.of("memory.max-data-per-node", "4GB"));
 
         return localQueryRunner;
-    }
-
-    public void dropTable(String tableName)
-    {
-        Session session = localQueryRunner.getDefaultSession();
-        Metadata metadata = localQueryRunner.getMetadata();
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, QualifiedObjectName.valueOf(tableName));
-        assertTrue(tableHandle.isPresent(), "Table " + tableName + " does not exist");
-        metadata.dropTable(session, tableHandle.get());
     }
 
     @Override
