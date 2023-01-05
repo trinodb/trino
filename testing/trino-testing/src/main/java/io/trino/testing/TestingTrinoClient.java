@@ -206,40 +206,51 @@ public class TestingTrinoClient
         }
 
         if (BOOLEAN.equals(type)) {
-            return value;
+            //noinspection RedundantCast
+            return (boolean) value;
         }
         if (TINYINT.equals(type)) {
-            return ((Number) value).byteValue();
+            //noinspection RedundantCast
+            return (byte) value;
         }
         if (SMALLINT.equals(type)) {
-            return ((Number) value).shortValue();
+            //noinspection RedundantCast
+            return (short) value;
         }
         if (INTEGER.equals(type)) {
-            return ((Number) value).intValue();
+            //noinspection RedundantCast
+            return (int) value;
         }
         if (BIGINT.equals(type)) {
-            return ((Number) value).longValue();
+            //noinspection RedundantCast
+            return (long) value;
         }
         if (DOUBLE.equals(type)) {
-            return ((Number) value).doubleValue();
+            //noinspection RedundantCast
+            return (double) value;
         }
         if (REAL.equals(type)) {
-            return ((Number) value).floatValue();
+            //noinspection RedundantCast
+            return (float) value;
         }
         if (UUID.equals(type)) {
             return java.util.UUID.fromString((String) value);
         }
         if (IPADDRESS.equals(type)) {
-            return value;
+            //noinspection RedundantCast
+            return (String) value;
         }
         if (type instanceof VarcharType) {
-            return value;
+            //noinspection RedundantCast
+            return (String) value;
         }
         if (type instanceof CharType) {
-            return value;
+            //noinspection RedundantCast
+            return (String) value;
         }
         if (VARBINARY.equals(type)) {
-            return value;
+            //noinspection RedundantCast
+            return (byte[]) value;
         }
         if (DATE.equals(type)) {
             return DateTimeFormatter.ISO_LOCAL_DATE.parse(((String) value), LocalDate::from);
@@ -247,6 +258,7 @@ public class TestingTrinoClient
         if (type instanceof TimeType) {
             if (((TimeType) type).getPrecision() > 9) {
                 // String representation is not as nice as java.time, but it's currently the best available for picoseconds precision
+                //noinspection RedundantCast
                 return (String) value;
             }
             return DateTimeFormatter.ISO_LOCAL_TIME.parse(((String) value), LocalTime::from);
@@ -254,6 +266,7 @@ public class TestingTrinoClient
         if (type instanceof TimeWithTimeZoneType) {
             if (((TimeWithTimeZoneType) type).getPrecision() > 9) {
                 // String representation is not as nice as java.time, but it's currently the best available for picoseconds precision
+                //noinspection RedundantCast
                 return (String) value;
             }
             return timeWithZoneOffsetFormat.parse(((String) value), OffsetTime::from);
@@ -261,6 +274,7 @@ public class TestingTrinoClient
         if (type instanceof TimestampType) {
             if (((TimestampType) type).getPrecision() > 9) {
                 // String representation is not as nice as java.time, but it's currently the best available for picoseconds precision
+                //noinspection RedundantCast
                 return (String) value;
             }
             return timestampFormat.parse((String) value, LocalDateTime::from);
@@ -268,6 +282,7 @@ public class TestingTrinoClient
         if (type instanceof TimestampWithTimeZoneType) {
             if (((TimestampWithTimeZoneType) type).getPrecision() > 9) {
                 // String representation is not as nice as java.time, but it's currently the best available for picoseconds precision
+                //noinspection RedundantCast
                 return (String) value;
             }
             return timestampWithTimeZoneFormat.parse((String) value, ZonedDateTime::from);
@@ -302,22 +317,28 @@ public class TestingTrinoClient
             return new BigDecimal((String) value);
         }
         if (type.getBaseName().equals("HyperLogLog")) {
-            return value;
+            //noinspection RedundantCast
+            return (byte[]) value;
         }
         if (type.getBaseName().equals("Geometry")) {
-            return value;
+            //noinspection RedundantCast
+            return (byte[]) value;
         }
         if (type.getBaseName().equals("SphericalGeography")) {
-            return value;
+            //noinspection RedundantCast
+            return (byte[]) value;
         }
         if (type.getBaseName().equals("ObjectId")) {
-            return value;
+            //noinspection RedundantCast
+            return (byte[]) value;
         }
         if (type.getBaseName().equals("Bogus")) {
-            return value;
+            //noinspection RedundantCast
+            return (int) value;
         }
         if (JSON.equals(type)) {
-            return value;
+            //noinspection RedundantCast
+            return (String) value;
         }
         throw new AssertionError("unhandled type: " + type);
     }
