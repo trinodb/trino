@@ -328,9 +328,9 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public void dropTable(Session session, TableHandle tableHandle)
+    public void dropTable(Session session, TableHandle tableHandle, CatalogSchemaTableName tableName)
     {
-        delegate.dropTable(session, tableHandle);
+        delegate.dropTable(session, tableHandle, tableName);
     }
 
     @Override
