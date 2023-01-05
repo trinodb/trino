@@ -142,11 +142,6 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema)
-    {
-    }
-
-    @Override
     public void checkCanDropSchema(SystemSecurityContext context, CatalogSchemaName schema)
     {
     }

@@ -100,17 +100,6 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to create the specified schema.
-     *
-     * @throws io.trino.spi.security.AccessDeniedException if not allowed
-     */
-    @Deprecated
-    default void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
-    {
-        denyCreateSchema(schemaName);
-    }
-
-    /**
      * Check if identity is allowed to drop the specified schema.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed

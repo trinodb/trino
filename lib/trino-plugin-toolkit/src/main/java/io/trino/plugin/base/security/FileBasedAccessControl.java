@@ -140,12 +140,6 @@ public class FileBasedAccessControl
     @Override
     public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName, Map<String, Object> properties)
     {
-        checkCanCreateSchema(context, schemaName);
-    }
-
-    @Override
-    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
-    {
         if (!isSchemaOwner(context, schemaName)) {
             denyCreateSchema(schemaName);
         }

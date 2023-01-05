@@ -146,12 +146,6 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema)
-    {
-        delegate().checkCanCreateSchema(context, schema);
-    }
-
-    @Override
     public void checkCanDropSchema(SystemSecurityContext context, CatalogSchemaName schema)
     {
         delegate().checkCanDropSchema(context, schema);
