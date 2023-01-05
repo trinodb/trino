@@ -76,11 +76,6 @@ public class LegacyAccessControl
     }
 
     @Override
-    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
-    {
-    }
-
-    @Override
     public void checkCanDropSchema(ConnectorSecurityContext context, String schemaName)
     {
     }
