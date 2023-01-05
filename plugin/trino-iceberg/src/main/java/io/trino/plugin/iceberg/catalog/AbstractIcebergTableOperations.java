@@ -17,9 +17,6 @@ import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
-import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
-import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.exceptions.CommitFailedException;
@@ -42,6 +39,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveType.toHiveType;
+import static io.trino.plugin.hive.util.HiveClassNames.FILE_INPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.FILE_OUTPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.fixBrokenMetadataLocation;
 import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
@@ -60,9 +60,9 @@ public abstract class AbstractIcebergTableOperations
         implements IcebergTableOperations
 {
     public static final StorageFormat ICEBERG_METASTORE_STORAGE_FORMAT = StorageFormat.create(
-            LazySimpleSerDe.class.getName(),
-            FileInputFormat.class.getName(),
-            FileOutputFormat.class.getName());
+            LAZY_SIMPLE_SERDE_CLASS,
+            FILE_INPUT_FORMAT_CLASS,
+            FILE_OUTPUT_FORMAT_CLASS);
 
     protected final ConnectorSession session;
     protected final String database;

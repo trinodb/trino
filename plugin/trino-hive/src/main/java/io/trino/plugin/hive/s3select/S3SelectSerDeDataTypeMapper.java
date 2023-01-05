@@ -13,18 +13,18 @@
  */
 package io.trino.plugin.hive.s3select;
 
-import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
-import org.apache.hive.hcatalog.data.JsonSerDe;
-
 import java.util.Map;
 import java.util.Optional;
+
+import static io.trino.plugin.hive.util.HiveClassNames.JSON_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
 
 public class S3SelectSerDeDataTypeMapper
 {
     // Contains mapping of SerDe class name -> data type. Multiple SerDe classes can be mapped to the same data type.
     private static final Map<String, S3SelectDataType> serDeToDataTypeMapping = Map.of(
-            LazySimpleSerDe.class.getName(), S3SelectDataType.CSV,
-            JsonSerDe.class.getName(), S3SelectDataType.JSON);
+            LAZY_SIMPLE_SERDE_CLASS, S3SelectDataType.CSV,
+            JSON_SERDE_CLASS, S3SelectDataType.JSON);
 
     private S3SelectSerDeDataTypeMapper() {}
 
