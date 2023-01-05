@@ -132,7 +132,6 @@ import static java.util.Collections.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.hadoop.fs.Path.getPathWithoutSchemeAndAuthority;
-import static org.apache.hadoop.hive.common.FileUtils.HIDDEN_FILES_PATH_FILTER;
 
 public class BackgroundHiveSplitLoader
         implements HiveSplitLoader
@@ -958,7 +957,8 @@ public class BackgroundHiveSplitLoader
     private static List<Path> getTargetPathsFromSymlink(FileSystem fileSystem, Path symlinkDir)
     {
         try {
-            FileStatus[] symlinks = fileSystem.listStatus(symlinkDir, HIDDEN_FILES_PATH_FILTER);
+            FileStatus[] symlinks = fileSystem.listStatus(symlinkDir, path ->
+                    !path.getName().startsWith("_") && !path.getName().startsWith("."));
             List<Path> targets = new ArrayList<>();
 
             for (FileStatus symlink : symlinks) {
