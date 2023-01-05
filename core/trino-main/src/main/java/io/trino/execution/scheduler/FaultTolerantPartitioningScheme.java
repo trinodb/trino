@@ -89,4 +89,9 @@ public class FaultTolerantPartitioningScheme
         checkArgument(partition < partitionCount, "partition is expected to be less than %s", partitionCount);
         return partitionToNodeMap.map(map -> map.get(partition));
     }
+
+    public Optional<List<InternalNode>> getPartitionToNodeMap()
+    {
+        return partitionToNodeMap;
+    }
 }
