@@ -66,22 +66,27 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.UuidType;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.hadoop.hive.common.type.Date;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.StructuralTestUtil.appendToBlockBuilder;
 
@@ -335,10 +340,24 @@ public final class HiveTestUtils
         if (type instanceof VarcharType) {
             return Slices.utf8Slice(hiveValue.toString());
         }
+        if (type instanceof VarbinaryType) {
+            return Slices.wrappedBuffer((byte[]) hiveValue);
+        }
+        if (type instanceof UuidType) {
+            return javaUuidToTrinoUuid(uuidFromBytes((byte[]) hiveValue));
+        }
         if (type instanceof DateType) {
             return (long) ((Date) hiveValue).toEpochDay();
         }
 
         throw new IllegalArgumentException("Unsupported type: " + type);
+    }
+
+    private static UUID uuidFromBytes(byte[] bytes)
+    {
+        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+        long msb = buffer.getLong();
+        long lsb = buffer.getLong();
+        return new UUID(msb, lsb);
     }
 }

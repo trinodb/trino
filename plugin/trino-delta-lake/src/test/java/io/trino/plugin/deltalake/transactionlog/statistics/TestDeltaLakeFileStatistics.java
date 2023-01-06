@@ -20,6 +20,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
+import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator;
@@ -105,7 +106,8 @@ public class TestDeltaLakeFileStatistics
                 Optional.empty(),
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig().toParquetReaderOptions(),
-                true);
+                true,
+                new DeltaLakeConfig().getDomainCompactionThreshold());
         MetadataEntry metadataEntry = getOnlyElement(metadataEntryIterator).getMetaData();
 
         CheckpointEntryIterator checkpointEntryIterator = new CheckpointEntryIterator(
@@ -118,7 +120,8 @@ public class TestDeltaLakeFileStatistics
                 Optional.of(metadataEntry),
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig().toParquetReaderOptions(),
-                true);
+                true,
+                new DeltaLakeConfig().getDomainCompactionThreshold());
         DeltaLakeTransactionLogEntry matchingAddFileEntry = null;
         while (checkpointEntryIterator.hasNext()) {
             DeltaLakeTransactionLogEntry entry = checkpointEntryIterator.next();
