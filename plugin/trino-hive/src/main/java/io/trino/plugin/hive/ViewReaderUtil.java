@@ -36,7 +36,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.TypeManager;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.Base64;
 import java.util.List;
@@ -54,14 +53,14 @@ import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveSessionProperties.isHiveViewsLegacyTranslation;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveType.toHiveType;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
+import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
-import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
-import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 
 public final class ViewReaderUtil
 {
@@ -146,7 +145,7 @@ public final class ViewReaderUtil
 
     public static boolean isHiveOrPrestoView(String tableType)
     {
-        return tableType.equals(TableType.VIRTUAL_VIEW.name());
+        return tableType.equals(VIRTUAL_VIEW.name());
     }
 
     public static boolean isTrinoMaterializedView(String tableType, Map<String, String> tableParameters)
