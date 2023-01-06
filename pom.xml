@@ -92,6 +92,10 @@
              Force bigger region size in attempt to help G1 utilize heap fully. -->
         <air.test.jvm.additional-arguments>
             -XX:G1HeapRegionSize=32M
+            -XX:+UnlockDiagnosticVMOptions
+            <!-- bump from default of 2 -->
+            -XX:GCLockerRetryAllocationCount=10
+            -XX:-G1UsePreventiveGC
         </air.test.jvm.additional-arguments>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
