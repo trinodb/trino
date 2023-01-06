@@ -54,7 +54,6 @@ import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.common.JavaUtils;
 import org.apache.hadoop.hive.ql.exec.Utilities;
 import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
@@ -468,7 +467,7 @@ public final class HiveUtil
         }
 
         try {
-            return Class.forName(name, true, JavaUtils.getClassLoader()).asSubclass(Deserializer.class);
+            return Class.forName(name).asSubclass(Deserializer.class);
         }
         catch (ClassNotFoundException e) {
             throw new TrinoException(HIVE_SERDE_NOT_FOUND, "deserializer does not exist: " + name);
