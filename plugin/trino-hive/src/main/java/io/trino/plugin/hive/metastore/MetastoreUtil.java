@@ -42,7 +42,6 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -74,7 +73,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.ColumnType.typeToThriftType;
-import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_COUNT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_FIELD_NAME;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -288,15 +286,12 @@ public final class MetastoreUtil
 
     private static ProtectMode getProtectMode(Map<String, String> parameters)
     {
-        if (!parameters.containsKey(ProtectMode.PARAMETER_NAME)) {
-            return new ProtectMode();
-        }
-        return getProtectModeFromString(parameters.get(ProtectMode.PARAMETER_NAME));
+        return ProtectMode.valueOf(nullToEmpty(parameters.get(ProtectMode.PARAMETER_NAME)));
     }
 
     public static void verifyOnline(SchemaTableName tableName, Optional<String> partitionName, ProtectMode protectMode, Map<String, String> parameters)
     {
-        if (protectMode.offline) {
+        if (protectMode.offline()) {
             if (partitionName.isPresent()) {
                 throw new PartitionOfflineException(tableName, partitionName.get(), false, null);
             }
