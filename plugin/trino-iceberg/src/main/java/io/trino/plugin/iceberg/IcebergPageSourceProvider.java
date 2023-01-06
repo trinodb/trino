@@ -984,7 +984,7 @@ public class IcebergPageSourceProvider
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
                 if (start <= firstDataPage && firstDataPage < start + length &&
-                        predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, Optional.empty(), UTC)) {
+                        predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, Optional.empty(), Optional.empty(), UTC, ICEBERG_DOMAIN_COMPACTION_THRESHOLD)) {
                     blocks.add(block);
                     blockStarts.add(nextStart);
                     if (startRowPosition.isEmpty()) {

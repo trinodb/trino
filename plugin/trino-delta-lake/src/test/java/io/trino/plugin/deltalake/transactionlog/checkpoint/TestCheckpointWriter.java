@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
@@ -490,7 +491,8 @@ public class TestCheckpointWriter
                 Optional.of(metadataEntry),
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig().toParquetReaderOptions(),
-                rowStatisticsEnabled);
+                rowStatisticsEnabled,
+                new DeltaLakeConfig().getDomainCompactionThreshold());
 
         CheckpointBuilder checkpointBuilder = new CheckpointBuilder();
         while (checkpointEntryIterator.hasNext()) {
