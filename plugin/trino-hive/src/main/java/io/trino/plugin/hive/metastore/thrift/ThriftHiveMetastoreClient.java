@@ -22,7 +22,6 @@ import io.trino.plugin.base.util.LoggingInvocationHandler.ParameterNamesProvider
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport;
 import org.apache.hadoop.hive.common.ValidTxnList;
-import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.AbortTxnRequest;
 import org.apache.hadoop.hive.metastore.api.AddDynamicPartitions;
 import org.apache.hadoop.hive.metastore.api.AllocateTableWriteIdsRequest;
@@ -88,6 +87,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.reflect.Reflection.newProxy;
+import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.NOT_SUPPORTED;
 import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.SUPPORTED;
@@ -195,7 +195,7 @@ public class ThriftHiveMetastoreClient
         return alternativeCall(
                 exception -> !isUnknownMethodExceptionalResponse(exception),
                 chosenGetAllViewsAlternative,
-                () -> client.get_tables_by_type(databaseName, ".*", TableType.VIRTUAL_VIEW.name()),
+                () -> client.get_tables_by_type(databaseName, ".*", VIRTUAL_VIEW.name()),
                 // fallback to enumerating Presto views only (Hive views can still be executed, but will be listed as tables and not views)
                 () -> getTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true"));
     }

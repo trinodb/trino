@@ -124,7 +124,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
-import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.mapred.JobConf;
 
@@ -248,6 +247,9 @@ import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXI
 import static io.trino.plugin.hive.PartitionUpdate.UpdateMode.APPEND;
 import static io.trino.plugin.hive.PartitionUpdate.UpdateMode.NEW;
 import static io.trino.plugin.hive.PartitionUpdate.UpdateMode.OVERWRITE;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
+import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
+import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.ViewReaderUtil.createViewReader;
 import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
@@ -313,9 +315,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
-import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
-import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.OrcAcidVersion.writeVersionFile;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.deltaSubdir;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.isFullAcidTable;
@@ -2568,7 +2567,7 @@ public class HiveMetadata
                 .setDatabaseName(viewName.getSchemaName())
                 .setTableName(viewName.getTableName())
                 .setOwner(accessControlMetadata.isUsingSystemSecurity() ? Optional.empty() : Optional.ofNullable(session.getUser()))
-                .setTableType(TableType.VIRTUAL_VIEW.name())
+                .setTableType(VIRTUAL_VIEW.name())
                 .setDataColumns(ImmutableList.of(dummyColumn))
                 .setPartitionColumns(ImmutableList.of())
                 .setParameters(properties)
