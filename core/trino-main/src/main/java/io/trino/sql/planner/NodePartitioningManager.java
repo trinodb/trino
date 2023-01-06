@@ -239,15 +239,6 @@ public class NodePartitioningManager
         return new BucketNodeMap(splitToBucket, createArbitraryBucketToNode(nodes, bucketCount));
     }
 
-    public int getBucketCount(Session session, PartitioningHandle partitioning)
-    {
-        if (partitioning.getConnectorHandle() instanceof MergePartitioningHandle) {
-            // TODO: can we always use this code path?
-            return getNodePartitioningMap(session, partitioning).getBucketToPartition().length;
-        }
-        return getBucketNodeMap(session, partitioning).getBucketCount();
-    }
-
     public int getNodeCount(Session session, PartitioningHandle partitioningHandle)
     {
         return getAllNodes(session, requiredCatalogHandle(partitioningHandle)).size();
