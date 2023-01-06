@@ -155,7 +155,7 @@ public class DeltaLakeUpdatablePageSource
         this.fileSystem = fileSystemFactory.create(session);
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.parquetDateTimeZone = requireNonNull(parquetDateTimeZone, "parquetDateTimeZone is null");
-        this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
+        this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null").withBloomFilter(false);
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.updateResultJsonCodec = requireNonNull(updateResultJsonCodec, "deleteResultJsonCodec is null");
         this.domainCompactionThreshold = domainCompactionThreshold;
