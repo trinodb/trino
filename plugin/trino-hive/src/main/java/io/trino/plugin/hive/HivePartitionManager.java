@@ -29,7 +29,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.hive.common.FileUtils;
 
 import javax.inject.Inject;
 
@@ -45,6 +44,7 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFi
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
+import static io.trino.plugin.hive.util.HiveUtil.unescapePathName;
 import static java.util.stream.Collectors.toList;
 
 public class HivePartitionManager
@@ -288,13 +288,13 @@ public class HivePartitionManager
             }
             else if (current == '/') {
                 checkArgument(valueStart != -1, "Invalid partition spec: %s", partitionName);
-                values.add(FileUtils.unescapePathName(partitionName.substring(valueStart, i)));
+                values.add(unescapePathName(partitionName.substring(valueStart, i)));
                 inKey = true;
                 valueStart = -1;
             }
         }
         checkArgument(!inKey, "Invalid partition spec: %s", partitionName);
-        values.add(FileUtils.unescapePathName(partitionName.substring(valueStart)));
+        values.add(unescapePathName(partitionName.substring(valueStart)));
 
         return values.build();
     }
