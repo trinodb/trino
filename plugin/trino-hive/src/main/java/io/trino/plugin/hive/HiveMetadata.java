@@ -126,7 +126,6 @@ import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.hive.serde.serdeConstants;
-import org.apache.hadoop.hive.serde2.OpenCSVSerde;
 import org.apache.hadoop.mapred.JobConf;
 
 import java.io.File;
@@ -350,9 +349,9 @@ public class HiveMetadata
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
     public static final String AVRO_SCHEMA_LITERAL_KEY = "avro.schema.literal";
 
-    private static final String CSV_SEPARATOR_KEY = OpenCSVSerde.SEPARATORCHAR;
-    private static final String CSV_QUOTE_KEY = OpenCSVSerde.QUOTECHAR;
-    private static final String CSV_ESCAPE_KEY = OpenCSVSerde.ESCAPECHAR;
+    private static final String CSV_SEPARATOR_KEY = "separatorChar";
+    private static final String CSV_QUOTE_KEY = "quoteChar";
+    private static final String CSV_ESCAPE_KEY = "escapeChar";
 
     private static final String AUTO_PURGE_KEY = "auto.purge";
 
