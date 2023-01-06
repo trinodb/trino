@@ -24,7 +24,6 @@ import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
-import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.Arrays;
 import java.util.List;
@@ -34,6 +33,7 @@ import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.hive.HiveSchemaProperties.LOCATION_PROPERTY;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static java.util.Objects.requireNonNull;
 
@@ -84,7 +84,7 @@ public class TableMetadata
         this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
         this.serdeParameters = requireNonNull(serdeParameters, "serdeParameters is null");
         this.externalLocation = requireNonNull(externalLocation, "externalLocation is null");
-        if (tableType.equals(TableType.EXTERNAL_TABLE.name())) {
+        if (tableType.equals(EXTERNAL_TABLE.name())) {
             checkArgument(externalLocation.isPresent(), "External location is required for external tables");
         }
         else {
@@ -113,7 +113,7 @@ public class TableMetadata
         bucketProperty = table.getStorage().getBucketProperty();
         serdeParameters = table.getStorage().getSerdeParameters();
 
-        if (tableType.equals(TableType.EXTERNAL_TABLE.name())) {
+        if (tableType.equals(EXTERNAL_TABLE.name())) {
             externalLocation = Optional.of(table.getStorage().getLocation());
         }
         else {
