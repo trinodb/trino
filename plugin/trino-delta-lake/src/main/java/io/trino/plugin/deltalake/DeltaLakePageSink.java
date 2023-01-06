@@ -31,6 +31,7 @@ import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.RecordFileWriter;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
+import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.plugin.hive.util.HiveWriteUtils;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
@@ -44,7 +45,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.joda.time.DateTimeZone;
@@ -75,12 +75,12 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.cano
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.util.CompressionConfigUtil.configureCompression;
+import static io.trino.plugin.hive.util.HiveUtil.escapePathName;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.common.FileUtils.escapePathName;
 
 public class DeltaLakePageSink
         implements ConnectorPageSink
@@ -425,7 +425,7 @@ public class DeltaLakePageSink
     }
 
     /**
-     * Copy of {@link FileUtils#makePartName(List, List)} modified to preserve case of partition columns.
+     * Copy of {@link HiveUtil#makePartName} modified to preserve case of partition columns.
      */
     private static String makePartName(List<String> partitionColumns, List<String> partitionValues)
     {
@@ -436,9 +436,9 @@ public class DeltaLakePageSink
                 name.append("/");
             }
 
-            name.append(escapePathName(partitionColumns.get(i), null));
+            name.append(escapePathName(partitionColumns.get(i)));
             name.append('=');
-            name.append(escapePathName(partitionValues.get(i), null));
+            name.append(escapePathName(partitionValues.get(i)));
         }
 
         return name.toString();

@@ -113,6 +113,7 @@ import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWN
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.NUM_ROWS;
+import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.plugin.hive.util.HiveWriteUtils.checkedDelete;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createDirectory;
@@ -129,7 +130,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.metastore.conf.MetastoreConf.ConfVars.TXN_TIMEOUT;
 import static org.apache.hadoop.hive.metastore.conf.MetastoreConf.getTimeVar;
