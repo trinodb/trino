@@ -54,7 +54,6 @@ import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.exec.Utilities;
 import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
@@ -259,13 +258,14 @@ public final class HiveUtil
         configureCompressionCodecs(jobConf);
 
         try {
-            @SuppressWarnings({"rawtypes", "unchecked"}) // raw type on WritableComparable can't be fixed because Utilities#skipHeader takes them raw
-            RecordReader<WritableComparable, Writable> recordReader = (RecordReader<WritableComparable, Writable>) inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
+            @SuppressWarnings("unchecked")
+            RecordReader<? extends WritableComparable<?>, ? extends Writable> recordReader = (RecordReader<? extends WritableComparable<?>, ? extends Writable>)
+                    inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
 
             int headerCount = getHeaderCount(schema);
             //  Only skip header rows when the split is at the beginning of the file
             if (start == 0 && headerCount > 0) {
-                Utilities.skipHeader(recordReader, headerCount, recordReader.createKey(), recordReader.createValue());
+                skipHeader(recordReader, headerCount);
             }
 
             int footerCount = getFooterCount(schema);
@@ -287,6 +287,20 @@ public final class HiveUtil
                     getInputFormatName(schema),
                     firstNonNull(e.getMessage(), e.getClass().getName())),
                     e);
+        }
+    }
+
+    private static <K, V> void skipHeader(RecordReader<K, V> reader, int headerCount)
+            throws IOException
+    {
+        K key = reader.createKey();
+        V value = reader.createValue();
+
+        while (headerCount > 0) {
+            if (!reader.next(key, value)) {
+                return;
+            }
+            headerCount--;
         }
     }
 
