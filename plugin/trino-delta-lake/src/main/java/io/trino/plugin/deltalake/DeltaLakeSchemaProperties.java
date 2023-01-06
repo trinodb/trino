@@ -20,13 +20,14 @@ import io.trino.plugin.hive.HiveTypeName;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.hive.ql.io.IOConstants;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static java.util.stream.Collectors.joining;
 
@@ -59,8 +60,8 @@ public class DeltaLakeSchemaProperties
     public static Properties buildHiveSchema(List<String> columnNames, List<Type> columnTypes)
     {
         Properties schema = new Properties();
-        schema.setProperty(IOConstants.COLUMNS, String.join(",", columnNames));
-        schema.setProperty(IOConstants.COLUMNS_TYPES, columnTypes.stream()
+        schema.setProperty(LIST_COLUMNS, String.join(",", columnNames));
+        schema.setProperty(LIST_COLUMN_TYPES, columnTypes.stream()
                 .map(DeltaHiveTypeTranslator::toHiveType)
                 .map(HiveType::getHiveTypeName)
                 .map(HiveTypeName::toString)

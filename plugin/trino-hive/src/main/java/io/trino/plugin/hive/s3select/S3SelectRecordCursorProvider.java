@@ -44,10 +44,10 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
+import static io.trino.plugin.hive.util.SerdeConstants.COLUMN_NAME_DELIMITER;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.serde.serdeConstants.COLUMN_NAME_DELIMITER;
-import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMNS;
-import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMN_TYPES;
 
 public class S3SelectRecordCursorProvider
         implements HiveRecordCursorProvider

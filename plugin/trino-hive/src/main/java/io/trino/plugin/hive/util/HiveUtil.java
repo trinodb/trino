@@ -54,7 +54,6 @@ import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
@@ -139,6 +138,10 @@ import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
 import static io.trino.plugin.hive.util.HiveClassNames.AVRO_SERDE_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
+import static io.trino.plugin.hive.util.SerdeConstants.COLLECTION_DELIM;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
+import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -169,8 +172,6 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
-import static org.apache.hadoop.hive.serde.serdeConstants.COLLECTION_DELIM;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_IDS_CONF_STR;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
@@ -1061,12 +1062,12 @@ public final class HiveUtil
 
     public static List<String> getColumnNames(Properties schema)
     {
-        return COLUMN_NAMES_SPLITTER.splitToList(schema.getProperty(IOConstants.COLUMNS, ""));
+        return COLUMN_NAMES_SPLITTER.splitToList(schema.getProperty(LIST_COLUMNS, ""));
     }
 
     public static List<HiveType> getColumnTypes(Properties schema)
     {
-        return toHiveTypes(schema.getProperty(IOConstants.COLUMNS_TYPES, ""));
+        return toHiveTypes(schema.getProperty(LIST_COLUMN_TYPES, ""));
     }
 
     public static OrcWriterOptions getOrcWriterOptions(Properties schema, OrcWriterOptions orcWriterOptions)
