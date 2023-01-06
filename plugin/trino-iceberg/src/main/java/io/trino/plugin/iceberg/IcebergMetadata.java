@@ -1653,6 +1653,7 @@ public class IcebergMetadata
 
             transaction.commitTransaction();
             transaction = null;
+            return;
         }
         long snapshotId = handle.getSnapshotId().orElseThrow();
 
