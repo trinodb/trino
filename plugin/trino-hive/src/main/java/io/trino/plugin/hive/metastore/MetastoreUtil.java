@@ -42,7 +42,6 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
@@ -66,6 +65,7 @@ import static io.trino.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.NUM_ROWS;
 import static io.trino.plugin.hive.util.HiveClassNames.AVRO_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -251,7 +251,7 @@ public final class MetastoreUtil
         checkArgument(names.size() == values.size(), "partition value count must match partition column count");
         checkArgument(values.stream().allMatch(Objects::nonNull), "partition value must not be null");
 
-        return FileUtils.makePartName(names, values);
+        return makePartName(names, values);
     }
 
     public static String getPartitionLocation(Table table, Optional<Partition> partition)

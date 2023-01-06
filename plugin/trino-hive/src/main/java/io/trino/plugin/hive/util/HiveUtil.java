@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.util;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.VerifyException;
@@ -101,6 +102,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Lists.newArrayList;
@@ -168,7 +170,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
-import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.COLLECTION_DELIM;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
@@ -199,6 +200,9 @@ public final class HiveUtil
     private static final String BIG_DECIMAL_POSTFIX = "BD";
 
     private static final Splitter COLUMN_NAMES_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+
+    private static final CharMatcher PATH_CHAR_TO_ESCAPE = CharMatcher.inRange((char) 0, (char) 31)
+            .or(CharMatcher.anyOf("\"#%'*/:=?\\\u007F{[]^"));
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
@@ -1174,5 +1178,66 @@ public final class HiveUtil
                 .setExtraInfo(Optional.ofNullable(columnExtraInfo(handle.isPartitionKey())))
                 .setHidden(handle.isHidden())
                 .build();
+    }
+
+    // copy of org.apache.hadoop.hive.common.FileUtils#unescapePathName
+    @SuppressWarnings({"NumericCastThatLosesPrecision", "AssignmentToForLoopParameter"})
+    public static String unescapePathName(String path)
+    {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < path.length(); i++) {
+            char c = path.charAt(i);
+            if ((c == '%') && ((i + 2) < path.length())) {
+                int code;
+                try {
+                    code = parseInt(path.substring(i + 1, i + 3), 16);
+                }
+                catch (NumberFormatException e) {
+                    code = -1;
+                }
+                if (code >= 0) {
+                    sb.append((char) code);
+                    i += 2;
+                    continue;
+                }
+            }
+            sb.append(c);
+        }
+        return sb.toString();
+    }
+
+    // copy of org.apache.hadoop.hive.common.FileUtils#escapePathName
+    public static String escapePathName(String path)
+    {
+        if (isNullOrEmpty(path)) {
+            return HIVE_DEFAULT_DYNAMIC_PARTITION;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < path.length(); i++) {
+            char c = path.charAt(i);
+            if (PATH_CHAR_TO_ESCAPE.matches(c)) {
+                sb.append("%%%02X".formatted((int) c));
+            }
+            else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
+
+    // copy of org.apache.hadoop.hive.common.FileUtils#makePartName
+    public static String makePartName(List<String> columns, List<String> values)
+    {
+        StringBuilder name = new StringBuilder();
+        for (int i = 0; i < columns.size(); i++) {
+            if (i > 0) {
+                name.append("/");
+            }
+            name.append(escapePathName(columns.get(i).toLowerCase(ENGLISH)));
+            name.append('=');
+            name.append(escapePathName(values.get(i)));
+        }
+        return name.toString();
     }
 }

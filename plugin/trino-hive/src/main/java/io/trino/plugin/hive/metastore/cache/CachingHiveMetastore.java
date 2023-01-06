@@ -85,9 +85,9 @@ import static io.trino.plugin.hive.metastore.HivePartitionName.hivePartitionName
 import static io.trino.plugin.hive.metastore.HiveTableName.hiveTableName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.PartitionFilter.partitionFilter;
+import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 
 /**
  * Hive Metastore Cache

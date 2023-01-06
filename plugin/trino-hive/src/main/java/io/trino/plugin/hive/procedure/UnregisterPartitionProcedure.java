@@ -26,7 +26,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.type.ArrayType;
-import org.apache.hadoop.hive.common.FileUtils;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -37,6 +36,7 @@ import java.util.List;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.procedure.Procedures.checkIsPartitionedTable;
 import static io.trino.plugin.hive.procedure.Procedures.checkPartitionColumns;
+import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
@@ -105,7 +105,7 @@ public class UnregisterPartitionProcedure
         checkIsPartitionedTable(table);
         checkPartitionColumns(table, partitionColumns);
 
-        String partitionName = FileUtils.makePartName(partitionColumns, partitionValues);
+        String partitionName = makePartName(partitionColumns, partitionValues);
 
         Partition partition = metastore.unsafeGetRawHiveMetastoreClosure().getPartition(schemaName, tableName, partitionValues)
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Partition '%s' does not exist", partitionName)));
