@@ -85,6 +85,7 @@ public final class HiveSessionProperties
     private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
     private static final String PARQUET_IGNORE_STATISTICS = "parquet_ignore_statistics";
     private static final String PARQUET_USE_COLUMN_INDEX = "parquet_use_column_index";
+    private static final String PARQUET_USE_BLOOM_FILTER = "parquet_use_bloom_filter";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet_max_read_block_row_count";
     private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
@@ -320,6 +321,11 @@ public final class HiveSessionProperties
                         PARQUET_USE_COLUMN_INDEX,
                         "Use Parquet column index",
                         parquetReaderConfig.isUseColumnIndex(),
+                        false),
+                booleanProperty(
+                        PARQUET_USE_BLOOM_FILTER,
+                        "Use Parquet bloomfilter",
+                        parquetReaderConfig.isUseBloomFilter(),
                         false),
                 dataSizeProperty(
                         PARQUET_MAX_READ_BLOCK_SIZE,
@@ -700,6 +706,11 @@ public final class HiveSessionProperties
     public static boolean isParquetUseColumnIndex(ConnectorSession session)
     {
         return session.getProperty(PARQUET_USE_COLUMN_INDEX, Boolean.class);
+    }
+
+    public static boolean useParquetBloomFilter(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_USE_BLOOM_FILTER, Boolean.class);
     }
 
     public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)
