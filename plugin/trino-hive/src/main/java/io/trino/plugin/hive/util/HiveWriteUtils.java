@@ -25,6 +25,7 @@ import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.avro.AvroRecordWriter;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.ProtectMode;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.Table;
@@ -59,7 +60,6 @@ import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.conf.HiveConf;
-import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -428,7 +428,7 @@ public final class HiveWriteUtils
         verifyOnline(tableName, partitionName, protectMode, parameters);
 
         // verify not read only
-        if (protectMode.readOnly) {
+        if (protectMode.readOnly()) {
             throw new HiveReadOnlyException(tableName, partitionName);
         }
 
