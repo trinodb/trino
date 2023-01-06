@@ -531,6 +531,12 @@ with Parquet files performed by the Hive connector.
         optimized parquet reader by default. The equivalent catalog session
         property is ``parquet_optimized_reader_enabled``.
       - ``true``
+    * - ``parquet.use-bloom-filter``
+      - Whether bloom filters are used for predicate pushdown when reading
+        Parquet files. Set this property to ``false`` to disable the usage of
+        bloom filters by default. The equivalent catalog session property is
+        ``parquet_use_bloom_filter``.
+      - ``true``
     * - ``parquet.optimized-writer.enabled``
       - Whether the optimized writer should be used when writing Parquet files.
         Set this property to ``true`` to use the optimized parquet writer by
