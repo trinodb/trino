@@ -19,7 +19,6 @@ import io.trino.plugin.hive.HiveTypeName;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.hive.ql.io.IOConstants;
 
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +27,8 @@ import java.util.Properties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
@@ -63,10 +64,10 @@ public final class AcidSchema
     public static Properties createAcidSchema(HiveType rowType)
     {
         Properties hiveAcidSchema = new Properties();
-        hiveAcidSchema.setProperty(IOConstants.COLUMNS, String.join(",", ACID_COLUMN_NAMES));
+        hiveAcidSchema.setProperty(LIST_COLUMNS, String.join(",", ACID_COLUMN_NAMES));
         // We must supply an accurate row type, because Apache ORC code we don't control has a consistency
         // check that the layout of this "row" must agree with the layout of an inserted row.
-        hiveAcidSchema.setProperty(IOConstants.COLUMNS_TYPES, createAcidColumnHiveTypes(rowType).stream()
+        hiveAcidSchema.setProperty(LIST_COLUMN_TYPES, createAcidColumnHiveTypes(rowType).stream()
                 .map(HiveType::getHiveTypeName)
                 .map(HiveTypeName::toString)
                 .collect(joining(":")));

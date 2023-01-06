@@ -25,9 +25,9 @@ import org.apache.hadoop.fs.Path;
 
 import java.util.Properties;
 
-import static org.apache.hadoop.hive.serde.serdeConstants.ESCAPE_CHAR;
-import static org.apache.hadoop.hive.serde.serdeConstants.FIELD_DELIM;
-import static org.apache.hadoop.hive.serde.serdeConstants.QUOTE_CHAR;
+import static io.trino.plugin.hive.util.SerdeConstants.ESCAPE_CHAR;
+import static io.trino.plugin.hive.util.SerdeConstants.FIELD_DELIM;
+import static io.trino.plugin.hive.util.SerdeConstants.QUOTE_CHAR;
 
 public class S3SelectCsvRecordReader
         extends S3SelectLineRecordReader
