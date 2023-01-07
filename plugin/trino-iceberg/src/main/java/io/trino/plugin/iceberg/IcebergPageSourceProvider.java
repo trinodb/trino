@@ -229,21 +229,52 @@ public class IcebergPageSourceProvider
             DynamicFilter dynamicFilter)
     {
         IcebergSplit split = (IcebergSplit) connectorSplit;
-        IcebergTableHandle table = (IcebergTableHandle) connectorTable;
-
         List<IcebergColumnHandle> icebergColumns = columns.stream()
                 .map(IcebergColumnHandle.class::cast)
                 .collect(toImmutableList());
-
-        Schema tableSchema = SchemaParser.fromJson(table.getTableSchemaJson());
-
-        Set<IcebergColumnHandle> deleteFilterRequiredColumns = requiredColumnsForDeletes(tableSchema, split.getDeletes());
-
-        PartitionSpec partitionSpec = PartitionSpecParser.fromJson(tableSchema, split.getPartitionSpecJson());
+        IcebergTableHandle tableHandle = (IcebergTableHandle) connectorTable;
+        Schema schema = SchemaParser.fromJson(tableHandle.getTableSchemaJson());
+        PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, split.getPartitionSpecJson());
         org.apache.iceberg.types.Type[] partitionColumnTypes = partitionSpec.fields().stream()
-                .map(field -> field.transform().getResultType(tableSchema.findType(field.sourceId())))
+                .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
                 .toArray(org.apache.iceberg.types.Type[]::new);
-        PartitionData partitionData = PartitionData.fromJson(split.getPartitionDataJson(), partitionColumnTypes);
+
+        return createPageSource(
+                session,
+                icebergColumns,
+                schema,
+                partitionSpec,
+                PartitionData.fromJson(split.getPartitionDataJson(), partitionColumnTypes),
+                split.getDeletes(),
+                dynamicFilter,
+                tableHandle.getUnenforcedPredicate(),
+                split.getPath(),
+                split.getStart(),
+                split.getLength(),
+                split.getFileSize(),
+                split.getPartitionDataJson(),
+                split.getFileFormat(),
+                tableHandle.getNameMappingJson().map(NameMappingParser::fromJson));
+    }
+
+    public ConnectorPageSource createPageSource(
+            ConnectorSession session,
+            List<IcebergColumnHandle> icebergColumns,
+            Schema tableSchema,
+            PartitionSpec partitionSpec,
+            PartitionData partitionData,
+            List<DeleteFile> deletes,
+            DynamicFilter dynamicFilter,
+            TupleDomain<IcebergColumnHandle> unenforcedPredicate,
+            String path,
+            long start,
+            long length,
+            long fileSize,
+            String partitionDataJson,
+            IcebergFileFormat fileFormat,
+            Optional<NameMapping> nameMapping)
+    {
+        Set<IcebergColumnHandle> deleteFilterRequiredColumns = requiredColumnsForDeletes(tableSchema, deletes);
         Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(partitionData, partitionSpec);
 
         List<IcebergColumnHandle> requiredColumns = new ArrayList<>(icebergColumns);
@@ -280,7 +311,7 @@ public class IcebergPageSourceProvider
                     }
                 });
 
-        TupleDomain<IcebergColumnHandle> effectivePredicate = table.getUnenforcedPredicate()
+        TupleDomain<IcebergColumnHandle> effectivePredicate = unenforcedPredicate
                 .intersect(dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast))
                 .simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
         if (effectivePredicate.isNone()) {
@@ -289,21 +320,21 @@ public class IcebergPageSourceProvider
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         TrinoInputFile inputfile = isUseFileSizeFromMetadata(session)
-                ? fileSystem.newInputFile(Location.of(split.getPath()), split.getFileSize())
-                : fileSystem.newInputFile(Location.of(split.getPath()));
+                ? fileSystem.newInputFile(Location.of(path), fileSize)
+                : fileSystem.newInputFile(Location.of(path));
 
         ReaderPageSourceWithRowPositions readerPageSourceWithRowPositions = createDataPageSource(
                 session,
                 inputfile,
-                split.getStart(),
-                split.getLength(),
+                start,
+                length,
                 partitionSpec.specId(),
-                split.getPartitionDataJson(),
-                split.getFileFormat(),
-                SchemaParser.fromJson(table.getTableSchemaJson()),
+                partitionDataJson,
+                fileFormat,
+                tableSchema,
                 requiredColumns,
                 effectivePredicate,
-                table.getNameMappingJson().map(NameMappingParser::fromJson),
+                nameMapping,
                 partitionKeys);
         ReaderPageSource dataPageSource = readerPageSourceWithRowPositions.getReaderPageSource();
 
@@ -322,8 +353,8 @@ public class IcebergPageSourceProvider
             List<DeleteFilter> deleteFilters = readDeletes(
                     session,
                     tableSchema,
-                    split.getPath(),
-                    split.getDeletes(),
+                    path,
+                    deletes,
                     readerPageSourceWithRowPositions.getStartRowPosition(),
                     readerPageSourceWithRowPositions.getEndRowPosition());
             return deleteFilters.stream()
