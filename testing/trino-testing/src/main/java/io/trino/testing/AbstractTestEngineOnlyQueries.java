@@ -371,7 +371,9 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT * FROM (VALUES" +
                 "   CAST(NULL AS char(3)), " +
                 "   CAST('   ' AS char(3))) t(x) " +
-                "WHERE x = CAST('  ' AS varchar(2))");
+                "WHERE x = CAST('  ' AS varchar(2))",
+                // H2 returns '' on CAST char(3) to varchar(2)
+                "SELECT '   '");
 
         // with explicit casts
         assertQuery(
