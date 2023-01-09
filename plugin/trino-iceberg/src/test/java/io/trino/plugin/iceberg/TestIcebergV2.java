@@ -541,6 +541,29 @@ public class TestIcebergV2
         }
     }
 
+    @Test
+    public void testReadingSnapshotReference()
+    {
+        String tableName = "test_reading_snapshot_reference" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = this.loadTable(tableName);
+        long refSnapshotId = icebergTable.currentSnapshot().snapshotId();
+        icebergTable.manageSnapshots()
+                .createTag("test-tag", refSnapshotId)
+                .createBranch("test-branch", refSnapshotId)
+                .commit();
+
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation LIMIT 5", 5);
+        assertQuery("SELECT * FROM " + tableName + " FOR VERSION AS OF " + refSnapshotId,
+                "SELECT * FROM nation");
+        assertQuery("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test-tag'",
+                "SELECT * FROM nation");
+        assertQuery("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test-branch'",
+                "SELECT * FROM nation");
+        assertQueryFails("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test-wrong-ref'",
+                ".*?Cannot find snapshot with reference name: test-wrong-ref");
+    }
+
     private void writeEqualityDeleteToNationTable(Table icebergTable)
             throws Exception
     {

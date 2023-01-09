@@ -96,6 +96,7 @@ import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.VarcharType;
 import org.apache.datasketches.theta.CompactSketch;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
@@ -121,6 +122,7 @@ import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SnapshotRef;
 import org.apache.iceberg.SortField;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StatisticsFile;
@@ -417,10 +419,22 @@ public class IcebergMetadata
 
     private static long getTargetSnapshotIdFromVersion(Table table, ConnectorTableVersion version, io.trino.spi.type.Type versionType)
     {
-        if (versionType != BIGINT) {
+        long snapshotId;
+        if (versionType == BIGINT) {
+            snapshotId = (long) version.getVersion();
+        }
+        else if (versionType instanceof VarcharType) {
+            String refName = ((Slice) version.getVersion()).toStringUtf8();
+            SnapshotRef ref = table.refs().get(refName);
+            if (ref == null) {
+                throw new TrinoException(INVALID_ARGUMENTS, "Cannot find snapshot with reference name: " + refName);
+            }
+            snapshotId = ref.snapshotId();
+        }
+        else {
             throw new TrinoException(NOT_SUPPORTED, "Unsupported type for table version: " + versionType.getDisplayName());
         }
-        long snapshotId = (long) version.getVersion();
+
         if (table.snapshot(snapshotId) == null) {
             throw new TrinoException(INVALID_ARGUMENTS, "Iceberg snapshot ID does not exists: " + snapshotId);
         }
