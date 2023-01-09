@@ -1347,6 +1347,17 @@ SELECT *
 FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 00:00:00.000 Europe/Vienna'
 ```
 
+Iceberg supports named references of snapshots via branches and tags.
+Time travel can be performed to branches and tags in the table.
+
+```
+SELECT *
+FROM example.testdb.customer_orders FOR VERSION AS OF 'historical-tag'
+
+SELECT *
+FROM example.testdb.customer_orders FOR VERSION AS OF 'test-branch'
+```
+
 ##### Rolling back to a previous snapshot
 
 Use the `$snapshots` metadata table to determine the latest snapshot ID of the
