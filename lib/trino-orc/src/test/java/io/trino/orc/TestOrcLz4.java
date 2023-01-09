@@ -45,35 +45,35 @@ public class TestOrcLz4
         assertEquals(orcReader.getCompressionKind(), LZ4);
         assertEquals(orcReader.getFooter().getNumberOfRows(), 10_000);
 
-        OrcRecordReader reader = orcReader.createRecordReader(
+        try (OrcRecordReader reader = orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),
                 ImmutableList.of(BIGINT, INTEGER, BIGINT),
                 OrcPredicate.TRUE,
                 DateTimeZone.UTC,
                 newSimpleAggregatedMemoryContext(),
                 INITIAL_BATCH_SIZE,
-                RuntimeException::new);
+                RuntimeException::new)) {
+            int rows = 0;
+            while (true) {
+                Page page = reader.nextPage();
+                if (page == null) {
+                    break;
+                }
+                page = page.getLoadedPage();
+                rows += page.getPositionCount();
 
-        int rows = 0;
-        while (true) {
-            Page page = reader.nextPage();
-            if (page == null) {
-                break;
+                Block xBlock = page.getBlock(0);
+                Block yBlock = page.getBlock(1);
+                Block zBlock = page.getBlock(2);
+
+                for (int position = 0; position < page.getPositionCount(); position++) {
+                    BIGINT.getLong(xBlock, position);
+                    INTEGER.getLong(yBlock, position);
+                    BIGINT.getLong(zBlock, position);
+                }
             }
-            page = page.getLoadedPage();
-            rows += page.getPositionCount();
 
-            Block xBlock = page.getBlock(0);
-            Block yBlock = page.getBlock(1);
-            Block zBlock = page.getBlock(2);
-
-            for (int position = 0; position < page.getPositionCount(); position++) {
-                BIGINT.getLong(xBlock, position);
-                INTEGER.getLong(yBlock, position);
-                BIGINT.getLong(zBlock, position);
-            }
+            assertEquals(rows, reader.getFileRowCount());
         }
-
-        assertEquals(rows, reader.getFileRowCount());
     }
 }
