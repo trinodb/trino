@@ -586,7 +586,7 @@ public class TestMongoConnectorTest
                 "VALUES (11, 11), (14, 11), (11, 15), (12, 15), (12, 11), (14, 15), (13, 13)");
 
         // Group by ObjectId (IS DISTINCT FROM)
-        assertQuery("SELECT array_agg(i ORDER BY i) FROM " + inlineTable + " GROUP BY one", "VALUES ((10, 15)), ((11, 12, 14)), ((13))");
+        assertQuery("SELECT array_agg(i ORDER BY i) FROM " + inlineTable + " GROUP BY one", "VALUES (ARRAY[10, 15]), (ARRAY[11, 12, 14]), (ARRAY[13])");
         assertQuery("SELECT i FROM " + inlineTable + " GROUP BY one, i", "VALUES 10, 11, 12, 13, 14, 15");
 
         // Group by Row(ObjectId) (ID DISTINCT FROM in @OperatorDependency)
