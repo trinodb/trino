@@ -344,7 +344,8 @@ Exchange spooling is responsible for storing and managing spooled data for
 fault-tolerant execution. You can configure a filesystem-based exchange manager
 that stores spooled data in a specified location, such as :ref:`AWS S3
 <fte-exchange-aws-s3>` and S3-compatible systems, :ref:`Azure Blob Storage
-<fte-exchange-azure-blob>`, or :ref:`Google Cloud Storage <fte-exchange-gcs>`.
+<fte-exchange-azure-blob>`, :ref:`Google Cloud Storage <fte-exchange-gcs>`,
+or :ref:`HDFS <fte-exchange-hdfs>`.
 
 Configuration
 ^^^^^^^^^^^^^
@@ -352,7 +353,7 @@ Configuration
 To configure an exchange manager, create a new
 ``etc/exchange-manager.properties`` configuration file on the coordinator and
 all worker nodes. In this file, set the ``exchange-manager.name`` configuration
-propertry to ``filesystem``, and additional configuration properties as needed
+property to ``filesystem`` or ``hdfs``, and set additional configuration properties as needed
 for your storage solution.
 
 The following table lists the available configuration properties for
@@ -369,7 +370,7 @@ the property may be configured for:
      - Supported filesystem
    * - ``exchange.base-directories``
      - Comma-separated list of URI locations that the exchange manager uses to
-       store spooling data. Only supports S3 and local filesystems.
+       store spooling data.
      -
      - Any
    * - ``exchange.sink-buffer-pool-min-size``
@@ -458,6 +459,15 @@ the property may be configured for:
        retry a request.
      - ``10``
      - Azure Blob Storage
+   * - ``exchange.hdfs.block-size``
+     - Block size for HDFS storage.
+     - ``4MB``
+     - HDFS
+   * - ``hdfs.config.resources``
+     - Comma-separated list of paths to HDFS configuration files, for example ``/etc/hdfs-site.xml``.
+       The files must exist on all nodes in the Trino cluster.
+     -
+     - HDFS
 
 It is recommended to set the ``exchange.compression-enabled`` property to
 ``true`` in the cluster's ``config.properties`` file, to reduce the exchange
@@ -535,6 +545,20 @@ GCS bucket as the spooling storage destination.
     exchange.s3.aws-secret-key=example-secret-key
     exchange.s3.endpoint=https://storage.googleapis.com
     exchange.gcs.json-key-file-path=/path/to/gcs_keyfile.json
+
+.. _fte-exchange-hdfs:
+
+HDFS
+~~~~
+
+The following ``exchange-manager.properties`` configuration example specifies HDFS
+as the spooling storage destination.
+
+.. code-block:: properties
+
+    exchange-manager.name=hdfs
+    exchange.base-directories=hadoop-master:9000/exchange-spooling-directory
+    hdfs.config.resources=/usr/lib/hadoop/etc/hadoop/core-site.xml
 
 .. _fte-exchange-local-filesystem:
 
