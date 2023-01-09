@@ -1819,7 +1819,7 @@ class StatementAnalyzer
                 analysisBuilder.withName(relationName);
             }
 
-            argumentBuilder.rowType(RowType.from(argumentScope.getRelationType().getVisibleFields().stream()
+            argumentBuilder.rowType(RowType.from(argumentScope.getRelationType().getAllFields().stream()
                     .map(field -> new RowType.Field(field.getName(), field.getType()))
                     .collect(toImmutableList())));
 
