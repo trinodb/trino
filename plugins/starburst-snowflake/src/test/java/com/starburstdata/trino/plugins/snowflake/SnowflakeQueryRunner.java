@@ -18,12 +18,14 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.Plugin;
 import io.trino.spi.security.Identity;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static com.starburstdata.trino.plugins.snowflake.SnowflakePlugin.SNOWFLAKE_JDBC;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeServer.JDBC_URL;
@@ -75,15 +77,29 @@ public class SnowflakeQueryRunner
             Map<String, String> extraProperties,
             int nodeCount,
             boolean createUserContextView,
-            Iterable<TpchTable<?>> tpchTables)
+            Iterable<TpchTable<?>> tpchTables,
+            Map<String, String> coordinatorProperties,
+            Consumer<QueryRunner> additionalSetup)
             throws Exception
     {
         DistributedQueryRunner.Builder builder = DistributedQueryRunner.builder(createSession())
                 .setNodeCount(nodeCount);
         extraProperties.forEach(builder::addExtraProperty);
-        DistributedQueryRunner queryRunner = builder.build();
+        DistributedQueryRunner queryRunner = builder
+                .setCoordinatorProperties(coordinatorProperties)
+                .setAdditionalSetup(additionalSetup).build();
 
-        createSnowflakeQueryRunner(server, new TestingSnowflakePlugin(), connectorName, warehouse, database, connectorProperties, createUserContextView, tpchTables, queryRunner.getDefaultSession(), queryRunner);
+        createSnowflakeQueryRunner(
+                server,
+                new TestingSnowflakePlugin(),
+                connectorName,
+                warehouse,
+                database,
+                connectorProperties,
+                createUserContextView,
+                tpchTables,
+                queryRunner.getDefaultSession(),
+                queryRunner);
         return queryRunner;
     }
 
@@ -167,6 +183,8 @@ public class SnowflakeQueryRunner
         private int nodeCount = 3;
         private Iterable<TpchTable<?>> tpchTables = new ArrayList<>();
         private boolean createUserContextView;
+        private ImmutableMap.Builder<String, String> coordinatorProperties = ImmutableMap.builder();
+        private Consumer<QueryRunner> additionalSetup = queryRunner -> {};
 
         private Builder(String connectorName)
         {
@@ -228,13 +246,36 @@ public class SnowflakeQueryRunner
             return this;
         }
 
+        public Builder withAdditionalSetup(Consumer<QueryRunner> additionalSetup)
+        {
+            this.additionalSetup = requireNonNull(additionalSetup, "additionalSetup is null");
+            return this;
+        }
+
+        public Builder withCoordinatorProperties(Map<String, String> coordinatorProperties)
+        {
+            this.coordinatorProperties.putAll(requireNonNull(coordinatorProperties, "connectorProperties is null"));
+            return this;
+        }
+
         public DistributedQueryRunner build()
                 throws Exception
         {
             if (databaseName.isPresent() && schemaName.isPresent()) {
                 server.createSchema(databaseName.get(), schemaName.get());
             }
-            return createSnowflakeQueryRunner(server, connectorName, warehouseName, databaseName, connectorProperties.buildOrThrow(), extraProperties.buildOrThrow(), nodeCount, createUserContextView, tpchTables);
+            return createSnowflakeQueryRunner(
+                    server,
+                    connectorName,
+                    warehouseName,
+                    databaseName,
+                    connectorProperties.buildOrThrow(),
+                    extraProperties.buildOrThrow(),
+                    nodeCount,
+                    createUserContextView,
+                    tpchTables,
+                    coordinatorProperties.buildOrThrow(),
+                    additionalSetup);
         }
     }
 

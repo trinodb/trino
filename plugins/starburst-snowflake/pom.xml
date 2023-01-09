@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.trino.plugins</groupId>
         <artifactId>starburst-trino-plugins</artifactId>
-        <version>405-SNAPSHOT</version>
+        <version>407-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -215,6 +215,47 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-exchange-filesystem</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.microsoft.azure</groupId>
+                    <artifactId>msal4j</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.api</groupId>
+                    <artifactId>gax</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-faulttolerant-tests</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>junit</groupId>
+                    <artifactId>junit</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-faulttolerant-tests</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>junit</groupId>
+                    <artifactId>junit</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-hive</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
@@ -364,6 +405,10 @@
                                         <groupId>com.amazonaws</groupId>
                                         <artifactId>aws-java-sdk-s3</artifactId>
                                     </dependency>
+                                    <dependency>
+                                        <groupId>software.amazon.awssdk</groupId>
+                                        <artifactId>sdk-core</artifactId>
+                                    </dependency>
                                 </conflictingDependencies>
                                 <resources>
                                     <resource>mime.types</resource>
@@ -410,6 +455,8 @@
                                 <exclude>**/TestDistributedSnowflakeLargeScan.java</exclude>
                                 <exclude>**/TestDistributedSnowflakeTypeMapping.java</exclude>
                                 <exclude>**/TestSnowflakeJmxStats.java</exclude>
+                                <exclude>**/TestSnowflakeQueryFailureRecoveryTest.java</exclude>
+                                <exclude>**/TestSnowflakeTaskFailureRecoveryTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -445,6 +492,23 @@
                                 <include>**/TestDistributedSnowflakeConnectorTest.java</include>
                                 <include>**/TestDistributedSnowflakeLargeScan.java</include>
                                 <include>**/TestDistributedSnowflakeTypeMapping.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>fault-tolerant-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestJdbcSnowflakeQueryFailureRecoveryTest.java</include>
+                                <include>**/TestJdbcSnowflakeTaskFailureRecoveryTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>

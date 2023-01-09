@@ -23,6 +23,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcSplit;
@@ -231,7 +232,7 @@ public class SnowflakeClient
             IdentifierMapping identifierMapping,
             RemoteQueryModifier queryModifier)
     {
-        super(config, IDENTIFIER_QUOTE, connectionFactory, queryBuilder, identifierMapping, queryModifier);
+        super(IDENTIFIER_QUOTE, connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
         this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.jsonPathType = typeManager.getType(new TypeSignature("JsonPath"));
         this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
@@ -633,7 +634,14 @@ public class SnowflakeClient
             throws SQLException
     {
         checkColumnsForInvalidCharacters(tableMetadata.getColumns());
-        JdbcOutputTableHandle outputTableHandle = super.createTable(session, tableMetadata, tableName);
+        return super.createTable(session, tableMetadata, tableName);
+    }
+
+    @Override
+    protected JdbcOutputTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, String targetTableName, Optional<ColumnMetadata> pageSinkIdColumn)
+            throws SQLException
+    {
+        JdbcOutputTableHandle outputTableHandle = super.createTable(session, tableMetadata, targetTableName, pageSinkIdColumn);
         if (databasePrefixForSchemaEnabled) {
             DatabaseSchemaName databaseSchema = parseDatabaseSchemaName(outputTableHandle.getSchemaName());
             return new JdbcOutputTableHandle(
@@ -672,7 +680,38 @@ public class SnowflakeClient
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
         checkColumnsForInvalidCharacters(ImmutableList.of(column));
-        super.addColumn(session, handle, column);
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
+        if (column.getComment() != null) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
+        }
+
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
+            JdbcNamedRelationHandle jdbcNamedRelationHandle = handle.asPlainTable();
+            RemoteTableName remoteTableName = jdbcNamedRelationHandle.getRemoteTableName();
+            super.addColumn(session, connection, remoteTableName, column);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    /**
+     * This override is required for FTE mode as this method is being called from {@link BaseJdbcClient#beginInsertTable}
+     * to create an additional sink ID column and it needs database prefix handling.
+     */
+    @Override
+    protected void addColumn(ConnectorSession session, Connection connection, RemoteTableName table, ColumnMetadata column)
+            throws SQLException
+    {
+        if (databasePrefixForSchemaEnabled) {
+            DatabaseSchemaName databaseSchemaName = parseDatabaseSchemaName(table.getSchemaName().orElseThrow());
+            table = new RemoteTableName(
+                    Optional.of(databaseSchemaName.getDatabaseName()),
+                    Optional.of(databaseSchemaName.getSchemaName()),
+                    table.getTableName());
+        }
+        super.addColumn(session, connection, table, column);
     }
 
     public static void checkColumnsForInvalidCharacters(List<ColumnMetadata> columns)

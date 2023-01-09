@@ -158,6 +158,42 @@ public class TestSnowflakeDatabasePrefixIntegrationSmokeTest
     }
 
     @Test
+    public void testAddColumn()
+    {
+        String tableName;
+        try (TestTable table = new TestTable(getQueryRunner()::execute, databaseSchemaTableName(normalizedDatabaseName, "public", "test_table_for_add"), "(x VARCHAR)")) {
+            tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " SELECT 'first'", 1);
+            assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN x bigint", ".* Column 'x' already exists");
+            assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN X bigint", ".* Column 'X' already exists");
+            assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN q bad_type", ".* Unknown type 'bad_type' for column 'q'");
+
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a varchar(50)");
+            // Verify table state after adding a column, but before inserting anything to it
+            assertQuery(
+                    "SELECT * FROM " + tableName,
+                    "VALUES ('first', NULL)");
+            assertUpdate("INSERT INTO " + tableName + " SELECT 'second', 'xxx'", 1);
+            assertQuery(
+                    "SELECT x, a FROM " + tableName,
+                    "VALUES ('first', NULL), ('second', 'xxx')");
+
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b double");
+            assertUpdate("INSERT INTO " + tableName + " SELECT 'third', 'yyy', 33.3E0", 1);
+            assertQuery(
+                    "SELECT x, a, b FROM " + tableName,
+                    "VALUES ('first', NULL, NULL), ('second', 'xxx', NULL), ('third', 'yyy', 33.3)");
+
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS c varchar(50)");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS c varchar(50)");
+            assertUpdate("INSERT INTO " + tableName + " SELECT 'fourth', 'zzz', 55.3E0, 'newColumn'", 1);
+            assertQuery(
+                    "SELECT x, a, b, c FROM " + tableName,
+                    "VALUES ('first', NULL, NULL, NULL), ('second', 'xxx', NULL, NULL), ('third', 'yyy', 33.3, NULL), ('fourth', 'zzz', 55.3, 'newColumn')");
+        }
+    }
+
+    @Test
     public void testCreateAsSelect()
     {
         try (TestTable table = new TestTable(snowflakeExecutor, "public.base_table", "(a STRING)", ImmutableList.of("'value-1'"))) {
