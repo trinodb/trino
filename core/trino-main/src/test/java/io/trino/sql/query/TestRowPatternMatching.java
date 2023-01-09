@@ -1548,4 +1548,18 @@ public class TestRowPatternMatching
                 """))
                 .matches("VALUES 1");
     }
+
+    @Test
+    public void testKillThread()
+    {
+        assertThat(assertions.query("""
+                SELECT *
+                FROM (VALUES 1, 2, 3, 4, 5)
+                  MATCH_RECOGNIZE (
+                      MEASURES 'foo' AS foo
+                      PATTERN ((Y?){2,})
+                      DEFINE Y AS true)
+                """))
+                .matches("VALUES 'foo'");
+    }
 }
