@@ -619,7 +619,7 @@ public class Driver
     }
 
     @FormatMethod
-    private static Throwable addSuppressedException(Throwable inFlightException, Throwable newException, String message, Object... args)
+    private static Throwable addSuppressedException(Throwable inFlightException, Throwable newException, String message, final Object... args)
     {
         if (newException instanceof Error) {
             if (inFlightException == null) {
