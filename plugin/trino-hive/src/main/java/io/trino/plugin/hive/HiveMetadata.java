@@ -357,6 +357,10 @@ public class HiveMetadata
     private static final String AUTO_PURGE_KEY = "auto.purge";
 
     public static final String MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE = "Modifying Hive table rows is only supported for transactional tables";
+    public static final String LEGACY_ACID_UPDATE_DELETE_MESSAGE = """
+            %s on ACID transactional tables is not supported when using the legacy UPDATE/DELETE implementation.\
+            Switch to the new implementation by removing `deprecated.legacy-update-delete-implementation` system config property\
+            or setting `legacy_update_delete_implementation` catalog session property to false.""";
 
     private final CatalogName catalogName;
     private final SemiTransactionalHiveMetastore metastore;
@@ -1815,6 +1819,9 @@ public class HiveMetadata
         if (isSparkBucketedTable(table)) {
             throw new TrinoException(NOT_SUPPORTED, "Updating Spark bucketed tables is not supported");
         }
+        if (isFullAcidTable(table.getParameters())) {
+            throw new TrinoException(NOT_SUPPORTED, LEGACY_ACID_UPDATE_DELETE_MESSAGE.formatted("UPDATE"));
+        }
 
         // Verify that none of the updated columns are partition columns or bucket columns
 
@@ -2734,6 +2741,9 @@ public class HiveMetadata
         }
         if (isSparkBucketedTable(table)) {
             throw new TrinoException(NOT_SUPPORTED, "Deleting from Spark bucketed tables is not supported");
+        }
+        if (isFullAcidTable(table.getParameters())) {
+            throw new TrinoException(NOT_SUPPORTED, LEGACY_ACID_UPDATE_DELETE_MESSAGE.formatted("DELETE"));
         }
 
         LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
