@@ -2459,6 +2459,49 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery(format("DROP TABLE %s", trinoTableName));
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "testSparkAlterColumnType")
+    public void testSparkAlterColumnType(StorageFormat storageFormat, String sourceColumnType, String sourceValueLiteral, String newColumnType, Object newValue)
+    {
+        String baseTableName = "test_spark_alter_column_type_" + randomNameSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + " TBLPROPERTIES ('write.format.default' = '" + storageFormat + "') " +
+                "AS SELECT CAST(" + sourceValueLiteral + " AS " + sourceColumnType + ") AS col");
+
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ALTER COLUMN col TYPE " + newColumnType);
+
+        assertEquals(getColumnType(baseTableName, "col"), newColumnType);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(row(newValue));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(newValue));
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
+    @DataProvider
+    public static Object[][] testSparkAlterColumnType()
+    {
+        Object[][] alterColumnTypeData = new Object[][] {
+                {"integer", "2147483647", "bigint", 2147483647L},
+                {"float", "10.3", "double", 10.3},
+                {"float", "'NaN'", "double", Double.NaN},
+                {"decimal(5,3)", "'12.345'", "decimal(10,3)", BigDecimal.valueOf(12.345)}
+        };
+
+        return Stream.of(StorageFormat.values())
+                .flatMap(storageFormat -> Arrays.stream(alterColumnTypeData).map(data -> new Object[] {storageFormat, data[0], data[1], data[2], data[3]}))
+                .toArray(Object[][]::new);
+    }
+
+    private String getColumnType(String tableName, String columnName)
+    {
+        return (String) onTrino().executeQuery("SELECT data_type FROM " + TRINO_CATALOG + ".information_schema.columns " +
+                        "WHERE table_schema = '" + TEST_SCHEMA_NAME + "' AND " +
+                        "table_name = '" + tableName + "' AND " +
+                        "column_name = '" + columnName + "'")
+                .getOnlyValue();
+    }
+
     private int calculateMetadataFilesForPartitionedTable(String tableName)
     {
         String dataFilePath = (String) onTrino().executeQuery(format("SELECT file_path FROM iceberg.default.\"%s$files\" limit 1", tableName)).getOnlyValue();
