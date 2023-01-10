@@ -964,7 +964,7 @@ public class Analysis
     public Range getRange(RangeQuantifier quantifier)
     {
         Range range = ranges.get(NodeRef.of(quantifier));
-        checkNotNull(range, "missing range for quantifier ", quantifier);
+        checkNotNull(range, "missing range for quantifier %s", quantifier);
         return range;
     }
 
@@ -981,7 +981,7 @@ public class Analysis
     public Set<String> getUndefinedLabels(RowPattern pattern)
     {
         Set<String> labels = undefinedLabels.get(NodeRef.of(pattern));
-        checkNotNull(labels, "missing undefined labels for ", pattern);
+        checkNotNull(labels, "missing undefined labels for %s", pattern);
         return labels;
     }
 

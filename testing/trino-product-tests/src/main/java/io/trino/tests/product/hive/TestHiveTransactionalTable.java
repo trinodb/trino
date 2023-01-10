@@ -1951,7 +1951,8 @@ public class TestHiveTransactionalTable
         onTrino().executeQuery(format("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM %s", tableName))
                 .column(1)
                 .forEach(path -> verify(path.toString().endsWith(tableName.toLowerCase(ENGLISH)),
-                        "files in %s are not directly under table location"));
+                        "files in %s are not directly under table location",
+                        path));
     }
 
     @Test

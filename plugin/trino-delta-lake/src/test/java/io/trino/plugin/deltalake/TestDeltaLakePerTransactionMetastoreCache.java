@@ -146,7 +146,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
                     @Provides
                     @Singleton
                     @ThriftHiveWriteStatisticsExecutor
-                    public ExecutorService createWriteStatisticsExecutor(ThriftMetastoreConfig hiveConfig)
+                    public ExecutorService createWriteStatisticsExecutor()
                     {
                         return executorService;
                     }

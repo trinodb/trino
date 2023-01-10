@@ -905,7 +905,7 @@ public class StageTaskSourceFactory
         ImmutableListMultimap.Builder<PlanNodeId, ExchangeSourceHandle> result = ImmutableListMultimap.builder();
         for (RemoteSourceNode remoteSource : remoteSources) {
             for (PlanFragmentId fragmentId : remoteSource.getSourceFragmentIds()) {
-                Collection<ExchangeSourceHandle> handles = requireNonNull(exchangeSourceHandles.get(fragmentId), () -> "exchange source handle is missing for fragment: " + fragmentId);
+                Collection<ExchangeSourceHandle> handles = exchangeSourceHandles.get(fragmentId);
                 result.putAll(remoteSource.getId(), handles);
             }
         }

@@ -51,7 +51,7 @@ public final class Merge
         super(location);
         // Check that the target is either a Table or an AliasedRelation
         this.target = requireNonNull(target, "target is null");
-        checkArgument(target instanceof Table || target instanceof AliasedRelation, "target (%s) is neither a Table nor an AliasedRelation");
+        checkArgument(target instanceof Table || target instanceof AliasedRelation, "target (%s) is neither a Table nor an AliasedRelation", target);
         this.source = requireNonNull(source, "source is null");
         this.predicate = requireNonNull(predicate, "expression is null");
         this.mergeCases = ImmutableList.copyOf(requireNonNull(mergeCases, "mergeCases is null"));

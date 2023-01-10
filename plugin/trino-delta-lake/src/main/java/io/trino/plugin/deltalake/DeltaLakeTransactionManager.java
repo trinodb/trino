@@ -53,7 +53,7 @@ public class DeltaLakeTransactionManager
     public void commit(ConnectorTransactionHandle transaction)
     {
         MemoizedMetadata deltaLakeMetadata = transactions.remove(transaction);
-        checkArgument(deltaLakeMetadata != null, "no such transaction: %s");
+        checkArgument(deltaLakeMetadata != null, "no such transaction: %s", transaction);
     }
 
     public void rollback(ConnectorTransactionHandle transaction)

@@ -336,7 +336,7 @@ public class PagePartitioner
     {
         // copy all positions because all hash function args are the same for every position
         if (nullChannel != -1 && page.getBlock(nullChannel).isNull(0)) {
-            verify(page.getBlock(nullChannel) instanceof RunLengthEncodedBlock, "null channel is not RunLengthEncodedBlock", page.getBlock(nullChannel));
+            verify(page.getBlock(nullChannel) instanceof RunLengthEncodedBlock, "null channel %s is not RunLengthEncodedBlock", nullChannel);
             // all positions are null
             int[] allPositions = integersInRange(position, page.getPositionCount());
             for (IntList partitionPosition : partitionPositions) {

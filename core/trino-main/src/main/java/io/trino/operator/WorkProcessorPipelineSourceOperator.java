@@ -566,7 +566,7 @@ public class WorkProcessorPipelineSourceOperator
     }
 
     @FormatMethod
-    private static Throwable handleOperatorCloseError(Throwable inFlightException, Throwable newException, String message, Object... args)
+    private static Throwable handleOperatorCloseError(Throwable inFlightException, Throwable newException, String message, final Object... args)
     {
         if (newException instanceof Error) {
             if (inFlightException == null) {

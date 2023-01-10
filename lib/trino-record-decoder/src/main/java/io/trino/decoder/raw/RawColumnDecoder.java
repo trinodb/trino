@@ -147,8 +147,9 @@ public class RawColumnDecoder
 
             if (!(columnType instanceof VarcharType)) {
                 checkArgument(end.isEmpty() || end.getAsInt() - start == fieldType.getSize(),
-                        "Bytes mapping for column '%s' does not match dataFormat '%s'; expected %s bytes but got %s",
+                        "Bytes mapping for column '%s' does not dataFormat '%s'; expected %s bytes but got %s",
                         columnName,
+                        columnHandle.getDataFormat(),
                         fieldType.getSize(),
                         end.getAsInt() - start);
             }
