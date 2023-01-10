@@ -73,6 +73,7 @@ public abstract class BaseSnowflakeConnectorTest
             case SUPPORTS_ARRAY:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_SET_COLUMN_TYPE:
             case SUPPORTS_ROW_TYPE:
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
