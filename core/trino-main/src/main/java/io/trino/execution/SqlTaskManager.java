@@ -78,7 +78,7 @@ import java.util.function.Predicate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.resourceOvercommit;
@@ -196,11 +196,11 @@ public class SqlTaskManager
         DataSize maxBroadcastBufferSize = config.getSinkMaxBroadcastBufferSize();
 
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
-        taskNotificationExecutor = newFixedThreadPool(config.getTaskNotificationThreads(), threadsNamed("task-notification-%s"));
+        taskNotificationExecutor = newFixedThreadPool(config.getTaskNotificationThreads(), daemonThreadsNamed("task-notification-%s"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
 
         this.taskManagementExecutor = taskManagementExecutor.getExecutor();
-        this.driverYieldExecutor = newScheduledThreadPool(config.getTaskYieldThreads(), threadsNamed("task-yield-%s"));
+        this.driverYieldExecutor = newScheduledThreadPool(config.getTaskYieldThreads(), daemonThreadsNamed("task-yield-%s"));
 
         SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, splitMonitor, config);
 
