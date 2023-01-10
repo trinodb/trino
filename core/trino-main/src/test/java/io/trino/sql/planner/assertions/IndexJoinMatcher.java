@@ -53,11 +53,10 @@ final class IndexJoinMatcher
     @Override
     public boolean shapeMatches(PlanNode node)
     {
-        if (!(node instanceof IndexJoinNode)) {
+        if (!(node instanceof IndexJoinNode indexJoinNode)) {
             return false;
         }
 
-        IndexJoinNode indexJoinNode = (IndexJoinNode) node;
         return indexJoinNode.getType() == type;
     }
 
