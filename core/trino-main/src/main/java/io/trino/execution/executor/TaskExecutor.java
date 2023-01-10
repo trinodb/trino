@@ -528,7 +528,9 @@ public class TaskExecutor
                         }
 
                         if (split.isFinished()) {
-                            log.debug("%s is finished", split.getInfo());
+                            if (log.isDebugEnabled()) {
+                                log.debug("%s is finished", split.getInfo());
+                            }
                             splitFinished(split);
                         }
                         else {
