@@ -2253,6 +2253,8 @@ public abstract class BaseConnectorTest
                 .add(new SetColumnTypeSetup("smallint", "smallint '32767'", "integer", "32767"))
                 .add(new SetColumnTypeSetup("integer", "2147483647", "bigint", "bigint '2147483647'"))
                 .add(new SetColumnTypeSetup("bigint", "bigint '-2147483648'", "integer", "-2147483648"))
+                .add(new SetColumnTypeSetup("real", "real '10.3'", "double", "double '10.3'"))
+                .add(new SetColumnTypeSetup("real", "real 'NaN'", "double", "double 'NaN'"))
                 .add(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(10,3)", "12.345")) // short decimal -> short decimal
                 .add(new SetColumnTypeSetup("decimal(28,3)", "12.345", "decimal(38,3)", "12.345")) // long decimal -> long decimal
                 .add(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(38,3)", "12.345")) // short decimal -> long decimal
@@ -2269,6 +2271,8 @@ public abstract class BaseConnectorTest
                 .add(new SetColumnTypeSetup("char(100)", "'shorten-char'", "char(50)", "cast('shorten-char' as char(50))"))
                 .add(new SetColumnTypeSetup("char(100)", "'char-to-varchar'", "varchar", "'char-to-varchar'"))
                 .add(new SetColumnTypeSetup("varchar", "'varchar-to-char'", "char(100)", "cast('varchar-to-char' as char(100))"))
+                .add(new SetColumnTypeSetup("array(integer)", "array[1]", "array(bigint)", "cast(array[1] as array(bigint))"))
+                .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(x bigint)", "cast(row(1) as row(x bigint))"))
                 .build();
     }
 
