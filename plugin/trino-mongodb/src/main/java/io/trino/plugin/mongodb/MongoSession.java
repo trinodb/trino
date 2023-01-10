@@ -353,6 +353,31 @@ public class MongoSession
         tableCache.invalidate(table.getSchemaTableName());
     }
 
+    public void setColumnType(MongoTableHandle table, String columnName, Type type)
+    {
+        String remoteSchemaName = table.getRemoteTableName().getDatabaseName();
+        String remoteTableName = table.getRemoteTableName().getCollectionName();
+
+        Document metadata = getTableMetadata(remoteSchemaName, remoteTableName);
+
+        List<Document> columns = getColumnMetadata(metadata).stream()
+                .map(document -> {
+                    if (document.getString(FIELDS_NAME_KEY).equals(columnName)) {
+                        document.put(FIELDS_TYPE_KEY, type.getTypeSignature().toString());
+                        return document;
+                    }
+                    return document;
+                })
+                .collect(toImmutableList());
+
+        metadata.replace(FIELDS_KEY, columns);
+
+        client.getDatabase(remoteSchemaName).getCollection(schemaCollection)
+                .findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
+
+        tableCache.invalidate(table.getSchemaTableName());
+    }
+
     private MongoTable loadTableSchema(SchemaTableName schemaTableName)
             throws TableNotFoundException
     {

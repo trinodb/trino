@@ -90,7 +90,6 @@ public class TestMongoConnectorTest
                 return false;
 
             case SUPPORTS_RENAME_COLUMN:
-            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
             case SUPPORTS_NOT_NULL_CONSTRAINT:
@@ -808,6 +807,29 @@ public class TestMongoConnectorTest
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching(".*fully qualified namespace .* is too long.*|Qualified identifier name must be shorter than or equal to '120'.*");
+    }
+
+    @Override
+    protected void verifySetColumnTypeFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Cannot change type");
+    }
+
+    @Override
+    protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
+    {
+        switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            case "bigint -> integer":
+            case "decimal(5,3) -> decimal(5,2)":
+            case "time(3) -> time(6)":
+            case "time(6) -> time(3)":
+            case "timestamp(3) -> timestamp(6)":
+            case "timestamp(6) -> timestamp(3)":
+            case "timestamp(3) with time zone -> timestamp(6) with time zone":
+            case "timestamp(6) with time zone -> timestamp(3) with time zone":
+                return Optional.of(setup.asUnsupported());
+        }
+        return Optional.of(setup);
     }
 
     private void assertOneNotNullResult(String query)
