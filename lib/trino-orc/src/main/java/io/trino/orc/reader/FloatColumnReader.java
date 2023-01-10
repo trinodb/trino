@@ -24,8 +24,8 @@ import io.trino.orc.stream.InputStreamSource;
 import io.trino.orc.stream.InputStreamSources;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlock;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -43,7 +43,10 @@ import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.reader.ReaderUtils.minNonNullValueSize;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
+import static java.lang.Double.doubleToRawLongBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -51,6 +54,8 @@ public class FloatColumnReader
         implements ColumnReader
 {
     private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(FloatColumnReader.class).instanceSize());
+
+    private final Type type;
 
     private final OrcColumn column;
 
@@ -74,8 +79,8 @@ public class FloatColumnReader
     public FloatColumnReader(Type type, OrcColumn column, LocalMemoryContext memoryContext)
             throws OrcCorruptionException
     {
-        requireNonNull(type, "type is null");
-        verifyStreamType(column, type, RealType.class::isInstance);
+        this.type = requireNonNull(type, "type is null");
+        verifyStreamType(column, type, t -> t == REAL || t == DOUBLE);
 
         this.column = requireNonNull(column, "column is null");
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
@@ -116,7 +121,7 @@ public class FloatColumnReader
                 throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is null but present stream is missing");
             }
             presentStream.skip(nextBatchSize);
-            block = RunLengthEncodedBlock.create(REAL, null, nextBatchSize);
+            block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
         }
         else if (presentStream == null) {
             block = readNonNullBlock();
@@ -131,7 +136,7 @@ public class FloatColumnReader
                 block = readNullBlock(isNull, nextBatchSize - nullCount);
             }
             else {
-                block = RunLengthEncodedBlock.create(REAL, null, nextBatchSize);
+                block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
             }
         }
 
@@ -147,7 +152,13 @@ public class FloatColumnReader
         verifyNotNull(dataStream);
         int[] values = new int[nextBatchSize];
         dataStream.next(values, nextBatchSize);
-        return new IntArrayBlock(nextBatchSize, Optional.empty(), values);
+        if (type == REAL) {
+            return new IntArrayBlock(nextBatchSize, Optional.empty(), values);
+        }
+        if (type == DOUBLE) {
+            return new LongArrayBlock(nextBatchSize, Optional.empty(), convertToLongArray(values));
+        }
+        throw new VerifyError("Unsupported type " + type);
     }
 
     private Block readNullBlock(boolean[] isNull, int nonNullCount)
@@ -163,8 +174,22 @@ public class FloatColumnReader
         dataStream.next(nonNullValueTemp, nonNullCount);
 
         int[] result = ReaderUtils.unpackIntNulls(nonNullValueTemp, isNull);
+        if (type == REAL) {
+            return new IntArrayBlock(isNull.length, Optional.of(isNull), result);
+        }
+        if (type == DOUBLE) {
+            return new LongArrayBlock(isNull.length, Optional.of(isNull), convertToLongArray(result));
+        }
+        throw new VerifyError("Unsupported type " + type);
+    }
 
-        return new IntArrayBlock(isNull.length, Optional.of(isNull), result);
+    private static long[] convertToLongArray(int[] intValues)
+    {
+        long[] values = new long[intValues.length];
+        for (int i = 0; i < intValues.length; i++) {
+            values[i] = doubleToRawLongBits(intBitsToFloat(intValues[i]));
+        }
+        return values;
     }
 
     private void openRowGroup()
