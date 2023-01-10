@@ -3112,6 +3112,34 @@ public abstract class BaseConnectorTest
         }
     }
 
+    @Test(dataProvider = "testColumnNameDataProvider")
+    public void testCommentColumnName(String columnName)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_COMMENT_ON_COLUMN));
+
+        if (!requiresDelimiting(columnName)) {
+            testCommentColumnName(columnName, false);
+        }
+        testCommentColumnName(columnName, true);
+    }
+
+    protected void testCommentColumnName(String columnName, boolean delimited)
+    {
+        String nameInSql = toColumnNameInSql(columnName, delimited);
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_column_name", "(" + nameInSql + " integer)")) {
+            assertUpdate("COMMENT ON COLUMN " + table.getName() + "." + nameInSql + " IS 'test comment'");
+            assertThat(getColumnComment(table.getName(), columnName.replace("'", "''").toLowerCase(ENGLISH))).isEqualTo("test comment");
+        }
+        catch (RuntimeException e) {
+            if (isColumnNameRejected(e, columnName, delimited)) {
+                // It is OK if give column name is not allowed and is clearly rejected by the connector.
+                return;
+            }
+            throw e;
+        }
+    }
+
     @Test
     public void testCommentViewColumn()
     {
