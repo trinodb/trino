@@ -713,7 +713,7 @@ public abstract class BaseJdbcClient
                     columnTypes.build(),
                     Optional.of(jdbcColumnTypes.build()),
                     Optional.of(remoteTemporaryTableName),
-                    pageSinkIdColumn.map(ColumnMetadata::getName));
+                    pageSinkIdColumn.map(column -> identifierMapping.toRemoteColumnName(connection, column.getName())));
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
