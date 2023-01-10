@@ -16,7 +16,7 @@ package io.trino.plugin.deltalake;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorType;
 import io.trino.testing.BaseFailureRecoveryTest;
-import org.testng.annotations.Test;
+import org.testng.annotations.DataProvider;
 
 import java.util.Optional;
 
@@ -43,7 +43,17 @@ public abstract class BaseDeltaFailureRecoveryTest
     }
 
     @Override
-    public void testDelete()
+    @DataProvider(name = "parallelTests", parallel = true)
+    public Object[][] parallelTests()
+    {
+        return moreParallelTests(super.parallelTests(),
+                parallelTest("testCreatePartitionedTable", this::testCreatePartitionedTable),
+                parallelTest("testInsertIntoNewPartition", this::testInsertIntoNewPartition),
+                parallelTest("testInsertIntoExistingPartition", this::testInsertIntoExistingPartition));
+    }
+
+    @Override
+    protected void testDelete()
     {
         // Test method is overriden because method from superclass assumes more complex plan for `DELETE` query.
         // Assertions do not play well if plan consists of just two fragments.
@@ -127,7 +137,7 @@ public abstract class BaseDeltaFailureRecoveryTest
     }
 
     @Override
-    public void testUpdate()
+    protected void testUpdate()
     {
         // Test method is overriden because method from superclass assumes more complex plan for `UPDATE` query.
         // Assertions do not play well if plan consists of just two fragments.
@@ -211,14 +221,13 @@ public abstract class BaseDeltaFailureRecoveryTest
 
     @Override
     // materialized views are currently not implemented by Delta connector
-    public void testRefreshMaterializedView()
+    protected void testRefreshMaterializedView()
     {
         assertThatThrownBy(super::testRefreshMaterializedView)
                 .hasMessageContaining("This connector does not support creating materialized views");
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testCreatePartitionedTable()
+    protected void testCreatePartitionedTable()
     {
         testTableModification(
                 Optional.empty(),
@@ -226,8 +235,7 @@ public abstract class BaseDeltaFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testInsertIntoNewPartition()
+    protected void testInsertIntoNewPartition()
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders"),
@@ -235,8 +243,7 @@ public abstract class BaseDeltaFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testInsertIntoExistingPartition()
+    protected void testInsertIntoExistingPartition()
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders"),

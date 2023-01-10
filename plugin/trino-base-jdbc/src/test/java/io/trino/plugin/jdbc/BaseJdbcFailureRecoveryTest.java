@@ -31,14 +31,14 @@ public abstract class BaseJdbcFailureRecoveryTest
     }
 
     @Override
-    public void testAnalyzeTable()
+    protected void testAnalyzeTable()
     {
         assertThatThrownBy(super::testAnalyzeTable).hasMessageMatching("This connector does not support analyze");
         throw new SkipException("skipped");
     }
 
     @Override
-    public void testDelete()
+    protected void testDelete()
     {
         // This simple delete on JDBC ends up as a very simple, single-fragment, coordinator-only plan,
         // which has no ability to recover from errors. This test simply verifies that's still the case.
@@ -53,14 +53,14 @@ public abstract class BaseJdbcFailureRecoveryTest
     }
 
     @Override
-    public void testDeleteWithSubquery()
+    protected void testDeleteWithSubquery()
     {
         assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining(MODIFYING_ROWS_MESSAGE);
         throw new SkipException("skipped");
     }
 
     @Override
-    public void testRefreshMaterializedView()
+    protected void testRefreshMaterializedView()
     {
         assertThatThrownBy(super::testRefreshMaterializedView)
                 .hasMessageContaining("This connector does not support creating materialized views");
@@ -68,21 +68,21 @@ public abstract class BaseJdbcFailureRecoveryTest
     }
 
     @Override
-    public void testUpdate()
+    protected void testUpdate()
     {
         assertThatThrownBy(super::testUpdate).hasMessageContaining(MODIFYING_ROWS_MESSAGE);
         throw new SkipException("skipped");
     }
 
     @Override
-    public void testUpdateWithSubquery()
+    protected void testUpdateWithSubquery()
     {
         assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining(MODIFYING_ROWS_MESSAGE);
         throw new SkipException("skipped");
     }
 
     @Override
-    public void testMerge()
+    protected void testMerge()
     {
         assertThatThrownBy(super::testMerge).hasMessageContaining(MODIFYING_ROWS_MESSAGE);
         throw new SkipException("skipped");

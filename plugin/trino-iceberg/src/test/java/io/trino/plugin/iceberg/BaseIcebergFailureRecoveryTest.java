@@ -16,7 +16,7 @@ package io.trino.plugin.iceberg;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorType;
 import io.trino.testing.BaseFailureRecoveryTest;
-import org.testng.annotations.Test;
+import org.testng.annotations.DataProvider;
 
 import java.util.Optional;
 
@@ -41,8 +41,18 @@ public abstract class BaseIcebergFailureRecoveryTest
         return true;
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testCreatePartitionedTable()
+    @Override
+    @DataProvider(name = "parallelTests", parallel = true)
+    public Object[][] parallelTests()
+    {
+        return moreParallelTests(super.parallelTests(),
+                parallelTest("testCreatePartitionedTable", this::testCreatePartitionedTable),
+                parallelTest("testInsertIntoNewPartition", this::testInsertIntoNewPartition),
+                parallelTest("testInsertIntoExistingPartition", this::testInsertIntoExistingPartition),
+                parallelTest("testMergePartitionedTable", this::testMergePartitionedTable));
+    }
+
+    protected void testCreatePartitionedTable()
     {
         testTableModification(
                 Optional.empty(),
@@ -52,7 +62,7 @@ public abstract class BaseIcebergFailureRecoveryTest
 
     // Copied from BaseDeltaFailureRecoveryTest
     @Override
-    public void testDelete()
+    protected void testDelete()
     {
         // Test method is overriden because method from superclass assumes more complex plan for `DELETE` query.
         // Assertions do not play well if plan consists of just two fragments.
@@ -129,7 +139,7 @@ public abstract class BaseIcebergFailureRecoveryTest
 
     // Copied from BaseDeltaFailureRecoveryTest
     @Override
-    public void testUpdate()
+    protected void testUpdate()
     {
         // Test method is overriden because method from superclass assumes more complex plan for `UPDATE` query.
         // Assertions do not play well if plan consists of just two fragments.
@@ -203,8 +213,7 @@ public abstract class BaseIcebergFailureRecoveryTest
         }
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testInsertIntoNewPartition()
+    protected void testInsertIntoNewPartition()
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> WITH (partitioning = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders"),
@@ -212,8 +221,7 @@ public abstract class BaseIcebergFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testInsertIntoExistingPartition()
+    protected void testInsertIntoExistingPartition()
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> WITH (partitioning = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders"),
@@ -221,8 +229,7 @@ public abstract class BaseIcebergFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testMergePartitionedTable()
+    protected void testMergePartitionedTable()
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> WITH (partitioning = ARRAY['bucket(orderkey, 10)']) AS SELECT * FROM orders"),

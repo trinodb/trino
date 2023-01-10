@@ -26,8 +26,10 @@ import io.trino.spi.ErrorType;
 import io.trino.spi.QueryId;
 import io.trino.tpch.TpchTable;
 import org.assertj.core.api.AbstractThrowableAssert;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -175,8 +177,31 @@ public abstract class BaseFailureRecoveryTest
         }
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testCreateTable()
+    @DataProvider(name = "parallelTests", parallel = true)
+    public Object[][] parallelTests()
+    {
+        return new Object[][] {
+                parallelTest("testCreateTable", this::testCreateTable),
+                parallelTest("testInsert", this::testInsert),
+                parallelTest("testDelete", this::testDelete),
+                parallelTest("testDeleteWithSubquery", this::testDeleteWithSubquery),
+                parallelTest("testUpdate", this::testUpdate),
+                parallelTest("testUpdateWithSubquery", this::testUpdateWithSubquery),
+                parallelTest("testMerge", this::testMerge),
+                parallelTest("testRefreshMaterializedView", this::testRefreshMaterializedView),
+                parallelTest("testAnalyzeTable", this::testAnalyzeTable),
+                parallelTest("testExplainAnalyze", this::testExplainAnalyze),
+                parallelTest("testRequestTimeouts", this::testRequestTimeouts)
+        };
+    }
+
+    @Test(invocationCount = INVOCATION_COUNT, dataProvider = "parallelTests")
+    public final void testParallel(Runnable runnable)
+    {
+        runnable.run();
+    }
+
+    protected void testCreateTable()
     {
         testTableModification(
                 Optional.empty(),
@@ -184,8 +209,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testInsert()
+    protected void testInsert()
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders WITH NO DATA"),
@@ -193,8 +217,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testDelete()
+    protected void testDelete()
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
@@ -202,8 +225,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testDeleteWithSubquery()
+    protected void testDeleteWithSubquery()
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
@@ -211,8 +233,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testUpdate()
+    protected void testUpdate()
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
@@ -220,8 +241,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testUpdateWithSubquery()
+    protected void testUpdateWithSubquery()
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
@@ -229,8 +249,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testAnalyzeTable()
+    protected void testAnalyzeTable()
     {
         testNonSelect(
                 Optional.empty(),
@@ -240,8 +259,7 @@ public abstract class BaseFailureRecoveryTest
                 false);
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testMerge()
+    protected void testMerge()
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
@@ -257,8 +275,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testRefreshMaterializedView()
+    protected void testRefreshMaterializedView()
     {
         testTableModification(
                 Optional.of("CREATE MATERIALIZED VIEW <table> AS SELECT * FROM orders"),
@@ -266,8 +283,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP MATERIALIZED VIEW <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testExplainAnalyze()
+    protected void testExplainAnalyze()
     {
         testSelect("EXPLAIN ANALYZE SELECT orderStatus, count(*) FROM orders GROUP BY orderStatus");
 
@@ -277,8 +293,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testRequestTimeouts()
+    protected void testRequestTimeouts()
     {
         if (areWriteRetriesSupported()) {
             assertThatQuery("INSERT INTO <table> SELECT * FROM orders")
@@ -769,5 +784,41 @@ public abstract class BaseFailureRecoveryTest
     {
         StatementStats statementStats = result.getStatementStats().orElseThrow(() -> new IllegalArgumentException("statement stats is not present"));
         return requireNonNull(statementStats.getRootStage(), "root stage is null");
+    }
+
+    // The purpose of this class is two-fold:
+    // 1. to allow implementations to add to the list of parallelTests
+    // 2. to override the toString method so the test label is readable
+    // It extends Runnable to keep the class private, while testParallel can take a Runnable
+    // TODO remove when error prone is updated for Java 17 records
+    @SuppressWarnings("unused")
+    private record ParallelTestRunnable(String name, Runnable runnable)
+            implements Runnable
+    {
+        @Override
+        public String toString()
+        {
+            return name; // so the test label is readable
+        }
+
+        @Override
+        public void run()
+        {
+            runnable.run();
+        }
+    }
+
+    protected Object[] parallelTest(String name, Runnable runnable)
+    {
+        return new Object[] {
+                new ParallelTestRunnable(name, runnable)
+        };
+    }
+
+    protected Object[][] moreParallelTests(Object[][] some, Object[]... more)
+    {
+        Object[][] result = Arrays.copyOf(some, some.length + more.length);
+        System.arraycopy(more, 0, result, some.length, more.length);
+        return result;
     }
 }

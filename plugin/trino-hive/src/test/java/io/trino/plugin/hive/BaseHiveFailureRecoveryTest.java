@@ -16,7 +16,7 @@ package io.trino.plugin.hive;
 import io.trino.Session;
 import io.trino.operator.RetryPolicy;
 import io.trino.testing.ExtendedFailureRecoveryTest;
-import org.testng.annotations.Test;
+import org.testng.annotations.DataProvider;
 
 import java.util.List;
 import java.util.Optional;
@@ -51,8 +51,22 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Override
+    @DataProvider(name = "parallelTests", parallel = true)
+    public Object[][] parallelTests()
+    {
+        return moreParallelTests(super.parallelTests(),
+                parallelTest("testCreatePartitionedTable", this::testCreatePartitionedTable),
+                parallelTest("testInsertIntoNewPartition", this::testInsertIntoNewPartition),
+                parallelTest("testInsertIntoExistingPartition", this::testInsertIntoExistingPartition),
+                parallelTest("testInsertIntoNewPartitionBucketed", this::testInsertIntoNewPartitionBucketed),
+                parallelTest("testInsertIntoExistingPartitionBucketed", this::testInsertIntoExistingPartitionBucketed),
+                parallelTest("testReplaceExistingPartition", this::testReplaceExistingPartition),
+                parallelTest("testDeletePartitionWithSubquery", this::testDeletePartitionWithSubquery));
+    }
+
+    @Override
     // delete is unsupported for non ACID tables
-    public void testDelete()
+    protected void testDelete()
     {
         assertThatThrownBy(super::testDelete)
                 .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
@@ -60,7 +74,7 @@ public abstract class BaseHiveFailureRecoveryTest
 
     @Override
     // delete is unsupported for non ACID tables
-    public void testDeleteWithSubquery()
+    protected void testDeleteWithSubquery()
     {
         assertThatThrownBy(super::testDelete)
                 .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
@@ -68,7 +82,7 @@ public abstract class BaseHiveFailureRecoveryTest
 
     @Override
     // update is unsupported for non ACID tables
-    public void testUpdate()
+    protected void testUpdate()
     {
         assertThatThrownBy(super::testUpdate)
                 .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
@@ -76,14 +90,14 @@ public abstract class BaseHiveFailureRecoveryTest
 
     @Override
     // update is unsupported for non ACID tables
-    public void testUpdateWithSubquery()
+    protected void testUpdateWithSubquery()
     {
         assertThatThrownBy(super::testUpdateWithSubquery)
                 .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
-    public void testMerge()
+    protected void testMerge()
     {
         assertThatThrownBy(super::testMerge)
                 .hasMessageContaining("Modifying Hive table rows is only supported for transactional tables");
@@ -91,14 +105,13 @@ public abstract class BaseHiveFailureRecoveryTest
 
     @Override
     // materialized views are currently not implemented by Hive connector
-    public void testRefreshMaterializedView()
+    protected void testRefreshMaterializedView()
     {
         assertThatThrownBy(super::testRefreshMaterializedView)
                 .hasMessageContaining("This connector does not support creating materialized views");
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testCreatePartitionedTable()
+    protected void testCreatePartitionedTable()
     {
         testTableModification(
                 Optional.empty(),
@@ -106,8 +119,7 @@ public abstract class BaseHiveFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testInsertIntoNewPartition()
+    protected void testInsertIntoNewPartition()
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders"),
@@ -115,8 +127,7 @@ public abstract class BaseHiveFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testInsertIntoExistingPartition()
+    protected void testInsertIntoExistingPartition()
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders"),
@@ -124,8 +135,7 @@ public abstract class BaseHiveFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testInsertIntoNewPartitionBucketed()
+    protected void testInsertIntoNewPartitionBucketed()
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p'], bucketed_by = ARRAY['orderkey'], bucket_count = 4) AS SELECT *, 'partition1' p FROM orders"),
@@ -133,8 +143,7 @@ public abstract class BaseHiveFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testInsertIntoExistingPartitionBucketed()
+    protected void testInsertIntoExistingPartitionBucketed()
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p'], bucketed_by = ARRAY['orderkey'], bucket_count = 4) AS SELECT *, 'partition1' p FROM orders"),
@@ -142,8 +151,7 @@ public abstract class BaseHiveFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testReplaceExistingPartition()
+    protected void testReplaceExistingPartition()
     {
         testTableModification(
                 Optional.of(Session.builder(getQueryRunner().getDefaultSession())
@@ -154,8 +162,7 @@ public abstract class BaseHiveFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testDeletePartitionWithSubquery()
+    protected void testDeletePartitionWithSubquery()
     {
         assertThatThrownBy(() -> {
             testTableModification(
