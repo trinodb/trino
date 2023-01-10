@@ -538,7 +538,7 @@ public class BigQueryMetadata
                 quote(remoteTableName.getProjectId()),
                 quote(remoteTableName.getDatasetName()),
                 quote(remoteTableName.getTableName()),
-                column.getName());
+                quote(column.getName()));
         client.executeUpdate(QueryJobConfiguration.newBuilder(sql)
                 .setQuery(sql)
                 .addPositionalParameter(QueryParameterValue.string(newComment.orElse(null)))
