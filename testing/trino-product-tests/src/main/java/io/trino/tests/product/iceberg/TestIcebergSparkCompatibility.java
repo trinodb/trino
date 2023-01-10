@@ -60,6 +60,8 @@ import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.DataProviders.cartesianProduct;
+import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.ICEBERG_REST;
@@ -2516,14 +2518,72 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery(format("DROP TABLE %s", trinoTableName));
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "testSetColumnTypeDataProvider")
+    public void testTrinoSetColumnType(StorageFormat storageFormat, String sourceColumnType, String sourceValueLiteral, String newColumnType, Object newValue)
+    {
+        testTrinoSetColumnType(false, storageFormat, sourceColumnType, sourceValueLiteral, newColumnType, newValue);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "testSetColumnTypeDataProvider")
+    public void testTrinoSetPartitionedColumnType(StorageFormat storageFormat, String sourceColumnType, String sourceValueLiteral, String newColumnType, Object newValue)
+    {
+        testTrinoSetColumnType(true, storageFormat, sourceColumnType, sourceValueLiteral, newColumnType, newValue);
+    }
+
+    private void testTrinoSetColumnType(boolean partitioned, StorageFormat storageFormat, String sourceColumnType, String sourceValueLiteral, String newColumnType, Object newValue)
+    {
+        String baseTableName = "test_set_column_type_" + randomNameSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + " " +
+                "WITH (format = '" + storageFormat + "'" + (partitioned ? ", partitioning = ARRAY['col']" : "") + ")" +
+                "AS SELECT CAST(" + sourceValueLiteral + " AS " + sourceColumnType + ") AS col");
+
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " ALTER COLUMN col SET DATA TYPE " + newColumnType);
+
+        assertEquals(getColumnType(baseTableName, "col"), newColumnType);
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(newValue));
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(row(newValue));
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @DataProvider
+    public static Object[][] testSetColumnTypeDataProvider()
+    {
+        return cartesianProduct(
+                Stream.of(StorageFormat.values())
+                        .collect(toDataProvider()),
+                new Object[][] {
+                        {"integer", "2147483647", "bigint", 2147483647L},
+                        {"real", "10.3", "double", 10.3},
+                        {"real", "'NaN'", "double", Double.NaN},
+                        {"decimal(5,3)", "'12.345'", "decimal(10,3)", BigDecimal.valueOf(12.345)}
+                });
+    }
+
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "testSparkAlterColumnType")
     public void testSparkAlterColumnType(StorageFormat storageFormat, String sourceColumnType, String sourceValueLiteral, String newColumnType, Object newValue)
+    {
+        testSparkAlterColumnType(false, storageFormat, sourceColumnType, sourceValueLiteral, newColumnType, newValue);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "testSparkAlterColumnType")
+    public void testSparkAlterPartitionedColumnType(StorageFormat storageFormat, String sourceColumnType, String sourceValueLiteral, String newColumnType, Object newValue)
+    {
+        testSparkAlterColumnType(true, storageFormat, sourceColumnType, sourceValueLiteral, newColumnType, newValue);
+    }
+
+    private void testSparkAlterColumnType(boolean partitioned, StorageFormat storageFormat, String sourceColumnType, String sourceValueLiteral, String newColumnType, Object newValue)
     {
         String baseTableName = "test_spark_alter_column_type_" + randomNameSuffix();
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onSpark().executeQuery("CREATE TABLE " + sparkTableName + " TBLPROPERTIES ('write.format.default' = '" + storageFormat + "') " +
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName +
+                (partitioned ? " PARTITIONED BY (col)" : "") +
+                " TBLPROPERTIES ('write.format.default' = '" + storageFormat + "')" +
                 "AS SELECT CAST(" + sourceValueLiteral + " AS " + sourceColumnType + ") AS col");
 
         onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ALTER COLUMN col TYPE " + newColumnType);
