@@ -309,9 +309,9 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public void renameTable(Session session, TableHandle tableHandle, QualifiedObjectName newTableName)
+        public void renameTable(Session session, TableHandle tableHandle, CatalogSchemaTableName currentTableName, QualifiedObjectName newTableName)
         {
-            SchemaTableName oldTableName = getTableName(tableHandle);
+            SchemaTableName oldTableName = currentTableName.getSchemaTableName();
             tables.put(newTableName.asSchemaTableName(), verifyNotNull(tables.get(oldTableName), "Table not found %s", oldTableName));
             tables.remove(oldTableName);
         }

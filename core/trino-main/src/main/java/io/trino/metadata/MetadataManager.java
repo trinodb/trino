@@ -663,7 +663,7 @@ public final class MetadataManager
     }
 
     @Override
-    public void renameTable(Session session, TableHandle tableHandle, QualifiedObjectName newTableName)
+    public void renameTable(Session session, TableHandle tableHandle, CatalogSchemaTableName sourceTableName, QualifiedObjectName newTableName)
     {
         String catalogName = newTableName.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
@@ -671,11 +671,11 @@ public final class MetadataManager
         if (!tableHandle.getCatalogHandle().equals(catalogHandle)) {
             throw new TrinoException(SYNTAX_ERROR, "Cannot rename tables across catalogs");
         }
-        Optional<CatalogSchemaTableName> sourceTableName = getTableNameIfSystemSecurity(session, catalogMetadata, tableHandle);
-
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         metadata.renameTable(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle(), newTableName.asSchemaTableName());
-        sourceTableName.ifPresent(name -> systemSecurityMetadata.tableRenamed(session, name, newTableName.asCatalogSchemaTableName()));
+        if (catalogMetadata.getSecurityManagement() != CONNECTOR) {
+            systemSecurityMetadata.tableRenamed(session, sourceTableName, newTableName.asCatalogSchemaTableName());
+        }
     }
 
     @Override
@@ -2412,15 +2412,6 @@ public final class MetadataManager
     //
     // Helpers
     //
-
-    private static Optional<CatalogSchemaTableName> getTableNameIfSystemSecurity(Session session, CatalogMetadata catalogMetadata, TableHandle tableHandle)
-    {
-        if (catalogMetadata.getSecurityManagement() == CONNECTOR) {
-            return Optional.empty();
-        }
-        SchemaTableName schemaTableName = catalogMetadata.getMetadata(session).getSchemaTableName(session.toConnectorSession(tableHandle.getCatalogHandle()), tableHandle.getConnectorHandle());
-        return Optional.of(new CatalogSchemaTableName(catalogMetadata.getCatalogName(), schemaTableName));
-    }
 
     private Optional<CatalogMetadata> getOptionalCatalogMetadata(Session session, String catalogName)
     {
