@@ -428,12 +428,6 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public SchemaTableName getSchemaTableName(ConnectorSession session, ConnectorTableHandle table)
-    {
-        return ((DeltaLakeTableHandle) table).getSchemaTableName();
-    }
-
-    @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return new ConnectorTableProperties(

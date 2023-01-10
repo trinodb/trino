@@ -221,6 +221,7 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if table handle is no longer valid
      */
+    @Deprecated // ... and optimized implementations already removed
     default SchemaTableName getSchemaTableName(ConnectorSession session, ConnectorTableHandle table)
     {
         return getTableSchema(session, table).getTable();
