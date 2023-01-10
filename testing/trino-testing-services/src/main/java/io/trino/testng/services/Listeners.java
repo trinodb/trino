@@ -13,8 +13,11 @@
  */
 package io.trino.testng.services;
 
+import com.google.common.base.Joiner;
 import com.google.errorprone.annotations.FormatMethod;
+import org.testng.ITestClass;
 import org.testng.ITestNGListener;
+import org.testng.ITestResult;
 
 import static java.lang.String.format;
 
@@ -36,5 +39,25 @@ final class Listeners
         // TestNG may or may not propagate listener's exception as test execution exception.
         // Therefore, instead of throwing, we terminate the JVM.
         System.exit(1);
+    }
+
+    public static String formatTestName(ITestClass testClass)
+    {
+        return testClass.getName();
+    }
+
+    public static String formatTestName(ITestResult testCase)
+    {
+        // See LogTestDurationListener.getName
+        return format("%s.%s%s", testCase.getTestClass().getName(), testCase.getName(), formatTestParameters(testCase));
+    }
+
+    private static String formatTestParameters(ITestResult testCase)
+    {
+        Object[] parameters = testCase.getParameters();
+        if (parameters == null || parameters.length == 0) {
+            return "";
+        }
+        return format(" [%s]", Joiner.on(", ").useForNull("null").join(parameters));
     }
 }
