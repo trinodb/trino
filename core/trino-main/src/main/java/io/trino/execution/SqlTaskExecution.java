@@ -579,8 +579,9 @@ public class SqlTaskExecution
                     driver.updateSplitAssignment(new SplitAssignment(partitionedSplit.getPlanNodeId(), ImmutableSet.of(partitionedSplit), true));
                 }
 
-                pendingCreations.decrementAndGet();
-                closeDriverFactoryIfFullyCreated();
+                if (pendingCreations.decrementAndGet() == 0) {
+                    closeDriverFactoryIfFullyCreated();
+                }
 
                 if (driverFactory.getSourceId().isPresent() && partitionedSplit == null) {
                     driverReferences.add(new WeakReference<>(driver));
