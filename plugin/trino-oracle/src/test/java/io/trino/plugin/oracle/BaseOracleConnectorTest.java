@@ -181,6 +181,12 @@ public abstract class BaseOracleConnectorTest
         assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).doesNotContain("COMMENT 'new comment'");
     }
 
+    @Override
+    public void testCommentColumnName(String columnName)
+    {
+        throw new SkipException("The test is covered in TestOraclePoolRemarksReportingConnectorSmokeTest");
+    }
+
     /**
      * See {@link TestOraclePoolRemarksReportingConnectorSmokeTest#testCommentColumnSpecialCharacter(String comment)}
      */
