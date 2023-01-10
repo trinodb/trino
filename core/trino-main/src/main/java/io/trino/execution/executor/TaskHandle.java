@@ -38,7 +38,7 @@ public class TaskHandle
 {
     private volatile boolean destroyed;
     private final TaskId taskId;
-    protected final DoubleSupplier utilizationSupplier;
+    private final DoubleSupplier utilizationSupplier;
 
     @GuardedBy("this")
     protected final Queue<PrioritizedSplitRunner> queuedLeafSplits = new ArrayDeque<>(10);
@@ -53,7 +53,7 @@ public class TaskHandle
 
     private final AtomicInteger nextSplitId = new AtomicInteger();
 
-    protected final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
+    private final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
     private final MultilevelSplitQueue splitQueue;
     private final OptionalInt maxDriversPerTask;
 
@@ -87,14 +87,16 @@ public class TaskHandle
 
     public synchronized Priority resetLevelPriority()
     {
-        long levelMinPriority = splitQueue.getLevelMinPriority(priority.get().getLevel(), scheduledNanos);
-        if (priority.get().getLevelPriority() < levelMinPriority) {
-            Priority newPriority = new Priority(priority.get().getLevel(), levelMinPriority);
+        Priority currentPriority = priority.get();
+        long levelMinPriority = splitQueue.getLevelMinPriority(currentPriority.getLevel(), scheduledNanos);
+
+        if (currentPriority.getLevelPriority() < levelMinPriority) {
+            Priority newPriority = new Priority(currentPriority.getLevel(), levelMinPriority);
             priority.set(newPriority);
             return newPriority;
         }
 
-        return priority.get();
+        return currentPriority;
     }
 
     public boolean isDestroyed()
