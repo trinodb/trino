@@ -53,6 +53,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
         switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
+            case SUPPORTS_SET_COLUMN_TYPE:
                 // not supported in memory connector
                 return false;
 
@@ -115,6 +116,16 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
         // Required because Stargate connector adds additional `Query failed (...):` prefix to the error message
         assertThatThrownBy(super::testRenameColumn)
                 .hasMessageContaining("This connector does not support renaming columns");
+        throw new SkipException("not supported");
+    }
+
+    @Test
+    @Override
+    public void testSetColumnType()
+    {
+        // Required because Stargate connector adds additional `Query failed (...):` prefix to the error message
+        assertThatThrownBy(super::testSetColumnType)
+                .hasMessageContaining("This connector does not support setting column types");
         throw new SkipException("not supported");
     }
 
