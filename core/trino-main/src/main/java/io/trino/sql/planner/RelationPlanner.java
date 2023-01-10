@@ -351,7 +351,18 @@ class RelationPlanner
             RelationPlan sourcePlan = process(tableArgument.getRelation(), context);
             PlanBuilder sourcePlanBuilder = newPlanBuilder(sourcePlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
 
+            // required columns are a subset of visible columns of the source. remap required column indexes to field indexes in source relation type.
+            RelationType sourceRelationType = sourcePlan.getScope().getRelationType();
+            int[] fieldIndexForVisibleColumn = new int[sourceRelationType.getVisibleFieldCount()];
+            int visibleColumn = 0;
+            for (int i = 0; i < sourceRelationType.getAllFieldCount(); i++) {
+                if (!sourceRelationType.getFieldByIndex(i).isHidden()) {
+                    fieldIndexForVisibleColumn[visibleColumn] = i;
+                    visibleColumn++;
+                }
+            }
             List<Symbol> requiredColumns = functionAnalysis.getRequiredColumns().get(tableArgument.getArgumentName()).stream()
+                    .map(column -> fieldIndexForVisibleColumn[column])
                     .map(sourcePlan::getSymbol)
                     .collect(toImmutableList());
 

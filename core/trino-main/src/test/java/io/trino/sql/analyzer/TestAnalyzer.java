@@ -6645,11 +6645,13 @@ public class TestAnalyzer
                 .hasErrorCode(FUNCTION_IMPLEMENTATION_ERROR)
                 .hasMessage("Invalid index: 1 of required column from table argument INPUT");
 
-        // table s1.t5 has two columns. The second column is hidden. Table function can require a hidden column.
-        analyze("""
+        // table s1.t5 has two columns. The second column is hidden. Table function cannot require a hidden column.
+        assertFails("""
                 SELECT * FROM TABLE(system.required_columns_function(
                     input => TABLE(s1.t5)))
-                """);
+                """)
+                .hasErrorCode(FUNCTION_IMPLEMENTATION_ERROR)
+                .hasMessage("Invalid index: 1 of required column from table argument INPUT");
     }
 
     @BeforeClass

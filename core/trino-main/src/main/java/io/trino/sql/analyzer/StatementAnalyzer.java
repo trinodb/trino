@@ -1604,7 +1604,7 @@ class StatementAnalyzer
                 // the scope is recorded, because table arguments are already analyzed
                 Scope inputScope = analysis.getScope(tableArgumentsByName.get(name).getRelation());
                 columns.stream()
-                        .filter(column -> column < 0 || column >= inputScope.getRelationType().getAllFieldCount()) // hidden columns can be required as well as visible columns
+                        .filter(column -> column < 0 || column >= inputScope.getRelationType().getVisibleFieldCount())
                         .findFirst()
                         .ifPresent(column -> {
                             throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, format("Invalid index: %s of required column from table argument %s", column, name));
