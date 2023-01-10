@@ -56,35 +56,35 @@ public abstract class BaseMongoFailureRecoveryTest
     }
 
     @Override
-    public void testAnalyzeTable()
+    protected void testAnalyzeTable()
     {
         assertThatThrownBy(super::testAnalyzeTable).hasMessageMatching("This connector does not support analyze");
         throw new SkipException("skipped");
     }
 
     @Override
-    public void testDelete()
+    protected void testDelete()
     {
         assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining("This connector does not support modifying table rows");
         throw new SkipException("skipped");
     }
 
     @Override
-    public void testDeleteWithSubquery()
+    protected void testDeleteWithSubquery()
     {
         assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining("This connector does not support modifying table rows");
         throw new SkipException("skipped");
     }
 
     @Override
-    public void testMerge()
+    protected void testMerge()
     {
         assertThatThrownBy(super::testMerge).hasMessageContaining("This connector does not support modifying table rows");
         throw new SkipException("skipped");
     }
 
     @Override
-    public void testRefreshMaterializedView()
+    protected void testRefreshMaterializedView()
     {
         assertThatThrownBy(super::testRefreshMaterializedView)
                 .hasMessageContaining("This connector does not support creating materialized views");
@@ -92,14 +92,14 @@ public abstract class BaseMongoFailureRecoveryTest
     }
 
     @Override
-    public void testUpdate()
+    protected void testUpdate()
     {
         assertThatThrownBy(super::testUpdate).hasMessageContaining("This connector does not support modifying table rows");
         throw new SkipException("skipped");
     }
 
     @Override
-    public void testUpdateWithSubquery()
+    protected void testUpdateWithSubquery()
     {
         assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("This connector does not support modifying table rows");
         throw new SkipException("skipped");
