@@ -47,7 +47,7 @@ public class SnowflakeQueryRunner
 
     public static final String ALICE_USER = "alice";
 
-    static Builder distributedBuilder()
+    public static Builder distributedBuilder()
     {
         return new Builder(SnowflakePlugin.SNOWFLAKE_DISTRIBUTED)
                 .withConnectorProperties(ImmutableMap.of(
@@ -61,7 +61,7 @@ public class SnowflakeQueryRunner
                 "snowflake.role", ROLE);
     }
 
-    static Builder jdbcBuilder()
+    public static Builder jdbcBuilder()
     {
         return new Builder(SNOWFLAKE_JDBC);
     }
@@ -197,6 +197,7 @@ public class SnowflakeQueryRunner
             return this;
         }
 
+        // additive. TODO change name to indicate that
         public Builder withConnectorProperties(Map<String, String> connectorProperties)
         {
             this.connectorProperties.putAll(requireNonNull(connectorProperties, "connectorProperties is null"));
