@@ -59,6 +59,7 @@ public class TestDynamoDbConnectorTest
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_SET_COLUMN_TYPE:
             case SUPPORTS_CREATE_VIEW:
             case SUPPORTS_DELETE:
             case SUPPORTS_ROW_LEVEL_DELETE:
