@@ -35,7 +35,7 @@ public class DynamoDbTableProperties
     private final List<PropertyMetadata<?>> tableProperties;
 
     @Inject
-    public DynamoDbTableProperties(DynamoDbConfig dynamoDbConfig)
+    public DynamoDbTableProperties()
     {
         tableProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(stringProperty(
