@@ -15,6 +15,7 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import com.google.common.io.Closer;
 import com.mongodb.client.MongoCollection;
 import io.airlift.log.Logger;
@@ -51,8 +52,14 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import org.bson.Document;
 
 import java.io.IOException;
@@ -71,6 +78,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.mongodb.client.model.Aggregates.lookup;
 import static com.mongodb.client.model.Aggregates.match;
 import static com.mongodb.client.model.Aggregates.merge;
@@ -81,6 +89,11 @@ import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -252,6 +265,80 @@ public class MongoMetadata
     public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
         mongoSession.dropColumn(((MongoTableHandle) tableHandle), ((MongoColumnHandle) column).getName());
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Type type)
+    {
+        MongoTableHandle table = (MongoTableHandle) tableHandle;
+        MongoColumnHandle column = (MongoColumnHandle) columnHandle;
+        if (!canChangeColumnType(column.getType(), type)) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot change type from %s to %s".formatted(column.getType(), type));
+        }
+        mongoSession.setColumnType(table, column.getName(), type);
+    }
+
+    private static boolean canChangeColumnType(Type sourceType, Type newType)
+    {
+        if (sourceType.equals(newType)) {
+            return true;
+        }
+        if (sourceType == TINYINT) {
+            return newType == SMALLINT || newType == INTEGER || newType == BIGINT;
+        }
+        if (sourceType == SMALLINT) {
+            return newType == INTEGER || newType == BIGINT;
+        }
+        if (sourceType == INTEGER) {
+            return newType == BIGINT;
+        }
+        if (sourceType == REAL) {
+            return newType == DOUBLE;
+        }
+        if (sourceType instanceof VarcharType || sourceType instanceof CharType) {
+            return newType instanceof VarcharType || newType instanceof CharType;
+        }
+        if (sourceType instanceof DecimalType sourceDecimal && newType instanceof DecimalType newDecimal) {
+            return sourceDecimal.getScale() == newDecimal.getScale()
+                    && sourceDecimal.getPrecision() <= newDecimal.getPrecision();
+        }
+        if (sourceType instanceof ArrayType sourceArrayType && newType instanceof ArrayType newArrayType) {
+            return canChangeColumnType(sourceArrayType.getElementType(), newArrayType.getElementType());
+        }
+        if (sourceType instanceof RowType sourceRowType && newType instanceof RowType newRowType) {
+            List<Field> fields = Streams.concat(sourceRowType.getFields().stream(), newRowType.getFields().stream())
+                    .distinct()
+                    .collect(toImmutableList());
+            for (Field field : fields) {
+                String fieldName = field.getName().orElseThrow();
+                if (fieldExists(sourceRowType, fieldName) && fieldExists(newRowType, fieldName)) {
+                    if (!canChangeColumnType(
+                            findFieldByName(sourceRowType.getFields(), fieldName).getType(),
+                            findFieldByName(newRowType.getFields(), fieldName).getType())) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private static Field findFieldByName(List<Field> fields, String fieldName)
+    {
+        return fields.stream()
+                .filter(field -> field.getName().orElseThrow().equals(fieldName))
+                .collect(onlyElement());
+    }
+
+    private static boolean fieldExists(RowType structType, String fieldName)
+    {
+        for (Field field : structType.getFields()) {
+            if (field.getName().orElseThrow().equals(fieldName)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
