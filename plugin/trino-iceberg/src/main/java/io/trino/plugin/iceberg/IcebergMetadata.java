@@ -1567,6 +1567,24 @@ public class IcebergMetadata
         }
     }
 
+    @Override
+    public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, io.trino.spi.type.Type type)
+    {
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        IcebergColumnHandle column = (IcebergColumnHandle) columnHandle;
+        verify(column.isBaseColumn(), "Cannot change nested field types");
+
+        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        try {
+            icebergTable.updateSchema()
+                    .updateColumn(column.getName(), toIcebergType(type).asPrimitiveType())
+                    .commit();
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to set column type: " + firstNonNull(e.getMessage(), e), e);
+        }
+    }
+
     private List<ColumnMetadata> getColumnMetadatas(Schema schema)
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
