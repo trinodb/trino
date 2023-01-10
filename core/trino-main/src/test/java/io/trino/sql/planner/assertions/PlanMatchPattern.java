@@ -905,7 +905,7 @@ public final class PlanMatchPattern
             @Override
             public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
             {
-                if (predicate.test((T) node)) {
+                if (predicate.test(clazz.cast(node))) {
                     return match();
                 }
 
