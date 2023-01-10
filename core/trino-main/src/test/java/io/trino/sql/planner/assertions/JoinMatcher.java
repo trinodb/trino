@@ -83,11 +83,10 @@ public final class JoinMatcher
     @Override
     public boolean shapeMatches(PlanNode node)
     {
-        if (!(node instanceof JoinNode)) {
+        if (!(node instanceof JoinNode joinNode)) {
             return false;
         }
 
-        JoinNode joinNode = (JoinNode) node;
         return joinNode.getType() == joinType;
     }
 
