@@ -18,6 +18,7 @@ import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
@@ -40,6 +41,7 @@ public class TestJdbcSnowflakeConnectorTest
                 .withDatabase(Optional.of(testDatabase.getName()))
                 .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectorProperties(impersonationDisabled())
+                .withConnectorProperties(Map.of("metadata.cache-ttl", "5m"))
                 .withTpchTables(REQUIRED_TPCH_TABLES)
                 .build();
     }

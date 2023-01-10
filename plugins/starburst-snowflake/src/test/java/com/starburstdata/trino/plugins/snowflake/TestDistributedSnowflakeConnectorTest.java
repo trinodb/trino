@@ -22,6 +22,7 @@ import io.trino.tpch.TpchTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
@@ -46,6 +47,7 @@ public class TestDistributedSnowflakeConnectorTest
                 .withDatabase(Optional.of(testDatabase.getName()))
                 .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectorProperties(impersonationDisabled())
+                .withConnectorProperties(Map.of("metadata.cache-ttl", "5m"))
                 .withTpchTables(ImmutableList.<TpchTable<?>>builder()
                         .addAll(REQUIRED_TPCH_TABLES)
                         .add(LINE_ITEM)
