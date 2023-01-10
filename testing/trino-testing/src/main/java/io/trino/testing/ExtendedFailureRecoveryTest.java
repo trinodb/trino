@@ -22,7 +22,7 @@ import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.ErrorType;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.testng.annotations.DataProvider;
 
 import java.util.List;
 import java.util.Optional;
@@ -62,28 +62,36 @@ public abstract class ExtendedFailureRecoveryTest
 
     protected abstract void createPartitionedLineitemTable(String tableName, List<String> columns, String partitionColumn);
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testSimpleSelect()
+    @Override
+    @DataProvider(name = "parallelTests", parallel = true)
+    public Object[][] parallelTests()
+    {
+        return moreParallelTests(super.parallelTests(),
+                parallelTest("testSimpleSelect", this::testSimpleSelect),
+                parallelTest("testAggregation", this::testAggregation),
+                parallelTest("testJoinDynamicFilteringDisabled", this::testJoinDynamicFilteringDisabled),
+                parallelTest("testJoinDynamicFilteringEnabled", this::testJoinDynamicFilteringEnabled),
+                parallelTest("testUserFailure", this::testUserFailure));
+    }
+
+    protected void testSimpleSelect()
     {
         testSelect("SELECT * FROM nation");
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testAggregation()
+    protected void testAggregation()
     {
         testSelect("SELECT orderStatus, count(*) FROM orders GROUP BY orderStatus");
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testJoinDynamicFilteringDisabled()
+    protected void testJoinDynamicFilteringDisabled()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
                 "AND supplier.name = 'Supplier#000000001'";
         testSelect(selectQuery, Optional.of(enableDynamicFiltering(false)));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testJoinDynamicFilteringEnabled()
+    protected void testJoinDynamicFilteringEnabled()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
                 "AND supplier.name = 'Supplier#000000001'";
@@ -105,8 +113,7 @@ public abstract class ExtendedFailureRecoveryTest
                 });
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testUserFailure()
+    protected void testUserFailure()
     {
         // Some connectors have pushdowns enabled for arithmetic operations (like SqlServer),
         // so exception will come not from trino, but from datasource itself
@@ -124,7 +131,7 @@ public abstract class ExtendedFailureRecoveryTest
     }
 
     @Override
-    public void testRequestTimeouts()
+    protected void testRequestTimeouts()
     {
         // extra test cases not covered by general timeout cases scattered around
         assertThatQuery("SELECT * FROM nation")
