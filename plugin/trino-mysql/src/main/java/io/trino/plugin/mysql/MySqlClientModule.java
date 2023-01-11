@@ -74,9 +74,11 @@ public class MySqlClientModule
         connectionProperties.setProperty("tinyInt1isBit", "false");
         connectionProperties.setProperty("rewriteBatchedStatements", "true");
 
-        // See "Solution 2a" at https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-time-instants.html - these properties are required to preserve point-in-time when operating with MySQL TIMESTAMP types
-        connectionProperties.setProperty("preserveInstants", "true");
-        connectionProperties.setProperty("connectionTimeZone", "SERVER");
+        // Try to make MySQL timestamps work (See https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-time-instants.html)
+        // without relying on server time zone (which may be configured to be totally unusable).
+        // TODO (https://github.com/trinodb/trino/issues/15668) rethink how timestamps are mapped. Also, probably worth adding tests
+        //  with MySQL server with a non-UTC system zone.
+        connectionProperties.setProperty("connectionTimeZone", "UTC");
 
         if (mySqlConfig.isAutoReconnect()) {
             connectionProperties.setProperty("autoReconnect", String.valueOf(mySqlConfig.isAutoReconnect()));
