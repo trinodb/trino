@@ -784,7 +784,7 @@ public class TestResourceSecurity
                                 .put("web-ui.enabled", "true")
                                 .put("http-server.authentication.type", "oauth2")
                                 .putAll(getOAuth2Properties(tokenServer))
-                                .put("http-server.authentication.oauth2.groups-field", GROUPS_CLAIM)
+                                .put("deprecated.http-server.authentication.oauth2.groups-field", GROUPS_CLAIM)
                                 .buildOrThrow())
                         .setAdditionalModule(oauth2Module(tokenServer))
                         .build()) {
