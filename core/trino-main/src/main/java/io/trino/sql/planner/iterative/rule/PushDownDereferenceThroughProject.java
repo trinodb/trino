@@ -81,6 +81,12 @@ public class PushDownDereferenceThroughProject
                 .filter(expression -> child.getSource().getOutputSymbols().contains(getBase(expression)))
                 .collect(toImmutableSet());
 
+        // Exclude dereferences on symbols whose sources are not identity projection
+        dereferences = dereferences.stream()
+                .filter(expression -> child.getAssignments().getSymbols().contains(getBase(expression)) &&
+                        child.getAssignments().isIdentity(getBase(expression)))
+                .collect(toImmutableSet());
+
         if (dereferences.isEmpty()) {
             return Result.empty();
         }

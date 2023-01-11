@@ -135,6 +135,18 @@ public class TestPushDownDereferencesRules
                                                 "y", PlanMatchPattern.expression("y"),
                                                 "msg", PlanMatchPattern.expression("msg")),
                                         values("msg", "y"))));
+
+        // Negative test
+        tester().assertThat(new PushDownDereferenceThroughProject(tester().getTypeAnalyzer()))
+                .on(p ->
+                        p.project(
+                                Assignments.of(p.symbol("x"), expression("msg[1]")),
+                                p.project(
+                                        Assignments.of(
+                                                p.symbol("y"), expression("y"),
+                                                p.symbol("msg", ROW_TYPE), expression("abc")), // non-identity projection
+                                        p.values(p.symbol("msg", ROW_TYPE), p.symbol("y")))))
+                .doesNotFire();
     }
 
     @Test
