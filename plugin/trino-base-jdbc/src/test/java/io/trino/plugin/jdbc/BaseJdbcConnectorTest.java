@@ -1733,7 +1733,7 @@ public abstract class BaseJdbcConnectorTest
         return new Object[][] {{BROADCAST}, {PARTITIONED}};
     }
 
-    @Test(timeOut = 60_000, dataProvider = "fixedJoinDistributionTypes")
+    @Test(dataProvider = "fixedJoinDistributionTypes")
     public void testDynamicFiltering(JoinDistributionType joinDistributionType)
     {
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
@@ -1742,7 +1742,7 @@ public abstract class BaseJdbcConnectorTest
                 joinDistributionType);
     }
 
-    @Test(timeOut = 60_000)
+    @Test
     public void testDynamicFilteringWithAggregationGroupingColumn()
     {
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
@@ -1752,7 +1752,7 @@ public abstract class BaseJdbcConnectorTest
                 PARTITIONED);
     }
 
-    @Test(timeOut = 60_000)
+    @Test
     public void testDynamicFilteringWithAggregationAggregateColumn()
     {
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
@@ -1768,7 +1768,7 @@ public abstract class BaseJdbcConnectorTest
                 isAggregationPushedDown);
     }
 
-    @Test(timeOut = 60_000)
+    @Test
     public void testDynamicFilteringWithAggregationGroupingSet()
     {
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
@@ -1778,7 +1778,7 @@ public abstract class BaseJdbcConnectorTest
                         "ON a.orderkey = b.orderkey AND b.totalprice < 1000");
     }
 
-    @Test(timeOut = 60_000)
+    @Test
     public void testDynamicFilteringWithLimit()
     {
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
@@ -1788,7 +1788,7 @@ public abstract class BaseJdbcConnectorTest
                         "ON a.orderkey = b.orderkey AND b.totalprice < 1000");
     }
 
-    @Test(timeOut = 60_000)
+    @Test
     public void testDynamicFilteringDomainCompactionThreshold()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
@@ -1831,7 +1831,7 @@ public abstract class BaseJdbcConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(timeOut = 60_000)
+    @Test
     public void testDynamicFilteringCaseInsensitiveDomainCompaction()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));

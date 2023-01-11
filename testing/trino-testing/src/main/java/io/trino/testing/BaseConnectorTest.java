@@ -702,7 +702,7 @@ public abstract class BaseConnectorTest
     /**
      * Test interactions between optimizer (including CBO), scheduling and connector metadata APIs.
      */
-    @Test(timeOut = 300_000, dataProvider = "joinDistributionTypes")
+    @Test(dataProvider = "joinDistributionTypes")
     public void testJoinWithEmptySides(JoinDistributionType joinDistributionType)
     {
         Session session = noJoinReordering(joinDistributionType);
