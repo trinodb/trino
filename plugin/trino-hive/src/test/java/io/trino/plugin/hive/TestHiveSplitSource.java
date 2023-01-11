@@ -14,7 +14,6 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
@@ -367,8 +366,7 @@ public class TestHiveSplitSource
                     Optional.empty(),
                     false,
                     Optional.empty(),
-                    partitionMatchSupplier,
-                    ImmutableMap.of());
+                    partitionMatchSupplier);
         }
 
         private static Properties properties(String key, String value)

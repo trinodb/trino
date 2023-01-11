@@ -219,7 +219,6 @@ public class HivePageSourceProvider
                 originalFile,
                 hiveTable.getTransaction(),
                 columnMappings,
-                hiveSplit.getCustomSplitInfo(),
                 customSplitManager);
 
         if (pageSource.isPresent()) {
@@ -282,7 +281,6 @@ public class HivePageSourceProvider
             boolean originalFile,
             AcidTransaction transaction,
             List<ColumnMapping> columnMappings,
-            Map<String, String> customSplitInfo,
             CustomSplitManager customSplitManager)
     {
         if (effectivePredicate.isNone()) {
@@ -348,7 +346,6 @@ public class HivePageSourceProvider
                     effectivePredicate,
                     typeManager,
                     s3SelectPushdownEnabled,
-                    customSplitInfo,
                     customSplitManager);
 
             if (readerWithProjections.isPresent()) {

@@ -13,56 +13,70 @@
  */
 package io.trino.plugin.hive.util;
 
-import java.io.IOException;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputSplit;
 
-public class CustomSplit extends FileSplit implements InputSplit {
+import java.io.IOException;
+
+public class CustomSplit
+        extends FileSplit implements InputSplit
+{
     private InputSplit embeddedSplit;
     private int customField;
 
-    protected CustomSplit() {
+    protected CustomSplit()
+    {
     }
 
-    public CustomSplit(InputSplit embeddedSplit, int customField) {
+    public CustomSplit(InputSplit embeddedSplit, int customField)
+    {
         this.embeddedSplit = embeddedSplit;
         this.customField = customField;
     }
 
-    public long getLength() {
+    public long getLength()
+    {
         try {
             return this.embeddedSplit.getLength();
-        } catch (IOException var2) {
+        }
+        catch (IOException var2) {
             throw new RuntimeException(var2);
         }
     }
 
-    public String[] getLocations() throws IOException {
+    public String[] getLocations() throws IOException
+    {
         return this.embeddedSplit.getLocations();
     }
 
-    public Path getPath() {
+    public Path getPath()
+    {
         if (this.embeddedSplit instanceof FileSplit) {
-            return ((FileSplit)this.embeddedSplit).getPath();
-        } else {
+            return ((FileSplit) this.embeddedSplit).getPath();
+        }
+        else {
             throw new RuntimeException(this.embeddedSplit + " is not a FileSplit");
         }
     }
 
-    public long getStart() {
-        return this.embeddedSplit instanceof FileSplit ? ((FileSplit)this.embeddedSplit).getStart() : 0L;
+    public long getStart()
+    {
+        return this.embeddedSplit instanceof FileSplit ? ((FileSplit) this.embeddedSplit).getStart() : 0L;
     }
 
-    public InputSplit getEmbeddedSplit() {
+    public InputSplit getEmbeddedSplit()
+    {
         return this.embeddedSplit;
     }
 
-    public long getCustomField() {
+    public long getCustomField()
+    {
         return this.customField;
     }
 
-    public String toString() {
+    public String toString()
+    {
         return "CustomSplit{embeddedSplit=" + this.embeddedSplit + ", customField=" + this.customField + '}';
     }
 }

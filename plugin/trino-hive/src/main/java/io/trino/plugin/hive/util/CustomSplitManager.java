@@ -22,14 +22,16 @@ import org.apache.hadoop.mapred.FileSplit;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
-import static java.util.Objects.*;
-
+import static java.util.Objects.requireNonNull;
 
 public class CustomSplitManager
 {
+    public static final String IS_CUSTOM_SPLIT = "is_custom_split";
+
     private final Set<CustomSplitConverter> customSplitConverters;
 
     @Inject
@@ -48,19 +50,21 @@ public class CustomSplitManager
         for (CustomSplitConverter converter : customSplitConverters) {
             Optional<Map<String, String>> customSplitData = converter.extractCustomSplitInfo(split);
             if (customSplitData.isPresent()) {
+                customSplitData.get().put(IS_CUSTOM_SPLIT, "true");
                 return customSplitData.get();
             }
         }
         return ImmutableMap.of();
     }
 
-    public FileSplit recreateSplitWithCustomInfo(FileSplit split, Map<String, String> customSplitInfo)
+    public FileSplit recreateSplitWithCustomInfo(FileSplit split, Properties schema)
     {
         for (CustomSplitConverter converter : customSplitConverters) {
             Optional<FileSplit> fileSplit;
             try {
-                fileSplit = converter.recreateFileSplitWithCustomInfo(split, customSplitInfo);
-            } catch (IOException e) {
+                fileSplit = converter.recreateFileSplitWithCustomInfo(split, schema);
+            }
+            catch (IOException e) {
                 throw new TrinoException(HIVE_UNSUPPORTED_FORMAT,
                         String.format("Split converter %s failed to create FileSplit.", converter.getClass()), e);
             }

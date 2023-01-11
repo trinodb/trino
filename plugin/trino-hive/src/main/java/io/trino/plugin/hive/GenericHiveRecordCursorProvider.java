@@ -32,7 +32,6 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -75,7 +74,6 @@ public class GenericHiveRecordCursorProvider
             TupleDomain<HiveColumnHandle> effectivePredicate,
             TypeManager typeManager,
             boolean s3SelectPushdownEnabled,
-            Map<String, String> customSplitInfo,
             CustomSplitManager customSplitManager)
     {
         configuration.setInt(LineRecordReader.MAX_LINE_LENGTH, textMaxLineLengthBytes);
@@ -104,7 +102,6 @@ public class GenericHiveRecordCursorProvider
                     length,
                     schema,
                     readerColumns,
-                    customSplitInfo,
                     customSplitManager);
 
             try {

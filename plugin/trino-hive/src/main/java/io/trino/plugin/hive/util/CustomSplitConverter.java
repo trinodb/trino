@@ -18,9 +18,10 @@ import org.apache.hadoop.mapred.FileSplit;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 
 /**
- * Interface for Split specific implementation of conversion from Split -> customSplitInfo Map and back.
+ *  Interface for custom split conversion from Split -> customSplitInfo Map and back.
  */
 public interface CustomSplitConverter
 {
@@ -33,5 +34,5 @@ public interface CustomSplitConverter
      * This method is expected to merge the customSplitInfo with split to recreate the custom FileSplit.
      * It is expected to return optional.empty() if the customSplitInfo does not match the split converter.
      */
-    Optional<FileSplit> recreateFileSplitWithCustomInfo(FileSplit split, Map<String, String> customSplitInfo) throws IOException;
+    Optional<FileSplit> recreateFileSplitWithCustomInfo(FileSplit split, Properties schema) throws IOException;
 }

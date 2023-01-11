@@ -14,7 +14,6 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.stats.Distribution;
@@ -588,7 +587,6 @@ public class TestOrcPageSourceMemoryTracking
                     false,
                     NO_ACID_TRANSACTION,
                     columnMappings,
-                    ImmutableMap.of(),
                     new CustomSplitManager()).orElseThrow();
         }
 

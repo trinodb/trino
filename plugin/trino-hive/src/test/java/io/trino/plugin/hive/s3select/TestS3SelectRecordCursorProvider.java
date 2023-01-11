@@ -130,7 +130,6 @@ public class TestS3SelectRecordCursorProvider
                 effectivePredicate,
                 TESTING_TYPE_MANAGER,
                 s3SelectPushdownEnabled,
-                ImmutableMap.of(),
                 new CustomSplitManager());
     }
 

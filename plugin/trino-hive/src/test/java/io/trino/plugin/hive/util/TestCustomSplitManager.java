@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.hive.util;
 
-import java.util.HashSet;
-import java.util.Set;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileSplit;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.util.Map;
+import java.util.HashSet;
+import java.util.Properties;
+import java.util.Set;
 
 import static org.testng.Assert.assertEquals;
 
@@ -43,10 +43,11 @@ public class TestCustomSplitManager
         CustomSplitManager manager = new CustomSplitManager(converters);
 
         // Test conversion of CustomSplit -> customSplitInfo
-        Map<String, String> customSplitInfo = manager.extractCustomSplitInfo(customSplit);
+        Properties schema = new Properties();
+        schema.putAll(manager.extractCustomSplitInfo(customSplit));
 
         // Test conversion of (customSplitInfo + baseSplit) -> CustomSplit
-        FileSplit recreatedSplit = manager.recreateSplitWithCustomInfo(baseSplit, customSplitInfo);
+        FileSplit recreatedSplit = manager.recreateSplitWithCustomInfo(baseSplit, schema);
 
         assertEquals(recreatedSplit.getPath(), expectedPath);
         assertEquals(recreatedSplit.getStart(), expectedStart);

@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.util;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -128,15 +127,14 @@ public class InternalHiveSplitFactory
                 readBucketNumber,
                 tableBucketNumber,
                 splittable,
-                acidInfo,
-                ImmutableMap.of());
+                acidInfo);
     }
 
     public Optional<InternalHiveSplit> createInternalHiveSplit(FileSplit split)
             throws IOException
     {
         FileStatus file = fileSystem.getFileStatus(split.getPath());
-        Map<String, String> customSplitInfo =  customSplitManager.extractCustomSplitInfo(split);
+        schema.putAll(customSplitManager.extractCustomSplitInfo(split));
         return createInternalHiveSplit(
                 split.getPath(),
                 BlockLocation.fromHiveBlockLocations(fileSystem.getFileBlockLocations(file, split.getStart(), split.getLength())),
@@ -147,8 +145,7 @@ public class InternalHiveSplitFactory
                 OptionalInt.empty(),
                 OptionalInt.empty(),
                 false,
-                Optional.empty(),
-                customSplitInfo);
+                Optional.empty());
     }
 
     private Optional<InternalHiveSplit> createInternalHiveSplit(
@@ -162,8 +159,7 @@ public class InternalHiveSplitFactory
             OptionalInt readBucketNumber,
             OptionalInt tableBucketNumber,
             boolean splittable,
-            Optional<AcidInfo> acidInfo,
-            Map<String, String> customSplitInfo)
+            Optional<AcidInfo> acidInfo)
     {
         String pathString = path.toString();
         if (!pathMatchesPredicate(pathDomain, pathString)) {
@@ -229,8 +225,7 @@ public class InternalHiveSplitFactory
                 bucketValidation,
                 s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path),
                 acidInfo,
-                partitionMatchSupplier,
-                customSplitInfo));
+                partitionMatchSupplier));
     }
 
     private static void checkBlocks(Path path, List<InternalHiveBlock> blocks, long start, long length)

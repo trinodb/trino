@@ -142,6 +142,7 @@ import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.trino.plugin.hive.HiveType.toHiveTypes;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
+import static io.trino.plugin.hive.util.CustomSplitManager.IS_CUSTOM_SPLIT;
 import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -230,7 +231,7 @@ public final class HiveUtil
     {
     }
 
-    public static RecordReader<?, ?> createRecordReader(Configuration configuration, Path path, long start, long length, Properties schema, List<HiveColumnHandle> columns, Map<String, String> customSplitInfo, CustomSplitManager customSplitManager)
+    public static RecordReader<?, ?> createRecordReader(Configuration configuration, Path path, long start, long length, Properties schema, List<HiveColumnHandle> columns, CustomSplitManager customSplitManager)
     {
         // determine which hive columns we will read
         List<HiveColumnHandle> readColumns = columns.stream()
@@ -255,14 +256,14 @@ public final class HiveUtil
         JobConf jobConf = toJobConf(configuration);
         FileSplit fileSplit = new FileSplit(path, start, length, (String[]) null);
 
-        if (!customSplitInfo.isEmpty()) {
-            fileSplit = customSplitManager.recreateSplitWithCustomInfo(fileSplit, customSplitInfo);
+        if (schema.getProperty(IS_CUSTOM_SPLIT, "false").equals("true")) {
+            fileSplit = customSplitManager.recreateSplitWithCustomInfo(fileSplit, schema);
 
             // Add additional column information for record reader
             List<String> readHiveColumnNames = ImmutableList.copyOf(transform(readColumns, HiveColumnHandle::getName));
             jobConf.set(READ_COLUMN_NAMES_CONF_STR, Joiner.on(',').join(readHiveColumnNames));
 
-            // Remove filter when using customSplitInfo as the record reader requires complete schema configs
+            // Remove filter when using custom split as the record reader requires complete schema configs
             schemaFilter = schemaProperty -> true;
         }
 

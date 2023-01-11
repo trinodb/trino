@@ -138,8 +138,7 @@ public class TestNodeLocalDynamicSplitPruning
                 false,
                 Optional.empty(),
                 0,
-                SplitWeight.standard(),
-                ImmutableMap.of());
+                SplitWeight.standard());
 
         TableHandle tableHandle = new TableHandle(
                 TEST_CATALOG_HANDLE,

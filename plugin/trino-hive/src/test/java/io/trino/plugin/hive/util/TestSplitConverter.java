@@ -13,12 +13,13 @@
  */
 package io.trino.plugin.hive.util;
 
-import com.google.common.collect.ImmutableMap;
+import java.util.HashMap;
 import org.apache.hadoop.mapred.FileSplit;
 
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 
 public class TestSplitConverter
         implements CustomSplitConverter
@@ -29,25 +30,23 @@ public class TestSplitConverter
     @Override
     public Optional<Map<String, String>> extractCustomSplitInfo(FileSplit split)
     {
-        if (split instanceof CustomSplit) {
-            CustomSplit customSplit = (CustomSplit) split;
-            Map<String, String> customSplitInfo = ImmutableMap.<String, String>builder()
-                    .put(CUSTOM_SPLIT_CLASS_KEY, CustomSplit.class.getName())
-                    .put(CUSTOM_FIELD, String.valueOf(customSplit.getCustomField()))
-                    .build();
+        if (split instanceof CustomSplit customSplit) {
+            Map<String, String> customSplitInfo = new HashMap<>();
+            customSplitInfo.put(CUSTOM_SPLIT_CLASS_KEY, CustomSplit.class.getName());
+            customSplitInfo.put(CUSTOM_FIELD, String.valueOf(customSplit.getCustomField()));
             return Optional.of(customSplitInfo);
         }
         return Optional.empty();
     }
 
     @Override
-    public Optional<FileSplit> recreateFileSplitWithCustomInfo(FileSplit split, Map<String, String> customSplitInfo) throws IOException
+    public Optional<FileSplit> recreateFileSplitWithCustomInfo(FileSplit split, Properties schema) throws IOException
     {
-        String customSplitClass = customSplitInfo.get(CUSTOM_SPLIT_CLASS_KEY);
+        String customSplitClass = schema.getProperty(CUSTOM_SPLIT_CLASS_KEY);
         if (CustomSplit.class.getName().equals(customSplitClass)) {
             return Optional.of(new CustomSplit(
                     split,
-                    Integer.parseInt(customSplitInfo.get(CUSTOM_FIELD))));
+                    Integer.parseInt(schema.getProperty(CUSTOM_FIELD))));
         }
         return Optional.empty();
     }

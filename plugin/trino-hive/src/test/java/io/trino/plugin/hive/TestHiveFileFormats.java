@@ -14,7 +14,6 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.airlift.compress.lzo.LzoCodec;
@@ -970,7 +969,6 @@ public class TestHiveFileFormats
                 false,
                 NO_ACID_TRANSACTION,
                 columnMappings,
-                ImmutableMap.of(),
                 new CustomSplitManager());
 
         return pageSource.get();
@@ -1050,7 +1048,6 @@ public class TestHiveFileFormats
                 false,
                 NO_ACID_TRANSACTION,
                 columnMappings,
-                ImmutableMap.of(),
                 new CustomSplitManager());
 
         assertTrue(pageSource.isPresent());

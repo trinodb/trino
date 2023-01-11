@@ -158,8 +158,7 @@ public abstract class AbstractFileFormat
                 false,
                 Optional.empty(),
                 0,
-                SplitWeight.standard(),
-                ImmutableMap.of());
+                SplitWeight.standard());
 
         return factory.createPageSource(
                 TestingConnectorTransactionHandle.INSTANCE,
@@ -199,7 +198,6 @@ public abstract class AbstractFileFormat
                 TupleDomain.all(),
                 TESTING_TYPE_MANAGER,
                 false,
-                ImmutableMap.of(),
                 new CustomSplitManager());
 
         checkState(recordCursorWithProjections.isPresent(), "readerPageSourceWithProjections is not present");

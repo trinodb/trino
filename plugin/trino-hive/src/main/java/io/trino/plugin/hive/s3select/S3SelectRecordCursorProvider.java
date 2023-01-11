@@ -34,7 +34,6 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
@@ -76,7 +75,6 @@ public class S3SelectRecordCursorProvider
             TupleDomain<HiveColumnHandle> effectivePredicate,
             TypeManager typeManager,
             boolean s3SelectPushdownEnabled,
-            Map<String, String> customSplitInfo,
             CustomSplitManager customSplitManager)
     {
         if (!s3SelectPushdownEnabled) {

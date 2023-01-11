@@ -239,7 +239,6 @@ public class TestOrcPredicates
                 false,
                 NO_ACID_TRANSACTION,
                 columnMappings,
-                ImmutableMap.of(),
                 new CustomSplitManager());
 
         assertTrue(pageSource.isPresent());
