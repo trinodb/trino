@@ -211,6 +211,9 @@ public class PagesIndex
         positionCount = 0;
         nextBlockToCompact = 0;
         pagesMemorySize = 0;
+        positionCounts.clear();
+        positionCounts.trim();
+        pageCount = 0;
 
         estimatedSize = calculateEstimatedSize();
     }
