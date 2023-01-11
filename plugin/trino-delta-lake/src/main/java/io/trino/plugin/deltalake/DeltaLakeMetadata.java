@@ -2027,7 +2027,7 @@ public class DeltaLakeMetadata
             }
         }
         catch (Exception e) {
-            // Can be safely ignored since a VACCUM from DeltaLake will take care of such orphaned files
+            // Can be safely ignored since a VACUUM from DeltaLake will take care of such orphaned files
             LOG.warn(e, "Failed cleanup of leftover files from failed write, files are: %s", dataFiles.stream()
                     .map(dataFileInfo -> new Path(tableLocation, dataFileInfo.getPath()))
                     .collect(toImmutableList()));
