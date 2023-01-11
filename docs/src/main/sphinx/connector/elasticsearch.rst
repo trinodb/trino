@@ -38,8 +38,8 @@ Configuration properties
       - Description
       - Default
     * - ``elasticsearch.host``
-      - Hostname of the Elasticsearch node to connect to. This property is
-        required.
+      - The comma-separated list of host names for the Elasticsearch node to
+        connect to. This property is required.
       -
     * - ``elasticsearch.port``
       - Port of the Elasticsearch node to connect to.
