@@ -357,13 +357,12 @@ public class MultiChannelGroupByHash
 
         // An estimate of how much extra memory is needed before we can go ahead and expand the hash table.
         // This includes the new capacity for rawHashByHashPosition, groupIdsByHash as well as the size of the current page
-        preallocatedMemoryInBytes = (newCapacity - hashCapacity) * (long) (Integer.BYTES + Byte.BYTES)
+        preallocatedMemoryInBytes = newCapacity * (long) (Integer.BYTES + Byte.BYTES)
                 + currentPageSizeInBytes;
         if (!updateMemory.update()) {
             // reserved memory but has exceeded the limit
             return false;
         }
-        preallocatedMemoryInBytes = 0;
 
         int newMask = newCapacity - 1;
         byte[] rawHashes = new byte[newCapacity];
@@ -394,6 +393,10 @@ public class MultiChannelGroupByHash
         this.maxFill = calculateMaxFill(newCapacity);
         this.rawHashByHashPosition = rawHashes;
         this.groupIdsByHash = newGroupIdByHash;
+
+        preallocatedMemoryInBytes = 0;
+        // release temporary memory reservation
+        updateMemory.update();
         return true;
     }
 
