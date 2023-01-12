@@ -81,7 +81,7 @@ public class FormatBasedRemoteQueryModifier
     private static class SanitizedValuesProvider
             implements Function<ConnectorSession, String>
     {
-        private static final Predicate<String> VALIDATION_MATCHER = Pattern.compile("^[\\w_]*$").asMatchPredicate();
+        private static final Predicate<String> VALIDATION_MATCHER = Pattern.compile("^[\\w_-]*$").asMatchPredicate();
         private final Function<ConnectorSession, String> valueProvider;
         private final String name;
 
@@ -98,7 +98,7 @@ public class FormatBasedRemoteQueryModifier
             if (VALIDATION_MATCHER.test(value)) {
                 return value;
             }
-            throw new TrinoException(JDBC_NON_TRANSIENT_ERROR, format("Passed value %s as %s does not meet security criteria. It can contain only letters, digits and underscores", value, name));
+            throw new TrinoException(JDBC_NON_TRANSIENT_ERROR, format("Passed value %s as %s does not meet security criteria. It can contain only letters, digits, underscores and hyphens", value, name));
         }
     }
 }
