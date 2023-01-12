@@ -132,7 +132,7 @@ public class CommitInfoEntry
         return isolationLevel;
     }
 
-    @JsonProperty
+    @JsonProperty("isBlindAppend")
     public Optional<Boolean> isBlindAppend()
     {
         return isBlindAppend;
