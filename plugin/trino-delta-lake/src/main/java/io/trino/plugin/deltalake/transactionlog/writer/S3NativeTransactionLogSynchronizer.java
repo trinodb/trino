@@ -46,10 +46,13 @@ import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.Preconditions.checkState;
 
-public class S3TransactionLogSynchronizer
+/**
+ * The S3 Native synhcornizer is a {@link TransactionLogSynchronizer} for S3 that requires no other dependencies.
+ */
+public class S3NativeTransactionLogSynchronizer
         implements TransactionLogSynchronizer
 {
-    public static final Logger LOG = Logger.get(S3TransactionLogSynchronizer.class);
+    public static final Logger LOG = Logger.get(S3NativeTransactionLogSynchronizer.class);
 
     // TODO: add refreshing of log expiration time (https://github.com/trinodb/trino/issues/12008)
     private static final Duration EXPIRATION_DURATION = Duration.of(5, MINUTES);
@@ -61,7 +64,7 @@ public class S3TransactionLogSynchronizer
     private final JsonCodec<LockFileContents> lockFileContentsJsonCodec;
 
     @Inject
-    public S3TransactionLogSynchronizer(TrinoFileSystemFactory fileSystemFactory, JsonCodec<LockFileContents> lockFileContentesCodec)
+    public S3NativeTransactionLogSynchronizer(TrinoFileSystemFactory fileSystemFactory, JsonCodec<LockFileContents> lockFileContentesCodec)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.lockFileContentsJsonCodec = requireNonNull(lockFileContentesCodec, "lockFileContentesCodec is null");
