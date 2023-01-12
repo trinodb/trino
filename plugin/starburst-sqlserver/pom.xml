@@ -150,6 +150,19 @@
 
         <dependency>
             <groupId>com.starburstdata.presto</groupId>
+            <artifactId>starburst-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.starburstdata.presto</groupId>
+            <artifactId>starburst-engine</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-kerberos</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
@@ -165,19 +178,6 @@
         <dependency>
             <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-redirection</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-server-main</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-server-main</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
