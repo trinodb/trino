@@ -58,11 +58,6 @@ public class DefaultQueryBuilder
 
     private final RemoteQueryModifier queryModifier;
 
-    public DefaultQueryBuilder()
-    {
-        this(RemoteQueryModifier.NONE);
-    }
-
     @Inject
     public DefaultQueryBuilder(RemoteQueryModifier queryModifier)
     {
