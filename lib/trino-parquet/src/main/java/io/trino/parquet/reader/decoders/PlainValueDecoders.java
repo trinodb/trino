@@ -16,7 +16,7 @@ package io.trino.parquet.reader.decoders;
 import io.airlift.slice.Slices;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.parquet.reader.flat.BitPackingUtils;
-import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import org.apache.parquet.column.ColumnDescriptor;
 
@@ -28,6 +28,7 @@ import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.parquet.reader.flat.BitPackingUtils.unpack;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 
 public final class PlainValueDecoders
 {
@@ -242,19 +243,21 @@ public final class PlainValueDecoders
             implements ValueDecoder<long[]>
     {
         private final int typeLength;
-        private final DecimalType decimalType;
         private final ColumnDescriptor descriptor;
         private final ShortDecimalFixedWidthByteArrayBatchDecoder decimalValueDecoder;
 
         private SimpleSliceInputStream input;
 
-        public ShortDecimalFixedLengthByteArrayDecoder(DecimalType decimalType, ColumnDescriptor descriptor)
+        public ShortDecimalFixedLengthByteArrayDecoder(ColumnDescriptor descriptor)
         {
-            checkArgument(decimalType.isShort(), "Decimal type %s is not a short decimal", decimalType);
-            this.decimalType = decimalType;
-            this.descriptor = requireNonNull(descriptor, "descriptor is null");
+            DecimalLogicalTypeAnnotation decimalAnnotation = (DecimalLogicalTypeAnnotation) descriptor.getPrimitiveType().getLogicalTypeAnnotation();
+            checkArgument(
+                    decimalAnnotation.getPrecision() <= Decimals.MAX_SHORT_PRECISION,
+                    "Decimal type %s is not a short decimal",
+                    decimalAnnotation);
             this.typeLength = descriptor.getPrimitiveType().getTypeLength();
             checkArgument(typeLength > 0 && typeLength <= 16, "Expected column %s to have type length in range (1-16)", descriptor);
+            this.descriptor = descriptor;
             this.decimalValueDecoder = new ShortDecimalFixedWidthByteArrayBatchDecoder(Math.min(typeLength, Long.BYTES));
         }
 
@@ -276,7 +279,7 @@ public final class PlainValueDecoders
             byte[] inputBytes = input.getByteArray();
             int inputBytesOffset = input.getByteArrayOffset();
             for (int i = offset; i < offset + length; i++) {
-                checkBytesFitInShortDecimal(inputBytes, inputBytesOffset, extraBytesLength, decimalType, descriptor);
+                checkBytesFitInShortDecimal(inputBytes, inputBytesOffset, extraBytesLength, descriptor);
                 values[i] = getShortDecimalValue(inputBytes, inputBytesOffset + extraBytesLength, Long.BYTES);
                 inputBytesOffset += typeLength;
             }

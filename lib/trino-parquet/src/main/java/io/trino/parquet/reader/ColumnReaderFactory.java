@@ -206,10 +206,14 @@ public final class ColumnReaderFactory
                 }
             }
             if (type instanceof DecimalType decimalType && !decimalType.isShort()
-                    && (primitiveType == BINARY || primitiveType == FIXED_LEN_BYTE_ARRAY)) {
-                if (annotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation && !isDecimalRescaled(decimalAnnotation, decimalType)) {
-                    return new FlatColumnReader<>(field, ValueDecoders::getLongDecimalDecoder, INT128_ADAPTER, memoryContext);
+                    && (primitiveType == INT32 || primitiveType == INT64 || primitiveType == BINARY || primitiveType == FIXED_LEN_BYTE_ARRAY)) {
+                if (!(annotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation)) {
+                    throw unsupportedException(type, field);
                 }
+                if (isDecimalRescaled(decimalAnnotation, decimalType)) {
+                    return new FlatColumnReader<>(field, TransformingValueDecoders::getRescaledLongDecimalDecoder, INT128_ADAPTER, memoryContext);
+                }
+                return new FlatColumnReader<>(field, ValueDecoders::getLongDecimalDecoder, INT128_ADAPTER, memoryContext);
             }
             if (type instanceof VarcharType varcharType && !varcharType.isUnbounded() && primitiveType == BINARY) {
                 return new FlatColumnReader<>(field, ValueDecoders::getBoundedVarcharBinaryDecoder, BINARY_ADAPTER, memoryContext);
