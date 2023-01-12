@@ -385,7 +385,7 @@ public class Driver
 
         processNewSources();
 
-        // If there is only one operator, finish it
+        // One of the operators is already finished (and removed from activeOperators list). Finish bottommost operator.
         // Some operators (LookupJoinOperator and HashBuildOperator) are broken and requires finish to be called continuously
         // TODO remove the second part of the if statement, when these operators are fixed
         // Note: finish should not be called on the natural source of the pipeline as this could cause the task to finish early
