@@ -877,11 +877,22 @@ public interface SystemAccessControl
     /**
      * Get column masks associated with the given table, column and identity.
      * <p>
-     * Each mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
+     * The mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
      * must be written in terms of columns in the table.
      *
-     * @return the list of masks, or empty list if not applicable
+     * @return the mask if present, or empty if not applicable
      */
+    default Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    {
+        List<ViewExpression> masks = getColumnMasks(context, tableName, columnName, type);
+        if (masks.size() > 1) {
+            throw new UnsupportedOperationException("Multiple masks on a single column are no longer supported");
+        }
+
+        return masks.stream().findFirst();
+    }
+
+    @Deprecated
     default List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
         return List.of();

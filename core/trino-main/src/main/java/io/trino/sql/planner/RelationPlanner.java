@@ -293,7 +293,7 @@ class RelationPlanner
 
     private RelationPlan addColumnMasks(Table table, RelationPlan plan)
     {
-        Map<String, List<Expression>> columnMasks = analysis.getColumnMasks(table);
+        Map<String, Expression> columnMasks = analysis.getColumnMasks(table);
 
         // A Table can represent a WITH query, which can have anonymous fields. On the other hand,
         // it can't have masks. The loop below expects fields to have proper names, so bail out
@@ -308,7 +308,8 @@ class RelationPlanner
         for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
             Field field = plan.getDescriptor().getFieldByIndex(i);
 
-            for (Expression mask : columnMasks.getOrDefault(field.getName().orElseThrow(), ImmutableList.of())) {
+            Expression mask = columnMasks.get(field.getName().orElseThrow());
+            if (mask != null) {
                 planBuilder = subqueryPlanner.handleSubqueries(planBuilder, mask, analysis.getSubqueries(mask));
 
                 Map<Symbol, Expression> assignments = new LinkedHashMap<>();

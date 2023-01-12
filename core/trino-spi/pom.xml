@@ -233,6 +233,20 @@
                                     <newVisibility>package</newVisibility>
                                     <justification>It was not accessible outside of SPI anyway</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.eventlistener.ColumnInfo::&lt;init&gt;(java.lang.String, ===java.util.List&lt;java.lang.String&gt;===)</old>
+                                    <new>parameter void io.trino.spi.eventlistener.ColumnInfo::&lt;init&gt;(java.lang.String, ===java.util.Optional&lt;java.lang.String&gt;===)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                    <justification>Removing support for multiple masks on a given column, as they are error prone</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.List&lt;java.lang.String&gt; io.trino.spi.eventlistener.ColumnInfo::getMasks()</old>
+                                    <justification>Removing support for multiple masks on a given column, as they are error prone</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

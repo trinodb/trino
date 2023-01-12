@@ -19,6 +19,7 @@ import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode;
 import io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -52,6 +53,7 @@ import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivileg
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.OWNERSHIP;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.SELECT;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.UPDATE;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
@@ -953,22 +955,34 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName table, String columnName, Type type)
+    public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName table, String columnName, Type type)
     {
         SchemaTableName tableName = table.getSchemaTableName();
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
-            return ImmutableList.of();
+            return Optional.empty();
         }
 
         Identity identity = context.getIdentity();
-        return tableRules.stream()
+        List<ViewExpression> masks = tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table))
                 .map(rule -> rule.getColumnMask(identity.getUser(), table.getCatalogName(), table.getSchemaTableName().getSchemaName(), columnName))
                 // we return the first one we find
                 .findFirst()
                 .stream()
                 .flatMap(Optional::stream)
-                .collect(toImmutableList());
+                .toList();
+
+        if (masks.size() > 1) {
+            throw new TrinoException(INVALID_COLUMN_MASK, format("Multiple masks defined for %s.%s", table, columnName));
+        }
+
+        return masks.stream().findFirst();
+    }
+
+    @Override
+    public List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName table, String columnName, Type type)
+    {
+        throw new UnsupportedOperationException();
     }
 
     private boolean checkAnyCatalogAccess(SystemSecurityContext context, String catalogName)
