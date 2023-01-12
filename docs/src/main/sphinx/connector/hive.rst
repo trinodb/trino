@@ -567,37 +567,43 @@ Specific properties can be used to further configure the
 `Thrift <#thrift-metastore-configuration-properties>`__ or
 `Glue <#aws-glue-catalog-configuration-properties>`__ metastore.
 
-========================================== =============================================================
-Property Name                              Description
-========================================== =============================================================
-``hive.metastore``                         The type of Hive metastore to use. Trino currently supports
-                                           the default Hive Thrift metastore (``thrift``), and the AWS
-                                           Glue Catalog (``glue``) as metadata sources. Default is
-                                           ``thrift``.
+.. list-table:: Metastore configuration properties
+    :widths: 30, 50, 20
+    :header-rows: 1
 
-``hive.metastore-cache.cache-partitions``  Enable caching for partition metadata. You can disable
-                                           caching to avoid inconsistent behavior that results from it.
-                                           Default is ``true``.
-
-``hive.metastore-cache-ttl``               Duration how long cached metastore data should be considered
-                                           valid. Default is ``0s``.
-
-``hive.metastore-cache-maximum-size``      Maximum number of metastore data objects in the Hive
-                                           metastore cache. Default is ``10000``.
-
-``hive.metastore-refresh-interval``        Asynchronously refresh cached metastore data after access
-                                           if it is older than this but is not yet expired, allowing
-                                           subsequent accesses to see fresh data.
-
-``hive.metastore-refresh-max-threads``     Maximum threads used to refresh cached metastore data.
-                                           Default is ``10``.
-
-``hive.metastore-timeout``                 Timeout for Hive metastore requests. Default is ``10s``.
-
-``hive.hide-delta-lake-tables``            Controls whether to hide Delta Lake tables in table
-                                           listings. Currently applies only when using the AWS Glue
-                                           metastore. Default is ``false``.
-========================================== =============================================================
+    * - Property name
+      - Description
+      - Default
+    * - ``hive.metastore``
+      - The type of Hive metastore to use. Trino currently supports the default
+        Hive Thrift metastore (``thrift``), and the AWS Glue Catalog (``glue``)
+        as metadata sources.
+      - ``thrift``
+    * - ``hive.metastore-cache.cache-partitions``
+      - Enable caching for partition metadata. You can disable caching to avoid
+        inconsistent behavior that results from it.
+      - ``true``
+    * - ``hive.metastore-cache-ttl``
+      - Duration how long cached metastore data should be considered valid.
+      - ``0s``
+    * - ``hive.metastore-cache-maximum-size``
+      - Maximum number of metastore data objects in the Hive metastore cache.
+      - ``10000``
+    * - ``hive.metastore-refresh-interval``
+      - Asynchronously refresh cached metastore data after access if it is older
+        than this but is not yet expired, allowing subsequent accesses to see
+        fresh data.
+      -
+    * - ``hive.metastore-refresh-max-threads``
+      - Maximum threads used to refresh cached metastore data.
+      - ``10``
+    * - ``hive.metastore-timeout``
+      - Timeout for Hive metastore requests.
+      - ``10s``
+    * - ``hive.hide-delta-lake-tables``
+      - Controls whether to hide Delta Lake tables in table listings. Currently
+        applies only when using the AWS Glue metastore.
+      - ``false``
 
 .. _hive-thrift-metastore:
 
