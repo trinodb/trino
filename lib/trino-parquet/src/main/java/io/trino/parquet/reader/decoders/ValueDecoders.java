@@ -55,6 +55,7 @@ import static io.trino.parquet.reader.decoders.PlainValueDecoders.LongPlainValue
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.ShortDecimalFixedLengthByteArrayDecoder;
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.UuidPlainValueDecoder;
 import static io.trino.parquet.reader.decoders.TransformingValueDecoders.getBinaryLongDecimalDecoder;
+import static io.trino.parquet.reader.decoders.TransformingValueDecoders.getBinaryShortDecimalDecoder;
 import static io.trino.parquet.reader.flat.Int96ColumnAdapter.Int96Buffer;
 
 /**
@@ -91,6 +92,7 @@ public final class ValueDecoders
             case INT64 -> getLongDecoder(encoding, field);
             case INT32 -> getIntToLongDecoder(encoding, field);
             case FIXED_LEN_BYTE_ARRAY -> getFixedWidthShortDecimalDecoder(encoding, field, (DecimalType) field.getType());
+            case BINARY -> getBinaryShortDecimalDecoder(encoding, field);
             default -> throw wrongEncoding(encoding, field);
         };
     }

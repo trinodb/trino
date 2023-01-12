@@ -200,7 +200,7 @@ public final class ColumnReaderFactory
                 };
             }
             if (type instanceof DecimalType decimalType && decimalType.isShort()
-                    && (primitiveType == INT32 || primitiveType == INT64 || primitiveType == FIXED_LEN_BYTE_ARRAY)) {
+                    && (primitiveType == INT32 || primitiveType == INT64 || primitiveType == BINARY || primitiveType == FIXED_LEN_BYTE_ARRAY)) {
                 if (annotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation && !isDecimalRescaled(decimalAnnotation, decimalType)) {
                     return new FlatColumnReader<>(field, ValueDecoders::getShortDecimalDecoder, LONG_ADAPTER, memoryContext);
                 }
