@@ -281,7 +281,7 @@ Hive configuration properties
     :widths: 35, 50, 15
     :header-rows: 1
 
-    * - Property Name
+    * - Property name
       - Description
       - Default
     * - ``hive.config.resources``
@@ -316,7 +316,7 @@ Hive configuration properties
         default Trino format?
       - ``true``
     * - ``hive.immutable-partitions``
-      - Can new data be inserted into existing partitions? If ``true`` then
+      - Can new data be inserted into existing partitions? If ``true``, then
         setting ``hive.insert-existing-partitions-behavior`` to ``APPEND`` is
         not allowed. This also affects the ``insert_existing_partitions_behavior``
         session property in the same way.
@@ -484,12 +484,12 @@ with ORC files performed by the Hive connector.
     :widths: 30, 50, 20
     :header-rows: 1
 
-    * - Property Name
+    * - Property name
       - Description
       - Default
     * - ``hive.orc.time-zone``
-      - Sets the default time zone for legacy ORC files that did not declare a
-        time zone.
+      - The default time zone for legacy ORC files that did not declare a time
+        zone.
       - JVM default
     * - ``hive.orc.use-column-names``
       - Access ORC columns by name. By default, columns in ORC files are
@@ -512,7 +512,7 @@ with Parquet files performed by the Hive connector.
     :widths: 30, 50, 20
     :header-rows: 1
 
-    * - Property Name
+    * - Property name
       - Description
       - Default
     * - ``hive.parquet.time-zone``
@@ -576,7 +576,7 @@ Specific properties can be used to further configure the
       - Default
     * - ``hive.metastore``
       - The type of Hive metastore to use. Trino currently supports the default
-        Hive Thrift metastore (``thrift``), and the AWS Glue Catalog (``glue``)
+        Hive Thrift metastore (``thrift``) and the AWS Glue Catalog (``glue``)
         as metadata sources.
       - ``thrift``
     * - ``hive.metastore-cache.cache-partitions``
@@ -584,15 +584,14 @@ Specific properties can be used to further configure the
         inconsistent behavior that results from it.
       - ``true``
     * - ``hive.metastore-cache-ttl``
-      - Duration how long cached metastore data should be considered valid.
+      - How long cached metastore data should be considered valid.
       - ``0s``
     * - ``hive.metastore-cache-maximum-size``
       - Maximum number of metastore data objects in the Hive metastore cache.
       - ``10000``
     * - ``hive.metastore-refresh-interval``
-      - Asynchronously refresh cached metastore data after access if it is older
-        than this but is not yet expired, allowing subsequent accesses to see
-        fresh data.
+      - How long unexpired cached metadata should last before being asynchronously
+        refreshed after access.
       -
     * - ``hive.metastore-refresh-max-threads``
       - Maximum threads used to refresh cached metastore data.
@@ -601,8 +600,8 @@ Specific properties can be used to further configure the
       - Timeout for Hive metastore requests.
       - ``10s``
     * - ``hive.hide-delta-lake-tables``
-      - Controls whether to hide Delta Lake tables in table listings. Currently
-        applies only when using the AWS Glue metastore.
+      - Enables hiding Delta Lake tables in table listings. Only applies when
+        using the AWS Glue metastore.
       - ``false``
 
 .. _hive-thrift-metastore:
@@ -611,7 +610,7 @@ Specific properties can be used to further configure the
    :widths: 50 50
    :header-rows: 1
 
-   * - Property Name
+   * - Property name
      - Description
    * - ``hive.metastore.uri``
      - The URIs of the Hive metastore to connect to using the Thrift protocol.
@@ -674,14 +673,15 @@ properties:
         ``us-east-1``
       -
     * - ``hive.metastore.glue.endpoint-url``
-      - Glue API endpoint URL (optional). Example: ``https://glue.us-east-1.amazonaws.com``
+      - Glue API endpoint URL (optional). Example:
+        ``https://glue.us-east-1.amazonaws.com``
       -
     * - ``hive.metastore.glue.sts.region``
       - AWS region of the STS service to authenticate with. This is required
         when running in a GovCloud region. Example: ``us-gov-east-1``
       -
     * - ``hive.metastore.glue.proxy-api-id``
-      - The ID of the Glue Proxy API, when accessing Glue via an VPC endpoint in
+      - The ID of the Glue Proxy API when accessing Glue via an VPC endpoint in
         API Gateway.
       -
     * - ``hive.metastore.glue.sts.endpoint``
@@ -693,7 +693,7 @@ properties:
         running.
       - ``false``
     * - ``hive.metastore.glue.max-connections``
-      - Max number of concurrent connections to Glue.
+      - Maximum number of concurrent connections to Glue.
       - ``30``
     * - ``hive.metastore.glue.max-error-retries``
       - Maximum number of error retries for the Glue client.
@@ -759,8 +759,8 @@ GCS configuration properties
     * - ``hive.gcs.json-key-file-path``
       - JSON key file used to authenticate with Google Cloud Storage.
     * - ``hive.gcs.use-access-token``
-      - Use client-provided OAuth token to access Google Cloud Storage. This is
-        mutually exclusive with a global JSON key file.
+      - Enables use of a client-provided OAuth token to access Google Cloud
+        Storage. This cannot be used in conjunction with a global JSON key file.
 
 .. _hive-performance-tuning-configuration:
 
@@ -951,33 +951,33 @@ and by default will also collect column level statistics:
     :header-rows: 1
 
     * - Column type
-      - Collectible statistics
+      - Collectable statistics
     * - ``TINYINT``
-      - number of nulls, number of distinct values, min/max values
+      - Number of nulls, number of distinct values, min/max values
     * - ``SMALLINT``
-      - number of nulls, number of distinct values, min/max values
+      - Number of nulls, number of distinct values, min/max values
     * - ``INTEGER``
-      - number of nulls, number of distinct values, min/max values
+      - Number of nulls, number of distinct values, min/max values
     * - ``BIGINT``
-      - number of nulls, number of distinct values, min/max values
+      - Number of nulls, number of distinct values, min/max values
     * - ``DOUBLE``
-      - number of nulls, number of distinct values, min/max values
+      - Number of nulls, number of distinct values, min/max values
     * - ``REAL``
-      - number of nulls, number of distinct values, min/max values
+      - Number of nulls, number of distinct values, min/max values
     * - ``DECIMAL``
-      - number of nulls, number of distinct values, min/max values
+      - Number of nulls, number of distinct values, min/max values
     * - ``DATE``
-      - number of nulls, number of distinct values, min/max values
+      - Number of nulls, number of distinct values, min/max values
     * - ``TIMESTAMP``
-      - number of nulls, number of distinct values, min/max values
+      - Number of nulls, number of distinct values, min/max values
     * - ``VARCHAR``
-      - number of nulls, number of distinct values
+      - Number of nulls, number of distinct values
     * - ``CHAR``
-      - number of nulls, number of distinct values
+      - Number of nulls, number of distinct values
     * - ``VARBINARY``
-      - number of nulls
+      - Number of nulls
     * - ``BOOLEAN``
-      - number of nulls, number of true/false values
+      - Number of nulls, number of true/false values
 
 .. _hive_analyze:
 
