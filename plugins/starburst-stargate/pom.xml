@@ -141,6 +141,19 @@
 
         <dependency>
             <groupId>com.starburstdata.presto</groupId>
+            <artifactId>starburst-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.starburstdata.presto</groupId>
+            <artifactId>starburst-engine</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-hive-hadoop2</artifactId>
             <scope>test</scope>
         </dependency>
@@ -169,43 +182,6 @@
             <artifactId>starburst-redirection</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-server-main</artifactId>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <!-- TODO provided by the incorrectly shaded com.linkedin.calcite:calcite-core:{version}:jar:shaded -->
-                    <groupId>org.apache.commons</groupId>
-                    <artifactId>commons-lang3</artifactId>
-                </exclusion>
-                <exclusion>
-                    <!-- provided by org.alluxio:alluxio-shaded-client:2.4.0 -->
-                    <groupId>com.google.protobuf</groupId>
-                    <artifactId>protobuf-java</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-server-main</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <!-- TODO provided by the incorrectly shaded com.linkedin.calcite:calcite-core:{version}:jar:shaded -->
-                    <groupId>org.apache.commons</groupId>
-                    <artifactId>commons-lang3</artifactId>
-                </exclusion>
-                <exclusion>
-                    <!-- provided by org.alluxio:alluxio-shaded-client:2.4.0 -->
-                    <groupId>com.google.protobuf</groupId>
-                    <artifactId>protobuf-java</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>

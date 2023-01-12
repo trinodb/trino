@@ -12,7 +12,7 @@ package com.starburstdata.trino.plugin.stargate;
 import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.plugin.hive.StarburstHivePlugin;
 import com.starburstdata.presto.plugin.postgresql.StarburstPostgreSqlPlugin;
-import com.starburstdata.presto.server.StarburstQueryRunner;
+import com.starburstdata.presto.server.StarburstEngineQueryRunner;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -52,7 +52,7 @@ public final class StargateQueryRunner
                     .setCatalog("unspecified_catalog")
                     .setSchema("unspecified_schema")
                     .build();
-            DistributedQueryRunner.Builder<?> queryRunnerBuilder = StarburstQueryRunner.builder(session)
+            DistributedQueryRunner.Builder<?> queryRunnerBuilder = StarburstEngineQueryRunner.builder(session)
                     .setNodeCount(1); // 1 is perfectly enough until we do parallel Stargate connector
 
             systemAccessControl.ifPresent(queryRunnerBuilder::setSystemAccessControl);
@@ -198,7 +198,7 @@ public final class StargateQueryRunner
 
         DistributedQueryRunner queryRunner = null;
         try {
-            DistributedQueryRunner.Builder<?> builder = StarburstQueryRunner.builder(session);
+            DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(session);
             extraProperties.forEach(builder::addExtraProperty);
             queryRunner = builder.build();
 
@@ -242,7 +242,7 @@ public final class StargateQueryRunner
     {
         Logging.initialize();
 
-        DistributedQueryRunner stargateQueryRunner = StarburstQueryRunner.builder(testSessionBuilder()
+        DistributedQueryRunner stargateQueryRunner = StarburstEngineQueryRunner.builder(testSessionBuilder()
                         .setCatalog("unspecified_catalog")
                         .setSchema("unspecified_schema")
                         .build())
