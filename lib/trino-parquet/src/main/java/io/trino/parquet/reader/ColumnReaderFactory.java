@@ -78,6 +78,8 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 
 public final class ColumnReaderFactory
 {
+    private static final int MAX_INT_DIGITS = 10;
+
     private ColumnReaderFactory() {}
 
     public static ColumnReader create(PrimitiveField field, DateTimeZone timeZone, AggregatedMemoryContext aggregatedMemoryContext, boolean useBatchedColumnReaders)
@@ -201,9 +203,18 @@ public final class ColumnReaderFactory
             }
             if (type instanceof DecimalType decimalType && decimalType.isShort()
                     && (primitiveType == INT32 || primitiveType == INT64 || primitiveType == BINARY || primitiveType == FIXED_LEN_BYTE_ARRAY)) {
-                if (annotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation && !isDecimalRescaled(decimalAnnotation, decimalType)) {
-                    return new FlatColumnReader<>(field, ValueDecoders::getShortDecimalDecoder, LONG_ADAPTER, memoryContext);
+                if (decimalType.getScale() == 0 && decimalType.getPrecision() >= MAX_INT_DIGITS
+                        && primitiveType == INT32
+                        && isIntegerAnnotation(annotation)) {
+                    return new FlatColumnReader<>(field, ValueDecoders::getIntToLongDecoder, LONG_ADAPTER, memoryContext);
                 }
+                if (!(annotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation)) {
+                    throw unsupportedException(type, field);
+                }
+                if (isDecimalRescaled(decimalAnnotation, decimalType)) {
+                    return new FlatColumnReader<>(field, TransformingValueDecoders::getRescaledShortDecimalDecoder, LONG_ADAPTER, memoryContext);
+                }
+                return new FlatColumnReader<>(field, ValueDecoders::getShortDecimalDecoder, LONG_ADAPTER, memoryContext);
             }
             if (type instanceof DecimalType decimalType && !decimalType.isShort()
                     && (primitiveType == INT32 || primitiveType == INT64 || primitiveType == BINARY || primitiveType == FIXED_LEN_BYTE_ARRAY)) {

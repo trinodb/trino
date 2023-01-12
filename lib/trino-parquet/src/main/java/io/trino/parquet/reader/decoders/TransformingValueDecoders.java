@@ -39,6 +39,7 @@ import static io.trino.parquet.reader.decoders.ValueDecoders.getRealDecoder;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getShortDecimalDecoder;
 import static io.trino.parquet.reader.flat.Int96ColumnAdapter.Int96Buffer;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
@@ -566,6 +567,59 @@ public class TransformingValueDecoders
                         values[currentOffset + 1] = rescaled.getLow();
                     }
                 });
+    }
+
+    public static ValueDecoder<long[]> getRescaledShortDecimalDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        DecimalType decimalType = (DecimalType) field.getType();
+        DecimalLogicalTypeAnnotation decimalAnnotation = (DecimalLogicalTypeAnnotation) field.getDescriptor().getPrimitiveType().getLogicalTypeAnnotation();
+        if (decimalAnnotation.getPrecision() <= Decimals.MAX_SHORT_PRECISION) {
+            long rescale = longTenToNth(Math.abs(decimalType.getScale() - decimalAnnotation.getScale()));
+            return new InlineTransformDecoder<>(
+                    getShortDecimalDecoder(encoding, field),
+                    (values, offset, length) -> {
+                        for (int i = offset; i < offset + length; i++) {
+                            values[i] = DecimalConversions.shortToShortCast(
+                                    values[i],
+                                    decimalAnnotation.getPrecision(),
+                                    decimalAnnotation.getScale(),
+                                    decimalType.getPrecision(),
+                                    decimalType.getScale(),
+                                    rescale,
+                                    rescale / 2);
+                        }
+                    });
+        }
+        ValueDecoder<long[]> delegate = getLongDecimalDecoder(encoding, field);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(long[] values, int offset, int length)
+            {
+                long[] buffer = new long[2 * length];
+                delegate.read(buffer, 0, length);
+                for (int i = 0; i < length; i++) {
+                    values[offset + i] = DecimalConversions.longToShortCast(
+                            Int128.valueOf(buffer[2 * i], buffer[2 * i + 1]),
+                            decimalAnnotation.getPrecision(),
+                            decimalAnnotation.getScale(),
+                            decimalType.getPrecision(),
+                            decimalType.getScale());
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
     }
 
     public static ValueDecoder<int[]> getInt64ToIntDecoder(ParquetEncoding encoding, PrimitiveField field)
