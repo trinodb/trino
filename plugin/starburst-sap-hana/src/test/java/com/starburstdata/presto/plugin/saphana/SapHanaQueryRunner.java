@@ -11,7 +11,7 @@ package com.starburstdata.presto.plugin.saphana;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.starburstdata.presto.server.StarburstQueryRunner;
+import com.starburstdata.presto.server.StarburstEngineQueryRunner;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -50,7 +50,7 @@ public final class SapHanaQueryRunner
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            DistributedQueryRunner.Builder<?> builder = StarburstQueryRunner.builder(createSession());
+            DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(createSession());
             extraProperties.forEach(builder::addExtraProperty);
             queryRunner = builder.build();
 
