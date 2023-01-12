@@ -152,12 +152,28 @@ public final class ParquetReaderUtils
         return (byte) (value ? 0 : 1);
     }
 
+    public static short toShortExact(long value)
+    {
+        if ((short) value != value) {
+            throw new ArithmeticException("short overflow");
+        }
+        return (short) value;
+    }
+
     public static short toShortExact(int value)
     {
         if ((short) value != value) {
             throw new ArithmeticException(format("Value %d exceeds short range", value));
         }
         return (short) value;
+    }
+
+    public static byte toByteExact(long value)
+    {
+        if ((byte) value != value) {
+            throw new ArithmeticException("byte overflow");
+        }
+        return (byte) value;
     }
 
     public static byte toByteExact(int value)
