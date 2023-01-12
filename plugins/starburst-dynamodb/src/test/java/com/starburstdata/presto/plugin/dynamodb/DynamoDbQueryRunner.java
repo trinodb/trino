@@ -10,7 +10,7 @@
 package com.starburstdata.presto.plugin.dynamodb;
 
 import com.google.common.collect.ImmutableMap;
-import com.starburstdata.presto.testing.StarburstDistributedQueryRunner;
+import com.starburstdata.presto.server.StarburstQueryRunner;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -81,7 +81,7 @@ public final class DynamoDbQueryRunner
             throws Exception
     {
         // Create QueryRunner with writes enabled to create TPC-H tables
-        DistributedQueryRunner.Builder<?> builder = StarburstDistributedQueryRunner.builder(createSession());
+        DistributedQueryRunner.Builder<?> builder = StarburstQueryRunner.builder(createSession());
         extraProperties.forEach(builder::addExtraProperty);
         try (DistributedQueryRunner queryRunner = builder.build()) {
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
@@ -95,7 +95,7 @@ public final class DynamoDbQueryRunner
         // Create query runner to be returned with given enableWrites flag
         DistributedQueryRunner queryRunner = null;
         try {
-            builder = StarburstDistributedQueryRunner.builder(createSession());
+            builder = StarburstQueryRunner.builder(createSession());
             extraProperties.forEach(builder::addExtraProperty);
             queryRunner = builder.build();
 
