@@ -12,7 +12,7 @@ package com.starburstdata.presto.plugin.salesforce;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.starburstdata.presto.plugin.salesforce.SalesforceModule.OAuthJwtConnectionUrlProvider;
-import com.starburstdata.presto.server.StarburstQueryRunner;
+import com.starburstdata.presto.server.StarburstEngineQueryRunner;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -80,7 +80,7 @@ public final class SalesforceQueryRunner
 
         DistributedQueryRunner queryRunner = null;
         try {
-            DistributedQueryRunner.Builder<?> builder = StarburstQueryRunner.builder(createSession());
+            DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(createSession());
             extraProperties.forEach(builder::addExtraProperty);
             queryRunner = builder.build();
 
@@ -152,7 +152,7 @@ public final class SalesforceQueryRunner
     private static void copyTpchTablesIfNotExists(Map<String, String> extraProperties, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        DistributedQueryRunner.Builder<?> builder = StarburstQueryRunner.builder(createSession());
+        DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(createSession());
         extraProperties.forEach(builder::addExtraProperty);
         try (DistributedQueryRunner queryRunner = builder.build()) {
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
