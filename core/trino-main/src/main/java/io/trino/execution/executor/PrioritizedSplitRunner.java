@@ -160,15 +160,17 @@ public class PrioritizedSplitRunner
 
             waitNanos.getAndAdd(startNanos - lastReady.get());
 
-            CpuTimer timer = new CpuTimer();
+            // Do not collect user vs system components of CPU time since it's more expensive and not used here
+            CpuTimer timer = new CpuTimer(ticker, false);
             ListenableFuture<Void> blocked = split.processFor(SPLIT_RUN_QUANTA);
             CpuTimer.CpuDuration elapsed = timer.elapsedTime();
 
-            long quantaScheduledNanos = ticker.read() - startNanos;
+            long endNanos = ticker.read();
+            long quantaScheduledNanos = endNanos - startNanos;
             scheduledNanos.addAndGet(quantaScheduledNanos);
 
             priority.set(taskHandle.addScheduledNanos(quantaScheduledNanos));
-            lastRun.set(ticker.read());
+            lastRun.set(endNanos);
 
             if (blocked == NOT_BLOCKED) {
                 unblockedQuantaWallTime.add(elapsed.getWall());
