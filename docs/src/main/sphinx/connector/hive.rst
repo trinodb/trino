@@ -335,6 +335,10 @@ Hive configuration properties
     * - ``hive.create-empty-bucket-files``
       - Should empty files be created for buckets that have no data?
       - ``false``
+    * - ``hive.validate-bucketing``
+      - Enables verification that data is in the correct bucket when reading
+        bucketed tables.
+      - ``true``
     * - ``hive.partition-statistics-sample-size``
       - Specifies the number of partitions to analyze when computing table
         statistics.
@@ -473,6 +477,10 @@ Hive configuration properties
     * - ``hive.max-partition-drops-per-query``
       - Maximum number of partitions to drop in a single query.
       - 100,000
+    * - ``hive.single-statement-writes``
+      - Enables auto-commit for all writes. This can be used to disallow
+        multi-statement write transactions.
+      - ``false``
 
 ORC format configuration properties
 -----------------------------------
@@ -607,49 +615,92 @@ Specific properties can be used to further configure the
 .. _hive-thrift-metastore:
 
 .. list-table:: Thrift metastore configuration properties
-   :widths: 50 50
+   :widths: 35, 50, 15
    :header-rows: 1
 
    * - Property name
      - Description
+     - Default
    * - ``hive.metastore.uri``
      - The URIs of the Hive metastore to connect to using the Thrift protocol.
        If a comma-separated list of URIs is provided, the first URI is used by
        default, and the rest of the URIs are fallback metastores. This property
        is required. Example: ``thrift://192.0.2.3:9083`` or
        ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
+     -
    * - ``hive.metastore.username``
      - The username Trino uses to access the Hive metastore.
+     -
    * - ``hive.metastore.authentication.type``
      - Hive metastore authentication type. Possible values are ``NONE`` or
-       ``KERBEROS``. Default is ``NONE``.
+       ``KERBEROS``.
+     - ``NONE``
    * - ``hive.metastore.thrift.impersonation.enabled``
      - Enable Hive metastore end user impersonation.
+     -
    * - ``hive.metastore.thrift.delegation-token.cache-ttl``
-     - Time to live delegation token cache for metastore. Default is ``1h``.
+     - Time to live delegation token cache for metastore.
+     - ``1h``
    * - ``hive.metastore.thrift.delegation-token.cache-maximum-size``
-     - Delegation token cache maximum size. Default is ``1000``.
+     - Delegation token cache maximum size.
+     - ``1000``
    * - ``hive.metastore.thrift.client.ssl.enabled``
-     - Use SSL when connecting to metastore. Default is ``false``.
+     - Use SSL when connecting to metastore.
+     - ``false``
    * - ``hive.metastore.thrift.client.ssl.key``
      - Path to private key and client certification (key store).
+     -
    * - ``hive.metastore.thrift.client.ssl.key-password``
      - Password for the private key.
+     -
    * - ``hive.metastore.thrift.client.ssl.trust-certificate``
      - Path to the server certificate chain (trust store). Required when SSL is
        enabled.
+     -
    * - ``hive.metastore.thrift.client.ssl.trust-certificate-password``
      - Password for the trust store.
+     -
    * - ``hive.metastore.service.principal``
      - The Kerberos principal of the Hive metastore service.
+     -
    * - ``hive.metastore.client.principal``
      - The Kerberos principal that Trino uses when connecting to the Hive
        metastore service.
+     -
    * - ``hive.metastore.client.keytab``
      - Hive metastore client keytab location.
+     -
    * - ``hive.metastore.thrift.delete-files-on-drop``
      - Actively delete the files for drop table or partition operations, for cases when the
-       metastore does not delete the files. Default is ``false``.
+       metastore does not delete the files.
+     - ``false``
+   * - ``hive.metastore.thrift.assume-canonical-partition-keys``
+     - Allow the metastore to assume that the values of partition columns can be
+       converted to string values. This can lead to performance improvements in
+       queries which apply filters on the partition columns. Note that partition
+       keys with a ``timestamp`` type do not get canonicalized.
+     - ``false``
+   * - ``hive.metastore.thrift.client.socks-proxy``
+     - SOCKS proxy to use for the Thrift Hive metastore.
+     -
+   * - ``hive.metastore.thrift.client.max-retries``
+     - Maximum number of retry attempts for metastore requests.
+     - ``9``
+   * - ``hive.metastore.thrift.client.backoff-scale-factor``
+     - Scale factor for metastore request retry delay.
+     - ``2.0``
+   * - ``hive.metastore.thrift.client.max-retry-time``
+     - Total time limit for a metastore request to be retried.
+     - ``30s``
+   * - ``hive.metastore.thrift.client.min-backoff-delay``
+     - Minimum delay between metastore request retries.
+     - ``1s``
+   * - ``hive.metastore.thrift.client.max-backoff-delay``
+     - Maximum delay between metastore request retries.
+     - ``1s``
+   * - ``hive.metastore.thrift.txn-lock-max-wait``
+     - Maximum time to wait to acquire hive transaction lock.
+     - ``10m``
 
 .. _hive-glue-metastore:
 
