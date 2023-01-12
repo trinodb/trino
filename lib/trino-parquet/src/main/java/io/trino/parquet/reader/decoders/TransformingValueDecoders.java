@@ -21,9 +21,11 @@ import io.trino.parquet.reader.flat.BinaryBuffer;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
+import org.apache.parquet.io.ParquetDecodingException;
 import org.joda.time.DateTimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getBinaryDecoder;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getInt96Decoder;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getLongDecoder;
@@ -450,6 +452,45 @@ public class TransformingValueDecoders
                     Int128 value = Int128.fromBigEndian(binaryInput.getBytes(positionOffset, positionLength));
                     values[2 * (offset + i)] = value.getHigh();
                     values[2 * (offset + i) + 1] = value.getLow();
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public static ValueDecoder<long[]> getBinaryShortDecimalDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        ValueDecoder<BinaryBuffer> delegate = getBinaryDecoder(encoding, field);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(long[] values, int offset, int length)
+            {
+                BinaryBuffer buffer = new BinaryBuffer(length);
+                delegate.read(buffer, 0, length);
+                int[] offsets = buffer.getOffsets();
+                byte[] inputBytes = buffer.asSlice().byteArray();
+
+                for (int i = 0; i < length; i++) {
+                    int positionOffset = offsets[i];
+                    int positionLength = offsets[i + 1] - positionOffset;
+                    if (positionLength > 8) {
+                        throw new ParquetDecodingException("Unable to read BINARY type decimal of size " + positionLength + " as a short decimal");
+                    }
+                    // No need for checkBytesFitInShortDecimal as the standard requires variable binary decimals
+                    // to be stored in minimum possible number of bytes
+                    values[offset + i] = getShortDecimalValue(inputBytes, positionOffset, positionLength);
                 }
             }
 
