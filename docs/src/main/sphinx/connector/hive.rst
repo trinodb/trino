@@ -750,14 +750,17 @@ Please refer to the :doc:`hive-gcs-tutorial` for step-by-step instructions.
 GCS configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-============================================ =================================================================
-Property Name                                Description
-============================================ =================================================================
-``hive.gcs.json-key-file-path``              JSON key file used to authenticate with Google Cloud Storage.
+.. list-table:: GCS configuration properties
+    :widths: 40, 60
+    :header-rows: 1
 
-``hive.gcs.use-access-token``                Use client-provided OAuth token to access Google Cloud Storage.
-                                             This is mutually exclusive with a global JSON key file.
-============================================ =================================================================
+    * - Property name
+      - Description
+    * - ``hive.gcs.json-key-file-path``
+      - JSON key file used to authenticate with Google Cloud Storage.
+    * - ``hive.gcs.use-access-token``
+      - Use client-provided OAuth token to access Google Cloud Storage. This is
+        mutually exclusive with a global JSON key file.
 
 .. _hive-performance-tuning-configuration:
 
