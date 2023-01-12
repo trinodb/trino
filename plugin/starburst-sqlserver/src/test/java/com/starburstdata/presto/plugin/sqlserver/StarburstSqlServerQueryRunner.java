@@ -11,7 +11,7 @@ package com.starburstdata.presto.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.starburstdata.presto.testing.StarburstDistributedQueryRunner;
+import com.starburstdata.presto.server.StarburstQueryRunner;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -112,7 +112,7 @@ public final class StarburstSqlServerQueryRunner
             throws Exception
     {
         Session session = createSession(sqlServer.getUsername());
-        DistributedQueryRunner.Builder<?> builder = StarburstDistributedQueryRunner.builder(session);
+        DistributedQueryRunner.Builder<?> builder = StarburstQueryRunner.builder(session);
         extraProperties.forEach(builder::addExtraProperty);
         DistributedQueryRunner queryRunner = builder.build();
         try {
