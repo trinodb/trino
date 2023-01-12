@@ -85,7 +85,6 @@ master_doc = 'index'
 project = u'Trino'
 
 version = get_version()
-release = version
 
 exclude_patterns = ['_build']
 
@@ -95,7 +94,7 @@ default_role = 'backquote'
 
 rst_epilog = """
 .. |trino_server_release| replace:: ``trino-server-{release}``
-""".replace('{release}', release)
+""".replace('{release}', version)
 
 # Any replace that is inside of a code block should be added here
 # https://stackoverflow.com/questions/8821511/substitutions-inside-sphinx-code-blocks-arent-replaced
@@ -111,7 +110,7 @@ html_theme = 'sphinx_material'
 
 html_static_path = ['static']
 
-html_title = '%s %s Documentation' % (project, release)
+html_title = '%s %s Documentation' % (project, version)
 
 html_logo = 'images/trino.svg'
 
