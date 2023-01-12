@@ -94,7 +94,7 @@ public final class ValueDecoders
         return switch (field.getDescriptor().getPrimitiveType().getPrimitiveTypeName()) {
             case INT64 -> getLongDecoder(encoding, field);
             case INT32 -> getIntToLongDecoder(encoding, field);
-            case FIXED_LEN_BYTE_ARRAY -> getFixedWidthShortDecimalDecoder(encoding, field, (DecimalType) field.getType());
+            case FIXED_LEN_BYTE_ARRAY -> getFixedWidthShortDecimalDecoder(encoding, field);
             case BINARY -> getBinaryShortDecimalDecoder(encoding, field);
             default -> throw wrongEncoding(encoding, field);
         };
@@ -184,13 +184,12 @@ public final class ValueDecoders
         throw wrongEncoding(encoding, field);
     }
 
-    public static ValueDecoder<long[]> getFixedWidthShortDecimalDecoder(ParquetEncoding encoding, PrimitiveField field, DecimalType decimalType)
+    public static ValueDecoder<long[]> getFixedWidthShortDecimalDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
         return switch (encoding) {
-            case PLAIN -> new ShortDecimalFixedLengthByteArrayDecoder(decimalType, field.getDescriptor());
+            case PLAIN -> new ShortDecimalFixedLengthByteArrayDecoder(field.getDescriptor());
             case DELTA_BYTE_ARRAY -> new ShortDecimalApacheParquetValueDecoder(
                     getApacheParquetReader(encoding, field),
-                    decimalType,
                     field.getDescriptor());
             default -> throw wrongEncoding(encoding, field);
         };
@@ -298,6 +297,6 @@ public final class ValueDecoders
 
     private static IllegalArgumentException wrongEncoding(ParquetEncoding encoding, PrimitiveField field)
     {
-        return new IllegalArgumentException("Wrong encoding " + encoding + " for column type " + field.getDescriptor().getPrimitiveType().getPrimitiveTypeName());
+        return new IllegalArgumentException("Wrong encoding " + encoding + " for column " + field.getDescriptor());
     }
 }

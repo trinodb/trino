@@ -82,8 +82,8 @@ public final class TestFixedWidthByteArrayValueDecoders
         PrimitiveField primitiveField = createField(FIXED_LEN_BYTE_ARRAY, OptionalInt.of(typeLength), decimalType);
         return new TestType<>(
                 primitiveField,
-                (encoding, field) -> getFixedWidthShortDecimalDecoder(encoding, field, decimalType),
-                valuesReader -> new ShortDecimalApacheParquetValueDecoder(valuesReader, decimalType, primitiveField.getDescriptor()),
+                ValueDecoders::getFixedWidthShortDecimalDecoder,
+                valuesReader -> new ShortDecimalApacheParquetValueDecoder(valuesReader, primitiveField.getDescriptor()),
                 LONG_ADAPTER,
                 (actual, expected) -> assertThat(actual).isEqualTo(expected));
     }
