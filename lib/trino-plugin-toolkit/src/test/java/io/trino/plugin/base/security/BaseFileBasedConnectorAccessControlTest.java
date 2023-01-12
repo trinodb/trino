@@ -406,8 +406,8 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanDropTable(userGroup1Group2, myTable);
         accessControl.checkCanSelectFromColumns(userGroup1Group2, myTable, ImmutableSet.of());
         assertEquals(
-                accessControl.getColumnMasks(userGroup1Group2, myTable, "col_a", VARCHAR),
-                ImmutableList.of());
+                accessControl.getColumnMask(userGroup1Group2, myTable, "col_a", VARCHAR),
+                Optional.empty());
         assertEquals(
                 accessControl.getRowFilters(userGroup1Group2, myTable),
                 ImmutableList.of());
@@ -418,7 +418,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertDenied(() -> accessControl.checkCanDropTable(userGroup2, myTable));
         accessControl.checkCanSelectFromColumns(userGroup2, myTable, ImmutableSet.of());
         assertViewExpressionEquals(
-                accessControl.getColumnMasks(userGroup2, myTable, "col_a", VARCHAR),
+                accessControl.getColumnMask(userGroup2, myTable, "col_a", VARCHAR).orElseThrow(),
                 new ViewExpression(userGroup2.getIdentity().getUser(), Optional.of("test_catalog"), Optional.of("my_schema"), "'mask_a'"));
         assertEquals(
                 accessControl.getRowFilters(userGroup2, myTable),
@@ -433,8 +433,8 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanDropTable(userGroup1Group3, myTable);
         accessControl.checkCanSelectFromColumns(userGroup1Group3, myTable, ImmutableSet.of());
         assertEquals(
-                accessControl.getColumnMasks(userGroup1Group3, myTable, "col_a", VARCHAR),
-                ImmutableList.of());
+                accessControl.getColumnMask(userGroup1Group3, myTable, "col_a", VARCHAR),
+                Optional.empty());
 
         assertDenied(() -> accessControl.checkCanCreateTable(userGroup3, myTable, Map.of()));
         assertDenied(() -> accessControl.checkCanInsertIntoTable(userGroup3, myTable));
@@ -442,17 +442,18 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertDenied(() -> accessControl.checkCanDropTable(userGroup3, myTable));
         accessControl.checkCanSelectFromColumns(userGroup3, myTable, ImmutableSet.of());
         assertViewExpressionEquals(
-                accessControl.getColumnMasks(userGroup3, myTable, "col_a", VARCHAR),
+                accessControl.getColumnMask(userGroup3, myTable, "col_a", VARCHAR).orElseThrow(),
                 new ViewExpression(userGroup3.getIdentity().getUser(), Optional.of("test_catalog"), Optional.of("my_schema"), "'mask_a'"));
+
+        List<ViewExpression> rowFilters = accessControl.getRowFilters(userGroup3, myTable);
+        assertEquals(rowFilters.size(), 1);
         assertViewExpressionEquals(
-                accessControl.getRowFilters(userGroup3, myTable),
+                rowFilters.get(0),
                 new ViewExpression(userGroup3.getIdentity().getUser(), Optional.of("test_catalog"), Optional.of("my_schema"), "country='US'"));
     }
 
-    private static void assertViewExpressionEquals(List<ViewExpression> result, ViewExpression expected)
+    private static void assertViewExpressionEquals(ViewExpression actual, ViewExpression expected)
     {
-        assertEquals(result.size(), 1);
-        ViewExpression actual = result.get(0);
         assertEquals(actual.getIdentity(), expected.getIdentity(), "Identity");
         assertEquals(actual.getCatalog(), expected.getCatalog(), "Catalog");
         assertEquals(actual.getSchema(), expected.getSchema(), "Schema");

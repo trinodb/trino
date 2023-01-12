@@ -544,7 +544,7 @@ class StatementAnalyzer
                     .collect(toImmutableList());
 
             for (ColumnSchema column : columns) {
-                if (!accessControl.getColumnMasks(session.toSecurityContext(), targetTable, column.getName(), column.getType()).isEmpty()) {
+                if (accessControl.getColumnMask(session.toSecurityContext(), targetTable, column.getName(), column.getType()).isPresent()) {
                     throw semanticException(NOT_SUPPORTED, insert, "Insert into table with column masks is not supported");
                 }
             }
@@ -785,7 +785,7 @@ class StatementAnalyzer
 
             TableSchema tableSchema = metadata.getTableSchema(session, handle);
             for (ColumnSchema tableColumn : tableSchema.getColumns()) {
-                if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isEmpty()) {
+                if (accessControl.getColumnMask(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isPresent()) {
                     throw semanticException(NOT_SUPPORTED, node, "Delete from table with column mask");
                 }
             }
@@ -1149,7 +1149,7 @@ class StatementAnalyzer
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
             for (ColumnMetadata tableColumn : tableMetadata.getColumns()) {
-                if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isEmpty()) {
+                if (accessControl.getColumnMask(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isPresent()) {
                     throw semanticException(NOT_SUPPORTED, node, "ALTER TABLE EXECUTE is not supported for table with column masks");
                 }
             }
@@ -2222,10 +2222,10 @@ class StatementAnalyzer
             for (int index = 0; index < relationType.getAllFieldCount(); index++) {
                 Field field = relationType.getFieldByIndex(index);
                 if (field.getName().isPresent()) {
-                    List<ViewExpression> masks = accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get(), field.getType());
+                    Optional<ViewExpression> mask = accessControl.getColumnMask(session.toSecurityContext(), name, field.getName().get(), field.getType());
 
-                    if (!masks.isEmpty() && checkCanSelectFromColumn(name, field.getName().orElseThrow())) {
-                        masks.forEach(mask -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask));
+                    if (mask.isPresent() && checkCanSelectFromColumn(name, field.getName().orElseThrow())) {
+                        analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask.get());
                     }
                 }
             }
@@ -3178,7 +3178,7 @@ class StatementAnalyzer
             // TODO: how to deal with connectors that need to see the pre-image of rows to perform the update without
             //       flowing that data through the masking logic
             for (ColumnSchema tableColumn : allColumns) {
-                if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isEmpty()) {
+                if (accessControl.getColumnMask(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isPresent()) {
                     throw semanticException(NOT_SUPPORTED, update, "Updating a table with column masks is not supported");
                 }
             }
@@ -3307,7 +3307,7 @@ class StatementAnalyzer
             Scope joinScope = createAndAssignScope(merge, scope, targetTableScope.getRelationType().joinWith(sourceTableScope.getRelationType()));
 
             for (ColumnSchema column : dataColumnSchemas) {
-                if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, column.getName(), column.getType()).isEmpty()) {
+                if (accessControl.getColumnMask(session.toSecurityContext(), tableName, column.getName(), column.getType()).isPresent()) {
                     throw semanticException(NOT_SUPPORTED, merge, "Cannot merge into a table with column masks");
                 }
             }
