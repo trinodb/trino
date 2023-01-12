@@ -100,7 +100,6 @@ import io.trino.type.TypeCoercion;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -305,28 +304,33 @@ class RelationPlanner
         PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext)
                 .withScope(analysis.getAccessControlScope(table), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
 
+        Assignments.Builder assignments = Assignments.builder();
+        assignments.putIdentities(planBuilder.getRoot().getOutputSymbols());
+
+        List<Symbol> fieldMappings = new ArrayList<>();
         for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
             Field field = plan.getDescriptor().getFieldByIndex(i);
 
             Expression mask = columnMasks.get(field.getName().orElseThrow());
+            Symbol symbol = plan.getFieldMappings().get(i);
+            Expression projection = symbol.toSymbolReference();
             if (mask != null) {
                 planBuilder = subqueryPlanner.handleSubqueries(planBuilder, mask, analysis.getSubqueries(mask));
-
-                Map<Symbol, Expression> assignments = new LinkedHashMap<>();
-                for (Symbol symbol : planBuilder.getRoot().getOutputSymbols()) {
-                    assignments.put(symbol, symbol.toSymbolReference());
-                }
-                assignments.put(plan.getFieldMappings().get(i), coerceIfNecessary(analysis, mask, planBuilder.rewrite(mask)));
-
-                planBuilder = planBuilder
-                        .withNewRoot(new ProjectNode(
-                                idAllocator.getNextId(),
-                                planBuilder.getRoot(),
-                                Assignments.copyOf(assignments)));
+                symbol = symbolAllocator.newSymbol(symbol);
+                projection = coerceIfNecessary(analysis, mask, planBuilder.rewrite(mask));
             }
+
+            assignments.put(symbol, projection);
+            fieldMappings.add(symbol);
         }
 
-        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings(), outerContext);
+        planBuilder = planBuilder
+                .withNewRoot(new ProjectNode(
+                        idAllocator.getNextId(),
+                        planBuilder.getRoot(),
+                        assignments.build()));
+
+        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), fieldMappings, outerContext);
     }
 
     @Override
