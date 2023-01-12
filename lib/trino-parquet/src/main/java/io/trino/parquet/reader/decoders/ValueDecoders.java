@@ -54,6 +54,7 @@ import static io.trino.parquet.reader.decoders.PlainValueDecoders.LongDecimalPla
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.LongPlainValueDecoder;
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.ShortDecimalFixedLengthByteArrayDecoder;
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.UuidPlainValueDecoder;
+import static io.trino.parquet.reader.decoders.TransformingValueDecoders.getBinaryLongDecimalDecoder;
 import static io.trino.parquet.reader.flat.Int96ColumnAdapter.Int96Buffer;
 
 /**
@@ -198,15 +199,6 @@ public final class ValueDecoders
         return switch (encoding) {
             case PLAIN -> new LongDecimalPlainValueDecoder(field.getDescriptor().getPrimitiveType().getTypeLength());
             case DELTA_BYTE_ARRAY ->
-                    new LongDecimalApacheParquetValueDecoder(getApacheParquetReader(encoding, field));
-            default -> throw wrongEncoding(encoding, field);
-        };
-    }
-
-    private static ValueDecoder<long[]> getBinaryLongDecimalDecoder(ParquetEncoding encoding, PrimitiveField field)
-    {
-        return switch (encoding) {
-            case PLAIN, DELTA_LENGTH_BYTE_ARRAY, DELTA_BYTE_ARRAY ->
                     new LongDecimalApacheParquetValueDecoder(getApacheParquetReader(encoding, field));
             default -> throw wrongEncoding(encoding, field);
         };
