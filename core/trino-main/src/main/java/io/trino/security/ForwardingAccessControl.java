@@ -486,8 +486,8 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
+    public Optional<ViewExpression> getColumnMask(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
     {
-        return delegate().getColumnMasks(context, tableName, columnName, type);
+        return delegate().getColumnMask(context, tableName, columnName, type);
     }
 }

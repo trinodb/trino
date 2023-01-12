@@ -197,25 +197,6 @@ public class TestColumnMask
     }
 
     @Test
-    public void testMultipleMasksOnSameColumn()
-    {
-        accessControl.reset();
-        accessControl.columnMask(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
-                "custkey",
-                USER,
-                new ViewExpression(USER, Optional.empty(), Optional.empty(), "-custkey"));
-
-        accessControl.columnMask(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
-                "custkey",
-                USER,
-                new ViewExpression(USER, Optional.empty(), Optional.empty(), "custkey * 2"));
-
-        assertThat(assertions.query("SELECT custkey FROM orders WHERE orderkey = 1")).matches("VALUES BIGINT '-740'");
-    }
-
-    @Test
     public void testMultipleMasksOnDifferentColumns()
     {
         accessControl.reset();
@@ -613,22 +594,6 @@ public class TestColumnMask
                 "orderkey",
                 USER,
                 new ViewExpression(USER, Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "orderkey + 1"));
-        assertThat(assertions.query("SELECT count(*) FROM orders JOIN orders USING (orderkey)")).matches("VALUES BIGINT '15000'");
-
-        // multiple masks
-        accessControl.reset();
-        accessControl.columnMask(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
-                "orderkey",
-                USER,
-                new ViewExpression(USER, Optional.empty(), Optional.empty(), "-orderkey"));
-
-        accessControl.columnMask(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
-                "orderkey",
-                USER,
-                new ViewExpression(USER, Optional.empty(), Optional.empty(), "orderkey * 2"));
-
         assertThat(assertions.query("SELECT count(*) FROM orders JOIN orders USING (orderkey)")).matches("VALUES BIGINT '15000'");
     }
 
