@@ -26,6 +26,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.BigintType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingAccessControlManager;
@@ -41,6 +42,7 @@ import java.util.Optional;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_WITH_HIDDEN_COLUMN;
 import static io.trino.connector.MockConnectorEntities.TPCH_WITH_HIDDEN_COLUMN_DATA;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
@@ -82,6 +84,26 @@ public class TestColumnMask
                 ImmutableList.of(
                         new ConnectorViewDefinition.ViewColumn("nationkey", BigintType.BIGINT.getTypeId(), Optional.empty()),
                         new ConnectorViewDefinition.ViewColumn("name", VarcharType.createVarcharType(25).getTypeId(), Optional.empty())),
+                Optional.empty(),
+                Optional.of(VIEW_OWNER),
+                false);
+
+        ConnectorViewDefinition viewWithNested = new ConnectorViewDefinition(
+                """
+                        SELECT * FROM (
+                            VALUES
+                                ROW(ROW(1,2), 0),
+                                ROW(ROW(3,4), 1)
+                        ) t(nested, id)
+                        """,
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(
+                        new ConnectorViewDefinition.ViewColumn("nested", RowType.from(ImmutableList.of(
+                                RowType.field(INTEGER),
+                                RowType.field(INTEGER))).getTypeId(),
+                                Optional.empty()),
+                        new ConnectorViewDefinition.ViewColumn("id", INTEGER.getTypeId(), Optional.empty())),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 false);
@@ -142,7 +164,8 @@ public class TestColumnMask
                     throw new UnsupportedOperationException();
                 })
                 .withGetViews((s, prefix) -> ImmutableMap.of(
-                        new SchemaTableName("default", "nation_view"), view))
+                        new SchemaTableName("default", "nation_view"), view,
+                        new SchemaTableName("default", "view_with_nested"), viewWithNested))
                 .withGetMaterializedViews((s, prefix) -> ImmutableMap.of(
                         new SchemaTableName("default", "nation_materialized_view"), materializedView,
                         new SchemaTableName("default", "nation_fresh_materialized_view"), freshMaterializedView,
@@ -309,7 +332,7 @@ public class TestColumnMask
                         .setIdentity(Identity.forUser(USER).build())
                         .build(),
                 "SELECT name FROM mock.default.materialized_view_with_casts WHERE nationkey = 1"))
-                .matches("VALUES CAST('RA' AS VARCHAR(2))");
+                .matches("VALUES 'RA'");
     }
 
     @Test
@@ -812,7 +835,7 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "clerk",
                 USER,
-                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast(regexp_replace(clerk,'(Clerk#)','***#') as varchar(15))"));
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast('###' as varchar(15))"));
 
         accessControl.columnMask(
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
@@ -827,6 +850,20 @@ public class TestColumnMask
                 new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'([1-9]+)') IN ('951'), '***', comment)"));
 
         assertThat(assertions.query(query))
-                .matches("VALUES (CAST('***' as varchar(79)), '*', CAST('***#000000951' as varchar(15)))");
+                .matches("VALUES (CAST('***' as varchar(79)), '*', CAST('###' as varchar(15)))");
+    }
+
+    @Test
+    public void testColumnAliasing()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(MOCK_CATALOG, "default", "view_with_nested"),
+                "nested",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(id = 0, nested)"));
+
+        assertThat(assertions.query("SELECT nested[1] FROM mock.default.view_with_nested"))
+                .matches("VALUES 1, NULL");
     }
 }
