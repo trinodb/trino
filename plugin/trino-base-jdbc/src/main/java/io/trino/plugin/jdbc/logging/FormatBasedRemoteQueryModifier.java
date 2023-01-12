@@ -43,7 +43,9 @@ public class FormatBasedRemoteQueryModifier
     {
         String message = commentFormat;
         for (PredefinedValue predefinedValue : PredefinedValue.values()) {
-            message = message.replaceAll(predefinedValue.getMatchCase(), predefinedValue.value(session));
+            if (message.contains(predefinedValue.getPredefinedValueCode())) {
+                message = message.replaceAll(predefinedValue.getMatchCase(), predefinedValue.value(session));
+            }
         }
         return query + " /*" + message + "*/";
     }

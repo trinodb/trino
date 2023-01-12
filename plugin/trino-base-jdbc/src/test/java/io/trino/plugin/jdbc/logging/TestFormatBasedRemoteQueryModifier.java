@@ -99,6 +99,57 @@ public class TestFormatBasedRemoteQueryModifier
                 .hasMessage("Passed value */; DROP TABLE TABLE_A; /* as $SOURCE does not meet security criteria. It can contain only letters, digits, underscores and hyphens");
     }
 
+    @Test
+    public void testFormatQueryModifierWithUser()
+    {
+        TestingConnectorSession connectorSession = TestingConnectorSession.builder()
+                .setIdentity(ConnectorIdentity.ofUser("Alice"))
+                .setSource("$invalid@value")
+                .setTraceToken("#invalid&value")
+                .build();
+
+        FormatBasedRemoteQueryModifier modifier = createRemoteQueryModifier("user=$USER");
+
+        assertThat(modifier.apply(connectorSession, "SELECT * FROM USERS"))
+                .isEqualTo("SELECT * FROM USERS /*user=Alice*/");
+    }
+
+    @Test
+    public void testFormatQueryModifierWithSource()
+    {
+        String validValue = "valid-value";
+        String invalidValue = "$invalid@value";
+
+        TestingConnectorSession connectorSession = TestingConnectorSession.builder()
+                .setIdentity(ConnectorIdentity.ofUser("Alice"))
+                .setSource(validValue)
+                .setTraceToken(invalidValue)
+                .build();
+
+        FormatBasedRemoteQueryModifier modifier = createRemoteQueryModifier("source=$SOURCE");
+
+        assertThat(modifier.apply(connectorSession, "SELECT * FROM USERS"))
+                .isEqualTo("SELECT * FROM USERS /*source=valid-value*/");
+    }
+
+    @Test
+    public void testFormatQueryModifierWithTraceToken()
+    {
+        String validValue = "valid-value";
+        String invalidValue = "$invalid@value";
+
+        TestingConnectorSession connectorSession = TestingConnectorSession.builder()
+                .setIdentity(ConnectorIdentity.ofUser("Alice"))
+                .setSource(invalidValue)
+                .setTraceToken(validValue)
+                .build();
+
+        FormatBasedRemoteQueryModifier modifier = createRemoteQueryModifier("ttoken=$TRACE_TOKEN");
+
+        assertThat(modifier.apply(connectorSession, "SELECT * FROM USERS"))
+                .isEqualTo("SELECT * FROM USERS /*ttoken=valid-value*/");
+    }
+
     @Test(dataProvider = "validValues")
     public void testFormatWithValidValues(String value)
     {
