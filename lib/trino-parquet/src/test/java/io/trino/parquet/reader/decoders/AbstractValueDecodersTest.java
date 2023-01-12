@@ -22,6 +22,7 @@ import io.trino.parquet.dictionary.Dictionary;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.parquet.reader.TestingColumnReader;
 import io.trino.parquet.reader.flat.ColumnAdapter;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
@@ -33,6 +34,7 @@ import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.column.values.plain.BooleanPlainValuesWriter;
 import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
 import org.testng.annotations.DataProvider;
@@ -251,6 +253,9 @@ public abstract class AbstractValueDecodersTest
         Types.PrimitiveBuilder<PrimitiveType> builder = Types.required(typeName);
         if (typeLength.isPresent()) {
             builder = builder.length(typeLength.getAsInt());
+        }
+        if (trinoType instanceof DecimalType decimalType) {
+            builder = builder.as(LogicalTypeAnnotation.decimalType(decimalType.getScale(), decimalType.getPrecision()));
         }
         return new PrimitiveField(
                 trinoType,

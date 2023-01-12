@@ -18,6 +18,9 @@ import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.parquet.reader.flat.BinaryBuffer;
+import io.trino.spi.type.DecimalConversions;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -30,8 +33,10 @@ import static io.trino.parquet.ParquetReaderUtils.toShortExact;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getBinaryDecoder;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getInt96Decoder;
+import static io.trino.parquet.reader.decoders.ValueDecoders.getLongDecimalDecoder;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getLongDecoder;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getRealDecoder;
+import static io.trino.parquet.reader.decoders.ValueDecoders.getShortDecimalDecoder;
 import static io.trino.parquet.reader.flat.Int96ColumnAdapter.Int96Buffer;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -47,6 +52,7 @@ import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 
 /**
  * {@link io.trino.parquet.reader.decoders.ValueDecoder} implementations which build on top of implementations from {@link io.trino.parquet.reader.decoders.ValueDecoders}.
@@ -503,6 +509,63 @@ public class TransformingValueDecoders
                 delegate.skip(n);
             }
         };
+    }
+
+    public static ValueDecoder<long[]> getRescaledLongDecimalDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        DecimalType decimalType = (DecimalType) field.getType();
+        DecimalLogicalTypeAnnotation decimalAnnotation = (DecimalLogicalTypeAnnotation) field.getDescriptor().getPrimitiveType().getLogicalTypeAnnotation();
+        if (decimalAnnotation.getPrecision() <= Decimals.MAX_SHORT_PRECISION) {
+            ValueDecoder<long[]> delegate = getShortDecimalDecoder(encoding, field);
+            return new ValueDecoder<>()
+            {
+                @Override
+                public void init(SimpleSliceInputStream input)
+                {
+                    delegate.init(input);
+                }
+
+                @Override
+                public void read(long[] values, int offset, int length)
+                {
+                    long[] buffer = new long[length];
+                    delegate.read(buffer, 0, length);
+                    for (int i = 0; i < length; i++) {
+                        Int128 rescaled = DecimalConversions.shortToLongCast(
+                                buffer[i],
+                                decimalAnnotation.getPrecision(),
+                                decimalAnnotation.getScale(),
+                                decimalType.getPrecision(),
+                                decimalType.getScale());
+
+                        values[2 * (offset + i)] = rescaled.getHigh();
+                        values[2 * (offset + i) + 1] = rescaled.getLow();
+                    }
+                }
+
+                @Override
+                public void skip(int n)
+                {
+                    delegate.skip(n);
+                }
+            };
+        }
+        return new InlineTransformDecoder<>(
+                getLongDecimalDecoder(encoding, field),
+                (values, offset, length) -> {
+                    int endOffset = (offset + length) * 2;
+                    for (int currentOffset = offset * 2; currentOffset < endOffset; currentOffset += 2) {
+                        Int128 rescaled = DecimalConversions.longToLongCast(
+                                Int128.valueOf(values[currentOffset], values[currentOffset + 1]),
+                                decimalAnnotation.getPrecision(),
+                                decimalAnnotation.getScale(),
+                                decimalType.getPrecision(),
+                                decimalType.getScale());
+
+                        values[currentOffset] = rescaled.getHigh();
+                        values[currentOffset + 1] = rescaled.getLow();
+                    }
+                });
     }
 
     public static ValueDecoder<int[]> getInt64ToIntDecoder(ParquetEncoding encoding, PrimitiveField field)
