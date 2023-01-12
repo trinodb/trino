@@ -25,6 +25,8 @@ import org.apache.parquet.io.ParquetDecodingException;
 import org.joda.time.DateTimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.parquet.ParquetReaderUtils.toByteExact;
+import static io.trino.parquet.ParquetReaderUtils.toShortExact;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getBinaryDecoder;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getInt96Decoder;
@@ -43,6 +45,7 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -491,6 +494,93 @@ public class TransformingValueDecoders
                     // No need for checkBytesFitInShortDecimal as the standard requires variable binary decimals
                     // to be stored in minimum possible number of bytes
                     values[offset + i] = getShortDecimalValue(inputBytes, positionOffset, positionLength);
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public static ValueDecoder<int[]> getInt64ToIntDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        ValueDecoder<long[]> delegate = getLongDecoder(encoding, field);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(int[] values, int offset, int length)
+            {
+                long[] buffer = new long[length];
+                delegate.read(buffer, 0, length);
+                for (int i = 0; i < length; i++) {
+                    values[offset + i] = toIntExact(buffer[i]);
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public static ValueDecoder<short[]> getInt64ToShortDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        ValueDecoder<long[]> delegate = getLongDecoder(encoding, field);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(short[] values, int offset, int length)
+            {
+                long[] buffer = new long[length];
+                delegate.read(buffer, 0, length);
+                for (int i = 0; i < length; i++) {
+                    values[offset + i] = toShortExact(buffer[i]);
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public static ValueDecoder<byte[]> getInt64ToByteDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        ValueDecoder<long[]> delegate = getLongDecoder(encoding, field);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(byte[] values, int offset, int length)
+            {
+                long[] buffer = new long[length];
+                delegate.read(buffer, 0, length);
+                for (int i = 0; i < length; i++) {
+                    values[offset + i] = toByteExact(buffer[i]);
                 }
             }
 

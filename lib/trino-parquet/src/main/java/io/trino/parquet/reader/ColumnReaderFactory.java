@@ -90,13 +90,13 @@ public final class ColumnReaderFactory
             if (BOOLEAN.equals(type) && primitiveType == PrimitiveTypeName.BOOLEAN) {
                 return new FlatColumnReader<>(field, ValueDecoders::getBooleanDecoder, BOOLEAN_ADAPTER, memoryContext);
             }
-            if (TINYINT.equals(type) && primitiveType == INT32) {
+            if (TINYINT.equals(type) && (primitiveType == INT32 || primitiveType == INT64)) {
                 if (isIntegerAnnotation(annotation)) {
                     return new FlatColumnReader<>(field, ValueDecoders::getByteDecoder, BYTE_ADAPTER, memoryContext);
                 }
                 throw unsupportedException(type, field);
             }
-            if (SMALLINT.equals(type) && primitiveType == INT32) {
+            if (SMALLINT.equals(type) && (primitiveType == INT32 || primitiveType == INT64)) {
                 if (isIntegerAnnotation(annotation)) {
                     return new FlatColumnReader<>(field, ValueDecoders::getShortDecoder, SHORT_ADAPTER, memoryContext);
                 }
@@ -108,7 +108,7 @@ public final class ColumnReaderFactory
                 }
                 throw unsupportedException(type, field);
             }
-            if (type instanceof AbstractIntType && primitiveType == INT32) {
+            if (type instanceof AbstractIntType && (primitiveType == INT32 || primitiveType == INT64)) {
                 if (isIntegerAnnotation(annotation)) {
                     return new FlatColumnReader<>(field, ValueDecoders::getIntDecoder, INT_ADAPTER, memoryContext);
                 }
