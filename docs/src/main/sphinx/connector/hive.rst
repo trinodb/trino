@@ -946,23 +946,38 @@ When writing data, the Hive connector always collects basic statistics
 (``numFiles``, ``numRows``, ``rawDataSize``, ``totalSize``)
 and by default will also collect column level statistics:
 
-============= ====================================================================
-Column Type   Collectible Statistics
-============= ====================================================================
-``TINYINT``   number of nulls, number of distinct values, min/max values
-``SMALLINT``  number of nulls, number of distinct values, min/max values
-``INTEGER``   number of nulls, number of distinct values, min/max values
-``BIGINT``    number of nulls, number of distinct values, min/max values
-``DOUBLE``    number of nulls, number of distinct values, min/max values
-``REAL``      number of nulls, number of distinct values, min/max values
-``DECIMAL``   number of nulls, number of distinct values, min/max values
-``DATE``      number of nulls, number of distinct values, min/max values
-``TIMESTAMP`` number of nulls, number of distinct values, min/max values
-``VARCHAR``   number of nulls, number of distinct values
-``CHAR``      number of nulls, number of distinct values
-``VARBINARY`` number of nulls
-``BOOLEAN``   number of nulls, number of true/false values
-============= ====================================================================
+.. list-table::
+    :widths: 30, 70
+    :header-rows: 1
+
+    * - Column type
+      - Collectible statistics
+    * - ``TINYINT``
+      - number of nulls, number of distinct values, min/max values
+    * - ``SMALLINT``
+      - number of nulls, number of distinct values, min/max values
+    * - ``INTEGER``
+      - number of nulls, number of distinct values, min/max values
+    * - ``BIGINT``
+      - number of nulls, number of distinct values, min/max values
+    * - ``DOUBLE``
+      - number of nulls, number of distinct values, min/max values
+    * - ``REAL``
+      - number of nulls, number of distinct values, min/max values
+    * - ``DECIMAL``
+      - number of nulls, number of distinct values, min/max values
+    * - ``DATE``
+      - number of nulls, number of distinct values, min/max values
+    * - ``TIMESTAMP``
+      - number of nulls, number of distinct values, min/max values
+    * - ``VARCHAR``
+      - number of nulls, number of distinct values
+    * - ``CHAR``
+      - number of nulls, number of distinct values
+    * - ``VARBINARY``
+      - number of nulls
+    * - ``BOOLEAN``
+      - number of nulls, number of true/false values
 
 .. _hive_analyze:
 
