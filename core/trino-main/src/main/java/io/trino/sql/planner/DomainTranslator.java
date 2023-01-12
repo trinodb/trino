@@ -1060,7 +1060,8 @@ public final class DomainTranslator
 
             Symbol symbol = Symbol.from(value);
 
-            if (!(typeAnalyzer.getType(session, types, patternArgument) instanceof LikePatternType)) {
+            if (!(typeAnalyzer.getType(session, types, patternArgument) instanceof LikePatternType) ||
+                    !SymbolsExtractor.extractAll(patternArgument).isEmpty()) {
                 // dynamic pattern or escape
                 return Optional.empty();
             }
