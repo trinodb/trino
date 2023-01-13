@@ -29,7 +29,8 @@ public class TestTpcdsConfig
     {
         assertRecordedDefaults(recordDefaults(TpcdsConfig.class)
                 .setSplitsPerNode(Runtime.getRuntime().availableProcessors())
-                .setWithNoSexism(false));
+                .setWithNoSexism(false)
+                .setSplitCount(null));
     }
 
     @Test
@@ -38,11 +39,13 @@ public class TestTpcdsConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("tpcds.splits-per-node", "123")
                 .put("tpcds.with-no-sexism", "true")
+                .put("tpcds.split-count", "22")
                 .buildOrThrow();
 
         TpcdsConfig expected = new TpcdsConfig()
                 .setSplitsPerNode(123)
-                .setWithNoSexism(true);
+                .setWithNoSexism(true)
+                .setSplitCount(22);
         assertFullMapping(properties, expected);
     }
 }

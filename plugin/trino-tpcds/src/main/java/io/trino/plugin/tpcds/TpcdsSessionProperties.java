@@ -20,6 +20,7 @@ import io.trino.spi.session.PropertyMetadata;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.OptionalInt;
 
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
@@ -28,6 +29,7 @@ public final class TpcdsSessionProperties
 {
     private static final String SPLITS_PER_NODE = "splits_per_node";
     private static final String WITH_NO_SEXISM = "with_no_sexism";
+    private static final String SPLIT_COUNT = "split_count";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -44,6 +46,11 @@ public final class TpcdsSessionProperties
                         WITH_NO_SEXISM,
                         "With no sexism",
                         config.isWithNoSexism(),
+                        false),
+                integerProperty(
+                        SPLIT_COUNT,
+                        "Number of split to be created. If not specified the number of splits is computed as 'splits_per_node * <number of active nodes>'",
+                        config.getSplitCount(),
                         false));
     }
 
@@ -60,5 +67,11 @@ public final class TpcdsSessionProperties
     public static boolean isWithNoSexism(ConnectorSession session)
     {
         return session.getProperty(WITH_NO_SEXISM, Boolean.class);
+    }
+
+    public static OptionalInt getSplitCount(ConnectorSession session)
+    {
+        Integer value = session.getProperty(SPLIT_COUNT, Integer.class);
+        return value == null ? OptionalInt.empty() : OptionalInt.of(value);
     }
 }
