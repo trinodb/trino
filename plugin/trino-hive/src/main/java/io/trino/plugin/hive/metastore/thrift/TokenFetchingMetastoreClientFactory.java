@@ -110,8 +110,10 @@ public class TokenFetchingMetastoreClientFactory
         }
     }
 
-    private record DelegationToken(long writeTimeNanos, String delegationToken) {
-        public DelegationToken {
+    private record DelegationToken(long writeTimeNanos, String delegationToken)
+    {
+        public DelegationToken
+        {
             requireNonNull(delegationToken, "delegationToken is null");
         }
     }
