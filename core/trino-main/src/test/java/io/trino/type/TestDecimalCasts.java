@@ -267,7 +267,9 @@ public class TestDecimalCasts
         assertDecimalFunction("CAST(DOUBLE '-1234567890.0' AS DECIMAL(20,10))", decimal("-1234567890.0000000000", createDecimalType(20, 10)));
         assertDecimalFunction("CAST(DOUBLE '1234567890.0' AS DECIMAL(30,20))", decimal("1234567890.00000000000000000000", createDecimalType(30, 20)));
         assertDecimalFunction("CAST(DOUBLE '-1234567890.0' AS DECIMAL(30,20))", decimal("-1234567890.00000000000000000000", createDecimalType(30, 20)));
-        assertDecimalFunction("CAST(DOUBLE '123456789123456784' AS DECIMAL(18,0))", decimal("123456789123456784", createDecimalType(18)));
+        assertDecimalFunction("CAST(DOUBLE '123456789123456784' AS DECIMAL(18,0))", Runtime.version().feature() >= 19
+                ? decimal("123456789123456780", createDecimalType(18))
+                : decimal("123456789123456784", createDecimalType(18)));
         assertDecimalFunction("CAST(DOUBLE '123456789.123456790' AS DECIMAL(18,9))", decimal("123456789.123456790", createDecimalType(18, 9)));
 
         // test rounding
@@ -367,18 +369,42 @@ public class TestDecimalCasts
         assertDecimalFunction("CAST(REAL '1000' AS DECIMAL(4,0))", decimal("1000", createDecimalType(4)));
         assertDecimalFunction("CAST(REAL '1000.01' AS DECIMAL(7,2))", decimal("01000.01", createDecimalType(7, 2)));
         assertDecimalFunction("CAST(REAL '-234.0' AS DECIMAL(3,0))", decimal("-234", createDecimalType(3)));
-        assertDecimalFunction("CAST(REAL '12345678400000000' AS DECIMAL(17,0))", decimal("12345678400000000", createDecimalType(17)));
-        assertDecimalFunction("CAST(REAL '-12345678400000000' AS DECIMAL(17,0))", decimal("-12345678400000000", createDecimalType(17)));
-        assertDecimalFunction("CAST(REAL '1234567940' AS DECIMAL(20,10))", decimal("1234567940.0000000000", createDecimalType(20, 10)));
-        assertDecimalFunction("CAST(REAL '-1234567940' AS DECIMAL(20,10))", decimal("-1234567940.0000000000", createDecimalType(20, 10)));
-        assertDecimalFunction("CAST(REAL '1234567940' AS DECIMAL(30,20))", decimal("1234567940.00000000000000000000", createDecimalType(30, 20)));
-        assertDecimalFunction("CAST(REAL '-1234567940' AS DECIMAL(30,20))", decimal("-1234567940.00000000000000000000", createDecimalType(30, 20)));
-        assertDecimalFunction("CAST(REAL '123456790519087104' AS DECIMAL(18,0))", decimal("123456791000000000", createDecimalType(18)));
-        assertDecimalFunction("CAST(REAL '-123456790519087104' AS DECIMAL(18,0))", decimal("-123456791000000000", createDecimalType(18)));
-        assertDecimalFunction("CAST(REAL '123456790519087104' AS DECIMAL(20,2))", decimal("123456791000000000.00", createDecimalType(20, 2)));
-        assertDecimalFunction("CAST(REAL '-123456790519087104' AS DECIMAL(20,2))", decimal("-123456791000000000.00", createDecimalType(20, 2)));
-        assertDecimalFunction("CAST(REAL '1234567905190871' AS DECIMAL(18,2))", decimal("1234567950000000.00", createDecimalType(18, 2)));
-        assertDecimalFunction("CAST(REAL '-1234567905190871' AS DECIMAL(18,2))", decimal("-1234567950000000.00", createDecimalType(18, 2)));
+        assertDecimalFunction("CAST(REAL '12345678400000000' AS DECIMAL(17,0))", Runtime.version().feature() >= 19
+                ? decimal("12345678000000000", createDecimalType(17))
+                : decimal("12345678400000000", createDecimalType(17)));
+        assertDecimalFunction("CAST(REAL '-12345678400000000' AS DECIMAL(17,0))", Runtime.version().feature() >= 19
+                ? decimal("-12345678000000000", createDecimalType(17))
+                : decimal("-12345678400000000", createDecimalType(17)));
+        assertDecimalFunction("CAST(REAL '1234567940' AS DECIMAL(20,10))", Runtime.version().feature() >= 19
+                ? decimal("1234568000.0000000000", createDecimalType(20, 10))
+                : decimal("1234567940.0000000000", createDecimalType(20, 10)));
+        assertDecimalFunction("CAST(REAL '-1234567940' AS DECIMAL(20,10))", Runtime.version().feature() >= 19
+                ? decimal("-1234568000.0000000000", createDecimalType(20, 10))
+                : decimal("-1234567940.0000000000", createDecimalType(20, 10)));
+        assertDecimalFunction("CAST(REAL '1234567940' AS DECIMAL(30,20))", Runtime.version().feature() >= 19
+                ? decimal("1234568000.00000000000000000000", createDecimalType(30, 20))
+                : decimal("1234567940.00000000000000000000", createDecimalType(30, 20)));
+        assertDecimalFunction("CAST(REAL '-1234567940' AS DECIMAL(30,20))", Runtime.version().feature() >= 19
+                ? decimal("-1234568000.00000000000000000000", createDecimalType(30, 20))
+                : decimal("-1234567940.00000000000000000000", createDecimalType(30, 20)));
+        assertDecimalFunction("CAST(REAL '123456790519087104' AS DECIMAL(18,0))", Runtime.version().feature() >= 19
+                ? decimal("123456790000000000", createDecimalType(18))
+                : decimal("123456791000000000", createDecimalType(18)));
+        assertDecimalFunction("CAST(REAL '-123456790519087104' AS DECIMAL(18,0))", Runtime.version().feature() >= 19
+                ? decimal("-123456790000000000", createDecimalType(18))
+                : decimal("-123456791000000000", createDecimalType(18)));
+        assertDecimalFunction("CAST(REAL '123456790519087104' AS DECIMAL(20,2))", Runtime.version().feature() >= 19
+                ? decimal("123456790000000000.00", createDecimalType(20, 2))
+                : decimal("123456791000000000.00", createDecimalType(20, 2)));
+        assertDecimalFunction("CAST(REAL '-123456790519087104' AS DECIMAL(20,2))", Runtime.version().feature() >= 19
+                ? decimal("-123456790000000000.00", createDecimalType(20, 2))
+                : decimal("-123456791000000000.00", createDecimalType(20, 2)));
+        assertDecimalFunction("CAST(REAL '1234567905190871' AS DECIMAL(18,2))", Runtime.version().feature() >= 19
+                ? decimal("1234568000000000.00", createDecimalType(18, 2))
+                : decimal("1234567950000000.00", createDecimalType(18, 2)));
+        assertDecimalFunction("CAST(REAL '-1234567905190871' AS DECIMAL(18,2))", Runtime.version().feature() >= 19
+                ? decimal("-1234568000000000.00", createDecimalType(18, 2))
+                : decimal("-1234567950000000.00", createDecimalType(18, 2)));
         assertDecimalFunction("CAST(REAL '1456213.432632456' AS DECIMAL(18,9))", decimal("001456213.400000000", createDecimalType(18, 9)));
 
         // test roundtrip
@@ -390,7 +416,9 @@ public class TestDecimalCasts
         assertInvalidCast("CAST(REAL '234.0' AS DECIMAL(2,0))", "Cannot cast REAL '234.0' to DECIMAL(2, 0)");
         assertInvalidCast("CAST(REAL '1000.01' AS DECIMAL(5,2))", "Cannot cast REAL '1000.01' to DECIMAL(5, 2)");
         assertInvalidCast("CAST(REAL '-234.0' AS DECIMAL(2,0))", "Cannot cast REAL '-234.0' to DECIMAL(2, 0)");
-        assertInvalidCast("CAST(REAL '98765430784.0' AS DECIMAL(20, 10))", "Cannot cast REAL '9.8765431E10' to DECIMAL(20, 10)");
+        assertInvalidCast("CAST(REAL '98765430784.0' AS DECIMAL(20, 10))", Runtime.version().feature() >= 19
+                ? "Cannot cast REAL '9.876543E10' to DECIMAL(20, 10)"
+                : "Cannot cast REAL '9.8765431E10' to DECIMAL(20, 10)");
 
         assertInvalidCast("CAST(CAST(nan() as REAL) AS DECIMAL(10,5))", "Cannot cast REAL 'NaN' to DECIMAL(10, 5)");
         assertInvalidCast("CAST(CAST(infinity() as REAL) AS DECIMAL(10,1))", "Cannot cast REAL 'Infinity' to DECIMAL(10, 1)");
