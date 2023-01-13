@@ -43,7 +43,6 @@ import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridValuesWrite
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
 import org.apache.parquet.schema.Types.PrimitiveBuilder;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
@@ -155,7 +154,7 @@ public class TestFlatColumnReader
         reader.prepareNextRead(2);
         Block actual = reader.readPrimitive().getBlock();
         assertThat(actual.mayHaveNull()).isFalse();
-        if (reader instanceof FlatColumnReader<?> && field.getType() instanceof AbstractVariableWidthType) {
+        if (field.getType() instanceof AbstractVariableWidthType) {
             assertThat(actual).isInstanceOf(DictionaryBlock.class);
         }
         format.assertBlock(values, actual);
@@ -178,7 +177,7 @@ public class TestFlatColumnReader
         reader.prepareNextRead(2);
         Block actual = reader.readPrimitive().getBlock();
         assertThat(actual.mayHaveNull()).isTrue();
-        if (reader instanceof FlatColumnReader<?> && field.getType() instanceof AbstractVariableWidthType) {
+        if (field.getType() instanceof AbstractVariableWidthType) {
             assertThat(actual).isInstanceOf(DictionaryBlock.class);
         }
         format.assertBlock(values, actual);
@@ -200,7 +199,7 @@ public class TestFlatColumnReader
         reader.setPageReader(getPageReaderMock(List.of(page), dictionaryPage), Optional.empty());
         reader.prepareNextRead(2);
         Block actual = reader.readPrimitive().getBlock();
-        if (reader instanceof FlatColumnReader<?> && field.getType() instanceof AbstractVariableWidthType) {
+        if (field.getType() instanceof AbstractVariableWidthType) {
             assertThat(actual).isInstanceOf(DictionaryBlock.class);
             assertThat(actual.mayHaveNull()).isTrue();
         }
@@ -223,7 +222,7 @@ public class TestFlatColumnReader
         reader.setPageReader(getPageReaderMock(List.of(page), dictionaryPage, true), Optional.empty());
         reader.prepareNextRead(2);
         Block actual = reader.readPrimitive().getBlock();
-        if (reader instanceof FlatColumnReader<?> && field.getType() instanceof AbstractVariableWidthType) {
+        if (field.getType() instanceof AbstractVariableWidthType) {
             assertThat(actual).isInstanceOf(DictionaryBlock.class);
             assertThat(actual.mayHaveNull()).isFalse();
         }
@@ -273,7 +272,7 @@ public class TestFlatColumnReader
         reader.prepareNextRead(2);
         Block block2 = reader.readPrimitive().getBlock();
 
-        if (reader instanceof FlatColumnReader<?> && field.getType() instanceof AbstractVariableWidthType) {
+        if (field.getType() instanceof AbstractVariableWidthType) {
             assertThat(block1).isInstanceOf(DictionaryBlock.class);
             assertThat(block2).isInstanceOf(DictionaryBlock.class);
 
@@ -421,7 +420,7 @@ public class TestFlatColumnReader
         Block actual2 = readBlock(reader, 3);
         Block actual3 = readBlock(reader, 4);
 
-        if (reader instanceof FlatColumnReader<?> && field.getType() instanceof AbstractVariableWidthType) {
+        if (field.getType() instanceof AbstractVariableWidthType) {
             assertThat(actual1).isInstanceOf(DictionaryBlock.class);
             assertThat(actual2).isInstanceOf(DictionaryBlock.class);
             assertThat(actual3).isInstanceOf(DictionaryBlock.class);
@@ -601,9 +600,6 @@ public class TestFlatColumnReader
         PrimitiveField field = createField(format, true);
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
         ColumnReader reader = ColumnReaderFactory.create(field, UTC, memoryContext, true);
-        if (!(reader instanceof FlatColumnReader<?>)) {
-            throw new SkipException("Memory usage is tracked only in batched column readers");
-        }
         // Write data
         DictionaryValuesWriter dictionaryWriter = format.getDictionaryWriter();
         format.write(dictionaryWriter, new Integer[] {1, 2, 3});
