@@ -31,9 +31,10 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.tpcds.TpcdsSessionProperties.getSplitsPerNode;
+import static io.trino.plugin.tpcds.TpcdsSessionProperties.isWithNoSexism;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
@@ -41,26 +42,11 @@ public class TpcdsSplitManager
         implements ConnectorSplitManager
 {
     private final NodeManager nodeManager;
-    private final int splitsPerNode;
-    private final boolean noSexism;
 
     @Inject
-    public TpcdsSplitManager(NodeManager nodeManager, TpcdsConfig config)
+    public TpcdsSplitManager(NodeManager nodeManager)
     {
-        this(
-                nodeManager,
-                requireNonNull(config, "config is null").getSplitsPerNode(),
-                config.isWithNoSexism());
-    }
-
-    public TpcdsSplitManager(NodeManager nodeManager, int splitsPerNode, boolean noSexism)
-    {
-        requireNonNull(nodeManager);
-        checkArgument(splitsPerNode > 0, "splitsPerNode must be at least 1");
-
-        this.nodeManager = nodeManager;
-        this.splitsPerNode = splitsPerNode;
-        this.noSexism = noSexism;
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @Override
@@ -74,6 +60,8 @@ public class TpcdsSplitManager
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
         checkState(!nodes.isEmpty(), "No TPCDS nodes available");
 
+        int splitsPerNode = getSplitsPerNode(session);
+        boolean noSexism = isWithNoSexism(session);
         int totalParts = nodes.size() * splitsPerNode;
         int partNumber = 0;
 
