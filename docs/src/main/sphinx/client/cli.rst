@@ -16,6 +16,10 @@ It can be used with Java version 8 and higher.
 The CLI uses the :doc:`Trino client REST API </develop/client-protocol>` over
 HTTP/HTTPS to communicate with the coordinator on the cluster.
 
+The CLI version should be identical to the version of the Trino cluster, or
+newer. Older versions typically work, but only a subset is regularly tested.
+Versions before 350 are not supported.
+
 .. _cli-installation:
 
 Installation
