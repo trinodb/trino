@@ -185,20 +185,42 @@ public final class WorkProcessorUtils
 
     static <T> WorkProcessor<T> blocking(WorkProcessor<T> processor, Supplier<ListenableFuture<Void>> futureSupplier)
     {
-        requireNonNull(processor, "processor is null");
-        requireNonNull(futureSupplier, "futureSupplier is null");
-        return processor.transform(element -> {
-            if (element == null) {
-                return TransformationState.finished();
+        return WorkProcessor.create(new BlockingProcess<>(processor, futureSupplier));
+    }
+
+    private static class BlockingProcess<T>
+            implements WorkProcessor.Process<T>
+    {
+        final WorkProcessor<T> processor;
+        final Supplier<ListenableFuture<Void>> futureSupplier;
+        ProcessState<T> state;
+
+        BlockingProcess(WorkProcessor<T> processor, Supplier<ListenableFuture<Void>> futureSupplier)
+        {
+            this.processor = requireNonNull(processor, "processor is null");
+            this.futureSupplier = requireNonNull(futureSupplier, "futureSupplier is null");
+        }
+
+        @Override
+        public ProcessState<T> process()
+        {
+            if (state == null) {
+                state = getNextState(processor);
             }
 
             ListenableFuture<Void> future = futureSupplier.get();
             if (!future.isDone()) {
-                return TransformationState.blocked(future);
+                if (state.getType() == ProcessState.Type.YIELD) {
+                    // clear yielded state to continue computations in the next iteration
+                    state = null;
+                }
+                return ProcessState.blocked(future);
             }
 
-            return TransformationState.ofResult(element);
-        });
+            ProcessState<T> result = state;
+            state = null;
+            return result;
+        }
     }
 
     static <T> WorkProcessor<T> processEntryMonitor(WorkProcessor<T> processor, Runnable monitor)

@@ -25,6 +25,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static io.trino.operator.WorkProcessor.ProcessState.Type.BLOCKED;
 import static io.trino.operator.WorkProcessor.ProcessState.Type.FINISHED;
@@ -240,23 +241,31 @@ public class TestWorkProcessor
 
         List<ProcessState<Integer>> scenario = ImmutableList.of(
                 ProcessState.blocked(phase1),
+                ProcessState.yielded(),
                 ProcessState.ofResult(1),
-                ProcessState.ofResult(2),
                 ProcessState.finished());
 
-        SettableFuture<Void> phase2 = SettableFuture.create();
+        AtomicReference<SettableFuture<Void>> phase2 = new AtomicReference<>(SettableFuture.create());
         WorkProcessor<Integer> processor = processorFrom(scenario)
-                .blocking(() -> phase2);
+                .blocking(phase2::get);
+
+        // WorkProcessor.blocking future overrides phase1 future
+        assertBlocks(processor);
+        assertUnblocks(processor, phase2.get());
 
         assertBlocks(processor);
         assertUnblocks(processor, phase1);
 
+        // WorkProcessor.blocking overrides yielding
+        phase2.set(SettableFuture.create());
         assertBlocks(processor);
-        assertUnblocks(processor, phase2);
-
+        assertUnblocks(processor, phase2.get());
         assertResult(processor, 1);
-        assertResult(processor, 2);
 
+        // WorkProcessor.blocking overrides finishing
+        phase2.set(SettableFuture.create());
+        assertBlocks(processor);
+        assertUnblocks(processor, phase2.get());
         assertFinishes(processor);
     }
 
