@@ -255,6 +255,9 @@ public final class ColumnReaderFactory
                 }
                 throw unsupportedException(type, field);
             }
+            throw new TrinoException(
+                    NOT_SUPPORTED,
+                    format("Reading Trino column (%s) from Parquet column (%s) is not supported by optimized parquet reader", type, field.getDescriptor()));
         }
 
         return switch (primitiveType) {
