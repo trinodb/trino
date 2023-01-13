@@ -513,6 +513,7 @@ jobs:
           include:
             - { modules: [ client/trino-jdbc, plugin/trino-base-jdbc, plugin/trino-thrift, plugin/trino-memory ] }
             - { modules: core/trino-main }
+            - { modules: core/trino-main, jdk: 19 }
             - { modules: plugin/trino-accumulo }
             - { modules: plugin/trino-bigquery }
             - { modules: plugin/trino-cassandra }
@@ -576,6 +577,8 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
+        with:
+          java-version: ${{ matrix.jdk != '' && matrix.jdk || '17' }}
       - name: Cleanup node
         # This is required as a virtual environment update 20210219.1 left too little space for MemSQL to work
         if: matrix.modules == 'plugin/trino-singlestore'

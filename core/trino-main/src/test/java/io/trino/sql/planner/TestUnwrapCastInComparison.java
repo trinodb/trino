@@ -628,12 +628,16 @@ public class TestUnwrapCastInComparison
         // INTEGER->REAL implicit cast is not injective if the real constant is >= 2^23 and <= 2^31 - 1
         testUnwrap("integer", "a = REAL '8388608'", "CAST(a AS REAL) = REAL '8388608.0'");
 
-        testUnwrap("integer", "a = REAL '2147483647'", "CAST(a AS REAL) = REAL '2.14748365E9'");
+        testUnwrap("integer", "a = REAL '2147483647'", Runtime.version().feature() >= 19
+                ? "CAST(a AS REAL) = REAL '2.1474836E9'"
+                : "CAST(a AS REAL) = REAL '2.14748365E9'");
 
         // INTEGER->REAL implicit cast is not injective if the real constant is <= -2^23 and >= -2^31 + 1
         testUnwrap("integer", "a = REAL '-8388608'", "CAST(a AS REAL) = REAL '-8388608.0'");
 
-        testUnwrap("integer", "a = REAL '-2147483647'", "CAST(a AS REAL) = REAL '-2.14748365E9'");
+        testUnwrap("integer", "a = REAL '-2147483647'", Runtime.version().feature() >= 19
+                ? "CAST(a AS REAL) = REAL '-2.1474836E9'"
+                : "CAST(a AS REAL) = REAL '-2.14748365E9'");
 
         // DECIMAL(p)->DOUBLE not injective for p > 15
         testUnwrap("decimal(16)", "a = DOUBLE '1'", "CAST(a AS DOUBLE) = 1E0");
