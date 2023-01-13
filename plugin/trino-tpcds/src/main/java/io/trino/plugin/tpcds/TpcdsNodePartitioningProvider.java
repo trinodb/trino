@@ -25,6 +25,8 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.type.Type;
 
+import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -42,6 +44,14 @@ public class TpcdsNodePartitioningProvider
 {
     private final NodeManager nodeManager;
     private final int splitsPerNode;
+
+    @Inject
+    public TpcdsNodePartitioningProvider(NodeManager nodeManager, TpcdsConfig config)
+    {
+        this(
+                nodeManager,
+                requireNonNull(config, "config is null").getSplitsPerNode());
+    }
 
     public TpcdsNodePartitioningProvider(NodeManager nodeManager, int splitsPerNode)
     {
