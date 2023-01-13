@@ -16,6 +16,10 @@ The Trino JDBC driver has the following requirements:
 * All users that connect to Trino with the JDBC driver must be granted access to
   query tables in the ``system.jdbc`` schema.
 
+The JDBC driver version should be identical to the version of the Trino cluster,
+or newer. Older versions typically work, but only a subset is regularly tested.
+Versions before 350 are not supported.
+
 Installing
 ----------
 
