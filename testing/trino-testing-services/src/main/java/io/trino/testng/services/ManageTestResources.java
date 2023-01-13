@@ -250,6 +250,11 @@ public class ManageTestResources
             if (!(value instanceof AutoCloseable)) {
                 return false;
             }
+            if (value instanceof ExecutorService) {
+                // Covered by isLeftoverExecutorService.
+                // ExecutorService is AutoCloseable since Java 19.
+                return false;
+            }
 
             // Disallow AutoCloseable instances, even if not started, before class is run.
             // Allocation of such resources generally correlates with too eager initialization.
