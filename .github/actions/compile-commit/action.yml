@@ -17,12 +17,12 @@ runs:
         # It's important that these values are NOT passed as parameters, because then their values would always be taken from PR HEAD
         # -------
         # allow overriding Maven command
-        export MAVEN="./mvnw"
+        MAVEN="./mvnw"
         # maven.wagon.rto is in millis, defaults to 30m
         export MAVEN_OPTS="-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
-        export MAVEN_INSTALL_OPTS="-Xmx3G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
-        export MAVEN_COMPILE_COMMITS="-B --strict-checksums --quiet -T C1 -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress -pl !:trino-server-rpm"
-        export MAVEN_GIB="-P gib -Dgib.referenceBranch=refs/remotes/origin/${{ inputs.base_ref }}"
+        MAVEN_INSTALL_OPTS="-Xmx3G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
+        MAVEN_COMPILE_COMMITS="-B --strict-checksums --quiet -T C1 -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress -pl !:trino-server-rpm"
+        MAVEN_GIB="-P gib -Dgib.referenceBranch=refs/remotes/origin/${{ inputs.base_ref }}"
         # -------
         
         # For building with Maven we need MAVEN_OPTS to equal MAVEN_INSTALL_OPTS
