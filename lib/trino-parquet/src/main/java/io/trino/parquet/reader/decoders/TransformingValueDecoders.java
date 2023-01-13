@@ -624,89 +624,131 @@ public class TransformingValueDecoders
 
     public static ValueDecoder<int[]> getInt64ToIntDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
-        ValueDecoder<long[]> delegate = getLongDecoder(encoding, field);
-        return new ValueDecoder<>()
-        {
-            @Override
-            public void init(SimpleSliceInputStream input)
-            {
-                delegate.init(input);
-            }
+        return new LongToIntTransformDecoder(getLongDecoder(encoding, field));
+    }
 
-            @Override
-            public void read(int[] values, int offset, int length)
-            {
-                long[] buffer = new long[length];
-                delegate.read(buffer, 0, length);
-                for (int i = 0; i < length; i++) {
-                    values[offset + i] = toIntExact(buffer[i]);
-                }
-            }
-
-            @Override
-            public void skip(int n)
-            {
-                delegate.skip(n);
-            }
-        };
+    public static ValueDecoder<int[]> getShortDecimalToIntDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        return new LongToIntTransformDecoder(getShortDecimalDecoder(encoding, field));
     }
 
     public static ValueDecoder<short[]> getInt64ToShortDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
-        ValueDecoder<long[]> delegate = getLongDecoder(encoding, field);
-        return new ValueDecoder<>()
-        {
-            @Override
-            public void init(SimpleSliceInputStream input)
-            {
-                delegate.init(input);
-            }
+        return new LongToShortTransformDecoder(getLongDecoder(encoding, field));
+    }
 
-            @Override
-            public void read(short[] values, int offset, int length)
-            {
-                long[] buffer = new long[length];
-                delegate.read(buffer, 0, length);
-                for (int i = 0; i < length; i++) {
-                    values[offset + i] = toShortExact(buffer[i]);
-                }
-            }
-
-            @Override
-            public void skip(int n)
-            {
-                delegate.skip(n);
-            }
-        };
+    public static ValueDecoder<short[]> getShortDecimalToShortDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        return new LongToShortTransformDecoder(getShortDecimalDecoder(encoding, field));
     }
 
     public static ValueDecoder<byte[]> getInt64ToByteDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
-        ValueDecoder<long[]> delegate = getLongDecoder(encoding, field);
-        return new ValueDecoder<>()
+        return new LongToByteTransformDecoder(getLongDecoder(encoding, field));
+    }
+
+    public static ValueDecoder<byte[]> getShortDecimalToByteDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        return new LongToByteTransformDecoder(getShortDecimalDecoder(encoding, field));
+    }
+
+    private static class LongToIntTransformDecoder
+            implements ValueDecoder<int[]>
+    {
+        private final ValueDecoder<long[]> delegate;
+
+        private LongToIntTransformDecoder(ValueDecoder<long[]> delegate)
         {
-            @Override
-            public void init(SimpleSliceInputStream input)
-            {
-                delegate.init(input);
-            }
+            this.delegate = delegate;
+        }
 
-            @Override
-            public void read(byte[] values, int offset, int length)
-            {
-                long[] buffer = new long[length];
-                delegate.read(buffer, 0, length);
-                for (int i = 0; i < length; i++) {
-                    values[offset + i] = toByteExact(buffer[i]);
-                }
-            }
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            delegate.init(input);
+        }
 
-            @Override
-            public void skip(int n)
-            {
-                delegate.skip(n);
+        @Override
+        public void read(int[] values, int offset, int length)
+        {
+            long[] buffer = new long[length];
+            delegate.read(buffer, 0, length);
+            for (int i = 0; i < length; i++) {
+                values[offset + i] = toIntExact(buffer[i]);
             }
-        };
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
+    }
+
+    private static class LongToShortTransformDecoder
+            implements ValueDecoder<short[]>
+    {
+        private final ValueDecoder<long[]> delegate;
+
+        private LongToShortTransformDecoder(ValueDecoder<long[]> delegate)
+        {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            delegate.init(input);
+        }
+
+        @Override
+        public void read(short[] values, int offset, int length)
+        {
+            long[] buffer = new long[length];
+            delegate.read(buffer, 0, length);
+            for (int i = 0; i < length; i++) {
+                values[offset + i] = toShortExact(buffer[i]);
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
+    }
+
+    private static class LongToByteTransformDecoder
+            implements ValueDecoder<byte[]>
+    {
+        private final ValueDecoder<long[]> delegate;
+
+        private LongToByteTransformDecoder(ValueDecoder<long[]> delegate)
+        {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            delegate.init(input);
+        }
+
+        @Override
+        public void read(byte[] values, int offset, int length)
+        {
+            long[] buffer = new long[length];
+            delegate.read(buffer, 0, length);
+            for (int i = 0; i < length; i++) {
+                values[offset + i] = toByteExact(buffer[i]);
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
     }
 
     private static class InlineTransformDecoder<T>

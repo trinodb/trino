@@ -21,10 +21,10 @@ import io.trino.parquet.reader.flat.BinaryBuffer;
 import io.trino.parquet.reader.flat.ColumnAdapter;
 import io.trino.parquet.reader.flat.DictionaryDecoder;
 import io.trino.spi.type.CharType;
-import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.parquet.column.values.ValuesReader;
+import org.apache.parquet.schema.PrimitiveType;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
@@ -60,6 +60,7 @@ import static io.trino.parquet.reader.decoders.TransformingValueDecoders.getInt6
 import static io.trino.parquet.reader.decoders.TransformingValueDecoders.getInt64ToIntDecoder;
 import static io.trino.parquet.reader.decoders.TransformingValueDecoders.getInt64ToShortDecoder;
 import static io.trino.parquet.reader.flat.Int96ColumnAdapter.Int96Buffer;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 
 /**
  * This class provides static API for creating value decoders for given fields and encodings.
@@ -90,8 +91,12 @@ public final class ValueDecoders
 
     public static ValueDecoder<long[]> getShortDecimalDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
-        checkArgument(field.getType() instanceof DecimalType, "Trino type %s is not a decimal", field.getType());
-        return switch (field.getDescriptor().getPrimitiveType().getPrimitiveTypeName()) {
+        PrimitiveType primitiveType = field.getDescriptor().getPrimitiveType();
+        checkArgument(
+                primitiveType.getLogicalTypeAnnotation() instanceof DecimalLogicalTypeAnnotation,
+                "Column %s is not annotated as a decimal",
+                field);
+        return switch (primitiveType.getPrimitiveTypeName()) {
             case INT64 -> getLongDecoder(encoding, field);
             case INT32 -> getIntToLongDecoder(encoding, field);
             case FIXED_LEN_BYTE_ARRAY -> getFixedWidthShortDecimalDecoder(encoding, field);
