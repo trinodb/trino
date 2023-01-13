@@ -104,8 +104,8 @@ public abstract class BaseJdbcClient
     protected final QueryBuilder queryBuilder;
     protected final String identifierQuote;
     protected final Set<String> jdbcTypesMappedToVarchar;
+    protected final RemoteQueryModifier queryModifier;
     private final IdentifierMapping identifierMapping;
-    private final RemoteQueryModifier queryModifier;
 
     private final boolean supportsRetries;
 
