@@ -34,7 +34,7 @@ import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.tpcds.TpcdsSessionProperties.getSplitsPerNode;
+import static io.trino.plugin.tpcds.TpcdsSplitManager.getSplitCount;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
@@ -59,12 +59,10 @@ public class TpcdsNodePartitioningProvider
         List<Node> sortedNodes = nodes.stream()
                 .sorted(comparing(node -> node.getHostAndPort().toString()))
                 .collect(toImmutableList());
-        int splitsPerNode = getSplitsPerNode(session);
+        int splitCount = getSplitCount(session, nodes.size());
         ImmutableList.Builder<Node> bucketToNode = ImmutableList.builder();
-        for (Node node : sortedNodes) {
-            for (int i = 0; i < splitsPerNode; i++) {
-                bucketToNode.add(node);
-            }
+        for (int i = 0; i < splitCount; i++) {
+            bucketToNode.add(sortedNodes.get(i % nodes.size()));
         }
         return Optional.of(createBucketNodeMap(bucketToNode.build()));
     }
