@@ -14,6 +14,7 @@
 package io.trino.plugin.tpcds;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 
 import javax.validation.constraints.Min;
 
@@ -21,6 +22,7 @@ public class TpcdsConfig
 {
     private int splitsPerNode = Runtime.getRuntime().availableProcessors();
     private boolean withNoSexism;
+    private Integer splitCount;
 
     @Min(1)
     public int getSplitsPerNode()
@@ -44,6 +46,20 @@ public class TpcdsConfig
     public TpcdsConfig setWithNoSexism(boolean withNoSexism)
     {
         this.withNoSexism = withNoSexism;
+        return this;
+    }
+
+    @Min(1)
+    public Integer getSplitCount()
+    {
+        return splitCount;
+    }
+
+    @Config("tpcds.split-count")
+    @ConfigDescription("Number of split to be created. If not specified the number of splits is computed as 'tpcds.splits-per-node * <number of active nodes>'")
+    public TpcdsConfig setSplitCount(Integer splitCount)
+    {
+        this.splitCount = splitCount;
         return this;
     }
 }
