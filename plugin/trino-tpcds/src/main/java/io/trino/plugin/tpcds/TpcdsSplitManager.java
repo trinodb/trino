@@ -82,6 +82,7 @@ public class TpcdsSplitManager
 
     public static int getSplitCount(ConnectorSession session, int nodeCount)
     {
-        return getSplitsPerNode(session) * nodeCount;
+        return TpcdsSessionProperties.getSplitCount(session)
+                .orElseGet(() -> getSplitsPerNode(session) * nodeCount);
     }
 }
