@@ -36,6 +36,7 @@ public class TpcdsModule
     {
         configBinder(binder).bindConfig(TpcdsConfig.class);
         binder.bind(NodeManager.class).toInstance(nodeManager);
+        binder.bind(TpcdsSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(TpcdsMetadata.class).in(Scopes.SINGLETON);
         binder.bind(TpcdsSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(TpcdsRecordSetProvider.class).in(Scopes.SINGLETON);

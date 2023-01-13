@@ -20,9 +20,12 @@ import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
+
+import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
@@ -33,18 +36,21 @@ public class TpcdsConnector
     private final TpcdsSplitManager splitManager;
     private final TpcdsRecordSetProvider recordSetProvider;
     private final TpcdsNodePartitioningProvider nodePartitioningProvider;
+    private final TpcdsSessionProperties sessionProperties;
 
     @Inject
     public TpcdsConnector(
             TpcdsMetadata metadata,
             TpcdsSplitManager splitManager,
             TpcdsRecordSetProvider recordSetProvider,
-            TpcdsNodePartitioningProvider nodePartitioningProvider)
+            TpcdsNodePartitioningProvider nodePartitioningProvider,
+            TpcdsSessionProperties sessionProperties)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
+        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
     }
 
     @Override
@@ -75,5 +81,11 @@ public class TpcdsConnector
     public ConnectorNodePartitioningProvider getNodePartitioningProvider()
     {
         return nodePartitioningProvider;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties.getSessionProperties();
     }
 }

@@ -32,9 +32,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.ToIntFunction;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.tpcds.TpcdsSessionProperties.getSplitsPerNode;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
@@ -43,23 +43,11 @@ public class TpcdsNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
     private final NodeManager nodeManager;
-    private final int splitsPerNode;
 
     @Inject
-    public TpcdsNodePartitioningProvider(NodeManager nodeManager, TpcdsConfig config)
+    public TpcdsNodePartitioningProvider(NodeManager nodeManager)
     {
-        this(
-                nodeManager,
-                requireNonNull(config, "config is null").getSplitsPerNode());
-    }
-
-    public TpcdsNodePartitioningProvider(NodeManager nodeManager, int splitsPerNode)
-    {
-        requireNonNull(nodeManager, "nodeManager is null");
-        checkArgument(splitsPerNode > 0, "splitsPerNode must be at least 1");
-
-        this.nodeManager = nodeManager;
-        this.splitsPerNode = splitsPerNode;
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @Override
@@ -71,6 +59,7 @@ public class TpcdsNodePartitioningProvider
         List<Node> sortedNodes = nodes.stream()
                 .sorted(comparing(node -> node.getHostAndPort().toString()))
                 .collect(toImmutableList());
+        int splitsPerNode = getSplitsPerNode(session);
         ImmutableList.Builder<Node> bucketToNode = ImmutableList.builder();
         for (Node node : sortedNodes) {
             for (int i = 0; i < splitsPerNode; i++) {
