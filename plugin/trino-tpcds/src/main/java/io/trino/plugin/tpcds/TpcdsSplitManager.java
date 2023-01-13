@@ -60,9 +60,8 @@ public class TpcdsSplitManager
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
         checkState(!nodes.isEmpty(), "No TPCDS nodes available");
 
-        int splitsPerNode = getSplitsPerNode(session);
         boolean noSexism = isWithNoSexism(session);
-        int totalParts = nodes.size() * splitsPerNode;
+        int splitCount = getSplitCount(session, nodes.size());
         int partNumber = 0;
 
         // sort to ensure the assignment is consistent with TpcdsNodePartitioningProvider
@@ -72,12 +71,17 @@ public class TpcdsSplitManager
 
         // Split the data using split and skew by the number of nodes available.
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        for (Node node : sortedNodes) {
-            for (int i = 0; i < splitsPerNode; i++) {
-                splits.add(new TpcdsSplit(partNumber, totalParts, ImmutableList.of(node.getHostAndPort()), noSexism));
-                partNumber++;
-            }
+        for (int i = 0; i < splitCount; i++) {
+            Node node = sortedNodes.get(i % nodes.size());
+            splits.add(new TpcdsSplit(partNumber, splitCount, ImmutableList.of(node.getHostAndPort()), noSexism));
+            partNumber++;
         }
+
         return new FixedSplitSource(splits.build());
+    }
+
+    public static int getSplitCount(ConnectorSession session, int nodeCount)
+    {
+        return getSplitsPerNode(session) * nodeCount;
     }
 }
