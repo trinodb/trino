@@ -26,6 +26,8 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 
+import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Set;
 
@@ -41,6 +43,15 @@ public class TpcdsSplitManager
     private final NodeManager nodeManager;
     private final int splitsPerNode;
     private final boolean noSexism;
+
+    @Inject
+    public TpcdsSplitManager(NodeManager nodeManager, TpcdsConfig config)
+    {
+        this(
+                nodeManager,
+                requireNonNull(config, "config is null").getSplitsPerNode(),
+                config.isWithNoSexism());
+    }
 
     public TpcdsSplitManager(NodeManager nodeManager, int splitsPerNode, boolean noSexism)
     {
