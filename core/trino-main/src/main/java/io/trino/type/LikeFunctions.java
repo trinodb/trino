@@ -15,7 +15,9 @@ package io.trino.type;
 
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.trino.likematcher.DfaLikeMatcher;
 import io.trino.likematcher.LikeMatcher;
+import io.trino.likematcher.RegexLikeMatcher;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
@@ -35,6 +37,7 @@ public final class LikeFunctions
 {
     public static final String LIKE_FUNCTION_NAME = "$like";
     public static final String LIKE_PATTERN_FUNCTION_NAME = "$like_pattern";
+    public static final String DYNAMIC_LIKE_PATTERN_FUNCTION_NAME = "$dynamic_like_pattern";
 
     private LikeFunctions() {}
 
@@ -61,7 +64,7 @@ public final class LikeFunctions
     @SqlType(LikePatternType.NAME)
     public static LikeMatcher likePattern(@SqlType("varchar") Slice pattern)
     {
-        return LikeMatcher.compile(pattern.toStringUtf8(), Optional.empty());
+        return DfaLikeMatcher.compile(pattern.toStringUtf8(), Optional.empty());
     }
 
     @ScalarFunction(value = LIKE_PATTERN_FUNCTION_NAME, hidden = true)
@@ -69,11 +72,29 @@ public final class LikeFunctions
     public static LikeMatcher likePattern(@SqlType("varchar") Slice pattern, @SqlType("varchar") Slice escape)
     {
         try {
-            return LikeMatcher.compile(pattern.toStringUtf8(), getEscapeCharacter(Optional.of(escape)));
+            return DfaLikeMatcher.compile(pattern.toStringUtf8(), getEscapeCharacter(Optional.of(escape)));
         }
         catch (RuntimeException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
+    }
+
+    @ScalarFunction(value = DYNAMIC_LIKE_PATTERN_FUNCTION_NAME, hidden = true)
+    @SqlType(LikePatternType.NAME)
+    public static LikeMatcher dynamicLikePattern(@SqlType("varchar") Slice pattern)
+    {
+        // The compilation time for DFA is costly compared to regex. Therefore, for dynamic like pattern it is better
+        // to use a regex-based matcher.
+        return RegexLikeMatcher.compile(pattern.toStringUtf8(), Optional.empty());
+    }
+
+    @ScalarFunction(value = DYNAMIC_LIKE_PATTERN_FUNCTION_NAME, hidden = true)
+    @SqlType(LikePatternType.NAME)
+    public static LikeMatcher dynamicLikePattern(@SqlType("varchar") Slice pattern, @SqlType("varchar") Slice escape)
+    {
+        // The compilation time for DFA is costly compared to regex. Therefore, for dynamic like pattern it is better
+        // to use a regex-based matcher.
+        return RegexLikeMatcher.compile(pattern.toStringUtf8(), getEscapeCharacter(Optional.of(escape)));
     }
 
     public static boolean isLikePattern(Slice pattern, Optional<Slice> escape)

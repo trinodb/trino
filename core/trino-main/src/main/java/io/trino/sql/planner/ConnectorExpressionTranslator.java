@@ -109,6 +109,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
+import static io.trino.type.LikeFunctions.DYNAMIC_LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static java.lang.Math.toIntExact;
@@ -457,6 +458,11 @@ public final class ConnectorExpressionTranslator
             Optional<Expression> translatedPattern = translate(pattern);
 
             if (translatedValue.isPresent() && translatedPattern.isPresent()) {
+                String patternFunctionName = LIKE_PATTERN_FUNCTION_NAME;
+                if (!SymbolsExtractor.extractAll(translatedPattern.get()).isEmpty()) {
+                    patternFunctionName = DYNAMIC_LIKE_PATTERN_FUNCTION_NAME;
+                }
+
                 FunctionCall patternCall;
                 if (escape.isPresent()) {
                     Optional<Expression> translatedEscape = translate(escape.get());
@@ -465,14 +471,14 @@ public final class ConnectorExpressionTranslator
                     }
 
                     patternCall = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                            .setName(QualifiedName.of(LIKE_PATTERN_FUNCTION_NAME))
+                            .setName(QualifiedName.of(patternFunctionName))
                             .addArgument(pattern.getType(), translatedPattern.get())
                             .addArgument(escape.get().getType(), translatedEscape.get())
                             .build();
                 }
                 else {
                     patternCall = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                            .setName(QualifiedName.of(LIKE_PATTERN_FUNCTION_NAME))
+                            .setName(QualifiedName.of(patternFunctionName))
                             .addArgument(pattern.getType(), translatedPattern.get())
                             .build();
                 }
@@ -723,7 +729,9 @@ public final class ConnectorExpressionTranslator
                     arguments.add(new Constant(Slices.utf8Slice(matcher.getEscape().get().toString()), createVarcharType(1)));
                 }
             }
-            else if (patternArgument instanceof FunctionCall call && ResolvedFunction.extractFunctionName(call.getName()).equals(LIKE_PATTERN_FUNCTION_NAME)) {
+            else if (patternArgument instanceof FunctionCall call
+                    && (ResolvedFunction.extractFunctionName(call.getName()).equals(LIKE_PATTERN_FUNCTION_NAME)
+                    || ResolvedFunction.extractFunctionName(call.getName()).equals(DYNAMIC_LIKE_PATTERN_FUNCTION_NAME))) {
                 Optional<ConnectorExpression> translatedPattern = process(call.getArguments().get(0));
                 if (translatedPattern.isEmpty()) {
                     return Optional.empty();

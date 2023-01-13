@@ -13,7 +13,8 @@
  */
 package io.trino.likematcher;
 
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
@@ -24,59 +25,65 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestLikeMatcher
 {
-    @Test
-    public void test()
+    private enum LikeMatcherType
+    {
+        DFA,
+        REGEX
+    }
+
+    @Test(dataProvider = "likeMatcherTypes")
+    public void test(LikeMatcherType type)
     {
         // min length short-circuit
-        assertFalse(match("__", "a"));
+        assertFalse(match(type, "__", "a"));
 
         // max length short-circuit
-        assertFalse(match("__", "abcdefghi"));
+        assertFalse(match(type, "__", "abcdefghi"));
 
         // prefix short-circuit
-        assertFalse(match("a%", "xyz"));
+        assertFalse(match(type, "a%", "xyz"));
 
         // prefix match
-        assertTrue(match("a%", "a"));
-        assertTrue(match("a%", "ab"));
-        assertTrue(match("a_", "ab"));
+        assertTrue(match(type, "a%", "a"));
+        assertTrue(match(type, "a%", "ab"));
+        assertTrue(match(type, "a_", "ab"));
 
         // suffix short-circuit
-        assertFalse(match("%a", "xyz"));
+        assertFalse(match(type, "%a", "xyz"));
 
         // suffix match
-        assertTrue(match("%z", "z"));
-        assertTrue(match("%z", "yz"));
-        assertTrue(match("_z", "yz"));
+        assertTrue(match(type, "%z", "z"));
+        assertTrue(match(type, "%z", "yz"));
+        assertTrue(match(type, "_z", "yz"));
 
         // match literal
-        assertTrue(match("abcd", "abcd"));
+        assertTrue(match(type, "abcd", "abcd"));
 
         // match one
-        assertFalse(match("_", ""));
-        assertTrue(match("_", "a"));
-        assertFalse(match("_", "ab"));
+        assertFalse(match(type, "_", ""));
+        assertTrue(match(type, "_", "a"));
+        assertFalse(match(type, "_", "ab"));
 
         // match zero or more
-        assertTrue(match("%", ""));
-        assertTrue(match("%", "a"));
-        assertTrue(match("%", "ab"));
+        assertTrue(match(type, "%", ""));
+        assertTrue(match(type, "%", "a"));
+        assertTrue(match(type, "%", "ab"));
 
         // non-strict matching
-        assertTrue(match("_%", "abcdefg"));
-        assertFalse(match("_a%", "abcdefg"));
+        assertTrue(match(type, "_%", "abcdefg"));
+        assertFalse(match(type, "_a%", "abcdefg"));
 
         // strict matching
-        assertTrue(match("_ab_", "xabc"));
-        assertFalse(match("_ab_", "xyxw"));
-        assertTrue(match("_a%b_", "xaxxxbx"));
+        assertTrue(match(type, "_ab_", "xabc"));
+        assertFalse(match(type, "_ab_", "xyxw"));
+        assertTrue(match(type, "_a%b_", "xaxxxbx"));
 
         // optimization of consecutive _ and %
-        assertTrue(match("_%_%_%_%", "abcdefghij"));
+        assertTrue(match(type, "_%_%_%_%", "abcdefghij"));
 
         // utf-8
-        LikeMatcher single = LikeMatcher.compile("_");
-        LikeMatcher multiple = LikeMatcher.compile("_a%b_"); // prefix and suffix with _a and b_ to avoid optimizations
+        LikeMatcher single = compile(type, "_", Optional.empty());
+        LikeMatcher multiple = compile(type, "_a%b_", Optional.empty()); // prefix and suffix with _a and b_ to avoid optimizations
         for (int i = 0; i < Character.MAX_CODE_POINT; i++) {
             assertTrue(single.match(Character.toString(i).getBytes(StandardCharsets.UTF_8)));
 
@@ -85,34 +92,50 @@ public class TestLikeMatcher
         }
     }
 
-    @Test
-    public void testEscape()
+    @Test(dataProvider = "likeMatcherTypes")
+    public void testEscape(LikeMatcherType type)
     {
-        assertTrue(match("-%", "%", '-'));
-        assertTrue(match("-_", "_", '-'));
-        assertTrue(match("--", "-", '-'));
+        assertTrue(match(type, "-%", "%", '-'));
+        assertTrue(match(type, "-_", "_", '-'));
+        assertTrue(match(type, "--", "-", '-'));
     }
 
-    private static boolean match(String pattern, String value)
+    @DataProvider
+    public Object[][] likeMatcherTypes()
     {
-        return match(pattern, value, Optional.empty());
+        return new Object[][] {{LikeMatcherType.DFA}, {LikeMatcherType.REGEX}};
     }
 
-    private static boolean match(String pattern, String value, char escape)
+    private static boolean match(LikeMatcherType type, String pattern, String value)
     {
-        return match(pattern, value, Optional.of(escape));
+        return match(type, pattern, value, Optional.empty());
     }
 
-    private static boolean match(String pattern, String value, Optional<Character> escape)
+    private static boolean match(LikeMatcherType type, String pattern, String value, char escape)
+    {
+        return match(type, pattern, value, Optional.of(escape));
+    }
+
+    private static boolean match(LikeMatcherType type, String pattern, String value, Optional<Character> escape)
     {
         String padding = "++++";
         String padded = padding + value + padding;
         byte[] bytes = padded.getBytes(StandardCharsets.UTF_8);
 
-        boolean withoutPadding = LikeMatcher.compile(pattern, escape).match(value.getBytes(StandardCharsets.UTF_8));
-        boolean withPadding = LikeMatcher.compile(pattern, escape).match(bytes, padding.length(), bytes.length - padding.length() * 2);  // exclude padding
+        boolean withoutPadding = compile(type, pattern, escape).match(value.getBytes(StandardCharsets.UTF_8));
+        boolean withPadding = compile(type, pattern, escape).match(bytes, padding.length(), bytes.length - padding.length() * 2);  // exclude padding
 
         assertEquals(withoutPadding, withPadding);
         return withPadding;
+    }
+
+    private static LikeMatcher compile(LikeMatcherType type, String pattern, Optional<Character> escape)
+    {
+        if (type == LikeMatcherType.DFA) {
+            return DfaLikeMatcher.compile(pattern, escape);
+        }
+        else {
+            return RegexLikeMatcher.compile(pattern, escape);
+        }
     }
 }

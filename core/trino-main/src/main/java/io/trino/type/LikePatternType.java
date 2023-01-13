@@ -14,7 +14,9 @@
 package io.trino.type;
 
 import io.airlift.slice.Slice;
+import io.trino.likematcher.DfaLikeMatcher;
 import io.trino.likematcher.LikeMatcher;
+import io.trino.likematcher.RegexLikeMatcher;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
@@ -69,9 +71,16 @@ public class LikePatternType
         Optional<Character> escape = Optional.empty();
         if (hasEscape) {
             escape = Optional.of((char) block.getInt(position, offset));
+            offset += SIZE_OF_INT;
         }
 
-        return LikeMatcher.compile(pattern, escape);
+        boolean regexMatcher = block.getByte(position, offset) != 0;
+        if (regexMatcher) {
+            return RegexLikeMatcher.compile(pattern, escape);
+        }
+        else {
+            return DfaLikeMatcher.compile(pattern, escape);
+        }
     }
 
     @Override
@@ -90,6 +99,15 @@ public class LikePatternType
             blockBuilder.writeByte(1);
             blockBuilder.writeInt(matcher.getEscape().get());
         }
+
+        if (matcher instanceof RegexLikeMatcher) {
+            // dynamic like pattern
+            blockBuilder.writeByte(1);
+        }
+        else {
+            blockBuilder.writeByte(0);
+        }
+
         blockBuilder.closeEntry();
     }
 }

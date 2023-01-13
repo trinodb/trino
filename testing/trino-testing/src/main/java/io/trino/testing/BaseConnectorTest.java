@@ -497,6 +497,12 @@ public abstract class BaseConnectorTest
 
         // filtered column is selected
         assertQuery("SELECT orderkey, orderpriority FROM orders WHERE orderpriority LIKE '5-L__'");
+
+        // filtered column is not selected
+        assertQuery("SELECT orderkey FROM orders WHERE orderpriority LIKE concat('%', orderpriority, '%')");
+
+        // filtered column is selected
+        assertQuery("SELECT orderkey, orderpriority FROM orders WHERE orderpriority LIKE concat('%', orderpriority, '%')");
     }
 
     @Test

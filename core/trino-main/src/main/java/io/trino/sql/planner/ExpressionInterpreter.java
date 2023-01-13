@@ -1146,10 +1146,10 @@ public class ExpressionInterpreter
                     (escape == null || escape instanceof Slice)) {
                 LikeMatcher matcher;
                 if (escape == null) {
-                    matcher = LikeMatcher.compile(((Slice) pattern).toStringUtf8(), Optional.empty());
+                    matcher = LikeFunctions.dynamicLikePattern((Slice) pattern);
                 }
                 else {
-                    matcher = LikeFunctions.likePattern((Slice) pattern, (Slice) escape);
+                    matcher = LikeFunctions.dynamicLikePattern((Slice) pattern, (Slice) escape);
                 }
 
                 return evaluateLikePredicate(node, (Slice) value, matcher);
@@ -1219,7 +1219,7 @@ public class ExpressionInterpreter
                     result = LikeFunctions.likePattern(Slices.utf8Slice(pattern.getValue()), escape);
                 }
                 else {
-                    result = LikeMatcher.compile(pattern.getValue(), Optional.empty());
+                    result = LikeFunctions.likePattern(Slices.utf8Slice(pattern.getValue()));
                 }
 
                 likePatternCache.put(node, result);

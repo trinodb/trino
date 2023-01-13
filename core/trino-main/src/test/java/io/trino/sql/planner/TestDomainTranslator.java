@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.likematcher.LikeMatcher;
+import io.trino.likematcher.DfaLikeMatcher;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.predicate.Domain;
@@ -2115,7 +2115,7 @@ public class TestDomainTranslator
     {
         return new FunctionCall(QualifiedName.of(LIKE_FUNCTION_NAME), ImmutableList.of(
                 symbol.toSymbolReference(),
-                literalEncoder.toExpression(TEST_SESSION, LikeMatcher.compile(pattern, Optional.empty()), LikePatternType.LIKE_PATTERN)));
+                literalEncoder.toExpression(TEST_SESSION, DfaLikeMatcher.compile(pattern, Optional.empty()), LikePatternType.LIKE_PATTERN)));
     }
 
     private FunctionCall like(Symbol symbol, Expression pattern, Expression escape)
@@ -2127,7 +2127,7 @@ public class TestDomainTranslator
     {
         return new FunctionCall(QualifiedName.of(LIKE_FUNCTION_NAME), ImmutableList.of(
                 symbol.toSymbolReference(),
-                literalEncoder.toExpression(TEST_SESSION, LikeMatcher.compile(pattern, Optional.of(escape)), LikePatternType.LIKE_PATTERN)));
+                literalEncoder.toExpression(TEST_SESSION, DfaLikeMatcher.compile(pattern, Optional.of(escape)), LikePatternType.LIKE_PATTERN)));
     }
 
     private static FunctionCall startsWith(Symbol symbol, Expression expression)

@@ -68,7 +68,7 @@ public class TestLikeFunctions
     @Test
     public void testLikeBasic()
     {
-        LikeMatcher matcher = LikeMatcher.compile(utf8Slice("f%b__").toStringUtf8(), Optional.empty());
+        LikeMatcher matcher = likePattern(utf8Slice("f%b__"));
         assertTrue(likeVarchar(utf8Slice("foobar"), matcher));
         assertTrue(likeVarchar(offsetHeapSlice("foobar"), matcher));
 
@@ -108,7 +108,7 @@ public class TestLikeFunctions
     @Test
     public void testLikeChar()
     {
-        LikeMatcher matcher = LikeMatcher.compile(utf8Slice("f%b__").toStringUtf8(), Optional.empty());
+        LikeMatcher matcher = likePattern(utf8Slice("f%b__"));
         assertTrue(likeChar(6L, utf8Slice("foobar"), matcher));
         assertTrue(likeChar(6L, offsetHeapSlice("foobar"), matcher));
         assertTrue(likeChar(6L, utf8Slice("foob"), matcher));
@@ -201,7 +201,7 @@ public class TestLikeFunctions
     @Test
     public void testLikeSpacesInPattern()
     {
-        LikeMatcher matcher = LikeMatcher.compile(utf8Slice("ala  ").toStringUtf8(), Optional.empty());
+        LikeMatcher matcher = likePattern(utf8Slice("ala  "));
         assertTrue(likeVarchar(utf8Slice("ala  "), matcher));
         assertFalse(likeVarchar(utf8Slice("ala"), matcher));
     }
@@ -209,21 +209,21 @@ public class TestLikeFunctions
     @Test
     public void testLikeNewlineInPattern()
     {
-        LikeMatcher matcher = LikeMatcher.compile(utf8Slice("%o\nbar").toStringUtf8(), Optional.empty());
+        LikeMatcher matcher = likePattern(utf8Slice("%o\nbar"));
         assertTrue(likeVarchar(utf8Slice("foo\nbar"), matcher));
     }
 
     @Test
     public void testLikeNewlineBeforeMatch()
     {
-        LikeMatcher matcher = LikeMatcher.compile(utf8Slice("%b%").toStringUtf8(), Optional.empty());
+        LikeMatcher matcher = likePattern(utf8Slice("%b%"));
         assertTrue(likeVarchar(utf8Slice("foo\nbar"), matcher));
     }
 
     @Test
     public void testLikeNewlineInMatch()
     {
-        LikeMatcher matcher = LikeMatcher.compile(utf8Slice("f%b%").toStringUtf8(), Optional.empty());
+        LikeMatcher matcher = likePattern(utf8Slice("f%b%"));
         assertTrue(likeVarchar(utf8Slice("foo\nbar"), matcher));
     }
 
@@ -245,7 +245,7 @@ public class TestLikeFunctions
     @Test
     public void testBackslashesNoSpecialTreatment()
     {
-        LikeMatcher matcher = LikeMatcher.compile(utf8Slice("\\abc\\/\\\\").toStringUtf8(), Optional.empty());
+        LikeMatcher matcher = likePattern(utf8Slice("\\abc\\/\\\\"));
         assertTrue(likeVarchar(utf8Slice("\\abc\\/\\\\"), matcher));
     }
 

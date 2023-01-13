@@ -103,6 +103,7 @@ import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.OMIT;
+import static io.trino.type.LikeFunctions.DYNAMIC_LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
@@ -662,17 +663,22 @@ class TranslationMap
                 Expression pattern = treeRewriter.rewrite(node.getPattern(), context);
                 Optional<Expression> escape = node.getEscape().map(e -> treeRewriter.rewrite(e, context));
 
+                String patternFunctionName = LIKE_PATTERN_FUNCTION_NAME;
+                if (!SymbolsExtractor.extractAll(pattern).isEmpty()) {
+                    patternFunctionName = DYNAMIC_LIKE_PATTERN_FUNCTION_NAME;
+                }
+
                 FunctionCall patternCall;
                 if (escape.isPresent()) {
                     patternCall = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                            .setName(QualifiedName.of(LIKE_PATTERN_FUNCTION_NAME))
+                            .setName(QualifiedName.of(patternFunctionName))
                             .addArgument(analysis.getType(node.getPattern()), pattern)
                             .addArgument(analysis.getType(node.getEscape().get()), escape.get())
                             .build();
                 }
                 else {
                     patternCall = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                            .setName(QualifiedName.of(LIKE_PATTERN_FUNCTION_NAME))
+                            .setName(QualifiedName.of(patternFunctionName))
                             .addArgument(analysis.getType(node.getPattern()), pattern)
                             .build();
                 }
