@@ -58,8 +58,10 @@ import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createSequenceBlockOfReal;
 import static io.trino.block.BlockAssertions.createStringsBlock;
+import static io.trino.operator.OperatorAssertion.finishOperator;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.OperatorAssertion.toPages;
+import static io.trino.operator.OperatorAssertion.toPagesPartial;
 import static io.trino.spi.predicate.Range.equal;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -75,6 +77,7 @@ import static io.trino.type.ColorType.COLOR;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 @Test(singleThreaded = true)
 public class TestDynamicFilterSourceOperator
@@ -183,8 +186,10 @@ public class TestDynamicFilterSourceOperator
                 .mapToObj(i -> channel(i, types.get(i)))
                 .collect(toImmutableList());
         OperatorFactory operatorFactory = createOperatorFactory(maxFilterDistinctValues, maxFilterSize, minMaxCollectionLimit, buildChannels);
-        verifyPassthrough(createOperator(operatorFactory), types, pages);
+        Operator operator = createOperator(operatorFactory);
+        verifyPassthrough(operator, types, pages);
         operatorFactory.noMoreOperators();
+        assertEquals(operator.getOperatorContext().getOperatorMemoryContext().getUserMemory(), 0);
         assertEquals(partitions.build(), expectedTupleDomains);
     }
 
@@ -595,5 +600,53 @@ public class TestDynamicFilterSourceOperator
                         new Page(createLongSequenceBlock(0, maxDistinctValues + 1)),
                         new Page(createLongSequenceBlock(0, maxDistinctValues + 1))),
                 ImmutableList.of(TupleDomain.all()));
+    }
+
+    @Test
+    public void testMemoryUsage()
+    {
+        OperatorFactory operatorFactory = createOperatorFactory(channel(0, BIGINT), channel(1, BIGINT));
+        Operator operator = createOperator(operatorFactory);
+
+        List<Page> inputPages = ImmutableList.of(new Page(
+                createLongSequenceBlock(51, 101),
+                createLongRepeatBlock(200, 50)));
+        toPagesPartial(operator, inputPages.iterator());
+        long initialMemoryUsage = operator.getOperatorContext().getOperatorMemoryContext().getUserMemory();
+        assertThat(initialMemoryUsage).isGreaterThan(0);
+
+        inputPages = ImmutableList.of(new Page(
+                createLongSequenceBlock(0, 51),
+                createLongSequenceBlock(51, 101)));
+        toPagesPartial(operator, inputPages.iterator());
+        long currentMemoryUsage = operator.getOperatorContext().getOperatorMemoryContext().getUserMemory();
+        // First channel stops collecting distinct values
+        assertThat(currentMemoryUsage)
+                .isGreaterThan(0)
+                .isLessThan(initialMemoryUsage);
+
+        toPagesPartial(operator, inputPages.iterator());
+        // No change in distinct values
+        assertThat(operator.getOperatorContext().getOperatorMemoryContext().getUserMemory()).isEqualTo(currentMemoryUsage);
+
+        inputPages = ImmutableList.of(new Page(
+                createLongSequenceBlock(0, 51),
+                createLongSequenceBlock(0, 51)));
+        toPagesPartial(operator, inputPages.iterator());
+        // Second channel stops collecting distinct values
+        assertThat(operator.getOperatorContext().getOperatorMemoryContext().getUserMemory()).isEqualTo(0);
+
+        finishOperator(operator);
+        operatorFactory.noMoreOperators();
+        assertThat(partitions.build()).isEqualTo(ImmutableList.of(
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        new DynamicFilterId("0"),
+                        Domain.create(
+                                ValueSet.ofRanges(range(BIGINT, 0L, true, 100L, true)),
+                                false),
+                        new DynamicFilterId("1"),
+                        Domain.create(
+                                ValueSet.ofRanges(range(BIGINT, 0L, true, 200L, true)),
+                                false)))));
     }
 }
