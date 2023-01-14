@@ -212,7 +212,7 @@ public class StarburstOracleClient
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
             throws SQLException
     {
-        OracleQueryBuilder queryBuilder = new OracleQueryBuilder(((OracleSplit) split).getPartitionNames());
+        OracleQueryBuilder queryBuilder = new OracleQueryBuilder(queryModifier, ((OracleSplit) split).getPartitionNames());
         PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(
                 this,
                 session,
@@ -527,8 +527,9 @@ public class StarburstOracleClient
     {
         private final Optional<List<String>> partitionNames;
 
-        public OracleQueryBuilder(Optional<List<String>> partitionNames)
+        public OracleQueryBuilder(RemoteQueryModifier queryModifier, Optional<List<String>> partitionNames)
         {
+            super(queryModifier);
             this.partitionNames = requireNonNull(partitionNames, "partitionNames is null");
         }
 

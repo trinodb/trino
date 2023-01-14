@@ -78,7 +78,7 @@ public class TestStarburstOracleClient
             session -> {
                 throw new UnsupportedOperationException();
             },
-            new DefaultQueryBuilder(),
+            new DefaultQueryBuilder(RemoteQueryModifier.NONE),
             new DefaultIdentifierMapping(),
             RemoteQueryModifier.NONE);
 
