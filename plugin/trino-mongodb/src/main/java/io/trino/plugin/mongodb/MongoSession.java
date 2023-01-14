@@ -198,7 +198,7 @@ public class MongoSession
 
     public void dropSchema(String schemaName)
     {
-        client.getDatabase(schemaName).drop();
+        client.getDatabase(toRemoteSchemaName(schemaName)).drop();
     }
 
     public Set<String> getAllTables(String schema)

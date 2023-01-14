@@ -76,6 +76,9 @@ public class TestMongoCaseInsensitiveMapping
 
         assertQuery("SELECT value FROM testcase.testinsensitive WHERE name = 'def'", "SELECT 2");
         assertUpdate("DROP TABLE testcase.testinsensitive");
+
+        assertUpdate("DROP SCHEMA testcase");
+        assertQueryReturnsEmptyResult("SHOW SCHEMAS IN mongodb LIKE 'testcase'");
     }
 
     @Test
