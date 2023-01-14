@@ -294,7 +294,8 @@ public class TestResourceSecurity
                     .headers(Headers.of("Authorization", Credentials.basic(TEST_USER_LOGIN, "wrong_password")))
                     .build();
             try (Response response = client.newCall(request).execute()) {
-                assertThat(response.message()).isEqualTo("Access Denied: Invalid credentials | Access Denied: Invalid credentials2");
+                assertThat(requireNonNull(response.body()).string())
+                        .isEqualTo("Access Denied: Invalid credentials | Access Denied: Invalid credentials2");
             }
         }
     }
