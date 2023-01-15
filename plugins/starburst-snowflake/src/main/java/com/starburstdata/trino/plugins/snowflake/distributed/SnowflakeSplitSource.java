@@ -40,6 +40,7 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -219,7 +220,7 @@ public class SnowflakeSplitSource
                     String stageName = "export_" + randomUUID().toString().replace("-", "_");
                     execute(connection, format("CREATE TEMPORARY STAGE %s.%s FILE_FORMAT = (TYPE = PARQUET)", snowflakeConfig.getStageSchema(), stageName));
 
-                    SnowflakeQueryBuilder queryBuilder = new SnowflakeQueryBuilder();
+                    SnowflakeQueryBuilder queryBuilder = new SnowflakeQueryBuilder(RemoteQueryModifier.NONE);
                     PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(
                             client,
                             session,

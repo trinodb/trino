@@ -12,6 +12,7 @@ package com.starburstdata.trino.plugins.snowflake.distributed;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -41,6 +42,11 @@ public class SnowflakeQueryBuilder
     public static final int TIMESTAMP_WITH_TIME_ZONE_MILLIS_SHIFT = 12;
     public static final int TIMESTAMP_WITH_TIME_ZONE_ZONE_MASK = 0xFFF;
     public static final int ZONE_OFFSET_MINUTES_BIAS = 2048;
+
+    public SnowflakeQueryBuilder(RemoteQueryModifier remoteQueryModifier)
+    {
+        super(remoteQueryModifier);
+    }
 
     @Override
     protected String getProjection(JdbcClient client, List<JdbcColumnHandle> columns, Map<String, String> columnExpressions)
