@@ -16,10 +16,7 @@ package io.trino.parquet.reader;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.parquet.ParquetCorruptionException;
-import io.trino.parquet.ParquetDataSource;
-import io.trino.parquet.ParquetDataSourceId;
-import io.trino.parquet.ParquetWriteValidation;
+import io.trino.parquet.*;
 import org.apache.parquet.CorruptStatistics;
 import org.apache.parquet.column.statistics.BinaryStatistics;
 import org.apache.parquet.format.ColumnChunk;
@@ -82,6 +79,10 @@ public final class MetadataReader
     public static ParquetMetadata readFooter(ParquetDataSource dataSource, Optional<ParquetWriteValidation> parquetWriteValidation)
             throws IOException
     {
+        if(ParquetMetadataCache.getInstance().containsKey(dataSource.getFilePath())) {
+            return ParquetMetadataCache.getInstance().get(dataSource.getFilePath());
+        }
+
         // Parquet File Layout:
         //
         // MAGIC
@@ -175,7 +176,9 @@ public final class MetadataReader
                 keyValueMetaData,
                 fileMetaData.getCreated_by());
         validateFileMetadata(dataSource.getId(), parquetFileMetadata, parquetWriteValidation);
-        return new ParquetMetadata(parquetFileMetadata, blocks);
+        var parquetMetadata = new ParquetMetadata(parquetFileMetadata, blocks);
+        ParquetMetadataCache.getInstance().put(dataSource.getFilePath(), parquetMetadata);
+        return parquetMetadata;
     }
 
     private static MessageType readParquetSchema(List<SchemaElement> schema)

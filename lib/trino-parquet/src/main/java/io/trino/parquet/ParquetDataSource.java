@@ -39,6 +39,8 @@ public interface ParquetDataSource
 
     <K> ListMultimap<K, ChunkReader> planRead(ListMultimap<K, DiskRange> diskRanges);
 
+    String getFilePath();
+
     SeekableInputStream seekableInputStream();
     @Override
     default void close()

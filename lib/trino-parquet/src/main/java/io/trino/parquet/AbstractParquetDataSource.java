@@ -19,6 +19,7 @@ import com.google.common.collect.ListMultimap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.trino.hive.$internal.org.apache.commons.lang.NotImplementedException;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -151,6 +152,11 @@ public abstract class AbstractParquetDataSource
         slices.orderValuesBy(comparingLong(ChunkReader::getDiskOffset));
 
         return slices.build();
+    }
+
+    @Override
+    public String getFilePath() {
+        throw new NotImplementedException();
     }
 
     private <K> ListMultimap<K, ChunkReader> readSmallDiskRanges(ListMultimap<K, DiskRange> diskRanges)

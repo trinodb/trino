@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.hdfs;
 
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
@@ -27,6 +28,7 @@ import static java.util.Objects.requireNonNull;
 class HdfsInput
         implements TrinoInput
 {
+    private static final Logger log = Logger.get(HdfsInput.class);
     private final FSDataInputStream stream;
     private final TrinoInputFile inputFile;
 
@@ -46,6 +48,7 @@ class HdfsInput
     public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
             throws IOException
     {
+        log.info("Reading file fully " + this.inputFile.location() + " " + position + " " + bufferLength);
         stream.readFully(position, buffer, bufferOffset, bufferLength);
     }
 
@@ -53,9 +56,15 @@ class HdfsInput
     public int readTail(byte[] buffer, int bufferOffset, int bufferLength)
             throws IOException
     {
+        log.info("Reading file tail " + this.inputFile.location()  + " " + bufferLength);
         Slice tail = FSDataInputStreamTail.readTail(inputFile.location(), inputFile.length(), stream, bufferLength).getTailSlice();
         tail.getBytes(0, buffer, bufferOffset, tail.length());
         return tail.length();
+    }
+
+    @Override
+    public String location() {
+        return this.inputFile.location();
     }
 
     @Override

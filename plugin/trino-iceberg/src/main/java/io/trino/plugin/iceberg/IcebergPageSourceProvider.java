@@ -555,7 +555,7 @@ public class IcebergPageSourceProvider
                         dataColumns,
                         parquetReaderOptions
                                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
-                                .withUseColumnIndex(true)
+                                .withUseColumnIndex(false)
                                 .withUseBloomFilterIndex(true),
                         predicate,
                         fileFormatDataSourceStats,
@@ -1054,22 +1054,29 @@ public class IcebergPageSourceProvider
 
             List<ParquetReaderColumn> parquetReaderColumns = parquetReaderColumnBuilder.build();
             ParquetDataSourceId dataSourceId = dataSource.getId();
-            ParquetReader parquetReader = new ParquetReader(
-                    Optional.ofNullable(fileMetaData.getCreatedBy()),
-                    getParquetReaderFields(parquetReaderColumns),
-                    blocks,
-                    blockStarts.build(),
-                    dataSource,
-                    UTC,
-                    memoryContext,
-                    options,
-                    exception -> handleException(dataSourceId, exception));
+            if(blocks.size() > 0) {
+                ParquetReader parquetReader = new ParquetReader(
+                        Optional.ofNullable(fileMetaData.getCreatedBy()),
+                        getParquetReaderFields(parquetReaderColumns),
+                        blocks,
+                        blockStarts.build(),
+                        dataSource,
+                        UTC,
+                        memoryContext,
+                        options,
+                        exception -> handleException(dataSourceId, exception));
+                return new ReaderPageSourceWithRowPositions(
+                        new ReaderPageSource(
+                                constantPopulatingPageSourceBuilder.build(new ParquetPageSource(parquetReader, parquetReaderColumns)),
+                                columnProjections),
+                        startRowPosition,
+                        endRowPosition);
+            }
             return new ReaderPageSourceWithRowPositions(
                     new ReaderPageSource(
-                            constantPopulatingPageSourceBuilder.build(new ParquetPageSource(parquetReader, parquetReaderColumns)),
-                            columnProjections),
-                    startRowPosition,
-                    endRowPosition);
+                            constantPopulatingPageSourceBuilder.build(new EmptyPageSource()),
+                            columnProjections), startRowPosition, endRowPosition);
+
         }
         catch (IOException | RuntimeException e) {
             try {

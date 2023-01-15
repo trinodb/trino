@@ -68,6 +68,11 @@ public class TrinoParquetDataSource
     }
 
     @Override
+    public String getFilePath() {
+        return this.input.location();
+    }
+
+    @Override
     public SeekableInputStream seekableInputStream() {
         org.apache.iceberg.io.SeekableInputStream seekableInputStream = input.inputStream();
         return new ParquetInputStreamAdapter(seekableInputStream);

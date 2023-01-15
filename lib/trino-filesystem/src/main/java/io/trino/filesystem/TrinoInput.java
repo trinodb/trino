@@ -39,6 +39,8 @@ public interface TrinoInput
         return Slices.wrappedBuffer(buffer);
     }
 
+    String location();
+
     default Slice readTail(int length)
             throws IOException
     {
