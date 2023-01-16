@@ -438,6 +438,63 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testTrinoPartitionedByRealWithNaN(StorageFormat storageFormat)
+    {
+        testTrinoPartitionedByNaN("REAL", storageFormat, Float.NaN);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testTrinoPartitionedByDoubleWithNaN(StorageFormat storageFormat)
+    {
+        testTrinoPartitionedByNaN("DOUBLE", storageFormat, Double.NaN);
+    }
+
+    private void testTrinoPartitionedByNaN(String typeName, StorageFormat storageFormat, Object expectedValue)
+    {
+        String baseTableName = "test_trino_partitioned_by_nan_" + randomNameSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + " " +
+                "WITH (format = '" + storageFormat + "', partitioning = ARRAY['col'])" +
+                "AS SELECT " + typeName + " 'NaN' AS col");
+
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(expectedValue));
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(row(expectedValue));
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testSparkPartitionedByRealWithNaN(StorageFormat storageFormat)
+    {
+        testSparkPartitionedByNaN("FLOAT", storageFormat, Float.NaN);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testSparkPartitionedByDoubleWithNaN(StorageFormat storageFormat)
+    {
+        testSparkPartitionedByNaN("DOUBLE", storageFormat, Double.NaN);
+    }
+
+    private void testSparkPartitionedByNaN(String typeName, StorageFormat storageFormat, Object expectedValue)
+    {
+        String baseTableName = "test_spark_partitioned_by_nan_" + randomNameSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + " " +
+                "PARTITIONED BY (col) " +
+                "TBLPROPERTIES ('write.format.default' = '" + storageFormat + "')" +
+                "AS SELECT CAST('NaN' AS " + typeName + ") AS col");
+
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(expectedValue));
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(row(expectedValue));
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testPartitionedByNestedFiled()
     {
