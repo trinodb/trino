@@ -23,6 +23,7 @@ import org.joda.time.DateTimeZone;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getInt96Decoder;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getLongDecoder;
+import static io.trino.parquet.reader.decoders.ValueDecoders.getRealDecoder;
 import static io.trino.parquet.reader.flat.Int96ColumnAdapter.Int96Buffer;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -380,6 +381,35 @@ public class TransformingValueDecoders
                     long epochNanos = values.longs[i];
                     values.longs[i] = floorDiv(epochNanos, NANOSECONDS_PER_MICROSECOND);
                     values.ints[i] = floorMod(epochNanos, NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND;
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public static ValueDecoder<long[]> getFloatToDoubleDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        ValueDecoder<int[]> delegate = getRealDecoder(encoding, field);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(long[] values, int offset, int length)
+            {
+                int[] buffer = new int[length];
+                delegate.read(buffer, 0, length);
+                for (int i = 0; i < length; i++) {
+                    values[offset + i] = Double.doubleToLongBits(Float.intBitsToFloat(buffer[i]));
                 }
             }
 

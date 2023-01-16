@@ -1699,7 +1699,9 @@ public abstract class AbstractTestParquetReader
     public void testFloatSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaFloatObjectInspector, floatSequence(0.0f, 0.1f, 30_000), REAL);
+        Iterable<Float> writeValues = floatSequence(0.0f, 0.1f, 30_000);
+        tester.testRoundTrip(javaFloatObjectInspector, writeValues, REAL);
+        tester.testRoundTrip(javaFloatObjectInspector, writeValues, transform(writeValues, AbstractTestParquetReader::floatToDouble), DOUBLE);
     }
 
     @Test
@@ -1714,6 +1716,9 @@ public abstract class AbstractTestParquetReader
         tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(Float.NaN, -1.0f, Float.POSITIVE_INFINITY), REAL);
         tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(Float.NaN, Float.NEGATIVE_INFINITY, 1.0f), REAL);
         tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(Float.NaN, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY), REAL);
+
+        Iterable<Float> writeValues = ImmutableList.of(Float.NaN, -1000.0f, -0.0f, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY);
+        tester.testRoundTrip(javaFloatObjectInspector, writeValues, transform(writeValues, AbstractTestParquetReader::floatToDouble), DOUBLE);
     }
 
     @Test
@@ -2173,5 +2178,13 @@ public abstract class AbstractTestParquetReader
             return null;
         }
         return new SqlDate(input);
+    }
+
+    private static Double floatToDouble(Float input)
+    {
+        if (input == null) {
+            return null;
+        }
+        return Double.valueOf(input);
     }
 }
