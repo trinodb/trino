@@ -24,7 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -33,6 +33,11 @@ public final class Page
 {
     public static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Page.class).instanceSize());
     private static final Block[] EMPTY_BLOCKS = new Block[0];
+
+    public static long getInstanceSizeInBytes(int blockCount)
+    {
+        return INSTANCE_SIZE + sizeOfObjectArray(blockCount);
+    }
 
     /**
      * Visible to give trusted classes like {@link PageBuilder} access to a constructor that doesn't
@@ -344,7 +349,7 @@ public final class Page
 
     private long updateRetainedSize()
     {
-        long retainedSizeInBytes = INSTANCE_SIZE + sizeOf(blocks);
+        long retainedSizeInBytes = getInstanceSizeInBytes(blocks.length);
         for (Block block : blocks) {
             retainedSizeInBytes += block.getRetainedSizeInBytes();
         }

@@ -45,6 +45,9 @@ public class JoinHashSupplier
     private final PagesHash pagesHash;
     private final LongArrayList addresses;
     private final List<Page> pages;
+    // Number of bytes retained by the Page objects excluding retained size of the blocks themselves (as those are accounted as part of PageHash)
+    // as when the pages are small and the data set is large the memory footprint of Page objects could be substantial
+    private final long pageInstancesRetainedSizeInBytes;
     private final Optional<PositionLinks.Factory> positionLinks;
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
     private final List<JoinFilterFunctionFactory> searchFunctionFactories;
@@ -80,6 +83,8 @@ public class JoinHashSupplier
         }
 
         this.pages = channelsToPages(channels);
+        this.pageInstancesRetainedSizeInBytes = getPageInstancesRetainedSizeInBytes(channels);
+
         if (singleBigintJoinChannel.isPresent() && addresses.size() <= JOIN_POSITIONS_ARRAY_CUTOFF) {
             this.pagesHash = new BigintPagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder, hashArraySizeSupplier, pages, singleBigintJoinChannel.getAsInt());
         }
@@ -110,6 +115,16 @@ public class JoinHashSupplier
                             .map(factory -> factory.create(session.toConnectorSession(), addresses, pages))
                             .collect(toImmutableList());
                     return links.create(searchFunctions);
-                }));
+                }),
+                pageInstancesRetainedSizeInBytes);
+    }
+
+    private static long getPageInstancesRetainedSizeInBytes(List<List<Block>> channels)
+    {
+        if (channels.isEmpty()) {
+            return 0;
+        }
+        int pagesCount = channels.get(0).size();
+        return Page.getInstanceSizeInBytes(channels.size()) * pagesCount;
     }
 }
