@@ -98,6 +98,11 @@ public final class ProtocolHeaders
         return prefix + "Role";
     }
 
+    public String requestRoutingGroup()
+    {
+        return prefix + "Routing-Group";
+    }
+
     public String requestPreparedStatement()
     {
         return prefix + "Prepared-Statement";

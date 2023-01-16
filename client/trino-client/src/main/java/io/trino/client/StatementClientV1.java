@@ -80,6 +80,7 @@ class StatementClientV1
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
     private final AtomicReference<String> setSchema = new AtomicReference<>();
     private final AtomicReference<String> setPath = new AtomicReference<>();
+    private final AtomicReference<String> setRoutingGroup = new AtomicReference<>();
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
     private final Map<String, ClientSelectedRole> setRoles = new ConcurrentHashMap<>();
@@ -140,6 +141,8 @@ class StatementClientV1
         if (session.getSource() != null) {
             builder.addHeader(TRINO_HEADERS.requestSource(), session.getSource());
         }
+
+        session.getRoutingGroup().ifPresent(group -> builder.addHeader(TRINO_HEADERS.requestRoutingGroup(), group));
 
         session.getTraceToken().ifPresent(token -> builder.addHeader(TRINO_HEADERS.requestTraceToken(), token));
 

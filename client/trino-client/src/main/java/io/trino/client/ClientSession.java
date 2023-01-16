@@ -39,6 +39,7 @@ public class ClientSession
     private final String source;
     private final Optional<String> traceToken;
     private final Set<String> clientTags;
+    private final Optional<String> routingGroup;
     private final String clientInfo;
     private final String catalog;
     private final String schema;
@@ -78,6 +79,7 @@ public class ClientSession
             String source,
             Optional<String> traceToken,
             Set<String> clientTags,
+            Optional<String> routingGroup,
             String clientInfo,
             String catalog,
             String schema,
@@ -99,6 +101,7 @@ public class ClientSession
         this.source = source;
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
+        this.routingGroup = requireNonNull(routingGroup, "routingGroup is null");
         this.clientInfo = clientInfo;
         this.catalog = catalog;
         this.schema = schema;
@@ -171,6 +174,11 @@ public class ClientSession
     public Set<String> getClientTags()
     {
         return clientTags;
+    }
+
+    public Optional<String> getRoutingGroup()
+    {
+        return routingGroup;
     }
 
     public String getClientInfo()
@@ -260,6 +268,7 @@ public class ClientSession
                 .add("user", user)
                 .add("clientTags", clientTags)
                 .add("clientInfo", clientInfo)
+                .add("routingGroup", routingGroup)
                 .add("catalog", catalog)
                 .add("schema", schema)
                 .add("path", path)
@@ -280,6 +289,7 @@ public class ClientSession
         private String source;
         private Optional<String> traceToken = Optional.empty();
         private Set<String> clientTags = ImmutableSet.of();
+        private Optional<String> routingGroup = Optional.empty();
         private String clientInfo;
         private String catalog;
         private String schema;
@@ -355,6 +365,12 @@ public class ClientSession
         public Builder clientTags(Set<String> clientTags)
         {
             this.clientTags = clientTags;
+            return this;
+        }
+
+        public Builder routingGroup(Optional<String> routingGroup)
+        {
+            this.routingGroup = routingGroup;
             return this;
         }
 
@@ -451,6 +467,7 @@ public class ClientSession
                     source,
                     traceToken,
                     clientTags,
+                    routingGroup,
                     clientInfo,
                     catalog,
                     schema,

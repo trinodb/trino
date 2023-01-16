@@ -121,6 +121,9 @@ public class ClientOptions
     @Option(names = "--client-tags", paramLabel = "<tags>", description = "Client tags")
     public String clientTags;
 
+    @Option(names = "--routing-group", paramLabel = "<routingGroup>", description = "Routing group")
+    public String routingGroup;
+
     @Option(names = "--trace-token", paramLabel = "<token>", description = "Trace token")
     public String traceToken;
 
@@ -225,6 +228,7 @@ public class ClientOptions
                 .source(source)
                 .traceToken(Optional.ofNullable(traceToken))
                 .clientTags(parseClientTags(nullToEmpty(clientTags)))
+                .routingGroup(Optional.ofNullable(routingGroup))
                 .clientInfo(clientInfo)
                 .catalog(catalog)
                 .schema(schema)
