@@ -317,6 +317,30 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testPartitionedByRealWithNaN()
+    {
+        String tableName = "test_partitioned_by_real" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH(partitioning = ARRAY['part']) AS SELECT 1 AS id, real 'NaN' AS part", 1);
+
+        assertQuery("SELECT part FROM " + tableName, "VALUES cast('NaN' as real)");
+        assertQuery("SELECT id FROM " + tableName + " WHERE is_nan(part)", "VALUES 1");
+
+        dropTable(tableName);
+    }
+
+    @Test
+    public void testPartitionedByDoubleWithNaN()
+    {
+        String tableName = "test_partitioned_by_double" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH(partitioning = ARRAY['part']) AS SELECT 1 AS id, double 'NaN' AS part", 1);
+
+        assertQuery("SELECT part FROM " + tableName, "VALUES cast('NaN' as double)");
+        assertQuery("SELECT id FROM " + tableName + " WHERE is_nan(part)", "VALUES 1");
+
+        dropTable(tableName);
+    }
+
+    @Test
     public void testDecimal()
     {
         testDecimalWithPrecisionAndScale(1, 0);
