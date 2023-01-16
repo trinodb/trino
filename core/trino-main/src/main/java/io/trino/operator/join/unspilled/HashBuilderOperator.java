@@ -306,6 +306,15 @@ public class HashBuilderOperator
             return;
         }
 
+        checkState(index != null, "index is null");
+        ListenableFuture<Void> reserved = localUserMemoryContext.setBytes(index.getEstimatedMemoryRequiredToCreateLookupSource(
+                hashArraySizeSupplier,
+                sortChannel,
+                hashChannels));
+        if (!reserved.isDone()) {
+            // Yield when not enough memory is available to proceed, finish is expected to be called again when some memory is freed
+            return;
+        }
         LookupSourceSupplier partition = buildLookupSource();
         localUserMemoryContext.setBytes(partition.get().getInMemorySizeInBytes());
         lookupSourceNotNeeded = Optional.of(lookupSourceFactory.lendPartitionLookupSource(partitionIndex, partition));
@@ -358,5 +367,11 @@ public class HashBuilderOperator
         index = null;
         localUserMemoryContext.setBytes(0);
         state = State.CLOSED;
+    }
+
+    @VisibleForTesting
+    State getState()
+    {
+        return state;
     }
 }
