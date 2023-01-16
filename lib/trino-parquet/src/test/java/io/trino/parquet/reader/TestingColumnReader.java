@@ -336,6 +336,8 @@ public class TestingColumnReader
     private static final Assertion<Float> ASSERT_FLOAT = (values, block, offset, blockOffset) -> assertThat(intBitsToFloat(block.getInt(blockOffset, 0))).isEqualTo(values[offset].floatValue());
     private static final Assertion<Number> ASSERT_LONG = (values, block, offset, blockOffset) -> assertThat(block.getLong(blockOffset, 0)).isEqualTo(values[offset].longValue());
     private static final Assertion<Double> ASSERT_DOUBLE = (values, block, offset, blockOffset) -> assertThat(Double.longBitsToDouble(block.getLong(blockOffset, 0))).isEqualTo(values[offset].doubleValue());
+    private static final Assertion<Float> ASSERT_DOUBLE_STORED_AS_FLOAT = (values, block, offset, blockOffset) ->
+            assertThat(Double.longBitsToDouble(block.getLong(blockOffset, 0))).isEqualTo(values[offset].floatValue());
     private static final Assertion<Number> ASSERT_INT_128 = new Assertion<>()
     {
         @Override
@@ -630,6 +632,8 @@ public class TestingColumnReader
         return new ColumnReaderFormat[] {
                 new ColumnReaderFormat<>(BOOLEAN, BooleanType.BOOLEAN, BOOLEAN_WRITER, null, WRITE_BOOLEAN, ASSERT_BYTE),
                 new ColumnReaderFormat<>(FLOAT, REAL, PLAIN_WRITER, DICTIONARY_FLOAT_WRITER, WRITE_FLOAT, ASSERT_FLOAT),
+                // FLOAT parquet primitive type can be read as a DOUBLE or REAL type in Trino
+                new ColumnReaderFormat<>(FLOAT, DoubleType.DOUBLE, PLAIN_WRITER, DICTIONARY_FLOAT_WRITER, WRITE_FLOAT, ASSERT_DOUBLE_STORED_AS_FLOAT),
                 new ColumnReaderFormat<>(DOUBLE, DoubleType.DOUBLE, PLAIN_WRITER, DICTIONARY_DOUBLE_WRITER, WRITE_DOUBLE, ASSERT_DOUBLE),
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
                 new ColumnReaderFormat<>(INT32, BIGINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
