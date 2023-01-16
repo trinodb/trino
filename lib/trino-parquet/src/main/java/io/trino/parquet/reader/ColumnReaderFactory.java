@@ -138,8 +138,13 @@ public final class ColumnReaderFactory
             if (REAL.equals(type) && primitiveType == FLOAT) {
                 return new FlatColumnReader<>(field, ValueDecoders::getRealDecoder, INT_ADAPTER, memoryContext);
             }
-            if (DOUBLE.equals(type) && primitiveType == PrimitiveTypeName.DOUBLE) {
-                return new FlatColumnReader<>(field, ValueDecoders::getDoubleDecoder, LONG_ADAPTER, memoryContext);
+            if (DOUBLE.equals(type)) {
+                if (primitiveType == PrimitiveTypeName.DOUBLE) {
+                    return new FlatColumnReader<>(field, ValueDecoders::getDoubleDecoder, LONG_ADAPTER, memoryContext);
+                }
+                if (primitiveType == FLOAT) {
+                    return new FlatColumnReader<>(field, TransformingValueDecoders::getFloatToDoubleDecoder, LONG_ADAPTER, memoryContext);
+                }
             }
             if (type instanceof TimestampType timestampType && primitiveType == INT96) {
                 if (timestampType.isShort()) {
