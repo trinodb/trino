@@ -14,7 +14,6 @@
 package io.trino.operator.project;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.airlift.slice.SizeOf;
 import io.trino.array.ReferenceCountMap;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DriverYieldSignal;
@@ -294,7 +293,7 @@ public class PageProcessor
         private void updateRetainedSize()
         {
             // increment the size only when it is the first reference
-            retainedSizeInBytes = Page.INSTANCE_SIZE + SizeOf.sizeOfObjectArray(page.getChannelCount());
+            retainedSizeInBytes = Page.getInstanceSizeInBytes(page.getChannelCount());
             ReferenceCountMap referenceCountMap = new ReferenceCountMap();
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 Block block = page.getBlock(channel);
