@@ -66,7 +66,7 @@
         <dep.confluent.version>5.5.2</dep.confluent.version>
         <dep.casandra.version>4.14.0</dep.casandra.version>
         <dep.minio.version>7.1.4</dep.minio.version>
-        <dep.iceberg.version>1.1.0</dep.iceberg.version>
+        <dep.iceberg.version>1.2.0</dep.iceberg.version>
         <dep.spotbugs-annotations.version>4.7.2</dep.spotbugs-annotations.version>
         <dep.protobuf.version>3.21.6</dep.protobuf.version>
         <dep.wire.version>3.2.2</dep.wire.version>
@@ -197,6 +197,14 @@
         <module>testing/trino-testing-services</module>
         <module>testing/trino-tests</module>
     </modules>
+
+    <repositories>
+        <repository>
+            <id>iceberg-release-candidate</id>
+            <name>Iceberg Release Candidate</name>
+            <url>https://repository.apache.org/content/repositories/orgapacheiceberg-1121/</url>
+        </repository>
+    </repositories>
 
     <dependencyManagement>
         <dependencies>
