@@ -152,6 +152,7 @@ public class CachingHiveMetastore
         requireNonNull(executor, "executor is null");
 
         CacheFactory cacheFactory = cacheFactory(expiresAfterWriteMillis, refreshMills, executor, maximumSize, statsRecording);
+        CacheFactory partitionCacheFactory = partitionCacheEnabled ? cacheFactory : neverCacheFactory();
         databaseNamesCache = cacheFactory.buildCache(ignored -> loadAllDatabases());
         databaseCache = cacheFactory.buildCache(this::loadDatabase);
         tableNamesCache = cacheFactory.buildCache(this::loadAllTables);
@@ -165,17 +166,9 @@ public class CachingHiveMetastore
         grantedPrincipalsCache = cacheFactory.buildCache(this::loadPrincipals);
         configValuesCache = cacheFactory.buildCache(this::loadConfigValue);
 
-        if (partitionCacheEnabled) {
-            // disable refresh since it can't use the bulk loading and causes too many requests
-            partitionStatisticsCache = cacheFactory.buildCache(this::loadPartitionColumnStatistics, this::loadPartitionsColumnStatistics);
-            partitionFilterCache = cacheFactory.buildCache(this::loadPartitionNamesByFilter);
-            partitionCache = cacheFactory.buildCache(this::loadPartitionByName, this::loadPartitionsByNames);
-        }
-        else {
-            partitionStatisticsCache = neverCache(this::loadPartitionColumnStatistics, this::loadPartitionsColumnStatistics);
-            partitionFilterCache = neverCache(this::loadPartitionNamesByFilter);
-            partitionCache = neverCache(this::loadPartitionByName, this::loadPartitionsByNames);
-        }
+        partitionStatisticsCache = partitionCacheFactory.buildCache(this::loadPartitionColumnStatistics, this::loadPartitionsColumnStatistics);
+        partitionFilterCache = partitionCacheFactory.buildCache(this::loadPartitionNamesByFilter);
+        partitionCache = partitionCacheFactory.buildCache(this::loadPartitionByName, this::loadPartitionsByNames);
     }
 
     private static <K, V> LoadingCache<K, V> neverCache(com.google.common.base.Function<K, V> loader)
@@ -1035,7 +1028,26 @@ public class CachingHiveMetastore
             @Override
             public <K, V> LoadingCache<K, V> buildCache(com.google.common.base.Function<K, V> loader, Function<Iterable<K>, Map<K, V>> bulkLoader)
             {
+                // disable refresh since it can't use the bulk loading and causes too many requests
                 return CachingHiveMetastore.buildCache(expiresAfterWriteMillis, maximumSize, statsRecording, loader, bulkLoader);
+            }
+        };
+    }
+
+    private static CacheFactory neverCacheFactory()
+    {
+        return new CacheFactory()
+        {
+            @Override
+            public <K, V> LoadingCache<K, V> buildCache(com.google.common.base.Function<K, V> loader)
+            {
+                return neverCache(loader);
+            }
+
+            @Override
+            public <K, V> LoadingCache<K, V> buildCache(com.google.common.base.Function<K, V> loader, Function<Iterable<K>, Map<K, V>> bulkLoader)
+            {
+                return neverCache(loader, bulkLoader);
             }
         };
     }
