@@ -176,17 +176,12 @@ public class SnowflakeJdbcClientModule
     }
 
     /**
-     * The Snowflake JDBC requires reflective access to certain Java internals in Java 17.
+     * The Snowflake JDBC requires reflective access to certain Java internals since Java 17.
      *
      * @throws IllegalArgumentException if the appropriate arguments were not provided to the JVM.
      */
     public static void verifyPackageAccessAllowed(Binder binder)
     {
-        if (Runtime.version().compareToIgnoreOptional(Runtime.Version.parse("17")) < 0) {
-            // No need to modify access before Java 17
-            return;
-        }
-
         // Match an --add-opens argument that opens a package to unnamed modules.
         // The first group is the opened package.
         Pattern argPattern = Pattern.compile(
