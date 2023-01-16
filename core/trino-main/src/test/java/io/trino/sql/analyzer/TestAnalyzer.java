@@ -32,6 +32,7 @@ import io.trino.connector.TestingTableFunctions.PolymorphicStaticReturnTypeFunct
 import io.trino.connector.TestingTableFunctions.RequiredColumnsFunction;
 import io.trino.connector.TestingTableFunctions.TableArgumentFunction;
 import io.trino.connector.TestingTableFunctions.TableArgumentRowSemanticsFunction;
+import io.trino.connector.TestingTableFunctions.ThreeTableArgumentsFunction;
 import io.trino.connector.TestingTableFunctions.TwoScalarArgumentsFunction;
 import io.trino.connector.TestingTableFunctions.TwoTableArgumentsFunction;
 import io.trino.execution.DynamicFilterConfig;
@@ -6462,6 +6463,14 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 4:18: Partitioning columns in copartitioned tables have incompatible types");
+
+        analyze("""
+                SELECT * FROM TABLE(system.three_table_arguments_function(
+                    input1 => TABLE(SELECT 1) t1(a) PARTITION BY (a),
+                    input2 => TABLE(SELECT 2) t2(b) PARTITION BY (b),
+                    input3 => TABLE(SELECT 3)
+                    COPARTITION (t1, t2)))
+                """);
     }
 
     @Test
@@ -7040,6 +7049,7 @@ public class TestAnalyzer
                         new TableArgumentRowSemanticsFunction(),
                         new DescriptorArgumentFunction(),
                         new TwoTableArgumentsFunction(),
+                        new ThreeTableArgumentsFunction(),
                         new OnlyPassThroughFunction(),
                         new MonomorphicStaticReturnTypeFunction(),
                         new PolymorphicStaticReturnTypeFunction(),

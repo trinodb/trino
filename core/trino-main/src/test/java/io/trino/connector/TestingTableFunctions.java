@@ -253,6 +253,40 @@ public class TestingTableFunctions
         }
     }
 
+    public static class ThreeTableArgumentsFunction
+            extends AbstractConnectorTableFunction
+    {
+        public ThreeTableArgumentsFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "three_table_arguments_function",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT1")
+                                    .build(),
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT2")
+                                    .build(),
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT3")
+                                    .build()),
+                    GENERIC_TABLE);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(HANDLE)
+                    .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(COLUMN_NAME, Optional.of(BOOLEAN)))))
+                    .requiredColumns("INPUT1", ImmutableList.of(0))
+                    .requiredColumns("INPUT2", ImmutableList.of(0))
+                    .requiredColumns("INPUT3", ImmutableList.of(0))
+                    .build();
+        }
+    }
+
     public static class OnlyPassThroughFunction
             extends AbstractConnectorTableFunction
     {

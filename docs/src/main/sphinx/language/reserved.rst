@@ -17,6 +17,7 @@ Keyword                        SQL:2016      SQL-92
 ``CASE``                       reserved      reserved
 ``CAST``                       reserved      reserved
 ``CONSTRAINT``                 reserved      reserved
+``COPARTITION``
 ``CREATE``                     reserved      reserved
 ``CROSS``                      reserved      reserved
 ``CUBE``                       reserved
