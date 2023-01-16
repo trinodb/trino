@@ -18,12 +18,17 @@ import io.trino.operator.HashArraySizeSupplier;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
+import java.util.List;
 
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.SizeOf.sizeOfByteArray;
+import static io.airlift.slice.SizeOf.sizeOfIntArray;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
@@ -52,6 +57,20 @@ public final class DefaultPagesHash
     // to accessing values in blocks. We use bytes to reduce memory foot print
     // and there is no performance gain from storing full hashes
     private final byte[] positionToHashes;
+
+    public static long getEstimatedRetainedSizeInBytes(
+            int positionCount,
+            HashArraySizeSupplier hashArraySizeSupplier,
+            LongArrayList addresses,
+            List<List<Block>> channels,
+            long blocksSizeInBytes)
+    {
+        return sizeOf(addresses.elements()) +
+                (channels.size() > 0 ? (sizeOfObjectArray(channels.get(0).size()) * channels.size()) : 0) +
+                blocksSizeInBytes +
+                sizeOfIntArray(hashArraySizeSupplier.getHashArraySize(positionCount)) +
+                sizeOfByteArray(positionCount);
+    }
 
     public DefaultPagesHash(
             LongArrayList addresses,

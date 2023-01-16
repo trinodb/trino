@@ -29,6 +29,8 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.SizeOf.sizeOfIntArray;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static java.lang.Math.toIntExact;
@@ -198,6 +200,15 @@ public final class SortedPositionLinks
     public long getSizeInBytes()
     {
         return sizeInBytes;
+    }
+
+    public static long getEstimatedRetainedSizeInBytes(int positionCount)
+    {
+        return INSTANCE_SIZE
+                // positionLinks
+                + ArrayPositionLinks.getEstimatedRetainedSizeInBytes(positionCount)
+                // sortedPositionLinks (one element per position in int[][] + one integer per position in worst case scenario)
+                + sizeOfObjectArray(positionCount) + sizeOfIntArray(positionCount);
     }
 
     @Override
