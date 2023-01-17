@@ -322,7 +322,6 @@ public class HashBuilderOperator
             return;
         }
 
-        lookupSourceSupplier = null;
         close();
     }
 
