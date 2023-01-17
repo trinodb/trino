@@ -156,6 +156,12 @@
             <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-hive-hadoop2</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.alluxio</groupId>
+                    <artifactId>alluxio-shaded-client</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -201,6 +207,12 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-hive-hadoop2</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.alluxio</groupId>
+                    <artifactId>alluxio-shaded-client</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
