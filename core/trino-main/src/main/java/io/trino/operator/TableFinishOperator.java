@@ -59,7 +59,7 @@ public class TableFinishOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final TableFinisher tableFinisher;
-        private final OperatorFactory statisticsAggregationOperatorFactory;
+        private final OperatorFactory statisticsAggregationOperatorFactory; // This operator contains a factory of another operator...
         private final StatisticAggregationsDescriptor<Integer> descriptor;
         private final TableExecuteContextManager tableExecuteContextManager;
         private final boolean outputRowCount;

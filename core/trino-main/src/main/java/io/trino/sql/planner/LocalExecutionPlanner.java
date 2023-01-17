@@ -3634,6 +3634,16 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(new LocalExchangeSourceOperatorFactory(context.getNextOperatorId(), node.getId(), localExchange), makeLayout(node), context);
         }
 
+//        @Override
+//        public PhysicalOperation visitMPDecision(MPDecision node, LocalExecutionPlanContext context)
+//        {
+//            // Can't be done here, because we still don't have a single split at this point
+//            pageSourceProvider.getChosenMicroPlan(session, split, table, node.getSources(), columns);
+//
+//            // Instead we should create OperatorFactory for each option (or PhysicalOperation?)
+//            // new MPOperator(...)
+//        }
+
         @Override
         protected PhysicalOperation visitPlan(PlanNode node, LocalExecutionPlanContext context)
         {

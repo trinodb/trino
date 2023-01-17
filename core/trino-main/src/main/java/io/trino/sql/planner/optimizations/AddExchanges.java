@@ -578,8 +578,10 @@ public class AddExchanges
                         true,
                         session,
                         symbolAllocator,
+                        idAllocator,
                         plannerContext,
                         typeAnalyzer,
+                        false,
                         statsProvider,
                         domainTranslator);
                 if (plan.isPresent()) {

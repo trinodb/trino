@@ -603,6 +603,7 @@ public class SqlTaskExecution
             }
         }
 
+        // input splits
         public void enqueueSplits(Set<ScheduledSplit> splits, boolean noMoreSplits)
         {
             verify(driverFactory.getSourceId().isPresent(), "not a source driver");
@@ -695,6 +696,7 @@ public class SqlTaskExecution
         }
     }
 
+    // driver+split
     private static class DriverSplitRunner
             implements SplitRunner
     {
@@ -746,6 +748,7 @@ public class SqlTaskExecution
                 }
 
                 if (this.driver == null) {
+                    //
                     this.driver = driverSplitRunnerFactory.createDriver(driverContext, partitionedSplit);
                 }
 

@@ -243,6 +243,7 @@ public class SqlTaskManager
             DataSize maxQueryUserMemoryPerNode,
             DataSize maxQuerySpillPerNode)
     {
+        // Here decided on the plan
         return new QueryContext(
                 queryId,
                 maxQueryUserMemoryPerNode,

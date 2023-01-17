@@ -33,6 +33,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
+// HERE we park pageSource if we don't have CPI
 public class PrioritizedSplitRunner
         implements Comparable<PrioritizedSplitRunner>
 {
@@ -41,7 +42,7 @@ public class PrioritizedSplitRunner
     private static final Logger log = Logger.get(PrioritizedSplitRunner.class);
 
     // each time we run a split, run it for this length before returning to the pool
-    public static final Duration SPLIT_RUN_QUANTA = new Duration(1, TimeUnit.SECONDS);
+    public static final Duration SPLIT_RUN_QUANTA = new Duration(1, TimeUnit.SECONDS);  // decided by this
 
     private final long createdNanos = System.nanoTime();
 
@@ -150,6 +151,7 @@ public class PrioritizedSplitRunner
         return waitNanos.get();
     }
 
+    // Split and its driver - lazyness
     public ListenableFuture<Void> process()
     {
         try {
@@ -162,7 +164,7 @@ public class PrioritizedSplitRunner
 
             // Do not collect user vs system components of CPU time since it's more expensive and not used here
             CpuTimer timer = new CpuTimer(ticker, false);
-            ListenableFuture<Void> blocked = split.processFor(SPLIT_RUN_QUANTA);
+            ListenableFuture<Void> blocked = split.processFor(SPLIT_RUN_QUANTA);    // here
             CpuTimer.CpuDuration elapsed = timer.elapsedTime();
 
             long endNanos = ticker.read();

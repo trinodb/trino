@@ -242,7 +242,7 @@ public class Driver
         // add new splits
         SourceOperator sourceOperator = this.sourceOperator.orElseThrow(VerifyException::new);
         for (ScheduledSplit newSplit : newSplits) {
-            Split split = newSplit.getSplit();
+            Split split = newSplit.getSplit();  // Split
 
             sourceOperator.addSplit(split);
         }
@@ -378,6 +378,7 @@ public class Driver
             rootOperator.getOperatorContext().recordFinish(operationTimer);
         }
 
+        // Executed one after the other (pipeline)
         boolean movedPage = false;
         for (int i = 0; i < activeOperators.size() - 1 && !driverContext.isDone(); i++) {
             Operator current = activeOperators.get(i);
@@ -391,6 +392,9 @@ public class Driver
             // if the current operator is not finished and next operator isn't blocked and needs input...
             if (!current.isFinished() && getBlockedFuture(next).isEmpty() && next.needsInput()) {
                 // get an output page from current operator
+                // When aggregationOperator still can't return output because it hasn't gotten all the inputs yet, it returns null
+                // (but returns false on isFinished())
+                // So we can do the same in my approach - read a page internally and return null if there are more pages to be read
                 Page page = current.getOutput();
                 current.getOperatorContext().recordGetOutput(operationTimer, page);
 

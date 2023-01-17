@@ -78,6 +78,7 @@ public class DriverContext
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
     private final long splitWeight;
 
+    // create 3 DriverContexts and choose one of them per Split?
     public DriverContext(
             PipelineContext pipelineContext,
             Executor notificationExecutor,

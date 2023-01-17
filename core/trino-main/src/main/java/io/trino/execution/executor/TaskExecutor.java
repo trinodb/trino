@@ -520,7 +520,7 @@ public class TaskExecutor
 
                         ListenableFuture<Void> blocked;
                         try {
-                            blocked = split.process();
+                            blocked = split.process(); //
                         }
                         finally {
                             runningSplitInfos.remove(splitInfo);

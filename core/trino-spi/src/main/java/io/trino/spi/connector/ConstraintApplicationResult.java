@@ -16,9 +16,12 @@ package io.trino.spi.connector;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class ConstraintApplicationResult<T>
@@ -27,6 +30,7 @@ public class ConstraintApplicationResult<T>
     private final TupleDomain<ColumnHandle> remainingFilter;
     private final Optional<ConnectorExpression> remainingExpression;
     private final boolean precalculateStatistics;
+    private final List<ConstraintApplicationResult<T>> secondaryMicroPlans;
 
     /**
      * @param precalculateStatistics Indicates whether engine should consider calculating statistics based on the plan before pushdown,
@@ -34,7 +38,7 @@ public class ConstraintApplicationResult<T>
      */
     public ConstraintApplicationResult(T handle, TupleDomain<ColumnHandle> remainingFilter, boolean precalculateStatistics)
     {
-        this(handle, remainingFilter, Optional.empty(), precalculateStatistics);
+        this(handle, remainingFilter, Optional.empty(), precalculateStatistics, emptyList());
     }
 
     /**
@@ -44,7 +48,17 @@ public class ConstraintApplicationResult<T>
      */
     public ConstraintApplicationResult(T handle, TupleDomain<ColumnHandle> remainingFilter, ConnectorExpression remainingExpression, boolean precalculateStatistics)
     {
-        this(handle, remainingFilter, Optional.of(remainingExpression), precalculateStatistics);
+        this(handle, remainingFilter, Optional.of(remainingExpression), precalculateStatistics, emptyList());
+    }
+
+    public ConstraintApplicationResult(
+            T handle,
+            TupleDomain<ColumnHandle> remainingFilter,
+            ConnectorExpression remainingExpression,
+            boolean precalculateStatistics,
+            List<ConstraintApplicationResult<T>> secondaryMicroPlans)
+    {
+        this(handle, remainingFilter, Optional.of(remainingExpression), precalculateStatistics, secondaryMicroPlans);
     }
 
     /**
@@ -53,12 +67,18 @@ public class ConstraintApplicationResult<T>
      * @param precalculateStatistics Indicates whether engine should consider calculating statistics based on the plan before pushdown,
      * as the connector may be unable to provide good table statistics for {@code handle}.
      */
-    private ConstraintApplicationResult(T handle, TupleDomain<ColumnHandle> remainingFilter, Optional<ConnectorExpression> remainingExpression, boolean precalculateStatistics)
+    private ConstraintApplicationResult(
+            T handle,
+            TupleDomain<ColumnHandle> remainingFilter,
+            Optional<ConnectorExpression> remainingExpression,
+            boolean precalculateStatistics,
+            List<ConstraintApplicationResult<T>> secondaryMicroPlans)
     {
         this.handle = requireNonNull(handle, "handle is null");
         this.remainingFilter = requireNonNull(remainingFilter, "remainingFilter is null");
         this.remainingExpression = requireNonNull(remainingExpression, "remainingExpression is null");
         this.precalculateStatistics = precalculateStatistics;
+        this.secondaryMicroPlans = requireNonNull(secondaryMicroPlans, "secondaryMicroPlans is null");
     }
 
     public T getHandle()
@@ -81,8 +101,17 @@ public class ConstraintApplicationResult<T>
         return precalculateStatistics;
     }
 
+    public List<ConstraintApplicationResult<T>> getSecondaryMicroPlans()
+    {
+        return secondaryMicroPlans;
+    }
+
     public <U> ConstraintApplicationResult<U> transform(Function<T, U> transformHandle)
     {
-        return new ConstraintApplicationResult<>(transformHandle.apply(handle), remainingFilter, remainingExpression, precalculateStatistics);
+        U transformedHandle = transformHandle.apply(handle);
+        List<ConstraintApplicationResult<U>> transformedMicroPlans = secondaryMicroPlans.stream()
+                .map(mp -> mp.transform(transformHandle))
+                .collect(Collectors.toList());
+        return new ConstraintApplicationResult<>(transformedHandle, remainingFilter, remainingExpression, precalculateStatistics, transformedMicroPlans);
     }
 }

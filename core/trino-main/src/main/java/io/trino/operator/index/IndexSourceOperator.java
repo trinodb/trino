@@ -88,7 +88,7 @@ public class IndexSourceOperator
     private final ConnectorIndex index;
     private final Function<RecordSet, RecordSet> probeKeyNormalizer;
 
-    private Operator source;
+    private Operator source;    // We already have a case of an Operator within an Operator
 
     public IndexSourceOperator(
             OperatorContext operatorContext,

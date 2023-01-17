@@ -36,6 +36,7 @@ public class Constraint
     private final Map<String, ColumnHandle> assignments;
     private final Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate;
     private final Optional<Set<ColumnHandle>> predicateColumns;
+    private final boolean isMicroPlaning;
 
     public static Constraint alwaysTrue()
     {
@@ -49,17 +50,22 @@ public class Constraint
 
     public Constraint(TupleDomain<ColumnHandle> summary)
     {
-        this(summary, TRUE, Map.of(), Optional.empty(), Optional.empty());
+        this(summary, TRUE, Map.of(), Optional.empty(), Optional.empty(), false);
     }
 
     public Constraint(TupleDomain<ColumnHandle> summary, Predicate<Map<ColumnHandle, NullableValue>> predicate, Set<ColumnHandle> predicateColumns)
     {
-        this(summary, TRUE, Map.of(), Optional.of(predicate), Optional.of(predicateColumns));
+        this(summary, TRUE, Map.of(), Optional.of(predicate), Optional.of(predicateColumns), false);
     }
 
     public Constraint(TupleDomain<ColumnHandle> summary, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
-        this(summary, expression, assignments, Optional.empty(), Optional.empty());
+        this(summary, expression, assignments, Optional.empty(), Optional.empty(), false);
+    }
+
+    public Constraint(TupleDomain<ColumnHandle> summary, ConnectorExpression expression, Map<String, ColumnHandle> assignments, boolean isMicroPlaning)
+    {
+        this(summary, expression, assignments, Optional.empty(), Optional.empty(), isMicroPlaning);
     }
 
     public Constraint(
@@ -69,7 +75,18 @@ public class Constraint
             Predicate<Map<ColumnHandle, NullableValue>> predicate,
             Set<ColumnHandle> predicateColumns)
     {
-        this(summary, expression, assignments, Optional.of(predicate), Optional.of(predicateColumns));
+        this(summary, expression, assignments, Optional.of(predicate), Optional.of(predicateColumns), false);
+    }
+
+    public Constraint(
+            TupleDomain<ColumnHandle> summary,
+            ConnectorExpression expression,
+            Map<String, ColumnHandle> assignments,
+            Predicate<Map<ColumnHandle, NullableValue>> predicate,
+            Set<ColumnHandle> predicateColumns,
+            boolean isMicroPlaning)
+    {
+        this(summary, expression, assignments, Optional.of(predicate), Optional.of(predicateColumns), isMicroPlaning);
     }
 
     private Constraint(
@@ -77,13 +94,15 @@ public class Constraint
             ConnectorExpression expression,
             Map<String, ColumnHandle> assignments,
             Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate,
-            Optional<Set<ColumnHandle>> predicateColumns)
+            Optional<Set<ColumnHandle>> predicateColumns,
+            boolean isMicroPlaning)
     {
         this.summary = requireNonNull(summary, "summary is null");
         this.expression = requireNonNull(expression, "expression is null");
         this.assignments = Map.copyOf(requireNonNull(assignments, "assignments is null"));
         this.predicate = requireNonNull(predicate, "predicate is null");
         this.predicateColumns = predicateColumns.map(Set::copyOf);
+        this.isMicroPlaning = isMicroPlaning;
 
         if (predicateColumns.isPresent() && predicate.isEmpty()) {
             throw new IllegalArgumentException("predicateColumns cannot be present when predicate is not present");
@@ -139,6 +158,11 @@ public class Constraint
         return predicateColumns;
     }
 
+    public boolean isMicroPlaning()
+    {
+        return isMicroPlaning;
+    }
+
     @Override
     public String toString()
     {
@@ -147,6 +171,7 @@ public class Constraint
         stringJoiner.add("expression=" + expression);
         predicate.ifPresent(predicate -> stringJoiner.add("predicate=" + predicate));
         predicateColumns.ifPresent(predicateColumns -> stringJoiner.add("predicateColumns=" + predicateColumns));
+        stringJoiner.add("isMicroPlaning=" + isMicroPlaning);
         return stringJoiner.toString();
     }
 }

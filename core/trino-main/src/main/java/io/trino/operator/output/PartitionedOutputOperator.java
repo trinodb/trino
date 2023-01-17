@@ -151,6 +151,7 @@ public class PartitionedOutputOperator
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
+            //
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, PartitionedOutputOperator.class.getSimpleName());
             return new PartitionedOutputOperator(
                     operatorContext,

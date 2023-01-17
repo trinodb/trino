@@ -21,13 +21,38 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface PageSourceProvider
 {
+    @Deprecated
     ConnectorPageSource createPageSource(
             Session session,
             Split split,
             TableHandle table,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter);
+
+    // TODO: How to indicate that one and only one of planToColumns and columns should present and if planToColumns is present it should contain at least one entry?
+//    default ConnectorPageSource createPageSource(
+//            Session session,
+//            Split split,
+//            TableHandle table,
+//            Optional<List<Pair<MicroPlanHandle, List<ColumnHandle>>>> planToColumns,
+//            Optional<List<ColumnHandle>> columns,
+//            DynamicFilter dynamicFilter)
+//    {
+//        List<ColumnHandle> transferredColumns = columns.orElse(planToColumns.get().get(0).right);
+//        return createPageSource(
+//                session,
+//                split,
+//                table,
+//                transferredColumns,
+//                dynamicFilter);
+//    }
+
+    default Optional<Integer> getChosenMicroPlan()
+    {
+        return Optional.empty();
+    }
 }
