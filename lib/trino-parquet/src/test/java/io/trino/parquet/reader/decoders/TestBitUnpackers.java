@@ -50,10 +50,62 @@ public class TestBitUnpackers
         }
     }
 
+    @Test(dataProvider = "deltaLength")
+    public void testIntDeltaUnpack(int length)
+    {
+        for (int bitWidth = 0; bitWidth <= 32; bitWidth++) {
+            Random random = new Random(123L * length * bitWidth);
+            byte[] buffer = new byte[(bitWidth * length) / Byte.SIZE + 1];
+            random.nextBytes(buffer);
+
+            int[] parquetUnpackerOutput = new int[length + 1];
+            int[] optimizedUnpackerOutput = new int[length + 1];
+            int firstValue = random.nextInt();
+            parquetUnpackerOutput[0] = firstValue;
+            optimizedUnpackerOutput[0] = firstValue;
+            ApacheParquetIntUnpacker parquetUnpacker = new ApacheParquetIntUnpacker(bitWidth);
+            parquetUnpacker.unpackDelta(parquetUnpackerOutput, 1, asSliceStream(buffer), length);
+            DeltaPackingUtils.unpackDelta(optimizedUnpackerOutput, 1, length, asSliceStream(buffer), 0, (byte) bitWidth);
+
+            assertThat(optimizedUnpackerOutput)
+                    .as("Error at bit width %d", bitWidth)
+                    .isEqualTo(parquetUnpackerOutput);
+        }
+    }
+
+    @Test(dataProvider = "deltaLength")
+    public void testLongDeltaUnpack(int length)
+    {
+        for (int bitWidth = 0; bitWidth <= 64; bitWidth++) {
+            Random random = new Random(123L * length * bitWidth);
+            byte[] buffer = new byte[(bitWidth * length) / Byte.SIZE + 1];
+            random.nextBytes(buffer);
+
+            long[] parquetUnpackerOutput = new long[length + 1];
+            long[] optimizedUnpackerOutput = new long[length + 1];
+            long firstValue = random.nextLong();
+            parquetUnpackerOutput[0] = firstValue;
+            optimizedUnpackerOutput[0] = firstValue;
+            ApacheParquetLongUnpacker parquetUnpacker = new ApacheParquetLongUnpacker(bitWidth);
+            parquetUnpacker.unpackDelta(parquetUnpackerOutput, 1, asSliceStream(buffer), length);
+            DeltaPackingUtils.unpackDelta(optimizedUnpackerOutput, 1, length, asSliceStream(buffer), 0, (byte) bitWidth);
+
+            assertThat(optimizedUnpackerOutput)
+                    .as("Error at bit width %d", bitWidth)
+                    .isEqualTo(parquetUnpackerOutput);
+        }
+    }
+
     @DataProvider(name = "length")
     public static Object[][] length()
     {
         return new Object[][] {{24}, {72}, {168}, {304}, {376}, {8192}};
+    }
+
+    @DataProvider(name = "deltaLength")
+    public static Object[][] deltaLength()
+    {
+        return new Object[][] {{8192}, {32768}};
     }
 
     private SimpleSliceInputStream asSliceStream(byte[] buffer)

@@ -55,37 +55,6 @@ public class ApacheParquetValueDecoders
 {
     private ApacheParquetValueDecoders() {}
 
-    public static final class IntApacheParquetValueDecoder
-            implements ValueDecoder<int[]>
-    {
-        private final ValuesReader delegate;
-
-        public IntApacheParquetValueDecoder(ValuesReader delegate)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-        }
-
-        @Override
-        public void init(SimpleSliceInputStream input)
-        {
-            initialize(input, delegate);
-        }
-
-        @Override
-        public void read(int[] values, int offset, int length)
-        {
-            for (int i = offset; i < offset + length; i++) {
-                values[i] = delegate.readInteger();
-            }
-        }
-
-        @Override
-        public void skip(int n)
-        {
-            delegate.skip(n);
-        }
-    }
-
     public static final class ShortApacheParquetValueDecoder
             implements ValueDecoder<short[]>
     {
@@ -169,37 +138,6 @@ public class ApacheParquetValueDecoders
         {
             for (int i = offset; i < offset + length; i++) {
                 values[i] = delegate.readInteger();
-            }
-        }
-
-        @Override
-        public void skip(int n)
-        {
-            delegate.skip(n);
-        }
-    }
-
-    public static final class LongApacheParquetValueDecoder
-            implements ValueDecoder<long[]>
-    {
-        private final ValuesReader delegate;
-
-        public LongApacheParquetValueDecoder(ValuesReader delegate)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-        }
-
-        @Override
-        public void init(SimpleSliceInputStream input)
-        {
-            initialize(input, delegate);
-        }
-
-        @Override
-        public void read(long[] values, int offset, int length)
-        {
-            for (int i = offset; i < offset + length; i++) {
-                values[i] = delegate.readLong();
             }
         }
 

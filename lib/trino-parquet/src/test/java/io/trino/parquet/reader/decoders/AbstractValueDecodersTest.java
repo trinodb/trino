@@ -31,6 +31,8 @@ import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
 import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.ValuesWriter;
+import org.apache.parquet.column.values.delta.DeltaBinaryPackingValuesWriterForInteger;
+import org.apache.parquet.column.values.delta.DeltaBinaryPackingValuesWriterForLong;
 import org.apache.parquet.column.values.plain.BooleanPlainValuesWriter;
 import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
@@ -58,6 +60,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.parquet.ParquetEncoding.DELTA_BINARY_PACKED;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
@@ -366,6 +369,13 @@ public abstract class AbstractValueDecodersTest
                 case FLOAT -> new PlainFloatDictionaryValuesWriter(MAX_VALUE, RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
                 case DOUBLE -> new PlainDoubleDictionaryValuesWriter(MAX_VALUE, RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
                 default -> throw new IllegalArgumentException("Dictionary encoding writer is not supported for type " + typeName);
+            };
+        }
+        if (encoding.equals(DELTA_BINARY_PACKED)) {
+            return switch (typeName) {
+                case INT32 -> new DeltaBinaryPackingValuesWriterForInteger(MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
+                case INT64 -> new DeltaBinaryPackingValuesWriterForLong(MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
+                default -> throw new IllegalArgumentException("Delta binary packing encoding writer is not supported for type " + typeName);
             };
         }
         throw new UnsupportedOperationException(format("Encoding %s is not supported", encoding));
