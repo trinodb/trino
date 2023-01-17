@@ -724,6 +724,25 @@ The output of the query has the following columns:
     - ``boolean``
     - Whether or not the operation appended data
 
+Functions
+---------------
+
+The connector exposes following functions:
+
+table_changes
+^^^^^^^^^^^^^
+
+Allows reading CDF entries:
+
+.. code-block:: sql
+
+    SELECT * FROM TABLE(system.table_changes('test_schema.test_table', startVersion, endVersion)
+
+``startVersion`` - type ``BIGINT``, exclusive, changes will be read from ``startVersion + 1``
+
+``endVersion`` - type ``BIGINT``, inclusive, changes will be read up to endVersion
+
+If ``startVersion`` is not provided  entire history will be read.
 
 Performance
 -----------

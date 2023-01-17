@@ -507,6 +507,64 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
         assertThereIsNoCdfFileGenerated(tableName2, "change_data_feed_enabled = false");
     }
 
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoCanReadCdfEntriesGeneratedByDatabricks()
+    {
+        String targetTableName = "test_trino_can_read_cdf_entries_generated_by_databricks_target_" + randomNameSuffix();
+        String sourceTableName = "test_trino_can_read_cdf_entries_generated_by_databricks_source_" + randomNameSuffix();
+        try {
+            onDelta().executeQuery("CREATE TABLE default." + targetTableName + " (page_id INT, page_url STRING, views INT) " +
+                    "USING DELTA " +
+                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + targetTableName + "'" +
+                    "TBLPROPERTIES (delta.enableChangeDataFeed = true)");
+            onDelta().executeQuery("CREATE TABLE default." + sourceTableName + " (page_id INT, page_url STRING, views INT) " +
+                    "USING DELTA " +
+                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + sourceTableName + "'");
+
+            onDelta().executeQuery("INSERT INTO default." + targetTableName + " VALUES (1, 'pageUrl1', 100), (2, 'pageUrl2', 200), (3, 'pageUrl3', 300)");
+            onDelta().executeQuery("INSERT INTO default." + targetTableName + " VALUES (4, 'pageUrl4', 400)");
+
+            onDelta().executeQuery("INSERT INTO default." + sourceTableName + " VALUES (1000, 'pageUrl1000', 1000), (2, 'pageUrl2', 20000)");
+            onDelta().executeQuery("INSERT INTO default." + sourceTableName + " VALUES (3000, 'pageUrl3000', 3000), (4, 'pageUrl4000', 4000)");
+
+            onDelta().executeQuery("MERGE INTO default." + targetTableName + " targetTable USING default." + sourceTableName + " sourceTable " +
+                    "ON (targetTable.page_id = sourceTable.page_id) " +
+                    "WHEN MATCHED AND targetTable.page_id = 2 " +
+                    "THEN DELETE " +
+                    "WHEN MATCHED AND targetTable.page_id > 2 " +
+                    "THEN UPDATE SET views = (targetTable.views + sourceTable.views) " +
+                    "WHEN NOT MATCHED " +
+                    "THEN INSERT (page_id, page_url, views) VALUES (sourceTable.page_id, sourceTable.page_url, sourceTable.views)");
+            onDelta().executeQuery("DELETE FROM default." + targetTableName + " WHERE page_url = 'pageUrl1'");
+
+            assertThat(onDelta().executeQuery("SELECT * FROM " + targetTableName))
+                    .containsOnly(
+                            row(1000, "pageUrl1000", 1000),
+                            row(3000, "pageUrl3000", 3000),
+                            row(4, "pageUrl4", 4400),
+                            row(3, "pageUrl3", 300));
+
+            assertThat(onTrino().executeQuery(
+                    "SELECT page_id, page_url, views, _change_type, _commit_version " +
+                            "FROM TABLE(delta.system.table_changes('default', '" + targetTableName + "'))"))
+                    .containsOnly(
+                            row(1, "pageUrl1", 100, "insert", 1),
+                            row(2, "pageUrl2", 200, "insert", 1),
+                            row(3, "pageUrl3", 300, "insert", 1),
+                            row(4, "pageUrl4", 400, "insert", 2),
+                            row(1000, "pageUrl1000", 1000, "insert", 3),
+                            row(3000, "pageUrl3000", 3000, "insert", 3),
+                            row(2, "pageUrl2", 200, "delete", 3),
+                            row(4, "pageUrl4", 4400, "update_postimage", 3),
+                            row(4, "pageUrl4", 400, "update_preimage", 3),
+                            row(1, "pageUrl1", 100, "delete", 4));
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE IF EXISTS default." + targetTableName);
+            onDelta().executeQuery("DROP TABLE IF EXISTS default." + sourceTableName);
+        }
+    }
+
     private void assertThereIsNoCdfFileGenerated(String tableName, String tableProperty)
     {
         try {

@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
@@ -1073,6 +1074,236 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testReadingChangesMadeByBasicOperationsOnTableWithCdfEnabled()
+    {
+        String tableName = "test_basic_operations_on_table_with_cdf_enabled_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1), ('url2', 'domain2', 2), ('url3', 'domain3', 3)", 3);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url4', 'domain4', 4), ('url5', 'domain5', 2), ('url6', 'domain6', 6)", 3);
+
+        assertUpdate("UPDATE " + tableName + " SET page_url = 'url22' WHERE views = 2", 2);
+        MaterializedResult result = computeActual("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "'))");
+        List<MaterializedRow> resultWithoutTimestamp = getCdfColumnsWithoutTimestamp(result);
+        assertThat(resultWithoutTimestamp).containsOnly(
+                new MaterializedRow(ImmutableList.of("url1", "domain1", 1, "insert", 1)),
+                new MaterializedRow(ImmutableList.of("url2", "domain2", 2, "insert", 1)),
+                new MaterializedRow(ImmutableList.of("url3", "domain3", 3, "insert", 1)),
+                new MaterializedRow(ImmutableList.of("url4", "domain4", 4, "insert", 2)),
+                new MaterializedRow(ImmutableList.of("url5", "domain5", 2, "insert", 2)),
+                new MaterializedRow(ImmutableList.of("url6", "domain6", 6, "insert", 2)),
+                new MaterializedRow(ImmutableList.of("url2", "domain2", 2, "update_preimage", 3)),
+                new MaterializedRow(ImmutableList.of("url22", "domain2", 2, "update_postimage", 3)),
+                new MaterializedRow(ImmutableList.of("url5", "domain5", 2, "update_preimage", 3)),
+                new MaterializedRow(ImmutableList.of("url22", "domain5", 2, "update_postimage", 3)));
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE views = 2", 2);
+        result = computeActual("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 3))");
+        resultWithoutTimestamp = getCdfColumnsWithoutTimestamp(result);
+        assertThat(resultWithoutTimestamp).containsOnly(
+                new MaterializedRow(ImmutableList.of("url22", "domain2", 2, "delete", 4)),
+                new MaterializedRow(ImmutableList.of("url22", "domain5", 2, "delete", 4)));
+    }
+
+    @Test
+    public void testReadingChangesMadeByBasicOperationsOnPartitionedTableWithCdfEnabled()
+    {
+        String tableName = "test_basic_operations_on_table_with_cdf_enabled_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true, partitioned_by = ARRAY['domain'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1), ('url2', 'domain2', 2), ('url3', 'domain1', 3)", 3);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url4', 'domain1', 400), ('url5', 'domain2', 500), ('url6', 'domain3', 2)", 3);
+
+        assertUpdate("UPDATE " + tableName + " SET domain = 'domain4' WHERE views = 2", 2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES('url1', 'domain1', 1), ('url2', 'domain4', 2), ('url3', 'domain1', 3)," +
+                "('url4', 'domain1', 400), ('url5', 'domain2', 500), ('url6', 'domain4', 2)");
+        MaterializedResult result = computeActual("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "'))");
+        List<MaterializedRow> resultWithoutTimestamp = getCdfColumnsWithoutTimestamp(result);
+        assertThat(resultWithoutTimestamp).containsOnly(
+                new MaterializedRow(ImmutableList.of("url1", "domain1", 1, "insert", 1)),
+                new MaterializedRow(ImmutableList.of("url2", "domain2", 2, "insert", 1)),
+                new MaterializedRow(ImmutableList.of("url3", "domain1", 3, "insert", 1)),
+                new MaterializedRow(ImmutableList.of("url4", "domain1", 400, "insert", 2)),
+                new MaterializedRow(ImmutableList.of("url5", "domain2", 500, "insert", 2)),
+                new MaterializedRow(ImmutableList.of("url6", "domain3", 2, "insert", 2)),
+                new MaterializedRow(ImmutableList.of("url2", "domain2", 2, "update_preimage", 3)),
+                new MaterializedRow(ImmutableList.of("url2", "domain4", 2, "update_postimage", 3)),
+                new MaterializedRow(ImmutableList.of("url6", "domain3", 2, "update_preimage", 3)),
+                new MaterializedRow(ImmutableList.of("url6", "domain4", 2, "update_postimage", 3)));
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE domain = 'domain4'", 2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES('url1', 'domain1', 1), ('url3', 'domain1', 3)," +
+                "('url4', 'domain1', 400), ('url5', 'domain2', 500)");
+        result = computeActual("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 3))");
+        resultWithoutTimestamp = getCdfColumnsWithoutTimestamp(result);
+        assertThat(resultWithoutTimestamp).containsOnly(
+                new MaterializedRow(ImmutableList.of("url2", "domain4", 2, "delete", 4)),
+                new MaterializedRow(ImmutableList.of("url6", "domain4", 2, "delete", 4)));
+    }
+
+    @Test
+    public void testReadingChangesMadeByMergeInTableWithCdfEnabled()
+    {
+        String tableName1 = "test_basic_operations_on_table_with_cdf_enabled_merge_into_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName1 + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("INSERT INTO " + tableName1 + " VALUES('url1', 'domain1', 1), ('url2', 'domain2', 2), ('url3', 'domain3', 3), ('url4', 'domain4', 4)", 4);
+
+        String tableName2 = "test_basic_operations_on_table_with_cdf_enabled_merge_from_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName2 + " (page_url VARCHAR, domain VARCHAR, views INTEGER)");
+        assertUpdate("INSERT INTO " + tableName2 + " VALUES('url1', 'domain10', 10), ('url2', 'domain20', 20), ('url5', 'domain5', 50)", 3);
+        assertUpdate("INSERT INTO " + tableName2 + " VALUES('url4', 'domain40', 40)", 1);
+
+        assertUpdate("MERGE INTO " + tableName1 + " tableWithCdf USING " + tableName2 + " source " +
+                "ON (tableWithCdf.page_url = source.page_url) " +
+                "WHEN MATCHED AND tableWithCdf.views > 1 " +
+                "THEN UPDATE SET views = (tableWithCdf.views + source.views) " +
+                "WHEN MATCHED AND tableWithCdf.views <= 1 " +
+                "THEN DELETE " +
+                "WHEN NOT MATCHED " +
+                "THEN INSERT (page_url, domain, views) VALUES (source.page_url, source.domain, source.views)", 4);
+
+        assertQuery("SELECT * FROM " + tableName1,
+                "VALUES('url2', 'domain2', 22), ('url3', 'domain3', 3), ('url4', 'domain4', 44), ('url5', 'domain5', 50)");
+
+        MaterializedResult result = computeActual("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName1 + "', 0))");
+        List<MaterializedRow> resultWithoutTimestamp = getCdfColumnsWithoutTimestamp(result);
+        assertThat(resultWithoutTimestamp).containsOnly(
+                new MaterializedRow(ImmutableList.of("url1", "domain1", 1, "insert", 1)),
+                new MaterializedRow(ImmutableList.of("url2", "domain2", 2, "insert", 1)),
+                new MaterializedRow(ImmutableList.of("url3", "domain3", 3, "insert", 1)),
+                new MaterializedRow(ImmutableList.of("url4", "domain4", 4, "insert", 1)),
+                new MaterializedRow(ImmutableList.of("url4", "domain4", 4, "update_preimage", 2)),
+                new MaterializedRow(ImmutableList.of("url4", "domain4", 44, "update_postimage", 2)),
+                new MaterializedRow(ImmutableList.of("url2", "domain2", 2, "update_preimage", 2)),
+                new MaterializedRow(ImmutableList.of("url2", "domain2", 22, "update_postimage", 2)),
+                new MaterializedRow(ImmutableList.of("url1", "domain1", 1, "delete", 2)),
+                new MaterializedRow(ImmutableList.of("url5", "domain5", 50, "insert", 2)));
+    }
+
+    @Test
+    public void testReadingChangesMadeByMergeInPartitionedTableWithCdfEnabled()
+    {
+        String targetTable = "test_basic_operations_on_partitioned_table_with_cdf_enabled_target_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + targetTable + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true, partitioned_by = ARRAY['domain'])");
+        assertUpdate("INSERT INTO " + targetTable + " VALUES('url1', 'domain1', 1), ('url2', 'domain2', 2), ('url3', 'domain3', 3), ('url4', 'domain1', 4)", 4);
+
+        String sourceTable1 = "test_basic_operations_on_partitioned_table_with_cdf_enabled_source_1_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTable1 + " (page_url VARCHAR, domain VARCHAR, views INTEGER)");
+        assertUpdate("INSERT INTO " + sourceTable1 + " VALUES('url1', 'domain1', 10), ('url2', 'domain2', 20), ('url5', 'domain3', 5)", 3);
+        assertUpdate("INSERT INTO " + sourceTable1 + " VALUES('url4', 'domain2', 40)", 1);
+
+        assertUpdate("MERGE INTO " + targetTable + " target USING " + sourceTable1 + " source " +
+                "ON (target.page_url = source.page_url) " +
+                "WHEN MATCHED AND target.views > 2 " +
+                "THEN UPDATE SET views = (target.views + source.views) " +
+                "WHEN MATCHED AND target.views <= 2 " +
+                "THEN DELETE " +
+                "WHEN NOT MATCHED " +
+                "THEN INSERT (page_url, domain, views) VALUES (source.page_url, source.domain, source.views)", 4);
+
+        assertQuery("SELECT * FROM " + targetTable,
+                "VALUES('url3', 'domain3', 3), ('url4', 'domain1', 44), ('url5', 'domain3', 5)");
+
+        MaterializedResult result = computeActual("SELECT * FROM TABLE(system.table_changes('test_schema', '" + targetTable + "'))");
+        List<MaterializedRow> resultWithoutTimestamp = getCdfColumnsWithoutTimestamp(result);
+        assertThat(resultWithoutTimestamp).containsOnly(
+                new MaterializedRow(ImmutableList.of("url1", "domain1", 1, "insert", 1)),
+                new MaterializedRow(ImmutableList.of("url2", "domain2", 2, "insert", 1)),
+                new MaterializedRow(ImmutableList.of("url3", "domain3", 3, "insert", 1)),
+                new MaterializedRow(ImmutableList.of("url4", "domain1", 4, "insert", 1)),
+                new MaterializedRow(ImmutableList.of("url1", "domain1", 1, "delete", 2)),
+                new MaterializedRow(ImmutableList.of("url2", "domain2", 2, "delete", 2)),
+                new MaterializedRow(ImmutableList.of("url4", "domain1", 4, "update_preimage", 2)),
+                new MaterializedRow(ImmutableList.of("url4", "domain1", 44, "update_postimage", 2)),
+                new MaterializedRow(ImmutableList.of("url5", "domain3", 5, "insert", 2)));
+
+        String sourceTable2 = "test_basic_operations_on_partitioned_table_with_cdf_enabled_source_1_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTable2 + " (page_url VARCHAR, domain VARCHAR, views INTEGER)");
+        assertUpdate("INSERT INTO " + sourceTable2 +
+                " VALUES('url3', 'domain1', 300), ('url4', 'domain2', 400), ('url5', 'domain3', 500), ('url6', 'domain1', 600)", 4);
+
+        assertUpdate("MERGE INTO " + targetTable + " target USING " + sourceTable2 + " source " +
+                "ON (target.page_url = source.page_url) " +
+                "WHEN MATCHED AND target.views > 3 " +
+                "THEN UPDATE SET domain = source.domain, views = (source.views + target.views) " +
+                "WHEN MATCHED AND target.views <= 3 " +
+                "THEN DELETE " +
+                "WHEN NOT MATCHED " +
+                "THEN INSERT (page_url, domain, views) VALUES (source.page_url, source.domain, source.views)", 4);
+
+        assertQuery("SELECT * FROM " + targetTable,
+                "VALUES('url4', 'domain2', 444), ('url5', 'domain3', 505), ('url6', 'domain1', 600)");
+
+        result = computeActual("SELECT * FROM TABLE(system.table_changes('test_schema', '" + targetTable + "', 2))");
+        resultWithoutTimestamp = getCdfColumnsWithoutTimestamp(result);
+        assertThat(resultWithoutTimestamp).containsOnly(
+                new MaterializedRow(ImmutableList.of("url3", "domain3", 3, "delete", 3)),
+                new MaterializedRow(ImmutableList.of("url4", "domain1", 44, "update_preimage", 3)),
+                new MaterializedRow(ImmutableList.of("url4", "domain2", 444, "update_postimage", 3)),
+                new MaterializedRow(ImmutableList.of("url5", "domain3", 5, "update_preimage", 3)),
+                new MaterializedRow(ImmutableList.of("url5", "domain3", 5, "update_preimage", 3)),
+                new MaterializedRow(ImmutableList.of("url5", "domain3", 505, "update_postimage", 3)),
+                new MaterializedRow(ImmutableList.of("url6", "domain1", 600, "insert", 3)));
+    }
+
+    @Test
+    public void testReadingRangesOfChangeOnTableWithCdfEnabled()
+    {
+        String tableName = "test_reading_ranges_of_changes_on_table_with_cdf_enabled_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url2', 'domain2', 2)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url3', 'domain3', 3)", 1);
+
+        assertUpdate("UPDATE " + tableName + " SET page_url = 'url22' WHERE domain = 'domain2'", 1);
+        assertUpdate("UPDATE " + tableName + " SET page_url = 'url33' WHERE views = 3", 1);
+        assertUpdate("DELETE FROM " + tableName + " WHERE page_url = 'url1'", 1);
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES('url22', 'domain2', 2), ('url33', 'domain3', 3)");
+
+        MaterializedResult result = computeActual("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 0))");
+        List<MaterializedRow> resultWithoutTimestamp = getCdfColumnsWithoutTimestamp(result);
+        assertThat(resultWithoutTimestamp).containsOnly(
+                new MaterializedRow(ImmutableList.of("url1", "domain1", 1, "insert", 1)),
+                new MaterializedRow(ImmutableList.of("url2", "domain2", 2, "insert", 2)),
+                new MaterializedRow(ImmutableList.of("url3", "domain3", 3, "insert", 3)),
+                new MaterializedRow(ImmutableList.of("url2", "domain2", 2, "update_preimage", 4)),
+                new MaterializedRow(ImmutableList.of("url22", "domain2", 2, "update_postimage", 4)),
+                new MaterializedRow(ImmutableList.of("url3", "domain3", 3, "update_preimage", 5)),
+                new MaterializedRow(ImmutableList.of("url33", "domain3", 3, "update_postimage", 5)),
+                new MaterializedRow(ImmutableList.of("url1", "domain1", 1, "delete", 6)));
+
+        result = computeActual("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "'))");
+        resultWithoutTimestamp = getCdfColumnsWithoutTimestamp(result);
+        assertThat(resultWithoutTimestamp).containsOnly(
+                new MaterializedRow(ImmutableList.of("url1", "domain1", 1, "insert", 1)),
+                new MaterializedRow(ImmutableList.of("url2", "domain2", 2, "insert", 2)),
+                new MaterializedRow(ImmutableList.of("url3", "domain3", 3, "insert", 3)),
+                new MaterializedRow(ImmutableList.of("url2", "domain2", 2, "update_preimage", 4)),
+                new MaterializedRow(ImmutableList.of("url22", "domain2", 2, "update_postimage", 4)),
+                new MaterializedRow(ImmutableList.of("url3", "domain3", 3, "update_preimage", 5)),
+                new MaterializedRow(ImmutableList.of("url33", "domain3", 3, "update_postimage", 5)),
+                new MaterializedRow(ImmutableList.of("url1", "domain1", 1, "delete", 6)));
+
+        result = computeActual("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 0, 3))");
+        resultWithoutTimestamp = getCdfColumnsWithoutTimestamp(result);
+        assertThat(resultWithoutTimestamp).containsOnly(
+                new MaterializedRow(ImmutableList.of("url1", "domain1", 1, "insert", 1)),
+                new MaterializedRow(ImmutableList.of("url2", "domain2", 2, "insert", 2)),
+                new MaterializedRow(ImmutableList.of("url3", "domain3", 3, "insert", 3)));
+
+        result = computeActual("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 3, 5))");
+        resultWithoutTimestamp = getCdfColumnsWithoutTimestamp(result);
+        assertThat(resultWithoutTimestamp).containsOnly(
+                new MaterializedRow(ImmutableList.of("url2", "domain2", 2, "update_preimage", 4)),
+                new MaterializedRow(ImmutableList.of("url22", "domain2", 2, "update_postimage", 4)),
+                new MaterializedRow(ImmutableList.of("url3", "domain3", 3, "update_preimage", 5)),
+                new MaterializedRow(ImmutableList.of("url33", "domain3", 3, "update_postimage", 5)));
+
+        result = computeActual("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 5))");
+        resultWithoutTimestamp = getCdfColumnsWithoutTimestamp(result);
+        assertThat(resultWithoutTimestamp).containsOnly(new MaterializedRow(ImmutableList.of("url1", "domain1", 1, "delete", 6)));
+    }
+
     @Override
     protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
     {
@@ -1139,5 +1370,13 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     {
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
                 .matches(Pattern.compile(expectedRegex, Pattern.DOTALL));
+    }
+
+    private List<MaterializedRow> getCdfColumnsWithoutTimestamp(MaterializedResult materializedResult)
+    {
+        List<MaterializedRow> materializedRows = materializedResult.getMaterializedRows();
+        return materializedRows.stream()
+                .map(row -> new MaterializedRow(ImmutableList.of(row.getField(0), row.getField(1), row.getField(2), row.getField(3), row.getField(4))))
+                .collect(toImmutableList());
     }
 }

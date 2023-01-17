@@ -2750,7 +2750,7 @@ public class DeltaLakeMetadata
         return toColumnHandle(column, OptionalInt.empty(), physicalName, physicalType, partitionColumns);
     }
 
-    private static DeltaLakeColumnHandle toColumnHandle(ColumnMetadata column, OptionalInt fieldId, String physicalName, Type physicalType, Collection<String> partitionColumns)
+    public static DeltaLakeColumnHandle toColumnHandle(ColumnMetadata column, OptionalInt fieldId, String physicalName, Type physicalType, Collection<String> partitionColumns)
     {
         boolean isPartitionKey = partitionColumns.stream().anyMatch(partition -> partition.equalsIgnoreCase(column.getName()));
         return new DeltaLakeColumnHandle(

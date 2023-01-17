@@ -63,7 +63,9 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.security.ConnectorIdentity;
 
 import javax.inject.Singleton;
@@ -150,6 +152,9 @@ public class DeltaLakeModule
 
         Multibinder<TableProcedureMetadata> tableProcedures = newSetBinder(binder, TableProcedureMetadata.class);
         tableProcedures.addBinding().toProvider(OptimizeTableProcedure.class).in(Scopes.SINGLETON);
+
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(DeltaLakeTableFunctionsProvider.class).in(Scopes.SINGLETON);
+        binder.bind(FunctionProvider.class).to(DeltaLakeFunctionProvider.class).in(Scopes.SINGLETON);
     }
 
     @Singleton

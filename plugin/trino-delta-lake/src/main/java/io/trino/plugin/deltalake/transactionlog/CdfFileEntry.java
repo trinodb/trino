@@ -14,16 +14,21 @@
 package io.trino.plugin.deltalake.transactionlog;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Map;
+import java.util.Optional;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.canonicalizeColumnName;
 import static java.lang.String.format;
 
 public class CdfFileEntry
 {
     private final String path;
     private final Map<String, String> partitionValues;
+    private final Map<String, Optional<String>> canonicalPartitionValues;
     private final long size;
     private final boolean dataChange;
 
@@ -35,6 +40,18 @@ public class CdfFileEntry
     {
         this.path = path;
         this.partitionValues = partitionValues;
+        this.canonicalPartitionValues = partitionValues.entrySet().stream()
+                .collect(toImmutableMap(
+                        // canonicalize partition keys to lowercase so they match column names used in DeltaLakeColumnHandle
+                        entry -> canonicalizeColumnName(entry.getKey()),
+                        entry -> {
+                            String value = entry.getValue();
+                            if (value == null || value.isEmpty()) {
+                                // For VARCHAR based partitions null and "" are treated the same
+                                return Optional.empty();
+                            }
+                            return Optional.of(value);
+                        }));
         this.size = size;
         this.dataChange = false;
     }
@@ -49,6 +66,12 @@ public class CdfFileEntry
     public Map<String, String> getPartitionValues()
     {
         return partitionValues;
+    }
+
+    @JsonIgnore
+    public Map<String, Optional<String>> getCanonicalPartitionValues()
+    {
+        return canonicalPartitionValues;
     }
 
     @JsonProperty

@@ -56,7 +56,7 @@ public class DeltaLakeTransactionLogEntry
             @JsonProperty("metaData") MetadataEntry metaData,
             @JsonProperty("protocol") ProtocolEntry protocol,
             @JsonProperty("commitInfo") CommitInfoEntry commitInfo,
-            @JsonProperty("cdfFileEntry") CdfFileEntry cdfFileEntry)
+            @JsonProperty("cdc") CdfFileEntry cdfFileEntry)
     {
         return new DeltaLakeTransactionLogEntry(txn, add, remove, metaData, protocol, commitInfo, cdfFileEntry);
     }
