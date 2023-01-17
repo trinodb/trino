@@ -1080,7 +1080,7 @@ public class Analysis
 
     public List<Expression> getRowFilters(Table node)
     {
-        return rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of());
+        return unmodifiableList(rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of()));
     }
 
     public List<Expression> getCheckConstraints(Table node)
@@ -1113,7 +1113,7 @@ public class Analysis
 
     public Map<String, Expression> getColumnMasks(Table table)
     {
-        return columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of());
+        return unmodifiableMap(columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of()));
     }
 
     public List<TableInfo> getReferencedTables()
