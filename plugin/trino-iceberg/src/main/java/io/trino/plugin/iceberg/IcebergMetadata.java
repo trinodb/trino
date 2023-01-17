@@ -1530,12 +1530,17 @@ public class IcebergMetadata
     {
         IcebergColumnHandle handle = (IcebergColumnHandle) column;
         Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
-        boolean isPartitionColumn = icebergTable.spec().fields().stream()
-                .anyMatch(field -> field.sourceId() == handle.getId() && !isVoidTransform(field));
-        if (isPartitionColumn) {
+        Optional<PartitionField> partitionField = icebergTable.spec().fields().stream()
+                .filter(field -> field.sourceId() == handle.getId()).findAny();
+        if (partitionField.isPresent() && !isVoidTransform(partitionField.get())) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot drop partition field: " + handle.getName());
         }
         try {
+            if (partitionField.isPresent()) {
+                icebergTable.updateSpec()
+                        .removeField(partitionField.get().name())
+                        .commit();
+            }
             icebergTable.updateSchema()
                     .deleteColumn(handle.getName())
                     .commit();

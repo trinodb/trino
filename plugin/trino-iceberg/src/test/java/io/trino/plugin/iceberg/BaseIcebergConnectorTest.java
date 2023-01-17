@@ -1186,6 +1186,16 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void tesInsertAfterDropVoidPartitionColumn()
+    {
+        String tableName = "test_drop_partition_column_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (partitioning = ARRAY['id', 'void(name)'])");
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN name");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1)", 1);
+        dropTable(tableName);
+    }
+
+    @Test
     public void testSchemaEvolution()
     {
         assertUpdate("CREATE TABLE test_schema_evolution_drop_end (col0 INTEGER, col1 INTEGER, col2 INTEGER)");
