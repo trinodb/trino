@@ -14,38 +14,28 @@
 package io.trino.parquet.reader.decoders;
 
 import io.trino.parquet.reader.SimpleSliceInputStream;
-import org.apache.parquet.column.values.bitpacking.BytePacker;
+import org.apache.parquet.column.values.bitpacking.BytePackerForLong;
 import org.apache.parquet.column.values.bitpacking.Packer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-class ApacheParquetIntUnpacker
+class ApacheParquetLongUnpacker
 {
-    private final BytePacker delegate;
-    private final int bitWidth;
-    private final int[] outputBuffer = new int[32];
+    private final BytePackerForLong delegate;
+    private final int byteWidth;
+    private final byte[] buffer;
+    private final long[] outputBuffer = new long[32];
 
-    public ApacheParquetIntUnpacker(int bitWidth)
+    public ApacheParquetLongUnpacker(int bitWidth)
     {
-        checkArgument(bitWidth >= 0 && bitWidth <= Integer.SIZE, "bitWidth %s should be in the range 0-32", bitWidth);
-        this.bitWidth = bitWidth;
-        this.delegate = Packer.LITTLE_ENDIAN.newBytePacker(bitWidth);
+        checkArgument(bitWidth >= 0 && bitWidth <= Long.SIZE, "bitWidth %s should be in the range 0-64", bitWidth);
+        this.byteWidth = bitWidth * 32 / Byte.SIZE;
+        this.buffer = new byte[byteWidth];
+        delegate = Packer.LITTLE_ENDIAN.newBytePackerForLong(bitWidth);
     }
 
-    public void unpack(int[] output, int outputOffset, SimpleSliceInputStream input, int length)
+    public void unpackDelta(long[] output, int outputOffset, SimpleSliceInputStream input, int length)
     {
-        int byteWidth = bitWidth * 8 / Byte.SIZE;
-        byte[] buffer = new byte[byteWidth];
-        for (int i = outputOffset; i < outputOffset + length; i += 8) {
-            input.readBytes(buffer, 0, byteWidth);
-            delegate.unpack8Values(buffer, 0, output, i);
-        }
-    }
-
-    public void unpackDelta(int[] output, int outputOffset, SimpleSliceInputStream input, int length)
-    {
-        int byteWidth = bitWidth * 32 / Byte.SIZE;
-        byte[] buffer = new byte[byteWidth];
         for (int i = outputOffset; i < outputOffset + length; i += 32) {
             input.readBytes(buffer, 0, byteWidth);
             delegate.unpack32Values(buffer, 0, outputBuffer, 0);
