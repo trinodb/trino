@@ -279,7 +279,7 @@ class RelationPlanner
         for (Expression filter : filters) {
             planBuilder = subqueryPlanner.handleSubqueries(planBuilder, filter, analysis.getSubqueries(filter));
 
-            Expression predicate = planBuilder.rewrite(filter);
+            Expression predicate = coerceIfNecessary(analysis, filter, planBuilder.rewrite(filter));
             predicate = predicateTransformation.apply(predicate);
             planBuilder = planBuilder.withNewRoot(new FilterNode(
                     idAllocator.getNextId(),
