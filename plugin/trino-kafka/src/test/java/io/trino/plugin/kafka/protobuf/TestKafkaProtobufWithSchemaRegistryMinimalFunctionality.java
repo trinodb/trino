@@ -30,7 +30,6 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.errors.SerializationException;
 import org.testng.annotations.Test;
 
 import java.time.Duration;
@@ -59,7 +58,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -210,14 +209,27 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
         ImmutableList.Builder<ProducerRecord<DynamicMessage, DynamicMessage>> producerRecordBuilder = ImmutableList.builder();
         producerRecordBuilder.add(new ProducerRecord<>(topic, createKeySchema(0, getKeySchema()), message));
         List<ProducerRecord<DynamicMessage, DynamicMessage>> messages = producerRecordBuilder.build();
-        assertThatThrownBy(() -> testingKafka.sendMessages(
+        testingKafka.sendMessages(
                 messages.stream(),
-                producerProperties()))
-                .isInstanceOf(SerializationException.class)
-                .hasMessage("Error serializing Protobuf message")
-                .getCause()
-                .isInstanceOf(NullPointerException.class)
-                .hasMessage("Cannot invoke \"com.squareup.wire.schema.internal.parser.ProtoFileElement.getImports()\" because \"protoFileElement\" is null");
+                producerProperties());
+        waitUntilTableExists(topic);
+
+        assertThat(query(format("SELECT list, map, row FROM %s", toDoubleQuoted(topic))))
+                .matches("""
+                            VALUES (
+                                ARRAY[CAST('Search' AS VARCHAR)],
+                                MAP(CAST(ARRAY['Key1'] AS ARRAY(VARCHAR)), CAST(ARRAY['Value1'] AS ARRAY(VARCHAR))),
+                                CAST(ROW('Trino', 1, 493857959588286460, 3.14159265358979323846, 3.14, True, 'ONE', TIMESTAMP '2020-12-12 15:35:45.923', to_utf8('Trino'))
+                                    AS ROW(
+                                        string_column VARCHAR,
+                                        integer_column INTEGER,
+                                        long_column BIGINT,
+                                        double_column DOUBLE,
+                                        float_column REAL,
+                                        boolean_column BOOLEAN,
+                                        number_column VARCHAR,
+                                        timestamp_column TIMESTAMP(6),
+                                        bytes_column VARBINARY)))""");
     }
 
     private DynamicMessage buildDynamicMessage(Descriptor descriptor, Map<String, Object> data)
