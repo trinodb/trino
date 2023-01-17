@@ -89,7 +89,6 @@ import javax.annotation.concurrent.Immutable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -112,6 +111,7 @@ import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static java.lang.Boolean.FALSE;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -1073,7 +1073,7 @@ public class Analysis
 
     public List<Expression> getRowFilters(Table node)
     {
-        return rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of());
+        return unmodifiableList(rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of()));
     }
 
     public boolean hasColumnMask(QualifiedObjectName table, String column, String identity)
@@ -1101,7 +1101,7 @@ public class Analysis
 
     public Map<String, Expression> getColumnMasks(Table table)
     {
-        return columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of());
+        return unmodifiableMap(columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of()));
     }
 
     public List<TableInfo> getReferencedTables()
@@ -1571,22 +1571,22 @@ public class Analysis
 
         public List<InPredicate> getInPredicatesSubqueries()
         {
-            return Collections.unmodifiableList(inPredicatesSubqueries);
+            return unmodifiableList(inPredicatesSubqueries);
         }
 
         public List<SubqueryExpression> getSubqueries()
         {
-            return Collections.unmodifiableList(subqueries);
+            return unmodifiableList(subqueries);
         }
 
         public List<ExistsPredicate> getExistsSubqueries()
         {
-            return Collections.unmodifiableList(existsSubqueries);
+            return unmodifiableList(existsSubqueries);
         }
 
         public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries()
         {
-            return Collections.unmodifiableList(quantifiedComparisonSubqueries);
+            return unmodifiableList(quantifiedComparisonSubqueries);
         }
     }
 
