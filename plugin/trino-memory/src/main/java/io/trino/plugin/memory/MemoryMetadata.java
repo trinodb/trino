@@ -33,8 +33,6 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
-import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SampleApplicationResult;
@@ -43,7 +41,6 @@ import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.ViewNotFoundException;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.Estimate;
@@ -75,7 +72,6 @@ import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SampleType.SYSTEM;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -456,26 +452,26 @@ public class MemoryMetadata
                 true));
     }
 
-    @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
-    {
-        MemoryTableHandle table = (MemoryTableHandle) handle;
-        TupleDomain<ColumnHandle> originalFullFilter = table.getFullFilter();
-        TupleDomain<ColumnHandle> newFilter = originalFullFilter.intersect(constraint.getSummary());
-
-        if ((!constraint.isMicroPlaning() && originalFullFilter.equals(newFilter)) || (constraint.isMicroPlaning() && table.isExhaustedMicroPlanning())) {
-            return Optional.empty();
-        }
-
-        TupleDomain<ColumnHandle> originalExtraFilter = table.getExtraFilter();
-        MemoryTableHandle mainTable = new MemoryTableHandle(table.getId(), table.getLimit(), table.getSampleRatio(), newFilter, originalExtraFilter, table.isExhaustedMicroPlanning() || constraint.isMicroPlaning());
-        if (constraint.isMicroPlaning()) {
-            MemoryTableHandle microPlanTable = new MemoryTableHandle(table.getId(), table.getLimit(), table.getSampleRatio(), originalFullFilter, originalExtraFilter.intersect(constraint.getSummary()), true);
-            ConstraintApplicationResult<ConnectorTableHandle> microPlan = new ConstraintApplicationResult<>(microPlanTable, originalFullFilter, false);
-            return Optional.of(new ConstraintApplicationResult<>(mainTable, newFilter, constraint.getExpression(), false, List.of(microPlan)));
-        }
-        return Optional.of(new ConstraintApplicationResult<>(mainTable, newFilter, constraint.getExpression(), false, emptyList()));
-    }
+//    @Override
+//    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
+//    {
+//        MemoryTableHandle table = (MemoryTableHandle) handle;
+//        TupleDomain<ColumnHandle> originalFullFilter = table.getFullFilter();
+//        TupleDomain<ColumnHandle> newFilter = originalFullFilter.intersect(constraint.getSummary());
+//
+//        if ((!constraint.isMicroPlaning() && originalFullFilter.equals(newFilter)) || (constraint.isMicroPlaning() && table.isExhaustedMicroPlanning())) {
+//            return Optional.empty();
+//        }
+//
+//        TupleDomain<ColumnHandle> originalExtraFilter = table.getExtraFilter();
+//        MemoryTableHandle mainTable = new MemoryTableHandle(table.getId(), table.getLimit(), table.getSampleRatio(), newFilter, originalExtraFilter, table.isExhaustedMicroPlanning() || constraint.isMicroPlaning());
+//        if (constraint.isMicroPlaning()) {
+//            MemoryTableHandle microPlanTable = new MemoryTableHandle(table.getId(), table.getLimit(), table.getSampleRatio(), originalFullFilter, originalExtraFilter.intersect(constraint.getSummary()), true);
+//            ConstraintApplicationResult<ConnectorTableHandle> microPlan = new ConstraintApplicationResult<>(microPlanTable, originalFullFilter, false);
+//            return Optional.of(new ConstraintApplicationResult<>(mainTable, newFilter, constraint.getExpression(), false, List.of(microPlan)));
+//        }
+//        return Optional.of(new ConstraintApplicationResult<>(mainTable, newFilter, constraint.getExpression(), false, emptyList()));
+//    }
 
     @Override
     public Optional<SampleApplicationResult<ConnectorTableHandle>> applySample(ConnectorSession session, ConnectorTableHandle handle, SampleType sampleType, double sampleRatio)
