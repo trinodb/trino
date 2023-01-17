@@ -24,6 +24,8 @@ import java.util.Random;
 
 import static io.trino.parquet.ParquetReaderUtils.readFixedWidthInt;
 import static io.trino.parquet.ParquetReaderUtils.readUleb128Int;
+import static io.trino.parquet.ParquetReaderUtils.readUleb128Long;
+import static io.trino.parquet.reader.TestData.randomLong;
 import static io.trino.parquet.reader.TestData.randomUnsignedInt;
 import static org.apache.parquet.bytes.BytesUtils.writeIntLittleEndianPaddedOnBitWidth;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,6 +46,21 @@ public class TestParquetReaderUtils
                 assertThat(sliceInputStream.asSlice().length())
                         .isEqualTo(0);
             }
+        }
+    }
+
+    @Test
+    public void testReadUleb128Long()
+            throws IOException
+    {
+        Random random = new Random(1);
+        for (int bitWidth = 1; bitWidth <= 64; bitWidth++) {
+            long value = randomLong(random, bitWidth);
+            SimpleSliceInputStream sliceInputStream = getSliceInputStream(BytesUtils::writeUnsignedVarLong, value);
+            assertThat(readUleb128Long(sliceInputStream))
+                    .isEqualTo(value);
+            assertThat(sliceInputStream.asSlice().length())
+                    .isEqualTo(0);
         }
     }
 

@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.reader.decoders;
 
+import io.airlift.slice.Slices;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 
 public final class IntBitUnpackers
@@ -1504,30 +1505,10 @@ public final class IntBitUnpackers
     private static final class Unpacker32
             implements IntBitUnpacker
     {
-        private static void unpack8(int[] output, int outputOffset, SimpleSliceInputStream input)
-        {
-            long v0 = input.readLong();
-            long v1 = input.readLong();
-            long v2 = input.readLong();
-            long v3 = input.readLong();
-            output[outputOffset] = (int) (v0 & 0b11111111111111111111111111111111L);
-            output[outputOffset + 1] = (int) ((v0 >>> 32) & 0b11111111111111111111111111111111L);
-            output[outputOffset + 2] = (int) (v1 & 0b11111111111111111111111111111111L);
-            output[outputOffset + 3] = (int) ((v1 >>> 32) & 0b11111111111111111111111111111111L);
-            output[outputOffset + 4] = (int) (v2 & 0b11111111111111111111111111111111L);
-            output[outputOffset + 5] = (int) ((v2 >>> 32) & 0b11111111111111111111111111111111L);
-            output[outputOffset + 6] = (int) (v3 & 0b11111111111111111111111111111111L);
-            output[outputOffset + 7] = (int) ((v3 >>> 32) & 0b11111111111111111111111111111111L);
-        }
-
         @Override
         public void unpack(int[] output, int outputOffset, SimpleSliceInputStream input, int length)
         {
-            while (length >= 8) {
-                unpack8(output, outputOffset, input);
-                outputOffset += 8;
-                length -= 8;
-            }
+            input.readBytes(Slices.wrappedIntArray(output, outputOffset, length), 0, length * Integer.BYTES);
         }
     }
 }

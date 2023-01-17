@@ -29,6 +29,16 @@ public class TestParquetReaderUtilsBenchmarks
     }
 
     @Test
+    public void testBenchmarkReadUleb128Long()
+            throws IOException
+    {
+        BenchmarkReadUleb128Long benchmark = new BenchmarkReadUleb128Long();
+        benchmark.size = 10000;
+        benchmark.setUp();
+        benchmark.readUleb128Long();
+    }
+
+    @Test
     public void testBenchmarkReadFixedWidthInt()
             throws IOException
     {
