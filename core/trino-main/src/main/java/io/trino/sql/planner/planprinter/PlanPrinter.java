@@ -79,6 +79,7 @@ import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.MPDecisionNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeProcessorNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
@@ -1789,6 +1790,17 @@ public class PlanPrinter
             }
 
             return null;
+        }
+
+        @Override
+        public Void visitMPDecision(MPDecisionNode node, Context context)
+        {
+            addNode(node,
+                    "MPDecision",
+                    ImmutableMap.of(),
+                    context.tag());
+
+            return processChildren(node, new Context());
         }
 
         private String formatArgument(String argumentName, Argument argument, Map<String, TableArgumentProperties> tableArguments)

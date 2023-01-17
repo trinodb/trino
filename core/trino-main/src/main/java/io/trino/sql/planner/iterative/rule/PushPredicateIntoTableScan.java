@@ -351,35 +351,36 @@ public class PushPredicateIntoTableScan
             Map<ColumnHandle, Symbol> assignments,
             ConstraintApplicationResult<TableHandle> result)
     {
-        TupleDomain<ColumnHandle> mpRemainingFilter = result.getRemainingFilter();
-        Optional<ConnectorExpression> mpRemainingConnectorExpression = result.getRemainingExpression();
-        Expression mpRemainingDecomposedPredicate;
-        if (mpRemainingConnectorExpression.isEmpty() || mpRemainingConnectorExpression.get().equals(expressionTranslation.connectorExpression())) {
-            mpRemainingDecomposedPredicate = decomposedPredicate.getRemainingExpression();
+        Optional<ConnectorExpression> remainingConnectorExpression = result.getRemainingExpression();
+        Expression remainingDecomposedPredicate;
+        if (remainingConnectorExpression.isEmpty() || remainingConnectorExpression.get().equals(expressionTranslation.connectorExpression())) {
+            remainingDecomposedPredicate = decomposedPredicate.getRemainingExpression();
         }
         else {
-            mpRemainingDecomposedPredicate = calculateRemaining(assignments, plannerContext, session, mpRemainingConnectorExpression.get(), typeAnalyzer, symbolAllocator, expressionTranslation);
+            remainingDecomposedPredicate = calculateRemaining(assignments, plannerContext, session, remainingConnectorExpression.get(), typeAnalyzer, symbolAllocator, expressionTranslation);
         }
-        TupleDomain<ColumnHandle> mpEnforcedConstraint = computeEnforced(newDomain, mpRemainingFilter);
-        Expression mpResultingPredicate = createResultingPredicate(
+
+        TupleDomain<ColumnHandle> remainingFilter = result.getRemainingFilter();
+        TupleDomain<ColumnHandle> enforcedConstraint = computeEnforced(newDomain, remainingFilter);
+        Expression resultingPredicate = createResultingPredicate(
                 plannerContext,
                 session,
                 symbolAllocator,
                 typeAnalyzer,
                 splitExpression.getDynamicFilter(),
-                domainTranslator.toPredicate(session, mpRemainingFilter.transformKeys(assignments::get)),
+                domainTranslator.toPredicate(session, remainingFilter.transformKeys(assignments::get)),
                 splitExpression.getNonDeterministicPredicate(),
-                mpRemainingDecomposedPredicate);
+                remainingDecomposedPredicate);
 
         // TODO (https://github.com/trinodb/trino/issues/8144) distinguish between predicate pushed down and remaining
-        boolean mpPrecalculateStatistics = result.isPrecalculateStatistics();
-        Optional<PlanNodeStatsEstimate> mpStatistics = deriveTableStatisticsForPushdown(statsProvider, session, mpPrecalculateStatistics, filterNode);
+        boolean precalculateStatistics = result.isPrecalculateStatistics();
+        Optional<PlanNodeStatsEstimate> statistics = deriveTableStatisticsForPushdown(statsProvider, session, precalculateStatistics, filterNode);
 
-        TableScanNode mpTableScan = createTableScan(node, result.getHandle(), mpEnforcedConstraint, mpStatistics);
-        if (!TRUE_LITERAL.equals(mpResultingPredicate)) {
-            return new FilterNode(filterNode.getId(), mpTableScan, mpResultingPredicate);
+        TableScanNode tableScan = createTableScan(node, result.getHandle(), enforcedConstraint, statistics);
+        if (!TRUE_LITERAL.equals(resultingPredicate)) {
+            return new FilterNode(filterNode.getId(), tableScan, resultingPredicate);
         }
-        return mpTableScan;
+        return tableScan;
     }
 
     private static TableScanNode createTableScan(TableScanNode node, TableHandle newTable, TupleDomain<ColumnHandle> enforcedConstraint, Optional<PlanNodeStatsEstimate> statistics)
