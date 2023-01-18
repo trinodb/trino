@@ -39,7 +39,7 @@ import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.write.MapKeyValuesSchemaConverter;
 import io.trino.plugin.hive.parquet.write.SingleLevelArrayMapKeyValuesSchemaConverter;
 import io.trino.plugin.hive.parquet.write.SingleLevelArraySchemaConverter;
-import io.trino.plugin.hive.parquet.write.TestMapredParquetOutputFormat;
+import io.trino.plugin.hive.parquet.write.TestingMapredParquetOutputFormat;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -628,7 +628,7 @@ public class ParquetTester
             DateTimeZone dateTimeZone)
             throws Exception
     {
-        RecordWriter recordWriter = new TestMapredParquetOutputFormat(parquetSchema, singleLevelArray, dateTimeZone)
+        RecordWriter recordWriter = new TestingMapredParquetOutputFormat(parquetSchema, singleLevelArray, dateTimeZone)
                 .getHiveRecordWriter(
                         jobConf,
                         new Path(outputFile.toURI()),
