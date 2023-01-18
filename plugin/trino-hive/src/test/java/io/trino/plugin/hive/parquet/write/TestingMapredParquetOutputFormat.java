@@ -37,12 +37,12 @@ import static java.util.Objects.requireNonNull;
   we also want to test the cases were the backing type is INT32/INT64, which requires
   a custom Parquet schema.
 */
-public class TestMapredParquetOutputFormat
+public class TestingMapredParquetOutputFormat
         extends MapredParquetOutputFormat
 {
     private final Optional<MessageType> schema;
 
-    public TestMapredParquetOutputFormat(Optional<MessageType> schema, boolean singleLevelArray, DateTimeZone dateTimeZone)
+    public TestingMapredParquetOutputFormat(Optional<MessageType> schema, boolean singleLevelArray, DateTimeZone dateTimeZone)
     {
         super(new ParquetOutputFormat<>(new TestDataWritableWriteSupport(singleLevelArray, dateTimeZone)));
         this.schema = requireNonNull(schema, "schema is null");

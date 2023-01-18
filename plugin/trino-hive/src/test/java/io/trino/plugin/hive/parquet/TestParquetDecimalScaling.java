@@ -17,7 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.plugin.hive.HiveQueryRunner;
-import io.trino.plugin.hive.parquet.write.TestMapredParquetOutputFormat;
+import io.trino.plugin.hive.parquet.write.TestingMapredParquetOutputFormat;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -473,7 +473,7 @@ public class TestParquetDecimalScaling
         jobConf.setEnum(WRITER_VERSION, writerVersion);
 
         try {
-            FileSinkOperator.RecordWriter recordWriter = new TestMapredParquetOutputFormat(Optional.of(parquetSchema), true, DateTimeZone.getDefault())
+            FileSinkOperator.RecordWriter recordWriter = new TestingMapredParquetOutputFormat(Optional.of(parquetSchema), true, DateTimeZone.getDefault())
                     .getHiveRecordWriter(
                             jobConf,
                             path,
