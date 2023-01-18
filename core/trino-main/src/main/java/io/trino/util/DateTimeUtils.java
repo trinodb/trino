@@ -72,7 +72,7 @@ public final class DateTimeUtils
         // - all components should be unsigned numbers
         // https://github.com/trinodb/trino/issues/10677
 
-        OptionalInt days = parseIfIso8861DateFormat(value);
+        OptionalInt days = parseIfIso8601DateFormat(value);
         if (days.isPresent()) {
             return days.getAsInt();
         }
@@ -86,7 +86,7 @@ public final class DateTimeUtils
      * @throws DateTimeException when value matches the expected format but is invalid (month or day number out of range)
      */
     @VisibleForTesting
-    static OptionalInt parseIfIso8861DateFormat(String value)
+    static OptionalInt parseIfIso8601DateFormat(String value)
     {
         if (value.length() != 10 || value.charAt(4) != '-' || value.charAt(7) != '-') {
             return OptionalInt.empty();
