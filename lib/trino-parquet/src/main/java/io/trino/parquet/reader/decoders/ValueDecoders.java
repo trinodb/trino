@@ -128,8 +128,7 @@ public final class ValueDecoders
     {
         return switch (encoding) {
             case PLAIN -> new LongPlainValueDecoder();
-            case DELTA_BINARY_PACKED, RLE, BIT_PACKED ->
-                    new LongApacheParquetValueDecoder(getApacheParquetReader(encoding, field));
+            case DELTA_BINARY_PACKED -> new LongApacheParquetValueDecoder(getApacheParquetReader(encoding, field));
             default -> throw wrongEncoding(encoding, field);
         };
     }
@@ -139,8 +138,7 @@ public final class ValueDecoders
         // We need to produce LongArrayBlock from the decoded integers for INT32 backed decimals and bigints
         return switch (encoding) {
             case PLAIN -> new IntToLongPlainValueDecoder();
-            case DELTA_BINARY_PACKED, RLE, BIT_PACKED ->
-                    new IntToLongApacheParquetValueDecoder(getApacheParquetReader(encoding, field));
+            case DELTA_BINARY_PACKED -> new IntToLongApacheParquetValueDecoder(getApacheParquetReader(encoding, field));
             default -> throw wrongEncoding(encoding, field);
         };
     }
@@ -269,8 +267,7 @@ public final class ValueDecoders
     {
         return switch (encoding) {
             case PLAIN -> new IntPlainValueDecoder();
-            case DELTA_BINARY_PACKED, RLE, BIT_PACKED ->
-                    new IntApacheParquetValueDecoder(getApacheParquetReader(encoding, field));
+            case DELTA_BINARY_PACKED -> new IntApacheParquetValueDecoder(getApacheParquetReader(encoding, field));
             default -> throw wrongEncoding(encoding, field);
         };
     }
@@ -279,8 +276,7 @@ public final class ValueDecoders
     {
         return switch (encoding) {
             case PLAIN -> new IntToShortPlainValueDecoder();
-            case DELTA_BINARY_PACKED, RLE, BIT_PACKED ->
-                    new ShortApacheParquetValueDecoder(getApacheParquetReader(encoding, field));
+            case DELTA_BINARY_PACKED -> new ShortApacheParquetValueDecoder(getApacheParquetReader(encoding, field));
             default -> throw wrongEncoding(encoding, field);
         };
     }
@@ -289,8 +285,7 @@ public final class ValueDecoders
     {
         return switch (encoding) {
             case PLAIN -> new IntToBytePlainValueDecoder();
-            case DELTA_BINARY_PACKED, RLE, BIT_PACKED ->
-                    new ByteApacheParquetValueDecoder(getApacheParquetReader(encoding, field));
+            case DELTA_BINARY_PACKED -> new ByteApacheParquetValueDecoder(getApacheParquetReader(encoding, field));
             default -> throw wrongEncoding(encoding, field);
         };
     }
