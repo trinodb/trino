@@ -22,6 +22,7 @@ import io.trino.execution.buffer.OutputBufferStatus;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -59,6 +60,7 @@ public class TaskStatus
     private final OutputBufferStatus outputBufferStatus;
     private final DataSize outputDataSize;
     private final DataSize physicalWrittenDataSize;
+    private final Optional<Integer> maxWriterCount;
     private final DataSize memoryReservation;
     private final DataSize peakMemoryReservation;
     private final DataSize revocableMemoryReservation;
@@ -84,6 +86,7 @@ public class TaskStatus
             @JsonProperty("outputBufferStatus") OutputBufferStatus outputBufferStatus,
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
+            @JsonProperty("writerCount") Optional<Integer> maxWriterCount,
             @JsonProperty("memoryReservation") DataSize memoryReservation,
             @JsonProperty("peakMemoryReservation") DataSize peakMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
@@ -116,6 +119,7 @@ public class TaskStatus
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
+        this.maxWriterCount = requireNonNull(maxWriterCount, "maxWriterCount is null");
 
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
         this.peakMemoryReservation = requireNonNull(peakMemoryReservation, "peakMemoryReservation is null");
@@ -187,6 +191,12 @@ public class TaskStatus
     public DataSize getPhysicalWrittenDataSize()
     {
         return physicalWrittenDataSize;
+    }
+
+    @JsonProperty
+    public Optional<Integer> getMaxWriterCount()
+    {
+        return maxWriterCount;
     }
 
     @JsonProperty
@@ -273,6 +283,7 @@ public class TaskStatus
                 OutputBufferStatus.initial(),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
+                Optional.empty(),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
@@ -298,6 +309,7 @@ public class TaskStatus
                 taskStatus.getOutputBufferStatus(),
                 taskStatus.getOutputDataSize(),
                 taskStatus.getPhysicalWrittenDataSize(),
+                taskStatus.getMaxWriterCount(),
                 taskStatus.getMemoryReservation(),
                 taskStatus.getPeakMemoryReservation(),
                 taskStatus.getRevocableMemoryReservation(),
