@@ -115,7 +115,6 @@ import io.trino.sql.analyzer.PatternRecognitionAnalyzer.PatternRecognitionAnalys
 import io.trino.sql.analyzer.Scope.AsteriskedIdentifierChainBasis;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.ScopeAware;
@@ -364,6 +363,7 @@ import static io.trino.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.DereferenceExpression.getQualifiedName;
@@ -5007,7 +5007,7 @@ class StatementAnalyzer
             }
 
             for (Expression expression : orderByExpressions) {
-                if (!DeterminismEvaluator.isDeterministic(expression, this::getResolvedFunction)) {
+                if (!isDeterministic(expression, this::getResolvedFunction)) {
                     throw semanticException(EXPRESSION_NOT_IN_DISTINCT, expression, "Non deterministic ORDER BY expression is not supported with SELECT DISTINCT");
                 }
             }
