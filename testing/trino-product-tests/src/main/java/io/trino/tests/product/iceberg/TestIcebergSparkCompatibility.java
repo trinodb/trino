@@ -2598,16 +2598,15 @@ public class TestIcebergSparkCompatibility
     @DataProvider
     public static Object[][] testSparkAlterColumnType()
     {
-        Object[][] alterColumnTypeData = new Object[][] {
-                {"integer", "2147483647", "bigint", 2147483647L},
-                {"float", "10.3", "double", 10.3},
-                {"float", "'NaN'", "double", Double.NaN},
-                {"decimal(5,3)", "'12.345'", "decimal(10,3)", BigDecimal.valueOf(12.345)}
-        };
-
-        return Stream.of(StorageFormat.values())
-                .flatMap(storageFormat -> Arrays.stream(alterColumnTypeData).map(data -> new Object[] {storageFormat, data[0], data[1], data[2], data[3]}))
-                .toArray(Object[][]::new);
+        return cartesianProduct(
+                Stream.of(StorageFormat.values())
+                        .collect(toDataProvider()),
+                new Object[][] {
+                        {"integer", "2147483647", "bigint", 2147483647L},
+                        {"float", "10.3", "double", 10.3},
+                        {"float", "'NaN'", "double", Double.NaN},
+                        {"decimal(5,3)", "'12.345'", "decimal(10,3)", BigDecimal.valueOf(12.345)}
+                });
     }
 
     private String getColumnType(String tableName, String columnName)
