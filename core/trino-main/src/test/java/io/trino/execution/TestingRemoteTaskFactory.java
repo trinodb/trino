@@ -180,6 +180,7 @@ public class TestingRemoteTaskFactory
                     OutputBufferStatus.initial(),
                     DataSize.of(0, BYTE),
                     DataSize.of(0, BYTE),
+                    Optional.empty(),
                     DataSize.of(0, BYTE),
                     DataSize.of(0, BYTE),
                     DataSize.of(0, BYTE),
