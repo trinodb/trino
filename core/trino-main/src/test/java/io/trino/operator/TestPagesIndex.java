@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.operator.join.JoinFilterFunction;
 import io.trino.operator.join.LookupSource;
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.testing.DataProviders;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static io.trino.SequencePageBuilder.createSequencePage;
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -147,6 +149,7 @@ public class TestPagesIndex
         long estimatedLookupSourceSize = estimatedMemoryRequiredToCreateLookupSource -
                 // subtract size of page positions
                 sizeOfIntArray(pageCount);
+        long estimatedAdditionalSize = estimatedMemoryRequiredToCreateLookupSource - pageIndexSize;
 
         JoinFilterFunctionCompiler.JoinFilterFunctionFactory filterFunctionFactory = (session, addresses, pages) -> (JoinFilterFunction) (leftPosition, rightPosition, rightPage) -> false;
         LookupSource lookupSource = pagesIndex.createLookupSourceSupplier(
@@ -160,7 +163,18 @@ public class TestPagesIndex
                 defaultHashArraySizeSupplier()).get();
         long actualLookupSourceSize = lookupSource.getInMemorySizeInBytes();
         assertThat(estimatedLookupSourceSize).isGreaterThanOrEqualTo(actualLookupSourceSize);
-        assertThat(estimatedLookupSourceSize).isCloseTo(actualLookupSourceSize, withPercentage(2));
+        assertThat(estimatedLookupSourceSize).isCloseTo(actualLookupSourceSize, withPercentage(1));
+
+        long addressesSize = sizeOf(pagesIndex.getValueAddresses().elements());
+        long channelsArraySize = sizeOf(pagesIndex.getChannel(0).elements()) * types.size();
+        long blocksSize = 0;
+        for (int channel = 0; channel < 2; channel++) {
+            blocksSize += pagesIndex.getChannel(channel).stream()
+                    .mapToLong(Block::getRetainedSizeInBytes)
+                    .sum();
+        }
+        long actualAdditionalSize = actualLookupSourceSize - (addressesSize + channelsArraySize + blocksSize);
+        assertThat(estimatedAdditionalSize).isCloseTo(actualAdditionalSize, withPercentage(1));
     }
 
     private static PagesIndex newPagesIndex(List<Type> types, int expectedPositions, boolean eagerCompact)

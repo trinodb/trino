@@ -22,6 +22,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
 import java.util.Optional;
@@ -55,7 +56,7 @@ public class JoinHashSupplier
     public static long getEstimatedRetainedSizeInBytes(
             int positionCount,
             LongArrayList addresses,
-            List<List<Block>> channels,
+            List<ObjectArrayList<Block>> channels,
             long blocksSizeInBytes,
             Optional<Integer> sortChannel,
             OptionalInt singleBigintJoinChannel,
@@ -82,7 +83,7 @@ public class JoinHashSupplier
             Session session,
             PagesHashStrategy pagesHashStrategy,
             LongArrayList addresses,
-            List<List<Block>> channels,
+            List<ObjectArrayList<Block>> channels,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<Integer> sortChannel,
             List<JoinFilterFunctionFactory> searchFunctionFactories,
@@ -145,7 +146,7 @@ public class JoinHashSupplier
                 pageInstancesRetainedSizeInBytes);
     }
 
-    private static long getPageInstancesRetainedSizeInBytes(List<List<Block>> channels)
+    private static long getPageInstancesRetainedSizeInBytes(List<ObjectArrayList<Block>> channels)
     {
         if (channels.isEmpty()) {
             return 0;
