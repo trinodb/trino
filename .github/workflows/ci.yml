@@ -516,6 +516,7 @@ jobs:
             - { modules: core/trino-main, jdk: 19 }
             - { modules: plugin/trino-accumulo }
             - { modules: plugin/trino-bigquery }
+            - { modules: plugin/trino-bigquery, profile: cloud-tests-arrow }
             - { modules: plugin/trino-cassandra }
             - { modules: plugin/trino-clickhouse }
             - { modules: plugin/trino-delta-lake }
@@ -590,7 +591,7 @@ jobs:
       - name: Maven Tests
         if: >-
           matrix.modules != 'plugin/trino-singlestore' &&
-          !((contains(matrix.modules, 'trino-delta-lake') && (contains(matrix.profile, 'cloud-tests') || contains(matrix.profile, 'gcs-tests'))) || (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests')))
+          !((contains(matrix.modules, 'trino-delta-lake') && (contains(matrix.profile, 'cloud-tests') || contains(matrix.profile, 'gcs-tests'))) || (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests')) || (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-arrow')))
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
       - name: Cloud Delta Lake Tests
@@ -631,7 +632,7 @@ jobs:
       - name: Cloud BigQuery Tests
         env:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
-        if: matrix.modules == 'plugin/trino-bigquery' && env.BIGQUERY_CREDENTIALS_KEY != ''
+        if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-arrow') && env.BIGQUERY_CREDENTIALS_KEY != ''
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests \
             -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
@@ -640,7 +641,7 @@ jobs:
       - name: Cloud BigQuery Arrow Serialization Tests
         env:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
-        if: matrix.modules == 'plugin/trino-bigquery' && env.BIGQUERY_CREDENTIALS_KEY != ''
+        if: matrix.modules == 'plugin/trino-bigquery' && contains(matrix.profile, 'cloud-tests-arrow') && env.BIGQUERY_CREDENTIALS_KEY != ''
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-arrow \
             -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
