@@ -89,7 +89,7 @@ public final class DateTimeFunctions
     private static final int MILLISECONDS_IN_HOUR = 60 * MILLISECONDS_IN_MINUTE;
     private static final int MILLISECONDS_IN_DAY = 24 * MILLISECONDS_IN_HOUR;
     private static final int PIVOT_YEAR = 2020; // yy = 70 will correspond to 1970 but 69 to 2069
-    private static final Slice ISO_8861_DATE_FORMAT = Slices.utf8Slice("%Y-%m-%d");
+    private static final Slice ISO_8601_DATE_FORMAT = Slices.utf8Slice("%Y-%m-%d");
 
     private DateTimeFunctions() {}
 
@@ -375,7 +375,7 @@ public final class DateTimeFunctions
     @SqlType("timestamp(3)") // TODO: increase precision?
     public static long dateParse(ConnectorSession session, @SqlType("varchar(x)") Slice dateTime, @SqlType("varchar(y)") Slice formatString)
     {
-        if (ISO_8861_DATE_FORMAT.equals(formatString)) {
+        if (ISO_8601_DATE_FORMAT.equals(formatString)) {
             try {
                 long days = DateTimeUtils.parseDate(dateTime.toStringUtf8());
                 return scaleEpochMillisToMicros(days * MILLISECONDS_PER_DAY);
