@@ -95,6 +95,9 @@ Property Name                                        Description
 ``iceberg.rest-catalog.uri``                   REST server API endpoint URI (required).
                                                Example: ``http://iceberg-with-rest:8181``
 
+``iceberg.rest-catalog.warehouse``             Warehouse identifier/location for the catalog (optional).
+                                               Example: ``s3://my_bucket/warehouse_location``
+
 ``iceberg.rest-catalog.security``              The type of security to use (default: ``NONE``).  ``OAUTH2``
                                                requires either a ``token`` or ``credential``.
                                                Example: ``OAUTH2``
