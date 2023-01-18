@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.rcfile.RcFileDataSource;
 import io.trino.hive.formats.rcfile.RcFileEncoding;
 import io.trino.hive.formats.rcfile.binary.BinaryRcFileEncoding;
@@ -119,7 +120,8 @@ public class RcFileFileWriterFactory
             return Optional.empty();
         }
 
-        Optional<String> codecName = Optional.ofNullable(configuration.get(FileOutputFormat.COMPRESS_CODEC));
+        Optional<CompressionKind> compressionKind = Optional.ofNullable(configuration.get(FileOutputFormat.COMPRESS_CODEC))
+                .map(CompressionKind::fromHadoopClassName);
 
         // existing tables and partitions may have columns in a different order than the writer is providing, so build
         // an index to rearrange columns in the proper order
@@ -159,7 +161,7 @@ public class RcFileFileWriterFactory
                     rollbackAction,
                     rcFileEncoding,
                     fileColumnTypes,
-                    codecName,
+                    compressionKind,
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())

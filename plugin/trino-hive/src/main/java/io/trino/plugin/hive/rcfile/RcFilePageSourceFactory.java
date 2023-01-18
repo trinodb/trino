@@ -20,8 +20,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.trino.hdfs.FSDataInputStreamTail;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hive.formats.compression.AircompressorCodecFactory;
-import io.trino.hive.formats.compression.HadoopCodecFactory;
 import io.trino.hive.formats.rcfile.MemoryRcFileDataSource;
 import io.trino.hive.formats.rcfile.RcFileCorruptionException;
 import io.trino.hive.formats.rcfile.RcFileDataSource;
@@ -205,7 +203,6 @@ public class RcFilePageSourceFactory
                     dataSource,
                     rcFileEncoding,
                     readColumns.buildOrThrow(),
-                    new AircompressorCodecFactory(new HadoopCodecFactory(configuration.getClassLoader())),
                     start,
                     length,
                     BUFFER_SIZE);
