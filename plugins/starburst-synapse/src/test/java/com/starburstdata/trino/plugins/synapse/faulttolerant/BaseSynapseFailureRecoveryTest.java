@@ -62,26 +62,26 @@ public abstract class BaseSynapseFailureRecoveryTest
     }
 
     @Override
-    public void testExplainAnalyze()
+    protected void testExplainAnalyze()
     {
         this.testSelect("EXPLAIN ANALYZE SELECT regionkey, count(*) FROM nation GROUP BY regionkey");
         this.testTableModification(Optional.of("CREATE TABLE <table> AS SELECT * FROM nation WITH NO DATA"), "EXPLAIN ANALYZE INSERT INTO <table> SELECT * FROM nation", Optional.of("DROP TABLE <table>"));
     }
 
     @Override
-    public void testCreateTable()
+    protected void testCreateTable()
     {
         this.testTableModification(Optional.empty(), "CREATE TABLE <table> AS SELECT * FROM nation", Optional.of("DROP TABLE <table>"));
     }
 
     @Override
-    public void testInsert()
+    protected void testInsert()
     {
         this.testTableModification(Optional.of("CREATE TABLE <table> AS SELECT * FROM nation WITH NO DATA"), "INSERT INTO <table> SELECT * FROM nation", Optional.of("DROP TABLE <table>"));
     }
 
     @Override
-    public void testDeleteWithSubquery()
+    protected void testDeleteWithSubquery()
     {
         Assertions.assertThatThrownBy(() -> {
             this.testTableModification(Optional.of("CREATE TABLE <table> AS SELECT * FROM nation"), "DELETE FROM <table> WHERE nationkey IN (SELECT custkey FROM customer WHERE nationkey = 1)", Optional.of("DROP TABLE <table>"));
@@ -90,7 +90,7 @@ public abstract class BaseSynapseFailureRecoveryTest
     }
 
     @Override
-    public void testRefreshMaterializedView()
+    protected void testRefreshMaterializedView()
     {
         Assertions.assertThatThrownBy(() -> {
             this.testTableModification(Optional.of("CREATE MATERIALIZED VIEW <table> AS SELECT * FROM nation"), "REFRESH MATERIALIZED VIEW <table>", Optional.of("DROP MATERIALIZED VIEW <table>"));
@@ -99,7 +99,7 @@ public abstract class BaseSynapseFailureRecoveryTest
     }
 
     @Override
-    public void testUpdate()
+    protected void testUpdate()
     {
         Assertions.assertThatThrownBy(() -> {
             this.testTableModification(Optional.of("CREATE TABLE <table> AS SELECT * FROM nation"), "UPDATE <table> SET name = 'BRASIL' WHERE nationkey = 2", Optional.of("DROP TABLE <table>"));
@@ -108,7 +108,7 @@ public abstract class BaseSynapseFailureRecoveryTest
     }
 
     @Override
-    public void testUpdateWithSubquery()
+    protected void testUpdateWithSubquery()
     {
         Assertions.assertThatThrownBy(() -> {
             this.testTableModification(Optional.of("CREATE TABLE <table> AS SELECT * FROM nation"), "UPDATE <table> SET name = 'Brasil' WHERE nationkey = (SELECT min(custkey) + 1 FROM customer)", Optional.of("DROP TABLE <table>"));
@@ -117,7 +117,7 @@ public abstract class BaseSynapseFailureRecoveryTest
     }
 
     @Override
-    public void testMerge()
+    protected void testMerge()
     {
         Assertions.assertThatThrownBy(() -> {
             this.testTableModification(Optional.of("CREATE TABLE <table> AS SELECT * FROM nation"), "MERGE INTO <table> t\nUSING (SELECT nationkey, 'new_nation' name FROM <table>) s\nON t.nationkey = s.nationkey\nWHEN MATCHED AND s.nationkey > 10\n    THEN UPDATE SET name = t.name || s.name\nWHEN MATCHED AND s.nationkey <= 10\n    THEN DELETE\n", Optional.of("DROP TABLE <table>"));
@@ -126,7 +126,7 @@ public abstract class BaseSynapseFailureRecoveryTest
     }
 
     @Override
-    public void testRequestTimeouts()
+    protected void testRequestTimeouts()
     {
         this.assertThatQuery("SELECT * FROM nation").experiencing(FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_TIMEOUT).at(leafStage()).failsWithoutRetries((failure) -> {
             failure.hasMessageContaining("Encountered too many errors talking to a worker node");
