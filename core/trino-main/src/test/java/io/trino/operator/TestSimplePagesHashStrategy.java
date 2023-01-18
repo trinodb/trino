@@ -21,6 +21,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.type.BlockTypeOperators;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -141,7 +142,7 @@ public class TestSimplePagesHashStrategy
         return new SimplePagesHashStrategy(
                 ImmutableList.of(type),
                 ImmutableList.of(),
-                ImmutableList.of(channelBlocks),
+                ImmutableList.of(new ObjectArrayList<>(channelBlocks)),
                 ImmutableList.of(0),
                 OptionalInt.empty(),
                 Optional.of(0),
