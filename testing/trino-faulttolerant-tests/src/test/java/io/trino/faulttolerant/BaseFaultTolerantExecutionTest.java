@@ -66,7 +66,7 @@ public abstract class BaseFaultTolerantExecutionTest
     {
         @Language("SQL") String createTableSql = """
                 CREATE TABLE test_execute_skew_mitigation WITH (%s = ARRAY['returnflag']) AS
-                SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, linestatus, shipdate, commitdate, receiptdate, shipinstruct, shipmode, comment, returnflag
+                SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, linestatus, shipdate, commitdate, receiptdate, shipinstruct, shipmode, returnflag
                 FROM tpch.sf1.lineitem
                 WHERE returnflag = 'N'
                 LIMIT 1000000""".formatted(partitioningTablePropertyName);
