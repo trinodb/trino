@@ -129,6 +129,7 @@ public class TestHiveUtil
         assertUnescapePathName("", "");
         assertUnescapePathName("x", "x");
         assertUnescapePathName("abc", "abc");
+        assertUnescapePathName("abc%", "abc%");
         assertUnescapePathName("%", "%");
         assertUnescapePathName("%41", "A");
         assertUnescapePathName("%41%x", "A%x");
