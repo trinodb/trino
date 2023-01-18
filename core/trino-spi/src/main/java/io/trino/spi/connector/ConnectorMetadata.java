@@ -672,6 +672,7 @@ public interface ConnectorMetadata
 
     /**
      * Finish a merge query
+     *
      * @param session The session
      * @param tableHandle A ConnectorMergeTableHandle for the table that is the target of the merge
      * @param fragments All fragments returned by the merge plan

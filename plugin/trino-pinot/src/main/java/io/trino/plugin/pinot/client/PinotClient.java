@@ -572,7 +572,7 @@ public class PinotClient
 
     /**
      * columnIndices: column name -> column index from column handles
-     * indiceToGroupByFunction<Int,String> (groupByFunctions): aggregationIndex -> groupByFunctionName(columnName)
+     * indiceToGroupByFunction&lt;Int,String&gt; (groupByFunctions): aggregationIndex -> groupByFunctionName(columnName)
      * groupByFunctions is for values
      * groupByColumnNames: from aggregationResult.groupByResult.groupByColumnNames()
      * aggregationResults[GroupByColumns, GroupByResult]

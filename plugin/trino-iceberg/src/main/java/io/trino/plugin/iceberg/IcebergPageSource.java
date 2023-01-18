@@ -146,6 +146,7 @@ public class IcebergPageSource
     /**
      * The $row_id column used for updates is a composite column of at least one other column in the Page.
      * The indexes of the columns needed for the $row_id are in the updateRowIdChildColumnIndexes array.
+     *
      * @param page The raw Page from the Parquet/ORC reader.
      * @return A Page where the $row_id channel has been populated.
      */

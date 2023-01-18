@@ -38,6 +38,7 @@ import static com.google.common.base.Preconditions.checkState;
  * Examples:
  * - Node4 => 100 => 1 [ROOT] - 0 [GO LEFT] - 0 [GO LEFT]
  * - Node6 => 110 => 1 [ROOT] - 1 [GO RIGHT] - 0 [GO LEFT]
+ * </pre>
  */
 public class HeapTraversal
 {
