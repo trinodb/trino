@@ -13,9 +13,17 @@
  */
 package io.trino.hive.formats.compression;
 
-public interface CodecFactory
-{
-    Compressor createCompressor(String codecName);
+import io.airlift.slice.Slice;
 
-    Decompressor createDecompressor(String codecName);
+import java.io.Closeable;
+import java.io.IOException;
+
+public interface ValueDecompressor
+        extends Closeable
+{
+    void decompress(Slice compressed, Slice uncompressed)
+            throws IOException;
+
+    @Override
+    default void close() {}
 }

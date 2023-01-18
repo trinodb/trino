@@ -16,8 +16,7 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CountingOutputStream;
 import io.airlift.slice.OutputStreamSliceOutput;
-import io.trino.hive.formats.compression.AircompressorCodecFactory;
-import io.trino.hive.formats.compression.HadoopCodecFactory;
+import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.rcfile.RcFileDataSource;
 import io.trino.hive.formats.rcfile.RcFileEncoding;
 import io.trino.hive.formats.rcfile.RcFileWriter;
@@ -67,7 +66,7 @@ public class RcFileFileWriter
             Closeable rollbackAction,
             RcFileEncoding rcFileEncoding,
             List<Type> fileColumnTypes,
-            Optional<String> codecName,
+            Optional<CompressionKind> compressionKind,
             int[] fileInputColumnIndexes,
             Map<String, String> metadata,
             Optional<Supplier<RcFileDataSource>> validationInputFactory)
@@ -78,8 +77,7 @@ public class RcFileFileWriter
                 new OutputStreamSliceOutput(this.outputStream),
                 fileColumnTypes,
                 rcFileEncoding,
-                codecName,
-                new AircompressorCodecFactory(new HadoopCodecFactory(getClass().getClassLoader())),
+                compressionKind,
                 metadata,
                 validationInputFactory.isPresent());
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");

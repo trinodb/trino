@@ -13,13 +13,22 @@
  */
 package io.trino.hive.formats.compression;
 
-import io.airlift.slice.Slice;
-import io.trino.hive.formats.rcfile.RcFileCorruptionException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 
-public interface Decompressor
+public interface Codec
 {
-    void decompress(Slice compressed, Slice uncompressed)
-            throws RcFileCorruptionException;
+    OutputStream createStreamCompressor(OutputStream outputStream)
+            throws IOException;
 
-    void destroy();
+    ValueCompressor createValueCompressor();
+
+    MemoryCompressedSliceOutput createMemoryCompressedSliceOutput(int minChunkSize, int maxChunkSize)
+            throws IOException;
+
+    InputStream createStreamDecompressor(InputStream inputStream)
+            throws IOException;
+
+    ValueDecompressor createValueDecompressor();
 }

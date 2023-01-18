@@ -18,10 +18,9 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
-import io.trino.hive.formats.compression.CodecFactory;
-import io.trino.hive.formats.compression.Compressor;
+import io.trino.hive.formats.compression.Codec;
+import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.compression.MemoryCompressedSliceOutput;
-import io.trino.hive.formats.compression.NoneCompressor;
 import io.trino.hive.formats.rcfile.RcFileWriteValidation.RcFileWriteValidationBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -73,7 +72,6 @@ public class RcFileWriter
     private final SliceOutput output;
     private final List<Type> types;
     private final RcFileEncoding encoding;
-    private final CodecFactory codecFactory;
 
     private final long syncFirst = ThreadLocalRandom.current().nextLong();
     private final long syncSecond = ThreadLocalRandom.current().nextLong();
@@ -96,8 +94,7 @@ public class RcFileWriter
             SliceOutput output,
             List<Type> types,
             RcFileEncoding encoding,
-            Optional<String> codecName,
-            CodecFactory codecFactory,
+            Optional<CompressionKind> compressionKind,
             Map<String, String> metadata,
             boolean validate)
             throws IOException
@@ -106,8 +103,7 @@ public class RcFileWriter
                 output,
                 types,
                 encoding,
-                codecName,
-                codecFactory,
+                compressionKind,
                 metadata,
                 DEFAULT_TARGET_MIN_ROW_GROUP_SIZE,
                 DEFAULT_TARGET_MAX_ROW_GROUP_SIZE,
@@ -118,8 +114,7 @@ public class RcFileWriter
             SliceOutput output,
             List<Type> types,
             RcFileEncoding encoding,
-            Optional<String> codecName,
-            CodecFactory codecFactory,
+            Optional<CompressionKind> compressionKind,
             Map<String, String> metadata,
             DataSize targetMinRowGroupSize,
             DataSize targetMaxRowGroupSize,
@@ -130,8 +125,7 @@ public class RcFileWriter
         requireNonNull(types, "types is null");
         checkArgument(!types.isEmpty(), "types is empty");
         requireNonNull(encoding, "encoding is null");
-        requireNonNull(codecName, "codecName is null");
-        requireNonNull(codecFactory, "codecFactory is null");
+        requireNonNull(compressionKind, "compressionKind is null");
         requireNonNull(metadata, "metadata is null");
         checkArgument(!metadata.containsKey(PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY), "Cannot set property %s", PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY);
         checkArgument(!metadata.containsKey(COLUMN_COUNT_METADATA_KEY), "Cannot set property %s", COLUMN_COUNT_METADATA_KEY);
@@ -144,7 +138,6 @@ public class RcFileWriter
         this.output = output;
         this.types = types;
         this.encoding = encoding;
-        this.codecFactory = codecFactory;
 
         // write header
         output.writeBytes(RCFILE_MAGIC);
@@ -152,9 +145,9 @@ public class RcFileWriter
         recordValidation(validation -> validation.setVersion((byte) CURRENT_VERSION));
 
         // write codec information
-        output.writeBoolean(codecName.isPresent());
-        codecName.ifPresent(name -> writeLengthPrefixedString(output, utf8Slice(name)));
-        recordValidation(validation -> validation.setCodecClassName(codecName));
+        output.writeBoolean(compressionKind.isPresent());
+        compressionKind.map(CompressionKind::getHadoopClassName).ifPresent(name -> writeLengthPrefixedString(output, utf8Slice(name)));
+        recordValidation(validation -> validation.setCodecClassName(compressionKind.map(CompressionKind::getHadoopClassName)));
 
         // write metadata
         output.writeInt(Integer.reverseBytes(metadata.size() + 2));
@@ -171,14 +164,14 @@ public class RcFileWriter
         recordValidation(validation -> validation.setSyncSecond(syncSecond));
 
         // initialize columns
-        Compressor compressor = codecName.map(codecFactory::createCompressor).orElse(new NoneCompressor());
-        keySectionOutput = compressor.createCompressedSliceOutput((int) MIN_BUFFER_SIZE.toBytes(), (int) MAX_BUFFER_SIZE.toBytes());
+        Optional<Codec> codec = compressionKind.map(CompressionKind::createCodec);
+        keySectionOutput = createMemoryCompressedSliceOutput(codec);
         keySectionOutput.close(); // output is recycled on first use which requires the output to be closed
         columnEncoders = new ColumnEncoder[types.size()];
         for (int columnIndex = 0; columnIndex < types.size(); columnIndex++) {
             Type type = types.get(columnIndex);
             ColumnEncoding columnEncoding = encoding.getEncoding(type);
-            columnEncoders[columnIndex] = new ColumnEncoder(columnEncoding, compressor);
+            columnEncoders[columnIndex] = new ColumnEncoder(columnEncoding, codec);
         }
         this.targetMinRowGroupSize = toIntExact(targetMinRowGroupSize.toBytes());
         this.targetMaxRowGroupSize = toIntExact(targetMaxRowGroupSize.toBytes());
@@ -220,8 +213,7 @@ public class RcFileWriter
                 validationBuilder.build(),
                 input,
                 encoding,
-                types,
-                codecFactory);
+                types);
     }
 
     public long getRetainedSizeInBytes()
@@ -329,6 +321,15 @@ public class RcFileWriter
         bufferedRows = 0;
     }
 
+    private static MemoryCompressedSliceOutput createMemoryCompressedSliceOutput(Optional<Codec> codec)
+            throws IOException
+    {
+        if (codec.isPresent()) {
+            return codec.get().createMemoryCompressedSliceOutput((int) MIN_BUFFER_SIZE.toBytes(), (int) MAX_BUFFER_SIZE.toBytes());
+        }
+        return MemoryCompressedSliceOutput.createUncompressedMemorySliceOutput((int) MIN_BUFFER_SIZE.toBytes(), (int) MAX_BUFFER_SIZE.toBytes());
+    }
+
     private static class ColumnEncoder
     {
         private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ColumnEncoder.class).instanceSize() + ClassLayout.parseClass(ColumnEncodeOutput.class).instanceSize());
@@ -343,10 +344,11 @@ public class RcFileWriter
 
         private boolean columnClosed;
 
-        public ColumnEncoder(ColumnEncoding columnEncoding, Compressor compressor)
+        public ColumnEncoder(ColumnEncoding columnEncoding, Optional<Codec> codec)
+                throws IOException
         {
             this.columnEncoding = columnEncoding;
-            this.output = compressor.createCompressedSliceOutput((int) MIN_BUFFER_SIZE.toBytes(), (int) MAX_BUFFER_SIZE.toBytes());
+            this.output = createMemoryCompressedSliceOutput(codec);
             this.encodeOutput = new ColumnEncodeOutput(lengthOutput, output);
         }
 

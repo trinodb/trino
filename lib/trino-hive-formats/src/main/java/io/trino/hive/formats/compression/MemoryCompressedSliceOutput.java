@@ -105,4 +105,27 @@ public final class MemoryCompressedSliceOutput
             }
         }
     }
+
+    public static MemoryCompressedSliceOutput createUncompressedMemorySliceOutput(int minChunkSize, int maxChunkSize)
+    {
+        return new UncompressedSliceOutputSupplier(minChunkSize, maxChunkSize).get();
+    }
+
+    private static class UncompressedSliceOutputSupplier
+            implements Supplier<MemoryCompressedSliceOutput>
+    {
+        private final ChunkedSliceOutput chunkedSliceOutput;
+
+        private UncompressedSliceOutputSupplier(int minChunkSize, int maxChunkSize)
+        {
+            chunkedSliceOutput = new ChunkedSliceOutput(minChunkSize, maxChunkSize);
+        }
+
+        @Override
+        public MemoryCompressedSliceOutput get()
+        {
+            chunkedSliceOutput.reset();
+            return new MemoryCompressedSliceOutput(chunkedSliceOutput, chunkedSliceOutput, this, () -> {});
+        }
+    }
 }

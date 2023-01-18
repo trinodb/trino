@@ -17,8 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hive.formats.compression.AircompressorCodecFactory;
-import io.trino.hive.formats.compression.HadoopCodecFactory;
 import io.trino.hive.formats.rcfile.RcFileEncoding;
 import io.trino.hive.formats.rcfile.RcFileWriter;
 import io.trino.hive.formats.rcfile.binary.BinaryRcFileEncoding;
@@ -389,8 +387,7 @@ public final class StandardFileFormats
                     new OutputStreamSliceOutput(new FileOutputStream(targetFile)),
                     types,
                     encoding,
-                    compressionCodec.getCodec().map(Class::getName),
-                    new AircompressorCodecFactory(new HadoopCodecFactory(getClass().getClassLoader())),
+                    compressionCodec.getHiveCompressionKind(),
                     ImmutableMap.of(),
                     true);
         }
