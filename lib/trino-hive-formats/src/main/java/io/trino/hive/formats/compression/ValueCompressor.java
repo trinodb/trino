@@ -13,7 +13,17 @@
  */
 package io.trino.hive.formats.compression;
 
-public interface Compressor
+import io.airlift.slice.Slice;
+
+import java.io.Closeable;
+import java.io.IOException;
+
+public interface ValueCompressor
+        extends Closeable
 {
-    MemoryCompressedSliceOutput createCompressedSliceOutput(int minChunkSize, int maxChunkSize);
+    Slice compress(Slice slice)
+            throws IOException;
+
+    @Override
+    default void close() {}
 }

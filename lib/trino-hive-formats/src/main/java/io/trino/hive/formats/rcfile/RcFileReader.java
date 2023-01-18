@@ -23,8 +23,8 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
-import io.trino.hive.formats.compression.CodecFactory;
-import io.trino.hive.formats.compression.Decompressor;
+import io.trino.hive.formats.compression.CompressionKind;
+import io.trino.hive.formats.compression.ValueDecompressor;
 import io.trino.hive.formats.rcfile.RcFileWriteValidation.WriteChecksum;
 import io.trino.hive.formats.rcfile.RcFileWriteValidation.WriteChecksumBuilder;
 import io.trino.spi.Page;
@@ -78,7 +78,7 @@ public class RcFileReader
 
     private final byte version;
 
-    private final Decompressor decompressor;
+    private final ValueDecompressor decompressor;
 
     private final Map<String, String> metadata;
     private final int columnCount;
@@ -108,20 +108,18 @@ public class RcFileReader
             RcFileDataSource dataSource,
             RcFileEncoding encoding,
             Map<Integer, Type> readColumns,
-            CodecFactory codecFactory,
             long offset,
             long length,
             DataSize bufferSize)
             throws IOException
     {
-        this(dataSource, encoding, readColumns, codecFactory, offset, length, bufferSize, Optional.empty());
+        this(dataSource, encoding, readColumns, offset, length, bufferSize, Optional.empty());
     }
 
     private RcFileReader(
             RcFileDataSource dataSource,
             RcFileEncoding encoding,
             Map<Integer, Type> readColumns,
-            CodecFactory codecFactory,
             long offset,
             long length,
             DataSize bufferSize,
@@ -179,7 +177,7 @@ public class RcFileReader
         if (compressed) {
             String codecClassName = readLengthPrefixedString(input).toStringUtf8();
             validateWrite(validation -> validation.getCodecClassName().equals(Optional.of(codecClassName)), "Unexpected compression codec");
-            this.decompressor = codecFactory.createDecompressor(codecClassName);
+            this.decompressor = CompressionKind.createCodecFromHadoopClassName(codecClassName).createValueDecompressor();
         }
         else {
             validateWrite(validation -> validation.getCodecClassName().equals(Optional.empty()), "Expected file to be compressed");
@@ -290,7 +288,7 @@ public class RcFileReader
         }
         finally {
             if (decompressor != null) {
-                decompressor.destroy();
+                decompressor.close();
             }
         }
         if (writeChecksumBuilder.isPresent()) {
@@ -512,8 +510,7 @@ public class RcFileReader
             RcFileWriteValidation writeValidation,
             RcFileDataSource input,
             RcFileEncoding encoding,
-            List<Type> types,
-            CodecFactory codecFactory)
+            List<Type> types)
             throws RcFileCorruptionException
     {
         ImmutableMap.Builder<Integer, Type> readTypes = ImmutableMap.builder();
@@ -524,7 +521,6 @@ public class RcFileReader
                 input,
                 encoding,
                 readTypes.buildOrThrow(),
-                codecFactory,
                 0,
                 input.getSize(),
                 DataSize.of(8, Unit.MEGABYTE),
@@ -544,7 +540,7 @@ public class RcFileReader
     private static class Column
     {
         private final ColumnEncoding encoding;
-        private final Decompressor decompressor;
+        private final ValueDecompressor decompressor;
 
         private BasicSliceInput lengthsInput;
         private Slice dataBuffer;
@@ -560,7 +556,7 @@ public class RcFileReader
         private int runLength;
         private int lastValueLength = -1;
 
-        public Column(ColumnEncoding encoding, Decompressor decompressor)
+        public Column(ColumnEncoding encoding, ValueDecompressor decompressor)
         {
             this.encoding = encoding;
             this.decompressor = decompressor;

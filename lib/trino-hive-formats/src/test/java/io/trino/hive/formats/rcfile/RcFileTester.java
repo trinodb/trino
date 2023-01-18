@@ -24,8 +24,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.hadoop.HadoopNative;
-import io.trino.hive.formats.compression.AircompressorCodecFactory;
-import io.trino.hive.formats.compression.HadoopCodecFactory;
+import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.rcfile.binary.BinaryRcFileEncoding;
 import io.trino.hive.formats.rcfile.text.TextRcFileEncoding;
 import io.trino.spi.Page;
@@ -81,10 +80,6 @@ import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.io.compress.BZip2Codec;
-import org.apache.hadoop.io.compress.GzipCodec;
-import org.apache.hadoop.io.compress.Lz4Codec;
-import org.apache.hadoop.io.compress.SnappyCodec;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
@@ -125,10 +120,10 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.hive.formats.rcfile.RcFileDecoderUtils.findFirstSyncPosition;
 import static io.trino.hive.formats.rcfile.RcFileTester.Compression.BZIP2;
+import static io.trino.hive.formats.rcfile.RcFileTester.Compression.GZIP;
 import static io.trino.hive.formats.rcfile.RcFileTester.Compression.LZ4;
 import static io.trino.hive.formats.rcfile.RcFileTester.Compression.NONE;
 import static io.trino.hive.formats.rcfile.RcFileTester.Compression.SNAPPY;
-import static io.trino.hive.formats.rcfile.RcFileTester.Compression.ZLIB;
 import static io.trino.hive.formats.rcfile.RcFileWriter.PRESTO_RCFILE_WRITER_VERSION;
 import static io.trino.hive.formats.rcfile.RcFileWriter.PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -233,43 +228,24 @@ public class RcFileTester
 
     public enum Compression
     {
-        BZIP2 {
-            @Override
-            Optional<String> getCodecName()
-            {
-                return Optional.of(BZip2Codec.class.getName());
-            }
-        },
-        ZLIB {
-            @Override
-            Optional<String> getCodecName()
-            {
-                return Optional.of(GzipCodec.class.getName());
-            }
-        },
-        SNAPPY {
-            @Override
-            Optional<String> getCodecName()
-            {
-                return Optional.of(SnappyCodec.class.getName());
-            }
-        },
-        LZ4 {
-            @Override
-            Optional<String> getCodecName()
-            {
-                return Optional.of(Lz4Codec.class.getName());
-            }
-        },
-        NONE {
-            @Override
-            Optional<String> getCodecName()
-            {
-                return Optional.empty();
-            }
-        };
+        SNAPPY(CompressionKind.SNAPPY),
+        LZ4(CompressionKind.LZ4),
+        GZIP(CompressionKind.GZIP),
+        ZSTD(CompressionKind.ZSTD),
+        BZIP2(CompressionKind.BZIP2),
+        NONE(null);
 
-        abstract Optional<String> getCodecName();
+        private final Optional<CompressionKind> compressionKind;
+
+        Compression(CompressionKind compressionKind)
+        {
+            this.compressionKind = Optional.ofNullable(compressionKind);
+        }
+
+        public Optional<CompressionKind> getCompressionKind()
+        {
+            return compressionKind;
+        }
     }
 
     private boolean structTestsEnabled;
@@ -305,7 +281,7 @@ public class RcFileTester
         // These compression algorithms were chosen to cover the three different
         // cases: uncompressed, aircompressor, and hadoop compression
         // We assume that the compression algorithms generally work
-        rcFileTester.compressions = ImmutableSet.of(NONE, LZ4, ZLIB, BZIP2);
+        rcFileTester.compressions = ImmutableSet.of(NONE, LZ4, GZIP, BZIP2);
         return rcFileTester;
     }
 
@@ -619,7 +595,6 @@ public class RcFileTester
                 rcFileDataSource,
                 encoding,
                 ImmutableMap.of(0, type),
-                new AircompressorCodecFactory(new HadoopCodecFactory(RcFileTester.class.getClassLoader())),
                 0,
                 tempFile.getFile().length(),
                 DataSize.of(8, MEGABYTE));
@@ -633,13 +608,11 @@ public class RcFileTester
             throws Exception
     {
         OutputStreamSliceOutput output = new OutputStreamSliceOutput(new FileOutputStream(outputFile));
-        AircompressorCodecFactory codecFactory = new AircompressorCodecFactory(new HadoopCodecFactory(RcFileTester.class.getClassLoader()));
         RcFileWriter writer = new RcFileWriter(
                 output,
                 ImmutableList.of(type),
                 format.getVectorEncoding(),
-                compression.getCodecName(),
-                codecFactory,
+                compression.getCompressionKind(),
                 metadata,
                 DataSize.of(100, KILOBYTE),   // use a smaller size to create more row groups
                 DataSize.of(200, KILOBYTE),
@@ -1061,7 +1034,7 @@ public class RcFileTester
             throws IOException
     {
         JobConf jobConf = new JobConf(false);
-        Optional<String> codecName = compression.getCodecName();
+        Optional<String> codecName = compression.getCompressionKind().map(CompressionKind::getHadoopClassName);
         codecName.ifPresent(s -> jobConf.set(COMPRESS_CODEC, s));
 
         return new RCFileOutputFormat().getHiveRecordWriter(
