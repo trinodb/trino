@@ -37,7 +37,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
  * } finally {
  *     signal.reset();
  * }
- * </pre>
+ * }</pre>
  */
 @ThreadSafe
 public class DriverYieldSignal

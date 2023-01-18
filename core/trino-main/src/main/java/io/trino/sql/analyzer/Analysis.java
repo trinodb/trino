@@ -2283,6 +2283,7 @@ public class Analysis
         /**
          * Proper columns are the columns produced by the table function, as opposed to pass-through columns from input tables.
          * Proper columns should be considered the actual result of the table function.
+         *
          * @return the number of table function's proper columns
          */
         public int getProperColumnsCount()

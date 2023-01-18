@@ -109,6 +109,7 @@ public class FilteredRowRangesIterator
     /**
      * Seek forward in the page by chunkSize.
      * Advance rowRanges if we seek beyond currentRange.
+     *
      * @return number of values skipped within rowRanges
      */
     @Override

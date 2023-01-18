@@ -244,7 +244,7 @@ public final class ColorFunctions
     }
 
     /**
-     * Convert the given color (rgb or system) to an ansi-compatible index (for use with ESC[38;5;<value>m)
+     * Convert the given color (rgb or system) to an ansi-compatible index (for use with ESC[38;5;&lt;value&gt;m)
      */
     private static int toAnsi(int red, int green, int blue)
     {
@@ -262,7 +262,7 @@ public final class ColorFunctions
     }
 
     /**
-     * Convert the given color (rgb or system) to an ansi-compatible index (for use with ESC[38;5;<value>m)
+     * Convert the given color (rgb or system) to an ansi-compatible index (for use with ESC[38;5;&lt;value&gt;m)
      */
     private static int toAnsi(long color)
     {
