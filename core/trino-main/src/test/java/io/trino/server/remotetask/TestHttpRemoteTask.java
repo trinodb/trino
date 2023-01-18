@@ -772,6 +772,7 @@ public class TestHttpRemoteTask
                     initialTaskStatus.getOutputBufferStatus(),
                     initialTaskStatus.getOutputDataSize(),
                     initialTaskStatus.getPhysicalWrittenDataSize(),
+                    initialTaskStatus.getMaxWriterCount(),
                     initialTaskStatus.getMemoryReservation(),
                     initialTaskStatus.getPeakMemoryReservation(),
                     initialTaskStatus.getRevocableMemoryReservation(),

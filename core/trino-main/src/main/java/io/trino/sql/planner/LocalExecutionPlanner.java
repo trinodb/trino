@@ -3171,11 +3171,9 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            context.setDriverInstanceCount(getWriterCount(
-                    session,
-                    node.getPartitioningScheme(),
-                    node.getPreferredPartitioningScheme(),
-                    node.getSource()));
+            int maxWriterCount = getWriterCount(session, node.getPartitioningScheme(), node.getPreferredPartitioningScheme(), node.getSource());
+            context.setDriverInstanceCount(maxWriterCount);
+            context.taskContext.setMaxWriterCount(maxWriterCount);
 
             PhysicalOperation source = node.getSource().accept(this, context);
 
@@ -3331,11 +3329,9 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableExecute(TableExecuteNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            context.setDriverInstanceCount(getWriterCount(
-                    session,
-                    node.getPartitioningScheme(),
-                    node.getPreferredPartitioningScheme(),
-                    node.getSource()));
+            int maxWriterCount = getWriterCount(session, node.getPartitioningScheme(), node.getPreferredPartitioningScheme(), node.getSource());
+            context.setDriverInstanceCount(maxWriterCount);
+            context.taskContext.setMaxWriterCount(maxWriterCount);
 
             PhysicalOperation source = node.getSource().accept(this, context);
 

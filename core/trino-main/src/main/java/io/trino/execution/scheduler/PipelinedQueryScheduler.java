@@ -112,10 +112,7 @@ import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
 import static io.trino.SystemSessionProperties.getRetryInitialDelay;
 import static io.trino.SystemSessionProperties.getRetryMaxDelay;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
-import static io.trino.SystemSessionProperties.getTaskScaleWritersMaxWriterCount;
-import static io.trino.SystemSessionProperties.getTaskWriterCount;
 import static io.trino.SystemSessionProperties.getWriterMinSize;
-import static io.trino.SystemSessionProperties.isTaskScaleWritersEnabled;
 import static io.trino.execution.QueryState.STARTING;
 import static io.trino.execution.scheduler.PipelinedStageExecution.createPipelinedStageExecution;
 import static io.trino.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
@@ -1084,8 +1081,7 @@ public class PipelinedQueryScheduler
                         writerTasksProvider,
                         nodeScheduler.createNodeSelector(session, Optional.empty()),
                         executor,
-                        getWriterMinSize(session),
-                        isTaskScaleWritersEnabled(session) ? getTaskScaleWritersMaxWriterCount(session) : getTaskWriterCount(session));
+                        getWriterMinSize(session));
 
                 whenAllStages(childStageExecutions, StageExecution.State::isDone)
                         .addListener(scheduler::finish, directExecutor());

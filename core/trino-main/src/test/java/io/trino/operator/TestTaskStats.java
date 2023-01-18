@@ -21,6 +21,8 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.trino.operator.TestPipelineStats.assertExpectedPipelineStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.joda.time.DateTimeZone.UTC;
@@ -78,6 +80,7 @@ public class TestTaskStats
             new Duration(272, NANOSECONDS),
 
             DataSize.ofBytes(25),
+            Optional.of(2),
 
             26,
             new Duration(27, NANOSECONDS),
