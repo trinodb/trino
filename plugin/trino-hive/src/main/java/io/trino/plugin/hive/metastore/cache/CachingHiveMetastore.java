@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
 import io.trino.collect.cache.EvictableCacheBuilder;
@@ -55,6 +56,7 @@ import org.apache.hadoop.hive.metastore.api.DataOperationType;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.annotation.concurrent.Immutable;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
@@ -119,31 +121,134 @@ public class CachingHiveMetastore
     private final LoadingCache<String, Set<RoleGrant>> grantedPrincipalsCache;
     private final LoadingCache<String, Optional<String>> configValuesCache;
 
-    public static CachingHiveMetastore cachingHiveMetastore(HiveMetastore delegate, Executor executor, Duration cacheTtl, Optional<Duration> refreshInterval, long maximumSize, boolean partitionCacheEnabled)
+    public static CachingHiveMetastoreBuilder builder()
     {
-        return new CachingHiveMetastore(
-                delegate,
-                OptionalLong.of(cacheTtl.toMillis()),
-                refreshInterval
-                        .map(Duration::toMillis)
-                        .map(OptionalLong::of)
-                        .orElseGet(OptionalLong::empty),
-                Optional.of(executor),
-                maximumSize,
-                StatsRecording.ENABLED,
-                partitionCacheEnabled);
+        return new CachingHiveMetastoreBuilder();
+    }
+
+    public static CachingHiveMetastoreBuilder builder(CachingHiveMetastoreBuilder other)
+    {
+        return new CachingHiveMetastoreBuilder(
+                other.delegate,
+                other.executor,
+                other.expiresAfterWriteMillis,
+                other.refreshMills,
+                other.maximumSize,
+                other.statsRecording,
+                other.partitionCacheEnabled);
     }
 
     public static CachingHiveMetastore memoizeMetastore(HiveMetastore delegate, long maximumSize)
     {
-        return new CachingHiveMetastore(
-                delegate,
-                OptionalLong.empty(),
-                OptionalLong.empty(),
-                Optional.empty(),
-                maximumSize,
-                StatsRecording.DISABLED,
-                true);
+        return builder()
+                .delegate(delegate)
+                .maximumSize(maximumSize)
+                .statsRecording(StatsRecording.DISABLED)
+                .build();
+    }
+
+    @Immutable
+    public static class CachingHiveMetastoreBuilder
+    {
+        private HiveMetastore delegate;
+        private Optional<Executor> executor = Optional.empty();
+        private OptionalLong expiresAfterWriteMillis = OptionalLong.empty();
+        private OptionalLong refreshMills = OptionalLong.empty();
+        private Long maximumSize;
+        private StatsRecording statsRecording = StatsRecording.ENABLED;
+        private boolean partitionCacheEnabled = true;
+
+        public CachingHiveMetastoreBuilder() {}
+
+        private CachingHiveMetastoreBuilder(
+                HiveMetastore delegate,
+                Optional<Executor> executor,
+                OptionalLong expiresAfterWriteMillis,
+                OptionalLong refreshMills,
+                Long maximumSize,
+                StatsRecording statsRecording,
+                boolean partitionCacheEnabled)
+        {
+            this.delegate = delegate;
+            this.executor = executor;
+            this.expiresAfterWriteMillis = expiresAfterWriteMillis;
+            this.refreshMills = refreshMills;
+            this.maximumSize = maximumSize;
+            this.statsRecording = statsRecording;
+            this.partitionCacheEnabled = partitionCacheEnabled;
+        }
+
+        @CanIgnoreReturnValue
+        public CachingHiveMetastoreBuilder delegate(HiveMetastore delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public CachingHiveMetastoreBuilder executor(Executor executor)
+        {
+            this.executor = Optional.of(requireNonNull(executor, "executor is null"));
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public CachingHiveMetastoreBuilder cacheTtl(Duration cacheTtl)
+        {
+            expiresAfterWriteMillis = OptionalLong.of(requireNonNull(cacheTtl, "cacheTtl is null").toMillis());
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public CachingHiveMetastoreBuilder refreshInterval(Duration refreshInterval)
+        {
+            return refreshInterval(Optional.of(refreshInterval));
+        }
+
+        @CanIgnoreReturnValue
+        public CachingHiveMetastoreBuilder refreshInterval(Optional<Duration> refreshInterval)
+        {
+            refreshMills = requireNonNull(refreshInterval, "refreshInterval is null")
+                    .map(Duration::toMillis)
+                    .map(OptionalLong::of)
+                    .orElse(OptionalLong.empty());
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public CachingHiveMetastoreBuilder maximumSize(long maximumSize)
+        {
+            this.maximumSize = maximumSize;
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public CachingHiveMetastoreBuilder statsRecording(StatsRecording statsRecording)
+        {
+            this.statsRecording = requireNonNull(statsRecording, "statsRecording is null");
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public CachingHiveMetastoreBuilder partitionCacheEnabled(boolean partitionCacheEnabled)
+        {
+            this.partitionCacheEnabled = partitionCacheEnabled;
+            return this;
+        }
+
+        public CachingHiveMetastore build()
+        {
+            requireNonNull(delegate, "delegate not set");
+            requireNonNull(maximumSize, "maximumSize not set");
+            return new CachingHiveMetastore(
+                    delegate,
+                    expiresAfterWriteMillis,
+                    refreshMills,
+                    executor,
+                    maximumSize,
+                    statsRecording,
+                    partitionCacheEnabled);
+        }
     }
 
     protected CachingHiveMetastore(HiveMetastore delegate, OptionalLong expiresAfterWriteMillis, OptionalLong refreshMills, Optional<Executor> executor, long maximumSize, StatsRecording statsRecording, boolean partitionCacheEnabled)

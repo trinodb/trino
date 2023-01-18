@@ -24,6 +24,7 @@ import io.airlift.units.Duration;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.CachingHiveMetastoreBuilder;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
@@ -43,7 +44,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.cachingHiveMetastore;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -52,14 +52,11 @@ public class SharedHiveMetastoreCache
 {
     private final boolean enabled;
     private final CatalogName catalogName;
-    private final Duration metastoreCacheTtl;
-    private final Optional<Duration> metastoreRefreshInterval;
-    private final long metastoreCacheMaximumSize;
     private final int maxMetastoreRefreshThreads;
 
     private final Duration userMetastoreCacheTtl;
     private final long userMetastoreCacheMaximumSize;
-    private final boolean metastorePartitionCacheEnabled;
+    private final CachingHiveMetastoreBuilder cachingMetastoreBuilder;
 
     private ExecutorService executorService;
 
@@ -75,11 +72,6 @@ public class SharedHiveMetastoreCache
 
         this.catalogName = catalogName;
         maxMetastoreRefreshThreads = config.getMaxMetastoreRefreshThreads();
-        metastoreCacheTtl = config.getMetastoreCacheTtl();
-        metastoreRefreshInterval = config.getMetastoreRefreshInterval();
-        metastoreCacheMaximumSize = config.getMetastoreCacheMaximumSize();
-        metastorePartitionCacheEnabled = config.isPartitionCacheEnabled();
-
         userMetastoreCacheTtl = impersonationCachingConfig.getUserMetastoreCacheTtl();
         userMetastoreCacheMaximumSize = impersonationCachingConfig.getUserMetastoreCacheMaximumSize();
 
@@ -87,8 +79,14 @@ public class SharedHiveMetastoreCache
         // Note: while we could skip CachingHiveMetastoreModule altogether on workers, we retain it so that catalog
         // configuration can remain identical for all nodes, making cluster configuration easier.
         enabled = nodeManager.getCurrentNode().isCoordinator() &&
-                metastoreCacheTtl.toMillis() > 0 &&
-                metastoreCacheMaximumSize > 0;
+                config.getMetastoreCacheTtl().toMillis() > 0 &&
+                config.getMetastoreCacheMaximumSize() > 0;
+
+        cachingMetastoreBuilder = CachingHiveMetastore.builder()
+                .cacheTtl(config.getMetastoreCacheTtl())
+                .refreshInterval(config.getMetastoreRefreshInterval())
+                .maximumSize(config.getMetastoreCacheMaximumSize())
+                .partitionCacheEnabled(config.isPartitionCacheEnabled());
     }
 
     @PostConstruct
@@ -127,16 +125,13 @@ public class SharedHiveMetastoreCache
             return new ImpersonationCachingHiveMetastoreFactory(metastoreFactory);
         }
 
-        CachingHiveMetastore cachingHiveMetastore = cachingHiveMetastore(
+        CachingHiveMetastore cachingHiveMetastore = CachingHiveMetastore.builder(cachingMetastoreBuilder)
                 // Loading of cache entry in CachingHiveMetastore might trigger loading of another cache entry for different object type
                 // In case there are no empty executor slots, such operation would deadlock. Therefore, a reentrant executor needs to be
                 // used.
-                metastoreFactory.createMetastore(Optional.empty()),
-                new ReentrantBoundedExecutor(executorService, maxMetastoreRefreshThreads),
-                metastoreCacheTtl,
-                metastoreRefreshInterval,
-                metastoreCacheMaximumSize,
-                metastorePartitionCacheEnabled);
+                .delegate(metastoreFactory.createMetastore(Optional.empty()))
+                .executor(new ReentrantBoundedExecutor(executorService, maxMetastoreRefreshThreads))
+                .build();
         return new CachingHiveMetastoreFactory(cachingHiveMetastore);
     }
 
@@ -208,13 +203,10 @@ public class SharedHiveMetastoreCache
         private CachingHiveMetastore createUserCachingMetastore(String user)
         {
             ConnectorIdentity identity = ConnectorIdentity.ofUser(user);
-            return cachingHiveMetastore(
-                    metastoreFactory.createMetastore(Optional.of(identity)),
-                    new ReentrantBoundedExecutor(executorService, maxMetastoreRefreshThreads),
-                    metastoreCacheTtl,
-                    metastoreRefreshInterval,
-                    metastoreCacheMaximumSize,
-                    metastorePartitionCacheEnabled);
+            return CachingHiveMetastore.builder(cachingMetastoreBuilder)
+                    .delegate(metastoreFactory.createMetastore(Optional.of(identity)))
+                    .executor(new ReentrantBoundedExecutor(executorService, maxMetastoreRefreshThreads))
+                    .build();
         }
 
         @Managed
