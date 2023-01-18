@@ -39,6 +39,7 @@ public interface ConnectorMergeSink
      *         {@link ConnectorMetadata#getMergeRowIdColumnHandle(ConnectorSession, ConnectorTableHandle) getMergeRowIdColumnHandle()}
      *     </li>
      * </ul>
+     *
      * @param page The page to store.
      */
     void storeMergedRows(Page page);

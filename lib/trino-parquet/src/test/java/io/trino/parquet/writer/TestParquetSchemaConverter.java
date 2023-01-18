@@ -133,11 +133,12 @@ public class TestParquetSchemaConverter
      * Lists
      * LIST is used to annotate types that should be interpreted as lists.
      * LIST must always annotate a 3-level structure:
-     *
+     * {@code
      * <list-repetition> group <name> (LIST) {
      *   repeated group list {
      *     <element-repetition> <element-type> element;
      *   }
+     * }
      * }
      */
     @Test

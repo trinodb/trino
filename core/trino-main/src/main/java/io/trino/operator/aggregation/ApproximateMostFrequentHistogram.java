@@ -36,8 +36,6 @@ import static java.util.Objects.requireNonNull;
  * as described in:
  * <i>Efficient Computation of Frequent and Top-k Elements in Data Streams</i>
  * by Metwally, Agrawal, and Abbadi
- *
- * @param <K>
  */
 public class ApproximateMostFrequentHistogram<K>
 {

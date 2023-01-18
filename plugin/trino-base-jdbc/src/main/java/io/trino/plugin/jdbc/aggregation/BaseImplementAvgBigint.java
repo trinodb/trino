@@ -76,6 +76,7 @@ public abstract class BaseImplementAvgBigint
     // TODO String.format is not great for contract of an extensible API. Replace with formatting method.
     /**
      * Implement this method for each connector supporting avg(bigint) pushdown
+     *
      * @return A format string expression with a single placeholder for the column name; The string expression pushes down avg to the remote database
      */
     protected abstract String getRewriteFormatExpression();
