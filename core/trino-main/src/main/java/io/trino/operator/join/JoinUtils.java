@@ -27,6 +27,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
 import java.util.Map;
@@ -50,7 +51,7 @@ public final class JoinUtils
 {
     private JoinUtils() {}
 
-    public static List<Page> channelsToPages(List<List<Block>> channels)
+    public static List<Page> channelsToPages(List<ObjectArrayList<Block>> channels)
     {
         if (channels.isEmpty()) {
             return ImmutableList.of();

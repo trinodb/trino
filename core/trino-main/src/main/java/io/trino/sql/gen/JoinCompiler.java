@@ -32,6 +32,7 @@ import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.expression.BytecodeExpressions;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.jmx.CacheStatsMBean;
+import io.airlift.slice.SizeOf;
 import io.trino.Session;
 import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.operator.HashArraySizeSupplier;
@@ -51,6 +52,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.assertj.core.util.VisibleForTesting;
 import org.openjdk.jol.info.ClassLayout;
 import org.weakref.jmx.Managed;
@@ -289,7 +291,7 @@ public class JoinCompiler
 
         for (int index = 0; index < channelFields.size(); index++) {
             BytecodeExpression channel = channels.invoke("get", Object.class, constantInt(index))
-                    .cast(type(List.class, Block.class));
+                    .cast(type(ObjectArrayList.class, Block.class));
 
             constructor.append(thisVariable.setField(channelFields.get(index), channel));
 
@@ -312,6 +314,13 @@ public class JoinCompiler
                             channel.invoke("get", Object.class, blockIndex)
                                     .cast(type(Block.class))
                                     .invoke("getRetainedSizeInBytes", long.class))
+                    .longAdd()
+                    .putField(sizeField);
+
+            constructor.append(thisVariable)
+                    .append(thisVariable)
+                    .getField(sizeField)
+                    .append(invokeStatic(SizeOf.class, "sizeOf", long.class, channel.invoke("elements", Object[].class)))
                     .longAdd()
                     .putField(sizeField);
         }
@@ -1055,7 +1064,7 @@ public class JoinCompiler
         public LookupSourceSupplier createLookupSourceSupplier(
                 Session session,
                 LongArrayList addresses,
-                List<List<Block>> channels,
+                List<ObjectArrayList<Block>> channels,
                 OptionalInt hashChannel,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
                 Optional<Integer> sortChannel,
@@ -1086,7 +1095,7 @@ public class JoinCompiler
             }
         }
 
-        public PagesHashStrategy createPagesHashStrategy(List<? extends List<Block>> channels, OptionalInt hashChannel)
+        public PagesHashStrategy createPagesHashStrategy(List<ObjectArrayList<Block>> channels, OptionalInt hashChannel)
         {
             try {
                 return constructor.newInstance(channels, hashChannel);

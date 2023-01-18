@@ -506,7 +506,7 @@ public class PagesIndex
             Map<Integer, Rectangle> partitions)
     {
         // TODO probably shouldn't copy to reduce memory and for memory accounting's sake
-        List<List<Block>> channels = ImmutableList.copyOf(this.channels);
+        List<ObjectArrayList<Block>> channels = ImmutableList.copyOf(this.channels);
         return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, radiusChannel, partitionChannel, spatialRelationshipTest, filterFunctionFactory, partitions);
     }
 
@@ -520,7 +520,7 @@ public class PagesIndex
             Optional<List<Integer>> outputChannels,
             HashArraySizeSupplier hashArraySizeSupplier)
     {
-        List<List<Block>> channels = ImmutableList.copyOf(this.channels);
+        List<ObjectArrayList<Block>> channels = ImmutableList.copyOf(this.channels);
         if (!joinChannels.isEmpty()) {
             // todo compiled implementation of lookup join does not support when we are joining with empty join channels.
             // This code path will trigger only for OUTER joins. To fix that we need to add support for
