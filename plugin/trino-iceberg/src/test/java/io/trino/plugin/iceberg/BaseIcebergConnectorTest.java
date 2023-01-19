@@ -6347,7 +6347,7 @@ public abstract class BaseIcebergConnectorTest
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             case "bigint -> integer":
             case "decimal(5,3) -> decimal(5,2)":
-            case "varchar -> char(100)":
+            case "varchar -> char(20)":
             case "array(integer) -> array(bigint)":
             case "row(x integer) -> row(x bigint)":
                 // Iceberg allows updating column types if the update is safe. Safe updates are:
