@@ -1559,8 +1559,12 @@ some cases. To address this, Trino supports partial casting of arrays and maps::
 
 When casting from ``JSON`` to ``ROW``, both JSON array and JSON object are supported.
 
-JSON functions
---------------
+Other JSON functions
+--------------------
+
+In addition to the functions explained in more details in the preceding
+sections, the following functions are available:
+
 .. function:: is_json_scalar(json) -> boolean
 
     Determine if ``json`` is a scalar (i.e. a JSON number, a JSON string, ``true``, ``false`` or ``null``)::
