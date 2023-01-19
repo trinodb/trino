@@ -2291,6 +2291,12 @@ public abstract class BaseConnectorTest
             requireNonNull(newValueLiteral, "newValueLiteral is null");
         }
 
+        public SetColumnTypeSetup withNewValueLiteral(String newValueLiteral)
+        {
+            checkState(!unsupportedType);
+            return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, unsupportedType);
+        }
+
         public SetColumnTypeSetup asUnsupported()
         {
             return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, true);
