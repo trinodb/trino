@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.DynamicMessage;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.confluent.kafka.serializers.protobuf.KafkaProtobufSerializer;
 import io.confluent.kafka.serializers.subject.RecordNameStrategy;
 import io.confluent.kafka.serializers.subject.TopicRecordNameStrategy;
@@ -25,8 +27,6 @@ import io.trino.plugin.kafka.schema.confluent.KafkaWithConfluentSchemaRegistryQu
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.testng.annotations.Test;
 
@@ -221,14 +221,16 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
     private void waitUntilTableExists(String tableName)
     {
         Failsafe.with(
-                        new RetryPolicy<>()
+                        RetryPolicy.builder()
                                 .withMaxAttempts(10)
-                                .withDelay(Duration.ofMillis(100)))
+                                .withDelay(Duration.ofMillis(100))
+                                .build())
                 .run(() -> assertTrue(schemaExists()));
         Failsafe.with(
-                        new RetryPolicy<>()
+                        RetryPolicy.builder()
                                 .withMaxAttempts(10)
-                                .withDelay(Duration.ofMillis(100)))
+                                .withDelay(Duration.ofMillis(100))
+                                .build())
                 .run(() -> assertTrue(tableExists(tableName)));
     }
 

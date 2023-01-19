@@ -25,13 +25,13 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
+import dev.failsafe.Failsafe;
+import dev.failsafe.FailsafeExecutor;
+import dev.failsafe.RetryPolicy;
+import dev.failsafe.Timeout;
 import io.airlift.log.Logger;
 import io.trino.tests.product.launcher.testcontainers.PrintingLogConsumer;
 import io.trino.tests.product.launcher.util.ConsoleTable;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.FailsafeExecutor;
-import net.jodah.failsafe.RetryPolicy;
-import net.jodah.failsafe.Timeout;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.OutputFrame;
 import org.testcontainers.lifecycle.Startables;
@@ -123,12 +123,13 @@ public final class Environment
 
     public Environment start()
     {
-        RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
+        RetryPolicy<Object> retryPolicy = RetryPolicy.builder()
                 .withMaxRetries(startupRetries)
-                .onFailedAttempt(event -> log.warn(event.getLastFailure(), "Could not start environment '%s'", this))
+                .onFailedAttempt(event -> log.warn(event.getLastException(), "Could not start environment '%s'", this))
                 .onRetry(event -> log.info("Trying to start environment '%s', %d failed attempt(s)", this, event.getAttemptCount() + 1))
                 .onSuccess(event -> log.info("Environment '%s' started in %s, %d attempt(s)", this, event.getElapsedTime(), event.getAttemptCount()))
-                .onFailure(event -> log.info("Environment '%s' failed to start in attempt(s): %d: %s", this, event.getAttemptCount(), event.getFailure()));
+                .onFailure(event -> log.info("Environment '%s' failed to start in attempt(s): %d: %s", this, event.getAttemptCount(), event.getException()))
+                .build();
 
         return Failsafe
                 .with(retryPolicy)
@@ -190,11 +191,13 @@ public final class Environment
         this.listener.ifPresent(listener -> listener.environmentStopping(this));
 
         // Allow containers to take up to 5 minutes to stop
-        Timeout<Object> timeout = Timeout.of(ofMinutes(5))
-                .withCancel(true);
+        Timeout<Object> timeout = Timeout.builder(ofMinutes(5))
+                .withInterrupt()
+                .build();
 
-        RetryPolicy<Object> retry = new RetryPolicy<>()
-                .withMaxAttempts(3);
+        RetryPolicy<Object> retry = RetryPolicy.builder()
+                .withMaxAttempts(3)
+                .build();
 
         FailsafeExecutor<Object> executor = Failsafe
                 .with(timeout, retry)

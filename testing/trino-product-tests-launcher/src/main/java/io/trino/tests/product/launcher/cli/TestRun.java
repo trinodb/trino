@@ -18,6 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import com.google.inject.Module;
+import dev.failsafe.Failsafe;
+import dev.failsafe.Timeout;
+import dev.failsafe.TimeoutExceededException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.tests.product.launcher.Extensions;
@@ -30,9 +33,6 @@ import io.trino.tests.product.launcher.env.EnvironmentModule;
 import io.trino.tests.product.launcher.env.EnvironmentOptions;
 import io.trino.tests.product.launcher.env.SupportedTrinoJdk;
 import io.trino.tests.product.launcher.testcontainers.ExistingNetwork;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.Timeout;
-import net.jodah.failsafe.TimeoutExceededException;
 import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
@@ -227,8 +227,9 @@ public final class TestRun
 
             try {
                 int exitCode = Failsafe
-                        .with(Timeout.of(java.time.Duration.ofMillis(timeoutMillis))
-                                .withCancel(true))
+                        .with(Timeout.builder(java.time.Duration.ofMillis(timeoutMillis))
+                                .withInterrupt()
+                                .build())
                         .get(this::tryExecuteTests);
 
                 log.info("Tests execution completed with code %d", exitCode);

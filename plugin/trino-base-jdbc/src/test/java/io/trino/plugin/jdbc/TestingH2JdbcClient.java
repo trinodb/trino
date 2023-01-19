@@ -14,6 +14,8 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableSet;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
@@ -31,8 +33,6 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -97,9 +97,10 @@ class TestingH2JdbcClient
     public Collection<String> listSchemas(Connection connection)
     {
         // listing schemas in H2 may fail with NullPointerException when a schema is concurrently dropped
-        return Failsafe.with(new RetryPolicy<Collection<String>>()
+        return Failsafe.with(RetryPolicy.<Collection<String>>builder()
                         .withMaxAttempts(100)
-                        .onRetry(event -> log.warn(event.getLastFailure(), "Failed to list schemas, retrying")))
+                        .onRetry(event -> log.warn(event.getLastException(), "Failed to list schemas, retrying"))
+                        .build())
                 .get(() -> super.listSchemas(connection));
     }
 
