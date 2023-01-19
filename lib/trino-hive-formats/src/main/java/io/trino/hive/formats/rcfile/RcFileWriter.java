@@ -412,6 +412,7 @@ public class RcFileWriter
         }
 
         public void reset()
+                throws IOException
         {
             checkArgument(columnClosed, "Column is open");
             lengthOutput.reset();
