@@ -70,7 +70,7 @@ public enum CompressionKind
 
     public Codec createCodec()
     {
-        return new AircompressorCodec(hadoopStreams);
+        return new Codec(hadoopStreams);
     }
 
     private static final Map<String, CompressionKind> CODECS_BY_HADOOP_CLASS_NAME;
