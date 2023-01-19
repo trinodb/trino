@@ -281,6 +281,17 @@ public class TestJdbcConnectorTest
     }
 
     @Override
+    protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
+    {
+        if (setup.sourceColumnType().equals("char(20)") && setup.newColumnType().equals("varchar")) {
+            // H2 trims trailing spaces
+            return Optional.of(setup.withNewValueLiteral("rtrim(%s)".formatted(setup.newValueLiteral())));
+        }
+
+        return Optional.of(setup);
+    }
+
+    @Override
     protected JdbcSqlExecutor onRemoteDatabase()
     {
         return new JdbcSqlExecutor(properties.get("connection-url"), new Properties());
