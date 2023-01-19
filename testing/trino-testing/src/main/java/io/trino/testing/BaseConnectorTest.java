@@ -2268,9 +2268,9 @@ public abstract class BaseConnectorTest
                 .add(new SetColumnTypeSetup("timestamp(6)", "TIMESTAMP '2020-02-12 15:03:00.123999'", "timestamp(3)", "TIMESTAMP '2020-02-12 15:03:00.124'"))
                 .add(new SetColumnTypeSetup("timestamp(3) with time zone", "TIMESTAMP '2020-02-12 15:03:00.123 +01:00'", "timestamp(6) with time zone", "TIMESTAMP '2020-02-12 15:03:00.123000 +01:00'"))
                 .add(new SetColumnTypeSetup("varchar(100)", "'shorten-varchar'", "varchar(50)", "'shorten-varchar'"))
-                .add(new SetColumnTypeSetup("char(100)", "'shorten-char'", "char(50)", "CAST('shorten-char' AS char(50))"))
-                .add(new SetColumnTypeSetup("char(100)", "'char-to-varchar'", "varchar", "'char-to-varchar'"))
-                .add(new SetColumnTypeSetup("varchar", "'varchar-to-char'", "char(100)", "CAST('varchar-to-char' AS char(100))"))
+                .add(new SetColumnTypeSetup("char(25)", "'shorten-char'", "char(20)", "CHAR 'shorten-char        '"))
+                .add(new SetColumnTypeSetup("char(20)", "'char-to-varchar'", "varchar", "'char-to-varchar'"))
+                .add(new SetColumnTypeSetup("varchar", "'varchar-to-char'", "char(20)", "CHAR 'varchar-to-char     '"))
                 .add(new SetColumnTypeSetup("array(integer)", "array[1]", "array(bigint)", "CAST(array[1] AS array(bigint))"))
                 .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(x bigint)", "CAST(row(1) AS row(x bigint))"))
                 .build();
