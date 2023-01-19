@@ -22,14 +22,14 @@ import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.DataFormat;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.protobuf.ByteString;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
 
@@ -108,11 +108,12 @@ public class ReadSessionCreator
                     .setMaxStreamCount(parallelism)
                     .build();
 
-            return Failsafe.with(new RetryPolicy<>()
+            return Failsafe.with(RetryPolicy.builder()
                             .withMaxRetries(maxCreateReadSessionRetries)
                             .withBackoff(10, 500, MILLIS)
-                            .onRetry(event -> log.debug("Request failed, retrying: %s", event.getLastFailure()))
-                            .abortOn(failure -> !BigQueryUtil.isRetryable(failure)))
+                            .onRetry(event -> log.debug("Request failed, retrying: %s", event.getLastException()))
+                            .abortOn(failure -> !BigQueryUtil.isRetryable(failure))
+                            .build())
                     .get(() -> bigQueryReadClient.createReadSession(createReadSessionRequest));
         }
     }

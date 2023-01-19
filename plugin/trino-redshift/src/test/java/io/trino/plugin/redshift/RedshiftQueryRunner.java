@@ -16,6 +16,8 @@ package io.trino.plugin.redshift;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -26,8 +28,6 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 import org.jdbi.v3.core.HandleCallback;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
@@ -153,10 +153,11 @@ public final class RedshiftQueryRunner
 
     private static void executeInRedshiftWithRetry(String sql)
     {
-        Failsafe.with(new RetryPolicy<>()
+        Failsafe.with(RetryPolicy.builder()
                         .handleIf(e -> e.getMessage().matches(".* concurrent transaction .*"))
                         .withDelay(Duration.ofSeconds(10))
-                        .withMaxRetries(3))
+                        .withMaxRetries(3)
+                        .build())
                 .run(() -> executeInRedshift(sql));
     }
 
