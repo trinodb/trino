@@ -19,7 +19,7 @@ import io.airlift.configuration.ConfigSecuritySensitive;
 
 import javax.validation.constraints.NotEmpty;
 
-public class IcebergJdbcConfig
+public class IcebergJdbcCatalogConfig
 {
     private String connectionUrl;
     private String catalogName;
@@ -33,7 +33,7 @@ public class IcebergJdbcConfig
     @Config("iceberg.jdbc-catalog.connection-url")
     @ConfigDescription("The URI to connect to the JDBC server")
     @ConfigSecuritySensitive
-    public IcebergJdbcConfig setConnectionUrl(String connectionUrl)
+    public IcebergJdbcCatalogConfig setConnectionUrl(String connectionUrl)
     {
         this.connectionUrl = connectionUrl;
         return this;
@@ -47,7 +47,7 @@ public class IcebergJdbcConfig
 
     @Config("iceberg.jdbc-catalog.catalog-name")
     @ConfigDescription("Iceberg JDBC metastore catalog name")
-    public IcebergJdbcConfig setCatalogName(String catalogName)
+    public IcebergJdbcCatalogConfig setCatalogName(String catalogName)
     {
         this.catalogName = catalogName;
         return this;
@@ -61,7 +61,7 @@ public class IcebergJdbcConfig
 
     @Config("iceberg.jdbc-catalog.default-warehouse-dir")
     @ConfigDescription("The default warehouse directory to use for JDBC")
-    public IcebergJdbcConfig setDefaultWarehouseDir(String defaultWarehouseDir)
+    public IcebergJdbcCatalogConfig setDefaultWarehouseDir(String defaultWarehouseDir)
     {
         this.defaultWarehouseDir = defaultWarehouseDir;
         return this;
