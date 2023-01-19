@@ -21,6 +21,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
@@ -144,7 +145,7 @@ public final class HiveTypeTranslator
         if (DATE.equals(type)) {
             return HIVE_DATE.getTypeInfo();
         }
-        if (type instanceof TimestampType) {
+        if (type instanceof TimestampType || type instanceof TimestampWithTimeZoneType) {
             return HIVE_TIMESTAMP.getTypeInfo();
         }
         if (type instanceof DecimalType) {

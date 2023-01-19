@@ -13,22 +13,15 @@
  */
 package io.trino.plugin.hive.parquet;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.HivePageSourceFactory;
-import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.HiveTimestampPrecision;
-import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.ReaderPageSource;
-import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.benchmark.StandardFileFormats;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -36,21 +29,14 @@ import java.io.File;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.Optional;
-import java.util.OptionalInt;
-import java.util.Properties;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
-import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
-import static io.trino.plugin.hive.HiveType.HIVE_TIMESTAMP;
+import static io.trino.plugin.hive.benchmark.StandardFileFormats.TRINO_PARQUET;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTimestampMicros
@@ -66,7 +52,7 @@ public class TestTimestampMicros
         File parquetFile = new File(Resources.getResource("issue-5483.parquet").toURI());
         Type columnType = createTimestampType(timestampPrecision.getPrecision());
 
-        try (ConnectorPageSource pageSource = createPageSource(session, parquetFile, "created", HIVE_TIMESTAMP, columnType)) {
+        try (ConnectorPageSource pageSource = createPageSource(session, parquetFile, "created", columnType)) {
             MaterializedResult result = materializeSourceDataStream(session, pageSource, List.of(columnType)).toTestTypes();
             assertThat(result.getMaterializedRows())
                     .containsOnly(new MaterializedRow(List.of(expected)));
@@ -84,7 +70,7 @@ public class TestTimestampMicros
         File parquetFile = new File(Resources.getResource("issue-5483.parquet").toURI());
         Type columnType = createTimestampWithTimeZoneType(timestampPrecision.getPrecision());
 
-        try (ConnectorPageSource pageSource = createPageSource(session, parquetFile, "created", HIVE_TIMESTAMP, columnType)) {
+        try (ConnectorPageSource pageSource = createPageSource(session, parquetFile, "created", columnType)) {
             MaterializedResult result = materializeSourceDataStream(session, pageSource, List.of(columnType)).toTestTypes();
             assertThat(result.getMaterializedRows())
                     .containsOnly(new MaterializedRow(List.of(expected.atZone(ZoneId.of("UTC")))));
@@ -103,35 +89,8 @@ public class TestTimestampMicros
                 new Object[][] {{true}, {false}});
     }
 
-    private ConnectorPageSource createPageSource(ConnectorSession session, File parquetFile, String columnName, HiveType columnHiveType, Type columnType)
+    private ConnectorPageSource createPageSource(ConnectorSession session, File parquetFile, String columnName, Type columnType)
     {
-        // TODO after https://github.com/trinodb/trino/pull/5283, replace the method with
-        //  return FileFormat.PRESTO_PARQUET.createFileFormatReader(session, HDFS_ENVIRONMENT, parquetFile, columnNames, columnTypes);
-
-        HivePageSourceFactory pageSourceFactory = StandardFileFormats.TRINO_PARQUET.getHivePageSourceFactory(HDFS_ENVIRONMENT).orElseThrow();
-
-        Properties schema = new Properties();
-        schema.setProperty(SERIALIZATION_LIB, HiveStorageFormat.PARQUET.getSerde());
-
-        ReaderPageSource pageSourceWithProjections = pageSourceFactory.createPageSource(
-                        newEmptyConfiguration(),
-                session,
-                new Path(parquetFile.toURI()),
-                0,
-                parquetFile.length(),
-                parquetFile.length(),
-                schema,
-                List.of(createBaseColumn(columnName, 0, columnHiveType, columnType, REGULAR, Optional.empty())),
-                TupleDomain.all(),
-                Optional.empty(),
-                OptionalInt.empty(),
-                false,
-                AcidTransaction.NO_ACID_TRANSACTION)
-                .orElseThrow();
-
-        pageSourceWithProjections.getReaderColumns()
-                .ifPresent(projections -> { throw new IllegalStateException("Unexpected projections: " + projections); });
-
-        return pageSourceWithProjections.get();
+        return TRINO_PARQUET.createFileFormatReader(session, HDFS_ENVIRONMENT, parquetFile, ImmutableList.of(columnName), ImmutableList.of(columnType));
     }
 }
