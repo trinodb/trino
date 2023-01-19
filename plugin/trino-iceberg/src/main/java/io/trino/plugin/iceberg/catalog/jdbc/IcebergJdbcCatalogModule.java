@@ -30,7 +30,7 @@ public class IcebergJdbcCatalogModule
     @Override
     protected void setup(Binder binder)
     {
-        configBinder(binder).bindConfig(IcebergJdbcConfig.class);
+        configBinder(binder).bindConfig(IcebergJdbcCatalogConfig.class);
         binder.bind(IcebergTableOperationsProvider.class).to(IcebergJdbcTableOperationsProvider.class).in(Scopes.SINGLETON);
         newExporter(binder).export(IcebergTableOperationsProvider.class).withGeneratedName();
         binder.bind(TrinoCatalogFactory.class).to(TrinoJdbcCatalogFactory.class).in(Scopes.SINGLETON);
@@ -40,7 +40,7 @@ public class IcebergJdbcCatalogModule
 
     @Provides
     @Singleton
-    public static IcebergJdbcClient createIcebergJdbcClient(IcebergJdbcConfig config)
+    public static IcebergJdbcClient createIcebergJdbcClient(IcebergJdbcCatalogConfig config)
     {
         return new IcebergJdbcClient(
                 new IcebergJdbcConnectionFactory(config.getConnectionUrl()),

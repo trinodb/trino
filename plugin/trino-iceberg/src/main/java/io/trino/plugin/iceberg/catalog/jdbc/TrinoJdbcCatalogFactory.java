@@ -52,7 +52,7 @@ public class TrinoJdbcCatalogFactory
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
             TrinoFileSystemFactory fileSystemFactory,
-            IcebergJdbcConfig jdbcConfig,
+            IcebergJdbcCatalogConfig jdbcConfig,
             IcebergConfig icebergConfig)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");

@@ -22,12 +22,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestIcebergIcebergJdbcConfig
+public class TestIcebergJdbcCatalogConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(IcebergJdbcConfig.class)
+        assertRecordedDefaults(recordDefaults(IcebergJdbcCatalogConfig.class)
                 .setConnectionUrl(null)
                 .setCatalogName(null)
                 .setDefaultWarehouseDir(null));
@@ -42,7 +42,7 @@ public class TestIcebergIcebergJdbcConfig
                 .put("iceberg.jdbc-catalog.default-warehouse-dir", "s3://bucket")
                 .buildOrThrow();
 
-        IcebergJdbcConfig expected = new IcebergJdbcConfig()
+        IcebergJdbcCatalogConfig expected = new IcebergJdbcCatalogConfig()
                 .setConnectionUrl("jdbc:postgresql://localhost:5432/test")
                 .setCatalogName("test")
                 .setDefaultWarehouseDir("s3://bucket");
