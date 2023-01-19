@@ -2211,6 +2211,7 @@
                                     -Xep:MutablePublicArray:ERROR \
                                     -Xep:NullOptional:ERROR \
                                     -Xep:ObjectToString:ERROR \
+                                    -Xep:OptionalNotPresent:ERROR \
                                     -Xep:Overrides:ERROR \
                                     -Xep:PreferredInterfaceType:OFF <!-- flags List fields even if initialized with ImmutableList --> \
                                     -Xep:PrimitiveArrayPassedToVarargsMethod:ERROR \
