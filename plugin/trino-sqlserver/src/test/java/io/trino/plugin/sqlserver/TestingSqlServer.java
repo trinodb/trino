@@ -56,7 +56,7 @@ public final class TestingSqlServer
             .withBackoff(1, 5, ChronoUnit.SECONDS)
             .withMaxRetries(5)
             .handleIf(throwable -> getCausalChain(throwable).stream()
-                    .anyMatch(SQLException.class::isInstance))
+                    .anyMatch(SQLException.class::isInstance) || throwable.getMessage().contains("Container exited with code"))
             .onRetry(event -> log.warn(
                     "Query failed on attempt %s, will retry. Exception: %s",
                     event.getAttemptCount(),
