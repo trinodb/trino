@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.iceberg.catalog;
 
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.exceptions.CommitFailedException;
@@ -215,11 +215,12 @@ public abstract class AbstractIcebergTableOperations
             return;
         }
 
-        TableMetadata newMetadata = Failsafe.with(new RetryPolicy<>()
+        TableMetadata newMetadata = Failsafe.with(RetryPolicy.builder()
                         .withMaxRetries(20)
                         .withBackoff(100, 5000, MILLIS, 4.0)
                         .withMaxDuration(Duration.ofMinutes(10))
-                        .abortOn(org.apache.iceberg.exceptions.NotFoundException.class)) // qualified name, as this is NOT the io.trino.spi.connector.NotFoundException
+                        .abortOn(org.apache.iceberg.exceptions.NotFoundException.class)
+                        .build()) // qualified name, as this is NOT the io.trino.spi.connector.NotFoundException
                 .get(() -> TableMetadataParser.read(fileIo, io().newInputFile(newLocation)));
 
         String newUUID = newMetadata.uuid();

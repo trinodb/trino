@@ -15,6 +15,8 @@ package io.trino.plugin.oracle;
 
 import com.google.common.base.Joiner;
 import com.google.common.io.Files;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
@@ -22,8 +24,6 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.RetryingConnectionFactory;
 import io.trino.plugin.jdbc.credential.StaticCredentialProvider;
 import io.trino.testing.ResourcePresence;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 import oracle.jdbc.OracleDriver;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.utility.MountableFile;
@@ -47,13 +47,14 @@ public class TestingOracleServer
 {
     private static final Logger log = Logger.get(TestingOracleServer.class);
 
-    private static final RetryPolicy<Object> CONTAINER_RETRY_POLICY = new RetryPolicy<>()
+    private static final RetryPolicy<Object> CONTAINER_RETRY_POLICY = RetryPolicy.builder()
             .withBackoff(1, 5, ChronoUnit.SECONDS)
             .withMaxAttempts(5)
             .onRetry(event -> log.warn(
                     "Container initialization failed on attempt %s, will retry. Exception: %s",
                     event.getAttemptCount(),
-                    event.getLastFailure().getMessage()));
+                    event.getLastException().getMessage()))
+            .build();
 
     private static final String TEST_TABLESPACE = "trino_test";
 

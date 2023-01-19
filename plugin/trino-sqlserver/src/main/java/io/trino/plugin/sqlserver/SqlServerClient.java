@@ -20,6 +20,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.microsoft.sqlserver.jdbc.SQLServerConnection;
 import com.microsoft.sqlserver.jdbc.SQLServerException;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
+import dev.failsafe.function.CheckedSupplier;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
@@ -78,9 +81,6 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
-import net.jodah.failsafe.function.CheckedSupplier;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
@@ -1086,7 +1086,7 @@ public class SqlServerClient
     {
         // DDL operations can take out locks against system tables causing queries against them to deadlock
         int maxAttemptCount = 3;
-        RetryPolicy<T> retryPolicy = new RetryPolicy<T>()
+        RetryPolicy<T> retryPolicy = RetryPolicy.<T>builder()
                 .withMaxAttempts(maxAttemptCount)
                 .handleIf(throwable ->
                 {
@@ -1094,7 +1094,8 @@ public class SqlServerClient
                     return rootCause instanceof SQLServerException &&
                             ((SQLServerException) (rootCause)).getSQLServerError().getErrorNumber() == SQL_SERVER_DEADLOCK_ERROR_CODE;
                 })
-                .onFailedAttempt(event -> log.warn(event.getLastFailure(), "Attempt %d of %d: %s", event.getAttemptCount(), maxAttemptCount, attemptLogMessage));
+                .onFailedAttempt(event -> log.warn(event.getLastException(), "Attempt %d of %d: %s", event.getAttemptCount(), maxAttemptCount, attemptLogMessage))
+                .build();
 
         return Failsafe
                 .with(retryPolicy)
