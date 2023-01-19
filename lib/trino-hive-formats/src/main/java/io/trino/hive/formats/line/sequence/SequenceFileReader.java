@@ -122,7 +122,6 @@ public final class SequenceFileReader
                 checkArgument(compressionKind != LZOP, "LZOP cannot be used with SequenceFile. LZO compression can be used, but LZ4 is preferred.");
                 Codec codecFromHadoopClassName = compressionKind.createCodec();
                 decompressor = codecFromHadoopClassName.createValueDecompressor();
-                closer.register(decompressor);
             }
             else {
                 decompressor = null;

@@ -193,7 +193,6 @@ public class SequenceFileWriter
                 requireNonNull(codec, "codec is null");
                 if (codec.isPresent()) {
                     this.valueCompressor = codec.get().createValueCompressor();
-                    closer.register(valueCompressor);
                 }
                 else {
                     valueCompressor = null;
