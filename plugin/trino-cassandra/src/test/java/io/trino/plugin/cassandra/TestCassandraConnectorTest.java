@@ -63,6 +63,7 @@ import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertContainsEventually;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.String.format;
 import static java.util.Comparator.comparing;
@@ -991,6 +992,54 @@ public class TestCassandraConnectorTest
                 new Duration(1, MINUTES));
 
         session.execute("DROP KEYSPACE keyspace_5");
+    }
+
+    @Test
+    public void testUserDefinedTypeInArray()
+    {
+        String tableName = "test_udt_in_array" + randomNameSuffix();
+        String userDefinedTypeName = "test_udt" + randomNameSuffix();
+
+        session.execute("CREATE TYPE tpch." + userDefinedTypeName + "(udt_field bigint)");
+        session.execute("CREATE TABLE tpch." + tableName + "(id bigint, col list<frozen<tpch." + userDefinedTypeName + ">>, primary key (id))");
+        session.execute("INSERT INTO tpch." + tableName + "(id, col) values (1, [{udt_field: 10}])");
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, '[\"{udt_field:10}\"]')");
+
+        session.execute("DROP TABLE tpch." + tableName);
+        session.execute("DROP TYPE tpch." + userDefinedTypeName);
+    }
+
+    @Test
+    public void testUserDefinedTypeInMap()
+    {
+        String tableName = "test_udt_in_map" + randomNameSuffix();
+        String userDefinedTypeName = "test_udt" + randomNameSuffix();
+
+        session.execute("CREATE TYPE tpch." + userDefinedTypeName + "(udt_field bigint)");
+        session.execute("CREATE TABLE tpch." + tableName + "(id bigint, col map<frozen<tpch." + userDefinedTypeName + ">, frozen<tpch." + userDefinedTypeName + ">>, primary key (id))");
+        session.execute("INSERT INTO tpch." + tableName + "(id, col) values (1, {{udt_field: 10}: {udt_field: -10}})");
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, '{\"{udt_field:10}\":\"{udt_field:-10}\"}')");
+
+        session.execute("DROP TABLE tpch." + tableName);
+        session.execute("DROP TYPE tpch." + userDefinedTypeName);
+    }
+
+    @Test
+    public void testUserDefinedTypeInSet()
+    {
+        String tableName = "test_udt_in_set" + randomNameSuffix();
+        String userDefinedTypeName = "test_udt" + randomNameSuffix();
+
+        session.execute("CREATE TYPE tpch." + userDefinedTypeName + "(udt_field bigint)");
+        session.execute("CREATE TABLE tpch." + tableName + "(id bigint, col set<frozen<tpch." + userDefinedTypeName + ">>, primary key (id))");
+        session.execute("INSERT INTO tpch." + tableName + "(id, col) values (1, {{udt_field: 10}})");
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, '[\"{udt_field:10}\"]')");
+
+        session.execute("DROP TABLE tpch." + tableName);
+        session.execute("DROP TYPE tpch." + userDefinedTypeName);
     }
 
     @Test
