@@ -18,7 +18,7 @@ env:
   # An envar that signals to tests we are executing in the CI environment
   CONTINUOUS_INTEGRATION: true
   # allow overriding Maven command
-  MAVEN: ./mvnw
+  MAVEN: ./mvnw --offline
   # maven.wagon.rto is in millis, defaults to 30m
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_INSTALL_OPTS: "-Xmx3G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
@@ -69,8 +69,6 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           java-version: ${{ matrix.java-version }}
-      - name: Download all Trino dependencies to make sure cache is complete
-        run: ./.github/bin/download-maven-dependencies.sh
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
