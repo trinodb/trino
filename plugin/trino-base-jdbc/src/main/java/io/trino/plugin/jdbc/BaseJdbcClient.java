@@ -923,7 +923,7 @@ public abstract class BaseJdbcClient
         }
     }
 
-    private void addColumn(ConnectorSession session, Connection connection, RemoteTableName table, ColumnMetadata column)
+    protected void addColumn(ConnectorSession session, Connection connection, RemoteTableName table, ColumnMetadata column)
             throws SQLException
     {
         String columnName = column.getName();
