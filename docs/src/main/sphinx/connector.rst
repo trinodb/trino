@@ -21,6 +21,7 @@ from different data sources.
     Hive            <connector/hive>
     Hudi            <connector/hudi>
     Iceberg         <connector/iceberg>
+    Ignite          <connector/ignite>
     JMX             <connector/jmx>
     Kafka           <connector/kafka>
     Kinesis         <connector/kinesis>
