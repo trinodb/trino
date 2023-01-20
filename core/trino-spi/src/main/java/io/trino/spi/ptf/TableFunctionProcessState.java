@@ -30,6 +30,8 @@ import static io.trino.spi.ptf.TableFunctionProcessState.Type.FORWARD;
  * in order of the corresponding argument specifications. Entries in these columns are the indexes of input rows (from partition start) to be attached to output,
  * or null to indicate that a row of nulls should be attached instead of an input row. The indexes are validated to be within the portion of the partition
  * provided to the function so far.
+ * Note: when the input is empty, the only valid index value is null, because there are no input rows that could be attached to output. In such case, for performance
+ * reasons, the validation of indexes is skipped, and all pass-through columns are filled with nulls.
  */
 @Experimental(eta = "2023-03-31")
 public record TableFunctionProcessState(Type type, boolean usedData, TableFunctionResult result, CompletableFuture<Void> blockedFuture)

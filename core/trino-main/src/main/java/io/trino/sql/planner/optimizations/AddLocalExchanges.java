@@ -509,11 +509,16 @@ public class AddLocalExchanges
             }
 
             List<Symbol> partitionBy = node.getSpecification().orElseThrow().getPartitionBy();
-
-            StreamPreferredProperties childRequirements = parentPreferences
-                    .constrainTo(node.getSource().orElseThrow().getOutputSymbols())
-                    .withDefaultParallelism(session)
-                    .withPartitioning(partitionBy);
+            StreamPreferredProperties childRequirements;
+            if (!node.isPruneWhenEmpty()) {
+                childRequirements = singleStream();
+            }
+            else {
+                childRequirements = parentPreferences
+                        .constrainTo(node.getSource().orElseThrow().getOutputSymbols())
+                        .withDefaultParallelism(session)
+                        .withPartitioning(partitionBy);
+            }
 
             PlanWithProperties child = planAndEnforce(node.getSource().orElseThrow(), childRequirements, childRequirements);
 

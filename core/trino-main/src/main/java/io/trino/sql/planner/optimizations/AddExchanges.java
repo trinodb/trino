@@ -394,7 +394,13 @@ public class AddExchanges
 
             PlanWithProperties child = planChild(node, partitionedWithLocal(ImmutableSet.copyOf(partitionBy), desiredProperties));
 
-            if (!isStreamPartitionedOn(child.getProperties(), partitionBy) &&
+            // TODO do not gather if already gathered
+            if (!node.isPruneWhenEmpty()) {
+                child = withDerivedProperties(
+                        gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
+                        child.getProperties());
+            }
+            else if (!isStreamPartitionedOn(child.getProperties(), partitionBy) &&
                     !isNodePartitionedOn(child.getProperties(), partitionBy)) {
                 if (partitionBy.isEmpty()) {
                     child = withDerivedProperties(

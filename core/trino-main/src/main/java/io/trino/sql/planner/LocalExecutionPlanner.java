@@ -77,6 +77,7 @@ import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesSpatialIndexFactory;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.RefreshMaterializedViewOperator.RefreshMaterializedViewOperatorFactory;
+import io.trino.operator.RegularTableFunctionPartition.PassThroughColumnSpecification;
 import io.trino.operator.RetryPolicy;
 import io.trino.operator.RowNumberOperator;
 import io.trino.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
@@ -91,7 +92,6 @@ import io.trino.operator.StatisticsWriterOperator.StatisticsWriterOperatorFactor
 import io.trino.operator.StreamingAggregationOperator;
 import io.trino.operator.TableDeleteOperator.TableDeleteOperatorFactory;
 import io.trino.operator.TableFunctionOperator.TableFunctionOperatorFactory;
-import io.trino.operator.TableFunctionPartition.PassThroughColumnSpecification;
 import io.trino.operator.TableScanOperator.TableScanOperatorFactory;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TopNOperator;
@@ -1725,6 +1725,7 @@ public class LocalExecutionPlanner
                     requiredChannels,
                     markerChannels,
                     passThroughColumnSpecifications.build(),
+                    node.isPruneWhenEmpty(),
                     partitionChannels,
                     getChannelsForSymbols(ImmutableList.copyOf(node.getPrePartitioned()), source.getLayout()),
                     sortChannels,

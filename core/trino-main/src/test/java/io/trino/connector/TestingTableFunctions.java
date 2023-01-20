@@ -750,6 +750,171 @@ public class TestingTableFunctions
         }
     }
 
+    public static class PassThroughInputFunction
+            extends AbstractConnectorTableFunction
+    {
+        public PassThroughInputFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "pass_through",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT_1")
+                                    .passThroughColumns()
+                                    .keepWhenEmpty()
+                                    .build(),
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT_2")
+                                    .passThroughColumns()
+                                    .keepWhenEmpty()
+                                    .build()),
+                    new DescribedTable(new Descriptor(ImmutableList.of(
+                            new Descriptor.Field("input_1_present", Optional.of(BOOLEAN)),
+                            new Descriptor.Field("input_2_present", Optional.of(BOOLEAN))))));
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(new EmptyTableFunctionHandle())
+                    .requiredColumns("INPUT_1", ImmutableList.of(0))
+                    .requiredColumns("INPUT_2", ImmutableList.of(0))
+                    .build();
+        }
+
+        public static class PassThroughInputProcessorProvider
+                implements TableFunctionProcessorProvider
+        {
+            @Override
+            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            {
+                return new PassThroughInputProcessor();
+            }
+        }
+
+        private static class PassThroughInputProcessor
+                implements TableFunctionProcessor
+        {
+            private boolean input1Present;
+            private boolean input2Present;
+            private int input1EndIndex;
+            private int input2EndIndex;
+            private boolean finished;
+
+            @Override
+            public TableFunctionProcessState process(List<Optional<Page>> input)
+            {
+                if (finished) {
+                    return new TableFunctionProcessState(FINISHED, false, null, null);
+                }
+                if (input == null) {
+                    finished = true;
+
+                    // proper column input_1_present
+                    BlockBuilder input1Builder = BOOLEAN.createBlockBuilder(null, 1);
+                    BOOLEAN.writeBoolean(input1Builder, input1Present);
+
+                    // proper column input_2_present
+                    BlockBuilder input2Builder = BOOLEAN.createBlockBuilder(null, 1);
+                    BOOLEAN.writeBoolean(input2Builder, input2Present);
+
+                    // pass-through index for input_1
+                    BlockBuilder input1PassThroughBuilder = BIGINT.createBlockBuilder(null, 1);
+                    if (input1Present) {
+                        input1PassThroughBuilder.writeLong(input1EndIndex - 1);
+                    }
+                    else {
+                        input1PassThroughBuilder.appendNull();
+                    }
+
+                    // pass-through index for input_2
+                    BlockBuilder input2PassThroughBuilder = BIGINT.createBlockBuilder(null, 1);
+                    if (input2Present) {
+                        input2PassThroughBuilder.writeLong(input2EndIndex - 1);
+                    }
+                    else {
+                        input2PassThroughBuilder.appendNull();
+                    }
+
+                    return new TableFunctionProcessState(
+                            FORWARD,
+                            false,
+                            new TableFunctionResult(new Page(input1Builder.build(), input2Builder.build(), input1PassThroughBuilder.build(), input2PassThroughBuilder.build())),
+                            null);
+                }
+                input.get(0).ifPresent(page -> {
+                    input1Present = true;
+                    input1EndIndex += page.getPositionCount();
+                });
+                input.get(1).ifPresent(page -> {
+                    input2Present = true;
+                    input2EndIndex += page.getPositionCount();
+                });
+                return new TableFunctionProcessState(FORWARD, true, null, null);
+            }
+        }
+    }
+
+    public static class TestInputFunction
+            extends AbstractConnectorTableFunction
+    {
+        public TestInputFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "test_input",
+                    ImmutableList.of(TableArgumentSpecification.builder()
+                            .name("INPUT")
+                            .keepWhenEmpty()
+                            .build()),
+                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("got_input", Optional.of(BOOLEAN))))));
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(new EmptyTableFunctionHandle())
+                    .requiredColumns("INPUT", IntStream.range(0, ((TableArgument) arguments.get("INPUT")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
+                    .build();
+        }
+
+        public static class TestInputProcessorProvider
+                implements TableFunctionProcessorProvider
+        {
+            @Override
+            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            {
+                return new TestInputProcessor();
+            }
+        }
+
+        private static class TestInputProcessor
+                implements TableFunctionProcessor
+        {
+            private boolean processorGotInput;
+            private boolean finished;
+
+            @Override
+            public TableFunctionProcessState process(List<Optional<Page>> input)
+            {
+                if (finished) {
+                    return new TableFunctionProcessState(FINISHED, false, null, null);
+                }
+                if (input == null) {
+                    finished = true;
+                    BlockBuilder builder = BOOLEAN.createBlockBuilder(null, 1);
+                    BOOLEAN.writeBoolean(builder, processorGotInput);
+                    return new TableFunctionProcessState(FORWARD, false, new TableFunctionResult(new Page(builder.build())), null);
+                }
+                processorGotInput = true;
+                return new TableFunctionProcessState(FORWARD, true, null, null);
+            }
+        }
+    }
+
     public static class TestSingleInputRowSemanticsFunction
             extends AbstractConnectorTableFunction
     {

@@ -21,7 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.operator.TableFunctionPartition.PassThroughColumnSpecification;
+import io.trino.operator.RegularTableFunctionPartition.PassThroughColumnSpecification;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.ptf.ConnectorTableFunctionHandle;
@@ -77,6 +77,10 @@ public class TableFunctionOperator
         // it includes columns from sources declared as pass-through as well as partitioning columns from other sources
         private final List<PassThroughColumnSpecification> passThroughSpecifications;
 
+        // specifies whether the function should be pruned or executed when the input is empty
+        // pruneWhenEmpty is false if and only if all original input tables are KEEP WHEN EMPTY
+        private final boolean pruneWhenEmpty;
+
         // partitioning channels from all sources
         private final List<Integer> partitionChannels;
 
@@ -108,6 +112,7 @@ public class TableFunctionOperator
                 List<List<Integer>> requiredChannels,
                 Optional<Map<Integer, Integer>> markerChannels,
                 List<PassThroughColumnSpecification> passThroughSpecifications,
+                boolean pruneWhenEmpty,
                 List<Integer> partitionChannels,
                 List<Integer> prePartitionedChannels,
                 List<Integer> sortChannels,
@@ -145,6 +150,7 @@ public class TableFunctionOperator
                     .collect(toImmutableList());
             this.markerChannels = markerChannels.map(ImmutableMap::copyOf);
             this.passThroughSpecifications = ImmutableList.copyOf(passThroughSpecifications);
+            this.pruneWhenEmpty = pruneWhenEmpty;
             this.partitionChannels = ImmutableList.copyOf(partitionChannels);
             this.prePartitionedChannels = ImmutableList.copyOf(prePartitionedChannels);
             this.sortChannels = ImmutableList.copyOf(sortChannels);
@@ -170,6 +176,7 @@ public class TableFunctionOperator
                     requiredChannels,
                     markerChannels,
                     passThroughSpecifications,
+                    pruneWhenEmpty,
                     partitionChannels,
                     prePartitionedChannels,
                     sortChannels,
@@ -199,6 +206,7 @@ public class TableFunctionOperator
                     requiredChannels,
                     markerChannels,
                     passThroughSpecifications,
+                    pruneWhenEmpty,
                     partitionChannels,
                     prePartitionedChannels,
                     sortChannels,
@@ -214,6 +222,7 @@ public class TableFunctionOperator
 
     private final PageBuffer pageBuffer = new PageBuffer();
     private final WorkProcessor<Page> outputPages;
+    private final boolean processEmptyInput;
 
     public TableFunctionOperator(
             OperatorContext operatorContext,
@@ -224,6 +233,7 @@ public class TableFunctionOperator
             List<List<Integer>> requiredChannels,
             Optional<Map<Integer, Integer>> markerChannels,
             List<PassThroughColumnSpecification> passThroughSpecifications,
+            boolean pruneWhenEmpty,
             List<Integer> partitionChannels,
             List<Integer> prePartitionedChannels,
             List<Integer> sortChannels,
@@ -252,11 +262,13 @@ public class TableFunctionOperator
 
         this.operatorContext = operatorContext;
 
+        this.processEmptyInput = !pruneWhenEmpty;
+
         PagesIndex pagesIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
         HashStrategies hashStrategies = new HashStrategies(pagesIndex, partitionChannels, prePartitionedChannels, sortChannels, sortOrders, preSortedPrefix);
 
         this.outputPages = pageBuffer.pages()
-                .transform(new PartitionAndSort(pagesIndex, hashStrategies))
+                .transform(new PartitionAndSort(pagesIndex, hashStrategies, processEmptyInput))
                 .flatMap(groupPagesIndex -> pagesIndexToTableFunctionPartitions(
                         groupPagesIndex,
                         hashStrategies,
@@ -266,7 +278,8 @@ public class TableFunctionOperator
                         passThroughSourcesCount,
                         requiredChannels,
                         markerChannels,
-                        passThroughSpecifications))
+                        passThroughSpecifications,
+                        processEmptyInput))
                 .flatMap(TableFunctionPartition::toOutputPages);
     }
 
@@ -378,12 +391,14 @@ public class TableFunctionOperator
 
         private boolean resetPagesIndex;
         private int pendingInputPosition;
+        private boolean processEmptyInput;
 
-        public PartitionAndSort(PagesIndex pagesIndex, HashStrategies hashStrategies)
+        public PartitionAndSort(PagesIndex pagesIndex, HashStrategies hashStrategies, boolean processEmptyInput)
         {
             this.pagesIndex = pagesIndex;
             this.hashStrategies = hashStrategies;
             this.memoryContext = operatorContext.aggregateUserMemoryContext().newLocalMemoryContext(PartitionAndSort.class.getSimpleName());
+            this.processEmptyInput = processEmptyInput;
         }
 
         @Override
@@ -397,9 +412,19 @@ public class TableFunctionOperator
 
             boolean finishing = pendingInput == null;
             if (finishing && pagesIndex.getPositionCount() == 0) {
-                memoryContext.close();
-                return WorkProcessor.TransformationState.finished();
+                if (processEmptyInput) {
+                    // it can only happen at the first call to process(), which implies that there is no input. Empty PagesIndex can be passed on only once.
+                    processEmptyInput = false;
+                    return WorkProcessor.TransformationState.ofResult(pagesIndex, false);
+                }
+                else {
+                    memoryContext.close();
+                    return WorkProcessor.TransformationState.finished();
+                }
             }
+
+            // there is input, so we are not interested in processing empty input
+            processEmptyInput = false;
 
             if (!finishing) {
                 // append rows from pendingInput which belong to the current group wrt pre-partitioned columns
@@ -532,7 +557,8 @@ public class TableFunctionOperator
             int passThroughSourcesCount,
             List<List<Integer>> requiredChannels,
             Optional<Map<Integer, Integer>> markerChannels,
-            List<PassThroughColumnSpecification> passThroughSpecifications)
+            List<PassThroughColumnSpecification> passThroughSpecifications,
+            boolean processEmptyInput)
     {
         // pagesIndex contains the full grouped and sorted data for one or more partitions
 
@@ -541,17 +567,33 @@ public class TableFunctionOperator
         return WorkProcessor.create(new WorkProcessor.Process<>()
         {
             private int partitionStart;
+            private boolean processEmpty = processEmptyInput;
 
             @Override
             public WorkProcessor.ProcessState<TableFunctionPartition> process()
             {
                 if (partitionStart == pagesIndex.getPositionCount()) {
+                    if (processEmpty && pagesIndex.getPositionCount() == 0) {
+                        // empty PagesIndex can only be passed once as the result of PartitionAndSort. Neither this nor any future instance of Process will ever get an empty PagesIndex again.
+                        processEmpty = false;
+                        return WorkProcessor.ProcessState.ofResult(new EmptyTableFunctionPartition(
+                                tableFunctionProvider.get(functionHandle),
+                                properChannelsCount,
+                                passThroughSourcesCount,
+                                passThroughSpecifications.stream()
+                                        .map(PassThroughColumnSpecification::inputChannel)
+                                        .map(pagesIndex::getType)
+                                        .collect(toImmutableList())));
+                    }
                     return WorkProcessor.ProcessState.finished();
                 }
 
+                // there is input, so we are not interested in processing empty input
+                processEmpty = false;
+
                 int partitionEnd = findGroupEnd(pagesIndex, remainingPartitionStrategy, partitionStart);
 
-                TableFunctionPartition partition = new TableFunctionPartition(
+                RegularTableFunctionPartition partition = new RegularTableFunctionPartition(
                         pagesIndex,
                         partitionStart,
                         partitionEnd,
