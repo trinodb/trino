@@ -387,13 +387,14 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testVarcharCharComparison()
     {
         // with implicit coercions
-        assertQuery("SELECT * FROM (VALUES" +
+        assertThat(query("SELECT * FROM (VALUES" +
                 "   CAST(NULL AS varchar(3)), " +
                 "   CAST('' AS varchar(3))," +
                 "   CAST(' ' AS varchar(3)), " +
                 "   CAST('  ' AS varchar(3)), " +
                 "   CAST('   ' AS varchar(3))) t(x) " +
-                "WHERE x = CAST('  ' AS char(2))");
+                "WHERE x = CAST('  ' AS char(2))"))
+                .matches("VALUES '', ' ', '  ', '   '");
 
         // with explicit casts
         assertQuery("SELECT * FROM (VALUES" +
