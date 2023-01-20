@@ -472,8 +472,9 @@ public class CassandraTypeManager
             case INET:
             case VARINT:
             case TUPLE:
-            case UDT:
                 return quoteStringLiteralForJson(cassandraValue.toString());
+            case UDT:
+                return quoteStringLiteralForJson(((UdtValue) cassandraValue).getFormattedContents());
 
             case BLOB:
             case CUSTOM:
