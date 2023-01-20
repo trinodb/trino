@@ -44,6 +44,9 @@ runs:
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
+      - name: Fetch any missing dependencies
+        shell: bash
+        run: ./.github/bin/download-maven-dependencies.sh
       - name: Configure Problem Matchers
         if: ${{ inputs.java-version != '' }}
         shell: bash
