@@ -434,6 +434,7 @@ jobs:
             !:trino-hive,
             !:trino-hudi,
             !:trino-iceberg,
+            !:trino-ignite,
             !:trino-jdbc,!:trino-base-jdbc,!:trino-thrift,!:trino-memory,
             !:trino-kafka,
             !:trino-kudu,
@@ -528,6 +529,7 @@ jobs:
             - { modules: plugin/trino-iceberg }
             - { modules: plugin/trino-iceberg, profile: additional-catalog-tests }
             - { modules: plugin/trino-iceberg, profile: cloud-tests }
+            - { modules: plugin/trino-ignite }
             - { modules: plugin/trino-kafka }
             - { modules: plugin/trino-kudu }
             - { modules: plugin/trino-mariadb }
@@ -913,6 +915,9 @@ jobs:
             # this suite is not meant to be run with different configs
             - config: default
               suite: suite-hudi
+            # this suite is not meant to be run with different configs
+            - config: default
+              suite: suite-ignite
           EOF
       - name: Build PT matrix (all)
         if: |

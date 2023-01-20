@@ -300,4 +300,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/ignite">
+        <artifact id="${project.groupId}:trino-ignite:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>

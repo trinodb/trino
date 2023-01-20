@@ -87,6 +87,7 @@ public final class TestGroups
     public static final String DELTA_LAKE_EXCLUDE_113 = "delta-lake-exclude-113";
     public static final String HUDI = "hudi";
     public static final String PARQUET = "parquet";
+    public static final String IGNITE = "ignite";
 
     private TestGroups() {}
 }
