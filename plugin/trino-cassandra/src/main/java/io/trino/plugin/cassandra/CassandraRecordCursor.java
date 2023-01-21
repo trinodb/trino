@@ -29,6 +29,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.validColumnName;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 
@@ -115,6 +116,8 @@ public class CassandraRecordCursor
             case BIGINT:
             case COUNTER:
                 return currentRow.getLong(columnName);
+            case TIME:
+                return currentRow.getLocalTime(columnName).toNanoOfDay() * PICOSECONDS_PER_NANOSECOND;
             case TIMESTAMP:
                 return packDateTimeWithZone(currentRow.getInstant(columnName).toEpochMilli(), TimeZoneKey.UTC_KEY);
             case DATE:

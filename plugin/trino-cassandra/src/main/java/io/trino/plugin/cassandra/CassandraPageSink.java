@@ -36,6 +36,7 @@ import io.trino.spi.type.VarcharType;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -60,7 +61,11 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.TIME_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -176,6 +181,10 @@ public class CassandraPageSink
         }
         else if (DATE.equals(type)) {
             values.add(toCassandraDate.apply(type.getLong(block, position)));
+        }
+        else if (TIME_NANOS.equals(type)) {
+            long value = type.getLong(block, position);
+            values.add(LocalTime.ofNanoOfDay(roundDiv(value, PICOSECONDS_PER_NANOSECOND) % NANOSECONDS_PER_DAY));
         }
         else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
             values.add(Instant.ofEpochMilli(unpackMillisUtc(type.getLong(block, position))));
