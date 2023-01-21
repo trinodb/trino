@@ -265,6 +265,7 @@ public class TestCassandraConnectorTest
                         partitionColumn("typelong", "bigint"),
                         generalColumn("typebytes", "blob"),
                         partitionColumn("typedate", "date"),
+                        partitionColumn("typetime", "time"),
                         partitionColumn("typetimestamp", "timestamp"),
                         partitionColumn("typeansi", "ascii"),
                         partitionColumn("typeboolean", "boolean"),
@@ -287,6 +288,7 @@ public class TestCassandraConnectorTest
                         "1007, " +
                         "0x00000007, " +
                         "'1970-01-01', " +
+                        "'03:04:05.123456789', " +
                         "'1970-01-01 03:04:05.000+0000', " +
                         "'ansi 7', " +
                         "false, " +
@@ -309,6 +311,7 @@ public class TestCassandraConnectorTest
                     " AND typeinteger = 7" +
                     " AND typelong = 1007" +
                     " AND typedate = DATE '1970-01-01'" +
+                    " AND typetime = TIME '03:04:05.123456789'" +
                     " AND typetimestamp = TIMESTAMP '1970-01-01 03:04:05Z'" +
                     " AND typeansi = 'ansi 7'" +
                     " AND typeboolean = false" +
@@ -1447,18 +1450,6 @@ public class TestCassandraConnectorTest
                 .hasMessage("Handle doesn't have columns info");
 
         assertQuery("SELECT * FROM " + tableName, "VALUES 1");
-
-        onCassandra("DROP TABLE IF EXISTS tpch." + tableName);
-    }
-
-    @Test
-    public void testNativeQueryUnsupportedType()
-    {
-        String tableName = "test_unsupported_type" + randomNameSuffix();
-        onCassandra("CREATE TABLE tpch." + tableName + "(col TIME PRIMARY KEY)");
-
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(cassandra.system.query(query => 'SELECT * FROM tpch." + tableName + "'))"))
-                .hasMessage("Unsupported type: TIME");
 
         onCassandra("DROP TABLE IF EXISTS tpch." + tableName);
     }

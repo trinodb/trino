@@ -37,6 +37,7 @@ public class CassandraType
         DOUBLE,
         DECIMAL,
         DATE,
+        TIME,
         TIMESTAMP,
         ASCII,
         TEXT,
