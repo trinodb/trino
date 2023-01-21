@@ -561,6 +561,15 @@ public class TaskExecutor
                         }
                         splitFinished(split);
                     }
+                    finally {
+                        // Clear the interrupted flag on the current thread, driver cancellation may have triggered an interrupt
+                        if (Thread.interrupted()) {
+                            if (closed) {
+                                // reset interrupted flag if closed before interrupt
+                                Thread.currentThread().interrupt();
+                            }
+                        }
+                    }
                 }
             }
             finally {
