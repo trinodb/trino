@@ -33,7 +33,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
-// HERE we park pageSource if we don't have CPI
+// HERE we park pageSource if we don't have CPU
 public class PrioritizedSplitRunner
         implements Comparable<PrioritizedSplitRunner>
 {

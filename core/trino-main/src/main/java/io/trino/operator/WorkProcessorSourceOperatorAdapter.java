@@ -58,10 +58,10 @@ public class WorkProcessorSourceOperatorAdapter
         default WorkProcessorSourceOperator createAdapterOperator(
                 Session session,
                 MemoryTrackingContext memoryTrackingContext,
-                DriverYieldSignal yieldSignal,
+                DriverContext driverContext,
                 WorkProcessor<Split> splits)
         {
-            return create(session, memoryTrackingContext, yieldSignal, splits);
+            return create(session, memoryTrackingContext, driverContext.getYieldSignal(), splits);
         }
     }
 
@@ -76,7 +76,7 @@ public class WorkProcessorSourceOperatorAdapter
                         new MemoryTrackingContext(
                                 operatorContext.aggregateUserMemoryContext(),
                                 operatorContext.aggregateRevocableMemoryContext()),
-                        operatorContext.getDriverContext().getYieldSignal(),
+                        operatorContext.getDriverContext(),
                         WorkProcessor.create(splitBuffer));
         this.pages = sourceOperator.getOutputPages()
                 .map(Page::getLoadedPage)

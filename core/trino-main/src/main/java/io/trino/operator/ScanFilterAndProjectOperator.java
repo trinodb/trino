@@ -503,10 +503,10 @@ public class ScanFilterAndProjectOperator
         public WorkProcessorSourceOperator createAdapterOperator(
                 Session session,
                 MemoryTrackingContext memoryTrackingContext,
-                DriverYieldSignal yieldSignal,
+                DriverContext driverContext,
                 WorkProcessor<Split> splits)
         {
-            return create(session, memoryTrackingContext, yieldSignal, splits, false);
+            return create(session, memoryTrackingContext, driverContext.getYieldSignal(), splits, false);
         }
 
         private ScanFilterAndProjectOperator create(

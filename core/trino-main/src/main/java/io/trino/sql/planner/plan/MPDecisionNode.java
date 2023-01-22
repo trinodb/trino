@@ -52,6 +52,11 @@ public class MPDecisionNode
         return null;
     }
 
+    public Map<TableHandle, PlanNode> getOptions()
+    {
+        return options;
+    }
+
     @Override
     public boolean equals(Object o)
     {

@@ -131,6 +131,7 @@ import io.trino.operator.project.PageProjection;
 import io.trino.operator.unnest.UnnestOperator;
 import io.trino.operator.window.AggregationWindowFunctionSupplier;
 import io.trino.operator.window.FrameInfo;
+import io.trino.operator.window.MPDecisionOperator.MPDecisionOperatorFactory;
 import io.trino.operator.window.PartitionerSupplier;
 import io.trino.operator.window.PatternRecognitionPartitionerSupplier;
 import io.trino.operator.window.RegularPartitionerSupplier;
@@ -197,6 +198,7 @@ import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.MPDecisionNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeProcessorNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
@@ -1655,6 +1657,58 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableFunction(TableFunctionNode node, LocalExecutionPlanContext context)
         {
             throw new UnsupportedOperationException("execution by operator is not yet implemented for table function " + node.getName());
+        }
+
+        @Override
+        public PhysicalOperation visitMPDecision(MPDecisionNode node, LocalExecutionPlanContext context)
+        {
+            // Can't be done here, because we still don't have a single split at this point
+            // pageSourceProvider.getChosenMicroPlan(session, split, table, node.getSources(), columns);
+            // Instead we should create OperatorFactory for each option (or PhysicalOperation?)
+
+            Map<TableHandle, OperatorFactory> options = node.getOptions().entrySet().stream()
+                    .collect(
+                            Collectors.toMap(
+                                    Map.Entry::getKey,
+                                    entry -> entry.getValue().accept(this, context).getOperatorFactory()));
+
+            // TODO 123 - should extract columns somehow
+            //List<Pair<TableHandle, List<ColumnHandle>>> planToColumns;
+            //for (Map.Entry<TableHandle, OperatorFactory> entry : options.entrySet()) {
+            //    List<ColumnHandle> columns = null;
+            //    if (sourceNode instanceof TableScanNode) {
+            //        TableScanNode tableScanNode = (TableScanNode) sourceNode;
+            //        table = tableScanNode.getTable();
+            //
+            //        // extract the column handles and channel to type mapping
+            //        sourceLayout = new LinkedHashMap<>();
+            //        columns = new ArrayList<>();
+            //        int channel = 0;
+            //        for (Symbol symbol : tableScanNode.getOutputSymbols()) {
+            //            columns.add(tableScanNode.getAssignments().get(symbol));
+            //
+            //            Integer input = channel;
+            //            sourceLayout.put(symbol, input);
+            //
+            //            channel++;
+            //        }
+            //    }
+            //}
+
+            // TODO 123
+            // How to get dynamicFilter when there might be several filterNodes?
+            // How is dynamicFilter affected by MP on the first place?
+            // Can we add an extra source filterNode for dynamicFiltering?
+            DynamicFilter dynamicFilter = null; // getDynamicFilter(node, filterExpression, context);
+
+            OperatorFactory operator = new MPDecisionOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    pageSourceProvider,
+                    dynamicFilter,
+                    options);
+
+            return new PhysicalOperation(operator, makeLayout(node), context);
         }
 
         @Override
@@ -3634,16 +3688,6 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(new LocalExchangeSourceOperatorFactory(context.getNextOperatorId(), node.getId(), localExchange), makeLayout(node), context);
         }
 
-//        @Override
-//        public PhysicalOperation visitMPDecision(MPDecision node, LocalExecutionPlanContext context)
-//        {
-//            // Can't be done here, because we still don't have a single split at this point
-//            pageSourceProvider.getChosenMicroPlan(session, split, table, node.getSources(), columns);
-//
-//            // Instead we should create OperatorFactory for each option (or PhysicalOperation?)
-//            // new MPOperator(...)
-//        }
-
         @Override
         protected PhysicalOperation visitPlan(PlanNode node, LocalExecutionPlanContext context)
         {
@@ -4126,6 +4170,7 @@ public class LocalExecutionPlanner
      */
     private static class PhysicalOperation
     {
+        private final OperatorFactory operatorFactory; // TODO 123: Not sure this is legit, but maybe it's better than making PhysicalOperation public
         private final List<OperatorFactoryWithTypes> operatorFactoriesWithTypes;
         private final Map<Symbol, Integer> layout;
         private final List<Type> types;
@@ -4151,7 +4196,7 @@ public class LocalExecutionPlanner
                 TypeProvider typeProvider,
                 Optional<PhysicalOperation> source)
         {
-            requireNonNull(operatorFactory, "operatorFactory is null");
+            this.operatorFactory = requireNonNull(operatorFactory, "operatorFactory is null");
             requireNonNull(layout, "layout is null");
             requireNonNull(typeProvider, "typeProvider is null");
             requireNonNull(source, "source is null");
@@ -4193,6 +4238,11 @@ public class LocalExecutionPlanner
         public Map<Symbol, Integer> getLayout()
         {
             return layout;
+        }
+
+        private OperatorFactory getOperatorFactory()
+        {
+            return operatorFactory;
         }
 
         private List<OperatorFactory> getOperatorFactories()

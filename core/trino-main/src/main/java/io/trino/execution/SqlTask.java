@@ -440,13 +440,12 @@ public class SqlTask
                 taskExecution = taskHolder.getTaskExecution();
                 if (taskExecution == null) {
                     checkState(fragment.isPresent(), "fragment must be present");
-                    // here?123
                     taskExecution = sqlTaskExecutionFactory.create(
                             session,
-                            queryContext, // queryContext
+                            queryContext,
                             taskStateMachine,
                             outputBuffer,
-                            fragment.get(), // fragment
+                            fragment.get(), // TODO Here we pass fragment
                             this::notifyStatusChanged);
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);
