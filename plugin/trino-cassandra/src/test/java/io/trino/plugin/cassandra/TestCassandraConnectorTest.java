@@ -1003,6 +1003,9 @@ public class TestCassandraConnectorTest
         session.execute("CREATE TYPE tpch." + userDefinedTypeName + "(udt_field bigint)");
         session.execute("CREATE TABLE tpch." + tableName + "(id bigint, col list<frozen<tpch." + userDefinedTypeName + ">>, primary key (id))");
         session.execute("INSERT INTO tpch." + tableName + "(id, col) values (1, [{udt_field: 10}])");
+        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), VARCHAR)
+                .row(tableName)
+                .build(), new Duration(1, MINUTES));
 
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, '[\"{udt_field:10}\"]')");
 
@@ -1019,6 +1022,9 @@ public class TestCassandraConnectorTest
         session.execute("CREATE TYPE tpch." + userDefinedTypeName + "(udt_field bigint)");
         session.execute("CREATE TABLE tpch." + tableName + "(id bigint, col map<frozen<tpch." + userDefinedTypeName + ">, frozen<tpch." + userDefinedTypeName + ">>, primary key (id))");
         session.execute("INSERT INTO tpch." + tableName + "(id, col) values (1, {{udt_field: 10}: {udt_field: -10}})");
+        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), VARCHAR)
+                .row(tableName)
+                .build(), new Duration(1, MINUTES));
 
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, '{\"{udt_field:10}\":\"{udt_field:-10}\"}')");
 
@@ -1035,6 +1041,9 @@ public class TestCassandraConnectorTest
         session.execute("CREATE TYPE tpch." + userDefinedTypeName + "(udt_field bigint)");
         session.execute("CREATE TABLE tpch." + tableName + "(id bigint, col set<frozen<tpch." + userDefinedTypeName + ">>, primary key (id))");
         session.execute("INSERT INTO tpch." + tableName + "(id, col) values (1, {{udt_field: 10}})");
+        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), VARCHAR)
+                .row(tableName)
+                .build(), new Duration(1, MINUTES));
 
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, '[\"{udt_field:10}\"]')");
 
