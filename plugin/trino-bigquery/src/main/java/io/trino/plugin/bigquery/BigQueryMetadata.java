@@ -538,10 +538,6 @@ public class BigQueryMetadata
         String projectId = table.asPlainTable().getRemoteTableName().getProjectId();
         String schemaName = table.asPlainTable().getRemoteTableName().getDatasetName();
 
-        if (!schemaExists(session, schemaName)) {
-            throw new SchemaNotFoundException(schemaName);
-        }
-
         String temporaryTableName = generateTemporaryTableName();
         createTable(client, projectId, schemaName, temporaryTableName, tempFields.build(), Optional.empty());
 
