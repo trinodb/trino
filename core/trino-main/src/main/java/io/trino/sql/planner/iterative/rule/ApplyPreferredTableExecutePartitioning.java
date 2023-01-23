@@ -61,11 +61,6 @@ public class ApplyPreferredTableExecutePartitioning
             return enable(node);
         }
         int minimumNumberOfPartitions = getPreferredWritePartitioningMinNumberOfPartitions(context.getSession());
-        if (minimumNumberOfPartitions <= 1) {
-            // Force 'preferred write partitioning' even if stats are missing or broken
-            return enable(node);
-        }
-
         double expectedNumberOfPartitions = getRowsCount(
                 context.getStatsProvider().getStats(node.getSource()),
                 node.getPreferredPartitioningScheme().get().getPartitioning().getColumns());
