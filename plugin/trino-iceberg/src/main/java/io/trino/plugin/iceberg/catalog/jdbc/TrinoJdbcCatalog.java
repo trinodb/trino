@@ -186,7 +186,7 @@ public class TrinoJdbcCatalog
     @Override
     public void registerTable(ConnectorSession session, SchemaTableName tableName, String tableLocation, String metadataLocation)
     {
-        jdbcCatalog.registerTable(TableIdentifier.of(tableName.getSchemaName(), tableName.getTableName()), metadataLocation);
+        throw new TrinoException(NOT_SUPPORTED, "registerTable is not supported for Iceberg JDBC catalogs");
     }
 
     @Override
