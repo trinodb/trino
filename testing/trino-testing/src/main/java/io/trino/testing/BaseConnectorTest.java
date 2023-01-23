@@ -2771,63 +2771,63 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP TABLE " + tableName);
 
         // Some connectors support CREATE TABLE AS but not the ordinary CREATE TABLE. Let's test CTAS IF NOT EXISTS with a table that is guaranteed to exist.
-        assertUpdate("CREATE TABLE IF NOT EXISTS nation AS SELECT custkey, acctbal FROM customer", 0);
+        assertUpdate("CREATE TABLE IF NOT EXISTS nation AS SELECT nationkey, regionkey FROM nation", 0);
         assertTableColumnNames("nation", "nationkey", "name", "regionkey", "comment");
 
         assertCreateTableAsSelect(
-                "SELECT custkey, address, acctbal FROM customer",
-                "SELECT count(*) FROM customer");
+                "SELECT nationkey, name, regionkey FROM nation",
+                "SELECT count(*) FROM nation");
 
         assertCreateTableAsSelect(
                 "SELECT mktsegment, sum(acctbal) x FROM customer GROUP BY mktsegment",
                 "SELECT count(DISTINCT mktsegment) FROM customer");
 
         assertCreateTableAsSelect(
-                "SELECT count(*) x FROM customer JOIN nation ON customer.nationkey = nation.nationkey",
+                "SELECT count(*) x FROM nation JOIN region ON nation.regionkey = region.regionkey",
                 "SELECT 1");
 
         assertCreateTableAsSelect(
-                "SELECT custkey FROM customer ORDER BY custkey LIMIT 10",
+                "SELECT nationkey FROM nation ORDER BY nationkey LIMIT 10",
                 "SELECT 10");
 
         assertCreateTableAsSelect(
-                "SELECT * FROM customer WITH DATA",
-                "SELECT * FROM customer",
-                "SELECT count(*) FROM customer");
+                "SELECT * FROM nation WITH DATA",
+                "SELECT * FROM nation",
+                "SELECT count(*) FROM nation");
 
         assertCreateTableAsSelect(
-                "SELECT * FROM customer WITH NO DATA",
-                "SELECT * FROM customer LIMIT 0",
+                "SELECT * FROM nation WITH NO DATA",
+                "SELECT * FROM nation LIMIT 0",
                 "SELECT 0");
 
         // Tests for CREATE TABLE with UNION ALL: exercises PushTableWriteThroughUnion optimizer
 
         assertCreateTableAsSelect(
-                "SELECT name, custkey, acctbal FROM customer WHERE custkey % 2 = 0 UNION ALL " +
-                        "SELECT name, custkey, acctbal FROM customer WHERE custkey % 2 = 1",
-                "SELECT name, custkey, acctbal FROM customer",
-                "SELECT count(*) FROM customer");
+                "SELECT name, nationkey, regionkey FROM nation WHERE nationkey % 2 = 0 UNION ALL " +
+                        "SELECT name, nationkey, regionkey FROM nation WHERE nationkey % 2 = 1",
+                "SELECT name, nationkey, regionkey FROM nation",
+                "SELECT count(*) FROM nation");
 
         assertCreateTableAsSelect(
                 Session.builder(getSession()).setSystemProperty("redistribute_writes", "true").build(),
-                "SELECT CAST(custkey AS BIGINT) custkey, acctbal FROM customer UNION ALL " +
-                        "SELECT 1234567890, 1.23",
-                "SELECT custkey, acctbal FROM customer UNION ALL " +
-                        "SELECT 1234567890, 1.23",
-                "SELECT count(*) + 1 FROM customer");
+                "SELECT CAST(nationkey AS BIGINT) nationkey, regionkey FROM nation UNION ALL " +
+                        "SELECT 1234567890, 123",
+                "SELECT nationkey, regionkey FROM nation UNION ALL " +
+                        "SELECT 1234567890, 123",
+                "SELECT count(*) + 1 FROM nation");
 
         assertCreateTableAsSelect(
                 Session.builder(getSession()).setSystemProperty("redistribute_writes", "false").build(),
-                "SELECT CAST(custkey AS BIGINT) custkey, acctbal FROM customer UNION ALL " +
-                        "SELECT 1234567890, 1.23",
-                "SELECT custkey, acctbal FROM customer UNION ALL " +
-                        "SELECT 1234567890, 1.23",
-                "SELECT count(*) + 1 FROM customer");
+                "SELECT CAST(nationkey AS BIGINT) nationkey, regionkey FROM nation UNION ALL " +
+                        "SELECT 1234567890, 123",
+                "SELECT nationkey, regionkey FROM nation UNION ALL " +
+                        "SELECT 1234567890, 123",
+                "SELECT count(*) + 1 FROM nation");
 
         // TODO: BigQuery throws table not found at BigQueryClient.insert if we reuse the same table name
         tableName = "test_ctas" + randomNameSuffix();
-        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT mktsegment FROM customer");
-        assertQuery("SELECT * from " + tableName, "SELECT mktsegment FROM customer");
+        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT name FROM nation");
+        assertQuery("SELECT * from " + tableName, "SELECT name FROM nation");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -3639,12 +3639,12 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_complex_", "AS SELECT * FROM orders")) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_complex_", "AS SELECT * FROM nation")) {
             // delete half the table, then delete the rest
-            assertUpdate("DELETE FROM " + table.getName() + " WHERE orderkey % 2 = 0", "SELECT count(*) FROM orders WHERE orderkey % 2 = 0");
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders WHERE orderkey % 2 <> 0");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE nationkey % 2 = 0", "SELECT count(*) FROM nation WHERE nationkey % 2 = 0");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation WHERE nationkey % 2 <> 0");
 
-            assertUpdate("DELETE FROM " + table.getName(), "SELECT count(*) FROM orders WHERE orderkey % 2 <> 0");
+            assertUpdate("DELETE FROM " + table.getName(), "SELECT count(*) FROM nation WHERE nationkey % 2 <> 0");
             assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders LIMIT 0");
 
             assertUpdate("DELETE FROM " + table.getName() + " WHERE rand() < 0", 0);
@@ -4322,7 +4322,7 @@ public abstract class BaseConnectorTest
         }
         catch (RuntimeException e) {
             if (isColumnNameRejected(e, columnName, delimited)) {
-                // It is OK if give column name is not allowed and is clearly rejected by the connector.
+                // It is OK if given column name is not allowed and is clearly rejected by the connector.
                 return;
             }
             throw e;
