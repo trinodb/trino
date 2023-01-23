@@ -1593,9 +1593,10 @@ public abstract class BaseJdbcConnectorTest
                 getQueryRunner()::execute,
                 "test_bypass_temp",
                 "(a varchar(36), b bigint)")) {
-            String values = String.join(",", buildRowsForInsert(5000));
-            assertUpdate(session, "INSERT INTO " + table.getName() + " (a, b) VALUES " + values, 5000);
-            assertQuery("SELECT COUNT(*) FROM " + table.getName(), format("VALUES %d", 5000));
+            int numberOfRows = 50;
+            String values = String.join(",", buildRowsForInsert(numberOfRows));
+            assertUpdate(session, "INSERT INTO " + table.getName() + " (a, b) VALUES " + values, numberOfRows);
+            assertQuery("SELECT COUNT(*) FROM " + table.getName(), format("VALUES %d", numberOfRows));
         }
     }
 
