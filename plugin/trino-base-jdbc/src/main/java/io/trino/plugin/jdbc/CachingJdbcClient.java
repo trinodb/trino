@@ -85,6 +85,7 @@ public class CachingJdbcClient
     private final Cache<TableNamesCacheKey, List<SchemaTableName>> tableNamesCache;
     private final Cache<TableHandlesByNameCacheKey, Optional<JdbcTableHandle>> tableHandlesByNameCache;
     private final Cache<TableHandlesByQueryCacheKey, JdbcTableHandle> tableHandlesByQueryCache;
+    private final Cache<TableHandlesByProcedureCacheKey, JdbcTableHandle> tableHandlesByProcedureCache;
     private final Cache<ColumnsCacheKey, List<JdbcColumnHandle>> columnsCache;
     private final Cache<JdbcTableHandle, TableStatistics> statisticsCache;
 
@@ -130,6 +131,7 @@ public class CachingJdbcClient
         tableNamesCache = cacheBuilder.build();
         tableHandlesByNameCache = cacheBuilder.build();
         tableHandlesByQueryCache = cacheBuilder.build();
+        tableHandlesByProcedureCache = cacheBuilder.build();
         columnsCache = cacheBuilder.build();
         statisticsCache = cacheBuilder.build();
     }
@@ -297,6 +299,13 @@ public class CachingJdbcClient
     {
         TableHandlesByQueryCacheKey key = new TableHandlesByQueryCacheKey(getIdentityKey(session), preparedQuery);
         return get(tableHandlesByQueryCache, key, () -> delegate.getTableHandle(session, preparedQuery));
+    }
+
+    @Override
+    public JdbcTableHandle getTableHandle(ConnectorSession session, ProcedureQuery procedureQuery)
+    {
+        TableHandlesByProcedureCacheKey key = new TableHandlesByProcedureCacheKey(getIdentityKey(session), procedureQuery);
+        return get(tableHandlesByProcedureCache, key, () -> delegate.getTableHandle(session, procedureQuery));
     }
 
     @Override
@@ -735,6 +744,38 @@ public class CachingJdbcClient
         public int hashCode()
         {
             return Objects.hash(identity, preparedQuery);
+        }
+    }
+
+    private static final class TableHandlesByProcedureCacheKey
+    {
+        private final IdentityCacheKey identity;
+        private final ProcedureQuery procedureQuery;
+
+        private TableHandlesByProcedureCacheKey(IdentityCacheKey identity, ProcedureQuery procedureQuery)
+        {
+            this.identity = requireNonNull(identity, "identity is null");
+            this.procedureQuery = requireNonNull(procedureQuery, "procedure is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TableHandlesByProcedureCacheKey that = (TableHandlesByProcedureCacheKey) o;
+            return Objects.equals(identity, that.identity) &&
+                    Objects.equals(procedureQuery, that.procedureQuery);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(identity, procedureQuery);
         }
     }
 

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
+import io.trino.plugin.jdbc.ptf.Procedure.ProcedureFunctionHandle;
 import io.trino.plugin.jdbc.ptf.Query.QueryFunctionHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -142,6 +143,12 @@ public class DefaultJdbcMetadata
     }
 
     @Override
+    public JdbcTableHandle getTableHandle(ConnectorSession session, ProcedureQuery procedureQuery)
+    {
+        return jdbcClient.getTableHandle(session, procedureQuery);
+    }
+
+    @Override
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         return jdbcClient.getSystemTable(session, tableName);
@@ -151,6 +158,10 @@ public class DefaultJdbcMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
+        if (handle.isProcedure()) {
+            return Optional.empty();
+        }
+
         if (handle.getSortOrder().isPresent() && handle.getLimit().isPresent()) {
             handle = flushAttributesAsQuery(session, handle);
         }
@@ -261,6 +272,10 @@ public class DefaultJdbcMetadata
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
+        if (handle.isProcedure()) {
+            return Optional.empty();
+        }
+
         List<JdbcColumnHandle> newColumns = assignments.values().stream()
                 .map(JdbcColumnHandle.class::cast)
                 .collect(toImmutableList());
@@ -314,6 +329,10 @@ public class DefaultJdbcMetadata
         }
 
         JdbcTableHandle handle = (JdbcTableHandle) table;
+
+        if (handle.isProcedure()) {
+            return Optional.empty();
+        }
 
         // Global aggregation is represented by [[]]
         verify(!groupingSets.isEmpty(), "No grouping sets provided");
@@ -413,6 +432,10 @@ public class DefaultJdbcMetadata
             JoinStatistics statistics)
     {
         if (!isJoinPushdownEnabled(session)) {
+            return Optional.empty();
+        }
+
+        if (((JdbcTableHandle) left).isProcedure() || ((JdbcTableHandle) right).isProcedure()) {
             return Optional.empty();
         }
 
@@ -523,6 +546,10 @@ public class DefaultJdbcMetadata
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
+        if (handle.isProcedure()) {
+            return Optional.empty();
+        }
+
         if (limit > Integer.MAX_VALUE) {
             // Some databases, e.g. Phoenix, Redshift, do not support limit exceeding 2147483647.
             return Optional.empty();
@@ -565,6 +592,10 @@ public class DefaultJdbcMetadata
         verify(!sortItems.isEmpty(), "sortItems are empty");
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
+        if (handle.isProcedure()) {
+            return Optional.empty();
+        }
+
         List<JdbcSortItem> resultSortOrder = sortItems.stream()
                 .map(sortItem -> {
                     verify(assignments.containsKey(sortItem.getName()), "assignments does not contain sortItem: %s", sortItem.getName());
@@ -603,18 +634,23 @@ public class DefaultJdbcMetadata
     @Override
     public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
     {
-        if (!(handle instanceof QueryFunctionHandle)) {
+        if (!(handle instanceof QueryFunctionHandle || handle instanceof ProcedureFunctionHandle)) {
             return Optional.empty();
         }
+        ConnectorTableHandle tableHandle;
+        if (handle instanceof QueryFunctionHandle queryFunctionHandle) {
+            tableHandle = queryFunctionHandle.getTableHandle();
+        }
+        else {
+            tableHandle = ((ProcedureFunctionHandle) handle).getTableHandle();
+        }
 
-        ConnectorTableHandle tableHandle = ((QueryFunctionHandle) handle).getTableHandle();
         ConnectorTableSchema tableSchema = getTableSchema(session, tableHandle);
         Map<String, ColumnHandle> columnHandlesByName = getColumnHandles(session, tableHandle);
         List<ColumnHandle> columnHandles = tableSchema.getColumns().stream()
                 .map(ColumnSchema::getName)
                 .map(columnHandlesByName::get)
                 .collect(toImmutableList());
-
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }
 

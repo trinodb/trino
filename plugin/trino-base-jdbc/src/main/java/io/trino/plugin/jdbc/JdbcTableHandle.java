@@ -213,6 +213,12 @@ public final class JdbcTableHandle
     }
 
     @JsonIgnore
+    public boolean isProcedure()
+    {
+        return relationHandle instanceof JdbcProcedureRelationHandle;
+    }
+
+    @JsonIgnore
     public boolean isNamedRelation()
     {
         return relationHandle instanceof JdbcNamedRelationHandle;

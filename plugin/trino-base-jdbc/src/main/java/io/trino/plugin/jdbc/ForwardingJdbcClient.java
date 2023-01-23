@@ -91,6 +91,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public JdbcTableHandle getTableHandle(ConnectorSession session, ProcedureQuery procedureQuery)
+    {
+        return delegate().getTableHandle(session, procedureQuery);
+    }
+
+    @Override
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         return delegate().getColumns(session, tableHandle);

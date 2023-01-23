@@ -19,9 +19,11 @@ import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.TestProcedure;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
@@ -585,6 +587,62 @@ public abstract class BaseSqlServerConnectorTest
     protected void verifyColumnNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching("Column name must be shorter than or equal to '128' characters but got '129': '.*'");
+    }
+
+    @Test
+    public void testSelectFromProcedureFunction()
+    {
+        try (TestProcedure testProcedure = simpleProcedure("SELECT 1 as first_column")) {
+            assertQuery(
+                    format("SELECT * FROM TABLE(system.procedure(query => 'EXEC %s')) ".formatted(testProcedure.getName()), getSession().getSchema().orElseThrow()),
+                    "VALUES 1");
+        }
+    }
+
+    @Test
+    public void testFilterPushdownRestrictedForProcedureFunction()
+    {
+        try (TestProcedure testProcedure = simpleProcedure("SELECT * FROM nation")) {
+            assertThat(query(format("SELECT name FROM TABLE(system.procedure(query => 'EXEC %s')) WHERE nationkey = 0".formatted(testProcedure.getName()))))
+                    .isNotFullyPushedDown(FilterNode.class)
+                    .skippingTypesCheck()
+                    .matches("VALUES 'ALGERIA'");
+        }
+    }
+
+    @Test
+    public void testAggregationPushdownRestrictedForProcedureFunction()
+    {
+        try (TestProcedure testProcedure = simpleProcedure("SELECT * FROM nation")) {
+            assertThat(query(format("SELECT COUNT(*) FROM TABLE(system.procedure(query => 'EXEC %s'))".formatted(testProcedure.getName()))))
+                    .isNotFullyPushedDown(AggregationNode.class)
+                    .matches("VALUES BIGINT '25'");
+        }
+    }
+
+    @Test
+    public void testJoinPushdownRestrictedForProcedureFunction()
+    {
+        try (TestProcedure testProcedure = simpleProcedure("SELECT * FROM nation")) {
+            assertThat(query(
+                    joinPushdownEnabled(getSession()),
+                    format("SELECT nationkey FROM TABLE(system.procedure(query => 'EXEC %s')) INNER JOIN nation USING (nationkey) ORDER BY 1 LIMIT 1".formatted(testProcedure.getName()))))
+                    .joinIsNotFullyPushedDown()
+                    .matches("VALUES BIGINT '0'");
+        }
+    }
+
+    private TestProcedure simpleProcedure(String baseQuery)
+    {
+        String procedureName = getSession().getSchema().orElseThrow() + ".procedure" + randomNameSuffix();
+        return new TestProcedure(
+                onRemoteDatabase(),
+                procedureName,
+                """
+                    CREATE PROCEDURE %s
+                    AS BEGIN
+                        %s;
+                    END""".formatted(procedureName, baseQuery));
     }
 
     private String getLongInClause(int start, int length)

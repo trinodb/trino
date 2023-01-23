@@ -57,6 +57,8 @@ public interface JdbcClient
 
     JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery);
 
+    JdbcTableHandle getTableHandle(ConnectorSession session, ProcedureQuery procedureQuery);
+
     List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle);
 
     Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle);

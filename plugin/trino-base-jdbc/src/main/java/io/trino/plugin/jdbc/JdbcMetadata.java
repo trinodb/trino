@@ -21,5 +21,7 @@ public interface JdbcMetadata
 {
     JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery);
 
+    JdbcTableHandle getTableHandle(ConnectorSession session, ProcedureQuery procedureQuery);
+
     void rollback();
 }

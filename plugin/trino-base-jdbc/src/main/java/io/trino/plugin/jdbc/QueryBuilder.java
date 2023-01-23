@@ -18,6 +18,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -62,5 +63,12 @@ public interface QueryBuilder
             ConnectorSession session,
             Connection connection,
             PreparedQuery preparedQuery)
+            throws SQLException;
+
+    CallableStatement callProcedure(
+            JdbcClient client,
+            ConnectorSession session,
+            Connection connection,
+            ProcedureQuery procedureQuery)
             throws SQLException;
 }

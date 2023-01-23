@@ -29,6 +29,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -211,6 +212,13 @@ public class DefaultQueryBuilder
         }
 
         return statement;
+    }
+
+    @Override
+    public CallableStatement callProcedure(JdbcClient client, ConnectorSession session, Connection connection, ProcedureQuery procedureQuery)
+            throws SQLException
+    {
+        return connection.prepareCall(procedureQuery.getQuery());
     }
 
     protected String formatJoinCondition(JdbcClient client, String leftRelationAlias, String rightRelationAlias, JdbcJoinCondition condition)

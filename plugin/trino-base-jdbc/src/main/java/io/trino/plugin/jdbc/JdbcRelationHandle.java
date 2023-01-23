@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 @JsonSubTypes({
         @JsonSubTypes.Type(value = JdbcNamedRelationHandle.class, name = "named"),
         @JsonSubTypes.Type(value = JdbcQueryRelationHandle.class, name = "query"),
+        @JsonSubTypes.Type(value = JdbcProcedureRelationHandle.class, name = "procedure"),
 })
 public abstract class JdbcRelationHandle
 {

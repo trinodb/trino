@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.ProcedureQuery;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -108,6 +109,12 @@ public final class StatisticsAwareJdbcClient
     public JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery)
     {
         return stats.getGetTableHandleForQuery().wrap(() -> delegate().getTableHandle(session, preparedQuery));
+    }
+
+    @Override
+    public JdbcTableHandle getTableHandle(ConnectorSession session, ProcedureQuery procedureQuery)
+    {
+        return stats.getGetTableHandleForProcedure().wrap(() -> delegate().getTableHandle(session, procedureQuery));
     }
 
     @Override
