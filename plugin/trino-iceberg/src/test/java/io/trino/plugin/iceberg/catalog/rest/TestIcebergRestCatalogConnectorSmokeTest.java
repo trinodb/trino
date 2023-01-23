@@ -76,6 +76,7 @@ public class TestIcebergRestCatalogConnectorSmokeTest
                                 .put("iceberg.file-format", format.name())
                                 .put("iceberg.catalog.type", "rest")
                                 .put("iceberg.rest-catalog.uri", testServer.getBaseUrl().toString())
+                                .put("iceberg.register-table-procedure.enabled", "true")
                                 .buildOrThrow())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
@@ -119,42 +120,35 @@ public class TestIcebergRestCatalogConnectorSmokeTest
     public void testRegisterTableWithTableLocation()
     {
         assertThatThrownBy(super::testRegisterTableWithTableLocation)
-                .hasMessageContaining("register_table procedure is disabled");
+                .hasMessageContaining("registerTable is not supported for Iceberg REST catalog");
     }
 
     @Override
     public void testRegisterTableWithComments()
     {
         assertThatThrownBy(super::testRegisterTableWithComments)
-                .hasMessageContaining("register_table procedure is disabled");
+                .hasMessageContaining("registerTable is not supported for Iceberg REST catalog");
     }
 
     @Override
     public void testRegisterTableWithShowCreateTable()
     {
         assertThatThrownBy(super::testRegisterTableWithShowCreateTable)
-                .hasMessageContaining("register_table procedure is disabled");
+                .hasMessageContaining("registerTable is not supported for Iceberg REST catalog");
     }
 
     @Override
     public void testRegisterTableWithReInsert()
     {
         assertThatThrownBy(super::testRegisterTableWithReInsert)
-                .hasMessageContaining("register_table procedure is disabled");
-    }
-
-    @Override
-    public void testRegisterTableWithDroppedTable()
-    {
-        assertThatThrownBy(super::testRegisterTableWithDroppedTable)
-                .hasMessageContaining("register_table procedure is disabled");
+                .hasMessageContaining("registerTable is not supported for Iceberg REST catalog");
     }
 
     @Override
     public void testRegisterTableWithDifferentTableName()
     {
         assertThatThrownBy(super::testRegisterTableWithDifferentTableName)
-                .hasMessageContaining("register_table procedure is disabled");
+                .hasMessageContaining("registerTable is not supported for Iceberg REST catalog");
     }
 
     @Override
