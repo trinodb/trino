@@ -71,6 +71,7 @@ public class TestExternalHiveTable
                 row(null, null, null, null, 5.0, null, null));
 
         onHive().executeQuery("ANALYZE TABLE " + EXTERNAL_TABLE_NAME + " PARTITION (p_regionkey) COMPUTE STATISTICS FOR COLUMNS");
+        onTrino().executeQuery("CALL system.flush_metadata_cache()");
         assertThat(onTrino().executeQuery("SHOW STATS FOR " + EXTERNAL_TABLE_NAME)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
                 row("p_name", 38.0, 5.0, 0.0, null, null, null),

@@ -200,6 +200,7 @@ public class TestHiveTableStatistics
         // basic analysis
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS");
+        onTrino().executeQuery("CALL system.flush_metadata_cache()");
 
         assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("n_nationkey", null, null, null, null, null, null),
@@ -211,6 +212,7 @@ public class TestHiveTableStatistics
         // column analysis
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
+        onTrino().executeQuery("CALL system.flush_metadata_cache()");
 
         assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("n_nationkey", null, anyOf(19., 25.), 0.0, null, "0", "24"),
@@ -249,6 +251,7 @@ public class TestHiveTableStatistics
         // basic analysis for single partition
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey = \"1\") COMPUTE STATISTICS");
+        onTrino().executeQuery("CALL system.flush_metadata_cache()");
 
         assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
@@ -274,6 +277,7 @@ public class TestHiveTableStatistics
         // basic analysis for all partitions
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey) COMPUTE STATISTICS");
+        onTrino().executeQuery("CALL system.flush_metadata_cache()");
 
         assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
@@ -299,6 +303,7 @@ public class TestHiveTableStatistics
         // column analysis for single partition
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey = \"1\") COMPUTE STATISTICS FOR COLUMNS");
+        onTrino().executeQuery("CALL system.flush_metadata_cache()");
 
         assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
@@ -324,6 +329,7 @@ public class TestHiveTableStatistics
         // column analysis for all partitions
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey) COMPUTE STATISTICS FOR COLUMNS");
+        onTrino().executeQuery("CALL system.flush_metadata_cache()");
 
         assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
@@ -376,6 +382,7 @@ public class TestHiveTableStatistics
         // basic analysis for single partition
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey = \"AMERICA\") COMPUTE STATISTICS");
+        onTrino().executeQuery("CALL system.flush_metadata_cache()");
 
         assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
@@ -401,6 +408,7 @@ public class TestHiveTableStatistics
         // basic analysis for all partitions
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey) COMPUTE STATISTICS");
+        onTrino().executeQuery("CALL system.flush_metadata_cache()");
 
         assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
@@ -426,6 +434,7 @@ public class TestHiveTableStatistics
         // column analysis for single partition
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey = \"AMERICA\") COMPUTE STATISTICS FOR COLUMNS");
+        onTrino().executeQuery("CALL system.flush_metadata_cache()");
 
         assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
@@ -451,6 +460,7 @@ public class TestHiveTableStatistics
         // column analysis for all partitions
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey) COMPUTE STATISTICS FOR COLUMNS");
+        onTrino().executeQuery("CALL system.flush_metadata_cache()");
 
         assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
@@ -502,6 +512,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 2.0, null, null));
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
+        onTrino().executeQuery("CALL system.flush_metadata_cache()");
 
         // SHOW STATS FORMAT: column_name, data_size, distinct_values_count, nulls_fraction, row_count
         assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
@@ -550,6 +561,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 0.0, null, null));
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
+        onTrino().executeQuery("CALL system.flush_metadata_cache()");
 
         assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", 0.0, 0.0, 1.0, null, null, null),
@@ -598,6 +610,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 1.0, null, null));
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
+        onTrino().executeQuery("CALL system.flush_metadata_cache()");
 
         assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", 0.0, 0.0, 1.0, null, null, null),
@@ -633,6 +646,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 2.0, null, null));
 
         onHive().executeQuery("ANALYZE TABLE " + tableName + " COMPUTE STATISTICS");
+        onTrino().executeQuery("CALL system.flush_metadata_cache()");
 
         assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableName)).containsOnly(
                 row("c_string", null, null, null, null, null, null),
@@ -640,6 +654,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 2.0, null, null));
 
         onHive().executeQuery("ANALYZE TABLE " + tableName + " COMPUTE STATISTICS FOR COLUMNS");
+        onTrino().executeQuery("CALL system.flush_metadata_cache()");
         assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableName)).containsOnly(
                 row("c_string", 4.0, 1.0, 0.0, null, null, null),
                 row("c_int", null, 2.0, 0.0, null, "1", "2"),
@@ -1413,6 +1428,7 @@ public class TestHiveTableStatistics
             onTrino().executeQuery(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['1']])", tableName));
             onHive().executeQuery(format("ANALYZE TABLE %s PARTITION (p = \"2\") COMPUTE STATISTICS", tableName));
             onHive().executeQuery(format("ANALYZE TABLE %s PARTITION (p = \"2\") COMPUTE STATISTICS FOR COLUMNS", tableName));
+            onTrino().executeQuery("CALL system.flush_metadata_cache()");
 
             // we can get stats for individual partitions
             assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
