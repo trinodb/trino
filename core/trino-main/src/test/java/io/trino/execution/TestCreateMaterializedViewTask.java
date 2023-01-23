@@ -117,7 +117,7 @@ public class TestCreateMaterializedViewTask
     private AnalyzerFactory analyzerFactory;
     private MaterializedViewPropertyManager materializedViewPropertyManager;
     private LocalQueryRunner queryRunner;
-    private CatalogHandle testCatlogHandle;
+    private CatalogHandle testCatalogHandle;
 
     @BeforeMethod
     public void setUp()
@@ -136,7 +136,7 @@ public class TestCreateMaterializedViewTask
                                 .build())
                         .build(),
                 ImmutableMap.of());
-        testCatlogHandle = queryRunner.getCatalogHandle(TEST_CATALOG_NAME);
+        testCatalogHandle = queryRunner.getCatalogHandle(TEST_CATALOG_NAME);
 
         materializedViewPropertyManager = queryRunner.getMaterializedViewPropertyManager();
 
@@ -320,7 +320,7 @@ public class TestCreateMaterializedViewTask
         public Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName)
         {
             if (TEST_CATALOG_NAME.equals(catalogName)) {
-                return Optional.of(testCatlogHandle);
+                return Optional.of(testCatalogHandle);
             }
             return Optional.empty();
         }
@@ -337,7 +337,7 @@ public class TestCreateMaterializedViewTask
             if (tableName.asSchemaTableName().equals(MOCK_TABLE.getTable())) {
                 return Optional.of(
                         new TableHandle(
-                                testCatlogHandle,
+                                testCatalogHandle,
                                 new TestingTableHandle(tableName.asSchemaTableName()),
                                 TestingConnectorTransactionHandle.INSTANCE));
             }
