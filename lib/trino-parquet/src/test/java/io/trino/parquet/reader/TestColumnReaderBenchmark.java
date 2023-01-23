@@ -22,7 +22,7 @@ import java.io.IOException;
 import static io.trino.parquet.ParquetEncoding.DELTA_BINARY_PACKED;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 
-public class TestIntColumnReaderBenchmark
+public class TestColumnReaderBenchmark
 {
     @Test
     public void testIntColumnReaderBenchmark()
@@ -31,6 +31,21 @@ public class TestIntColumnReaderBenchmark
         for (int bitWidth = 0; bitWidth <= 32; bitWidth++) {
             for (ParquetEncoding encoding : ImmutableList.of(PLAIN, DELTA_BINARY_PACKED)) {
                 BenchmarkIntColumnReader benchmark = new BenchmarkIntColumnReader();
+                benchmark.bitWidth = bitWidth;
+                benchmark.encoding = encoding;
+                benchmark.setup();
+                benchmark.read();
+            }
+        }
+    }
+
+    @Test
+    public void testLongColumnReaderBenchmark()
+            throws IOException
+    {
+        for (int bitWidth = 0; bitWidth <= 64; bitWidth++) {
+            for (ParquetEncoding encoding : ImmutableList.of(PLAIN, DELTA_BINARY_PACKED)) {
+                BenchmarkLongColumnReader benchmark = new BenchmarkLongColumnReader();
                 benchmark.bitWidth = bitWidth;
                 benchmark.encoding = encoding;
                 benchmark.setup();
