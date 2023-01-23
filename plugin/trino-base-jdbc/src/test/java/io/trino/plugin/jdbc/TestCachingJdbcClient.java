@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
+import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.credential.ExtraCredentialConfig;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -35,6 +36,10 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -307,6 +312,36 @@ public class TestCachingJdbcClient
     }
 
     @Test
+    public void testProcedureHandleCached()
+            throws Exception
+    {
+        SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
+
+        createTable(phantomTable);
+        createProcedure("test_procedure");
+
+        ProcedureQuery query = new ProcedureQuery("CALL %s.test_procedure ('%s')".formatted(schema, phantomTable));
+        JdbcProcedureHandle cachedProcedure = assertProcedureHandleByQueryCache(cachingJdbcClient)
+                .misses(1)
+                .loads(1)
+                .calling(() -> cachingJdbcClient.getProcedureHandle(SESSION, query));
+        assertThat(cachedProcedure.getColumns().orElseThrow())
+                .hasSize(0);
+
+        dropProcedure("test_procedure");
+
+        assertThatThrownBy(() -> jdbcClient.getProcedureHandle(SESSION, query))
+                .hasMessageContaining("Failed to get table handle for procedure query");
+
+        assertProcedureHandleByQueryCache(cachingJdbcClient)
+                .hits(1)
+                .afterRunning(() -> assertThat(cachingJdbcClient.getProcedureHandle(SESSION, query))
+                        .isEqualTo(cachedProcedure));
+
+        dropTable(phantomTable);
+    }
+
+    @Test
     public void testTableHandleInvalidatedOnColumnsModifications()
     {
         JdbcTableHandle table = createTable(new SchemaTableName(schema, "a_table"));
@@ -367,6 +402,29 @@ public class TestCachingJdbcClient
     {
         jdbcClient.createTable(SESSION, new ConnectorTableMetadata(phantomTable, emptyList()));
         return jdbcClient.getTableHandle(SESSION, phantomTable).orElseThrow();
+    }
+
+    private void createProcedure(String procedureName)
+            throws SQLException
+    {
+        try (Statement statement = database.getConnection().createStatement()) {
+            statement.execute("CREATE ALIAS %s.%s FOR \"io.trino.plugin.jdbc.TestCachingJdbcClient.generateData\"".formatted(schema, procedureName));
+        }
+    }
+
+    private void dropProcedure(String procedureName)
+            throws SQLException
+    {
+        try (Statement statement = database.getConnection().createStatement()) {
+            statement.execute("DROP ALIAS %s.%s".formatted(schema, procedureName));
+        }
+    }
+
+    // Used by H2 for executing Stored Procedure
+    public static ResultSet generateData(Connection connection, String table)
+            throws SQLException
+    {
+        return connection.createStatement().executeQuery("SELECT * FROM " + table);
     }
 
     private void dropTable(JdbcTableHandle tableHandle)
@@ -1044,6 +1102,11 @@ public class TestCachingJdbcClient
         return assertCacheStats(client, CachingJdbcCache.TABLE_HANDLES_BY_QUERY_CACHE);
     }
 
+    private static SingleJdbcCacheStatsAssertions assertProcedureHandleByQueryCache(CachingJdbcClient client)
+    {
+        return assertCacheStats(client, CachingJdbcCache.PROCEDURE_HANDLES_BY_QUERY_CACHE);
+    }
+
     private static SingleJdbcCacheStatsAssertions assertColumnCacheStats(CachingJdbcClient client)
     {
         return assertCacheStats(client, CachingJdbcCache.COLUMNS_CACHE);
@@ -1178,6 +1241,7 @@ public class TestCachingJdbcClient
         TABLE_NAMES_CACHE(CachingJdbcClient::getTableNamesCacheStats),
         TABLE_HANDLES_BY_NAME_CACHE(CachingJdbcClient::getTableHandlesByNameCacheStats),
         TABLE_HANDLES_BY_QUERY_CACHE(CachingJdbcClient::getTableHandlesByQueryCacheStats),
+        PROCEDURE_HANDLES_BY_QUERY_CACHE(CachingJdbcClient::getProcedureHandlesByQueryCacheStats),
         COLUMNS_CACHE(CachingJdbcClient::getColumnsCacheStats),
         STATISTICS_CACHE(CachingJdbcClient::getStatisticsCacheStats),
         /**/;

@@ -15,6 +15,7 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.base.MappedRecordSet;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
@@ -26,10 +27,15 @@ import io.trino.spi.connector.RecordSet;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.UnaryOperator.identity;
 
 public class JdbcRecordSetProvider
         implements ConnectorRecordSetProvider
@@ -58,20 +64,37 @@ public class JdbcRecordSetProvider
                 .ifPresent(tableColumns -> verify(ImmutableSet.copyOf(tableColumns).containsAll(columns)));
 
         if (jdbcTable instanceof JdbcTableHandle jdbcTableHandle) {
-            jdbcTable = jdbcTableHandle.intersectedWithConstraint(jdbcSplit.getDynamicFilter().transformKeys(ColumnHandle.class::cast));
-        }
+            ImmutableList.Builder<JdbcColumnHandle> handles = ImmutableList.builderWithExpectedSize(columns.size());
+            for (ColumnHandle handle : columns) {
+                handles.add((JdbcColumnHandle) handle);
+            }
 
-        ImmutableList.Builder<JdbcColumnHandle> handles = ImmutableList.builderWithExpectedSize(columns.size());
-        for (ColumnHandle handle : columns) {
-            handles.add((JdbcColumnHandle) handle);
+            return new JdbcRecordSet(
+                    jdbcClient,
+                    executor,
+                    session,
+                    jdbcSplit,
+                    jdbcTableHandle.intersectedWithConstraint(jdbcSplit.getDynamicFilter().transformKeys(ColumnHandle.class::cast)),
+                    handles.build());
         }
+        JdbcProcedureHandle procedureHandle = (JdbcProcedureHandle) jdbcTable;
+        List<JdbcColumnHandle> sourceColumns = procedureHandle.getColumns().orElseThrow();
 
-        return new JdbcRecordSet(
-                jdbcClient,
-                executor,
-                session,
-                jdbcSplit,
-                jdbcTable,
-                handles.build());
+        Map<JdbcColumnHandle, Integer> columnIndexMap = IntStream.range(0, sourceColumns.size())
+                .boxed()
+                .collect(toImmutableMap(sourceColumns::get, identity()));
+
+        return new MappedRecordSet(
+                new JdbcRecordSet(
+                        jdbcClient,
+                        executor,
+                        session,
+                        jdbcSplit,
+                        procedureHandle,
+                        sourceColumns),
+                columns.stream()
+                        .map(JdbcColumnHandle.class::cast)
+                        .map(columnIndexMap::get)
+                        .collect(toImmutableList()));
     }
 }

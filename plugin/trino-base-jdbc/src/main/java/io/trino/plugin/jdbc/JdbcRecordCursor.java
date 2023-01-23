@@ -78,7 +78,12 @@ public class JdbcRecordCursor
         objectReadFunctions = new ObjectReadFunction[columnHandles.size()];
 
         try {
-            connection = jdbcClient.getConnection(session, split, (JdbcTableHandle) table);
+            if (table instanceof JdbcProcedureHandle procedureHandle) {
+                connection = jdbcClient.getConnection(session, split, procedureHandle);
+            }
+            else {
+                connection = jdbcClient.getConnection(session, split, (JdbcTableHandle) table);
+            }
 
             for (int i = 0; i < this.columnHandles.length; i++) {
                 JdbcColumnHandle columnHandle = columnHandles.get(i);
@@ -109,7 +114,12 @@ public class JdbcRecordCursor
                 }
             }
 
-            statement = jdbcClient.buildSql(session, connection, split, (JdbcTableHandle) table, columnHandles);
+            if (table instanceof JdbcProcedureHandle procedureHandle) {
+                statement = jdbcClient.buildProcedure(session, connection, split, procedureHandle);
+            }
+            else {
+                statement = jdbcClient.buildSql(session, connection, split, (JdbcTableHandle) table, columnHandles);
+            }
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
