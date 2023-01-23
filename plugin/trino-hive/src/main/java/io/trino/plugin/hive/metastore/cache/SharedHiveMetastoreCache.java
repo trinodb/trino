@@ -78,12 +78,17 @@ public class SharedHiveMetastoreCache
         // Disable caching on workers, because there currently is no way to invalidate such a cache.
         // Note: while we could skip CachingHiveMetastoreModule altogether on workers, we retain it so that catalog
         // configuration can remain identical for all nodes, making cluster configuration easier.
-        enabled = nodeManager.getCurrentNode().isCoordinator() &&
-                config.getMetastoreCacheTtl().toMillis() > 0 &&
+        boolean metadataCacheEnabled = config.getMetastoreCacheTtl().toMillis() > 0;
+        boolean statsCacheEnabled = config.getStatsCacheTtl().toMillis() > 0;
+        enabled = (metadataCacheEnabled || statsCacheEnabled) &&
+                nodeManager.getCurrentNode().isCoordinator() &&
                 config.getMetastoreCacheMaximumSize() > 0;
 
         cachingMetastoreBuilder = CachingHiveMetastore.builder()
+                .metadataCacheEnabled(metadataCacheEnabled)
+                .statsCacheEnabled(statsCacheEnabled)
                 .cacheTtl(config.getMetastoreCacheTtl())
+                .statsCacheTtl(config.getStatsCacheTtl())
                 .refreshInterval(config.getMetastoreRefreshInterval())
                 .maximumSize(config.getMetastoreCacheMaximumSize())
                 .partitionCacheEnabled(config.isPartitionCacheEnabled());
