@@ -796,6 +796,8 @@ public abstract class AbstractTestHive
                         .hdfsEnvironment(hdfsEnvironment)
                         .build()))
                 .executor(executor)
+                .metadataCacheEnabled(true)
+                .statsCacheEnabled(true)
                 .cacheTtl(new Duration(1, MINUTES))
                 .refreshInterval(new Duration(15, SECONDS))
                 .maximumSize(10000)
