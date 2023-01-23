@@ -105,7 +105,7 @@ public final class RedshiftQueryRunner
             runner.installPlugin(new RedshiftPlugin());
             runner.createCatalog(TEST_CATALOG, CONNECTOR_NAME, properties);
 
-            executeInRedshift("CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
+            executeInRedshiftWithRetry("CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
             createUserIfNotExists(NON_GRANTED_USER, JDBC_PASSWORD);
             createUserIfNotExists(GRANTED_USER, JDBC_PASSWORD);
 
@@ -197,7 +197,7 @@ public final class RedshiftQueryRunner
 
     private static void copyFromS3(QueryRunner queryRunner, Session session, String name)
     {
-        String s3Path = format("%s/%s/%s.parquet", S3_TPCH_TABLES_ROOT, TPCH_CATALOG, name);
+        String s3Path = format("%s/%s/%s/%s/", S3_TPCH_TABLES_ROOT, TPCH_CATALOG, TINY_SCHEMA_NAME, name);
         log.info("Creating table %s in Redshift copying from %s", name, s3Path);
 
         // Create table in ephemeral Redshift cluster with no data
