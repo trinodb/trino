@@ -583,14 +583,18 @@ public abstract class AbstractTestQueryFramework
         return formatSql(SQL_PARSER.createStatement(sql, createParsingOptions(getSession())));
     }
 
-    //TODO: should WarningCollector be added?
     protected String getExplainPlan(@Language("SQL") String query, ExplainType.Type planType)
+    {
+        return getExplainPlan(getSession(), query, planType);
+    }
+
+    protected String getExplainPlan(Session session, @Language("SQL") String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = queryRunner.getQueryExplainer();
         return newTransaction()
                 .singleStatement()
-                .execute(getSession(), session -> {
-                    return explainer.getPlan(session, SQL_PARSER.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
+                .execute(session, transactionSession -> {
+                    return explainer.getPlan(transactionSession, SQL_PARSER.createStatement(query, createParsingOptions(transactionSession)), planType, emptyList(), WarningCollector.NOOP);
                 });
     }
 
