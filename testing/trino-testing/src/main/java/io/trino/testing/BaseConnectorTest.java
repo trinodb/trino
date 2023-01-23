@@ -49,6 +49,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.time.ZonedDateTime;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -1287,27 +1288,40 @@ public abstract class BaseConnectorTest
 
                     // The MV is initially not fresh
                     assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(STALE);
+                    assertThat(getMaterializedViewLastFreshTime(viewName)).isEmpty();
                     assertThat(query("TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
 
+                    ZonedDateTime beforeRefresh = ZonedDateTime.now();
                     assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
+                    ZonedDateTime afterRefresh = ZonedDateTime.now();
 
                     // Even right after the REFRESH, it's unknown that the view is FRESH
                     assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(UNKNOWN);
+                    getMaterializedViewLastFreshTime(viewName).ifPresent(lastFreshTime -> {
+                        assertThat(lastFreshTime).isBetween(beforeRefresh, afterRefresh);
+                    });
                     assertThat(query("TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
 
                     // Change underlying state
                     mockListing.set(List.of("first_table", "second_table"));
                     String updatedResults = "VALUES (VARCHAR 'first_table', BIGINT '1'), ('second_table', 1)";
 
-                    // The materialized view should return now-stale data, since it doesn't know when it is no longer fresh
+                    // The materialization is stale now
                     assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(UNKNOWN);
+                    getMaterializedViewLastFreshTime(viewName).ifPresent(lastFreshTime -> {
+                        assertThat(lastFreshTime).isBetween(beforeRefresh, afterRefresh);
+                    });
                     assertThat(query("TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
 
+                    ZonedDateTime beforeSecondRefresh = ZonedDateTime.now();
                     assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 2);
+                    ZonedDateTime afterSecondRefresh = ZonedDateTime.now();
 
                     // Even right after the REFRESH, it's unknown that the view is FRESH
                     assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(UNKNOWN);
-
+                    getMaterializedViewLastFreshTime(viewName).ifPresent(lastFreshTime -> {
+                        assertThat(lastFreshTime).isBetween(beforeSecondRefresh, afterSecondRefresh);
+                    });
                     assertThat(query("TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
 
                     assertUpdate("DROP MATERIALIZED VIEW " + viewName);
@@ -1344,6 +1358,16 @@ public abstract class BaseConnectorTest
                         "AND schema_name = CURRENT_SCHEMA " +
                         "AND name = '" + materializedViewName + "'");
         return MaterializedViewFreshness.Freshness.valueOf(freshness);
+    }
+
+    private Optional<ZonedDateTime> getMaterializedViewLastFreshTime(String materializedViewName)
+    {
+        ZonedDateTime lastFreshTime = (ZonedDateTime) computeScalar(
+                "SELECT last_fresh_time FROM system.metadata.materialized_views " +
+                        "WHERE catalog_name = CURRENT_CATALOG " +
+                        "AND schema_name = CURRENT_SCHEMA " +
+                        "AND name = '" + materializedViewName + "'");
+        return Optional.ofNullable(lastFreshTime);
     }
 
     @Test

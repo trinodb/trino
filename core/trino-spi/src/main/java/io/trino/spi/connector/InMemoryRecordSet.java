@@ -23,6 +23,7 @@ import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
@@ -230,6 +231,9 @@ public class InMemoryRecordSet
                 else if (BIGINT.equals(type) || DATE.equals(type) || TIMESTAMP_MILLIS.equals(type) || TIMESTAMP_TZ_MILLIS.equals(type)) {
                     checkArgument(value instanceof Integer || value instanceof Long,
                             "Expected value %d to be an instance of Integer or Long, but is a %s", i, value.getClass().getSimpleName());
+                }
+                else if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && !timestampWithTimeZoneType.isShort()) {
+                    checkArgument(value instanceof LongTimestampWithTimeZone, "Expected value %s to be an instance of LongTimestampWithTimeZone, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (DOUBLE.equals(type)) {
                     checkArgument(value instanceof Double, "Expected value %s to be an instance of Double, but is a %s", i, value.getClass().getSimpleName());
