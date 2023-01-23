@@ -542,6 +542,7 @@ jobs:
             - { modules: plugin/trino-postgresql }
             - { modules: plugin/trino-raptor-legacy }
             - { modules: plugin/trino-redis }
+            - { modules: plugin/trino-redshift, profile: cloud-tests }
             - { modules: plugin/trino-singlestore }
             - { modules: plugin/trino-sqlserver }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
@@ -601,6 +602,7 @@ jobs:
           && ! (contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'gcs-tests'))
           && ! (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-arrow'))
+          && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'cloud-tests'))
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
       - name: Cloud Delta Lake Tests
@@ -682,6 +684,38 @@ jobs:
             -Dhive.hadoop2.azure-abfs-container="${ABFS_CONTAINER}" \
             -Dhive.hadoop2.azure-abfs-account="${ABFS_ACCOUNT}" \
             -Dhive.hadoop2.azure-abfs-access-key="${ABFS_ACCESS_KEY}"
+      - name: Cloud Redshift Tests
+        env:
+          AWS_REGION: ${{ vars.REDSHIFT_AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.REDSHIFT_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.REDSHIFT_AWS_SECRET_ACCESS_KEY }}
+          REDSHIFT_SUBNET_GROUP_NAME: ${{ vars.REDSHIFT_SUBNET_GROUP_NAME }}
+          REDSHIFT_IAM_ROLES: ${{ vars.REDSHIFT_IAM_ROLES }}
+          REDSHIFT_VPC_SECURITY_GROUP_IDS: ${{ vars.REDSHIFT_VPC_SECURITY_GROUP_IDS }}
+          REDSHIFT_S3_TPCH_TABLES_ROOT: ${{ vars.REDSHIFT_S3_TPCH_TABLES_ROOT }}
+        if: >-
+          contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'cloud-tests') &&
+          (env.AWS_ACCESS_KEY_ID != '' || env.REDSHIFT_SUBNET_GROUP_NAME != '')
+        run: |
+          source .github/bin/redshift/setup-aws-redshift.sh
+
+          $MAVEN test ${MAVEN_TEST} -pl :trino-redshift ${{ format('-P {0}', matrix.profile) }} \
+            -Dtest.redshift.jdbc.user="${REDSHIFT_USER}" \
+            -Dtest.redshift.jdbc.password="${REDSHIFT_PASSWORD}" \
+            -Dtest.redshift.jdbc.endpoint="${REDSHIFT_ENDPOINT}:${REDSHIFT_PORT}/" \
+            -Dtest.redshift.s3.tpch.tables.root="${REDSHIFT_S3_TPCH_TABLES_ROOT}" \
+            -Dtest.redshift.iam.role="${REDSHIFT_IAM_ROLES}" \
+            -Dtest.redshift.aws.region="${AWS_REGION}" \
+            -Dtest.redshift.aws.access-key="${AWS_ACCESS_KEY_ID}" \
+            -Dtest.redshift.aws.secret-key="${AWS_SECRET_ACCESS_KEY}"
+      - name: Cleanup ephemeral Redshift Cluster
+        env:
+          AWS_REGION: ${{ vars.REDSHIFT_AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.REDSHIFT_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.REDSHIFT_AWS_SECRET_ACCESS_KEY }}
+        # Cancelled workflows may have left the ephemeral cluster running
+        if: always()
+        run: .github/bin/redshift/delete-aws-redshift.sh
       - name: Sanitize artifact name
         if: always()
         run: |
