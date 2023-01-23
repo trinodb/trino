@@ -190,6 +190,7 @@ public class DefaultCatalogFactory
             Map<String, String> properties)
     {
         ConnectorContext context = new ConnectorContextInstance(
+                catalogHandle,
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), catalogHandle, schedulerIncludeCoordinator),
                 versionEmbedder,
                 typeManager,
