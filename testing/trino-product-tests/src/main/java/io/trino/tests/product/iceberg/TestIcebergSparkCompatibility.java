@@ -2591,6 +2591,50 @@ public class TestIcebergSparkCompatibility
                 });
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testTrinoAlterStructColumnType(StorageFormat storageFormat)
+    {
+        String baseTableName = "test_trino_alter_row_column_type_" + randomNameSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + " " +
+                "WITH (format = '" + storageFormat + "')" +
+                "AS SELECT CAST(row(1, 2) AS row(a integer, b integer)) AS col");
+
+        // Add a nested field
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " ALTER COLUMN col SET DATA TYPE row(a integer, b integer, c integer)");
+        assertEquals(getColumnType(baseTableName, "col"), "row(a integer, b integer, c integer)");
+        assertThat(onSpark().executeQuery("SELECT col.a, col.b, col.c FROM " + sparkTableName)).containsOnly(row(1, 2, null));
+        assertThat(onTrino().executeQuery("SELECT col.a, col.b, col.c FROM " + trinoTableName)).containsOnly(row(1, 2, null));
+
+        // Update a nested field
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " ALTER COLUMN col SET DATA TYPE row(a integer, b bigint, c integer)");
+        assertEquals(getColumnType(baseTableName, "col"), "row(a integer, b bigint, c integer)");
+        assertThat(onSpark().executeQuery("SELECT col.a, col.b, col.c FROM " + sparkTableName)).containsOnly(row(1, 2, null));
+        assertThat(onTrino().executeQuery("SELECT col.a, col.b, col.c FROM " + trinoTableName)).containsOnly(row(1, 2, null));
+
+        // Drop a nested field
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " ALTER COLUMN col SET DATA TYPE row(a integer, c integer)");
+        assertEquals(getColumnType(baseTableName, "col"), "row(a integer, c integer)");
+        assertThat(onSpark().executeQuery("SELECT col.a, col.c FROM " + sparkTableName)).containsOnly(row(1, null));
+        assertThat(onTrino().executeQuery("SELECT col.a, col.c FROM " + trinoTableName)).containsOnly(row(1, null));
+
+        // Adding a nested field with the same name doesn't restore the old data
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " ALTER COLUMN col SET DATA TYPE row(a integer, c integer, b bigint)");
+        assertEquals(getColumnType(baseTableName, "col"), "row(a integer, c integer, b bigint)");
+        assertThat(onSpark().executeQuery("SELECT col.a, col.c, col.b FROM " + sparkTableName)).containsOnly(row(1, null, null));
+        assertThat(onTrino().executeQuery("SELECT col.a, col.c, col.b FROM " + trinoTableName)).containsOnly(row(1, null, null));
+
+        // Reorder fields
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " ALTER COLUMN col SET DATA TYPE row(c integer, b bigint, a integer)");
+        assertEquals(getColumnType(baseTableName, "col"), "row(c integer, b bigint, a integer)");
+        assertThat(onSpark().executeQuery("SELECT col.b, col.c, col.a FROM " + sparkTableName)).containsOnly(row(null, null, 1));
+        assertThat(onTrino().executeQuery("SELECT col.b, col.c, col.a FROM " + trinoTableName)).containsOnly(row(null, null, 1));
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "testSparkAlterColumnType")
     public void testSparkAlterColumnType(StorageFormat storageFormat, String sourceColumnType, String sourceValueLiteral, String newColumnType, Object newValue)
     {
@@ -2635,6 +2679,50 @@ public class TestIcebergSparkCompatibility
                         {"float", "'NaN'", "double", Double.NaN},
                         {"decimal(5,3)", "'12.345'", "decimal(10,3)", BigDecimal.valueOf(12.345)}
                 });
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testSparkAlterStructColumnType(StorageFormat storageFormat)
+    {
+        String baseTableName = "test_spark_alter_struct_column_type_" + randomNameSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName +
+                " TBLPROPERTIES ('write.format.default' = '" + storageFormat + "')" +
+                "AS SELECT named_struct('a', 1, 'b', 2) AS col");
+
+        // Add a nested field
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD COLUMN col.c integer");
+        assertEquals(getColumnType(baseTableName, "col"), "row(a integer, b integer, c integer)");
+        assertThat(onSpark().executeQuery("SELECT col.a, col.b, col.c FROM " + sparkTableName)).containsOnly(row(1, 2, null));
+        assertThat(onTrino().executeQuery("SELECT col.a, col.b, col.c FROM " + trinoTableName)).containsOnly(row(1, 2, null));
+
+        // Update a nested field
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ALTER COLUMN col.b TYPE bigint");
+        assertEquals(getColumnType(baseTableName, "col"), "row(a integer, b bigint, c integer)");
+        assertThat(onSpark().executeQuery("SELECT col.a, col.b, col.c FROM " + sparkTableName)).containsOnly(row(1, 2, null));
+        assertThat(onTrino().executeQuery("SELECT col.a, col.b, col.c FROM " + trinoTableName)).containsOnly(row(1, 2, null));
+
+        // Drop a nested field
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " DROP COLUMN col.b");
+        assertEquals(getColumnType(baseTableName, "col"), "row(a integer, c integer)");
+        assertThat(onSpark().executeQuery("SELECT col.a, col.c FROM " + sparkTableName)).containsOnly(row(1, null));
+        assertThat(onTrino().executeQuery("SELECT col.a, col.c FROM " + trinoTableName)).containsOnly(row(1, null));
+
+        // Adding a nested field with the same name doesn't restore the old data
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD COLUMN col.b bigint");
+        assertEquals(getColumnType(baseTableName, "col"), "row(a integer, c integer, b bigint)");
+        assertThat(onSpark().executeQuery("SELECT col.a, col.c, col.b FROM " + sparkTableName)).containsOnly(row(1, null, null));
+        assertThat(onTrino().executeQuery("SELECT col.a, col.c, col.b FROM " + trinoTableName)).containsOnly(row(1, null, null));
+
+        // Reorder fields
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ALTER COLUMN col.a AFTER b");
+        assertEquals(getColumnType(baseTableName, "col"), "row(c integer, b bigint, a integer)");
+        assertThat(onSpark().executeQuery("SELECT col.b, col.c, col.a FROM " + sparkTableName)).containsOnly(row(null, null, 1));
+        assertThat(onTrino().executeQuery("SELECT col.b, col.c, col.a FROM " + trinoTableName)).containsOnly(row(null, null, 1));
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
     private String getColumnType(String tableName, String columnName)

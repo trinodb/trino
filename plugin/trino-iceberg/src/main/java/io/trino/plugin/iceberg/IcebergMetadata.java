@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -126,6 +127,7 @@ import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.UpdatePartitionSpec;
 import org.apache.iceberg.UpdateProperties;
+import org.apache.iceberg.UpdateSchema;
 import org.apache.iceberg.UpdateStatistics;
 import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.expressions.Expressions;
@@ -1574,14 +1576,70 @@ public class IcebergMetadata
         verify(column.isBaseColumn(), "Cannot change nested field types");
 
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        Type sourceType = icebergTable.schema().findType(column.getName());
+        Type newType = toIcebergType(type);
         try {
-            icebergTable.updateSchema()
-                    .updateColumn(column.getName(), toIcebergType(type).asPrimitiveType())
-                    .commit();
+            UpdateSchema schemaUpdate = icebergTable.updateSchema();
+            buildUpdateSchema(column.getName(), sourceType, newType, schemaUpdate);
+            schemaUpdate.commit();
         }
         catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to set column type: " + firstNonNull(e.getMessage(), e), e);
         }
+    }
+
+    private static void buildUpdateSchema(String name, Type sourceType, Type newType, UpdateSchema schemaUpdate)
+    {
+        if (sourceType.equals(newType)) {
+            return;
+        }
+        if (sourceType.isPrimitiveType() && newType.isPrimitiveType()) {
+            schemaUpdate.updateColumn(name, newType.asPrimitiveType());
+            return;
+        }
+        if (sourceType instanceof StructType sourceRowType && newType instanceof StructType newRowType) {
+            // Add, update or delete fields
+            List<NestedField> fields = Streams.concat(sourceRowType.fields().stream(), newRowType.fields().stream())
+                    .distinct()
+                    .collect(toImmutableList());
+            for (NestedField field : fields) {
+                if (fieldExists(sourceRowType, field.name()) && fieldExists(newRowType, field.name())) {
+                    buildUpdateSchema(name + "." + field.name(), sourceRowType.fieldType(field.name()), newRowType.fieldType(field.name()), schemaUpdate);
+                }
+                else if (fieldExists(newRowType, field.name())) {
+                    schemaUpdate.addColumn(name, field.name(), field.type());
+                }
+                else {
+                    schemaUpdate.deleteColumn(name + "." + field.name());
+                }
+            }
+
+            // Order fields based on the new column type
+            String currentName = null;
+            for (NestedField field : newRowType.fields()) {
+                String path = name + "." + field.name();
+                if (currentName == null) {
+                    schemaUpdate.moveFirst(path);
+                }
+                else {
+                    schemaUpdate.moveAfter(path, currentName);
+                }
+                currentName = path;
+            }
+
+            return;
+        }
+        throw new IllegalArgumentException("Cannot change type from %s to %s".formatted(sourceType, newType));
+    }
+
+    private static boolean fieldExists(StructType structType, String fieldName)
+    {
+        for (NestedField field : structType.fields()) {
+            if (field.name().equals(fieldName)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private List<ColumnMetadata> getColumnMetadatas(Schema schema)

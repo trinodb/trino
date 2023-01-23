@@ -18,6 +18,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -72,5 +73,16 @@ public class TestIcebergParquetConnectorTest
                 .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "100B")
                 .setCatalogSessionProperty("iceberg", "parquet_writer_batch_size", "10")
                 .build();
+    }
+
+    @Override
+    protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
+    {
+        switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            case "row(x integer) -> row(y integer)":
+                // TODO https://github.com/trinodb/trino/issues/15822 The connector returns incorrect NULL when a field in row type doesn't exist in Parquet files
+                return Optional.of(setup.withNewValueLiteral("NULL"));
+        }
+        return super.filterSetColumnTypesDataProvider(setup);
     }
 }
