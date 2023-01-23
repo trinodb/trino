@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.accumulo.serializers;
 
+import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.Table;
 import io.airlift.slice.Slice;
 import io.trino.plugin.accumulo.Types;
 import io.trino.spi.TrinoException;
@@ -63,7 +65,7 @@ public class LexicoderRowSerializer
     private static final Map<Type, ListLexicoder<?>> LIST_LEXICODERS = new HashMap<>();
     private static final Map<Type, MapLexicoder<?, ?>> MAP_LEXICODERS = new HashMap<>();
 
-    private final Map<String, Map<String, String>> familyQualifierColumnMap = new HashMap<>();
+    private final Table<String, String, String> familyQualifierColumnMap = HashBasedTable.create();
     private final Map<String, byte[]> columnValues = new HashMap<>();
     private final Text rowId = new Text();
     private final Text family = new Text();
@@ -106,13 +108,7 @@ public class LexicoderRowSerializer
     public void setMapping(String name, String family, String qualifier)
     {
         columnValues.put(name, null);
-        Map<String, String> qualifierToNameMap = familyQualifierColumnMap.get(family);
-        if (qualifierToNameMap == null) {
-            qualifierToNameMap = new HashMap<>();
-            familyQualifierColumnMap.put(family, qualifierToNameMap);
-        }
-
-        qualifierToNameMap.put(qualifier, name);
+        familyQualifierColumnMap.put(family, qualifier, name);
     }
 
     @Override
@@ -141,7 +137,7 @@ public class LexicoderRowSerializer
         }
 
         value.set(entry.getValue().get());
-        columnValues.put(familyQualifierColumnMap.get(family.toString()).get(qualifier.toString()), value.copyBytes());
+        columnValues.put(familyQualifierColumnMap.get(family.toString(), qualifier.toString()), value.copyBytes());
     }
 
     @Override
