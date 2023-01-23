@@ -69,6 +69,11 @@ public class JdbcDynamicFilteringSplitManager
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
+        // JdbcProcedureHandle doesn't support any pushdown operation, so we rely on delegateSplitManager
+        if (table instanceof JdbcProcedureHandle) {
+            return delegateSplitManager.getSplits(transaction, session, table, dynamicFilter, constraint);
+        }
+
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         // pushing DF through limit could reduce query performance
         boolean hasLimit = tableHandle.getLimit().isPresent();

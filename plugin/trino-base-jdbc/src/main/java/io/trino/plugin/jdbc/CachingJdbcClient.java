@@ -23,6 +23,7 @@ import io.airlift.units.Duration;
 import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.IdentityCacheMapping.IdentityCacheKey;
+import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -46,6 +47,7 @@ import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -84,6 +86,7 @@ public class CachingJdbcClient
     private final Cache<TableNamesCacheKey, List<SchemaTableName>> tableNamesCache;
     private final Cache<TableHandlesByNameCacheKey, Optional<JdbcTableHandle>> tableHandlesByNameCache;
     private final Cache<TableHandlesByQueryCacheKey, JdbcTableHandle> tableHandlesByQueryCache;
+    private final Cache<ProcedureHandlesByQueryCacheKey, JdbcProcedureHandle> procedureHandlesByQueryCache;
     private final Cache<ColumnsCacheKey, List<JdbcColumnHandle>> columnsCache;
     private final Cache<JdbcTableHandle, TableStatistics> statisticsCache;
 
@@ -149,6 +152,7 @@ public class CachingJdbcClient
         tableNamesCache = buildCache(cacheSize, tableNamesCachingTtl);
         tableHandlesByNameCache = buildCache(cacheSize, metadataCachingTtl);
         tableHandlesByQueryCache = buildCache(cacheSize, metadataCachingTtl);
+        procedureHandlesByQueryCache = buildCache(cacheSize, metadataCachingTtl);
         columnsCache = buildCache(cacheSize, metadataCachingTtl);
         statisticsCache = buildCache(cacheSize, metadataCachingTtl);
     }
@@ -237,10 +241,23 @@ public class CachingJdbcClient
     }
 
     @Override
+    public ConnectorSplitSource getSplits(ConnectorSession session, JdbcProcedureHandle procedureHandle)
+    {
+        return delegate.getSplits(session, procedureHandle);
+    }
+
+    @Override
     public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
             throws SQLException
     {
         return delegate.getConnection(session, split, tableHandle);
+    }
+
+    @Override
+    public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcProcedureHandle procedureHandle)
+            throws SQLException
+    {
+        return delegate.getConnection(session, split, procedureHandle);
     }
 
     @Override
@@ -266,6 +283,13 @@ public class CachingJdbcClient
             throws SQLException
     {
         return delegate.buildSql(session, connection, split, table, columns);
+    }
+
+    @Override
+    public CallableStatement buildProcedure(ConnectorSession session, Connection connection, JdbcSplit split, JdbcProcedureHandle procedureHandle)
+            throws SQLException
+    {
+        return delegate.buildProcedure(session, connection, split, procedureHandle);
     }
 
     @Override
@@ -326,6 +350,13 @@ public class CachingJdbcClient
     {
         TableHandlesByQueryCacheKey key = new TableHandlesByQueryCacheKey(getIdentityKey(session), preparedQuery);
         return get(tableHandlesByQueryCache, key, () -> delegate.getTableHandle(session, preparedQuery));
+    }
+
+    @Override
+    public JdbcProcedureHandle getProcedureHandle(ConnectorSession session, ProcedureQuery procedureQuery)
+    {
+        ProcedureHandlesByQueryCacheKey key = new ProcedureHandlesByQueryCacheKey(getIdentityKey(session), procedureQuery);
+        return get(procedureHandlesByQueryCache, key, () -> delegate.getProcedureHandle(session, procedureQuery));
     }
 
     @Override
@@ -639,6 +670,12 @@ public class CachingJdbcClient
     }
 
     @VisibleForTesting
+    CacheStats getProcedureHandlesByQueryCacheStats()
+    {
+        return procedureHandlesByQueryCache.stats();
+    }
+
+    @VisibleForTesting
     CacheStats getColumnsCacheStats()
     {
         return columnsCache.stats();
@@ -685,6 +722,15 @@ public class CachingJdbcClient
         {
             requireNonNull(identity, "identity is null");
             requireNonNull(preparedQuery, "preparedQuery is null");
+        }
+    }
+
+    private record ProcedureHandlesByQueryCacheKey(IdentityCacheKey identity, ProcedureQuery procedureQuery)
+    {
+        private ProcedureHandlesByQueryCacheKey
+        {
+            requireNonNull(identity, "identity is null");
+            requireNonNull(procedureQuery, "procedureQuery is null");
         }
     }
 
