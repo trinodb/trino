@@ -6361,7 +6361,6 @@ public abstract class BaseIcebergConnectorTest
             case "decimal(5,3) -> decimal(5,2)":
             case "varchar -> char(20)":
             case "array(integer) -> array(bigint)":
-            case "row(x integer) -> row(x bigint)":
                 // Iceberg allows updating column types if the update is safe. Safe updates are:
                 // - int to bigint
                 // - float to double
@@ -6379,7 +6378,7 @@ public abstract class BaseIcebergConnectorTest
     @Override
     protected void verifySetColumnTypeFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching(".*(Cannot change column type|not supported for Iceberg|Not a primitive type).*");
+        assertThat(e).hasMessageMatching(".*(Cannot change column type|not supported for Iceberg|Not a primitive type|Cannot change type ).*");
     }
 
     private Session prepareCleanUpSession()
