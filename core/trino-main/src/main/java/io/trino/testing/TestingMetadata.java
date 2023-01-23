@@ -60,6 +60,8 @@ import java.util.concurrent.ConcurrentMap;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static java.util.Collections.synchronizedSet;
 import static java.util.Objects.requireNonNull;
 
@@ -269,7 +271,7 @@ public class TestingMetadata
     @Override
     public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
     {
-        return new MaterializedViewFreshness(freshMaterializedViews.contains(name));
+        return new MaterializedViewFreshness(freshMaterializedViews.contains(name) ? FRESH : STALE);
     }
 
     public void markMaterializedViewIsFresh(SchemaTableName name)

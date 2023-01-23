@@ -16,19 +16,11 @@ package io.trino.spi.connector;
 import java.util.Objects;
 import java.util.StringJoiner;
 
-import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
-import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static java.util.Objects.requireNonNull;
 
 public final class MaterializedViewFreshness
 {
     private final Freshness freshness;
-
-    @Deprecated
-    public MaterializedViewFreshness(boolean materializedViewFresh)
-    {
-        this(materializedViewFresh ? FRESH : STALE);
-    }
 
     public MaterializedViewFreshness(Freshness freshness)
     {
