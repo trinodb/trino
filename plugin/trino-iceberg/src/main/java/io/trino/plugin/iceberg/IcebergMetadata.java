@@ -2504,25 +2504,6 @@ public class IcebergMetadata
         catalog.renameMaterializedView(session, source, target);
     }
 
-    public Optional<TableToken> getTableToken(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
-        return Optional.ofNullable(icebergTable.currentSnapshot())
-                .map(snapshot -> new TableToken(snapshot.snapshotId()));
-    }
-
-    public boolean isTableCurrent(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<TableToken> tableToken)
-    {
-        Optional<TableToken> currentToken = getTableToken(session, tableHandle);
-
-        if (tableToken.isEmpty() || currentToken.isEmpty()) {
-            return false;
-        }
-
-        return tableToken.get().getSnapshotId() == currentToken.get().getSnapshotId();
-    }
-
     @Override
     public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName)
     {
@@ -2571,18 +2552,28 @@ public class IcebergMetadata
             if (tableHandle == null) {
                 throw new MaterializedViewNotFoundException(materializedViewName);
             }
-            Optional<TableToken> tableToken;
+            Optional<Long> snapshotAtRefresh;
             if (value.isEmpty()) {
-                tableToken = Optional.empty();
+                snapshotAtRefresh = Optional.empty();
             }
             else {
-                tableToken = Optional.of(new TableToken(Long.parseLong(value)));
+                snapshotAtRefresh = Optional.of(Long.parseLong(value));
             }
-            if (!isTableCurrent(session, tableHandle, tableToken)) {
+            if (!isSnapshotCurrent(session, tableHandle, snapshotAtRefresh)) {
                 return new MaterializedViewFreshness(STALE);
             }
         }
         return new MaterializedViewFreshness(hasUnknownTables ? UNKNOWN : FRESH);
+    }
+
+    private boolean isSnapshotCurrent(ConnectorSession session, IcebergTableHandle table, Optional<Long> snapshotId)
+    {
+        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        Snapshot currentSnapshot = icebergTable.currentSnapshot();
+        if (snapshotId.isEmpty() || currentSnapshot == null) {
+            return false;
+        }
+        return snapshotId.get() == currentSnapshot.snapshotId();
     }
 
     @Override
@@ -2613,21 +2604,5 @@ public class IcebergMetadata
     {
         verify(transaction == null, "transaction already set");
         transaction = icebergTable.newTransaction();
-    }
-
-    private static class TableToken
-    {
-        // Current Snapshot ID of the table
-        private final long snapshotId;
-
-        public TableToken(long snapshotId)
-        {
-            this.snapshotId = snapshotId;
-        }
-
-        public long getSnapshotId()
-        {
-            return snapshotId;
-        }
     }
 }
