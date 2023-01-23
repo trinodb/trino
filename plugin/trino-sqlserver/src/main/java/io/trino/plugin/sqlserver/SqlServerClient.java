@@ -38,6 +38,8 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
+import io.trino.plugin.jdbc.JdbcProcedureHandle;
+import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -61,6 +63,7 @@ import io.trino.plugin.jdbc.expression.RewriteComparison;
 import io.trino.plugin.jdbc.expression.RewriteIn;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
+import io.trino.plugin.jdbc.ptf.Procedure.ProcedureInformation;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -99,6 +102,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -160,6 +164,7 @@ import static io.trino.plugin.sqlserver.SqlServerSessionProperties.isBulkCopyFor
 import static io.trino.plugin.sqlserver.SqlServerSessionProperties.isBulkCopyForWriteLockDestinationTable;
 import static io.trino.plugin.sqlserver.SqlServerTableProperties.DATA_COMPRESSION;
 import static io.trino.plugin.sqlserver.SqlServerTableProperties.getDataCompression;
+import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -655,6 +660,43 @@ public class SqlServerClient
         catch (SQLException | RuntimeException e) {
             throwIfInstanceOf(e, TrinoException.class);
             throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
+        }
+    }
+
+    @Override
+    public JdbcProcedureHandle getProcedureHandle(ConnectorSession session, ProcedureInformation procedureInformation)
+
+    {
+        if (procedureInformation.inputArguments().stream().anyMatch(argument -> argument.contains(";"))) {
+            throw new TrinoException(INVALID_ARGUMENTS, "InputArgument doesn't support special characters like ';'");
+        }
+
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            ProcedureQuery procedureQuery = queryBuilder.createProcedureQuery(this, session, connection, procedureInformation);
+
+            try (Statement statement = connection.createStatement();
+                    // When FMTONLY is ON , a rowset is returned with the column names for the query
+                    ResultSet resultSet = statement.executeQuery("set fmtonly on %s \nset fmtonly off".formatted(procedureQuery.query()))) {
+                ResultSetMetaData metadata = resultSet.getMetaData();
+                if (metadata == null) {
+                    throw new TrinoException(NOT_SUPPORTED, "Procedure not supported: ResultSetMetaData not available for query: " + procedureQuery.query());
+                }
+                JdbcProcedureHandle procedureHandle = new JdbcProcedureHandle(procedureQuery, getColumns(session, connection, metadata));
+                if (statement.getMoreResults()) {
+                    throw new TrinoException(NOT_SUPPORTED, "Procedure has multiple ResultSets for query: " + procedureQuery.query());
+                }
+                // dm_sql_referenced_entities stored procedure provides information about table and columns being updated by a procedure.
+                try (ResultSet doesStoredProceduresModifiesData = statement.executeQuery("SELECT 1 FROM sys.dm_sql_referenced_entities('%s.%s', 'OBJECT') WHERE is_updated = 1"
+                        .formatted(procedureInformation.schemaName(), procedureInformation.procedureName()))) {
+                    if (doesStoredProceduresModifiesData.next()) {
+                        throw new TrinoException(NOT_SUPPORTED, "Procedure not supported: Procedure updates or inserts data: " + procedureQuery.query());
+                    }
+                }
+                return procedureHandle;
+            }
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, "Failed to get table handle for procedure query. " + firstNonNull(e.getMessage(), e), e);
         }
     }
 

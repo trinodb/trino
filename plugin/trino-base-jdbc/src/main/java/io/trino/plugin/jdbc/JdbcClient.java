@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
+import io.trino.plugin.jdbc.ptf.Procedure.ProcedureInformation;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -30,6 +31,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.Type;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -56,6 +58,8 @@ public interface JdbcClient
     Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName);
 
     JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery);
+
+    JdbcProcedureHandle getProcedureHandle(ConnectorSession session, ProcedureInformation procedureInformation);
 
     List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle);
 
@@ -85,7 +89,12 @@ public interface JdbcClient
 
     ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle);
 
+    ConnectorSplitSource getSplits(ConnectorSession session, JdbcProcedureHandle procedureHandle);
+
     Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
+            throws SQLException;
+
+    Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcProcedureHandle procedureHandle)
             throws SQLException;
 
     default void abortReadConnection(Connection connection, ResultSet resultSet)
@@ -102,6 +111,9 @@ public interface JdbcClient
             Map<String, String> columnExpressions);
 
     PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
+            throws SQLException;
+
+    CallableStatement buildProcedure(ConnectorSession session, Connection connection, JdbcSplit split, JdbcProcedureHandle procedureHandle)
             throws SQLException;
 
     Optional<PreparedQuery> implementJoin(

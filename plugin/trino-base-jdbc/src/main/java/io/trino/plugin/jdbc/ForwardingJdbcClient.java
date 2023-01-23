@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
+import io.trino.plugin.jdbc.ptf.Procedure.ProcedureInformation;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -29,6 +30,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.Type;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -91,6 +93,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public JdbcProcedureHandle getProcedureHandle(ConnectorSession session, ProcedureInformation procedureInformation)
+    {
+        return delegate().getProcedureHandle(session, procedureInformation);
+    }
+
+    @Override
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         return delegate().getColumns(session, tableHandle);
@@ -139,10 +147,23 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public ConnectorSplitSource getSplits(ConnectorSession session, JdbcProcedureHandle procedureHandle)
+    {
+        return delegate().getSplits(session, procedureHandle);
+    }
+
+    @Override
     public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
             throws SQLException
     {
         return delegate().getConnection(session, split, tableHandle);
+    }
+
+    @Override
+    public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcProcedureHandle procedureHandle)
+            throws SQLException
+    {
+        return delegate().getConnection(session, split, procedureHandle);
     }
 
     @Override
@@ -168,6 +189,13 @@ public abstract class ForwardingJdbcClient
             throws SQLException
     {
         return delegate().buildSql(session, connection, split, tableHandle, columnHandles);
+    }
+
+    @Override
+    public CallableStatement buildProcedure(ConnectorSession session, Connection connection, JdbcSplit split, JdbcProcedureHandle procedureHandle)
+            throws SQLException
+    {
+        return delegate().buildProcedure(session, connection, split, procedureHandle);
     }
 
     @Override

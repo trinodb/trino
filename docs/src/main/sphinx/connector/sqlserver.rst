@@ -367,6 +367,46 @@ nations by population::
         )
       );
 
+.. _sqlserver-procedure-function:
+
+``procedure(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``procedure`` function allows you to run stored procedures on the underlying
+database directly.
+
+.. note::
+
+    The ``procedure`` function does not support running StoredProcedures that return multiple statements,
+    use a non-select statement, use output parameters, or use conditional statements.
+
+
+The follow example runs the stored procedure ``employee_sp`` in the ``example`` catalog and the
+``example_schema`` in the underlying SQL Server database::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        example.system.procedure(
+          schema    => 'example_schema',
+          procedure => 'employee_sp'
+        )
+      );
+
+If the stored procedure ``employee_sp`` requires any input, it can be specified via ``inputs``
+argument as an ``array<varchar>``::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        example.system.procedure(
+          schema    => 'example_schema',
+          procedure => 'employee_sp',
+          inputs    => ARRAY['0']
+        )
+      );
 
 Performance
 -----------

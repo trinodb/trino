@@ -45,6 +45,10 @@ public class JdbcSplitManager
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
+        if (table instanceof JdbcProcedureHandle procedureHandle) {
+            return jdbcClient.getSplits(session, procedureHandle);
+        }
+
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         ConnectorSplitSource jdbcSplitSource = jdbcClient.getSplits(session, tableHandle);
         if (dynamicFilteringEnabled(session)) {
