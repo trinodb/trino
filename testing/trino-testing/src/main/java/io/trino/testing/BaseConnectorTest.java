@@ -49,7 +49,9 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
 import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -84,8 +86,11 @@ import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterrup
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
+import static io.trino.SystemSessionProperties.LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
+import static io.trino.server.testing.TestingSystemSessionProperties.TESTING_SESSION_TIME;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.UNKNOWN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -152,6 +157,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.InstanceOfAssertFactories.ZONED_DATE_TIME;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -1250,8 +1256,76 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        // TODO
-        throw new UnsupportedOperationException("Not implemented");
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_base_table",
+                "AS TABLE region")) {
+            Session defaultSession = getSession();
+            Session legacySession = Session.builder(defaultSession)
+                    .setSystemProperty(LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD, "true")
+                    .build();
+            Session futureSession = Session.builder(defaultSession)
+                    // This gets ignored: .setStart(...)
+                    .setSystemProperty(TESTING_SESSION_TIME, Instant.now().plus(1, ChronoUnit.DAYS).toString())
+                    .build();
+
+            PlanMatchPattern readFromBaseTables = anyTree(
+                    node(AggregationNode.class, // final
+                            anyTree(// exchanges
+                                    node(AggregationNode.class, // partial
+                                            anyTree(tableScan(table.getName()))))));
+            PlanMatchPattern readFromStorageTable = node(OutputNode.class, node(TableScanNode.class));
+
+            assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " " +
+                    "GRACE PERIOD INTERVAL '1' HOUR " +
+                    "AS SELECT DISTINCT regionkey, name FROM " + table.getName());
+
+            String initialResults = "SELECT DISTINCT regionkey, name FROM region";
+
+            // The MV is initially not fresh
+            assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(STALE);
+            assertThat(getMaterializedViewLastFreshTime(viewName)).isEmpty();
+            assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
+            assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
+            assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
+
+            assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 5);
+
+            // Right after the REFRESH, the view is FRESH (note: it could also be UNKNOWN)
+            assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(FRESH);
+            assertThat(getMaterializedViewLastFreshTime(viewName))
+                    .isEmpty(); // last_fresh_time should not be reported for FRESH views to avoid ambiguity when it "races with currentTimeMillis"
+            assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
+            assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
+            assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
+
+            // Change underlying state
+            ZonedDateTime beforeModification = ZonedDateTime.now();
+            assertUpdate("INSERT INTO " + table.getName() + " (regionkey, name) VALUES (42, 'foo new region')", 1);
+            ZonedDateTime afterModification = ZonedDateTime.now();
+            String updatedResults = initialResults + " UNION ALL VALUES (42, 'foo new region')";
+
+            // The materialization is stale now (note: it could also be UNKNOWN)
+            assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(STALE);
+            assertThat(getMaterializedViewLastFreshTime(viewName))
+                    .get(ZONED_DATE_TIME).isBetween(beforeModification, afterModification);
+            assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
+            assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(updatedResults);
+            assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(updatedResults);
+
+            assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 6);
+
+            // Right after the REFRESH, the view is FRESH (note: it could also be UNKNOWN)
+            assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(FRESH);
+            assertThat(getMaterializedViewLastFreshTime(viewName))
+                    .isEmpty(); // last_fresh_time should not be reported for FRESH views to avoid ambiguity when it "races with currentTimeMillis"
+
+            assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
+            assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
+            assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
+
+            assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+        }
     }
 
     @Test
@@ -1271,6 +1345,15 @@ public abstract class BaseConnectorTest
             return;
         }
 
+        Session defaultSession = getSession();
+        Session legacySession = Session.builder(defaultSession)
+                .setSystemProperty(LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD, "true")
+                .build();
+        Session futureSession = Session.builder(defaultSession)
+                // This gets ignored: .setStart(...)
+                .setSystemProperty(TESTING_SESSION_TIME, Instant.now().plus(1, ChronoUnit.DAYS).toString())
+                .build();
+
         PlanMatchPattern readFromBaseTables = anyTree(
                 node(AggregationNode.class, // final
                         anyTree(// exchanges
@@ -1289,7 +1372,9 @@ public abstract class BaseConnectorTest
                     // The MV is initially not fresh
                     assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(STALE);
                     assertThat(getMaterializedViewLastFreshTime(viewName)).isEmpty();
-                    assertThat(query("TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
+                    assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
+                    assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
+                    assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
 
                     ZonedDateTime beforeRefresh = ZonedDateTime.now();
                     assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
@@ -1297,10 +1382,11 @@ public abstract class BaseConnectorTest
 
                     // Even right after the REFRESH, it's unknown that the view is FRESH
                     assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(UNKNOWN);
-                    getMaterializedViewLastFreshTime(viewName).ifPresent(lastFreshTime -> {
-                        assertThat(lastFreshTime).isBetween(beforeRefresh, afterRefresh);
-                    });
-                    assertThat(query("TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
+                    assertThat(getMaterializedViewLastFreshTime(viewName))
+                            .get(ZONED_DATE_TIME).isBetween(beforeRefresh, afterRefresh);
+                    assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
+                    assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
+                    assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
 
                     // Change underlying state
                     mockListing.set(List.of("first_table", "second_table"));
@@ -1308,10 +1394,11 @@ public abstract class BaseConnectorTest
 
                     // The materialization is stale now
                     assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(UNKNOWN);
-                    getMaterializedViewLastFreshTime(viewName).ifPresent(lastFreshTime -> {
-                        assertThat(lastFreshTime).isBetween(beforeRefresh, afterRefresh);
-                    });
-                    assertThat(query("TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
+                    assertThat(getMaterializedViewLastFreshTime(viewName))
+                            .get(ZONED_DATE_TIME).isBetween(beforeRefresh, afterRefresh);
+                    assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
+                    assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
+                    assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
 
                     ZonedDateTime beforeSecondRefresh = ZonedDateTime.now();
                     assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 2);
@@ -1319,10 +1406,98 @@ public abstract class BaseConnectorTest
 
                     // Even right after the REFRESH, it's unknown that the view is FRESH
                     assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(UNKNOWN);
-                    getMaterializedViewLastFreshTime(viewName).ifPresent(lastFreshTime -> {
-                        assertThat(lastFreshTime).isBetween(beforeSecondRefresh, afterSecondRefresh);
-                    });
-                    assertThat(query("TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
+                    assertThat(getMaterializedViewLastFreshTime(viewName))
+                            .get(ZONED_DATE_TIME).isBetween(beforeSecondRefresh, afterSecondRefresh);
+                    assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
+                    assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
+                    assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
+
+                    assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+                });
+    }
+
+    @Test
+    public void testFederatedMaterializedViewWithGracePeriod()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_FEDERATED_MATERIALIZED_VIEW));
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
+
+        String viewName = "test_federated_mv_grace_period_" + randomNameSuffix();
+        String mockSchemaForListing = "mock_schema_for_listing_" + randomNameSuffix();
+
+        String query = "" +
+                "SELECT table_name, count(*) AS c FROM mock_dynamic_listing.information_schema.tables " +
+                "WHERE table_schema = '" + mockSchemaForListing + "' " +
+                "GROUP BY table_name"; // GROUP BY so that it is easy to distinguish between inlined view and reading materialization
+
+        Session defaultSession = getSession();
+        Session legacySession = Session.builder(defaultSession)
+                .setSystemProperty(LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD, "true")
+                .build();
+        Session futureSession = Session.builder(defaultSession)
+                // This gets ignored: .setStart(...)
+                .setSystemProperty(TESTING_SESSION_TIME, Instant.now().plus(1, ChronoUnit.DAYS).toString())
+                .build();
+
+        PlanMatchPattern readFromBaseTables = anyTree(
+                node(AggregationNode.class, // final
+                        anyTree(// exchanges
+                                node(AggregationNode.class, // partial
+                                        anyTree(tableScan("tables"))))));
+        PlanMatchPattern readFromStorageTable = node(OutputNode.class, node(TableScanNode.class));
+
+        AtomicReference<List<String>> mockListing = new AtomicReference<>(List.of("first_table"));
+        String initialResults = "VALUES (VARCHAR 'first_table', BIGINT '1')";
+        withMockTableListing(
+                mockSchemaForListing,
+                connectorSession -> List.copyOf(mockListing.get()),
+                () -> {
+                    assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " " +
+                            "GRACE PERIOD INTERVAL '1' HOUR " +
+                            " AS " + query);
+
+                    // The MV is initially not fresh
+                    assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(STALE);
+                    assertThat(getMaterializedViewLastFreshTime(viewName)).isEmpty();
+                    assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
+                    assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
+                    assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
+
+                    ZonedDateTime beforeRefresh = ZonedDateTime.now();
+                    assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
+                    ZonedDateTime afterRefresh = ZonedDateTime.now();
+
+                    // Even right after the REFRESH, it's unknown that the view is FRESH
+                    assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(UNKNOWN);
+                    assertThat(getMaterializedViewLastFreshTime(viewName))
+                            .get(ZONED_DATE_TIME).isBetween(beforeRefresh, afterRefresh);
+                    assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
+                    assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
+                    assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
+
+                    // Change underlying state
+                    mockListing.set(List.of("first_table", "second_table"));
+                    String updatedResults = "VALUES (VARCHAR 'first_table', BIGINT '1'), ('second_table', 1)";
+
+                    // The materialization is stale now
+                    assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(UNKNOWN);
+                    assertThat(getMaterializedViewLastFreshTime(viewName))
+                            .get(ZONED_DATE_TIME).isBetween(beforeRefresh, afterRefresh);
+                    assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
+                    assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
+                    assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(updatedResults);
+
+                    ZonedDateTime beforeSecondRefresh = ZonedDateTime.now();
+                    assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 2);
+                    ZonedDateTime afterSecondRefresh = ZonedDateTime.now();
+
+                    // Even right after the REFRESH, it's unknown that the view is FRESH
+                    assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(UNKNOWN);
+                    assertThat(getMaterializedViewLastFreshTime(viewName))
+                            .get(ZONED_DATE_TIME).isBetween(beforeSecondRefresh, afterSecondRefresh);
+                    assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
+                    assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
+                    assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(updatedResults);
 
                     assertUpdate("DROP MATERIALIZED VIEW " + viewName);
                 });

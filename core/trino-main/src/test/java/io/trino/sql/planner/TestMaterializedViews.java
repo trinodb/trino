@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.SystemSessionProperties;
 import io.trino.connector.StaticConnectorFactory;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
@@ -39,6 +40,8 @@ import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,6 +59,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableWriter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
+import static io.trino.testing.TestingMetadata.STALE_MV_STALENESS;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestMaterializedViews
@@ -125,7 +129,7 @@ public class TestMaterializedViews
                 Optional.of(TEST_CATALOG_NAME),
                 Optional.of(SCHEMA),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
-                Optional.empty(),
+                Optional.of(STALE_MV_STALENESS.plusHours(1)),
                 Optional.empty(),
                 Identity.ofUser("some user"),
                 Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table")),
@@ -198,7 +202,28 @@ public class TestMaterializedViews
     @Test
     public void testNotFreshMaterializedView()
     {
-        assertPlan("SELECT * FROM not_fresh_materialized_view",
+        Session defaultSession = getQueryRunner().getDefaultSession();
+        Session legacyGracePeriod = Session.builder(defaultSession)
+                .setSystemProperty(SystemSessionProperties.LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD, "true")
+                .build();
+        Session futureSession = Session.builder(defaultSession)
+                .setStart(Instant.now().plus(1, ChronoUnit.DAYS))
+                .build();
+
+        assertPlan(
+                "SELECT * FROM not_fresh_materialized_view",
+                defaultSession,
+                anyTree(
+                        tableScan("storage_table")));
+
+        assertPlan(
+                "SELECT * FROM not_fresh_materialized_view",
+                legacyGracePeriod,
+                anyTree(
+                        tableScan("test_table")));
+        assertPlan(
+                "SELECT * FROM not_fresh_materialized_view",
+                futureSession,
                 anyTree(
                         tableScan("test_table")));
     }

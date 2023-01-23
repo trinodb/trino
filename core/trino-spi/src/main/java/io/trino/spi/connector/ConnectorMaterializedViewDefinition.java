@@ -54,7 +54,7 @@ public class ConnectorMaterializedViewDefinition
                 catalog,
                 schema,
                 columns,
-                Optional.empty(),
+                Optional.of(Duration.ZERO),
                 comment,
                 owner,
                 properties);

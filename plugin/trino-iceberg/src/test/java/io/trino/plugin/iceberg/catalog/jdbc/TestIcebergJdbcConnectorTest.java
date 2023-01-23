@@ -212,6 +212,13 @@ public class TestIcebergJdbcConnectorTest
     }
 
     @Override
+    public void testFederatedMaterializedViewWithGracePeriod()
+    {
+        assertThatThrownBy(super::testFederatedMaterializedViewWithGracePeriod)
+                .hasMessage("createMaterializedView is not supported for Iceberg JDBC catalogs");
+    }
+
+    @Override
     public void testMaterializedViewBaseTableGone(boolean initialized)
     {
         assertThatThrownBy(() -> super.testMaterializedViewBaseTableGone(initialized))
