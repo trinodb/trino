@@ -492,8 +492,11 @@ public class TestCachingHiveMetastore
         assertEquals(metastore.getTableStatistics(table), TEST_STATS);
         assertEquals(mockClient.getAccessCount(), 2);
 
-        assertEquals(metastore.getTableStatisticsStats().getRequestCount(), 1);
-        assertEquals(metastore.getTableStatisticsStats().getHitRate(), 0.0);
+        assertEquals(metastore.getTableStatistics(table), TEST_STATS);
+        assertEquals(mockClient.getAccessCount(), 2);
+
+        assertEquals(metastore.getTableStatisticsStats().getRequestCount(), 2);
+        assertEquals(metastore.getTableStatisticsStats().getHitRate(), 0.5);
 
         assertEquals(metastore.getTableStats().getRequestCount(), 2);
         assertEquals(metastore.getTableStats().getHitRate(), 0.5);
@@ -513,8 +516,11 @@ public class TestCachingHiveMetastore
         assertEquals(metastore.getPartitionStatistics(table, ImmutableList.of(partition)), ImmutableMap.of(TEST_PARTITION1, TEST_STATS));
         assertEquals(mockClient.getAccessCount(), 3);
 
-        assertEquals(metastore.getPartitionStatisticsStats().getRequestCount(), 1);
-        assertEquals(metastore.getPartitionStatisticsStats().getHitRate(), 0.0);
+        assertEquals(metastore.getPartitionStatistics(table, ImmutableList.of(partition)), ImmutableMap.of(TEST_PARTITION1, TEST_STATS));
+        assertEquals(mockClient.getAccessCount(), 3);
+
+        assertEquals(metastore.getPartitionStatisticsStats().getRequestCount(), 2);
+        assertEquals(metastore.getPartitionStatisticsStats().getHitRate(), 0.5);
 
         assertEquals(metastore.getTableStats().getRequestCount(), 3);
         assertEquals(metastore.getTableStats().getHitRate(), 2.0 / 3);
