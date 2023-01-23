@@ -31,6 +31,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.SystemSessionProperties.LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_MATERIALIZED_VIEW;
@@ -345,6 +346,10 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testDetectStaleness()
     {
+        Session legacySession = Session.builder(getSession())
+                .setSystemProperty(LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD, "true")
+                .build();
+
         // Base tables and materialized views for staleness check
         assertUpdate("CREATE TABLE base_table3(_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'])");
         assertUpdate("INSERT INTO base_table3 VALUES (0, DATE '2019-09-08'), (1, DATE '2019-09-09'), (2, DATE '2019-09-09')", 3);
@@ -367,16 +372,22 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_join_part_stale", 3);
 
         assertUpdate("INSERT INTO base_table3 VALUES (3, DATE '2019-09-09'), (4, DATE '2019-09-10'), (5, DATE '2019-09-10')", 3);
-        assertThat(getExplainPlan("SELECT * FROM materialized_view_part_stale", ExplainType.Type.IO))
+        assertThat(getExplainPlan(legacySession, "SELECT * FROM materialized_view_part_stale", ExplainType.Type.IO))
                 .contains("base_table3");
+        assertThat(getExplainPlan("SELECT * FROM materialized_view_part_stale", ExplainType.Type.IO))
+                .doesNotContain("base_table");
 
         Condition<String> containsTable3 = new Condition<>(p -> p.contains("base_table3"), "base_table3");
         Condition<String> containsTable4 = new Condition<>(p -> p.contains("base_table4"), "base_table4");
+        assertThat(getExplainPlan(legacySession, "SELECT * FROM materialized_view_join_stale", ExplainType.Type.IO))
+                .is(anyOf(containsTable3, containsTable4));
         assertThat(getExplainPlan("SELECT * FROM materialized_view_join_stale", ExplainType.Type.IO))
-                .is(anyOf(containsTable3, containsTable4));
+                .doesNotContain("base_table");
 
-        assertThat(getExplainPlan("SELECT * FROM materialized_view_join_part_stale", ExplainType.Type.IO))
+        assertThat(getExplainPlan(legacySession, "SELECT * FROM materialized_view_join_part_stale", ExplainType.Type.IO))
                 .is(anyOf(containsTable3, containsTable4));
+        assertThat(getExplainPlan("SELECT * FROM materialized_view_join_part_stale", ExplainType.Type.IO))
+                .doesNotContain("base_table");
 
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_part_stale", 3);
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_join_stale", 5);
