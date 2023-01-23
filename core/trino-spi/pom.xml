@@ -248,6 +248,12 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.connector.MaterializedViewFreshness::&lt;init&gt;(boolean)</old>
+                                    <new>method void io.trino.spi.connector.MaterializedViewFreshness::&lt;init&gt;(io.trino.spi.connector.MaterializedViewFreshness.Freshness, java.util.Optional&lt;java.time.Instant&gt;)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
