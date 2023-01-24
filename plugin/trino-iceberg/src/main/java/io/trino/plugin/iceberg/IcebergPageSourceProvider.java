@@ -57,6 +57,8 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
+import io.trino.plugin.iceberg.aggregation.AggregateIcebergSplit;
+import io.trino.plugin.iceberg.aggregation.AggregatePageSource;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteFilter;
 import io.trino.plugin.iceberg.delete.EqualityDeleteFilter;
@@ -251,36 +253,43 @@ public class IcebergPageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
-        IcebergSplit split = (IcebergSplit) connectorSplit;
         List<IcebergColumnHandle> icebergColumns = columns.stream()
                 .map(IcebergColumnHandle.class::cast)
                 .collect(toImmutableList());
-        IcebergTableHandle tableHandle = (IcebergTableHandle) connectorTable;
-        Schema schema = SchemaParser.fromJson(tableHandle.getTableSchemaJson());
-        PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, split.getPartitionSpecJson());
-        org.apache.iceberg.types.Type[] partitionColumnTypes = partitionSpec.fields().stream()
-                .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
-                .toArray(org.apache.iceberg.types.Type[]::new);
 
-        return createPageSource(
-                session,
-                icebergColumns,
-                schema,
-                partitionSpec,
-                PartitionData.fromJson(split.getPartitionDataJson(), partitionColumnTypes),
-                split.getDeletes(),
-                dynamicFilter,
-                tableHandle.getUnenforcedPredicate(),
-                split.getFileStatisticsDomain(),
-                split.getPath(),
-                split.getStart(),
-                split.getLength(),
-                split.getFileSize(),
-                split.getFileRecordCount(),
-                split.getPartitionDataJson(),
-                split.getFileFormat(),
-                split.getFileIoProperties(),
-                tableHandle.getNameMappingJson().map(NameMappingParser::fromJson));
+        if (shouldHandleAggregatePushDown(icebergColumns)) {
+            AggregateIcebergSplit aggregateIcebergSplit = (AggregateIcebergSplit) connectorSplit;
+            return new AggregatePageSource(icebergColumns, aggregateIcebergSplit.getTotalCount());
+        }
+        else {
+            IcebergSplit split = (IcebergSplit) connectorSplit;
+            IcebergTableHandle tableHandle = (IcebergTableHandle) connectorTable;
+            Schema schema = SchemaParser.fromJson(tableHandle.getTableSchemaJson());
+            PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, split.getPartitionSpecJson());
+            org.apache.iceberg.types.Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                    .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
+                    .toArray(org.apache.iceberg.types.Type[]::new);
+
+            return createPageSource(
+                    session,
+                    icebergColumns,
+                    schema,
+                    partitionSpec,
+                    PartitionData.fromJson(split.getPartitionDataJson(), partitionColumnTypes),
+                    split.getDeletes(),
+                    dynamicFilter,
+                    tableHandle.getUnenforcedPredicate(),
+                    split.getFileStatisticsDomain(),
+                    split.getPath(),
+                    split.getStart(),
+                    split.getLength(),
+                    split.getFileSize(),
+                    split.getFileRecordCount(),
+                    split.getPartitionDataJson(),
+                    split.getFileFormat(),
+                    split.getFileIoProperties(),
+                    tableHandle.getNameMappingJson().map(NameMappingParser::fromJson));
+        }
     }
 
     public ConnectorPageSource createPageSource(
@@ -1540,6 +1549,11 @@ public class IcebergPageSourceProvider
             return new TrinoException(ICEBERG_BAD_DATA, exception);
         }
         return new TrinoException(ICEBERG_CURSOR_ERROR, format("Failed to read Parquet file: %s", dataSourceId), exception);
+    }
+
+    private static boolean shouldHandleAggregatePushDown(List<IcebergColumnHandle> columns)
+    {
+        return columns.size() == 1 && columns.get(0).isAggregateColumn();
     }
 
     public static final class ReaderPageSourceWithRowPositions

@@ -79,6 +79,7 @@ public class IcebergConfig
     private boolean sortedWritingEnabled = true;
     private boolean queryPartitionFilterRequired;
     private int splitManagerThreads = Runtime.getRuntime().availableProcessors() * 2;
+    private boolean aggregationPushdownEnabled;
 
     public CatalogType getCatalogType()
     {
@@ -434,5 +435,17 @@ public class IcebergConfig
     public boolean isStorageSchemaSetWhenHidingIsEnabled()
     {
         return hideMaterializedViewStorageTable && materializedViewsStorageSchema.isPresent();
+    }
+
+    public boolean isAggregationPushdownEnabled()
+    {
+        return aggregationPushdownEnabled;
+    }
+
+    @Config("iceberg.aggregation-pushdown.enabled")
+    public IcebergConfig setAggregationPushdownEnabled(boolean aggregationPushdownEnabled)
+    {
+        this.aggregationPushdownEnabled = aggregationPushdownEnabled;
+        return this;
     }
 }

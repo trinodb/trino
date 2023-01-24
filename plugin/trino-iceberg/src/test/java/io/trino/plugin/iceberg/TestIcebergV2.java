@@ -211,6 +211,26 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testV2TableWithEqualityDeleteWithAggregationPushdownEnabled()
+            throws Exception
+    {
+        Session aggregationEnabledSession = sessionWithAggregationPushdown();
+
+        String tableName = "test_v2_equality_delete" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
+        assertQuery("SELECT count(*) FROM " + tableName, "SELECT 25");
+        Table icebergTable = updateTableToV2(tableName);
+        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
+        assertQuery(aggregationEnabledSession, "SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
+
+        assertQuery(aggregationEnabledSession, "SELECT count(*) FROM " + tableName, "SELECT 20");
+        assertQuery("SELECT count(*) FROM " + tableName, "SELECT 20");
+
+        // natiokey is before the equality delete column in the table schema, comment is after
+        assertQuery(aggregationEnabledSession, "SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
+    }
+
+    @Test
     public void testV2TableWithEqualityDeleteDifferentColumnOrder()
             throws Exception
     {
@@ -685,6 +705,75 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testMultiplePartitionedWithAggregationPushdown()
+    {
+        Session clientSession = sessionWithAggregationPushdown();
+
+        String tableName = format("test_%s_with_aggregation_pushdown", "multiple_partition");
+        assertUpdate(format("CREATE TABLE %s (userid int, country varchar, event_date date, state varchar) %s",
+                tableName, "WITH (partitioning = ARRAY['event_date', 'country'])"));
+
+        assertUpdate(format("INSERT INTO %s VALUES (1, 'USA', DATE '2022-11-01', 'California'), (2, 'USA', DATE '2022-11-01', 'Ohio')", tableName), 2);
+        assertUpdate(format("INSERT INTO %s VALUES (3, 'IND', DATE '2022-11-01', 'Delhi'), (4, 'IND', DATE '2022-11-01', 'MP')", tableName), 2);
+        assertUpdate(format("INSERT INTO %s VALUES (5, 'FRA', DATE '2022-11-02', 'Brittany'), (6, 'USA', DATE '2022-11-02', 'Corsica')", tableName), 2);
+        assertUpdate(format("INSERT INTO %s VALUES (7, 'USA', DATE '2022-11-04', 'Nevada')", tableName), 1);
+
+        assertQuery(clientSession, format("SELECT COUNT(*) from %s", tableName), "SELECT 7");
+        assertQuery(format("SELECT COUNT(*) from %s", tableName), "SELECT 7");
+
+        assertThat(query(clientSession, format("SELECT userid, country, event_date, state FROM %s WHERE event_date = DATE '2022-11-01' order by userid", tableName)))
+                .matches("VALUES (1, VARCHAR 'USA', DATE '2022-11-01', VARCHAR 'California'), (2, VARCHAR 'USA', DATE '2022-11-01', VARCHAR 'Ohio')" +
+                        ", (3, VARCHAR 'IND', DATE '2022-11-01', VARCHAR 'Delhi'), (4, VARCHAR 'IND', DATE '2022-11-01', VARCHAR 'MP')");
+
+        assertThat(query(format("SELECT userid, country, event_date, state FROM %s WHERE event_date = DATE '2022-11-01' order by userid", tableName)))
+                .matches("VALUES (1, VARCHAR 'USA', DATE '2022-11-01', VARCHAR 'California'), (2, VARCHAR 'USA', DATE '2022-11-01', VARCHAR 'Ohio')" +
+                        ", (3, VARCHAR 'IND', DATE '2022-11-01', VARCHAR 'Delhi'), (4, VARCHAR 'IND', DATE '2022-11-01', VARCHAR 'MP')");
+
+        assertQuery(clientSession, format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01'", tableName), "SELECT 4");
+        assertQuery(format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01'", tableName), "SELECT 4");
+
+        assertQuery(clientSession, format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01' AND country = 'USA'", tableName), "SELECT 2");
+        assertQuery(format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01' AND country = 'USA'", tableName), "SELECT 2");
+
+        assertQuery(clientSession, format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01' AND country = 'USA' AND state = 'California'", tableName), "SELECT 1");
+        assertQuery(format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01' AND country = 'USA' AND state = 'California'", tableName), "SELECT 1");
+
+        assertQuery(clientSession, format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01' AND country IN ('USA', 'IND')", tableName), "SELECT 4");
+        assertQuery(format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01' AND country IN ('USA', 'IND')", tableName), "SELECT 4");
+
+        assertQuery(clientSession, format("SELECT COUNT(*) from %s WHERE event_date >= DATE '2022-11-01' and country = 'USA'", tableName), "SELECT 4");
+        assertQuery(format("SELECT COUNT(*) from %s WHERE event_date >= DATE '2022-11-01' and country = 'USA'", tableName), "SELECT 4");
+
+        assertUpdate(format("DELETE FROM %s WHERE event_date = DATE '2022-11-01' AND country ='USA' AND state = 'California'", tableName), 1);
+
+        assertQuery(clientSession, format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01'", tableName), "SELECT 3");
+        assertQuery(format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01'", tableName), "SELECT 3");
+
+        assertQuery(clientSession, format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01' AND state = 'California'", tableName), "SELECT 0");
+        assertQuery(format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01' AND state = 'California'", tableName), "SELECT 0");
+
+        assertQuery(clientSession, format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-02'", tableName), "SELECT 2");
+        assertQuery(format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-02'", tableName), "SELECT 2");
+
+        assertQuery(clientSession, format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-04'", tableName), "SELECT 1");
+        assertQuery(format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-04'", tableName), "SELECT 1");
+
+        assertUpdate(format("DELETE FROM %s WHERE event_date = DATE '2022-11-01' AND country ='USA'", tableName), 1);
+
+        assertQuery(clientSession, format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01'", tableName), "SELECT 2");
+        assertQuery(format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01'", tableName), "SELECT 2");
+
+        assertQuery(clientSession, format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01'", tableName), "SELECT 2");
+        assertQuery(format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01'", tableName), "SELECT 2");
+
+        assertQuery(clientSession, format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-02' AND country = 'FRA' AND state = 'Brittany'", tableName), "SELECT 1");
+        assertQuery(clientSession, format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-02' AND country = 'FRA' AND state = 'Brittany'", tableName), "SELECT 1");
+
+        assertQuery(clientSession, format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-02' AND country = 'USA' AND state = 'Corsica'", tableName), "SELECT 1");
+        assertQuery(format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-02' AND country = 'USA' AND state = 'Corsica'", tableName), "SELECT 1");
+    }
+
+    @Test
     public void testDeletingEntireFileWithMultipleSplits()
     {
         String tableName = "test_deleting_entire_file_with_multiple_splits" + randomNameSuffix();
@@ -1024,5 +1113,13 @@ public class TestIcebergV2
         return computeActual(format("SELECT file_path FROM \"%s$files\"", tableName)).getOnlyColumn()
                 .map(String.class::cast)
                 .collect(toImmutableList());
+    }
+
+    private Session sessionWithAggregationPushdown()
+    {
+        return Session.builder(getSession())
+                // Enable aggregation pushdown
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), IcebergSessionProperties.AGGREGATION_PUSHDOWN_ENABLED, "true")
+                .build();
     }
 }

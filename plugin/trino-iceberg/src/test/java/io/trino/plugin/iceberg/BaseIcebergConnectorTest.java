@@ -450,35 +450,103 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testPartitionByTimestamp()
     {
-        testSelectOrPartitionedByTimestamp(true);
+        testSelectOrPartitionedByTimestamp(true, false);
+    }
+
+    @Test
+    public void testPartitionByTimestampWithAggregationPushdown()
+    {
+        testSelectOrPartitionedByTimestamp(true, true);
     }
 
     @Test
     public void testSelectByTimestamp()
     {
-        testSelectOrPartitionedByTimestamp(false);
+        testSelectOrPartitionedByTimestamp(false, false);
     }
 
-    private void testSelectOrPartitionedByTimestamp(boolean partitioned)
+    @Test
+    public void testSelectByTimestampWithAggregationPushdown()
     {
+        testSelectOrPartitionedByTimestamp(false, true);
+    }
+
+    private void testSelectOrPartitionedByTimestamp(boolean partitioned, boolean enableAggregationPushdown)
+    {
+        Session clientSession = getSession();
+        if (enableAggregationPushdown) {
+            clientSession = sessionWithAggregationPushdown();
+        }
+
         String tableName = format("test_%s_by_timestamp", partitioned ? "partitioned" : "selected");
-        assertUpdate(format("CREATE TABLE %s (_timestamp timestamp(6)) %s",
+        assertUpdate(clientSession, format("CREATE TABLE %s (_timestamp timestamp(6)) %s",
                 tableName, partitioned ? "WITH (partitioning = ARRAY['_timestamp'])" : ""));
         @Language("SQL") String select1 = "SELECT TIMESTAMP '2017-05-01 10:12:34' _timestamp";
         @Language("SQL") String select2 = "SELECT TIMESTAMP '2017-10-01 10:12:34' _timestamp";
         @Language("SQL") String select3 = "SELECT TIMESTAMP '2018-05-01 10:12:34' _timestamp";
-        assertUpdate(format("INSERT INTO %s %s", tableName, select1), 1);
-        assertUpdate(format("INSERT INTO %s %s", tableName, select2), 1);
-        assertUpdate(format("INSERT INTO %s %s", tableName, select3), 1);
-        assertQuery(format("SELECT COUNT(*) from %s", tableName), "SELECT 3");
+        assertUpdate(clientSession, format("INSERT INTO %s %s", tableName, select1), 1);
+        assertUpdate(clientSession, format("INSERT INTO %s %s", tableName, select2), 1);
+        assertUpdate(clientSession, format("INSERT INTO %s %s", tableName, select3), 1);
+        assertQuery(clientSession, format("SELECT COUNT(*) from %s", tableName), "SELECT 3");
 
-        assertQuery(format("SELECT * from %s WHERE _timestamp = TIMESTAMP '2017-05-01 10:12:34'", tableName), select1);
-        assertQuery(format("SELECT * from %s WHERE _timestamp < TIMESTAMP '2017-06-01 10:12:34'", tableName), select1);
-        assertQuery(format("SELECT * from %s WHERE _timestamp = TIMESTAMP '2017-10-01 10:12:34'", tableName), select2);
-        assertQuery(format("SELECT * from %s WHERE _timestamp > TIMESTAMP '2017-06-01 10:12:34' AND _timestamp < TIMESTAMP '2018-05-01 10:12:34'", tableName), select2);
-        assertQuery(format("SELECT * from %s WHERE _timestamp = TIMESTAMP '2018-05-01 10:12:34'", tableName), select3);
-        assertQuery(format("SELECT * from %s WHERE _timestamp > TIMESTAMP '2018-01-01 10:12:34'", tableName), select3);
-        assertUpdate("DROP TABLE " + tableName);
+        assertQuery(clientSession, format("SELECT * from %s WHERE _timestamp = TIMESTAMP '2017-05-01 10:12:34'", tableName), select1);
+        assertQuery(clientSession, format("SELECT * from %s WHERE _timestamp < TIMESTAMP '2017-06-01 10:12:34'", tableName), select1);
+        assertQuery(clientSession, format("SELECT * from %s WHERE _timestamp = TIMESTAMP '2017-10-01 10:12:34'", tableName), select2);
+        assertQuery(clientSession, format("SELECT * from %s WHERE _timestamp > TIMESTAMP '2017-06-01 10:12:34' AND _timestamp < TIMESTAMP '2018-05-01 10:12:34'", tableName), select2);
+        assertQuery(clientSession, format("SELECT * from %s WHERE _timestamp = TIMESTAMP '2018-05-01 10:12:34'", tableName), select3);
+        assertQuery(clientSession, format("SELECT * from %s WHERE _timestamp > TIMESTAMP '2018-01-01 10:12:34'", tableName), select3);
+        dropTable(tableName);
+    }
+
+    @Test
+    public void testMultiplePartitionedWithAggregationPushdown()
+    {
+        Session clientSessionWithAggregationPushdown = sessionWithAggregationPushdown();
+
+        String tableName = format("test_%s_with_aggregation_pushdown", "multiple_partition");
+        assertUpdate(clientSessionWithAggregationPushdown, format("CREATE TABLE %s (userid int, country varchar, event_date date, state varchar) %s",
+                tableName, "WITH (partitioning = ARRAY['event_date', 'country'])"));
+
+        assertUpdate(format("INSERT INTO %s VALUES (1, 'USA', DATE '2022-11-01', 'California'), (2, 'USA', DATE '2022-11-01', 'Ohio')", tableName), 2);
+        assertUpdate(format("INSERT INTO %s VALUES (3, 'FRA', DATE '2022-11-02', 'Brittany'), (4, 'USA', DATE '2022-11-02', 'NJ')", tableName), 2);
+        assertUpdate(format("INSERT INTO %s VALUES (5, 'USA', DATE '2022-11-04', 'Nevada')", tableName), 1);
+
+        assertQuery(clientSessionWithAggregationPushdown, format("SELECT COUNT(*) from %s", tableName), "SELECT 5");
+        assertQuery(format("SELECT COUNT(*) from %s", tableName), "SELECT 5");
+
+        assertThat(query(clientSessionWithAggregationPushdown, format("SELECT userid, country, event_date, state FROM %s WHERE event_date = DATE '2022-11-01'", tableName)))
+                .matches("VALUES (1, VARCHAR 'USA', DATE '2022-11-01', VARCHAR 'California'), (2, VARCHAR 'USA', DATE '2022-11-01', VARCHAR 'Ohio')");
+
+        assertThat(query(format("SELECT userid, country, event_date, state FROM %s WHERE event_date = DATE '2022-11-01'", tableName)))
+                .matches("VALUES (1, VARCHAR 'USA', DATE '2022-11-01', VARCHAR 'California'), (2, 'USA', DATE '2022-11-01', 'Ohio')");
+
+        assertQuery(clientSessionWithAggregationPushdown, format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01'", tableName), "SELECT 2");
+        assertQuery(format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01'", tableName), "SELECT 2");
+
+        assertQuery(clientSessionWithAggregationPushdown, format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01' AND country = 'USA'", tableName), "SELECT 2");
+        assertQuery(format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01' AND country = 'USA'", tableName), "SELECT 2");
+
+        // non partition delete
+        assertUpdate(format("DELETE FROM %s WHERE event_date = DATE '2022-11-02' AND state = 'Brittany'", tableName), 1);
+
+        assertQuery(clientSessionWithAggregationPushdown, format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-02'", tableName), "SELECT 1");
+        assertQuery(format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-02'", tableName), "SELECT 1");
+
+        assertQuery(clientSessionWithAggregationPushdown, format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01' AND country = 'USA' AND state = 'California'", tableName), "SELECT 1");
+        assertQuery(format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-01' AND country = 'USA' AND state = 'California'", tableName), "SELECT 1");
+
+        assertQuery(clientSessionWithAggregationPushdown, format("SELECT COUNT(*) from %s WHERE event_date >= DATE '2022-11-01' and country = 'USA'", tableName), "SELECT 4");
+        assertQuery(format("SELECT COUNT(*) from %s WHERE event_date >= DATE '2022-11-01' and country = 'USA'", tableName), "SELECT 4");
+
+        assertUpdate(format("INSERT INTO %s VALUES (6, 'FRA', DATE '2022-11-05', 'Brittany'), (7, 'USA', DATE '2022-11-05', 'NJ')", tableName), 2);
+
+        // partition delete
+        assertUpdate(format("DELETE FROM %s WHERE event_date = DATE '2022-11-05' AND country = 'USA'", tableName), 1);
+
+        assertQuery(clientSessionWithAggregationPushdown, format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-05'", tableName), "SELECT 1");
+        assertQuery(format("SELECT COUNT(*) from %s WHERE event_date = DATE '2022-11-05'", tableName), "SELECT 1");
+
+        dropTable(tableName);
     }
 
     @Test
@@ -8184,5 +8252,20 @@ public abstract class BaseIcebergConnectorTest
     {
         assertThat(getFieldFromLatestSnapshotSummary(tableName, TRINO_QUERY_ID_NAME))
                 .isEqualTo(queryId.toString());
+    }
+
+    private Session sessionWithAggregationPushdown()
+    {
+        return Session.builder(getSession())
+                // Enable aggregation pushdown
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), IcebergSessionProperties.AGGREGATION_PUSHDOWN_ENABLED, "true")
+                .build();
+    }
+
+    private void dropTable(String table)
+    {
+        Session session = getSession();
+        assertUpdate(session, "DROP TABLE " + table);
+        assertThat(getQueryRunner().tableExists(session, table)).isFalse();
     }
 }
