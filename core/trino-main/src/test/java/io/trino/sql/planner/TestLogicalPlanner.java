@@ -822,7 +822,7 @@ public class TestLogicalPlanner
                 anyTree(
                     correlatedJoin(
                             List.of("r_row_number", "r_regionkey", "r_name", "r_comment"),
-                            "null",
+                            "CAST(null AS boolean)",
                             tableScan("region", Map.of(
                                     "r_row_number", "row_number",
                                     "r_regionkey", "regionkey",
@@ -1141,8 +1141,7 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT * FROM nation WHERE nationkey = null",
                 output(
-                        filter("CAST(NULL AS boolean)",
-                                tableScan("nation"))));
+                        values("nationkey", "name", "regionkey", "comment")));
     }
 
     @Test
