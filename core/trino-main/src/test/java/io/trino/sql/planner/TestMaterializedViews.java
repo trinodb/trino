@@ -126,6 +126,7 @@ public class TestMaterializedViews
                 Optional.of(SCHEMA),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
                 Optional.empty(),
+                Optional.empty(),
                 Identity.ofUser("some user"),
                 Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table")),
                 ImmutableMap.of());
@@ -156,6 +157,7 @@ public class TestMaterializedViews
                 Optional.of(TEST_CATALOG_NAME),
                 Optional.of(SCHEMA),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
+                Optional.empty(),
                 Optional.empty(),
                 Identity.ofUser("some user"),
                 Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table_with_casts")),

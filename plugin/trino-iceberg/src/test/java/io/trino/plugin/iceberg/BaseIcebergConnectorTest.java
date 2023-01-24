@@ -190,6 +190,8 @@ public abstract class BaseIcebergConnectorTest
 
             case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return true;
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW_GRACE_PERIOD:
+                return false;
             case SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS:
                 return false;
 

@@ -21,7 +21,9 @@ import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ViewColumn;
 import io.trino.security.AccessControl;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.AnalyzerFactory;
@@ -33,6 +35,7 @@ import io.trino.sql.tree.Parameter;
 
 import javax.inject.Inject;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,7 +50,13 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.trino.spi.connector.ConnectorCapabilities.MATERIALIZED_VIEW_GRACE_PERIOD;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -115,15 +124,36 @@ public class CreateMaterializedViewTask
                 parameterLookup,
                 true);
 
-        if (statement.getGracePeriod().isPresent()) {
-            // Should fail in analysis
-            throw new UnsupportedOperationException();
-        }
+        Optional<Duration> gracePeriod = statement.getGracePeriod()
+                .map(expression -> {
+                    if (!plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(MATERIALIZED_VIEW_GRACE_PERIOD)) {
+                        throw semanticException(NOT_SUPPORTED, statement, "Catalog '%s' does not support GRACE PERIOD", catalogName);
+                    }
+
+                    Type type = analysis.getType(expression);
+                    if (type != INTERVAL_DAY_TIME) {
+                        throw new TrinoException(TYPE_MISMATCH, "Unsupported grace period type %s, expected %s".formatted(type.getDisplayName(), INTERVAL_DAY_TIME.getDisplayName()));
+                    }
+                    Long milliseconds = (Long) evaluateConstantExpression(
+                            expression,
+                            analysis.getCoercions(),
+                            analysis.getTypeOnlyCoercions(),
+                            plannerContext,
+                            session,
+                            accessControl,
+                            analysis.getColumnReferences(),
+                            parameterLookup);
+                    // Sanity check. Impossible per grammar.
+                    verify(milliseconds != null, "Grace period cannot be null");
+                    return Duration.ofMillis(milliseconds);
+                });
+
         MaterializedViewDefinition definition = new MaterializedViewDefinition(
                 sql,
                 session.getCatalog(),
                 session.getSchema(),
                 columns,
+                gracePeriod,
                 statement.getComment(),
                 session.getIdentity(),
                 Optional.empty(),
