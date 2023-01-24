@@ -800,9 +800,10 @@ public class TestUnwrapCastInComparison
 
     private void testRemoveFilter(String inputType, String inputPredicate)
     {
-        assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s", inputType, inputPredicate),
+        assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s AND rand() = 42", inputType, inputPredicate),
                 output(
-                        values("a")));
+                        filter("rand() = 42e0",
+                                values("a"))));
     }
 
     private void testUnwrap(String inputType, String inputPredicate, String expectedPredicate)
@@ -812,10 +813,10 @@ public class TestUnwrapCastInComparison
 
     private void testUnwrap(Session session, String inputType, String inputPredicate, String expectedPredicate)
     {
-        assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s", inputType, inputPredicate),
+        assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s OR rand() = 42", inputType, inputPredicate),
                 session,
                 output(
-                        filter(expectedPredicate,
+                        filter(format("%s OR rand() = 42e0", expectedPredicate),
                                 values("a"))));
     }
 
