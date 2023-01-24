@@ -161,6 +161,7 @@ public class TestAddDynamicFilterSource
                                                                         ImmutableSet.of(),
                                                                         Optional.empty(),
                                                                         ImmutableList.of("SUPPLIER_SK"),
+                                                                        Optional.empty(),
                                                                         project(tableScan("supplier", ImmutableMap.of("SUPPLIER_SK_1", "suppkey"))),
                                                                         project(tableScan("supplier", ImmutableMap.of("SUPPLIER_SK_2", "suppkey")))))))))));
 
@@ -183,6 +184,7 @@ public class TestAddDynamicFilterSource
                                                 ImmutableSet.of(),
                                                 Optional.empty(),
                                                 ImmutableList.of("SUPPLIER_SK"),
+                                                Optional.empty(),
                                                 exchange(project(tableScan("supplier", ImmutableMap.of("SUPPLIER_SK_1", "suppkey")))),
                                                 exchange(project(tableScan("supplier", ImmutableMap.of("SUPPLIER_SK_2", "suppkey")))))))));
     }

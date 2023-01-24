@@ -35,6 +35,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static io.trino.SystemSessionProperties.MIN_INPUT_SIZE_PER_TASK;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.MANIFEST;
@@ -63,6 +64,10 @@ public class TestIcebergMetadataFileOperations
     private static final Session TEST_SESSION = testSessionBuilder()
             .setCatalog("iceberg")
             .setSchema("test_schema")
+            // It is essential to disable DeterminePartitionCount rule since all queries in this test scans small
+            // amount of data which makes them run with single hash partition count. However, this test requires them
+            // to run over multiple nodes.
+            .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "0MB")
             .build();
 
     private TrackingFileSystemFactory trackingFileSystemFactory;

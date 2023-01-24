@@ -23,6 +23,7 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -88,6 +89,8 @@ public class OptimizerConfig
     private long adaptivePartialAggregationMinRows = 100_000;
     private double adaptivePartialAggregationUniqueRowsRatioThreshold = 0.8;
     private long joinPartitionedBuildMinRowCount = 1_000_000L;
+    private DataSize minInputSizePerTask = DataSize.of(5, GIGABYTE);
+    private long minInputRowsPerTask = 10_000_000L;
 
     public enum JoinReorderingStrategy
     {
@@ -741,6 +744,34 @@ public class OptimizerConfig
     public OptimizerConfig setJoinPartitionedBuildMinRowCount(long joinPartitionedBuildMinRowCount)
     {
         this.joinPartitionedBuildMinRowCount = joinPartitionedBuildMinRowCount;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMinInputSizePerTask()
+    {
+        return minInputSizePerTask;
+    }
+
+    @Config("optimizer.min-input-size-per-task")
+    @ConfigDescription("Minimum input data size required per task. This will help optimizer determine hash partition count for joins and aggregations")
+    public OptimizerConfig setMinInputSizePerTask(DataSize minInputSizePerTask)
+    {
+        this.minInputSizePerTask = minInputSizePerTask;
+        return this;
+    }
+
+    @Min(0)
+    public long getMinInputRowsPerTask()
+    {
+        return minInputRowsPerTask;
+    }
+
+    @Config("optimizer.min-input-rows-per-task")
+    @ConfigDescription("Minimum input rows required per task. This will help optimizer determine hash partition count for joins and aggregations")
+    public OptimizerConfig setMinInputRowsPerTask(long minInputRowsPerTask)
+    {
+        this.minInputRowsPerTask = minInputRowsPerTask;
         return this;
     }
 
