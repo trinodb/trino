@@ -25,6 +25,21 @@ import static io.trino.parquet.ParquetEncoding.PLAIN;
 public class TestColumnReaderBenchmark
 {
     @Test
+    public void testByteColumnReaderBenchmark()
+            throws IOException
+    {
+        for (int bitWidth = 0; bitWidth <= 8; bitWidth++) {
+            for (ParquetEncoding encoding : ImmutableList.of(PLAIN, DELTA_BINARY_PACKED)) {
+                BenchmarkByteColumnReader benchmark = new BenchmarkByteColumnReader();
+                benchmark.bitWidth = bitWidth;
+                benchmark.encoding = encoding;
+                benchmark.setup();
+                benchmark.read();
+            }
+        }
+    }
+
+    @Test
     public void testIntColumnReaderBenchmark()
             throws IOException
     {
