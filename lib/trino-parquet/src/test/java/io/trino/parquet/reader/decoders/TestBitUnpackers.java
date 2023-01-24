@@ -25,6 +25,29 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBitUnpackers
 {
+    @Test(dataProvider = "deltaLength")
+    public void testByteDeltaUnpack(int length)
+    {
+        for (int bitWidth = 0; bitWidth <= 9; bitWidth++) {
+            Random random = new Random(123L * length * bitWidth);
+            byte[] buffer = new byte[(bitWidth * length) / Byte.SIZE + 1];
+            random.nextBytes(buffer);
+
+            byte[] parquetUnpackerOutput = new byte[length + 1];
+            byte[] optimizedUnpackerOutput = new byte[length + 1];
+            byte firstValue = (byte) random.nextInt();
+            parquetUnpackerOutput[0] = firstValue;
+            optimizedUnpackerOutput[0] = firstValue;
+            ApacheParquetByteUnpacker parquetUnpacker = new ApacheParquetByteUnpacker(bitWidth);
+            parquetUnpacker.unpackDelta(parquetUnpackerOutput, 1, asSliceStream(buffer), length);
+            DeltaPackingUtils.unpackDelta(optimizedUnpackerOutput, 1, length, asSliceStream(buffer), 0, (byte) bitWidth);
+
+            assertThat(optimizedUnpackerOutput)
+                    .as("Error at bit width %d", bitWidth)
+                    .isEqualTo(parquetUnpackerOutput);
+        }
+    }
+
     @Test(dataProvider = "length")
     public void testIntUnpackersUnpack(int length)
     {

@@ -38,7 +38,6 @@ import java.nio.ByteOrder;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetReaderUtils.castToByte;
-import static io.trino.parquet.ParquetReaderUtils.toByteExact;
 import static io.trino.parquet.ParquetReaderUtils.toShortExact;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.parquet.ParquetTypeUtils.checkBytesFitInShortDecimal;
@@ -76,37 +75,6 @@ public class ApacheParquetValueDecoders
         {
             for (int i = offset; i < offset + length; i++) {
                 values[i] = toShortExact(delegate.readInteger());
-            }
-        }
-
-        @Override
-        public void skip(int n)
-        {
-            delegate.skip(n);
-        }
-    }
-
-    public static final class ByteApacheParquetValueDecoder
-            implements ValueDecoder<byte[]>
-    {
-        private final ValuesReader delegate;
-
-        public ByteApacheParquetValueDecoder(ValuesReader delegate)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-        }
-
-        @Override
-        public void init(SimpleSliceInputStream input)
-        {
-            initialize(input, delegate);
-        }
-
-        @Override
-        public void read(byte[] values, int offset, int length)
-        {
-            for (int i = offset; i < offset + length; i++) {
-                values[i] = toByteExact(delegate.readInteger());
             }
         }
 
