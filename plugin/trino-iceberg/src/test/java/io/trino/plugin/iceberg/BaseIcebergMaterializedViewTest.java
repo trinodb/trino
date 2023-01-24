@@ -53,8 +53,6 @@ public abstract class BaseIcebergMaterializedViewTest
 {
     protected final String storageSchemaName = "testing_storage_schema_" + randomNameSuffix();
 
-    protected abstract String getSchemaName();
-
     protected abstract String getSchemaDirectory();
 
     @BeforeClass
@@ -73,8 +71,9 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testShowTables()
     {
+        String schema = getSession().getSchema().orElseThrow();
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_show_tables_test AS SELECT * FROM base_table1");
-        SchemaTableName storageTableName = getStorageTable("iceberg", "materialized_view_show_tables_test");
+        SchemaTableName storageTableName = getStorageTable("iceberg", schema, "materialized_view_show_tables_test");
 
         Set<String> expectedTables = ImmutableSet.of("base_table1", "base_table2", "materialized_view_show_tables_test", storageTableName.getTableName());
         Set<String> actualTables = computeActual("SHOW TABLES").getOnlyColumnAsSet().stream()
@@ -108,7 +107,7 @@ public abstract class BaseIcebergMaterializedViewTest
                         "VALUES ('%s', '%s', '%s')",
                         catalogName,
                         schemaName,
-                        getStorageTable(catalogName, materializedViewName)));
+                        getStorageTable(catalogName, schemaName, materializedViewName)));
 
         // test freshness update
         assertQuery(
@@ -154,6 +153,8 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testShowCreate()
     {
+        String schema = getSession().getSchema().orElseThrow();
+
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_with_property " +
                 "WITH (\n" +
                 "   partitioning = ARRAY['_date'],\n" +
@@ -164,7 +165,7 @@ public abstract class BaseIcebergMaterializedViewTest
 
         assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW materialized_view_with_property"))
                 .matches(
-                        "\\QCREATE MATERIALIZED VIEW iceberg." + getSchemaName() + ".materialized_view_with_property\n" +
+                        "\\QCREATE MATERIALIZED VIEW iceberg." + schema + ".materialized_view_with_property\n" +
                                 "WITH (\n" +
                                 "   format = 'ORC',\n" +
                                 "   format_version = 2,\n" +
@@ -172,7 +173,7 @@ public abstract class BaseIcebergMaterializedViewTest
                                 "   orc_bloom_filter_columns = ARRAY['_date'],\n" +
                                 "   orc_bloom_filter_fpp = 1E-1,\n" +
                                 "   partitioning = ARRAY['_date'],\n" +
-                                "   storage_schema = '" + getSchemaName() + "'\n" +
+                                "   storage_schema = '" + schema + "'\n" +
                                 ") AS\n" +
                                 "SELECT\n" +
                                 "  _bigint\n" +
@@ -192,11 +193,12 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testSessionCatalogSchema()
     {
+        String schema = getSession().getSchema().orElseThrow();
         Session session = Session.builder(getSession())
                 .setCatalog("tpch")
                 .setSchema("tiny")
                 .build();
-        String qualifiedMaterializedViewName = "iceberg." + getSchemaName() + ".materialized_view_session_test";
+        String qualifiedMaterializedViewName = "iceberg." + schema + ".materialized_view_session_test";
         assertUpdate(session, "CREATE MATERIALIZED VIEW " + qualifiedMaterializedViewName + " AS SELECT * FROM nation");
         assertQuery(session, "SELECT COUNT(*) FROM " + qualifiedMaterializedViewName, "VALUES 25");
         assertUpdate(session, "DROP MATERIALIZED VIEW " + qualifiedMaterializedViewName);
@@ -205,7 +207,7 @@ public abstract class BaseIcebergMaterializedViewTest
                 .setCatalog(Optional.empty())
                 .setSchema(Optional.empty())
                 .build();
-        assertUpdate(session, "CREATE MATERIALIZED VIEW " + qualifiedMaterializedViewName + " AS SELECT * FROM iceberg." + getSchemaName() + ".base_table1");
+        assertUpdate(session, "CREATE MATERIALIZED VIEW " + qualifiedMaterializedViewName + " AS SELECT * FROM iceberg." + schema + ".base_table1");
         assertQuery(session, "SELECT COUNT(*) FROM " + qualifiedMaterializedViewName, "VALUES 6");
         assertUpdate(session, "DROP MATERIALIZED VIEW " + qualifiedMaterializedViewName);
     }
@@ -213,9 +215,10 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testDropIfExists()
     {
+        String schema = getSession().getSchema().orElseThrow();
         assertQueryFails(
                 "DROP MATERIALIZED VIEW non_existing_materialized_view",
-                "line 1:1: Materialized view 'iceberg." + getSchemaName() + ".non_existing_materialized_view' does not exist");
+                "line 1:1: Materialized view 'iceberg." + schema + ".non_existing_materialized_view' does not exist");
         assertUpdate("DROP MATERIALIZED VIEW IF EXISTS non_existing_materialized_view");
     }
 
@@ -256,8 +259,9 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testRefreshAllowedWithRestrictedStorageTable()
     {
+        String schema = getSession().getSchema().orElseThrow();
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_refresh AS SELECT * FROM base_table1");
-        SchemaTableName storageTable = getStorageTable("iceberg", "materialized_view_refresh");
+        SchemaTableName storageTable = getStorageTable("iceberg", schema, "materialized_view_refresh");
 
         assertAccessAllowed(
                 "REFRESH MATERIALIZED VIEW materialized_view_refresh",
@@ -414,6 +418,8 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testSqlFeatures()
     {
+        String schema = getSession().getSchema().orElseThrow();
+
         // Materialized views to test SQL features
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_window WITH (partitioning = ARRAY['_date']) as select _date, " +
                 "sum(_bigint) OVER (partition by _date order by _date) as sum_ints from base_table1");
@@ -434,7 +440,7 @@ public abstract class BaseIcebergMaterializedViewTest
         plan = getExplainPlan("SELECT * from materialized_view_subquery", ExplainType.Type.IO);
         assertThat(plan).doesNotContain("base_table1");
 
-        String qualifiedMaterializedViewName = "iceberg." + getSchemaName() + ".materialized_view_window";
+        String qualifiedMaterializedViewName = "iceberg." + schema + ".materialized_view_window";
         assertQueryFails("show create view  materialized_view_window",
                 "line 1:1: Relation '" + qualifiedMaterializedViewName + "' is a materialized view, not a view");
 
@@ -445,7 +451,7 @@ public abstract class BaseIcebergMaterializedViewTest
                         "   format_version = 2,\n" +
                         "   location = '" + getSchemaDirectory() + "/st_\\E[0-9a-f]+-[0-9a-f]+\\Q',\n" +
                         "   partitioning = ARRAY['_date'],\n" +
-                        "   storage_schema = '" + getSchemaName() + "'\n" +
+                        "   storage_schema = '" + schema + "'\n" +
                         ") AS\n" +
                         "SELECT\n" +
                         "  _date\n" +
@@ -492,29 +498,32 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testCreateMaterializedViewWhenTableExists()
     {
+        String schema = getSession().getSchema().orElseThrow();
         assertUpdate("CREATE TABLE test_create_materialized_view_when_table_exists (a INT, b INT)");
         assertThatThrownBy(() -> query("CREATE OR REPLACE MATERIALIZED VIEW test_create_materialized_view_when_table_exists AS SELECT sum(1) AS num_rows FROM base_table2"))
-                .hasMessage("Existing table is not a Materialized View: " + getSchemaName() + ".test_create_materialized_view_when_table_exists");
+                .hasMessage("Existing table is not a Materialized View: " + schema + ".test_create_materialized_view_when_table_exists");
         assertThatThrownBy(() -> query("CREATE MATERIALIZED VIEW IF NOT EXISTS test_create_materialized_view_when_table_exists AS SELECT sum(1) AS num_rows FROM base_table2"))
-                .hasMessage("Existing table is not a Materialized View: " + getSchemaName() + ".test_create_materialized_view_when_table_exists");
+                .hasMessage("Existing table is not a Materialized View: " + schema + ".test_create_materialized_view_when_table_exists");
         assertUpdate("DROP TABLE test_create_materialized_view_when_table_exists");
     }
 
     @Test
     public void testDropMaterializedViewCannotDropTable()
     {
+        String schema = getSession().getSchema().orElseThrow();
         assertUpdate("CREATE TABLE test_drop_materialized_view_cannot_drop_table (a INT, b INT)");
         assertThatThrownBy(() -> query("DROP MATERIALIZED VIEW test_drop_materialized_view_cannot_drop_table"))
-                .hasMessageContaining("Materialized view 'iceberg." + getSchemaName() + ".test_drop_materialized_view_cannot_drop_table' does not exist, but a table with that name exists");
+                .hasMessageContaining("Materialized view 'iceberg." + schema + ".test_drop_materialized_view_cannot_drop_table' does not exist, but a table with that name exists");
         assertUpdate("DROP TABLE test_drop_materialized_view_cannot_drop_table");
     }
 
     @Test
     public void testRenameMaterializedViewCannotRenameTable()
     {
+        String schema = getSession().getSchema().orElseThrow();
         assertUpdate("CREATE TABLE test_rename_materialized_view_cannot_rename_table (a INT, b INT)");
         assertThatThrownBy(() -> query("ALTER MATERIALIZED VIEW test_rename_materialized_view_cannot_rename_table RENAME TO new_materialized_view_name"))
-                .hasMessageContaining("Materialized View 'iceberg." + getSchemaName() + ".test_rename_materialized_view_cannot_rename_table' does not exist, but a table with that name exists");
+                .hasMessageContaining("Materialized View 'iceberg." + schema + ".test_rename_materialized_view_cannot_rename_table' does not exist, but a table with that name exists");
         assertUpdate("DROP TABLE test_rename_materialized_view_cannot_rename_table");
     }
 
@@ -556,13 +565,14 @@ public abstract class BaseIcebergMaterializedViewTest
     public void testStorageSchemaProperty()
     {
         String catalogName = getSession().getCatalog().orElseThrow();
+        String schemaName = getSession().getSchema().orElseThrow();
         String viewName = "storage_schema_property_test";
         assertUpdate("CREATE SCHEMA IF NOT EXISTS " + catalogName + "." + storageSchemaName);
         assertUpdate(
                 "CREATE MATERIALIZED VIEW " + viewName + " " +
                         "WITH (storage_schema = '" + storageSchemaName + "') AS " +
                         "SELECT * FROM base_table1");
-        SchemaTableName storageTable = getStorageTable(catalogName, viewName);
+        SchemaTableName storageTable = getStorageTable(catalogName, schemaName, viewName);
         assertThat(storageTable.getSchemaName()).isEqualTo(storageSchemaName);
 
         assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 6);
@@ -591,16 +601,16 @@ public abstract class BaseIcebergMaterializedViewTest
                         "SELECT * FROM base_table1"))
                 .hasMessageContaining("non_existent not found");
         assertThatThrownBy(() -> query("DESCRIBE " + viewName))
-                .hasMessageContaining(format("'iceberg.%s.%s' does not exist", getSchemaName(), viewName));
+                .hasMessageContaining(format("'iceberg.%s.%s' does not exist", schemaName, viewName));
     }
 
-    private SchemaTableName getStorageTable(String catalogName, String objectName)
+    private SchemaTableName getStorageTable(String catalogName, String schemaName, String objectName)
     {
         TransactionManager transactionManager = getQueryRunner().getTransactionManager();
         TransactionId transactionId = transactionManager.beginTransaction(false);
         Session session = getSession().beginTransactionId(transactionId, transactionManager, getQueryRunner().getAccessControl());
         Optional<MaterializedViewDefinition> materializedView = getQueryRunner().getMetadata()
-                .getMaterializedView(session, new QualifiedObjectName(catalogName, getSchemaName(), objectName));
+                .getMaterializedView(session, new QualifiedObjectName(catalogName, schemaName, objectName));
         assertThat(materializedView).isPresent();
         return materializedView.get().getStorageTable().get().getSchemaTableName();
     }

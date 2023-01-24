@@ -28,12 +28,6 @@ public class TestIcebergMaterializedViewTest
     }
 
     @Override
-    protected String getSchemaName()
-    {
-        return "tpch";
-    }
-
-    @Override
     protected String getSchemaDirectory()
     {
         return getDistributedQueryRunner().getCoordinator().getBaseDataDir().resolve("iceberg_data/tpch").toString();
