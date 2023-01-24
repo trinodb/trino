@@ -37,7 +37,7 @@ The optional ``IF NOT EXISTS`` clause causes the materialized view only to be
 created or replaced if it does not exist yet.
 
 The optional ``GRACE PERIOD`` clause specifies how long the query materialization
-should be used for querying. If time elapsed since last materialized view refresh
+is used for querying. If the time elapsed since last materialized view refresh
 is greater than the grace period, the materialized view acts as a normal view and
 materialized data is not used. If not specified, the grace period defaults to
 infinity. See :doc:`refresh-materialized-view` for more about refreshing
