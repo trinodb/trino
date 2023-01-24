@@ -105,6 +105,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.apply;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.correlatedJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -813,6 +814,31 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testCorrelatedJoinWithNullCondition()
+    {
+        assertPlan(
+                "SELECT regionkey, n.name FROM region LEFT JOIN LATERAL (SELECT name FROM nation) n ON NULL",
+                CREATED,
+                anyTree(
+                    correlatedJoin(
+                            List.of("r_row_number", "r_regionkey", "r_name", "r_comment"),
+                            "null",
+                            tableScan("region", Map.of(
+                                    "r_row_number", "row_number",
+                                    "r_regionkey", "regionkey",
+                                    "r_name", "name",
+                                    "r_comment", "comment")),
+                            anyTree(tableScan("nation")))));
+        assertPlan(
+                "SELECT regionkey, n.name FROM region LEFT JOIN LATERAL (SELECT name FROM nation) n ON NULL",
+                any(
+                        join(LEFT, builder -> builder
+                                .equiCriteria(List.of())
+                                .left(tableScan("region"))
+                                .right(values("name")))));
+    }
+
+    @Test
     public void testCorrelatedScalarSubqueryInSelect()
     {
         assertDistributedPlan("SELECT name, (SELECT name FROM region WHERE regionkey = nation.regionkey) FROM nation",
@@ -1108,6 +1134,15 @@ public class TestLogicalPlanner
                 "SELECT * FROM nation WHERE 1 = 0",
                 output(
                         values("nationkey", "name", "regionkey", "comment")));
+        assertPlan(
+                "SELECT * FROM nation WHERE null",
+                output(
+                        values("nationkey", "name", "regionkey", "comment")));
+        assertPlan(
+                "SELECT * FROM nation WHERE nationkey = null",
+                output(
+                        filter("CAST(NULL AS boolean)",
+                                tableScan("nation"))));
     }
 
     @Test
