@@ -18,17 +18,20 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.security.Identity;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class MaterializedViewDefinition
         extends ViewDefinition
 {
+    private final Optional<Duration> gracePeriod;
     private final Optional<CatalogSchemaTableName> storageTable;
     private final Map<String, Object> properties;
 
@@ -37,12 +40,15 @@ public class MaterializedViewDefinition
             Optional<String> catalog,
             Optional<String> schema,
             List<ViewColumn> columns,
+            Optional<Duration> gracePeriod,
             Optional<String> comment,
             Identity owner,
             Optional<CatalogSchemaTableName> storageTable,
             Map<String, Object> properties)
     {
         super(originalSql, catalog, schema, columns, comment, Optional.of(owner));
+        checkArgument(gracePeriod.isEmpty() || !gracePeriod.get().isNegative(), "gracePeriod cannot be negative: %s", gracePeriod);
+        this.gracePeriod = gracePeriod;
         this.storageTable = requireNonNull(storageTable, "storageTable is null");
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
     }
@@ -58,8 +64,14 @@ public class MaterializedViewDefinition
                         .collect(toImmutableList()),
                 view.getComment(),
                 Optional.of(runAsIdentity));
+        this.gracePeriod = view.getGracePeriod();
         this.storageTable = view.getStorageTable();
         this.properties = ImmutableMap.copyOf(view.getProperties());
+    }
+
+    public Optional<Duration> getGracePeriod()
+    {
+        return gracePeriod;
     }
 
     public Optional<CatalogSchemaTableName> getStorageTable()
@@ -82,6 +94,7 @@ public class MaterializedViewDefinition
                 getColumns().stream()
                         .map(column -> new ConnectorMaterializedViewDefinition.Column(column.getName(), column.getType()))
                         .collect(toImmutableList()),
+                getGracePeriod(),
                 getComment(),
                 getRunAsIdentity().map(Identity::getUser),
                 properties);
@@ -95,6 +108,7 @@ public class MaterializedViewDefinition
                 .add("catalog", getCatalog().orElse(null))
                 .add("schema", getSchema().orElse(null))
                 .add("columns", getColumns())
+                .add("gracePeriod", gracePeriod.orElse(null))
                 .add("comment", getComment().orElse(null))
                 .add("runAsIdentity", getRunAsIdentity())
                 .add("storageTable", storageTable.orElse(null))

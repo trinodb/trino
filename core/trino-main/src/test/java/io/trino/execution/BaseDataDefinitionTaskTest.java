@@ -187,6 +187,7 @@ public abstract class BaseDataDefinitionTaskTest
                 Optional.empty(),
                 columns,
                 Optional.empty(),
+                Optional.empty(),
                 Identity.ofUser("owner"),
                 Optional.empty(),
                 ImmutableMap.of(MATERIALIZED_VIEW_PROPERTY_2_NAME, MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE));
@@ -434,6 +435,7 @@ public abstract class BaseDataDefinitionTaskTest
                             existingDefinition.getCatalog(),
                             existingDefinition.getSchema(),
                             existingDefinition.getColumns(),
+                            existingDefinition.getGracePeriod(),
                             existingDefinition.getComment(),
                             existingDefinition.getRunAsIdentity().get(),
                             existingDefinition.getStorageTable(),
