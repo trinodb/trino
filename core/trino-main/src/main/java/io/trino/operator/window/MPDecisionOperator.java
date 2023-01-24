@@ -294,7 +294,7 @@ public class MPDecisionOperator
         @Override
         public WorkProcessor.ProcessState<Page> process()
         {
-            Page page = operator.getOutput();
+            Page page = operator.getOutput();   // TODO 123 Problematic- We'll need a lot of the Driver logic here. Instead, this operator can be of a different type that returns a source operator + a list of operators
             if (page == null) {
                 if (operator.isFinished()) {
                     return WorkProcessor.ProcessState.finished();

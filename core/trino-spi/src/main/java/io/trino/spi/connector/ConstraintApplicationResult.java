@@ -108,6 +108,8 @@ public class ConstraintApplicationResult<T>
 
     public <U> ConstraintApplicationResult<U> transform(Function<T, U> transformHandle)
     {
+        // If we need to transform MP to TableHandles, why not creating them in the first place?
+        // We can also define that this function acts only on the table and that the MPs remain MP of the original Table
         U transformedHandle = transformHandle.apply(handle);
         List<ConstraintApplicationResult<U>> transformedMicroPlans = secondaryMicroPlans.stream()
                 .map(mp -> mp.transform(transformHandle))

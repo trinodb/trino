@@ -47,4 +47,45 @@ MP
  -- A1 - F1 - TS1
  -- A1 - F2 - TS2
  -- A2 - TS3
+
+ PushAggregationWithMP + flatten
+ */
+
+/*
+
+
+   A1
+   /
+ MPD          =>
+|  \
+F1  TS2
+|
+TS1
+
+   MPD
+   / \
+ A1  A1       =>
+ |    |
+ F1  TS2
+ |
+ TS1
+
+        MPD
+     /   |
+   A1   MPD
+  /      |   \
+ F1      A1   A2
+ |       |    |
+TS1     TS2  TS3
+
+=>
+CombineMPDecisions
+
+         MPD
+     /    |   \
+   A1    A1   A2
+  /       |    |
+ F1      TS2  TS3
+ |
+TS1
  */
