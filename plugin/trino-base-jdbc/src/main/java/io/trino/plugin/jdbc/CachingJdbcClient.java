@@ -51,7 +51,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -60,7 +59,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -624,149 +622,41 @@ public class CachingJdbcClient
         cache.invalidateAll(cacheKeys);
     }
 
-    private static final class ColumnsCacheKey
+    private record ColumnsCacheKey(IdentityCacheKey identity, Map<String, Object> sessionProperties, SchemaTableName table)
     {
-        private final IdentityCacheKey identity;
-        private final SchemaTableName table;
-        private final Map<String, Object> sessionProperties;
-
-        private ColumnsCacheKey(IdentityCacheKey identity, Map<String, Object> sessionProperties, SchemaTableName table)
+        @SuppressWarnings("UnusedVariable") // TODO: Remove once https://github.com/google/error-prone/issues/2713 is fixed
+        private ColumnsCacheKey
         {
-            this.identity = requireNonNull(identity, "identity is null");
-            this.sessionProperties = ImmutableMap.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
-            this.table = requireNonNull(table, "table is null");
-        }
-
-        public IdentityCacheKey getIdentity()
-        {
-            return identity;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            ColumnsCacheKey that = (ColumnsCacheKey) o;
-            return Objects.equals(identity, that.identity) &&
-                    Objects.equals(sessionProperties, that.sessionProperties) &&
-                    Objects.equals(table, that.table);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(identity, sessionProperties, table);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("identity", identity)
-                    .add("sessionProperties", sessionProperties)
-                    .add("table", table)
-                    .toString();
+            requireNonNull(identity, "identity is null");
+            sessionProperties = ImmutableMap.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
+            requireNonNull(table, "table is null");
         }
     }
 
-    private static final class TableHandlesByNameCacheKey
+    private record TableHandlesByNameCacheKey(IdentityCacheKey identity, SchemaTableName tableName)
     {
-        private final IdentityCacheKey identity;
-        private final SchemaTableName tableName;
-
-        private TableHandlesByNameCacheKey(IdentityCacheKey identity, SchemaTableName tableName)
+        private TableHandlesByNameCacheKey
         {
-            this.identity = requireNonNull(identity, "identity is null");
-            this.tableName = requireNonNull(tableName, "tableName is null");
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            TableHandlesByNameCacheKey that = (TableHandlesByNameCacheKey) o;
-            return Objects.equals(identity, that.identity) &&
-                    Objects.equals(tableName, that.tableName);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(identity, tableName);
+            requireNonNull(identity, "identity is null");
+            requireNonNull(tableName, "tableName is null");
         }
     }
 
-    private static final class TableHandlesByQueryCacheKey
+    private record TableHandlesByQueryCacheKey(IdentityCacheKey identity, PreparedQuery preparedQuery)
     {
-        private final IdentityCacheKey identity;
-        private final PreparedQuery preparedQuery;
-
-        private TableHandlesByQueryCacheKey(IdentityCacheKey identity, PreparedQuery preparedQuery)
+        private TableHandlesByQueryCacheKey
         {
-            this.identity = requireNonNull(identity, "identity is null");
-            this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            TableHandlesByQueryCacheKey that = (TableHandlesByQueryCacheKey) o;
-            return Objects.equals(identity, that.identity) &&
-                    Objects.equals(preparedQuery, that.preparedQuery);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(identity, preparedQuery);
+            requireNonNull(identity, "identity is null");
+            requireNonNull(preparedQuery, "preparedQuery is null");
         }
     }
 
-    private static final class TableNamesCacheKey
+    private record TableNamesCacheKey(IdentityCacheKey identity, Optional<String> schemaName)
     {
-        private final IdentityCacheKey identity;
-        private final Optional<String> schemaName;
-
-        private TableNamesCacheKey(IdentityCacheKey identity, Optional<String> schemaName)
+        private TableNamesCacheKey
         {
-            this.identity = requireNonNull(identity, "identity is null");
-            this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            TableNamesCacheKey that = (TableNamesCacheKey) o;
-            return Objects.equals(identity, that.identity) &&
-                    Objects.equals(schemaName, that.schemaName);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(identity, schemaName);
+            requireNonNull(identity, "identity is null");
+            requireNonNull(schemaName, "schemaName is null");
         }
     }
 
