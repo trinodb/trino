@@ -52,7 +52,10 @@ MP
  */
 
 /*
-
+// [Fragments Alternatives] Fragment {array[plans[TS+TH+MP]}
+// List<MP> -> Array
+// 1. PlanFragmenter
+// 2. "Second Phase" optimization (MPs)
 
    A1
    /

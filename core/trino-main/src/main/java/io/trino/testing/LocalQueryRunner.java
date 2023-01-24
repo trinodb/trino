@@ -990,6 +990,7 @@ public class LocalQueryRunner
                 plan.getTypes(),
                 subplan.getFragment().getPartitionedSources(),
                 outputFactory);
+        // What will happen in QueryRunner (is related to LocalQueryRunner?)?
 
         // generate splitAssignments
         List<SplitAssignment> splitAssignments = new ArrayList<>();
