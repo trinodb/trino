@@ -17,7 +17,7 @@ import io.trino.testing.DistributedQueryRunner;
 
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 
-public class TestIcebergMaterializedViewTest
+public class TestIcebergMaterializedView
         extends BaseIcebergMaterializedViewTest
 {
     @Override
