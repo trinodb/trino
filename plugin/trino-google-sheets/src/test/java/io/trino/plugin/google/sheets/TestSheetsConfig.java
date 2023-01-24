@@ -72,7 +72,7 @@ public class TestSheetsConfig
 
         assertEquals(config.getCredentialsKey(), Optional.empty());
         assertEquals(config.getCredentialsFilePath(), Optional.of(credentialsFile.toString()));
-        assertEquals(config.getMetadataSheetId(), "foo_bar_sheet_id#Sheet1");
+        assertEquals(config.getMetadataSheetId(), Optional.of("foo_bar_sheet_id#Sheet1"));
         assertEquals(config.getSheetsDataMaxCacheSize(), 2000);
         assertEquals(config.getSheetsDataExpireAfterWrite(), Duration.valueOf("10m"));
         assertEquals(config.getReadTimeout(), Duration.valueOf("1m"));
@@ -94,7 +94,7 @@ public class TestSheetsConfig
 
         assertEquals(config.getCredentialsKey(), Optional.of(BASE_64_ENCODED_TEST_KEY));
         assertEquals(config.getCredentialsFilePath(), Optional.empty());
-        assertEquals(config.getMetadataSheetId(), "foo_bar_sheet_id#Sheet1");
+        assertEquals(config.getMetadataSheetId(), Optional.of("foo_bar_sheet_id#Sheet1"));
         assertEquals(config.getSheetsDataMaxCacheSize(), 2000);
         assertEquals(config.getSheetsDataExpireAfterWrite(), Duration.valueOf("10m"));
         assertEquals(config.getReadTimeout(), Duration.valueOf("1m"));

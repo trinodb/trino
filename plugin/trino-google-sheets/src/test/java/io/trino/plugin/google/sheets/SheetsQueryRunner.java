@@ -45,7 +45,6 @@ public class SheetsQueryRunner
             // note: additional copy via ImmutableList so that if fails on nulls
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("gsheets.credentials-path", getTestCredentialsPath());
-            connectorProperties.putIfAbsent("gsheets.metadata-sheet-id", TEST_METADATA_SHEET_ID);
             connectorProperties.putIfAbsent("gsheets.max-data-cache-size", "1000");
             connectorProperties.putIfAbsent("gsheets.data-cache-ttl", "5m");
 
@@ -75,7 +74,7 @@ public class SheetsQueryRunner
 
         DistributedQueryRunner queryRunner = createSheetsQueryRunner(
                 ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of());
+                ImmutableMap.of("gsheets.metadata-sheet-id", TEST_METADATA_SHEET_ID));
 
         Logger log = Logger.get(SheetsQueryRunner.class);
         log.info("======== SERVER STARTED ========");

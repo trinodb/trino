@@ -20,6 +20,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.plugin.google.sheets.SheetsQueryRunner.createSheetsQueryRunner;
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.DATA_SHEET_ID;
+import static io.trino.plugin.google.sheets.TestSheetsPlugin.TEST_METADATA_SHEET_ID;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
@@ -30,7 +31,11 @@ public class TestGoogleSheets
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createSheetsQueryRunner(ImmutableMap.of(), ImmutableMap.of("gsheets.read-timeout", "1m"));
+        return createSheetsQueryRunner(
+                ImmutableMap.of(),
+                ImmutableMap.of(
+                        "gsheets.read-timeout", "1m",
+                        "gsheets.metadata-sheet-id", TEST_METADATA_SHEET_ID));
     }
 
     @Test
