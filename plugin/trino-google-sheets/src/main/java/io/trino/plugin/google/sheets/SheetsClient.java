@@ -75,7 +75,7 @@ public class SheetsClient
     private final NonEvictableLoadingCache<String, Optional<String>> tableSheetMappingCache;
     private final NonEvictableLoadingCache<String, List<List<Object>>> sheetDataCache;
 
-    private final String metadataSheetId;
+    private final Optional<String> metadataSheetId;
 
     private final Sheets sheetsService;
 
@@ -160,9 +160,12 @@ public class SheetsClient
 
     public Set<String> getTableNames()
     {
+        if (metadataSheetId.isEmpty()) {
+            return ImmutableSet.of();
+        }
         ImmutableSet.Builder<String> tables = ImmutableSet.builder();
         try {
-            List<List<Object>> tableMetadata = sheetDataCache.getUnchecked(metadataSheetId);
+            List<List<Object>> tableMetadata = sheetDataCache.getUnchecked(metadataSheetId.get());
             for (int i = 1; i < tableMetadata.size(); i++) {
                 if (tableMetadata.get(i).size() > 0) {
                     tables.add(String.valueOf(tableMetadata.get(i).get(0)));
@@ -218,8 +221,11 @@ public class SheetsClient
 
     private Map<String, Optional<String>> getAllTableSheetExpressionMapping()
     {
+        if (metadataSheetId.isEmpty()) {
+            return ImmutableMap.of();
+        }
         ImmutableMap.Builder<String, Optional<String>> tableSheetMap = ImmutableMap.builder();
-        List<List<Object>> data = readAllValuesFromSheetExpression(metadataSheetId);
+        List<List<Object>> data = readAllValuesFromSheetExpression(metadataSheetId.get());
         // first line is assumed to be sheet header
         for (int i = 1; i < data.size(); i++) {
             if (data.get(i).size() >= 2) {
