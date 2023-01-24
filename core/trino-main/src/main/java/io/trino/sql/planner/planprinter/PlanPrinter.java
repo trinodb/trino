@@ -583,6 +583,8 @@ public class PlanPrinter
                     hashColumn));
         }
 
+        partitioningScheme.getPartitionCount().ifPresent(partitionCount -> builder.append(format("Partition count: %s\n", partitionCount)));
+
         builder.append(
                         new PlanPrinter(
                                 fragment.getRoot(),
@@ -1639,6 +1641,7 @@ public class PlanPrinter
                 addNode(node,
                         format("%sExchange", UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, node.getScope().toString())),
                         ImmutableMap.of(
+                                "partitionCount", node.getPartitioningScheme().getPartitionCount().map(String::valueOf).orElse(""),
                                 "type", node.getType().name(),
                                 "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().isReplicateNullsAndAny()),
                                 "hashColumn", formatHash(node.getPartitioningScheme().getHashColumn())),

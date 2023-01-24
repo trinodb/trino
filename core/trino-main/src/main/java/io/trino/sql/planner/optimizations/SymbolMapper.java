@@ -482,7 +482,8 @@ public class SymbolMapper
                 mapAndDistinct(sourceLayout),
                 scheme.getHashColumn().map(this::map),
                 scheme.isReplicateNullsAndAny(),
-                scheme.getBucketToPartition());
+                scheme.getBucketToPartition(),
+                scheme.getPartitionCount());
     }
 
     public TableFinishNode map(TableFinishNode node, PlanNode source)

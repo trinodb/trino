@@ -32,7 +32,7 @@ import java.util.Set;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.Unit.TERABYTE;
-import static io.trino.SystemSessionProperties.HASH_PARTITION_COUNT;
+import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.FINISHED;
 import static io.trino.execution.QueryState.FINISHING;
@@ -284,7 +284,7 @@ public class TestQueues
             assertResourceGroup(queryRunner, newAdhocSession(), "SHOW TABLES", createResourceGroupId("global", "describe"));
             assertResourceGroup(queryRunner, newAdhocSession(), "EXPLAIN " + LONG_LASTING_QUERY, createResourceGroupId("global", "explain"));
             assertResourceGroup(queryRunner, newAdhocSession(), "DESCRIBE lineitem", createResourceGroupId("global", "describe"));
-            assertResourceGroup(queryRunner, newAdhocSession(), "RESET SESSION " + HASH_PARTITION_COUNT, createResourceGroupId("global", "data_definition"));
+            assertResourceGroup(queryRunner, newAdhocSession(), "RESET SESSION " + MAX_HASH_PARTITION_COUNT, createResourceGroupId("global", "data_definition"));
         }
     }
 

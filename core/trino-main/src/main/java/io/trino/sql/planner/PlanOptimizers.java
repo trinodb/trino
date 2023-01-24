@@ -236,6 +236,7 @@ import io.trino.sql.planner.optimizations.AddExchanges;
 import io.trino.sql.planner.optimizations.AddLocalExchanges;
 import io.trino.sql.planner.optimizations.BeginTableWrite;
 import io.trino.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
+import io.trino.sql.planner.optimizations.DeterminePartitionCount;
 import io.trino.sql.planner.optimizations.HashGenerationOptimizer;
 import io.trino.sql.planner.optimizations.IndexJoinOptimizer;
 import io.trino.sql.planner.optimizations.LimitPushDown;
@@ -841,6 +842,8 @@ public class PlanOptimizers
             // operators that require node partitioning
             builder.add(new UnaliasSymbolReferences(metadata));
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(plannerContext, typeAnalyzer, statsCalculator)));
+            // It can only run after AddExchanges since it estimates the hash partition count for all remote exchanges
+            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new DeterminePartitionCount(statsCalculator)));
         }
 
         // use cost calculator without estimated exchanges after AddExchanges
