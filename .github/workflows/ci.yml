@@ -130,6 +130,7 @@ jobs:
     needs: check-commits
     if: github.event_name == 'pull_request' && needs.check-commits.outputs.matrix != ''
     strategy:
+      fail-fast: false
       matrix: ${{ fromJson(needs.check-commits.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v3
