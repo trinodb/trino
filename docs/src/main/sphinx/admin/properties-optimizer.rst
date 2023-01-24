@@ -210,3 +210,33 @@ The minimum number of join build side rows required to use partitioned join look
 If the build side of a join is estimated to be smaller than the configured threshold,
 single threaded join lookup is used to improve join performance.
 A value of ``0`` disables this optimization.
+
+``optimizer.min-input-size-per-task``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-data-size`
+* **Default value:** ``5GB``
+* **Min allowed value:** ``0MB``
+* **Session property:** ``min_input_size_per_task``
+
+The minimum input size required per task. This will help optimizer to determine hash
+partition count for joins and aggregations. Limiting hash partition count for small queries
+increases concurrency on large clusters where multiple small queries are running concurrently.
+The estimated value will always be between ``min_hash_partition_count`` and
+``max_hash_partition_count`` session property.
+A value of ``0MB`` disables this optimization.
+
+``optimizer.min-input-rows-per-task``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-integer`
+* **Default value:** ``10000000``
+* **Min allowed value:** ``0``
+* **Session property:** ``min_input_rows_per_task``
+
+The minimum number of input rows required per task. This will help optimizer to determine hash
+partition count for joins and aggregations. Limiting hash partition count for small queries
+increases concurrency on large clusters where multiple small queries are running concurrently.
+The estimated value will always be between ``min_hash_partition_count`` and
+``max_hash_partition_count`` session property.
+A value of ``0`` disables this optimization.
