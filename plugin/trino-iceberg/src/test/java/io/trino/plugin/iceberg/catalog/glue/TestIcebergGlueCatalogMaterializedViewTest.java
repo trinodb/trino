@@ -66,12 +66,6 @@ public class TestIcebergGlueCatalogMaterializedViewTest
     }
 
     @Override
-    protected String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    @Override
     protected String getSchemaDirectory()
     {
         return new File(schemaDirectory, schemaName + ".db").getPath();
