@@ -33,12 +33,17 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
+import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
+import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.trino.plugin.hive.HiveWrittenPartitions;
+import io.trino.plugin.iceberg.aggregation.AggregateExpression;
 import io.trino.plugin.iceberg.aggregation.DataSketchStateSerializer;
 import io.trino.plugin.iceberg.aggregation.IcebergThetaSketchForStats;
+import io.trino.plugin.iceberg.aggregation.ImplementCountAll;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.procedure.IcebergDropExtendedStatsHandle;
 import io.trino.plugin.iceberg.procedure.IcebergExpireSnapshotsHandle;
@@ -50,6 +55,8 @@ import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.spi.connector.CatalogHandle;
@@ -132,6 +139,7 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SnapshotRef;
+import org.apache.iceberg.SnapshotSummary;
 import org.apache.iceberg.SortField;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StatisticsFile;
@@ -217,6 +225,7 @@ import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getExpireSnapshotMinRetention;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getHiveCatalogName;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getRemoveOrphanFilesMinRetention;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isAggregationPushdownEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isCollectExtendedStatisticsOnWrite;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isMergeManifestsOnWrite;
@@ -321,6 +330,7 @@ public class IcebergMetadata
     private final TrinoCatalog catalog;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TableStatisticsWriter tableStatisticsWriter;
+    private final AggregateFunctionRewriter<AggregateExpression, Void> aggregateFunctionRewriter;
 
     private final Map<IcebergTableHandle, TableStatistics> tableStatisticsCache = new ConcurrentHashMap<>();
 
@@ -340,6 +350,12 @@ public class IcebergMetadata
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.tableStatisticsWriter = requireNonNull(tableStatisticsWriter, "tableStatisticsWriter is null");
+
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
+                new ConnectorExpressionRewriter<>(ImmutableSet.of()),
+                ImmutableSet.<AggregateFunctionRule<AggregateExpression, Void>>builder()
+                        .add(new ImplementCountAll())
+                        .build());
     }
 
     @Override
@@ -2567,6 +2583,101 @@ public class IcebergMetadata
                 remainingConstraint.transformKeys(ColumnHandle.class::cast),
                 extractionResult.remainingExpression(),
                 false));
+    }
+
+    @Override
+    public Optional<AggregationApplicationResult<ConnectorTableHandle>> applyAggregation(
+            ConnectorSession session,
+            ConnectorTableHandle handle,
+            List<AggregateFunction> aggregates,
+            Map<String, ColumnHandle> assignments,
+            List<List<ColumnHandle>> groupingSets)
+    {
+        IcebergTableHandle tableHandle = (IcebergTableHandle) handle;
+
+        // Iceberg's metadata cannot be used for aggregation calculation.
+        // As equality deletes do not reflect at the metadata/count level.
+        if (hasEqualityDeletes(session, tableHandle)) {
+            return Optional.empty();
+        }
+
+        if (!isAggregationPushdownEnabled(session)) {
+            return Optional.empty();
+        }
+
+        // not supporting unenforced predicate
+        if (!tableHandle.getUnenforcedPredicate().isNone()
+                && tableHandle.getUnenforcedPredicate().getDomains().isPresent()
+                && !tableHandle.getUnenforcedPredicate().getDomains().get().isEmpty()) {
+            return Optional.empty();
+        }
+
+        // not supporting group by
+        if (!groupingSets.equals(List.of(List.of()))) {
+            return Optional.empty();
+        }
+
+        ImmutableList.Builder<ConnectorExpression> projections = ImmutableList.builder();
+        ImmutableList.Builder<Assignment> resultAssignments = ImmutableList.builder();
+        ImmutableList.Builder<IcebergColumnHandle> aggregateColumnsBuilder = ImmutableList.builder();
+
+        Set<IcebergColumnHandle> projectionsSet = new HashSet<>();
+
+        if (aggregates.size() != 1) {
+            // not handling multiple aggregations for now
+            return Optional.empty();
+        }
+
+        AggregateFunction aggregate = aggregates.get(0);
+
+        Optional<AggregateExpression> rewriteResult = aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
+        if (rewriteResult.isEmpty()) {
+            return Optional.empty();
+        }
+        AggregateExpression aggregateExpression = rewriteResult.get();
+
+        if (aggregateExpression.getFunction().startsWith("count")) {
+            IcebergColumnHandle aggregateIcebergColumnHandle = new IcebergColumnHandle(aggregateExpression.toColumnIdentity(AggregateExpression.COUNT_AGGREGATE_COLUMN_ID),
+                    aggregate.getOutputType(), ImmutableList.of(), aggregate.getOutputType(), Optional.empty());
+            aggregateColumnsBuilder.add(aggregateIcebergColumnHandle);
+            projections.add(new Variable(aggregateIcebergColumnHandle.getName(), aggregateIcebergColumnHandle.getType()));
+            projectionsSet.add(aggregateIcebergColumnHandle);
+            resultAssignments.add(new Assignment(aggregateIcebergColumnHandle.getName(), aggregateIcebergColumnHandle, aggregateIcebergColumnHandle.getType()));
+        }
+
+        IcebergTableHandle tableHandleTemp = new IcebergTableHandle(
+                tableHandle.getCatalog(),
+                tableHandle.getSchemaName(),
+                tableHandle.getTableName(),
+                tableHandle.getTableType(),
+                tableHandle.getSnapshotId(),
+                tableHandle.getTableSchemaJson(),
+                tableHandle.getPartitionSpecJson(),
+                tableHandle.getFormatVersion(),
+                tableHandle.getUnenforcedPredicate(),
+                tableHandle.getEnforcedPredicate(),
+                tableHandle.getLimit(),
+                projectionsSet,
+                tableHandle.getNameMappingJson(),
+                tableHandle.getTableLocation(),
+                tableHandle.getStorageProperties(),
+                tableHandle.isRecordScannedFiles(),
+                tableHandle.getMaxScannedFileSize(),
+                tableHandle.getConstraintColumns(),
+                tableHandle.getAnalyzeColumns());
+
+        return Optional.of(new AggregationApplicationResult<>(tableHandleTemp, projections.build(), resultAssignments.build(), ImmutableMap.of(), false));
+    }
+
+    private boolean hasEqualityDeletes(ConnectorSession session, IcebergTableHandle tableHandle)
+    {
+        Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
+
+        if (icebergTable.currentSnapshot().summary().containsKey(SnapshotSummary.TOTAL_EQ_DELETES_PROP)) {
+            return (Long.parseLong(icebergTable.currentSnapshot().summary().get(SnapshotSummary.TOTAL_EQ_DELETES_PROP)) > 0);
+        }
+
+        return false;
     }
 
     private static Set<Integer> identityPartitionColumnsInAllSpecs(Table table)

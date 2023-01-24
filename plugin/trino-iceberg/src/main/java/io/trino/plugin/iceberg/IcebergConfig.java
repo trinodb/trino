@@ -74,6 +74,7 @@ public class IcebergConfig
     private Optional<String> materializedViewsStorageSchema = Optional.empty();
     private boolean sortedWritingEnabled = true;
     private boolean queryPartitionFilterRequired;
+    private boolean aggregationPushdownEnabled;
 
     public CatalogType getCatalogType()
     {
@@ -380,5 +381,17 @@ public class IcebergConfig
     public boolean isQueryPartitionFilterRequired()
     {
         return queryPartitionFilterRequired;
+    }
+
+    public boolean isAggregationPushdownEnabled()
+    {
+        return aggregationPushdownEnabled;
+    }
+
+    @Config("iceberg.aggregation-pushdown.enabled")
+    public IcebergConfig setAggregationPushdownEnabled(boolean aggregationPushdownEnabled)
+    {
+        this.aggregationPushdownEnabled = aggregationPushdownEnabled;
+        return this;
     }
 }
