@@ -719,6 +719,12 @@ public final class PlanMatchPattern
                 .with(new CorrelationMatcher(correlationSymbolAliases));
     }
 
+    public static PlanMatchPattern correlatedJoin(List<String> correlationSymbolAliases, @Language("SQL") String filter, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
+    {
+        return correlatedJoin(correlationSymbolAliases, inputPattern, subqueryPattern)
+                .with(new CorrelatedJoinMatcher(PlanBuilder.expression(filter)));
+    }
+
     public static PlanMatchPattern groupId(List<List<String>> groupingSets, String groupIdSymbol, PlanMatchPattern source)
     {
         return groupId(groupingSets, ImmutableList.of(), groupIdSymbol, source);
