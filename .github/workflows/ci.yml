@@ -70,8 +70,7 @@ jobs:
         with:
           java-version: ${{ matrix.java-version }}
       - name: Download all Trino dependencies to make sure cache is complete
-        run: |
-          $RETRY $MAVEN dependency:go-offline
+        run: ./.github/bin/download-maven-dependencies.sh
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
