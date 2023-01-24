@@ -13,10 +13,12 @@
  */
 package io.trino.operator.output;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
+import io.trino.execution.TaskManagerConfig.PagePartitioningStrategy;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
@@ -48,6 +50,8 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.trino.execution.TaskManagerConfig.PagePartitioningStrategy.COLUMNAR;
+import static io.trino.execution.TaskManagerConfig.PagePartitioningStrategy.ROW_WISE;
 import static io.trino.execution.buffer.PageSplitterUtil.splitPage;
 import static io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputInfo;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
@@ -75,6 +79,7 @@ public class PagePartitioner
     private PartitionedOutputInfoSupplier partitionedOutputInfoSupplier;
 
     private boolean hasAnyRowBeenReplicated;
+    private PagePartitioningStrategy partitioningStrategy;
 
     public PagePartitioner(
             PartitionFunction partitionFunction,
@@ -88,7 +93,8 @@ public class PagePartitioner
             DataSize maxMemory,
             PositionsAppenderFactory positionsAppenderFactory,
             Optional<Slice> exchangeEncryptionKey,
-            AggregatedMemoryContext aggregatedMemoryContext)
+            AggregatedMemoryContext aggregatedMemoryContext,
+            PagePartitioningStrategy partitioningStrategy)
     {
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
         this.partitionChannels = Ints.toArray(requireNonNull(partitionChannels, "partitionChannels is null"));
@@ -131,6 +137,7 @@ public class PagePartitioner
         this.memoryContext = aggregatedMemoryContext.newLocalMemoryContext(PagePartitioner.class.getSimpleName());
         this.partitionsInitialRetainedSize = getRetainedSizeInBytes();
         this.memoryContext.setBytes(partitionsInitialRetainedSize);
+        this.partitioningStrategy = requireNonNull(partitioningStrategy, "partitioningStrategy is null");
     }
 
     // sets up this partitioner for the new operator
@@ -147,7 +154,7 @@ public class PagePartitioner
             return;
         }
 
-        if (page.getPositionCount() < partitionFunction.getPartitionCount() * COLUMNAR_STRATEGY_COEFFICIENT) {
+        if (shouldPartitionByRow(page)) {
             // Partition will have on average less than COLUMNAR_STRATEGY_COEFFICIENT rows.
             // Doing it column-wise would degrade performance, so we fall back to row-wise approach.
             // Performance degradation is the worst in case of skewed hash distribution when only small subset
@@ -158,6 +165,34 @@ public class PagePartitioner
             partitionPageByColumn(page);
         }
         updateMemoryUsage();
+    }
+
+    private boolean shouldPartitionByRow(Page page)
+    {
+        switch (partitioningStrategy) {
+            case MOST_EFFICIENT_PER_PAGE -> {
+                return isRowBasedPartitioningMoreEfficient(page);
+            }
+            case MOST_EFFICIENT_FOR_FIRST_PAGE -> {
+                boolean partitionByRow = isRowBasedPartitioningMoreEfficient(page);
+                // keep using same strategy to save memory
+                partitioningStrategy = partitionByRow ? ROW_WISE : COLUMNAR;
+                return partitionByRow;
+            }
+            case COLUMNAR -> {
+                return false;
+            }
+            case ROW_WISE -> {
+                return true;
+            }
+            default -> throw new IllegalStateException("Unexpected partitioningStrategy: " + partitioningStrategy);
+        }
+    }
+
+    @VisibleForTesting
+    boolean isRowBasedPartitioningMoreEfficient(Page page)
+    {
+        return page.getPositionCount() < partitionFunction.getPartitionCount() * COLUMNAR_STRATEGY_COEFFICIENT;
     }
 
     private void updateMemoryUsage()
@@ -171,7 +206,7 @@ public class PagePartitioner
         memoryContext.setBytes(partitionsSizeInBytes + partitionsInitialRetainedSize);
     }
 
-    public void partitionPageByRow(Page page)
+    private void partitionPageByRow(Page page)
     {
         requireNonNull(page, "page is null");
         if (page.getPositionCount() == 0) {
@@ -227,7 +262,7 @@ public class PagePartitioner
         }
     }
 
-    public void partitionPageByColumn(Page page)
+    private void partitionPageByColumn(Page page)
     {
         IntArrayList[] partitionedPositions = partitionPositions(page);
 
@@ -498,10 +533,23 @@ public class PagePartitioner
     {
         // We use a foreach loop instead of streams
         // as it has much better performance.
+        return getPositionsAppendersSizeInBytes() + getPageBuildersSizeInBytes();
+    }
+
+    @VisibleForTesting
+    long getPositionsAppendersSizeInBytes()
+    {
         long sizeInBytes = 0;
         for (PositionsAppenderPageBuilder pageBuilder : positionsAppenders) {
             sizeInBytes += pageBuilder.getSizeInBytes();
         }
+        return sizeInBytes;
+    }
+
+    @VisibleForTesting
+    long getPageBuildersSizeInBytes()
+    {
+        long sizeInBytes = 0;
         for (PageBuilder pageBuilder : pageBuilders) {
             sizeInBytes += pageBuilder.getSizeInBytes();
         }

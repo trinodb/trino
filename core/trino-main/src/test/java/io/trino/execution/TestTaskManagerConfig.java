@@ -26,6 +26,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit;
+import static io.trino.execution.TaskManagerConfig.PagePartitioningStrategy.COLUMNAR;
+import static io.trino.execution.TaskManagerConfig.PagePartitioningStrategy.MOST_EFFICIENT_PER_PAGE;
 import static io.trino.util.MachineInfo.getAvailablePhysicalProcessorCount;
 import static it.unimi.dsi.fastutil.HashCommon.nextPowerOfTwo;
 import static java.lang.Math.max;
@@ -61,6 +63,7 @@ public class TestTaskManagerConfig
                 .setSinkMaxBroadcastBufferSize(DataSize.of(200, Unit.MEGABYTE))
                 .setMaxPagePartitioningBufferSize(DataSize.of(32, Unit.MEGABYTE))
                 .setPagePartitioningBufferPoolSize(8)
+                .setPagePartitioningStrategy(MOST_EFFICIENT_PER_PAGE)
                 .setScaleWritersEnabled(true)
                 .setScaleWritersMaxWriterCount(DEFAULT_SCALE_WRITERS_MAX_WRITER_COUNT)
                 .setWriterCount(1)
@@ -105,6 +108,7 @@ public class TestTaskManagerConfig
                 .put("sink.max-broadcast-buffer-size", "128MB")
                 .put("driver.max-page-partitioning-buffer-size", "40MB")
                 .put("driver.page-partitioning-buffer-pool-size", "0")
+                .put("driver.page-partitioning-strategy", "COLUMNAR")
                 .put("task.scale-writers.enabled", "false")
                 .put("task.scale-writers.max-writer-count", Integer.toString(maxWriterCount))
                 .put("task.writer-count", "4")
@@ -144,6 +148,7 @@ public class TestTaskManagerConfig
                 .setSinkMaxBroadcastBufferSize(DataSize.of(128, Unit.MEGABYTE))
                 .setMaxPagePartitioningBufferSize(DataSize.of(40, Unit.MEGABYTE))
                 .setPagePartitioningBufferPoolSize(0)
+                .setPagePartitioningStrategy(COLUMNAR)
                 .setScaleWritersEnabled(false)
                 .setScaleWritersMaxWriterCount(maxWriterCount)
                 .setWriterCount(4)

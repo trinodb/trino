@@ -53,6 +53,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createLongsBlock;
+import static io.trino.execution.TaskManagerConfig.PagePartitioningStrategy.MOST_EFFICIENT_PER_PAGE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -100,7 +101,8 @@ public class TestPagePartitionerPool
                 new PositionsAppenderFactory(new BlockTypeOperators()),
                 Optional.empty(),
                 memoryContext,
-                2);
+                2,
+                MOST_EFFICIENT_PER_PAGE);
 
         assertEquals(memoryContext.getBytes(), 0);
         // first split, too small for a flush

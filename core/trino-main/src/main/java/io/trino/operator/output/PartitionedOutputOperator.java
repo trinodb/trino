@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
+import io.trino.execution.TaskManagerConfig.PagePartitioningStrategy;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.AggregatedMemoryContext;
@@ -60,6 +61,7 @@ public class PartitionedOutputOperator
         private final Optional<Slice> exchangeEncryptionKey;
         private final AggregatedMemoryContext memoryContext;
         private final int pagePartitionerPoolSize;
+        private final PagePartitioningStrategy partitioningStrategy;
 
         public PartitionedOutputFactory(
                 PartitionFunction partitionFunction,
@@ -72,7 +74,8 @@ public class PartitionedOutputOperator
                 PositionsAppenderFactory positionsAppenderFactory,
                 Optional<Slice> exchangeEncryptionKey,
                 AggregatedMemoryContext memoryContext,
-                int pagePartitionerPoolSize)
+                int pagePartitionerPoolSize,
+                PagePartitioningStrategy partitioningStrategy)
         {
             this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
             this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
@@ -85,6 +88,7 @@ public class PartitionedOutputOperator
             this.exchangeEncryptionKey = requireNonNull(exchangeEncryptionKey, "exchangeEncryptionKey is null");
             this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
             this.pagePartitionerPoolSize = pagePartitionerPoolSize;
+            this.partitioningStrategy = requireNonNull(partitioningStrategy, "partitioningStrategy is null");
         }
 
         @Override
@@ -111,7 +115,8 @@ public class PartitionedOutputOperator
                     positionsAppenderFactory,
                     exchangeEncryptionKey,
                     memoryContext,
-                    pagePartitionerPoolSize);
+                    pagePartitionerPoolSize,
+                    partitioningStrategy);
         }
     }
 
@@ -135,6 +140,7 @@ public class PartitionedOutputOperator
         private final AggregatedMemoryContext memoryContext;
         private final int pagePartitionerPoolSize;
         private final PagePartitionerPool pagePartitionerPool;
+        private final PagePartitioningStrategy partitioningStrategy;
 
         public PartitionedOutputOperatorFactory(
                 int operatorId,
@@ -152,7 +158,8 @@ public class PartitionedOutputOperator
                 PositionsAppenderFactory positionsAppenderFactory,
                 Optional<Slice> exchangeEncryptionKey,
                 AggregatedMemoryContext memoryContext,
-                int pagePartitionerPoolSize)
+                int pagePartitionerPoolSize,
+                PagePartitioningStrategy partitioningStrategy)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -170,6 +177,7 @@ public class PartitionedOutputOperator
             this.exchangeEncryptionKey = requireNonNull(exchangeEncryptionKey, "exchangeEncryptionKey is null");
             this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
             this.pagePartitionerPoolSize = pagePartitionerPoolSize;
+            this.partitioningStrategy = requireNonNull(partitioningStrategy, "partitioningStrategy is null");
             this.pagePartitionerPool = new PagePartitionerPool(
                     pagePartitionerPoolSize,
                     () -> new PagePartitioner(
@@ -184,7 +192,8 @@ public class PartitionedOutputOperator
                             maxMemory,
                             positionsAppenderFactory,
                             exchangeEncryptionKey,
-                            memoryContext));
+                            memoryContext,
+                            partitioningStrategy));
         }
 
         @Override
@@ -223,7 +232,8 @@ public class PartitionedOutputOperator
                     positionsAppenderFactory,
                     exchangeEncryptionKey,
                     memoryContext,
-                    pagePartitionerPoolSize);
+                    pagePartitionerPoolSize,
+                    partitioningStrategy);
         }
     }
 

@@ -40,6 +40,7 @@ import io.trino.execution.StageId;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.TaskManagerConfig.PagePartitioningStrategy;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.index.IndexManager;
@@ -391,6 +392,7 @@ public class LocalExecutionPlanner
     private final IndexJoinLookupStats indexJoinLookupStats;
     private final DataSize maxPartialAggregationMemorySize;
     private final DataSize maxPagePartitioningBufferSize;
+    private final PagePartitioningStrategy pagePartitioningStrategy;
     private final DataSize maxLocalExchangeBufferSize;
     private final SpillerFactory spillerFactory;
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
@@ -475,6 +477,7 @@ public class LocalExecutionPlanner
         this.partitioningSpillerFactory = requireNonNull(partitioningSpillerFactory, "partitioningSpillerFactory is null");
         this.maxPartialAggregationMemorySize = taskManagerConfig.getMaxPartialAggregationMemoryUsage();
         this.maxPagePartitioningBufferSize = taskManagerConfig.getMaxPagePartitioningBufferSize();
+        this.pagePartitioningStrategy = taskManagerConfig.getPagePartitioningStrategy();
         this.maxLocalExchangeBufferSize = taskManagerConfig.getMaxLocalExchangeBufferSize();
         this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
@@ -584,7 +587,8 @@ public class LocalExecutionPlanner
                         positionsAppenderFactory,
                         taskContext.getSession().getExchangeEncryptionKey(),
                         taskContext.newAggregateMemoryContext(),
-                        getPagePartitioningBufferPoolSize(taskContext.getSession())));
+                        getPagePartitioningBufferPoolSize(taskContext.getSession()),
+                        pagePartitioningStrategy));
     }
 
     public LocalExecutionPlan plan(

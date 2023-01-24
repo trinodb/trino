@@ -65,6 +65,7 @@ public class TaskManagerConfig
     private DataSize sinkMaxBroadcastBufferSize = DataSize.of(200, Unit.MEGABYTE);
     private DataSize maxPagePartitioningBufferSize = DataSize.of(32, Unit.MEGABYTE);
     private int pagePartitioningBufferPoolSize = 8;
+    private PagePartitioningStrategy pagePartitioningStrategy = PagePartitioningStrategy.MOST_EFFICIENT_PER_PAGE;
 
     private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
@@ -393,6 +394,19 @@ public class TaskManagerConfig
         return this;
     }
 
+    @NotNull
+    public PagePartitioningStrategy getPagePartitioningStrategy()
+    {
+        return pagePartitioningStrategy;
+    }
+
+    @Config("driver.page-partitioning-strategy")
+    public TaskManagerConfig setPagePartitioningStrategy(PagePartitioningStrategy pagePartitioningStrategy)
+    {
+        this.pagePartitioningStrategy = pagePartitioningStrategy;
+        return this;
+    }
+
     @MinDuration("5s")
     @NotNull
     public Duration getClientTimeout()
@@ -602,5 +616,14 @@ public class TaskManagerConfig
     public void applyFaultTolerantExecutionDefaults()
     {
         taskConcurrency = 8;
+    }
+
+    public enum PagePartitioningStrategy
+    {
+        MOST_EFFICIENT_FOR_FIRST_PAGE,
+        MOST_EFFICIENT_PER_PAGE,
+        COLUMNAR,
+        ROW_WISE,
+        /**/;
     }
 }

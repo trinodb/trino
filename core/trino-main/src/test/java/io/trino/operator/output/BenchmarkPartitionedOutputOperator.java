@@ -90,6 +90,7 @@ import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.block.BlockAssertions.createRandomLongsBlock;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
+import static io.trino.execution.TaskManagerConfig.PagePartitioningStrategy.MOST_EFFICIENT_PER_PAGE;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.output.BenchmarkPartitionedOutputOperator.BenchmarkData.TestType;
@@ -467,7 +468,8 @@ public class BenchmarkPartitionedOutputOperator
                     POSITIONS_APPENDER_FACTORY,
                     Optional.empty(),
                     newSimpleAggregatedMemoryContext(),
-                    0);
+                    0,
+                    MOST_EFFICIENT_PER_PAGE);
             return (PartitionedOutputOperator) operatorFactory
                     .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), serdeFactory)
                     .createOperator(createDriverContext());

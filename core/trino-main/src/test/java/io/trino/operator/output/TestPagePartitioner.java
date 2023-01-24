@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine;
+import io.trino.execution.TaskManagerConfig.PagePartitioningStrategy;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBuffer;
@@ -75,6 +76,10 @@ import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
+import static io.trino.execution.TaskManagerConfig.PagePartitioningStrategy.COLUMNAR;
+import static io.trino.execution.TaskManagerConfig.PagePartitioningStrategy.MOST_EFFICIENT_FOR_FIRST_PAGE;
+import static io.trino.execution.TaskManagerConfig.PagePartitioningStrategy.MOST_EFFICIENT_PER_PAGE;
+import static io.trino.execution.TaskManagerConfig.PagePartitioningStrategy.ROW_WISE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -148,31 +153,34 @@ public class TestPagePartitioner
         assertThat(partitioned).isEmpty();
     }
 
-    @Test(dataProvider = "partitioningMode")
-    public void testOutputEqualsInput(PartitioningMode partitioningMode)
+    @Test(dataProvider = "partitioningStrategy")
+    public void testOutputEqualsInput(PagePartitioningStrategy partitioningStrategy)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
+        PagePartitioner pagePartitioner = pagePartitioner(BIGINT)
+                .withPartitioningStrategy(partitioningStrategy)
+                .build();
         Page page = new Page(createLongSequenceBlock(0, POSITIONS_PER_PAGE));
         List<Object> expected = readLongs(Stream.of(page), 0);
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(pagePartitioner, partitioningStrategy, page);
 
         List<Object> partitioned = readLongs(outputBuffer.getEnqueuedDeserialized(), 0);
         assertThat(partitioned).containsExactlyInAnyOrderElementsOf(expected); // order is different due to 2 partitions joined
     }
 
-    @Test(dataProvider = "partitioningMode")
-    public void testOutputForPageWithNoBlockPartitionFunction(PartitioningMode partitioningMode)
+    @Test(dataProvider = "partitioningStrategy")
+    public void testOutputForPageWithNoBlockPartitionFunction(PagePartitioningStrategy partitioningStrategy)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT)
                 .withPartitionFunction(new BucketPartitionFunction(
                         ROUND_ROBIN.createBucketFunction(null, false, PARTITION_COUNT, null),
                         IntStream.range(0, PARTITION_COUNT).toArray()))
                 .withPartitionChannels(ImmutableList.of())
+                .withPartitioningStrategy(partitioningStrategy)
                 .build();
         Page page = new Page(createLongSequenceBlock(0, POSITIONS_PER_PAGE));
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(pagePartitioner, partitioningStrategy, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
         assertThat(partition0).containsExactly(0L, 2L, 4L, 6L);
@@ -180,28 +188,33 @@ public class TestPagePartitioner
         assertThat(partition1).containsExactly(1L, 3L, 5L, 7L);
     }
 
-    @Test(dataProvider = "partitioningMode")
-    public void testOutputForMultipleSimplePages(PartitioningMode partitioningMode)
+    @Test(dataProvider = "partitioningStrategy")
+    public void testOutputForMultipleSimplePages(PagePartitioningStrategy partitioningStrategy)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
+        PagePartitioner pagePartitioner = pagePartitioner(BIGINT)
+                .withPartitioningStrategy(partitioningStrategy)
+                .build();
         Page page1 = new Page(createLongSequenceBlock(0, POSITIONS_PER_PAGE));
         Page page2 = new Page(createLongSequenceBlock(1, POSITIONS_PER_PAGE));
         Page page3 = new Page(createLongSequenceBlock(2, POSITIONS_PER_PAGE));
         List<Object> expected = readLongs(Stream.of(page1, page2, page3), 0);
 
-        processPages(pagePartitioner, partitioningMode, page1, page2, page3);
+        processPages(pagePartitioner, partitioningStrategy, page1, page2, page3);
 
         List<Object> partitioned = readLongs(outputBuffer.getEnqueuedDeserialized(), 0);
         assertThat(partitioned).containsExactlyInAnyOrderElementsOf(expected); // order is different due to 2 partitions joined
     }
 
-    @Test(dataProvider = "partitioningMode")
-    public void testOutputForSimplePageWithReplication(PartitioningMode partitioningMode)
+    @Test(dataProvider = "partitioningStrategy")
+    public void testOutputForSimplePageWithReplication(PagePartitioningStrategy partitioningStrategy)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT).replicate().build();
+        PagePartitioner pagePartitioner = pagePartitioner(BIGINT)
+                .withPartitioningStrategy(partitioningStrategy)
+                .replicate()
+                .build();
         Page page = new Page(createLongsBlock(0L, 1L, 2L, 3L, null));
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(pagePartitioner, partitioningStrategy, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
         assertThat(partition0).containsExactly(0L, 2L, null);
@@ -209,13 +222,16 @@ public class TestPagePartitioner
         assertThat(partition1).containsExactly(0L, 1L, 3L); // position 0 copied to all partitions
     }
 
-    @Test(dataProvider = "partitioningMode")
-    public void testOutputForSimplePageWithNullChannel(PartitioningMode partitioningMode)
+    @Test(dataProvider = "partitioningStrategy")
+    public void testOutputForSimplePageWithNullChannel(PagePartitioningStrategy partitioningStrategy)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT).withNullChannel(0).build();
+        PagePartitioner pagePartitioner = pagePartitioner(BIGINT)
+                .withPartitioningStrategy(partitioningStrategy)
+                .withNullChannel(0)
+                .build();
         Page page = new Page(createLongsBlock(0L, 1L, 2L, 3L, null));
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(pagePartitioner, partitioningStrategy, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
         assertThat(partition0).containsExactlyInAnyOrder(0L, 2L, null);
@@ -223,17 +239,18 @@ public class TestPagePartitioner
         assertThat(partition1).containsExactlyInAnyOrder(1L, 3L, null); // null copied to all partitions
     }
 
-    @Test(dataProvider = "partitioningMode")
-    public void testOutputForSimplePageWithPartitionConstant(PartitioningMode partitioningMode)
+    @Test(dataProvider = "partitioningStrategy")
+    public void testOutputForSimplePageWithPartitionConstant(PagePartitioningStrategy partitioningStrategy)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT)
                 .withPartitionConstants(ImmutableList.of(Optional.of(new NullableValue(BIGINT, 1L))))
                 .withPartitionChannels(-1)
+                .withPartitioningStrategy(partitioningStrategy)
                 .build();
         Page page = new Page(createLongsBlock(0L, 1L, 2L, 3L, null));
         List<Object> allValues = readLongs(Stream.of(page), 0);
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(pagePartitioner, partitioningStrategy, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
         assertThat(partition0).isEmpty();
@@ -241,17 +258,18 @@ public class TestPagePartitioner
         assertThat(partition1).containsExactlyElementsOf(allValues);
     }
 
-    @Test(dataProvider = "partitioningMode")
-    public void testOutputForSimplePageWithPartitionConstantAndHashBlock(PartitioningMode partitioningMode)
+    @Test(dataProvider = "partitioningStrategy")
+    public void testOutputForSimplePageWithPartitionConstantAndHashBlock(PagePartitioningStrategy partitioningStrategy)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT)
                 .withPartitionConstants(ImmutableList.of(Optional.empty(), Optional.of(new NullableValue(BIGINT, 1L))))
                 .withPartitionChannels(0, -1) // use first block and constant block at index 1 as input to partitionFunction
                 .withHashChannels(0, 1) // use both channels to calculate partition (a+b) mod 2
+                .withPartitioningStrategy(partitioningStrategy)
                 .build();
         Page page = new Page(createLongsBlock(0L, 1L, 2L, 3L));
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(pagePartitioner, partitioningStrategy, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
         assertThat(partition0).containsExactly(1L, 3L);
@@ -259,13 +277,15 @@ public class TestPagePartitioner
         assertThat(partition1).containsExactly(0L, 2L);
     }
 
-    @Test(dataProvider = "partitioningMode")
-    public void testPartitionPositionsWithRleNotNull(PartitioningMode partitioningMode)
+    @Test(dataProvider = "partitioningStrategy")
+    public void testPartitionPositionsWithRleNotNull(PagePartitioningStrategy partitioningStrategy)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT, BIGINT).build();
+        PagePartitioner pagePartitioner = pagePartitioner(BIGINT, BIGINT)
+                .withPartitioningStrategy(partitioningStrategy)
+                .build();
         Page page = new Page(createRepeatedValuesBlock(0, POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(pagePartitioner, partitioningStrategy, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 1);
         assertThat(partition0).containsExactlyElementsOf(readLongs(Stream.of(page), 1));
@@ -274,13 +294,16 @@ public class TestPagePartitioner
         assertThat(outputBuffer.getEnqueuedDeserialized(1)).isEmpty();
     }
 
-    @Test(dataProvider = "partitioningMode")
-    public void testPartitionPositionsWithRleNotNullWithReplication(PartitioningMode partitioningMode)
+    @Test(dataProvider = "partitioningStrategy")
+    public void testPartitionPositionsWithRleNotNullWithReplication(PagePartitioningStrategy partitioningStrategy)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT, BIGINT).replicate().build();
+        PagePartitioner pagePartitioner = pagePartitioner(BIGINT, BIGINT)
+                .replicate()
+                .withPartitioningStrategy(partitioningStrategy)
+                .build();
         Page page = new Page(createRepeatedValuesBlock(0, POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(pagePartitioner, partitioningStrategy, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 1);
         assertThat(partition0).containsExactlyElementsOf(readLongs(Stream.of(page), 1));
@@ -288,13 +311,16 @@ public class TestPagePartitioner
         assertThat(partition1).containsExactly(0L); // position 0 copied to all partitions
     }
 
-    @Test(dataProvider = "partitioningMode")
-    public void testPartitionPositionsWithRleNullWithNullChannel(PartitioningMode partitioningMode)
+    @Test(dataProvider = "partitioningStrategy")
+    public void testPartitionPositionsWithRleNullWithNullChannel(PagePartitioningStrategy partitioningStrategy)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT, BIGINT).withNullChannel(0).build();
+        PagePartitioner pagePartitioner = pagePartitioner(BIGINT, BIGINT)
+                .withNullChannel(0)
+                .withPartitioningStrategy(partitioningStrategy)
+                .build();
         Page page = new Page(RunLengthEncodedBlock.create(createLongsBlock((Long) null), POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(pagePartitioner, partitioningStrategy, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 1);
         assertThat(partition0).containsExactlyElementsOf(readLongs(Stream.of(page), 1));
@@ -302,13 +328,15 @@ public class TestPagePartitioner
         assertThat(partition1).containsExactlyElementsOf(readLongs(Stream.of(page), 1));
     }
 
-    @Test(dataProvider = "partitioningMode")
-    public void testOutputForDictionaryBlock(PartitioningMode partitioningMode)
+    @Test(dataProvider = "partitioningStrategy")
+    public void testOutputForDictionaryBlock(PagePartitioningStrategy partitioningStrategy)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
+        PagePartitioner pagePartitioner = pagePartitioner(BIGINT)
+                .withPartitioningStrategy(partitioningStrategy)
+                .build();
         Page page = new Page(createLongDictionaryBlock(0, 10)); // must have at least 10 position to have non-trivial dict
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(pagePartitioner, partitioningStrategy, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
         assertThat(partition0).containsExactlyElementsOf(nCopies(5, 0L));
@@ -316,13 +344,15 @@ public class TestPagePartitioner
         assertThat(partition1).containsExactlyElementsOf(nCopies(5, 1L));
     }
 
-    @Test(dataProvider = "partitioningMode")
-    public void testOutputForOneValueDictionaryBlock(PartitioningMode partitioningMode)
+    @Test(dataProvider = "partitioningStrategy")
+    public void testOutputForOneValueDictionaryBlock(PagePartitioningStrategy partitioningStrategy)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
+        PagePartitioner pagePartitioner = pagePartitioner(BIGINT)
+                .withPartitioningStrategy(partitioningStrategy)
+                .build();
         Page page = new Page(DictionaryBlock.create(4, createLongsBlock(0), new int[] {0, 0, 0, 0}));
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(pagePartitioner, partitioningStrategy, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
         assertThat(partition0).containsExactlyElementsOf(nCopies(4, 0L));
@@ -330,13 +360,15 @@ public class TestPagePartitioner
         assertThat(partition1).isEmpty();
     }
 
-    @Test(dataProvider = "partitioningMode")
-    public void testOutputForViewDictionaryBlock(PartitioningMode partitioningMode)
+    @Test(dataProvider = "partitioningStrategy")
+    public void testOutputForViewDictionaryBlock(PagePartitioningStrategy partitioningStrategy)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
+        PagePartitioner pagePartitioner = pagePartitioner(BIGINT)
+                .withPartitioningStrategy(partitioningStrategy)
+                .build();
         Page page = new Page(DictionaryBlock.create(4, createLongSequenceBlock(4, 8), new int[] {1, 0, 3, 2}));
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(pagePartitioner, partitioningStrategy, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
         assertThat(partition0).containsExactlyInAnyOrder(4L, 6L);
@@ -344,16 +376,66 @@ public class TestPagePartitioner
         assertThat(partition1).containsExactlyInAnyOrder(5L, 7L);
     }
 
-    @Test(dataProvider = "typesWithPartitioningMode")
-    public void testOutputForSimplePageWithType(Type type, PartitioningMode partitioningMode)
+    @Test(dataProvider = "typesWithPartitioningStrategy")
+    public void testOutputForSimplePageWithType(Type type, PagePartitioningStrategy partitioningStrategy)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT, type).build();
+        PagePartitioner pagePartitioner = pagePartitioner(BIGINT, type)
+                .withPartitioningStrategy(partitioningStrategy)
+                .build();
         Page page = new Page(
                 createLongSequenceBlock(0, POSITIONS_PER_PAGE), // partition block
                 createBlockForType(type, POSITIONS_PER_PAGE));
         List<Object> expected = readChannel(Stream.of(page), 1, type);
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(pagePartitioner, partitioningStrategy, page);
+
+        List<Object> partitioned = readChannel(outputBuffer.getEnqueuedDeserialized(), 1, type);
+        assertThat(partitioned).containsExactlyInAnyOrderElementsOf(expected); // order is different due to 2 partitions joined
+    }
+
+    @Test(dataProvider = "typesWithPartitioningStrategy")
+    public void testOutputForRowWisePreferredPages(Type type, PagePartitioningStrategy partitioningStrategy)
+    {
+        PagePartitioner pagePartitioner = pagePartitioner(BIGINT, type)
+                .withPartitionFunction(new SumModuloPartitionFunction(POSITIONS_PER_PAGE, 0))
+                .withPartitioningStrategy(partitioningStrategy)
+                .build();
+
+        // first page prefers row wise partitioning
+        Page page1 = new Page(
+                createLongSequenceBlock(0, POSITIONS_PER_PAGE),
+                createBlockForType(type, POSITIONS_PER_PAGE));
+        Page page2 = new Page(
+                createLongSequenceBlock(0, POSITIONS_PER_PAGE),
+                createBlockForType(type, POSITIONS_PER_PAGE));
+
+        List<Object> expected = readChannel(Stream.of(page1, page2), 1, type);
+
+        processPages(pagePartitioner, partitioningStrategy, page1, page2);
+
+        List<Object> partitioned = readChannel(outputBuffer.getEnqueuedDeserialized(), 1, type);
+        assertThat(partitioned).containsExactlyInAnyOrderElementsOf(expected); // order is different due to 2 partitions joined
+    }
+
+    @Test(dataProvider = "typesWithPartitioningStrategy")
+    public void testOutputForMixedPages(Type type, PagePartitioningStrategy partitioningStrategy)
+    {
+        PagePartitioner pagePartitioner = pagePartitioner(BIGINT, type)
+                .withPartitionFunction(new SumModuloPartitionFunction(POSITIONS_PER_PAGE, 0))
+                .withPartitioningStrategy(partitioningStrategy)
+                .build();
+
+        // first page prefers row wise partitioning
+        Page page1 = new Page(
+                createLongSequenceBlock(0, POSITIONS_PER_PAGE),
+                createBlockForType(type, POSITIONS_PER_PAGE));
+        Page page2 = new Page(
+                createLongSequenceBlock(0, POSITIONS_PER_PAGE * 4),
+                createBlockForType(type, POSITIONS_PER_PAGE * 4));
+
+        List<Object> expected = readChannel(Stream.of(page1, page2), 1, type);
+
+        processPages(pagePartitioner, partitioningStrategy, page1, page2);
 
         List<Object> partitioned = readChannel(outputBuffer.getEnqueuedDeserialized(), 1, type);
         assertThat(partitioned).containsExactlyInAnyOrderElementsOf(expected); // order is different due to 2 partitions joined
@@ -362,14 +444,13 @@ public class TestPagePartitioner
     @Test(dataProvider = "types")
     public void testOutputWithMixedRowWiseAndColumnarPartitioning(Type type)
     {
-        testOutputEqualsInput(type, PartitioningMode.COLUMNAR, PartitioningMode.ROW_WISE);
-        testOutputEqualsInput(type, PartitioningMode.ROW_WISE, PartitioningMode.COLUMNAR);
+        testOutputEqualsInput(type, COLUMNAR, ROW_WISE);
+        testOutputEqualsInput(type, ROW_WISE, COLUMNAR);
     }
 
-    private void testOutputEqualsInput(Type type, PartitioningMode mode1, PartitioningMode mode2)
+    private void testOutputEqualsInput(Type type, PagePartitioningStrategy strategy1, PagePartitioningStrategy strategy2)
     {
         PagePartitionerBuilder pagePartitionerBuilder = pagePartitioner(BIGINT, type, type);
-        PagePartitioner pagePartitioner = pagePartitionerBuilder.build();
         Page input = new Page(
                 createLongSequenceBlock(0, POSITIONS_PER_PAGE), // partition block
                 createBlockForType(type, POSITIONS_PER_PAGE),
@@ -377,20 +458,27 @@ public class TestPagePartitioner
 
         List<Object> expected = readChannel(Stream.of(input, input), 1, type);
 
-        mode1.partitionPage(pagePartitioner, input);
-        mode2.partitionPage(pagePartitioner, input);
+        PagePartitioner partitioner1 = pagePartitionerBuilder
+                .withPartitioningStrategy(strategy1)
+                .build();
+        partitioner1.partitionPage(input);
+        partitioner1.close();
 
-        pagePartitioner.close();
+        PagePartitioner partitioner2 = pagePartitionerBuilder
+                .withPartitioningStrategy(strategy2)
+                .build();
+        partitioner2.partitionPage(input);
+        partitioner2.close();
 
         List<Object> partitioned = readChannel(outputBuffer.getEnqueuedDeserialized(), 1, type);
         assertThat(partitioned).containsExactlyInAnyOrderElementsOf(expected); // output of the PagePartitioner can be reordered
         outputBuffer.clear();
     }
 
-    @DataProvider(name = "partitioningMode")
-    public static Object[][] partitioningMode()
+    @DataProvider(name = "partitioningStrategy")
+    public static Object[][] partitioningStrategy()
     {
-        return new Object[][] {{PartitioningMode.ROW_WISE}, {PartitioningMode.COLUMNAR}};
+        return new Object[][] {{ROW_WISE}, {COLUMNAR}, {MOST_EFFICIENT_PER_PAGE}, {MOST_EFFICIENT_FOR_FIRST_PAGE}};
     }
 
     @DataProvider(name = "types")
@@ -399,12 +487,12 @@ public class TestPagePartitioner
         return getTypes().stream().map(type -> new Object[] {type}).toArray(Object[][]::new);
     }
 
-    @DataProvider(name = "typesWithPartitioningMode")
+    @DataProvider(name = "typesWithPartitioningStrategy")
     public static Object[][] typesWithPartitioningMode()
     {
         return getTypes().stream()
-                .flatMap(type -> Stream.of(PartitioningMode.values())
-                        .map(partitioningMode -> new Object[] {type, partitioningMode}))
+                .flatMap(type -> Stream.of(PagePartitioningStrategy.values())
+                        .map(strategy -> new Object[] {type, strategy}))
                 .toArray(Object[][]::new);
     }
 
@@ -434,10 +522,45 @@ public class TestPagePartitioner
         return createRandomBlockForType(type, positionsPerPage, 0.2F);
     }
 
-    private static void processPages(PagePartitioner pagePartitioner, PartitioningMode partitioningMode, Page... pages)
+    private static void processPages(PagePartitioner pagePartitioner, PagePartitioningStrategy partitioningStrategy, Page... pages)
     {
+        int columnarPreferred = 0;
+        int rowWisePreferred = 0;
+        PagePartitioningStrategy firstPagePreferred = null;
         for (Page page : pages) {
-            partitioningMode.partitionPage(pagePartitioner, page);
+            if (pagePartitioner.isRowBasedPartitioningMoreEfficient(page)) {
+                rowWisePreferred++;
+                if (firstPagePreferred == null) {
+                    firstPagePreferred = ROW_WISE;
+                }
+            }
+            else {
+                columnarPreferred++;
+                if (firstPagePreferred == null) {
+                    firstPagePreferred = COLUMNAR;
+                }
+            }
+            pagePartitioner.partitionPage(page);
+        }
+        switch (partitioningStrategy) {
+            case MOST_EFFICIENT_FOR_FIRST_PAGE -> {
+                if (firstPagePreferred == COLUMNAR) {
+                    assertThat(pagePartitioner.getPageBuildersSizeInBytes()).isZero();
+                }
+                else if (firstPagePreferred == ROW_WISE) {
+                    assertThat(pagePartitioner.getPositionsAppendersSizeInBytes()).isZero();
+                }
+            }
+            case MOST_EFFICIENT_PER_PAGE -> {
+                if (columnarPreferred == 0) {
+                    assertThat(pagePartitioner.getPositionsAppendersSizeInBytes()).isZero();
+                }
+                if (rowWisePreferred == 0) {
+                    assertThat(pagePartitioner.getPageBuildersSizeInBytes()).isZero();
+                }
+            }
+            case COLUMNAR -> assertThat(pagePartitioner.getPageBuildersSizeInBytes()).isZero();
+            case ROW_WISE -> assertThat(pagePartitioner.getPositionsAppendersSizeInBytes()).isZero();
         }
         pagePartitioner.close();
     }
@@ -480,26 +603,6 @@ public class TestPagePartitioner
         return new PagePartitionerBuilder(executor, scheduledExecutor, outputBuffer);
     }
 
-    private enum PartitioningMode
-    {
-        ROW_WISE {
-            @Override
-            public void partitionPage(PagePartitioner pagePartitioner, Page page)
-            {
-                pagePartitioner.partitionPageByRow(page);
-            }
-        },
-        COLUMNAR {
-            @Override
-            public void partitionPage(PagePartitioner pagePartitioner, Page page)
-            {
-                pagePartitioner.partitionPageByColumn(page);
-            }
-        };
-
-        public abstract void partitionPage(PagePartitioner pagePartitioner, Page page);
-    }
-
     public static class PagePartitionerBuilder
     {
         public static final PositionsAppenderFactory POSITIONS_APPENDER_FACTORY = new PositionsAppenderFactory(new BlockTypeOperators());
@@ -513,6 +616,7 @@ public class TestPagePartitioner
         private boolean shouldReplicate;
         private OptionalInt nullChannel = OptionalInt.empty();
         private List<Type> types;
+        private PagePartitioningStrategy partitioningStrategy = MOST_EFFICIENT_PER_PAGE;
 
         PagePartitionerBuilder(ExecutorService executor, ScheduledExecutorService scheduledExecutor, OutputBuffer outputBuffer)
         {
@@ -582,6 +686,12 @@ public class TestPagePartitioner
             return this;
         }
 
+        public PagePartitionerBuilder withPartitioningStrategy(PagePartitioningStrategy partitioningStrategy)
+        {
+            this.partitioningStrategy = partitioningStrategy;
+            return this;
+        }
+
         public PartitionedOutputOperator buildPartitionedOutputOperator()
         {
             DriverContext driverContext = buildDriverContext();
@@ -597,7 +707,8 @@ public class TestPagePartitioner
                     POSITIONS_APPENDER_FACTORY,
                     Optional.empty(),
                     newSimpleAggregatedMemoryContext(),
-                    1);
+                    1,
+                    partitioningStrategy);
             OperatorFactory factory = operatorFactory.createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), PAGES_SERDE_FACTORY);
             PartitionedOutputOperator operator = (PartitionedOutputOperator) factory
                     .createOperator(driverContext);
@@ -623,7 +734,8 @@ public class TestPagePartitioner
                     PARTITION_MAX_MEMORY,
                     POSITIONS_APPENDER_FACTORY,
                     Optional.empty(),
-                    newSimpleAggregatedMemoryContext());
+                    newSimpleAggregatedMemoryContext(),
+                    partitioningStrategy);
             pagePartitioner.setupOperator(operatorContext);
 
             return pagePartitioner;
