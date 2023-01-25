@@ -141,6 +141,35 @@ public class SlicePositionsAppender
     }
 
     @Override
+    public void append(int position, Block source)
+    {
+        ensurePositionCapacity(positionCount + 1);
+        if (source.isNull(position)) {
+            valueIsNull[positionCount] = true;
+            offsets[positionCount + 1] = getCurrentOffset();
+            positionCount++;
+
+            hasNullValue = true;
+            updateSize(1, 0);
+        }
+        else {
+            hasNonNullValue = true;
+            int currentOffset = getCurrentOffset();
+            int sliceLength = source.getSliceLength(position);
+            Slice slice = source.getSlice(position, 0, sliceLength);
+
+            ensureExtraBytesCapacity(sliceLength);
+
+            slice.getBytes(0, bytes, currentOffset, sliceLength);
+
+            offsets[positionCount + 1] = currentOffset + sliceLength;
+
+            positionCount++;
+            updateSize(1, sliceLength);
+        }
+    }
+
+    @Override
     public Block build()
     {
         Block result;

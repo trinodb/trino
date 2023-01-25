@@ -64,6 +64,20 @@ public class UnnestingPositionsAppender
     }
 
     @Override
+    public void append(int position, Block source)
+    {
+        if (source instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
+            delegate.append(0, runLengthEncodedBlock.getValue());
+        }
+        else if (source instanceof DictionaryBlock dictionaryBlock) {
+            delegate.append(dictionaryBlock.getId(position), dictionaryBlock.getDictionary());
+        }
+        else {
+            delegate.append(position, source);
+        }
+    }
+
+    @Override
     public Block build()
     {
         return delegate.build();
