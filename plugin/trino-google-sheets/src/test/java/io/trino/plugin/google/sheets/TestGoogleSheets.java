@@ -19,6 +19,8 @@ import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.google.sheets.SheetsQueryRunner.createSheetsQueryRunner;
+import static io.trino.plugin.google.sheets.TestSheetsPlugin.DATA_SHEET_ID;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestGoogleSheets
@@ -77,5 +79,113 @@ public class TestGoogleSheets
     {
         assertQuery("desc table_with_duplicate_and_missing_column_names", "SELECT * FROM (VALUES('a','varchar','','')," +
                 " ('column_1','varchar','',''), ('column_2','varchar','',''), ('c','varchar','',''))");
+    }
+
+    @Test
+    public void testSheetQuerySimple()
+    {
+        assertQuery(
+                "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s'))".formatted(DATA_SHEET_ID),
+                "VALUES " +
+                        "('1', 'one')," +
+                        "('2', 'two')," +
+                        "('3', 'three')," +
+                        "('4', 'four')," +
+                        "('5', 'five')");
+    }
+
+    @Test
+    public void testSheetQueryFilter()
+    {
+        assertQuery(
+                "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s'))".formatted(DATA_SHEET_ID) +
+                "WHERE number = '1' and text = 'one'",
+                "VALUES " +
+                        "('1', 'one')");
+    }
+
+    @Test
+    public void testSheetQueryWithSheet()
+    {
+        assertQuery(
+                "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s', range => '%s'))".formatted(DATA_SHEET_ID, "number_text"),
+                "VALUES " +
+                        "('1', 'one')," +
+                        "('2', 'two')," +
+                        "('3', 'three')," +
+                        "('4', 'four')," +
+                        "('5', 'five')");
+    }
+
+    @Test
+    public void testSheetQueryWithSheetAndRangeWithoutHeader()
+    {
+        // The range skips the header row, the first row of the range is treated as a header
+        assertQuery(
+                "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s', range => '%s'))".formatted(DATA_SHEET_ID, "number_text!A2:B6") +
+                        "WHERE \"1\" = \"1\" and \"one\" = \"one\"",
+                "VALUES " +
+                        "('2', 'two')," +
+                        "('3', 'three')," +
+                        "('4', 'four')," +
+                        "('5', 'five')");
+    }
+
+    @Test
+    public void testSheetQueryWithSheetAndRowRange()
+    {
+        assertQuery(
+                "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s', range => '%s'))".formatted(DATA_SHEET_ID, "number_text!A1:B4") +
+                        "WHERE number = number and text = text",
+                "VALUES " +
+                        "('1', 'one')," +
+                        "('2', 'two')," +
+                        "('3', 'three')");
+    }
+
+    @Test
+    public void testSheetQueryWithSheetAndColumnRange()
+    {
+        assertQuery(
+                "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s', range => '%s'))".formatted(DATA_SHEET_ID, "number_text!A1:A6") +
+                "WHERE number = number",
+                "VALUES " +
+                        "('1')," +
+                        "('2')," +
+                        "('3')," +
+                        "('4')," +
+                        "('5')");
+    }
+
+    @Test
+    public void testSheetQueryWithSheetAndRowAndColumnRange()
+    {
+        assertQuery(
+                "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s', range => '%s'))".formatted(DATA_SHEET_ID, "number_text!B3:B5") +
+                "WHERE \"two\" = \"two\"",
+                "VALUES " +
+                        "('three')," +
+                        "('four')");
+    }
+
+    @Test
+    public void testSheetQueryWithSheetRangeInIdFails()
+    {
+        // Sheet ids with "#" are explicitly forbidden since "#" is the sheet separator
+        assertThatThrownBy(() -> query(
+                "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s#%s'))".formatted(DATA_SHEET_ID, "number_text")))
+                .hasMessageContaining("Google sheet ID %s cannot contain '#'. Provide a range through the 'range' argument.".formatted(DATA_SHEET_ID + "#number_text"));
+
+        // Attempting to put a sheet range in the id fails since the sheet id is invalid
+        assertThatThrownBy(() -> query(
+                "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s%s'))".formatted(DATA_SHEET_ID, "number_text")))
+                .hasMessageContaining("Failed reading data from sheet: %snumber_text#$1:$10000".formatted(DATA_SHEET_ID));
+    }
+
+    @Test
+    public void testSheetQueryWithInvalidSheetId()
+    {
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(gsheets.system.sheet(id => 'DOESNOTEXIST'))"))
+                .hasMessageContaining("Failed reading data from sheet: DOESNOTEXIST");
     }
 }

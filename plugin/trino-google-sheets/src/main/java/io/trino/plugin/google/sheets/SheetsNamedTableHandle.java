@@ -48,11 +48,6 @@ public final class SheetsNamedTableHandle
         return schemaTableName.getTableName();
     }
 
-    public SchemaTableName toSchemaTableName()
-    {
-        return schemaTableName;
-    }
-
     @Override
     public int hashCode()
     {

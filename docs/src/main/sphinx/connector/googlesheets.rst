@@ -68,8 +68,8 @@ containing the following columns in this order:
 
 * Table Name
 * Sheet ID
-* Owner
-* Notes
+* Owner (optional)
+* Notes (optional)
 
 See this `example sheet <https://docs.google.com/spreadsheets/d/1Es4HhWALUQjoa-bQh4a8B5HROz7dpGMfq_HbfoaW5LM>`_
 as a reference.
@@ -89,9 +89,13 @@ address of the service account.
 
 The sheet needs to be mapped to a Trino table name. Specify a table name
 (column A) and the sheet ID (column B) in the metadata sheet. To refer
-to a specific tab in the sheet, add the tab name after the sheet ID, separated
-with ``#``. If tab name is not provided, connector loads only 10,000 rows by default from
+to a specific range in the sheet, add the range after the sheet ID, separated
+with ``#``. If a range is not provided, the connector loads only 10,000 rows by default from
 the first tab in the sheet.
+
+The first row of the provided sheet range is used as the header and will determine the column
+names of the Trino table.
+For more details on sheet range syntax see the `google sheets docs <https://developers.google.com/sheets/api/guides/concepts>`_.
 
 API usage limits
 ----------------
@@ -133,3 +137,33 @@ SQL support
 The connector provides :ref:`globally available <sql-globally-available>` and
 :ref:`read operation <sql-read-operations>` statements to access data and
 metadata in Google Sheets.
+
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access Google Sheets.
+
+.. _google-sheets-sheet-function:
+
+``sheet(id, range) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``sheet`` function allows you to query a Google Sheet directly without
+specifying it as a named table in the metadata sheet.
+
+For example, for a catalog named 'example'::
+
+    SELECT *
+    FROM
+      TABLE(example.system.sheet(
+          id => 'googleSheetIdHere'));
+
+A sheet range or named range can be provided as an optional ``range`` argument.
+The default sheet range is ``$1:$10000`` if one is not provided::
+
+    SELECT *
+    FROM
+      TABLE(example.system.sheet(
+          id => 'googleSheetIdHere',
+          range => 'TabName!A1:B4'));
