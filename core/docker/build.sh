@@ -4,25 +4,30 @@ set -euo pipefail
 
 usage() {
     cat <<EOF 1>&2
-Usage: $0 [-h] [-a <ARCHITECTURES>] [-r <VERSION>]
+Usage: $0 [-h] [-a <ARCHITECTURES>] [-r <VERSION>] [-c]
 Builds the Trino Docker image
 
 -h       Display help
 -a       Build the specified comma-separated architectures, defaults to amd64,arm64
 -r       Build the specified Trino release version, downloads all required artifacts
+-c       Use trinodb/trino:latest as additional Docker build cache
 EOF
 }
 
 ARCHITECTURES=(amd64 arm64 ppc64le)
 TRINO_VERSION=
+BUILD_CACHE_IMAGE=
 
-while getopts ":a:h:r:" o; do
+while getopts ":a:h:r:c" o; do
     case "${o}" in
         a)
             IFS=, read -ra ARCHITECTURES <<< "$OPTARG"
             ;;
         r)
             TRINO_VERSION=${OPTARG}
+            ;;
+        c)
+            BUILD_CACHE_IMAGE="trinodb/trino:latest"
             ;;
         h)
             usage
@@ -71,13 +76,23 @@ TAG_PREFIX="trino:${TRINO_VERSION}"
 
 for arch in "${ARCHITECTURES[@]}"; do
     echo "🫙  Building the image for $arch"
-    docker build \
-        "${WORK_DIR}" \
-        --pull \
-        --platform "linux/$arch" \
-        -f Dockerfile \
-        -t "${TAG_PREFIX}-$arch" \
+    BUILD_OPTIONS=(
+        "${WORK_DIR}"
+        --platform "linux/$arch"
+        -f Dockerfile
+        -t "${TAG_PREFIX}-$arch"
         --build-arg "TRINO_VERSION=${TRINO_VERSION}"
+        )
+    if [ -n "${BUILD_CACHE_IMAGE}" ]; then
+        echo "🎯 Using ${BUILD_CACHE_IMAGE} as Docker build cache"
+        docker pull \
+            --platform "linux/$arch" \
+            "${BUILD_CACHE_IMAGE}"
+        BUILD_OPTIONS+=(--cache-from "${BUILD_CACHE_IMAGE}")
+    else
+        BUILD_OPTIONS+=(--pull)
+    fi
+    docker build "${BUILD_OPTIONS[@]}"
 done
 
 echo "🧹 Cleaning up the build context directory"
