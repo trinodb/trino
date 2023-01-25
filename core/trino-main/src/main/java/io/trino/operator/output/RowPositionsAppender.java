@@ -139,6 +139,36 @@ public class RowPositionsAppender
     }
 
     @Override
+    public void append(int position, Block value)
+    {
+        ensureCapacity(1);
+        if (value instanceof AbstractRowBlock sourceRowBlock) {
+            if (sourceRowBlock.isNull(position)) {
+                rowIsNull[positionCount] = true;
+                hasNullRow = true;
+            }
+            else {
+                // append not null row value
+                List<Block> fieldBlocks = sourceRowBlock.getChildren();
+                int fieldPosition = sourceRowBlock.getFieldBlockOffset(position);
+                for (int i = 0; i < fieldAppenders.length; i++) {
+                    fieldAppenders[i].append(fieldPosition, fieldBlocks.get(i));
+                }
+                hasNonNullRow = true;
+            }
+        }
+        else if (value.isNull(position)) {
+            rowIsNull[positionCount] = true;
+            hasNullRow = true;
+        }
+        else {
+            throw new IllegalArgumentException("unsupported block type: " + value);
+        }
+        positionCount++;
+        updateSize();
+    }
+
+    @Override
     public Block build()
     {
         Block[] fieldBlocks = new Block[fieldAppenders.length];
