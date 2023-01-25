@@ -38,7 +38,6 @@ import java.nio.ByteOrder;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetReaderUtils.castToByte;
-import static io.trino.parquet.ParquetReaderUtils.toShortExact;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.parquet.ParquetTypeUtils.checkBytesFitInShortDecimal;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
@@ -53,37 +52,6 @@ import static org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalType
 public class ApacheParquetValueDecoders
 {
     private ApacheParquetValueDecoders() {}
-
-    public static final class ShortApacheParquetValueDecoder
-            implements ValueDecoder<short[]>
-    {
-        private final ValuesReader delegate;
-
-        public ShortApacheParquetValueDecoder(ValuesReader delegate)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-        }
-
-        @Override
-        public void init(SimpleSliceInputStream input)
-        {
-            initialize(input, delegate);
-        }
-
-        @Override
-        public void read(short[] values, int offset, int length)
-        {
-            for (int i = offset; i < offset + length; i++) {
-                values[i] = toShortExact(delegate.readInteger());
-            }
-        }
-
-        @Override
-        public void skip(int n)
-        {
-            delegate.skip(n);
-        }
-    }
 
     public static final class IntToLongApacheParquetValueDecoder
             implements ValueDecoder<long[]>

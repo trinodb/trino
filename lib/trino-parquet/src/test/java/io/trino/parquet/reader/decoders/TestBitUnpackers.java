@@ -48,6 +48,29 @@ public class TestBitUnpackers
         }
     }
 
+    @Test(dataProvider = "deltaLength")
+    public void testShortDeltaUnpack(int length)
+    {
+        for (int bitWidth = 0; bitWidth <= 17; bitWidth++) {
+            Random random = new Random(123L * bitWidth * length);
+            byte[] buffer = new byte[(bitWidth * length) / Byte.SIZE + 1];
+            random.nextBytes(buffer);
+
+            short[] parquetUnpackerOutput = new short[length + 1];
+            short[] optimizedUnpackerOutput = new short[length + 1];
+            short firstValue = (short) random.nextInt();
+            parquetUnpackerOutput[0] = firstValue;
+            optimizedUnpackerOutput[0] = firstValue;
+            ApacheParquetShortUnpacker parquetUnpacker = new ApacheParquetShortUnpacker(bitWidth);
+            parquetUnpacker.unpackDelta(parquetUnpackerOutput, 1, asSliceStream(buffer), length);
+            DeltaPackingUtils.unpackDelta(optimizedUnpackerOutput, 1, length, asSliceStream(buffer), 0, (byte) bitWidth);
+
+            assertThat(optimizedUnpackerOutput)
+                    .as("Error at bit width %d", bitWidth)
+                    .isEqualTo(parquetUnpackerOutput);
+        }
+    }
+
     @Test(dataProvider = "length")
     public void testIntUnpackersUnpack(int length)
     {

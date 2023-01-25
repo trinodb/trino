@@ -40,6 +40,21 @@ public class TestColumnReaderBenchmark
     }
 
     @Test
+    public void testShortColumnReaderBenchmark()
+            throws IOException
+    {
+        for (int bitWidth = 0; bitWidth <= 16; bitWidth++) {
+            for (ParquetEncoding encoding : ImmutableList.of(PLAIN, DELTA_BINARY_PACKED)) {
+                BenchmarkShortColumnReader benchmark = new BenchmarkShortColumnReader();
+                benchmark.bitWidth = bitWidth;
+                benchmark.encoding = encoding;
+                benchmark.setup();
+                benchmark.read();
+            }
+        }
+    }
+
+    @Test
     public void testIntColumnReaderBenchmark()
             throws IOException
     {
