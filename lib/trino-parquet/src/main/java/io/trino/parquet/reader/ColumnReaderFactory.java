@@ -143,7 +143,7 @@ public final class ColumnReaderFactory
                     throw unsupportedException(type, field);
                 }
                 if (primitiveType == INT32) {
-                    return new FlatColumnReader<>(field, ValueDecoders::getIntToLongDecoder, LONG_ADAPTER, memoryContext);
+                    return new FlatColumnReader<>(field, TransformingValueDecoders::getInt32ToLongDecoder, LONG_ADAPTER, memoryContext);
                 }
                 if (primitiveType == INT64) {
                     return new FlatColumnReader<>(field, ValueDecoders::getLongDecoder, LONG_ADAPTER, memoryContext);
@@ -218,7 +218,7 @@ public final class ColumnReaderFactory
                 if (decimalType.getScale() == 0 && decimalType.getPrecision() >= MAX_INT_DIGITS
                         && primitiveType == INT32
                         && isIntegerAnnotation(annotation)) {
-                    return new FlatColumnReader<>(field, ValueDecoders::getIntToLongDecoder, LONG_ADAPTER, memoryContext);
+                    return new FlatColumnReader<>(field, TransformingValueDecoders::getInt32ToLongDecoder, LONG_ADAPTER, memoryContext);
                 }
                 if (!(annotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation)) {
                     throw unsupportedException(type, field);
