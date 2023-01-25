@@ -13,8 +13,11 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import org.apache.thrift.TConfiguration;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
+
+import java.nio.ByteBuffer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -54,6 +57,13 @@ public abstract class TFilterTransport
     }
 
     @Override
+    public int read(ByteBuffer dst)
+            throws TTransportException
+    {
+        return transport.read(dst);
+    }
+
+    @Override
     public int read(byte[] buf, int off, int len)
             throws TTransportException
     {
@@ -79,6 +89,13 @@ public abstract class TFilterTransport
             throws TTransportException
     {
         transport.write(buf, off, len);
+    }
+
+    @Override
+    public int write(ByteBuffer src)
+            throws TTransportException
+    {
+        return transport.write(src);
     }
 
     @Override
@@ -110,5 +127,25 @@ public abstract class TFilterTransport
     public void consumeBuffer(int len)
     {
         transport.consumeBuffer(len);
+    }
+
+    @Override
+    public TConfiguration getConfiguration()
+    {
+        return transport.getConfiguration();
+    }
+
+    @Override
+    public void updateKnownMessageSize(long size)
+            throws TTransportException
+    {
+        transport.updateKnownMessageSize(size);
+    }
+
+    @Override
+    public void checkReadBytesAvailable(long numBytes)
+            throws TTransportException
+    {
+        transport.checkReadBytesAvailable(numBytes);
     }
 }

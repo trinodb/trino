@@ -17,11 +17,11 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.hdfs.authentication.HadoopAuthentication;
 import io.trino.plugin.hive.ForHiveMetastore;
 import org.apache.hadoop.hive.metastore.security.DelegationTokenIdentifier;
-import org.apache.hadoop.hive.thrift.client.TUGIAssumingTransport;
 import org.apache.hadoop.security.SaslRpcServer;
 import org.apache.hadoop.security.token.Token;
 import org.apache.thrift.transport.TSaslClientTransport;
 import org.apache.thrift.transport.TTransport;
+import org.apache.thrift.transport.TTransportException;
 
 import javax.inject.Inject;
 import javax.security.auth.callback.Callback;
@@ -98,10 +98,13 @@ public class KerberosHiveMetastoreAuthentication
                         rawTransport);
             }
 
-            return new TUGIAssumingTransport(saslTransport, authentication.getUserGroupInformation());
+            return new TUgiAssumingTransport(saslTransport, authentication.getUserGroupInformation());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+        catch (TTransportException e) {
+            throw new RuntimeException(e);
         }
     }
 

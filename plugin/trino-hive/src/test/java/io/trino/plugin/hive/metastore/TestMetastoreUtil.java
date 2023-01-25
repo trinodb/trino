@@ -15,22 +15,22 @@ package io.trino.plugin.hive.metastore;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.hive.thrift.metastore.FieldSchema;
+import io.trino.hive.thrift.metastore.Order;
+import io.trino.hive.thrift.metastore.PrincipalPrivilegeSet;
+import io.trino.hive.thrift.metastore.SerDeInfo;
+import io.trino.hive.thrift.metastore.SkewedInfo;
+import io.trino.hive.thrift.metastore.StorageDescriptor;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.Order;
-import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
-import org.apache.hadoop.hive.metastore.api.SerDeInfo;
-import org.apache.hadoop.hive.metastore.api.SkewedInfo;
-import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
-import org.apache.hadoop.hive.metastore.utils.MetaStoreUtils;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -42,7 +42,6 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFi
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.apache.hadoop.hive.serde.serdeConstants.COLUMN_NAME_DELIMITER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
@@ -63,7 +62,7 @@ public class TestMetastoreUtil
             ImmutableList.of("col2", "col3"),
             ImmutableList.of(new Order("col2", 1)),
             ImmutableMap.of());
-    private static final org.apache.hadoop.hive.metastore.api.Table TEST_TABLE = new org.apache.hadoop.hive.metastore.api.Table(
+    private static final io.trino.hive.thrift.metastore.Table TEST_TABLE = new io.trino.hive.thrift.metastore.Table(
             "table_name",
             "db_name",
             "owner_name",
@@ -83,7 +82,7 @@ public class TestMetastoreUtil
         TEST_TABLE.setPrivileges(new PrincipalPrivilegeSet(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()));
     }
 
-    private static final org.apache.hadoop.hive.metastore.api.Partition TEST_PARTITION = new org.apache.hadoop.hive.metastore.api.Partition(
+    private static final io.trino.hive.thrift.metastore.Partition TEST_PARTITION = new io.trino.hive.thrift.metastore.Partition(
             ImmutableList.of("pk1v", "pk2v"),
             "db_name",
             "table_name",
@@ -102,7 +101,7 @@ public class TestMetastoreUtil
             ImmutableList.of("col2", "col3"),
             ImmutableList.of(new Order("col2", 0), new Order("col3", 1)),
             ImmutableMap.of("sk1", "sv1"));
-    private static final org.apache.hadoop.hive.metastore.api.Table TEST_TABLE_WITH_UNSUPPORTED_FIELDS = new org.apache.hadoop.hive.metastore.api.Table(
+    private static final io.trino.hive.thrift.metastore.Table TEST_TABLE_WITH_UNSUPPORTED_FIELDS = new io.trino.hive.thrift.metastore.Table(
             "table_name",
             "db_name",
             "owner_name",
@@ -117,7 +116,7 @@ public class TestMetastoreUtil
             "view original text",
             "view extended text",
             "MANAGED_TABLE");
-    private static final org.apache.hadoop.hive.metastore.api.Partition TEST_PARTITION_WITH_UNSUPPORTED_FIELDS = new org.apache.hadoop.hive.metastore.api.Partition(
+    private static final io.trino.hive.thrift.metastore.Partition TEST_PARTITION_WITH_UNSUPPORTED_FIELDS = new io.trino.hive.thrift.metastore.Partition(
             ImmutableList.of("pk1v", "pk2v"),
             "db_name",
             "table_name",
@@ -133,11 +132,35 @@ public class TestMetastoreUtil
                 ImmutableMap.of(ImmutableList.of("val1"), "loc1")));
     }
 
+    // equivalent code:
+    //   Properties expected = MetaStoreUtils.getTableMetadata(TEST_TABLE_WITH_UNSUPPORTED_FIELDS);
+    //   expected.remove(COLUMN_NAME_DELIMITER);
+    private static final Map<String, String> TEST_TABLE_METADATA = ImmutableMap.<String, String>builder()
+            .put("bucket_count", "100")
+            .put("bucket_field_name", "col2,col3")
+            .put("columns", "col1,col2,col3")
+            .put("columns.comments", "comment1\0\0")
+            .put("columns.types", "bigint:binary:string")
+            .put("file.inputformat", "com.facebook.hive.orc.OrcInputFormat")
+            .put("file.outputformat", "com.facebook.hive.orc.OrcOutputFormat")
+            .put("k1", "v1")
+            .put("k2", "v2")
+            .put("k3", "v3")
+            .put("location", "hdfs://VOL1:9000/db_name/table_name")
+            .put("name", "db_name.table_name")
+            .put("partition_columns", "pk1/pk2")
+            .put("partition_columns.types", "string:string")
+            .put("sdk1", "sdv1")
+            .put("sdk2", "sdv2")
+            .put("serialization.ddl", "struct table_name { i64 col1, binary col2, string col3}")
+            .put("serialization.lib", "com.facebook.hive.orc.OrcSerde")
+            .buildOrThrow();
+
     @Test
     public void testTableRoundTrip()
     {
         Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE, TEST_SCHEMA);
-        org.apache.hadoop.hive.metastore.api.Table metastoreApiTable = ThriftMetastoreUtil.toMetastoreApiTable(table, NO_PRIVILEGES);
+        io.trino.hive.thrift.metastore.Table metastoreApiTable = ThriftMetastoreUtil.toMetastoreApiTable(table, NO_PRIVILEGES);
         assertEquals(metastoreApiTable, TEST_TABLE);
     }
 
@@ -145,26 +168,22 @@ public class TestMetastoreUtil
     public void testPartitionRoundTrip()
     {
         Partition partition = ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION);
-        org.apache.hadoop.hive.metastore.api.Partition metastoreApiPartition = ThriftMetastoreUtil.toMetastoreApiPartition(partition);
+        io.trino.hive.thrift.metastore.Partition metastoreApiPartition = ThriftMetastoreUtil.toMetastoreApiPartition(partition);
         assertEquals(metastoreApiPartition, TEST_PARTITION);
     }
 
     @Test
     public void testHiveSchemaTable()
     {
-        Properties expected = MetaStoreUtils.getTableMetadata(TEST_TABLE_WITH_UNSUPPORTED_FIELDS);
-        expected.remove(COLUMN_NAME_DELIMITER);
         Properties actual = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA));
-        assertEquals(actual, expected);
+        assertEquals(actual, TEST_TABLE_METADATA);
     }
 
     @Test
     public void testHiveSchemaPartition()
     {
-        Properties expected = MetaStoreUtils.getPartitionMetadata(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS, TEST_TABLE_WITH_UNSUPPORTED_FIELDS);
-        expected.remove(COLUMN_NAME_DELIMITER);
         Properties actual = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS), ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA));
-        assertEquals(actual, expected);
+        assertEquals(actual, TEST_TABLE_METADATA);
     }
 
     @Test

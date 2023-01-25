@@ -16,11 +16,11 @@ package io.trino.plugin.hive;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.trino.hive.thrift.metastore.StorageDescriptor;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 
 import java.util.List;
 import java.util.Map;

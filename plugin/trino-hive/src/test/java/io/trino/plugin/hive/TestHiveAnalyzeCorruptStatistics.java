@@ -57,7 +57,7 @@ public class TestHiveAnalyzeCorruptStatistics
 
         // ANALYZE and drop_stats are unsupported for tables having broken column statistics
         assertThatThrownBy(() -> query("ANALYZE " + tableName))
-                .hasMessage(hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString()) // Thrift metastore doesn't throw helpful message
+                .hasMessage("%s: Socket is closed by peer.", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
                 .hasStackTraceContaining("ThriftHiveMetastore.setTableColumnStatistics");
 
         assertThatThrownBy(() -> query("CALL system.drop_stats('tpch', '" + tableName + "')"))

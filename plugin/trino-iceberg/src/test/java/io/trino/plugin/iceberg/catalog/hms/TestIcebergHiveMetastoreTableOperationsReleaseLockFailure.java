@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog.hms;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.hive.thrift.metastore.Table;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -103,7 +104,7 @@ public class TestIcebergHiveMetastoreTableOperationsReleaseLockFailure
             }
 
             @Override
-            public synchronized void createTable(org.apache.hadoop.hive.metastore.api.Table table)
+            public synchronized void createTable(Table table)
             {
                 // InMemoryThriftMetastore throws an exception if the table has any privileges set
                 table.setPrivileges(null);

@@ -90,7 +90,7 @@ public class SortingColumn
         return order;
     }
 
-    public static SortingColumn fromMetastoreApiOrder(org.apache.hadoop.hive.metastore.api.Order order, String tablePartitionName)
+    public static SortingColumn fromMetastoreApiOrder(io.trino.hive.thrift.metastore.Order order, String tablePartitionName)
     {
         return new SortingColumn(order.getCol(), Order.fromMetastoreApiOrder(order.getOrder(), tablePartitionName));
     }

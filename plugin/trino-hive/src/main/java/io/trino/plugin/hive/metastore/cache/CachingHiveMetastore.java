@@ -25,6 +25,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
 import io.trino.collect.cache.EvictableCacheBuilder;
+import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
@@ -53,7 +54,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.hive.metastore.api.DataOperationType;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
