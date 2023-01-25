@@ -28,7 +28,6 @@ import static io.trino.parquet.ParquetEncoding.DELTA_BINARY_PACKED;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.reader.TestData.randomInt;
-import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.IntToLongApacheParquetValueDecoder;
 import static io.trino.parquet.reader.flat.IntColumnAdapter.INT_ADAPTER;
 import static io.trino.parquet.reader.flat.LongColumnAdapter.LONG_ADAPTER;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -57,7 +56,7 @@ public final class TestIntValueDecoders
                 testArgs(
                         new TestType<>(
                                 createField(INT32, OptionalInt.empty(), BIGINT),
-                                ValueDecoders::getIntToLongDecoder,
+                                TransformingValueDecoders::getInt32ToLongDecoder,
                                 IntToLongApacheParquetValueDecoder::new,
                                 LONG_ADAPTER,
                                 (actual, expected) -> assertThat(actual).isEqualTo(expected)),
@@ -161,6 +160,37 @@ public final class TestIntValueDecoders
 
         @Override
         public void read(int[] values, int offset, int length)
+        {
+            for (int i = offset; i < offset + length; i++) {
+                values[i] = delegate.readInteger();
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
+    }
+
+    private static final class IntToLongApacheParquetValueDecoder
+            implements ValueDecoder<long[]>
+    {
+        private final ValuesReader delegate;
+
+        public IntToLongApacheParquetValueDecoder(ValuesReader delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            initialize(input, delegate);
+        }
+
+        @Override
+        public void read(long[] values, int offset, int length)
         {
             for (int i = offset; i < offset + length; i++) {
                 values[i] = delegate.readInteger();

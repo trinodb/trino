@@ -70,6 +70,18 @@ public class TestColumnReaderBenchmark
     }
 
     @Test
+    public void testInt32ToLongColumnReaderBenchmark()
+            throws IOException
+    {
+        for (ParquetEncoding encoding : ImmutableList.of(PLAIN, DELTA_BINARY_PACKED)) {
+            BenchmarkInt32ToLongColumnReader benchmark = new BenchmarkInt32ToLongColumnReader();
+            benchmark.encoding = encoding;
+            benchmark.setup();
+            benchmark.read();
+        }
+    }
+
+    @Test
     public void testLongColumnReaderBenchmark()
             throws IOException
     {

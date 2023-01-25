@@ -82,34 +82,6 @@ public final class PlainValueDecoders
         }
     }
 
-    public static final class IntToLongPlainValueDecoder
-            implements ValueDecoder<long[]>
-    {
-        private SimpleSliceInputStream input;
-
-        @Override
-        public void init(SimpleSliceInputStream input)
-        {
-            this.input = requireNonNull(input, "input is null");
-        }
-
-        @Override
-        public void read(long[] values, int offset, int length)
-        {
-            input.ensureBytesAvailable(Integer.BYTES * length);
-            int endOffset = offset + length;
-            for (int i = offset; i < endOffset; i++) {
-                values[i] = input.readIntUnsafe();
-            }
-        }
-
-        @Override
-        public void skip(int n)
-        {
-            input.skip(n * Integer.BYTES);
-        }
-    }
-
     public static final class IntToShortPlainValueDecoder
             implements ValueDecoder<short[]>
     {
