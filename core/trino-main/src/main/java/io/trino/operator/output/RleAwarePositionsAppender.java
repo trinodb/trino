@@ -91,6 +91,13 @@ public class RleAwarePositionsAppender
     }
 
     @Override
+    public void append(int position, Block value)
+    {
+        switchToFlat();
+        delegate.append(position, value);
+    }
+
+    @Override
     public Block build()
     {
         Block result;

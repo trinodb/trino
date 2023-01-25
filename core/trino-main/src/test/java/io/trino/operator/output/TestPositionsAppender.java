@@ -82,6 +82,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestPositionsAppender
@@ -197,6 +198,21 @@ public class TestPositionsAppender
         Block actual = positionsAppender.build();
         assertEquals(actual.getPositionCount(), 5);
         assertInstanceOf(actual, RunLengthEncodedBlock.class);
+    }
+
+    @Test(dataProvider = "types")
+    public void testRleAppendedWithSinglePositionDoesNotProduceRle(TestType type)
+    {
+        PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type.getType(), 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+
+        Block value = notNullBlock(type, 1);
+        positionsAppender.append(allPositions(3), rleBlock(value, 3));
+        positionsAppender.append(allPositions(2), rleBlock(value, 2));
+        positionsAppender.append(0, rleBlock(value, 2));
+
+        Block actual = positionsAppender.build();
+        assertEquals(actual.getPositionCount(), 6);
+        assertFalse(actual instanceof RunLengthEncodedBlock, actual.getClass().getSimpleName());
     }
 
     @Test(dataProvider = "types")
@@ -386,10 +402,34 @@ public class TestPositionsAppender
 
     private void testAppend(TestType type, List<BlockView> inputs)
     {
+        testAppendBatch(type, inputs);
+        testAppendSingle(type, inputs);
+    }
+
+    private void testAppendBatch(TestType type, List<BlockView> inputs)
+    {
         PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type.getType(), 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
         long initialRetainedSize = positionsAppender.getRetainedSizeInBytes();
 
         inputs.forEach(input -> positionsAppender.append(input.getPositions(), input.getBlock()));
+        long sizeInBytes = positionsAppender.getSizeInBytes();
+        assertGreaterThanOrEqual(positionsAppender.getRetainedSizeInBytes(), sizeInBytes);
+        Block actual = positionsAppender.build();
+
+        assertBlockIsValid(actual, sizeInBytes, type.getType(), inputs);
+        // verify positionsAppender reset
+        assertEquals(positionsAppender.getSizeInBytes(), 0);
+        assertEquals(positionsAppender.getRetainedSizeInBytes(), initialRetainedSize);
+        Block secondBlock = positionsAppender.build();
+        assertEquals(secondBlock.getPositionCount(), 0);
+    }
+
+    private void testAppendSingle(TestType type, List<BlockView> inputs)
+    {
+        PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type.getType(), 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+        long initialRetainedSize = positionsAppender.getRetainedSizeInBytes();
+
+        inputs.forEach(input -> input.getPositions().forEach((int position) -> positionsAppender.append(position, input.getBlock())));
         long sizeInBytes = positionsAppender.getSizeInBytes();
         assertGreaterThanOrEqual(positionsAppender.getRetainedSizeInBytes(), sizeInBytes);
         Block actual = positionsAppender.build();

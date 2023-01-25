@@ -61,6 +61,12 @@ class TypedPositionsAppender
     }
 
     @Override
+    public void append(int position, Block source)
+    {
+        type.appendTo(source, position, blockBuilder);
+    }
+
+    @Override
     public Block build()
     {
         Block result = blockBuilder.build();
