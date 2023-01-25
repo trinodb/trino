@@ -51,7 +51,7 @@ public class SheetsSplitManager
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
-        SheetsTableHandle tableHandle = (SheetsTableHandle) connectorTableHandle;
+        SheetsNamedTableHandle tableHandle = (SheetsNamedTableHandle) connectorTableHandle;
         SheetsTable table = sheetsClient.getTable(tableHandle.getTableName())
                 // this can happen if table is removed during a query
                 .orElseThrow(() -> new TableNotFoundException(tableHandle.toSchemaTableName()));

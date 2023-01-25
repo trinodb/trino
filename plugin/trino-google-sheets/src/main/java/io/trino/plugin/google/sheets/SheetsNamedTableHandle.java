@@ -15,20 +15,19 @@ package io.trino.plugin.google.sheets;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public final class SheetsTableHandle
-        implements ConnectorTableHandle
+public final class SheetsNamedTableHandle
+        implements SheetsConnectorTableHandle
 {
     private final SchemaTableName schemaTableName;
 
     @JsonCreator
-    public SheetsTableHandle(
+    public SheetsNamedTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName)
     {
@@ -70,7 +69,7 @@ public final class SheetsTableHandle
             return false;
         }
 
-        SheetsTableHandle other = (SheetsTableHandle) obj;
+        SheetsNamedTableHandle other = (SheetsNamedTableHandle) obj;
         return Objects.equals(this.schemaTableName, other.schemaTableName);
     }
 

@@ -61,7 +61,7 @@ public class SheetsMetadata
     }
 
     @Override
-    public SheetsTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public SheetsNamedTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         requireNonNull(tableName, "tableName is null");
         if (!listSchemaNames(session).contains(tableName.getSchemaName())) {
@@ -73,13 +73,13 @@ public class SheetsMetadata
             return null;
         }
 
-        return new SheetsTableHandle(tableName.getSchemaName(), tableName.getTableName());
+        return new SheetsNamedTableHandle(tableName.getSchemaName(), tableName.getTableName());
     }
 
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        SheetsTableHandle tableHandle = (SheetsTableHandle) table;
+        SheetsNamedTableHandle tableHandle = (SheetsNamedTableHandle) table;
         return getTableMetadata(tableHandle.toSchemaTableName())
                 .orElseThrow(() -> new TrinoException(SHEETS_UNKNOWN_TABLE_ERROR, "Metadata not found for table " + tableHandle.getTableName()));
     }
@@ -87,7 +87,7 @@ public class SheetsMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        SheetsTableHandle sheetsTableHandle = (SheetsTableHandle) tableHandle;
+        SheetsNamedTableHandle sheetsTableHandle = (SheetsNamedTableHandle) tableHandle;
         SheetsTable table = sheetsClient.getTable(sheetsTableHandle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(sheetsTableHandle.toSchemaTableName()));
 
