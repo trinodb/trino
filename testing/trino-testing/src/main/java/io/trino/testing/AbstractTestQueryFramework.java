@@ -542,13 +542,13 @@ public abstract class AbstractTestQueryFramework
         }
     }
 
-    protected String formatSqlText(String sql)
+    protected String formatSqlText(@Language("SQL") String sql)
     {
         return formatSql(SQL_PARSER.createStatement(sql, createParsingOptions(getSession())));
     }
 
     //TODO: should WarningCollector be added?
-    protected String getExplainPlan(String query, ExplainType.Type planType)
+    protected String getExplainPlan(@Language("SQL") String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = queryRunner.getQueryExplainer();
         return newTransaction()
@@ -558,7 +558,7 @@ public abstract class AbstractTestQueryFramework
                 });
     }
 
-    protected String getGraphvizExplainPlan(String query, ExplainType.Type planType)
+    protected String getGraphvizExplainPlan(@Language("SQL") String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = queryRunner.getQueryExplainer();
         return newTransaction()
