@@ -15,7 +15,7 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TimeStat;
-import org.apache.hadoop.hive.metastore.api.MetaException;
+import io.trino.hive.thrift.metastore.MetaException;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 import org.weakref.jmx.Managed;

@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.hive;
 
+import io.trino.hive.thrift.metastore.Table;
 import io.trino.spi.connector.SchemaTableName;
-import org.apache.hadoop.hive.metastore.api.Table;
 
 import java.util.Optional;
 

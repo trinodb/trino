@@ -748,6 +748,12 @@
             </dependency>
 
             <dependency>
+                <groupId>io.trino.hive</groupId>
+                <artifactId>hive-thrift</artifactId>
+                <version>1</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.trino.orc</groupId>
                 <artifactId>orc-protobuf</artifactId>
                 <version>14</version>
@@ -1740,21 +1746,7 @@
             <dependency>
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
-                <version>0.9.3-1</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.httpcomponents</groupId>
-                        <artifactId>httpcore</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.httpcomponents</groupId>
-                        <artifactId>httpclient</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>javax.servlet</groupId>
-                        <artifactId>servlet-api</artifactId>
-                    </exclusion>
-                </exclusions>
+                <version>0.17.0</version>
             </dependency>
 
             <dependency>
