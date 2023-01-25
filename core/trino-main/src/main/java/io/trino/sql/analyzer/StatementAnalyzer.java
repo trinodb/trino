@@ -618,9 +618,9 @@ class StatementAnalyzer
                     targetTable,
                     Optional.empty(),
                     Optional.of(Streams.zip(
-                            columnStream,
-                            queryScope.getRelationType().getVisibleFields().stream(),
-                            (column, field) -> new OutputColumn(column, analysis.getSourceColumns(field)))
+                                    columnStream,
+                                    queryScope.getRelationType().getVisibleFields().stream(),
+                                    (column, field) -> new OutputColumn(column, analysis.getSourceColumns(field)))
                             .collect(toImmutableList())));
 
             return createAndAssignScope(insert, scope, Field.newUnqualified("rows", BIGINT));
@@ -701,9 +701,9 @@ class StatementAnalyzer
                     targetTable,
                     Optional.empty(),
                     Optional.of(Streams.zip(
-                            columns,
-                            queryScope.getRelationType().getVisibleFields().stream(),
-                            (column, field) -> new OutputColumn(column, analysis.getSourceColumns(field)))
+                                    columns,
+                                    queryScope.getRelationType().getVisibleFields().stream(),
+                                    (column, field) -> new OutputColumn(column, analysis.getSourceColumns(field)))
                             .collect(toImmutableList())));
 
             return createAndAssignScope(refreshMaterializedView, scope, Field.newUnqualified("rows", BIGINT));
@@ -1180,10 +1180,10 @@ class StatementAnalyzer
 
             TableExecuteHandle executeHandle =
                     metadata.getTableHandleForExecute(
-                            session,
-                            tableHandle,
-                            procedureName,
-                            tableProperties)
+                                    session,
+                                    tableHandle,
+                                    procedureName,
+                                    tableProperties)
                             .orElseThrow(() -> semanticException(NOT_SUPPORTED, node, "Procedure '%s' cannot be executed on table '%s'", procedureName, tableName));
 
             analysis.setTableExecuteReadsData(procedureMetadata.getExecutionMode().isReadsData());
@@ -2775,15 +2775,15 @@ class StatementAnalyzer
             }
 
             Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.analyzeExpressions(
-                    session,
-                    plannerContext,
-                    statementAnalyzerFactory,
-                    accessControl,
-                    TypeProvider.empty(),
-                    ImmutableList.of(samplePercentage),
-                    analysis.getParameters(),
-                    WarningCollector.NOOP,
-                    analysis.getQueryType())
+                            session,
+                            plannerContext,
+                            statementAnalyzerFactory,
+                            accessControl,
+                            TypeProvider.empty(),
+                            ImmutableList.of(samplePercentage),
+                            analysis.getParameters(),
+                            WarningCollector.NOOP,
+                            analysis.getQueryType())
                     .getExpressionTypes();
 
             Type samplePercentageType = expressionTypes.get(NodeRef.of(samplePercentage));
