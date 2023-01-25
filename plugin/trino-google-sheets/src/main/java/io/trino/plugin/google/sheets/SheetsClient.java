@@ -63,6 +63,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class SheetsClient
 {
+    public static final String DEFAULT_RANGE = "$1:$10000";
+    public static final String RANGE_SEPARATOR = "#";
     private static final Logger log = Logger.get(SheetsClient.class);
 
     private static final String APPLICATION_NAME = "trino google sheets integration";
@@ -115,14 +117,31 @@ public class SheetsClient
                 CacheLoader.from(this::readAllValuesFromSheetExpression));
     }
 
+    public Optional<SheetsTable> getTable(SheetsConnectorTableHandle tableHandle)
+    {
+        if (tableHandle instanceof SheetsNamedTableHandle namedTableHandle) {
+            return getTable(namedTableHandle.getTableName());
+        }
+        if (tableHandle instanceof SheetsSheetTableHandle sheetTableHandle) {
+            return getTableFromValues(readAllValuesFromSheet(sheetTableHandle.getSheetExpression()));
+        }
+        throw new IllegalStateException("Found unexpected table handle type " + tableHandle);
+    }
+
     public Optional<SheetsTable> getTable(String tableName)
     {
-        List<List<String>> values = convertToStringValues(readAllValues(tableName));
-        if (values.size() > 0) {
+        List<List<Object>> values = readAllValues(tableName);
+        return getTableFromValues(values);
+    }
+
+    public Optional<SheetsTable> getTableFromValues(List<List<Object>> values)
+    {
+        List<List<String>> stringValues = convertToStringValues(values);
+        if (stringValues.size() > 0) {
             ImmutableList.Builder<SheetsColumn> columns = ImmutableList.builder();
             Set<String> columnNames = new HashSet<>();
             // Assuming 1st line is always header
-            List<String> header = values.get(0);
+            List<String> header = stringValues.get(0);
             int count = 0;
             for (String column : header) {
                 String columnValue = column.toLowerCase(ENGLISH);
@@ -133,7 +152,7 @@ public class SheetsClient
                 columnNames.add(columnValue);
                 columns.add(new SheetsColumn(columnValue, VarcharType.VARCHAR));
             }
-            List<List<String>> dataValues = values.subList(1, values.size()); // removing header info
+            List<List<String>> dataValues = stringValues.subList(1, values.size()); // removing header info
             return Optional.of(new SheetsTable(columns.build(), dataValues));
         }
         return Optional.empty();
@@ -162,11 +181,22 @@ public class SheetsClient
         try {
             String sheetExpression = tableSheetMappingCache.getUnchecked(tableName)
                     .orElseThrow(() -> new TrinoException(SHEETS_UNKNOWN_TABLE_ERROR, "Sheet expression not found for table " + tableName));
-            return sheetDataCache.getUnchecked(sheetExpression);
+            return readAllValuesFromSheet(sheetExpression);
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw new TrinoException(SHEETS_TABLE_LOAD_ERROR, "Error loading data for table: " + tableName, e);
+        }
+    }
+
+    public List<List<Object>> readAllValuesFromSheet(String sheetExpression)
+    {
+        try {
+            return sheetDataCache.getUnchecked(sheetExpression);
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
+            throw new TrinoException(SHEETS_TABLE_LOAD_ERROR, "Error loading data for sheet: " + sheetExpression, e);
         }
     }
 
@@ -235,8 +265,8 @@ public class SheetsClient
     {
         try {
             // by default loading up to 10k rows from the first tab of the sheet
-            String defaultRange = "$1:$10000";
-            String[] tableOptions = sheetExpression.split("#");
+            String defaultRange = DEFAULT_RANGE;
+            String[] tableOptions = sheetExpression.split(RANGE_SEPARATOR);
             String sheetId = tableOptions[0];
             if (tableOptions.length > 1) {
                 defaultRange = tableOptions[1];
@@ -245,6 +275,8 @@ public class SheetsClient
             return sheetsService.spreadsheets().values().get(sheetId, defaultRange).execute().getValues();
         }
         catch (IOException e) {
+            // TODO: improve error to a {Table|Sheet}NotFoundException
+            // is a backwards incompatible error code change from SHEETS_UNKNOWN_TABLE_ERROR -> NOT_FOUND
             throw new TrinoException(SHEETS_UNKNOWN_TABLE_ERROR, "Failed reading data from sheet: " + sheetExpression, e);
         }
     }

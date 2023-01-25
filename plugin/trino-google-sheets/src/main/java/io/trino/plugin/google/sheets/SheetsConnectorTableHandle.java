@@ -14,9 +14,22 @@
 package io.trino.plugin.google.sheets;
 
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.NotFoundException;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 
 public sealed interface SheetsConnectorTableHandle
         extends ConnectorTableHandle
-        permits SheetsNamedTableHandle
+        permits SheetsNamedTableHandle, SheetsSheetTableHandle
 {
+    static NotFoundException tableNotFound(SheetsConnectorTableHandle tableHandle)
+    {
+        if (tableHandle instanceof SheetsNamedTableHandle sheetsNamedTableHandle) {
+            return new TableNotFoundException(new SchemaTableName(sheetsNamedTableHandle.getSchemaName(), sheetsNamedTableHandle.getTableName()));
+        }
+        if (tableHandle instanceof SheetsSheetTableHandle sheetsSheetTableHandle) {
+            return new SheetNotFoundException(sheetsSheetTableHandle.getSheetExpression());
+        }
+        throw new IllegalStateException("Found unexpected table handle type " + tableHandle);
+    }
 }
