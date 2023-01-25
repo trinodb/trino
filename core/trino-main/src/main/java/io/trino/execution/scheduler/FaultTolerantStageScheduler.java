@@ -71,6 +71,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -397,7 +400,17 @@ public class FaultTolerantStageScheduler
         int attemptId = getNextAttemptIdForPartition(partition);
 
         ExchangeSinkHandle sinkHandle = partitionToExchangeSinkHandleMap.get(partition);
-        ExchangeSinkInstanceHandle exchangeSinkInstanceHandle = sinkExchange.instantiateSink(sinkHandle, attemptId);
+        ExchangeSinkInstanceHandle exchangeSinkInstanceHandle = null;
+        try {
+            exchangeSinkInstanceHandle = sinkExchange.instantiateSink(sinkHandle, attemptId).get(1, TimeUnit.SECONDS);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         OutputBuffers outputBuffers = SpoolingOutputBuffers.createInitial(exchangeSinkInstanceHandle, sinkPartitioningScheme.getPartitionCount());
 
         Set<PlanNodeId> allSourcePlanNodeIds = ImmutableSet.<PlanNodeId>builder()
