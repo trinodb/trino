@@ -41,13 +41,13 @@ public class ExpressionMatcher
     private final String sql;
     private final Expression expression;
 
-    public ExpressionMatcher(@Language("SQL") String expression)
+    ExpressionMatcher(@Language("SQL") String expression)
     {
         this.sql = requireNonNull(expression, "expression is null");
         this.expression = expression(expression);
     }
 
-    public ExpressionMatcher(Expression expression)
+    ExpressionMatcher(Expression expression)
     {
         this.expression = requireNonNull(expression, "expression is null");
         this.sql = expression.toString();
