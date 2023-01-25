@@ -29,7 +29,6 @@ import io.trino.spi.type.RowType;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.trino.sql.planner.optimizations.AddLocalExchanges;
@@ -1488,7 +1487,7 @@ public class TestLogicalPlanner
                 "SELECT name FROM nation OFFSET 2 ROWS",
                 any(
                         strictProject(
-                                ImmutableMap.of("name", new ExpressionMatcher("name")),
+                                ImmutableMap.of("name", expression("name")),
                                 filter(
                                         "row_num > BIGINT '2'",
                                         rowNumber(
@@ -1502,7 +1501,7 @@ public class TestLogicalPlanner
                 "SELECT name FROM nation ORDER BY regionkey OFFSET 2 ROWS",
                 any(
                         strictProject(
-                                ImmutableMap.of("name", new ExpressionMatcher("name")),
+                                ImmutableMap.of("name", expression("name")),
                                 filter(
                                         "row_num > BIGINT '2'",
                                         rowNumber(
@@ -1519,7 +1518,7 @@ public class TestLogicalPlanner
                 "SELECT name FROM nation ORDER BY regionkey OFFSET 2 ROWS FETCH NEXT 5 ROWS ONLY",
                 any(
                         strictProject(
-                                ImmutableMap.of("name", new ExpressionMatcher("name")),
+                                ImmutableMap.of("name", expression("name")),
                                 filter(
                                         "row_num > BIGINT '2'",
                                         rowNumber(
@@ -1538,7 +1537,7 @@ public class TestLogicalPlanner
                 "SELECT name FROM nation OFFSET 2 ROWS FETCH NEXT 5 ROWS ONLY",
                 any(
                         strictProject(
-                                ImmutableMap.of("name", new ExpressionMatcher("name")),
+                                ImmutableMap.of("name", expression("name")),
                                 filter(
                                         "row_num > BIGINT '2'",
                                         rowNumber(
@@ -1558,7 +1557,7 @@ public class TestLogicalPlanner
                 "SELECT name, regionkey FROM nation ORDER BY regionkey FETCH FIRST 6 ROWS WITH TIES",
                 any(
                         strictProject(
-                                ImmutableMap.of("name", new ExpressionMatcher("name"), "regionkey", new ExpressionMatcher("regionkey")),
+                                ImmutableMap.of("name", expression("name"), "regionkey", expression("regionkey")),
                                 topNRanking(
                                         pattern -> pattern
                                                 .specification(
@@ -1578,14 +1577,14 @@ public class TestLogicalPlanner
                 "SELECT name, regionkey FROM nation ORDER BY regionkey OFFSET 10 ROWS FETCH FIRST 6 ROWS WITH TIES",
                 any(
                         strictProject(
-                                ImmutableMap.of("name", new ExpressionMatcher("name"), "regionkey", new ExpressionMatcher("regionkey")),
+                                ImmutableMap.of("name", expression("name"), "regionkey", expression("regionkey")),
                                 filter(
                                         "row_num > BIGINT '10'",
                                         rowNumber(
                                                 pattern -> pattern
                                                         .partitionBy(ImmutableList.of()),
                                                 strictProject(
-                                                        ImmutableMap.of("name", new ExpressionMatcher("name"), "regionkey", new ExpressionMatcher("regionkey")),
+                                                        ImmutableMap.of("name", expression("name"), "regionkey", expression("regionkey")),
                                                         topNRanking(
                                                                 pattern -> pattern
                                                                         .specification(
