@@ -265,6 +265,7 @@ public class DeduplicatingDirectExchangeBuffer
         checkInputFinished();
     }
 
+    @GuardedBy("this")
     private void checkInputFinished()
     {
         if (failure != null) {
@@ -398,18 +399,21 @@ public class DeduplicatingDirectExchangeBuffer
     }
 
     @Override
+    @GuardedBy("this")
     public int getBufferedPageCount()
     {
         return pageBuffer.getBufferedPageCount();
     }
 
     @Override
+    @GuardedBy("this")
     public long getSpilledBytes()
     {
         return pageBuffer.getSpilledBytes();
     }
 
     @Override
+    @GuardedBy("this")
     public int getSpilledPageCount()
     {
         return pageBuffer.getSpilledPageCount();
@@ -425,12 +429,14 @@ public class DeduplicatingDirectExchangeBuffer
         closeAndUnblock();
     }
 
+    @GuardedBy("this")
     private void fail(Throwable failure)
     {
         this.failure = failure;
         closeAndUnblock();
     }
 
+    @GuardedBy("this")
     private void throwIfFailed()
     {
         if (failure != null) {
@@ -439,6 +445,7 @@ public class DeduplicatingDirectExchangeBuffer
         }
     }
 
+    @GuardedBy("this")
     private void closeAndUnblock()
     {
         try (Closer closer = Closer.create()) {
@@ -453,6 +460,7 @@ public class DeduplicatingDirectExchangeBuffer
         }
     }
 
+    @GuardedBy("this")
     private void updateMaxRetainedSize()
     {
         maxRetainedSizeInBytes = max(maxRetainedSizeInBytes, getRetainedSizeInBytes());
@@ -571,6 +579,7 @@ public class DeduplicatingDirectExchangeBuffer
             return result;
         }
 
+        @GuardedBy("this")
         private void writeToSink(TaskId taskId, List<Slice> pages)
         {
             verify(exchangeSink != null, "exchangeSink is expected to be initialized");
@@ -604,6 +613,7 @@ public class DeduplicatingDirectExchangeBuffer
             }
         }
 
+        @GuardedBy("this")
         private void updateSinkInstanceHandleIfNecessary()
         {
             verify(Thread.holdsLock(this), "this method is expected to be called under a lock");
