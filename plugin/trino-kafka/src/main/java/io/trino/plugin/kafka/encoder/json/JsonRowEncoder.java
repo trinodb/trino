@@ -46,7 +46,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -111,7 +111,7 @@ public class JsonRowEncoder
     {
         return type.equals(DATE) ||
                 type.equals(TIME_MILLIS) ||
-                type.equals(TIME_WITH_TIME_ZONE) ||
+                type.equals(TIME_TZ_MILLIS) ||
                 type.equals(TIMESTAMP_MILLIS) ||
                 type.equals(TIMESTAMP_TZ_MILLIS);
     }

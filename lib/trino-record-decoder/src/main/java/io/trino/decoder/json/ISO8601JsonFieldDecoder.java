@@ -33,7 +33,7 @@ import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
@@ -60,7 +60,7 @@ import static java.util.Objects.requireNonNull;
 public class ISO8601JsonFieldDecoder
         implements JsonFieldDecoder
 {
-    private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(DATE, TIME_MILLIS, TIME_WITH_TIME_ZONE, TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS);
+    private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(DATE, TIME_MILLIS, TIME_TZ_MILLIS, TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS);
 
     private final DecoderColumnHandle columnHandle;
 
@@ -129,7 +129,7 @@ public class ISO8601JsonFieldDecoder
                 if (columnType.equals(TIME_MILLIS)) {
                     return ISO_TIME.parse(textValue).getLong(MILLI_OF_DAY) * PICOSECONDS_PER_MILLISECOND;
                 }
-                if (columnType.equals(TIME_WITH_TIME_ZONE)) {
+                if (columnType.equals(TIME_TZ_MILLIS)) {
                     TemporalAccessor parseResult = ISO_OFFSET_TIME.parse(textValue);
                     return packTimeWithTimeZone((long) (parseResult.get(MILLI_OF_DAY)) * NANOSECONDS_PER_MILLISECOND, ZoneOffset.from(parseResult).getTotalSeconds() / 60);
                 }

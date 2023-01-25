@@ -39,7 +39,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -113,7 +113,7 @@ public class TestJsonEncoder
         for (DateTimeFormat dataFormat : ImmutableList.of(CUSTOM_DATE_TIME, ISO8601)) {
             assertSupportedDataType(() -> singleColumnEncoder(DATE, dataFormat, "yyyy-dd-MM"));
             assertSupportedDataType(() -> singleColumnEncoder(TIME_MILLIS, dataFormat, "kk:mm:ss.SSS"));
-            assertSupportedDataType(() -> singleColumnEncoder(TIME_WITH_TIME_ZONE, dataFormat, "kk:mm:ss.SSS Z"));
+            assertSupportedDataType(() -> singleColumnEncoder(TIME_TZ_MILLIS, dataFormat, "kk:mm:ss.SSS Z"));
             assertSupportedDataType(() -> singleColumnEncoder(TIMESTAMP_MILLIS, dataFormat, "yyyy-dd-MM kk:mm:ss.SSS"));
             assertSupportedDataType(() -> singleColumnEncoder(TIMESTAMP_TZ_MILLIS, dataFormat, "yyyy-dd-MM kk:mm:ss.SSS Z"));
         }
@@ -130,7 +130,7 @@ public class TestJsonEncoder
 
         assertUnsupportedDataFormatException(() -> singleColumnEncoder(DATE));
         assertUnsupportedDataFormatException(() -> singleColumnEncoder(TIME_MILLIS));
-        assertUnsupportedDataFormatException(() -> singleColumnEncoder(TIME_WITH_TIME_ZONE));
+        assertUnsupportedDataFormatException(() -> singleColumnEncoder(TIME_TZ_MILLIS));
         assertUnsupportedDataFormatException(() -> singleColumnEncoder(TIMESTAMP_MILLIS));
         assertUnsupportedDataFormatException(() -> singleColumnEncoder(TIMESTAMP_TZ_MILLIS));
 
