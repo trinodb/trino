@@ -28,6 +28,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
@@ -39,6 +40,7 @@ import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeSink;
 import io.trino.spi.exchange.ExchangeSinkHandle;
+import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSource;
 import io.trino.spi.exchange.ExchangeSourceOutputSelector;
 
@@ -81,12 +83,15 @@ import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class DeduplicatingDirectExchangeBuffer
         implements DirectExchangeBuffer
 {
     private static final Logger log = Logger.get(DeduplicatingDirectExchangeBuffer.class);
+
+    private static final Duration SINK_INSTANCE_HANDLE_GET_TIMEOUT = Duration.succinctDuration(60, SECONDS);
 
     private final Executor executor;
     private final RetryPolicy retryPolicy;
@@ -550,7 +555,18 @@ public class DeduplicatingDirectExchangeBuffer
 
                 sinkHandle = exchange.addSink(0);
                 exchange.noMoreSinks();
-                exchangeSink = exchangeManager.createSink(exchange.instantiateSink(sinkHandle, 0));
+                ExchangeSinkInstanceHandle sinkInstanceHandle;
+                try {
+                    sinkInstanceHandle = exchange.instantiateSink(this.sinkHandle, 0).get(SINK_INSTANCE_HANDLE_GET_TIMEOUT.toMillis(), MILLISECONDS);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(e);
+                }
+                catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                exchangeSink = exchangeManager.createSink(sinkInstanceHandle);
 
                 writeBuffer = new DynamicSliceOutput(DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
             }
@@ -619,7 +635,19 @@ public class DeduplicatingDirectExchangeBuffer
             verify(sinkHandle != null, "sinkHandle is null");
 
             if (exchangeSink.isHandleUpdateRequired()) {
-                exchangeSink.updateHandle(exchange.updateSinkInstanceHandle(sinkHandle, 0));
+                CompletableFuture<ExchangeSinkInstanceHandle> sinkInstanceHandleFuture = exchange.updateSinkInstanceHandle(sinkHandle, 0);
+                ExchangeSinkInstanceHandle sinkInstanceHandle;
+                try {
+                    sinkInstanceHandle = sinkInstanceHandleFuture.get(SINK_INSTANCE_HANDLE_GET_TIMEOUT.toMillis(), MILLISECONDS);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(e);
+                }
+                catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                exchangeSink.updateHandle(sinkInstanceHandle);
             }
         }
 

@@ -62,6 +62,7 @@ import static io.trino.plugin.exchange.filesystem.FileSystemExchangeSink.DATA_FI
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class FileSystemExchange
         implements Exchange
@@ -142,7 +143,7 @@ public class FileSystemExchange
     }
 
     @Override
-    public ExchangeSinkInstanceHandle instantiateSink(ExchangeSinkHandle sinkHandle, int taskAttemptId)
+    public CompletableFuture<ExchangeSinkInstanceHandle> instantiateSink(ExchangeSinkHandle sinkHandle, int taskAttemptId)
     {
         FileSystemExchangeSinkHandle fileSystemExchangeSinkHandle = (FileSystemExchangeSinkHandle) sinkHandle;
         int taskPartitionId = fileSystemExchangeSinkHandle.getPartitionId();
@@ -154,11 +155,11 @@ public class FileSystemExchange
             throw new UncheckedIOException(e);
         }
 
-        return new FileSystemExchangeSinkInstanceHandle(fileSystemExchangeSinkHandle, outputDirectory, outputPartitionCount, preserveOrderWithinPartition);
+        return completedFuture(new FileSystemExchangeSinkInstanceHandle(fileSystemExchangeSinkHandle, outputDirectory, outputPartitionCount, preserveOrderWithinPartition));
     }
 
     @Override
-    public ExchangeSinkInstanceHandle updateSinkInstanceHandle(ExchangeSinkHandle sinkHandle, int taskAttemptId)
+    public CompletableFuture<ExchangeSinkInstanceHandle> updateSinkInstanceHandle(ExchangeSinkHandle sinkHandle, int taskAttemptId)
     {
         // this implementation never requests an update
         throw new UnsupportedOperationException();
