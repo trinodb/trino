@@ -76,7 +76,7 @@ class ISO8601HashRedisFieldDecoder
                 return packDateTimeWithZone(millis, getTimeZoneKey(dateTime.getZone().getID()));
             }
 
-            return millis;
+            throw new IllegalStateException("Unsupported type: " + type);
         }
     }
 }
