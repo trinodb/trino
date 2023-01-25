@@ -16,11 +16,11 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.testng.annotations.Test;
 
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
@@ -45,7 +45,7 @@ public class TestImplementOffset
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", new ExpressionMatcher("a"), "b", new ExpressionMatcher("b")),
+                                ImmutableMap.of("a", expression("a"), "b", expression("b")),
                                 filter(
                                         "row_num > BIGINT '2'",
                                         rowNumber(
@@ -70,7 +70,7 @@ public class TestImplementOffset
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", new ExpressionMatcher("a"), "b", new ExpressionMatcher("b")),
+                                ImmutableMap.of("a", expression("a"), "b", expression("b")),
                                 filter(
                                         "row_num > BIGINT '2'",
                                         rowNumber(

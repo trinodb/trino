@@ -16,13 +16,13 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
@@ -50,7 +50,7 @@ public class TestMergeLimitOverProjectWithSort
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", new ExpressionMatcher("b")),
+                                ImmutableMap.of("b", expression("b")),
                                 topN(
                                         1,
                                         ImmutableList.of(sort("a", ASCENDING, FIRST)),
@@ -94,7 +94,7 @@ public class TestMergeLimitOverProjectWithSort
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", new ExpressionMatcher("b")),
+                                ImmutableMap.of("b", expression("b")),
                                 topN(
                                         1,
                                         ImmutableList.of(sort("a", ASCENDING, FIRST)),
