@@ -282,7 +282,7 @@ public class DeduplicatingDirectExchangeBuffer
 
         Map<TaskId, Throwable> failures;
         switch (retryPolicy) {
-            case TASK: {
+            case TASK -> {
                 Set<Integer> allPartitions = allTasks.stream()
                         .map(TaskId::getPartitionId)
                         .collect(toImmutableSet());
@@ -316,9 +316,8 @@ public class DeduplicatingDirectExchangeBuffer
                         .filter(entry -> !successfulPartitions.contains(entry.getKey().getPartitionId()))
                         .filter(entry -> !runningPartitions.contains(entry.getKey().getPartitionId()))
                         .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-                break;
             }
-            case QUERY: {
+            case QUERY -> {
                 Set<TaskId> latestAttemptTasks = allTasks.stream()
                         .filter(taskId -> taskId.getAttemptId() == maxAttemptId)
                         .collect(toImmutableSet());
@@ -332,10 +331,8 @@ public class DeduplicatingDirectExchangeBuffer
                 failures = failedTasks.entrySet().stream()
                         .filter(entry -> entry.getKey().getAttemptId() == maxAttemptId)
                         .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-                break;
             }
-            default:
-                throw new UnsupportedOperationException("unexpected retry policy: " + retryPolicy);
+            default -> throw new UnsupportedOperationException("unexpected retry policy: " + retryPolicy);
         }
 
         Throwable failure = null;
