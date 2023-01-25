@@ -32,6 +32,7 @@ import static io.trino.parquet.ParquetReaderUtils.toByteExact;
 import static io.trino.parquet.ParquetReaderUtils.toShortExact;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getBinaryDecoder;
+import static io.trino.parquet.reader.decoders.ValueDecoders.getInt32Decoder;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getInt96Decoder;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getLongDecimalDecoder;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getLongDecoder;
@@ -611,6 +612,35 @@ public class TransformingValueDecoders
                             decimalAnnotation.getScale(),
                             decimalType.getPrecision(),
                             decimalType.getScale());
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public static ValueDecoder<long[]> getInt32ToLongDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        ValueDecoder<int[]> delegate = getInt32Decoder(encoding, field);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(long[] values, int offset, int length)
+            {
+                int[] buffer = new int[length];
+                delegate.read(buffer, 0, length);
+                for (int i = 0; i < length; i++) {
+                    values[i + offset] = buffer[i];
                 }
             }
 
