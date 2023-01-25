@@ -24,13 +24,13 @@ import com.amazonaws.services.glue.model.DecimalNumber;
 import com.amazonaws.services.glue.model.DoubleColumnStatisticsData;
 import com.amazonaws.services.glue.model.LongColumnStatisticsData;
 import com.amazonaws.services.glue.model.StringColumnStatisticsData;
+import io.trino.hive.thrift.metastore.Decimal;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.hive.metastore.api.Decimal;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 

@@ -54,6 +54,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.cartesianProduct;
+import static io.trino.hive.thrift.metastore.hive_metastoreConstants.TABLE_BUCKETING_VERSION;
 import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
@@ -64,7 +65,6 @@ import static io.trino.plugin.hive.util.HiveUtil.getRegularColumnHandles;
 import static java.lang.String.format;
 import static java.util.Map.Entry;
 import static java.util.function.Function.identity;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.TABLE_BUCKETING_VERSION;
 
 public final class HiveBucketing
 {
