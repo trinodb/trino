@@ -862,7 +862,6 @@ public class PlanOptimizers
                                 .build()));
 
         // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
-        // and to pushdown dynamic filters
         builder.add(new StatsRecordingPlanOptimizer(
                 optimizerStats,
                 new PredicatePushDown(plannerContext, typeAnalyzer, true, false)));
@@ -884,7 +883,7 @@ public class PlanOptimizers
                 ImmutableSet.copyOf(new PushInequalityFilterExpressionBelowJoinRuleSet(metadata, typeAnalyzer).rules())));
         // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential
         // pushdown into the connectors. Invoke PredicatePushdown and PushPredicateIntoTableScan after this
-        // to leverage predicate pushdown on projected columns.
+        // to leverage predicate pushdown on projected columns and to pushdown dynamic filters.
         builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, typeAnalyzer, true, true)));
         builder.add(new RemoveUnsupportedDynamicFilters(plannerContext)); // Remove unsupported dynamic filters introduced by PredicatePushdown
         builder.add(new IterativeOptimizer(
