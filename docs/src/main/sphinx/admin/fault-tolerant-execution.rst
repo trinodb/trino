@@ -46,7 +46,7 @@ depending on the desired :ref:`retry policy <fte-retry-policy>`.
 
   * Fault-tolerant execution of :ref:`read operations <sql-read-operations>` is
     supported by all connectors.
-  * Fault tolerant execution of :ref:`write operations <sql-write-operations>`
+  * Fault-tolerant execution of :ref:`write operations <sql-write-operations>`
     is supported by the following connectors:
 
     * :doc:`/connector/bigquery`
