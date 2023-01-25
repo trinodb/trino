@@ -85,6 +85,16 @@ public class ParquetSchemaConverter
         primitiveTypes = primitiveTypesBuilder.buildOrThrow();
     }
 
+    public Map<List<String>, Type> getPrimitiveTypes()
+    {
+        return primitiveTypes;
+    }
+
+    public MessageType getMessageType()
+    {
+        return messageType;
+    }
+
     private static MessageType convert(
             List<Type> types,
             List<String> columnNames,
@@ -245,15 +255,5 @@ public class ParquetSchemaConverter
             builder.addField(convert(field.getType(), field.getName().get(), parent, OPTIONAL, useLegacyDecimalEncoding, useInt96TimestampEncoding, primitiveTypesConsumer));
         }
         return builder.named(name);
-    }
-
-    public Map<List<String>, Type> getPrimitiveTypes()
-    {
-        return primitiveTypes;
-    }
-
-    public MessageType getMessageType()
-    {
-        return messageType;
     }
 }
