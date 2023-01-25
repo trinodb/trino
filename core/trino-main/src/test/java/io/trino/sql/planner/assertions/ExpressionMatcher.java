@@ -25,6 +25,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.SymbolReference;
+import org.intellij.lang.annotations.Language;
 
 import java.util.List;
 import java.util.Map;
@@ -40,7 +41,7 @@ public class ExpressionMatcher
     private final String sql;
     private final Expression expression;
 
-    public ExpressionMatcher(String expression)
+    public ExpressionMatcher(@Language("SQL") String expression)
     {
         this.sql = requireNonNull(expression, "expression is null");
         this.expression = expression(expression);
