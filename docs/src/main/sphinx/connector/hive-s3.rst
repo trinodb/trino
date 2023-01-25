@@ -10,6 +10,8 @@ uses an S3 prefix, rather than an HDFS prefix.
 Trino uses its own S3 filesystem for the URI prefixes
 ``s3://``, ``s3n://`` and  ``s3a://``.
 
+.. _hive-s3-configuration:
+
 S3 configuration properties
 ---------------------------
 
@@ -284,6 +286,8 @@ Property name                                           Description
                                                         value that is not used in any of your IAM ARNs.
 ======================================================= =================================================================
 
+.. _hive-s3-tuning-configuration:
+
 Tuning properties
 -----------------
 
@@ -315,9 +319,10 @@ Property name                         Description                               
 ``hive.s3.multipart.min-part-size``   Minimum multi-part upload part size.                        ``5 MB``
 ===================================== =========================================================== ===============
 
+.. _hive-s3-data-encryption:
+
 S3 data encryption
 ------------------
-
 
 Trino supports reading and writing encrypted data in S3 using both
 server-side encryption with S3 managed keys and client-side encryption using
