@@ -66,6 +66,35 @@ public final class DeltaBinaryPackedDecoders
         }
     }
 
+    public static class DeltaBinaryPackedShortDecoder
+            extends DeltaBinaryPackedDecoder<short[]>
+    {
+        @Override
+        protected short[] createMiniBlockBuffer(int size)
+        {
+            return new short[size];
+        }
+
+        @Override
+        protected void setValue(short[] values, int offset, long value)
+        {
+            values[offset] = (short) value;
+        }
+
+        @Override
+        public void read(short[] values, int offset, int length)
+        {
+            readInternal(values, offset, length);
+        }
+
+        @Override
+        protected long unpack(short[] output, int outputOffset, int length, SimpleSliceInputStream input, long minDelta, byte bitWidth)
+        {
+            DeltaPackingUtils.unpackDelta(output, outputOffset, length, input, minDelta, bitWidth);
+            return output[outputOffset + length - 1];
+        }
+    }
+
     public static class DeltaBinaryPackedIntDecoder
             extends DeltaBinaryPackedDecoder<int[]>
     {
