@@ -508,23 +508,23 @@ public final class PlanMatchPattern
         return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType, hasDynamicFilter));
     }
 
-    public static PlanMatchPattern spatialJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern spatialJoin(@Language("SQL") String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
     {
         return spatialJoin(expectedFilter, Optional.empty(), left, right);
     }
 
-    public static PlanMatchPattern spatialJoin(String expectedFilter, Optional<String> kdbTree, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern spatialJoin(@Language("SQL") String expectedFilter, Optional<String> kdbTree, PlanMatchPattern left, PlanMatchPattern right)
     {
         return spatialJoin(expectedFilter, kdbTree, Optional.empty(), left, right);
     }
 
-    public static PlanMatchPattern spatialJoin(String expectedFilter, Optional<String> kdbTree, Optional<List<String>> outputSymbols, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern spatialJoin(@Language("SQL") String expectedFilter, Optional<String> kdbTree, Optional<List<String>> outputSymbols, PlanMatchPattern left, PlanMatchPattern right)
     {
         return node(SpatialJoinNode.class, left, right).with(
                 new SpatialJoinMatcher(SpatialJoinNode.Type.INNER, PlanBuilder.expression(expectedFilter), kdbTree, outputSymbols));
     }
 
-    public static PlanMatchPattern spatialLeftJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern spatialLeftJoin(@Language("SQL") String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
     {
         return node(SpatialJoinNode.class, left, right).with(
                 new SpatialJoinMatcher(SpatialJoinNode.Type.LEFT, PlanBuilder.expression(expectedFilter), Optional.empty(), Optional.empty()));
