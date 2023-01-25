@@ -679,6 +679,8 @@ public class RedshiftClient
         }
 
         // Fall back to legacy behavior
+        // TODO we should not fall back to legacy behavior, the mappings should be explicit (the legacyToWriteMapping
+        //  is just a copy of some generic default mappings that used to exist)
         return legacyToWriteMapping(type);
     }
 
