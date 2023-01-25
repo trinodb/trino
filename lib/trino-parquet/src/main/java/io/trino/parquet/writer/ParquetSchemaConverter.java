@@ -119,8 +119,7 @@ public class ParquetSchemaConverter
         if (INTEGER.equals(type) || SMALLINT.equals(type) || TINYINT.equals(type)) {
             return Types.primitive(PrimitiveType.PrimitiveTypeName.INT32, repetition).named(name);
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             // Apache Hive version 3 or lower does not support reading decimals encoded as INT32/INT64
             if (!useLegacyDecimalEncoding) {
                 if (decimalType.getPrecision() <= 9) {
@@ -146,8 +145,7 @@ public class ParquetSchemaConverter
             return Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, repetition).named(name);
         }
 
-        if (type instanceof TimestampType) {
-            TimestampType timestampType = (TimestampType) type;
+        if (type instanceof TimestampType timestampType) {
             // Apache Hive version 3.x or lower does not support reading timestamps encoded as INT64
             if (useInt96TimestampEncoding) {
                 return Types.primitive(PrimitiveType.PrimitiveTypeName.INT96, repetition).named(name);
