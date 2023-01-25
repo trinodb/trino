@@ -21,6 +21,7 @@ import static org.testng.Assert.assertEquals;
 public class TestSheetsConnectorTableHandle
 {
     private final JsonCodec<SheetsNamedTableHandle> namedCodec = JsonCodec.jsonCodec(SheetsNamedTableHandle.class);
+    private final JsonCodec<SheetsSheetTableHandle> sheetCodec = JsonCodec.jsonCodec(SheetsSheetTableHandle.class);
 
     @Test
     public void testRoundTripWithNamedTable()
@@ -29,6 +30,17 @@ public class TestSheetsConnectorTableHandle
 
         String json = namedCodec.toJson(expected);
         SheetsNamedTableHandle actual = namedCodec.fromJson(json);
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testRoundTripWithSheetTable()
+    {
+        SheetsSheetTableHandle expected = new SheetsSheetTableHandle("sheetID", "$1:$10000");
+
+        String json = sheetCodec.toJson(expected);
+        SheetsSheetTableHandle actual = sheetCodec.fromJson(json);
 
         assertEquals(actual, expected);
     }
