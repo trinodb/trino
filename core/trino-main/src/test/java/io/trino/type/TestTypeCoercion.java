@@ -44,7 +44,9 @@ import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -126,8 +128,19 @@ public class TestTypeCoercion
         assertThat(UNKNOWN, BIGINT).hasCommonSuperType(BIGINT).canCoerceFirstToSecondOnly();
 
         assertThat(BIGINT, DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
+
+        // date / timestamp
+        assertThat(DATE, createTimestampType(0)).hasCommonSuperType(createTimestampType(0));
+        assertThat(DATE, createTimestampType(2)).hasCommonSuperType(createTimestampType(2));
         assertThat(DATE, TIMESTAMP_MILLIS).hasCommonSuperType(TIMESTAMP_MILLIS).canCoerceFirstToSecondOnly();
+        assertThat(DATE, createTimestampType(7)).hasCommonSuperType(createTimestampType(7));
+
+        // date / timestamp with time zone
+        assertThat(DATE, createTimestampWithTimeZoneType(0)).hasCommonSuperType(createTimestampWithTimeZoneType(0));
+        assertThat(DATE, createTimestampWithTimeZoneType(2)).hasCommonSuperType(createTimestampWithTimeZoneType(2));
         assertThat(DATE, TIMESTAMP_TZ_MILLIS).hasCommonSuperType(TIMESTAMP_TZ_MILLIS).canCoerceFirstToSecondOnly();
+        assertThat(DATE, createTimestampWithTimeZoneType(7)).hasCommonSuperType(createTimestampWithTimeZoneType(7));
+
         assertThat(TIME_MILLIS, TIME_TZ_MILLIS).hasCommonSuperType(TIME_TZ_MILLIS).canCoerceFirstToSecondOnly();
         assertThat(TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS).hasCommonSuperType(TIMESTAMP_TZ_MILLIS).canCoerceFirstToSecondOnly();
         assertThat(VARCHAR, JONI_REGEXP).hasCommonSuperType(JONI_REGEXP).canCoerceFirstToSecondOnly();
