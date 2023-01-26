@@ -26,16 +26,9 @@ import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.ExchangeNode;
-import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.planner.plan.JoinNode;
-import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.SimplePlanRewriter.RewriteContext;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
@@ -57,7 +50,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
@@ -279,38 +271,6 @@ public class BeginTableWrite
                 return new TableExecuteTarget(result.getTableExecuteHandle(), Optional.of(result.getSourceHandle()), tableExecute.getSchemaTableName(), tableExecute.isReportingWrittenBytesSupported());
             }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
-        }
-
-        private TableHandle findTableScanHandleForDeleteOrUpdate(PlanNode node)
-        {
-            if (node instanceof TableScanNode) {
-                TableScanNode tableScanNode = (TableScanNode) node;
-                checkArgument(((TableScanNode) node).isUpdateTarget(), "TableScanNode should be an updatable target");
-                return tableScanNode.getTable();
-            }
-            if (node instanceof FilterNode) {
-                return findTableScanHandleForDeleteOrUpdate(((FilterNode) node).getSource());
-            }
-            if (node instanceof ProjectNode) {
-                return findTableScanHandleForDeleteOrUpdate(((ProjectNode) node).getSource());
-            }
-            if (node instanceof SemiJoinNode) {
-                return findTableScanHandleForDeleteOrUpdate(((SemiJoinNode) node).getSource());
-            }
-            if (node instanceof JoinNode) {
-                JoinNode joinNode = (JoinNode) node;
-                return findTableScanHandleForDeleteOrUpdate(joinNode.getLeft());
-            }
-            if (node instanceof AssignUniqueId) {
-                return findTableScanHandleForDeleteOrUpdate(((AssignUniqueId) node).getSource());
-            }
-            if (node instanceof MarkDistinctNode) {
-                return findTableScanHandleForDeleteOrUpdate(((MarkDistinctNode) node).getSource());
-            }
-            if (node instanceof AggregationNode) {
-                return findTableScanHandleForDeleteOrUpdate(((AggregationNode) node).getSource());
-            }
-            throw new IllegalArgumentException("Invalid descendant for DeleteNode or UpdateNode: " + node.getClass().getName());
         }
 
         private Optional<TableHandle> findTableScanHandleForTableExecute(PlanNode startNode)
