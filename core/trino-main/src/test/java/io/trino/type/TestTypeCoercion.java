@@ -40,7 +40,9 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
+import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -146,6 +148,20 @@ public class TestTypeCoercion
         assertThat(new ArrayType(BIGINT), new ArrayType(UNKNOWN)).hasCommonSuperType(new ArrayType(BIGINT)).canCoerceSecondToFirstOnly();
         assertThat(mapType(BIGINT, DOUBLE), mapType(BIGINT, DOUBLE)).hasCommonSuperType(mapType(BIGINT, DOUBLE)).canCoerceToEachOther();
         assertThat(mapType(BIGINT, DOUBLE), mapType(DOUBLE, DOUBLE)).hasCommonSuperType(mapType(DOUBLE, DOUBLE)).canCoerceFirstToSecondOnly();
+
+        // time / time
+        assertThat(createTimeType(5), createTimeType(9)).hasCommonSuperType(createTimeType(9));
+        assertThat(createTimeType(9), createTimeType(5)).hasCommonSuperType(createTimeType(9));
+
+        // time / time with time zone
+        assertThat(createTimeType(5), createTimeWithTimeZoneType(9)).hasCommonSuperType(createTimeWithTimeZoneType(9));
+        assertThat(createTimeType(9), createTimeWithTimeZoneType(5)).hasCommonSuperType(createTimeWithTimeZoneType(9));
+        assertThat(createTimeWithTimeZoneType(5), createTimeType(9)).hasCommonSuperType(createTimeWithTimeZoneType(9));
+        assertThat(createTimeWithTimeZoneType(9), createTimeType(5)).hasCommonSuperType(createTimeWithTimeZoneType(9));
+
+        // time with time zone / time with time zone
+        assertThat(createTimeWithTimeZoneType(5), createTimeWithTimeZoneType(9)).hasCommonSuperType(createTimeWithTimeZoneType(9));
+        assertThat(createTimeWithTimeZoneType(9), createTimeWithTimeZoneType(5)).hasCommonSuperType(createTimeWithTimeZoneType(9));
 
         assertThat(
                 rowType(field("a", BIGINT), field("b", DOUBLE), field("c", VARCHAR)),
