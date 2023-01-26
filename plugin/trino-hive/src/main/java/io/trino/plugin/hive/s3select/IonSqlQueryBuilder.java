@@ -260,8 +260,7 @@ public class IonSqlQueryBuilder
         if (type.equals(DATE)) {
             return formatPredicate(column, "TIMESTAMP");
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             return formatPredicate(column, format("DECIMAL(%s,%s)", decimalType.getPrecision(), decimalType.getScale()));
         }
         return column;

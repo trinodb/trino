@@ -1800,10 +1800,9 @@ class StatementAnalyzer
                 return analyzeDescriptorArgument((TableFunctionDescriptorArgument) argument.getValue());
             }
             if (argumentSpecification instanceof ScalarArgumentSpecification) {
-                if (!(argument.getValue() instanceof Expression)) {
+                if (!(argument.getValue() instanceof Expression expression)) {
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Expected expression, got %s", argumentSpecification.getName(), actualType);
                 }
-                Expression expression = (Expression) argument.getValue();
                 // 'descriptor' as a function name is not allowed in this context
                 if (expression instanceof FunctionCall && ((FunctionCall) expression).getName().hasSuffix(QualifiedName.of("descriptor"))) { // function name is always compared case-insensitive
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "'descriptor' function is not allowed as a table function argument");
@@ -2324,15 +2323,13 @@ class StatementAnalyzer
                 Optional<TableHandle> storageTable)
         {
             Statement statement = analysis.getStatement();
-            if (statement instanceof CreateView) {
-                CreateView viewStatement = (CreateView) statement;
+            if (statement instanceof CreateView viewStatement) {
                 QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName());
                 if (viewStatement.isReplace() && viewNameFromStatement.equals(name)) {
                     throw semanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive view");
                 }
             }
-            if (statement instanceof CreateMaterializedView) {
-                CreateMaterializedView viewStatement = (CreateMaterializedView) statement;
+            if (statement instanceof CreateMaterializedView viewStatement) {
                 QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName());
                 if (viewStatement.isReplace() && viewNameFromStatement.equals(name)) {
                     throw semanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive materialized view");
@@ -3713,8 +3710,7 @@ class StatementAnalyzer
 
         private ResolvedWindow resolveWindowSpecification(QuerySpecification querySpecification, Window window)
         {
-            if (window instanceof WindowReference) {
-                WindowReference windowReference = (WindowReference) window;
+            if (window instanceof WindowReference windowReference) {
                 CanonicalizationAware<Identifier> canonicalName = canonicalizationAwareKey(windowReference.getName());
                 ResolvedWindow referencedWindow = analysis.getWindowDefinition(querySpecification, canonicalName);
                 if (referencedWindow == null) {
@@ -4072,9 +4068,7 @@ class StatementAnalyzer
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
 
             for (SelectItem item : node.getSelect().getSelectItems()) {
-                if (item instanceof AllColumns) {
-                    AllColumns allColumns = (AllColumns) item;
-
+                if (item instanceof AllColumns allColumns) {
                     List<Field> fields = analysis.getSelectAllResultFields(allColumns);
                     checkNotNull(fields, "output fields is null for select item %s", item);
                     for (int i = 0; i < fields.size(); i++) {
@@ -4093,9 +4087,7 @@ class StatementAnalyzer
                         outputFields.add(newField);
                     }
                 }
-                else if (item instanceof SingleColumn) {
-                    SingleColumn column = (SingleColumn) item;
-
+                else if (item instanceof SingleColumn column) {
                     Expression expression = column.getExpression();
                     Optional<Identifier> field = column.getAlias();
 
@@ -4850,10 +4842,9 @@ class StatementAnalyzer
             // if RECURSIVE is specified, all queries in the WITH list are considered potentially recursive
             // try resolve WITH query as expandable query
             // a) validate shape of the query and location of recursive reference
-            if (!(withQuery.getQuery().getQueryBody() instanceof Union)) {
+            if (!(withQuery.getQuery().getQueryBody() instanceof Union union)) {
                 return false;
             }
-            Union union = (Union) withQuery.getQuery().getQueryBody();
             if (union.getRelations().size() != 2) {
                 return false;
             }
@@ -4976,10 +4967,9 @@ class StatementAnalyzer
         private Predicate<Node> isTableWithName(Identifier name)
         {
             return node -> {
-                if (!(node instanceof Table)) {
+                if (!(node instanceof Table table)) {
                     return false;
                 }
-                Table table = (Table) node;
                 QualifiedName tableName = table.getName();
                 return tableName.getPrefix().isEmpty() && tableName.hasSuffix(QualifiedName.of(name.getValue()));
             };
@@ -4988,10 +4978,9 @@ class StatementAnalyzer
         private Predicate<Node> isQueryWithNameShadowed(Identifier name)
         {
             return node -> {
-                if (!(node instanceof Query)) {
+                if (!(node instanceof Query query)) {
                     return false;
                 }
-                Query query = (Query) node;
                 if (query.getWith().isEmpty()) {
                     return false;
                 }
@@ -5104,22 +5093,19 @@ class StatementAnalyzer
         {
             ImmutableSet.Builder<CanonicalizationAware<Identifier>> aliases = ImmutableSet.builder();
             for (SelectItem item : node.getSelectItems()) {
-                if (item instanceof SingleColumn) {
-                    SingleColumn column = (SingleColumn) item;
+                if (item instanceof SingleColumn column) {
                     Optional<Identifier> alias = column.getAlias();
                     if (alias.isPresent()) {
                         aliases.add(canonicalizationAwareKey(alias.get()));
                     }
-                    else if (column.getExpression() instanceof Identifier) {
-                        aliases.add(canonicalizationAwareKey((Identifier) column.getExpression()));
+                    else if (column.getExpression() instanceof Identifier identifier) {
+                        aliases.add(canonicalizationAwareKey(identifier));
                     }
-                    else if (column.getExpression() instanceof DereferenceExpression) {
-                        aliases.add(canonicalizationAwareKey(((DereferenceExpression) column.getExpression()).getField().orElseThrow()));
+                    else if (column.getExpression() instanceof DereferenceExpression dereferenceExpression) {
+                        aliases.add(canonicalizationAwareKey(dereferenceExpression.getField().orElseThrow()));
                     }
                 }
-                else if (item instanceof AllColumns) {
-                    AllColumns allColumns = (AllColumns) item;
-
+                else if (item instanceof AllColumns allColumns) {
                     List<Field> fields = analysis.getSelectAllResultFields(allColumns);
                     checkNotNull(fields, "output fields is null for select item %s", item);
                     for (int i = 0; i < fields.size(); i++) {

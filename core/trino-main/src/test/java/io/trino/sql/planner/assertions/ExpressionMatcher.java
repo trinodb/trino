@@ -90,12 +90,10 @@ public class ExpressionMatcher
 
     private static Map<Symbol, Expression> getAssignments(PlanNode node)
     {
-        if (node instanceof ProjectNode) {
-            ProjectNode projectNode = (ProjectNode) node;
+        if (node instanceof ProjectNode projectNode) {
             return projectNode.getAssignments().getMap();
         }
-        if (node instanceof ApplyNode) {
-            ApplyNode applyNode = (ApplyNode) node;
+        if (node instanceof ApplyNode applyNode) {
             return applyNode.getSubqueryAssignments().getMap();
         }
         return null;

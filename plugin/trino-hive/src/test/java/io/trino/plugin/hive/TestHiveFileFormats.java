@@ -1054,8 +1054,7 @@ public class TestHiveFileFormats
 
     public static boolean hasType(ObjectInspector objectInspector, PrimitiveCategory... types)
     {
-        if (objectInspector instanceof PrimitiveObjectInspector) {
-            PrimitiveObjectInspector primitiveInspector = (PrimitiveObjectInspector) objectInspector;
+        if (objectInspector instanceof PrimitiveObjectInspector primitiveInspector) {
             PrimitiveCategory primitiveCategory = primitiveInspector.getPrimitiveCategory();
             for (PrimitiveCategory type : types) {
                 if (primitiveCategory == type) {
@@ -1064,17 +1063,15 @@ public class TestHiveFileFormats
             }
             return false;
         }
-        if (objectInspector instanceof ListObjectInspector) {
-            ListObjectInspector listInspector = (ListObjectInspector) objectInspector;
+        if (objectInspector instanceof ListObjectInspector listInspector) {
             return hasType(listInspector.getListElementObjectInspector(), types);
         }
-        if (objectInspector instanceof MapObjectInspector) {
-            MapObjectInspector mapInspector = (MapObjectInspector) objectInspector;
+        if (objectInspector instanceof MapObjectInspector mapInspector) {
             return hasType(mapInspector.getMapKeyObjectInspector(), types) ||
                     hasType(mapInspector.getMapValueObjectInspector(), types);
         }
-        if (objectInspector instanceof StructObjectInspector) {
-            for (StructField field : ((StructObjectInspector) objectInspector).getAllStructFieldRefs()) {
+        if (objectInspector instanceof StructObjectInspector structObjectInspector) {
+            for (StructField field : structObjectInspector.getAllStructFieldRefs()) {
                 if (hasType(field.getFieldObjectInspector(), types)) {
                     return true;
                 }

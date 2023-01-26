@@ -50,11 +50,9 @@ public class MeasureMatcher
     public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         Optional<Symbol> result = Optional.empty();
-        if (!(node instanceof PatternRecognitionNode)) {
+        if (!(node instanceof PatternRecognitionNode patternRecognitionNode)) {
             return result;
         }
-
-        PatternRecognitionNode patternRecognitionNode = (PatternRecognitionNode) node;
 
         Measure expectedMeasure = new Measure(rewrite(expression, subsets), type);
 

@@ -60,8 +60,7 @@ public final class StatsUtil
         if (type == DOUBLE) {
             return OptionalDouble.of((double) value);
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             if (decimalType.isShort()) {
                 return OptionalDouble.of(shortDecimalToDouble((long) value, longTenToNth(decimalType.getScale())));
             }
@@ -70,14 +69,14 @@ public final class StatsUtil
         if (type == DATE) {
             return OptionalDouble.of((long) value);
         }
-        if (type instanceof TimestampType) {
-            if (((TimestampType) type).isShort()) {
+        if (type instanceof TimestampType timestampType) {
+            if (timestampType.isShort()) {
                 return OptionalDouble.of((long) value);
             }
             return OptionalDouble.of(((LongTimestamp) value).getEpochMicros());
         }
-        if (type instanceof TimestampWithTimeZoneType) {
-            if (((TimestampWithTimeZoneType) type).isShort()) {
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            if (timestampWithTimeZoneType.isShort()) {
                 return OptionalDouble.of(unpackMillisUtc((long) value));
             }
             return OptionalDouble.of(((LongTimestampWithTimeZone) value).getEpochMillis());

@@ -746,11 +746,10 @@ public class ExpressionAnalyzer
             }
 
             Type baseType = process(node.getBase(), context);
-            if (!(baseType instanceof RowType)) {
+            if (!(baseType instanceof RowType rowType)) {
                 throw semanticException(TYPE_MISMATCH, node.getBase(), "Expression %s is not of type ROW", node.getBase());
             }
 
-            RowType rowType = (RowType) baseType;
             Identifier field = node.getField().orElseThrow();
             String fieldName = field.getValue();
 
@@ -1711,10 +1710,9 @@ public class ExpressionAnalyzer
                     }
                     if (node.getArguments().size() == 1) {
                         Node argument = node.getArguments().get(0);
-                        if (!(argument instanceof Identifier)) {
+                        if (!(argument instanceof Identifier identifier)) {
                             throw semanticException(TYPE_MISMATCH, argument, "CLASSIFIER function argument should be primary pattern variable or subset name. Actual: %s", argument.getClass().getSimpleName());
                         }
-                        Identifier identifier = (Identifier) argument;
                         String label = label(identifier);
                         if (!context.getContext().getLabels().contains(label)) {
                             throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "%s is not a primary pattern variable or subset name", identifier.getValue());
@@ -2251,8 +2249,7 @@ public class ExpressionAnalyzer
                         });
             }
 
-            if (valueList instanceof InListExpression) {
-                InListExpression inListExpression = (InListExpression) valueList;
+            if (valueList instanceof InListExpression inListExpression) {
                 Type type = coerceToSingleType(context,
                         "IN value and list items",
                         ImmutableList.<Expression>builder().add(value).addAll(inListExpression.getValues()).build());

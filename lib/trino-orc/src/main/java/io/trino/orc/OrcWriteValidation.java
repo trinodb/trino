@@ -654,8 +654,7 @@ public class OrcWriteValidation
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
-            else if (type instanceof DecimalType) {
-                DecimalType decimalType = (DecimalType) type;
+            else if (type instanceof DecimalType decimalType) {
                 if (decimalType.isShort()) {
                     statisticsBuilder = new ShortDecimalStatisticsBuilder((decimalType).getScale());
                 }

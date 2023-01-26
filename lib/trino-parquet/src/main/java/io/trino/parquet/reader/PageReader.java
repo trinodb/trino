@@ -106,8 +106,7 @@ public final class PageReader
         Page compressedPage = compressedPages.next();
         dataPageReadCount++;
         try {
-            if (compressedPage instanceof DataPageV1) {
-                DataPageV1 dataPageV1 = (DataPageV1) compressedPage;
+            if (compressedPage instanceof DataPageV1 dataPageV1) {
                 return new DataPageV1(
                         decompress(codec, dataPageV1.getSlice(), dataPageV1.getUncompressedSize()),
                         dataPageV1.getValueCount(),

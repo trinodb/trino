@@ -404,11 +404,10 @@ public class PredicatePushDown
         public PlanNode visitFilter(FilterNode node, RewriteContext<Expression> context)
         {
             PlanNode rewrittenPlan = context.rewrite(node.getSource(), combineConjuncts(metadata, node.getPredicate(), context.get()));
-            if (!(rewrittenPlan instanceof FilterNode)) {
+            if (!(rewrittenPlan instanceof FilterNode rewrittenFilterNode)) {
                 return rewrittenPlan;
             }
 
-            FilterNode rewrittenFilterNode = (FilterNode) rewrittenPlan;
             if (!areExpressionsEquivalent(rewrittenFilterNode.getPredicate(), node.getPredicate())
                     || node.getSource() != rewrittenFilterNode.getSource()) {
                 return rewrittenPlan;
@@ -618,8 +617,7 @@ public class PredicatePushDown
                                     .flatMap(Rewriter::tryConvertBetweenIntoComparisons)
                                     .filter(clause -> joinDynamicFilteringExpression(clause, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols()))
                                     .map(expression -> {
-                                        if (expression instanceof NotExpression) {
-                                            NotExpression notExpression = ((NotExpression) expression);
+                                        if (expression instanceof NotExpression notExpression) {
                                             ComparisonExpression comparison = (ComparisonExpression) notExpression.getValue();
                                             return new DynamicFilterExpression(new ComparisonExpression(EQUAL, comparison.getLeft(), comparison.getRight()), true);
                                         }
@@ -678,8 +676,7 @@ public class PredicatePushDown
 
         private static Stream<Expression> tryConvertBetweenIntoComparisons(Expression clause)
         {
-            if (clause instanceof BetweenPredicate) {
-                BetweenPredicate between = (BetweenPredicate) clause;
+            if (clause instanceof BetweenPredicate between) {
                 return Stream.of(
                         new ComparisonExpression(GREATER_THAN_OR_EQUAL, between.getValue(), between.getMin()),
                         new ComparisonExpression(LESS_THAN_OR_EQUAL, between.getValue(), between.getMax()));
@@ -1243,8 +1240,7 @@ public class PredicatePushDown
         private boolean joinDynamicFilteringExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)
         {
             ComparisonExpression comparison;
-            if (expression instanceof NotExpression) {
-                NotExpression notExpression = (NotExpression) expression;
+            if (expression instanceof NotExpression notExpression) {
                 boolean isDistinctFrom = joinComparisonExpression(notExpression.getValue(), leftSymbols, rightSymbols, ImmutableSet.of(IS_DISTINCT_FROM));
                 if (!isDistinctFrom) {
                     return false;
@@ -1273,8 +1269,7 @@ public class PredicatePushDown
         private boolean joinComparisonExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols, Set<ComparisonExpression.Operator> operators)
         {
             // At this point in time, our join predicates need to be deterministic
-            if (expression instanceof ComparisonExpression && isDeterministic(expression, metadata)) {
-                ComparisonExpression comparison = (ComparisonExpression) expression;
+            if (expression instanceof ComparisonExpression comparison && isDeterministic(expression, metadata)) {
                 if (operators.contains(comparison.getOperator())) {
                     Set<Symbol> symbols1 = extractUnique(comparison.getLeft());
                     Set<Symbol> symbols2 = extractUnique(comparison.getRight());

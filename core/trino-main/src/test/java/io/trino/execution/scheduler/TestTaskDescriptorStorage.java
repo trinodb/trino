@@ -213,11 +213,10 @@ public class TestTaskDescriptorStorage
 
     private static boolean isStorageCapacityExceededFailure(Throwable t)
     {
-        if (!(t instanceof TrinoException)) {
+        if (!(t instanceof TrinoException trinoException)) {
             return false;
         }
-        TrinoException e = (TrinoException) t;
-        return e.getErrorCode().getCode() == EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY.toErrorCode().getCode();
+        return trinoException.getErrorCode().getCode() == EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY.toErrorCode().getCode();
     }
 
     private static long toBytes(int size, DataSize.Unit unit)

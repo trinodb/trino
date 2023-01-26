@@ -290,13 +290,13 @@ public class H2QueryRunner
                         row.add(stringValue);
                     }
                 }
-                else if (type instanceof CharType) {
+                else if (type instanceof CharType charType) {
                     String stringValue = resultSet.getString(i);
                     if (resultSet.wasNull()) {
                         row.add(null);
                     }
                     else {
-                        row.add(padSpaces(stringValue, (CharType) type));
+                        row.add(padSpaces(stringValue, charType));
                     }
                 }
                 else if (VARBINARY.equals(type)) {
@@ -368,8 +368,7 @@ public class H2QueryRunner
                     checkState(resultSet.wasNull(), "Expected a null value, but got %s", objectValue);
                     row.add(null);
                 }
-                else if (type instanceof DecimalType) {
-                    DecimalType decimalType = (DecimalType) type;
+                else if (type instanceof DecimalType decimalType) {
                     BigDecimal decimalValue = resultSet.getBigDecimal(i);
                     if (resultSet.wasNull()) {
                         row.add(null);

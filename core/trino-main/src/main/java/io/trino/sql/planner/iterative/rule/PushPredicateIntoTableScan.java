@@ -133,20 +133,17 @@ public class PushPredicateIntoTableScan
 
     private boolean arePlansSame(FilterNode filter, TableScanNode tableScan, PlanNode rewritten)
     {
-        if (!(rewritten instanceof FilterNode)) {
+        if (!(rewritten instanceof FilterNode rewrittenFilter)) {
             return false;
         }
 
-        FilterNode rewrittenFilter = (FilterNode) rewritten;
         if (!Objects.equals(filter.getPredicate(), rewrittenFilter.getPredicate())) {
             return false;
         }
 
-        if (!(rewrittenFilter.getSource() instanceof TableScanNode)) {
+        if (!(rewrittenFilter.getSource() instanceof TableScanNode rewrittenTableScan)) {
             return false;
         }
-
-        TableScanNode rewrittenTableScan = (TableScanNode) rewrittenFilter.getSource();
 
         return Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint()) &&
                 Objects.equals(tableScan.getTable(), rewrittenTableScan.getTable());

@@ -299,11 +299,10 @@ public class MongoPageSource
             if (value instanceof List<?>) {
                 BlockBuilder builder = output.beginBlockEntry();
                 for (Object element : (List<?>) value) {
-                    if (!(element instanceof Map<?, ?>)) {
+                    if (!(element instanceof Map<?, ?> document)) {
                         continue;
                     }
 
-                    Map<?, ?> document = (Map<?, ?>) element;
                     if (document.containsKey("key") && document.containsKey("value")) {
                         appendTo(type.getTypeParameters().get(0), document.get("key"), builder);
                         appendTo(type.getTypeParameters().get(1), document.get("value"), builder);
@@ -313,9 +312,8 @@ public class MongoPageSource
                 output.closeEntry();
                 return;
             }
-            if (value instanceof Map) {
+            if (value instanceof Map<?, ?> document) {
                 BlockBuilder builder = output.beginBlockEntry();
-                Map<?, ?> document = (Map<?, ?>) value;
                 for (Map.Entry<?, ?> entry : document.entrySet()) {
                     appendTo(type.getTypeParameters().get(0), entry.getKey(), builder);
                     appendTo(type.getTypeParameters().get(1), entry.getValue(), builder);
@@ -325,8 +323,7 @@ public class MongoPageSource
             }
         }
         else if (isRowType(type)) {
-            if (value instanceof Map) {
-                Map<?, ?> mapValue = (Map<?, ?>) value;
+            if (value instanceof Map<?, ?> mapValue) {
                 BlockBuilder builder = output.beginBlockEntry();
 
                 List<String> fieldNames = new ArrayList<>();
@@ -341,8 +338,7 @@ public class MongoPageSource
                 output.closeEntry();
                 return;
             }
-            if (value instanceof DBRef) {
-                DBRef dbRefValue = (DBRef) value;
+            if (value instanceof DBRef dbRefValue) {
                 BlockBuilder builder = output.beginBlockEntry();
 
                 checkState(type.getTypeParameters().size() == 3, "DBRef should have 3 fields : %s", type);
@@ -353,8 +349,7 @@ public class MongoPageSource
                 output.closeEntry();
                 return;
             }
-            if (value instanceof List<?>) {
-                List<?> listValue = (List<?>) value;
+            if (value instanceof List<?> listValue) {
                 BlockBuilder builder = output.beginBlockEntry();
                 for (int index = 0; index < type.getTypeParameters().size(); index++) {
                     if (index < listValue.size()) {

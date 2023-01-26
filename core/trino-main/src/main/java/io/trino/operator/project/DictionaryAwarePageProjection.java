@@ -166,8 +166,7 @@ public class DictionaryAwarePageProjection
                     return true;
                 }
 
-                if (block instanceof DictionaryBlock) {
-                    DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
+                if (block instanceof DictionaryBlock dictionaryBlock) {
                     // if dictionary was processed, produce a dictionary block; otherwise do normal processing
                     int[] outputIds = filterDictionaryIds(dictionaryBlock, selectedPositions);
                     result = createProjectedDictionaryBlock(selectedPositions.size(), dictionaryOutput.get(), outputIds, sourceIdFunction.apply(dictionaryBlock));

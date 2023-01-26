@@ -58,8 +58,8 @@ public class DictionaryAwarePageFilter
     {
         Block block = page.getBlock(0).getLoadedBlock();
 
-        if (block instanceof RunLengthEncodedBlock) {
-            Block value = ((RunLengthEncodedBlock) block).getValue();
+        if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
+            Block value = runLengthEncodedBlock.getValue();
             Optional<boolean[]> selectedPosition = processDictionary(session, value, block.getPositionCount());
             // single value block is always considered effective, but the processing could have thrown
             // in that case we fallback and process again so the correct error message sent
@@ -68,8 +68,7 @@ public class DictionaryAwarePageFilter
             }
         }
 
-        if (block instanceof DictionaryBlock) {
-            DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
+        if (block instanceof DictionaryBlock dictionaryBlock) {
             // Attempt to process the dictionary.  If dictionary is processing has not been considered effective, an empty response will be returned
             Optional<boolean[]> selectedDictionaryPositions = processDictionary(session, dictionaryBlock.getDictionary(), block.getPositionCount());
             // record the usage count regardless of dictionary processing choice, so we have stats for next time

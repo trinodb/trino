@@ -219,8 +219,7 @@ public class Field
     public boolean equals(Object obj)
     {
         boolean retval = true;
-        if (obj instanceof Field) {
-            Field field = (Field) obj;
+        if (obj instanceof Field field) {
             if (type.equals(field.getType())) {
                 if (this.isNull() && field.isNull()) {
                     retval = true;

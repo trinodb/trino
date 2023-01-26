@@ -148,11 +148,10 @@ public class RewriteSpatialPartitioningAggregation
 
     private boolean isStEnvelopeFunctionCall(Expression expression, ResolvedFunction stEnvelopeFunction)
     {
-        if (!(expression instanceof FunctionCall)) {
+        if (!(expression instanceof FunctionCall functionCall)) {
             return false;
         }
 
-        FunctionCall functionCall = (FunctionCall) expression;
         return plannerContext.getMetadata().decodeFunction(functionCall.getName())
                 .getFunctionId()
                 .equals(stEnvelopeFunction.getFunctionId());

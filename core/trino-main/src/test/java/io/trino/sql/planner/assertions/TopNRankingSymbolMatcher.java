@@ -29,11 +29,9 @@ public class TopNRankingSymbolMatcher
     @Override
     public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        if (!(node instanceof TopNRankingNode)) {
+        if (!(node instanceof TopNRankingNode topNRankingNode)) {
             return Optional.empty();
         }
-
-        TopNRankingNode topNRankingNode = (TopNRankingNode) node;
 
         return Optional.of(topNRankingNode.getRankingSymbol());
     }

@@ -155,8 +155,7 @@ public final class JsonUtil
         if (type instanceof ArrayType) {
             return canCastToJson(((ArrayType) type).getElementType());
         }
-        if (type instanceof MapType) {
-            MapType mapType = (MapType) type;
+        if (type instanceof MapType mapType) {
             return (mapType.getKeyType() instanceof UnknownType ||
                     isValidJsonObjectKeyType(mapType.getKeyType())) &&
                     canCastToJson(mapType.getValueType());
@@ -280,32 +279,30 @@ public final class JsonUtil
             if (type instanceof JsonType) {
                 return new JsonJsonGeneratorWriter();
             }
-            if (type instanceof TimestampType) {
-                return new TimestampJsonGeneratorWriter((TimestampType) type);
+            if (type instanceof TimestampType timestampType) {
+                return new TimestampJsonGeneratorWriter(timestampType);
             }
             if (type instanceof DateType) {
                 return new DateGeneratorWriter();
             }
-            if (type instanceof ArrayType) {
-                ArrayType arrayType = (ArrayType) type;
+            if (type instanceof ArrayType arrayType) {
                 return new ArrayJsonGeneratorWriter(
                         arrayType,
                         createJsonGeneratorWriter(arrayType.getElementType()));
             }
-            if (type instanceof MapType) {
-                MapType mapType = (MapType) type;
+            if (type instanceof MapType mapType) {
                 return new MapJsonGeneratorWriter(
                         mapType,
                         createObjectKeyProvider(mapType.getKeyType()),
                         createJsonGeneratorWriter(mapType.getValueType()));
             }
-            if (type instanceof RowType) {
+            if (type instanceof RowType rowType) {
                 List<Type> fieldTypes = type.getTypeParameters();
                 List<JsonGeneratorWriter> fieldWriters = new ArrayList<>(fieldTypes.size());
                 for (int i = 0; i < fieldTypes.size(); i++) {
                     fieldWriters.add(createJsonGeneratorWriter(fieldTypes.get(i)));
                 }
-                return new RowJsonGeneratorWriter((RowType) type, fieldWriters);
+                return new RowJsonGeneratorWriter(rowType, fieldWriters);
             }
 
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
@@ -928,17 +925,15 @@ public final class JsonUtil
                     JSON.writeSlice(blockBuilder, Slices.utf8Slice(json));
                 };
             }
-            if (type instanceof ArrayType) {
-                return new ArrayBlockBuilderAppender(createBlockBuilderAppender(((ArrayType) type).getElementType()));
+            if (type instanceof ArrayType arrayType) {
+                return new ArrayBlockBuilderAppender(createBlockBuilderAppender(arrayType.getElementType()));
             }
-            if (type instanceof MapType) {
-                MapType mapType = (MapType) type;
+            if (type instanceof MapType mapType) {
                 return new MapBlockBuilderAppender(
                         createBlockBuilderAppender(mapType.getKeyType()),
                         createBlockBuilderAppender(mapType.getValueType()));
             }
-            if (type instanceof RowType) {
-                RowType rowType = (RowType) type;
+            if (type instanceof RowType rowType) {
                 List<Field> rowFields = rowType.getFields();
                 BlockBuilderAppender[] fieldAppenders = new BlockBuilderAppender[rowFields.size()];
                 for (int i = 0; i < fieldAppenders.length; i++) {

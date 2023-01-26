@@ -156,11 +156,10 @@ public class ReplaceJoinOverConstantWithProject
 
     private boolean isSingleConstantRow(PlanNode node)
     {
-        if (!(node instanceof ValuesNode)) {
+        if (!(node instanceof ValuesNode values)) {
             return false;
         }
 
-        ValuesNode values = (ValuesNode) node;
         if (values.getRowCount() != 1) {
             return false;
         }

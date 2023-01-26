@@ -96,8 +96,7 @@ public final class FunctionsParserHelper
         HashMultimap<String, String> castableTo = HashMultimap.create();
         HashMultimap<String, String> castableFrom = HashMultimap.create();
         for (ImplementationDependency dependency : dependencies) {
-            if (dependency instanceof OperatorImplementationDependency) {
-                OperatorImplementationDependency operatorDependency = (OperatorImplementationDependency) dependency;
+            if (dependency instanceof OperatorImplementationDependency operatorDependency) {
                 OperatorType operator = operatorDependency.getOperator();
                 List<TypeSignature> argumentTypes = operatorDependency.getArgumentTypes();
                 if (COMPARABLE_TYPE_OPERATORS.contains(operator)) {
@@ -124,9 +123,7 @@ public final class FunctionsParserHelper
                     throw new IllegalArgumentException("Operator dependency on " + operator + " is not allowed");
                 }
             }
-            else if (dependency instanceof CastImplementationDependency) {
-                CastImplementationDependency castImplementationDependency = (CastImplementationDependency) dependency;
-
+            else if (dependency instanceof CastImplementationDependency castImplementationDependency) {
                 TypeSignature fromType = castImplementationDependency.getFromType();
                 TypeSignature toType = castImplementationDependency.getToType();
                 if (typeParameterNames.contains(fromType.getBase())) {
