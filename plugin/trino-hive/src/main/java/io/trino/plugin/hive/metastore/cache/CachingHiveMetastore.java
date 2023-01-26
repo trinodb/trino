@@ -392,7 +392,7 @@ public class CachingHiveMetastore
     @Override
     public PartitionStatistics getTableStatistics(Table table)
     {
-        return get(tableStatisticsCache, hiveTableName(table.getDatabaseName(), table.getTableName()));
+        return get(tableStatisticsCache, hiveTableName(table.getDatabaseName(), table.getTableName()), () -> delegate.getTableStatistics(table));
     }
 
     private PartitionStatistics loadTableColumnStatistics(HiveTableName tableName)
