@@ -28,6 +28,7 @@ import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.util.HiveUtil;
+import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.spi.TrinoException;
@@ -287,6 +288,21 @@ public class TrinoHiveCatalog
 
         PrincipalPrivileges privileges = owner.map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
         metastore.createTable(builder.build(), privileges);
+    }
+
+    @Override
+    public void unregisterTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        io.trino.plugin.hive.metastore.Table table = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(schemaTableName));
+        if (!isIcebergTable(table)) {
+            throw new UnknownTableTypeException(schemaTableName);
+        }
+
+        metastore.dropTable(
+                schemaTableName.getSchemaName(),
+                schemaTableName.getTableName(),
+                false /* do not delete data */);
     }
 
     @Override
