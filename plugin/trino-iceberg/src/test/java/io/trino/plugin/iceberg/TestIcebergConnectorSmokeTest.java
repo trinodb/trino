@@ -20,7 +20,9 @@ import org.testng.annotations.AfterClass;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -75,5 +77,16 @@ public class TestIcebergConnectorSmokeTest
         return metastore
                 .getTable(getSession().getSchema().orElseThrow(), tableName).orElseThrow()
                 .getParameters().get("metadata_location");
+    }
+
+    @Override
+    protected void deleteDirectory(String location)
+    {
+        try {
+            deleteRecursively(Path.of(location), ALLOW_INSECURE);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

@@ -212,6 +212,12 @@ public class TrinoRestCatalog
     }
 
     @Override
+    public void unregisterTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "unregisterTable is not supported for Iceberg REST catalogs");
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         if (!restSessionCatalog.dropTable(convert(session), toIdentifier(schemaTableName))) {

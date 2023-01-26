@@ -20,6 +20,7 @@ import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.minio.MinioClient;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -232,5 +233,18 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
         return metastore
                 .getTable(schemaName, tableName).orElseThrow()
                 .getParameters().get("metadata_location");
+    }
+
+    @Override
+    protected void deleteDirectory(String location)
+    {
+        String prefix = "s3://" + bucketName + "/";
+        String key = location.substring(prefix.length());
+
+        MinioClient minio = hiveMinioDataLake.getMinioClient();
+        for (String file : minio.listObjects(bucketName, key)) {
+            minio.removeObject(bucketName, file);
+        }
+        assertThat(minio.listObjects(bucketName, key)).isEmpty();
     }
 }
