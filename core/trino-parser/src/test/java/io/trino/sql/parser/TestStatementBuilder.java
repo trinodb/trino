@@ -329,6 +329,9 @@ public class TestStatementBuilder
                 "when matched and c.action = 'del' then delete\n" +
                 "when not matched and c.action = 'new' then\n" +
                 "insert (part, qty) values (c.part, c.qty)");
+
+        printStatement("set session authorization user");
+        printStatement("reset session authorization");
     }
 
     @Test

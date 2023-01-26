@@ -151,6 +151,9 @@ public class QueryStateMachine
     private final AtomicReference<String> setSchema = new AtomicReference<>();
     private final AtomicReference<String> setPath = new AtomicReference<>();
 
+    private final AtomicReference<String> setAuthorizationUser = new AtomicReference<>();
+    private final AtomicBoolean resetAuthorizationUser = new AtomicBoolean();
+
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
 
@@ -530,6 +533,8 @@ public class QueryStateMachine
                 Optional.ofNullable(setCatalog.get()),
                 Optional.ofNullable(setSchema.get()),
                 Optional.ofNullable(setPath.get()),
+                Optional.ofNullable(setAuthorizationUser.get()),
+                resetAuthorizationUser.get(),
                 setSessionProperties,
                 resetSessionProperties,
                 setRoles,
@@ -923,6 +928,18 @@ public class QueryStateMachine
         return setPath.get();
     }
 
+    public void setSetAuthorizationUser(String authorizationUser)
+    {
+        checkState(authorizationUser != null && !authorizationUser.isEmpty(), "Authorization user cannot be null or empty");
+        setAuthorizationUser.set(authorizationUser);
+    }
+
+    public void resetAuthorizationUser()
+    {
+        checkArgument(setAuthorizationUser.get() == null, "Cannot set and reset the authorization user in the same request");
+        resetAuthorizationUser.set(true);
+    }
+
     public void addSetSessionProperties(String key, String value)
     {
         setSessionProperties.put(requireNonNull(key, "key is null"), requireNonNull(value, "value is null"));
@@ -1306,6 +1323,8 @@ public class QueryStateMachine
                 queryInfo.getSetCatalog(),
                 queryInfo.getSetSchema(),
                 queryInfo.getSetPath(),
+                queryInfo.getSetAuthorizationUser(),
+                queryInfo.isResetAuthorizationUser(),
                 queryInfo.getSetSessionProperties(),
                 queryInfo.getResetSessionProperties(),
                 queryInfo.getSetRoles(),

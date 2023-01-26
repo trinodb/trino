@@ -132,6 +132,7 @@ public class TestMysqlEventListener
 
     private static final QueryContext FULL_QUERY_CONTEXT = new QueryContext(
             "user",
+            "originalUser",
             Optional.of("principal"),
             Set.of("group1", "group2"),
             Optional.of("traceToken"),
@@ -284,6 +285,7 @@ public class TestMysqlEventListener
 
     private static final QueryContext MINIMAL_QUERY_CONTEXT = new QueryContext(
             "user",
+            "originalUser",
             Optional.empty(),
             Set.of(),
             Optional.empty(),

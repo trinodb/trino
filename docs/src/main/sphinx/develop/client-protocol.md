@@ -142,6 +142,8 @@ in subsequent requests, just like browser cookies.
   * - ``X-Trino-User``
     - Specifies the session user. If not supplied, the session user is
       automatically determined via :doc:`/security/user-mapping`.
+  * - ``X-Trino-Original-User``
+    - Specifies the session's original user.
   * - ``X-Trino-Source``
     - For reporting purposes, this supplies the name of the software
       that submitted the query.
@@ -229,6 +231,13 @@ subsequent requests to be consistent with the response headers received.
   * - ``X-Trino-Set-Schema``
     - Instructs the client to set the schema in the
       ``X-Trino-Schema`` request header in subsequent client requests.
+  * - ``X-Trino-Set-Authorization-User``
+    - Instructs the client to set the session authorization user in the
+      ``X-Trino-Authorization-User`` request header in subsequent client requests.
+  * - ``X-Trino-Reset-Authorization-User``
+    - Instructs the client to remove ``X-Trino-Authorization-User`` request header
+      in subsequent client requests to reset the authorization user back to the
+      original user.
   * - ``X-Trino-Set-Session``
     - The value of the ``X-Trino-Set-Session`` response header is a
       string of the form *property* = *value*.  It

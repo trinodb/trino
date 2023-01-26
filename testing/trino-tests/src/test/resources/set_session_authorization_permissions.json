@@ -1,0 +1,16 @@
+{
+    "impersonation": [
+        {
+            "originalUser": "user",
+            "newUser": "alice"
+        },
+        {
+            "originalUser": "user2",
+            "newUser": "bob"
+        },
+        {
+            "originalUser": "alice",
+            "newUser": "charlie"
+        }
+    ]
+}

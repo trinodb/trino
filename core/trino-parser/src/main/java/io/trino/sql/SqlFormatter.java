@@ -103,6 +103,7 @@ import io.trino.sql.tree.RenameSchema;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
 import io.trino.sql.tree.ResetSession;
+import io.trino.sql.tree.ResetSessionAuthorization;
 import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.RevokeRoles;
 import io.trino.sql.tree.Rollback;
@@ -117,6 +118,7 @@ import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
+import io.trino.sql.tree.SetSessionAuthorization;
 import io.trino.sql.tree.SetTableAuthorization;
 import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.SetViewAuthorization;
@@ -1886,6 +1888,21 @@ public final class SqlFormatter
             builder.append("RESET SESSION ")
                     .append(formatName(node.getName()));
 
+            return null;
+        }
+
+        @Override
+        protected Void visitSetSessionAuthorization(SetSessionAuthorization node, Integer context)
+        {
+            builder.append("SET SESSION AUTHORIZATION ");
+            builder.append(formatExpression(node.getUser()));
+            return null;
+        }
+
+        @Override
+        protected Void visitResetSessionAuthorization(ResetSessionAuthorization node, Integer context)
+        {
+            builder.append("RESET SESSION AUTHORIZATION");
             return null;
         }
 

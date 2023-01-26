@@ -163,6 +163,7 @@ import io.trino.sql.tree.RenameSchema;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
 import io.trino.sql.tree.ResetSession;
+import io.trino.sql.tree.ResetSessionAuthorization;
 import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.RevokeRoles;
 import io.trino.sql.tree.Rollback;
@@ -175,6 +176,7 @@ import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSession;
+import io.trino.sql.tree.SetSessionAuthorization;
 import io.trino.sql.tree.SetTableAuthorization;
 import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.SetViewAuthorization;
@@ -5999,6 +6001,28 @@ public class TestSqlParser
                                                 new PlanLeaf(location(7, 27), new Identifier(location(7, 27), "status", false)),
                                                 new PlanLeaf(location(7, 40), new Identifier(location(7, 40), "comment", false)))))),
                         Optional.of(JsonTable.ErrorBehavior.ERROR))));
+    }
+
+    @Test
+    public void testSetSessionAuthorization()
+    {
+        assertStatement("SET SESSION AUTHORIZATION user", new SetSessionAuthorization(identifier("user")));
+        assertStatement("SET SESSION AUTHORIZATION \"user\"", new SetSessionAuthorization(identifier("user")));
+        assertStatement("SET SESSION AUTHORIZATION 'user'", new SetSessionAuthorization(new StringLiteral("user")));
+
+        assertStatementIsInvalid("SET SESSION AUTHORIZATION user-a").withMessage("line 1:31: mismatched input '-'. Expecting: <EOF>");
+        assertStatement("SET SESSION AUTHORIZATION \"user-a\"", new SetSessionAuthorization(identifier("user-a")));
+        assertStatement("SET SESSION AUTHORIZATION 'user-a'", new SetSessionAuthorization(new StringLiteral("user-a")));
+
+        assertStatementIsInvalid("SET SESSION AUTHORIZATION null").withMessage("line 1:27: mismatched input 'null'. Expecting: '.', '=', <identifier>, <string>");
+        assertStatement("SET SESSION AUTHORIZATION \"null\"", new SetSessionAuthorization(identifier("null")));
+        assertStatement("SET SESSION AUTHORIZATION 'null'", new SetSessionAuthorization(new StringLiteral("null")));
+    }
+
+    @Test
+    public void testResetSessionAuthorization()
+    {
+        assertStatement("RESET SESSION AUTHORIZATION", new ResetSessionAuthorization());
     }
 
     private static QualifiedName makeQualifiedName(String tableName)

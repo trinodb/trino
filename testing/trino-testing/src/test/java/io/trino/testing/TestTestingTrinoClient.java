@@ -47,6 +47,7 @@ public class TestTestingTrinoClient
     private static final SessionPropertyManager sessionManager = new SessionPropertyManager();
     private static final Session session = Session.builder(sessionManager)
             .setIdentity(Identity.forUser(TEST_USER).build())
+            .setOriginalIdentity(Identity.forUser(TEST_USER).build())
             .setQueryId(queryIdGenerator.createNextQueryId())
             .build();
 

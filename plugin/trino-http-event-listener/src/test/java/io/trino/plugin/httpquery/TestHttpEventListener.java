@@ -105,6 +105,7 @@ public class TestHttpEventListener
 
         queryContext = new QueryContext(
                 "user",
+                "originalUser",
                 Optional.of("principal"),
                 Set.of(), // groups
                 Optional.empty(), // traceToken

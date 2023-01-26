@@ -50,6 +50,7 @@ public final class TestingSessionContext
                 session.getPath().getRawPath(),
                 Optional.empty(),
                 session.getIdentity(),
+                session.getOriginalIdentity(),
                 selectedRole,
                 session.getSource(),
                 session.getTraceToken(),
