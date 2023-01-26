@@ -14,6 +14,7 @@
 package io.trino.cli;
 
 import com.google.common.base.CharMatcher;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import io.airlift.units.Duration;
@@ -386,6 +387,17 @@ public class Console
             // update path if present
             if (query.getSetPath().isPresent()) {
                 builder = builder.path(query.getSetPath().get());
+            }
+
+            // update authorization user if present
+            if (query.getSetAuthorizationUser().isPresent()) {
+                builder = builder.authorizationUser(query.getSetAuthorizationUser());
+                builder = builder.roles(ImmutableMap.of());
+            }
+
+            if (query.isResetAuthorizationUser()) {
+                builder = builder.authorizationUser(Optional.empty());
+                builder = builder.roles(ImmutableMap.of());
             }
 
             // update session properties if present
