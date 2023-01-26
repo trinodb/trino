@@ -89,6 +89,7 @@ public class TrinoConnection
     private final AtomicReference<String> catalog = new AtomicReference<>();
     private final AtomicReference<String> schema = new AtomicReference<>();
     private final AtomicReference<String> path = new AtomicReference<>();
+    private final AtomicReference<String> authorizationUser = new AtomicReference<>();
     private final AtomicReference<ZoneId> timeZoneId = new AtomicReference<>();
     private final AtomicReference<Locale> locale = new AtomicReference<>();
     private final AtomicReference<Integer> networkTimeoutMillis = new AtomicReference<>(Ints.saturatedCast(MINUTES.toMillis(2)));
@@ -745,6 +746,7 @@ public class TrinoConnection
                 .server(httpUri)
                 .principal(user)
                 .user(sessionUser.get())
+                .authorizationUser(Optional.ofNullable(authorizationUser.get()))
                 .source(source)
                 .traceToken(Optional.ofNullable(clientInfo.get(TRACE_TOKEN)))
                 .clientTags(ImmutableSet.copyOf(clientTags))
@@ -780,6 +782,15 @@ public class TrinoConnection
         client.getSetSchema().ifPresent(schema::set);
         client.getSetPath().ifPresent(path::set);
 
+        if (client.getSetAuthorizationUser().isPresent()) {
+            authorizationUser.set(client.getSetAuthorizationUser().get());
+            roles.clear();
+        }
+        if (client.isResetAuthorizationUser()) {
+            authorizationUser.set(null);
+            roles.clear();
+        }
+
         if (client.getStartedTransactionId() != null) {
             transactionId.set(client.getStartedTransactionId());
         }
@@ -807,6 +818,12 @@ public class TrinoConnection
     int activeStatements()
     {
         return statements.size();
+    }
+
+    @VisibleForTesting
+    String getAuthorizationUser()
+    {
+        return authorizationUser.get();
     }
 
     private void checkOpen()

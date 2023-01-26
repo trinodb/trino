@@ -200,6 +200,7 @@ import io.trino.sql.tree.RenameSchema;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
 import io.trino.sql.tree.ResetSession;
+import io.trino.sql.tree.ResetSessionAuthorization;
 import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.RevokeRoles;
 import io.trino.sql.tree.Rollback;
@@ -217,6 +218,7 @@ import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
+import io.trino.sql.tree.SetSessionAuthorization;
 import io.trino.sql.tree.SetTableAuthorization;
 import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.SetViewAuthorization;
@@ -1450,6 +1452,23 @@ class AstBuilder
     public Node visitResetSession(SqlBaseParser.ResetSessionContext context)
     {
         return new ResetSession(getLocation(context), getQualifiedName(context.qualifiedName()));
+    }
+
+    @Override
+    public Node visitSetSessionAuthorization(SqlBaseParser.SetSessionAuthorizationContext context)
+    {
+        if (context.authorizationUser() instanceof SqlBaseParser.IdentifierUserContext || context.authorizationUser() instanceof SqlBaseParser.StringUserContext) {
+            return new SetSessionAuthorization(getLocation(context), (Expression) visit(context.authorizationUser()));
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported Session Authorization User: " + context.authorizationUser());
+        }
+    }
+
+    @Override
+    public Node visitResetSessionAuthorization(SqlBaseParser.ResetSessionAuthorizationContext context)
+    {
+        return new ResetSessionAuthorization(getLocation(context));
     }
 
     @Override
