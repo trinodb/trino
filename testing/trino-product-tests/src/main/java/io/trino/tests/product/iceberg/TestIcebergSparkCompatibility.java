@@ -72,6 +72,7 @@ import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.Creat
 import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_WITH_NO_DATA_AND_INSERT;
 import static io.trino.tests.product.iceberg.util.IcebergTestUtils.getTableLocation;
 import static io.trino.tests.product.iceberg.util.IcebergTestUtils.stripNamenodeURI;
+import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -2544,6 +2545,26 @@ public class TestIcebergSparkCompatibility
         assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName))).containsOnly(expected);
         assertThat(onSpark().executeQuery(format("SELECT * FROM %s", sparkTableName))).containsOnly(expected);
         onTrino().executeQuery(format("DROP TABLE %s", trinoTableName));
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testUnregisterNotIcebergTable()
+    {
+        String baseTableName = "test_unregister_not_iceberg_table_" + randomNameSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String hiveTableName = TEST_SCHEMA_NAME + "." + baseTableName;
+
+        onHive().executeQuery("CREATE TABLE " + hiveTableName + " AS SELECT 1 a");
+
+        assertThatThrownBy(() -> onTrino().executeQuery("CALL iceberg.system.unregister_table('default', '" + baseTableName + "')"))
+                .hasMessageContaining("Not an Iceberg table");
+
+        assertThat(onSpark().executeQuery("SELECT * FROM " + hiveTableName)).containsOnly(row(1));
+        assertThat(onTrino().executeQuery("SELECT * FROM hive.default." + baseTableName)).containsOnly(row(1));
+        assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM " + trinoTableName))
+                .hasMessageContaining("Not an Iceberg table");
+
+        onHive().executeQuery("DROP TABLE " + hiveTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "testSetColumnTypeDataProvider")

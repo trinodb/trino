@@ -32,6 +32,7 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.CREATE_TABLE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.DROP_TABLE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_TABLE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.REPLACE_TABLE;
@@ -295,6 +296,19 @@ public class TestIcebergMetastoreAccessOperations
         // This test should get updated if a new system table is added.
         assertThat(TableType.values())
                 .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES);
+    }
+
+    @Test
+    public void testUnregisterTable()
+    {
+        assertUpdate("CREATE TABLE test_unregister_table AS SELECT 2 as age", 1);
+
+        assertMetastoreInvocations("CALL system.unregister_table(CURRENT_SCHEMA, 'test_unregister_table')",
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .add(GET_TABLE)
+                        .add(DROP_TABLE)
+                        .build());
     }
 
     private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<?> expectedInvocations)

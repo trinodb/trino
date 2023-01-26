@@ -200,4 +200,15 @@ public class TestIcebergGcsConnectorSmokeTest
                 .getTable(schema, tableName).orElseThrow()
                 .getParameters().get("metadata_location");
     }
+
+    @Override
+    protected void deleteDirectory(String location)
+    {
+        try {
+            fileSystem.delete(new org.apache.hadoop.fs.Path(location), true);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
 }

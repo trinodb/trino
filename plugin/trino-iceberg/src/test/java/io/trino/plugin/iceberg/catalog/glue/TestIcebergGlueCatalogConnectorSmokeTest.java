@@ -92,25 +92,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
         getQueryRunner().execute("DROP SCHEMA IF EXISTS " + schemaName);
 
         // DROP TABLES should clean up any files, but clear the directory manually to be safe
-        AmazonS3 s3 = AmazonS3ClientBuilder.standard().build();
-
-        ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
-                .withBucketName(bucketName)
-                .withPrefix(schemaPath());
-        List<DeleteObjectsRequest.KeyVersion> keysToDelete = getPaginatedResults(
-                s3::listObjectsV2,
-                listObjectsRequest,
-                ListObjectsV2Request::setContinuationToken,
-                ListObjectsV2Result::getNextContinuationToken,
-                new AwsApiCallStats())
-                .map(ListObjectsV2Result::getObjectSummaries)
-                .flatMap(objectSummaries -> objectSummaries.stream().map(S3ObjectSummary::getKey))
-                .map(DeleteObjectsRequest.KeyVersion::new)
-                .collect(toImmutableList());
-
-        if (!keysToDelete.isEmpty()) {
-            s3.deleteObjects(new DeleteObjectsRequest(bucketName).withKeys(keysToDelete));
-        }
+        deleteDirectory(schemaPath());
     }
 
     @Test
@@ -215,6 +197,31 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
         return glueClient.getTable(getTableRequest)
                 .getTable()
                 .getParameters().get("metadata_location");
+    }
+
+    @Override
+    protected void deleteDirectory(String location)
+    {
+        AmazonS3 s3 = AmazonS3ClientBuilder.standard().build();
+
+        ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
+                .withBucketName(bucketName)
+                .withPrefix(location);
+        List<DeleteObjectsRequest.KeyVersion> keysToDelete = getPaginatedResults(
+                s3::listObjectsV2,
+                listObjectsRequest,
+                ListObjectsV2Request::setContinuationToken,
+                ListObjectsV2Result::getNextContinuationToken,
+                new AwsApiCallStats())
+                .map(ListObjectsV2Result::getObjectSummaries)
+                .flatMap(objectSummaries -> objectSummaries.stream().map(S3ObjectSummary::getKey))
+                .map(DeleteObjectsRequest.KeyVersion::new)
+                .collect(toImmutableList());
+
+        if (!keysToDelete.isEmpty()) {
+            s3.deleteObjects(new DeleteObjectsRequest(bucketName).withKeys(keysToDelete));
+        }
+        assertThat(s3.listObjects(bucketName, location).getObjectSummaries()).isEmpty();
     }
 
     private String schemaPath()
