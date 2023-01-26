@@ -73,7 +73,7 @@ public class UnionStatsRule
         PlanNodeStatsEstimate.Builder mapped = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(estimate.getOutputRowCount());
 
-        mapping.keySet().stream()
+        mapping.keySet()
                 .forEach(symbol -> mapped.addSymbolStatistics(symbol, estimate.getSymbolStatistics(mapping.get(symbol).get(index))));
 
         return mapped.build();

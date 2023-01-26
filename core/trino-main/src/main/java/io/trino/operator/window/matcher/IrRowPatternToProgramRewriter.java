@@ -157,8 +157,7 @@ public class IrRowPatternToProgramRewriter
 
         private void concatenation(List<IrRowPattern> patterns)
         {
-            patterns.stream()
-                    .forEach(this::process);
+            patterns.forEach(this::process);
         }
 
         private void alternation(List<List<IrRowPattern>> parts)

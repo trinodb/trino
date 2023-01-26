@@ -1772,7 +1772,7 @@ public class PlanPrinter
                 Map<String, TableArgumentProperties> tableArguments = node.getTableArgumentProperties().stream()
                         .collect(toImmutableMap(TableArgumentProperties::getArgumentName, identity()));
 
-                node.getArguments().entrySet().stream()
+                node.getArguments().entrySet()
                         .forEach(entry -> nodeOutput.appendDetails(formatArgument(entry.getKey(), entry.getValue(), tableArguments)));
 
                 if (!node.getCopartitioningLists().isEmpty()) {

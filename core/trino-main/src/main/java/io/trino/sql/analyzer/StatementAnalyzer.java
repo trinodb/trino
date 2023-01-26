@@ -1659,7 +1659,7 @@ class StatementAnalyzer
                 orderedTableArguments.add(argument);
                 Scope argumentScope = analysis.getScope(argument.getRelation());
                 if (argument.isPassThroughColumns()) {
-                    argumentScope.getRelationType().getAllFields().stream()
+                    argumentScope.getRelationType().getAllFields()
                             .forEach(fields::add);
                 }
                 else if (argument.getPartitionBy().isPresent()) {
@@ -1841,14 +1841,13 @@ class StatementAnalyzer
                 }
                 List<Expression> partitionBy = tableArgument.getPartitionBy().get();
                 analysisBuilder.withPartitionBy(partitionBy);
-                partitionBy.stream()
-                        .forEach(partitioningColumn -> {
-                            validateAndGetInputField(partitioningColumn, argumentScope);
-                            Type type = analyzeExpression(partitioningColumn, argumentScope).getType(partitioningColumn);
-                            if (!type.isComparable()) {
-                                throw semanticException(TYPE_MISMATCH, partitioningColumn, "%s is not comparable, and therefore cannot be used in PARTITION BY", type);
-                            }
-                        });
+                partitionBy.forEach(partitioningColumn -> {
+                    validateAndGetInputField(partitioningColumn, argumentScope);
+                    Type type = analyzeExpression(partitioningColumn, argumentScope).getType(partitioningColumn);
+                    if (!type.isComparable()) {
+                        throw semanticException(TYPE_MISMATCH, partitioningColumn, "%s is not comparable, and therefore cannot be used in PARTITION BY", type);
+                    }
+                });
                 argumentBuilder.partitionBy(partitionBy.stream()
                         // each expression is either an Identifier or a DereferenceExpression
                         .map(Expression::toString)

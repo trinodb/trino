@@ -39,7 +39,7 @@ configured on the coordinator to determine that JVM's default cipher list.
 .. code-block:: shell
 
   echo "java.util.Arrays.asList(((javax.net.ssl.SSLServerSocketFactory) \
-  javax.net.ssl.SSLServerSocketFactory.getDefault()).getSupportedCipherSuites()).stream().forEach(System.out::println)" | jshell -
+  javax.net.ssl.SSLServerSocketFactory.getDefault()).getSupportedCipherSuites()).forEach(System.out::println)" | jshell -
 
 The default Trino server specifies a set of regular expressions that exclude
 older cipher suites that do not support forward secrecy (FS).
