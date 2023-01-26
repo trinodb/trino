@@ -1080,7 +1080,7 @@ public class UnaliasSymbolReferences
             // derive new mappings from inner join equi criteria
             Map<Symbol, Symbol> newMapping = new HashMap<>();
             if (node.getType() == INNER) {
-                newCriteria.stream()
+                newCriteria
                         // Map right equi-condition symbol to left symbol. This helps to
                         // reuse join node partitioning better as partitioning properties are
                         // only derived from probe side symbols
@@ -1217,7 +1217,7 @@ public class UnaliasSymbolReferences
             List<Symbol> newOutputSymbols = mapper.mapAndDistinct(node.getOutputSymbols());
 
             Map<Symbol, ColumnHandle> newAssignments = new HashMap<>();
-            node.getAssignments().entrySet().stream()
+            node.getAssignments().entrySet()
                     .forEach(assignment -> newAssignments.put(mapper.map(assignment.getKey()), assignment.getValue()));
 
             return new PlanAndMappings(

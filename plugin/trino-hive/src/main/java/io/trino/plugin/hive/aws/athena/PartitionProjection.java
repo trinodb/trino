@@ -69,7 +69,7 @@ public final class PartitionProjection
         Map<String, Domain> columnDomainMap = partitionKeysFilter.getDomains().orElseThrow(VerifyException::new);
         // Should not happen as we enforce defining partition projection for all partitioning columns.
         // But we leave a check as we might get wrong settings stored by 3rd party system.
-        columnNames.stream().forEach(columnName -> checkArgument(
+        columnNames.forEach(columnName -> checkArgument(
                 columnProjections.containsKey(columnName),
                 invalidProjectionMessage(columnName, "Projection not defined for this column")));
         List<Set<String>> projectedPartitionValues = columnNames.stream()

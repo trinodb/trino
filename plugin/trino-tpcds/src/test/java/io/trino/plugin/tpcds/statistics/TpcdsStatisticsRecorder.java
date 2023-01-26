@@ -36,7 +36,7 @@ public class TpcdsStatisticsRecorder
     {
         TpcdsStatisticsRecorder tool = new TpcdsStatisticsRecorder(new TableStatisticsRecorder(), new TableStatisticsDataRepository());
 
-        SUPPORTED_SCHEMAS.forEach(schemaName -> Table.getBaseTables().stream()
+        SUPPORTED_SCHEMAS.forEach(schemaName -> Table.getBaseTables()
                 .forEach(table -> tool.computeAndOutputStatsFor(schemaName, table)));
     }
 
