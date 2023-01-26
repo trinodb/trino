@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore.cache;
 
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
@@ -70,6 +71,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Functions.identity;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -82,6 +84,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Streams.stream;
+import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.trino.plugin.hive.metastore.HivePartitionName.hivePartitionName;
 import static io.trino.plugin.hive.metastore.HiveTableName.hiveTableName;
@@ -271,9 +274,9 @@ public class CachingHiveMetastore
         grantedPrincipalsCache = cacheFactory.buildCache(this::loadPrincipals);
         configValuesCache = cacheFactory.buildCache(this::loadConfigValue);
 
-        partitionStatisticsCache = partitionCacheFactory.buildCache(this::loadPartitionColumnStatistics, this::loadPartitionsColumnStatistics);
+        partitionStatisticsCache = partitionCacheFactory.buildBulkCache(this::loadPartitionsColumnStatistics);
         partitionFilterCache = partitionCacheFactory.buildCache(this::loadPartitionNamesByFilter);
-        partitionCache = partitionCacheFactory.buildCache(this::loadPartitionByName, this::loadPartitionsByNames);
+        partitionCache = partitionCacheFactory.buildBulkCache(this::loadPartitionsByNames);
     }
 
     private static <K, V> LoadingCache<K, V> neverCache(com.google.common.base.Function<K, V> loader)
@@ -281,9 +284,9 @@ public class CachingHiveMetastore
         return buildCache(OptionalLong.of(0), OptionalLong.empty(), Optional.empty(), 0, StatsRecording.DISABLED, loader);
     }
 
-    private static <K, V> LoadingCache<K, V> neverCache(Function<K, V> loader, Function<Iterable<K>, Map<K, V>> bulkLoader)
+    private static <K, V> LoadingCache<K, V> neverCache(Function<Iterable<K>, Map<K, V>> bulkLoader)
     {
-        return buildCache(OptionalLong.of(0), 0, StatsRecording.DISABLED, loader, bulkLoader);
+        return buildCache(OptionalLong.of(0), 0, StatsRecording.DISABLED, bulkLoader);
     }
 
     @Managed
@@ -322,6 +325,11 @@ public class CachingHiveMetastore
             throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw e;
         }
+    }
+
+    private static <K, V> V get(Cache<K, V> cache, K key, Supplier<V> loader)
+    {
+        return uncheckedCacheGet(cache, key, loader);
     }
 
     private static <K, V> Map<K, V> getAll(LoadingCache<K, V> cache, Iterable<K> keys)
@@ -404,17 +412,6 @@ public class CachingHiveMetastore
         return statistics.entrySet()
                 .stream()
                 .collect(toImmutableMap(entry -> entry.getKey().getPartitionName().orElseThrow(), Entry::getValue));
-    }
-
-    private PartitionStatistics loadPartitionColumnStatistics(HivePartitionName partition)
-    {
-        HiveTableName tableName = partition.getHiveTableName();
-        String partitionName = partition.getPartitionName().orElseThrow();
-        Table table = getExistingTable(tableName.getDatabaseName(), tableName.getTableName());
-        Map<String, PartitionStatistics> partitionStatistics = delegate.getPartitionStatistics(
-                table,
-                ImmutableList.of(getExistingPartition(table, partition.getPartitionValues())));
-        return partitionStatistics.get(partitionName);
     }
 
     private Map<HivePartitionName, PartitionStatistics> loadPartitionsColumnStatistics(Iterable<? extends HivePartitionName> keys)
@@ -741,7 +738,7 @@ public class CachingHiveMetastore
     @Override
     public Optional<Partition> getPartition(Table table, List<String> partitionValues)
     {
-        return get(partitionCache, hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), partitionValues));
+        return get(partitionCache, hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), partitionValues), () -> delegate.getPartition(table, partitionValues));
     }
 
     @Override
@@ -775,13 +772,6 @@ public class CachingHiveMetastore
             partitionsByName.put(entry.getKey().getPartitionName().orElseThrow(), entry.getValue());
         }
         return partitionsByName.buildOrThrow();
-    }
-
-    private Optional<Partition> loadPartitionByName(HivePartitionName partitionName)
-    {
-        HiveTableName hiveTableName = partitionName.getHiveTableName();
-        return getTable(hiveTableName.getDatabaseName(), hiveTableName.getTableName())
-                .flatMap(table -> delegate.getPartition(table, partitionName.getPartitionValues()));
     }
 
     private Map<HivePartitionName, Optional<Partition>> loadPartitionsByNames(Iterable<? extends HivePartitionName> partitionNames)
@@ -1112,7 +1102,7 @@ public class CachingHiveMetastore
     {
         <K, V> LoadingCache<K, V> buildCache(com.google.common.base.Function<K, V> loader);
 
-        <K, V> LoadingCache<K, V> buildCache(com.google.common.base.Function<K, V> loader, Function<Iterable<K>, Map<K, V>> bulkLoader);
+        <K, V> LoadingCache<K, V> buildBulkCache(Function<Iterable<K>, Map<K, V>> bulkLoader);
     }
 
     private static CacheFactory cacheFactory(
@@ -1131,10 +1121,10 @@ public class CachingHiveMetastore
             }
 
             @Override
-            public <K, V> LoadingCache<K, V> buildCache(com.google.common.base.Function<K, V> loader, Function<Iterable<K>, Map<K, V>> bulkLoader)
+            public <K, V> LoadingCache<K, V> buildBulkCache(Function<Iterable<K>, Map<K, V>> bulkLoader)
             {
                 // disable refresh since it can't use the bulk loading and causes too many requests
-                return CachingHiveMetastore.buildCache(expiresAfterWriteMillis, maximumSize, statsRecording, loader, bulkLoader);
+                return CachingHiveMetastore.buildCache(expiresAfterWriteMillis, maximumSize, statsRecording, bulkLoader);
             }
         };
     }
@@ -1150,9 +1140,9 @@ public class CachingHiveMetastore
             }
 
             @Override
-            public <K, V> LoadingCache<K, V> buildCache(com.google.common.base.Function<K, V> loader, Function<Iterable<K>, Map<K, V>> bulkLoader)
+            public <K, V> LoadingCache<K, V> buildBulkCache(Function<Iterable<K>, Map<K, V>> bulkLoader)
             {
-                return neverCache(loader, bulkLoader);
+                return neverCache(bulkLoader);
             }
         };
     }
@@ -1188,17 +1178,15 @@ public class CachingHiveMetastore
             OptionalLong expiresAfterWriteMillis,
             long maximumSize,
             StatsRecording statsRecording,
-            Function<K, V> loader,
             Function<Iterable<K>, Map<K, V>> bulkLoader)
     {
-        requireNonNull(loader, "loader is null");
         requireNonNull(bulkLoader, "bulkLoader is null");
         CacheLoader<K, V> cacheLoader = new CacheLoader<>()
         {
             @Override
             public V load(K key)
             {
-                return loader.apply(key);
+                throw new IllegalStateException("loadAll should be used instead");
             }
 
             @Override
