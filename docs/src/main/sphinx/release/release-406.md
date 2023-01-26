@@ -8,7 +8,7 @@
 * Improve planner estimates for queries containing outer joins over a subquery
   involving `ORDER BY` and `LIMIT`. ({issue}`15428`)
 * Improve accuracy of memory usage reporting for table scans. ({issue}`15711`)
-* Improve performance of queries parsing date values in ISO 8861 format. ({issue}`15548`)
+* Improve performance of queries parsing date values in ISO 8601 format. ({issue}`15548`)
 * Improve performance of queries with selective joins. ({issue}`15569`)
 * Remove `legacy-phased` execution scheduler as an option for the
   `query.execution-policy` configuration property. ({issue}`15657`)
@@ -85,7 +85,7 @@
 
 * Add support for changing column types. ({issue}`15515`)
 * Add [support for the JDBC catalog](iceberg-jdbc-catalog). ({issue}`9968`)
-* ReduceAdd support for changing fields in columns of row type. latency for `INSERT` queries on unpartitioned tables. ({issue}`15708`)
+* Reduce latency for `INSERT` queries on unpartitioned tables. ({issue}`15708`)
 * Improve performance of reading Parquet files. ({issue}`15498`)
 * Improve memory accounting of the Parquet reader. ({issue}`15554`)
 * Improve performance of queries with filters or projections on low-cardinality
