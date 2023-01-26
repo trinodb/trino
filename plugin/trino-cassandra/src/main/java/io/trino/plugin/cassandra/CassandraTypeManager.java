@@ -600,12 +600,12 @@ public class CassandraTypeManager
 
         if (dataType instanceof UserDefinedType userDefinedType) {
             return userDefinedType.getFieldTypes().stream()
-                    .allMatch(fieldType -> isFullySupported(fieldType));
+                    .allMatch(this::isFullySupported);
         }
 
         if (dataType instanceof MapType mapType) {
             return Arrays.stream(new DataType[] {mapType.getKeyType(), mapType.getValueType()})
-                    .allMatch(type -> isFullySupported(type));
+                    .allMatch(this::isFullySupported);
         }
 
         if (dataType instanceof ListType listType) {
@@ -614,7 +614,7 @@ public class CassandraTypeManager
 
         if (dataType instanceof TupleType tupleType) {
             return tupleType.getComponentTypes().stream()
-                    .allMatch(componentType -> isFullySupported(componentType));
+                    .allMatch(this::isFullySupported);
         }
 
         if (dataType instanceof SetType setType) {
