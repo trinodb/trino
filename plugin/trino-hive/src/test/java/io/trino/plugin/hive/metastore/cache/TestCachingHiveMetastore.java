@@ -445,7 +445,7 @@ public class TestCachingHiveMetastore
 
         // Fetching both should only result in one batched access
         assertEquals(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size(), 2);
-        assertEquals(mockClient.getAccessCount(), 5);
+        assertEquals(mockClient.getAccessCount(), 4);
     }
 
     @Test
@@ -522,11 +522,11 @@ public class TestCachingHiveMetastore
         assertEquals(metastore.getPartitionStatisticsStats().getRequestCount(), 2);
         assertEquals(metastore.getPartitionStatisticsStats().getHitRate(), 0.5);
 
-        assertEquals(metastore.getTableStats().getRequestCount(), 2);
-        assertEquals(metastore.getTableStats().getHitRate(), 1.0 / 2);
+        assertEquals(metastore.getTableStats().getRequestCount(), 1);
+        assertEquals(metastore.getTableStats().getHitRate(), 0.0);
 
-        assertEquals(metastore.getPartitionStats().getRequestCount(), 2);
-        assertEquals(metastore.getPartitionStats().getHitRate(), 0.5);
+        assertEquals(metastore.getPartitionStats().getRequestCount(), 1);
+        assertEquals(metastore.getPartitionStats().getHitRate(), 0.0);
     }
 
     @Test
