@@ -1044,7 +1044,6 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             StageExecution stageExecution = getStageExecution(event.getStageId());
             stageExecution.fail(event.getFailure());
-            stageExecution.taskDescriptorLoadingComplete();
         }
 
         private StageExecution getStageExecution(StageId stageId)
@@ -1519,6 +1518,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
+            taskDescriptorLoadingComplete();
         }
 
         private Closer createStageExecutionCloser()
