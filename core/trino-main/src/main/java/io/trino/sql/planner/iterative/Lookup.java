@@ -31,7 +31,6 @@ public interface Lookup
      * If the node is not a GroupReference, it returns the
      * argument as is.
      */
-    @Deprecated
     default PlanNode resolve(PlanNode node)
     {
         if (node instanceof GroupReference) {
