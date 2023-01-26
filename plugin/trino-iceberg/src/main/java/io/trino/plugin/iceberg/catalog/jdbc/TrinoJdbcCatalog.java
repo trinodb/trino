@@ -190,6 +190,12 @@ public class TrinoJdbcCatalog
     }
 
     @Override
+    public void unregisterTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "unregisterTable is not supported for Iceberg JDBC catalogs");
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         BaseTable table = (BaseTable) loadTable(session, schemaTableName);

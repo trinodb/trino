@@ -157,4 +157,38 @@ public class TestIcebergRestCatalogConnectorSmokeTest
         assertThatThrownBy(super::testRegisterTableWithMetadataFile)
                 .hasMessageContaining("metadata location for register_table is not supported");
     }
+
+    @Override
+    public void testUnregisterTable()
+    {
+        assertThatThrownBy(super::testUnregisterTable)
+                .hasMessageContaining("unregisterTable is not supported for Iceberg REST catalogs");
+    }
+
+    @Override
+    public void testUnregisterBrokenTable()
+    {
+        assertThatThrownBy(super::testUnregisterBrokenTable)
+                .hasMessageContaining("unregisterTable is not supported for Iceberg REST catalogs");
+    }
+
+    @Override
+    public void testUnregisterTableNotExistingTable()
+    {
+        assertThatThrownBy(super::testUnregisterTableNotExistingTable)
+                .hasMessageContaining("unregisterTable is not supported for Iceberg REST catalogs");
+    }
+
+    @Override
+    public void testRepeatUnregisterTable()
+    {
+        assertThatThrownBy(super::testRepeatUnregisterTable)
+                .hasMessageContaining("unregisterTable is not supported for Iceberg REST catalogs");
+    }
+
+    @Override
+    protected void deleteDirectory(String location)
+    {
+        // used when unregistering a table, which is not supported by the REST catalog
+    }
 }
