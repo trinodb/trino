@@ -4728,9 +4728,8 @@ public abstract class AbstractTestHive
                     .orElse(ImmutableList.of());
             List<Partition> partitions = metastoreClient
                     .getPartitionsByNames(table, partitionNames)
-                    .entrySet()
+                    .values()
                     .stream()
-                    .map(Map.Entry::getValue)
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .collect(toImmutableList());
