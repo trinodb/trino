@@ -29,7 +29,7 @@ public final class CacheUtils
         }
         catch (ExecutionException e) {
             // this can not happen because a supplier can not throw a checked exception
-            throw new RuntimeException("Unexpected checked exception from cache load", e);
+            throw new RuntimeException("Unexpected checked exception from cache load", e.getCause());
         }
     }
 }
