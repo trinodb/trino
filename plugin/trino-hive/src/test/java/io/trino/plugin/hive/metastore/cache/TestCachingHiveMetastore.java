@@ -498,8 +498,8 @@ public class TestCachingHiveMetastore
         assertEquals(metastore.getTableStatisticsStats().getRequestCount(), 2);
         assertEquals(metastore.getTableStatisticsStats().getHitRate(), 0.5);
 
-        assertEquals(metastore.getTableStats().getRequestCount(), 2);
-        assertEquals(metastore.getTableStats().getHitRate(), 0.5);
+        assertEquals(metastore.getTableStats().getRequestCount(), 1);
+        assertEquals(metastore.getTableStats().getHitRate(), 0.0);
     }
 
     @Test
