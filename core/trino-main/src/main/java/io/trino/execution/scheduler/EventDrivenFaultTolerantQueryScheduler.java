@@ -954,7 +954,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         @Override
                         public void onFailure(Throwable t)
                         {
-                            eventQueue.add(new TaskSourceFailureEvent(stageExecution.getStageId(), t));
+                            eventQueue.add(new StageFailureEvent(stageExecution.getStageId(), t));
                         }
                     }, queryExecutor));
                 }
@@ -1040,7 +1040,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
 
         @Override
-        public void onTaskSourceFailure(TaskSourceFailureEvent event)
+        public void onStageFailure(StageFailureEvent event)
         {
             StageExecution stageExecution = getStageExecution(event.getStageId());
             stageExecution.fail(event.getFailure());
@@ -1952,7 +1952,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         void onSplitAssignment(SplitAssignmentEvent event);
 
-        void onTaskSourceFailure(TaskSourceFailureEvent event);
+        void onStageFailure(StageFailureEvent event);
     }
 
     private static class RemoteTaskCompletedEvent
@@ -2002,7 +2002,7 @@ public class EventDrivenFaultTolerantQueryScheduler
     }
 
     private static class SplitAssignmentEvent
-            extends TaskSourceEvent
+            extends StageEvent
     {
         private final AssignmentResult assignmentResult;
 
@@ -2024,12 +2024,12 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
     }
 
-    private static class TaskSourceFailureEvent
-            extends TaskSourceEvent
+    private static class StageFailureEvent
+            extends StageEvent
     {
         private final Throwable failure;
 
-        public TaskSourceFailureEvent(StageId stageId, Throwable failure)
+        public StageFailureEvent(StageId stageId, Throwable failure)
         {
             super(stageId);
             this.failure = requireNonNull(failure, "failure is null");
@@ -2043,16 +2043,16 @@ public class EventDrivenFaultTolerantQueryScheduler
         @Override
         public void accept(EventListener listener)
         {
-            listener.onTaskSourceFailure(this);
+            listener.onStageFailure(this);
         }
     }
 
-    private abstract static class TaskSourceEvent
+    private abstract static class StageEvent
             implements Event
     {
         private final StageId stageId;
 
-        protected TaskSourceEvent(StageId stageId)
+        protected StageEvent(StageId stageId)
         {
             this.stageId = requireNonNull(stageId, "stageId is null");
         }
