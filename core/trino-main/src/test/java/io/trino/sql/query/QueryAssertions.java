@@ -370,12 +370,14 @@ public class QueryAssertions
             return this;
         }
 
+        @CanIgnoreReturnValue
         public QueryAssert matches(@Language("SQL") String query)
         {
             MaterializedResult expected = runner.execute(session, query);
             return matches(expected);
         }
 
+        @CanIgnoreReturnValue
         public QueryAssert matches(MaterializedResult expected)
         {
             return satisfies(actual -> {
@@ -396,6 +398,7 @@ public class QueryAssertions
             });
         }
 
+        @CanIgnoreReturnValue
         public QueryAssert matches(PlanMatchPattern expectedPlan)
         {
             transaction(runner.getTransactionManager(), runner.getAccessControl())
@@ -412,12 +415,14 @@ public class QueryAssertions
             return this;
         }
 
+        @CanIgnoreReturnValue
         public QueryAssert containsAll(@Language("SQL") String query)
         {
             MaterializedResult expected = runner.execute(session, query);
             return containsAll(expected);
         }
 
+        @CanIgnoreReturnValue
         public QueryAssert containsAll(MaterializedResult expected)
         {
             return satisfies(actual -> {
@@ -432,6 +437,7 @@ public class QueryAssertions
             });
         }
 
+        @CanIgnoreReturnValue
         public QueryAssert hasOutputTypes(List<Type> expectedTypes)
         {
             return satisfies(actual -> {
@@ -439,6 +445,7 @@ public class QueryAssertions
             });
         }
 
+        @CanIgnoreReturnValue
         public QueryAssert outputHasType(int index, Type expectedType)
         {
             return satisfies(actual -> {
@@ -455,6 +462,7 @@ public class QueryAssertions
                     .isEqualTo(expectedTypes);
         }
 
+        @CanIgnoreReturnValue
         public QueryAssert returnsEmptyResult()
         {
             return satisfies(actual -> {
@@ -465,6 +473,7 @@ public class QueryAssertions
         /**
          * Verifies query is fully pushed down and that results are the same as when pushdown is fully disabled.
          */
+        @CanIgnoreReturnValue
         public QueryAssert isFullyPushedDown()
         {
             checkState(!(runner instanceof LocalQueryRunner), "isFullyPushedDown() currently does not work with LocalQueryRunner");
@@ -495,6 +504,7 @@ public class QueryAssertions
          * when pushdown capabilities are improved.
          */
         @SafeVarargs
+        @CanIgnoreReturnValue
         public final QueryAssert isNotFullyPushedDown(Class<? extends PlanNode>... retainedNodes)
         {
             PlanMatchPattern expectedPlan = PlanMatchPattern.node(TableScanNode.class);
@@ -510,6 +520,7 @@ public class QueryAssertions
          * <b>Note:</b> the primary intent of this assertion is to ensure the test is updated to {@link #isFullyPushedDown()}
          * when pushdown capabilities are improved.
          */
+        @CanIgnoreReturnValue
         public QueryAssert isNotFullyPushedDown(PlanMatchPattern retainedSubplan)
         {
             PlanMatchPattern expectedPlan = PlanMatchPattern.anyTree(retainedSubplan);
@@ -527,6 +538,7 @@ public class QueryAssertions
         /**
          * Verifies join query is not fully pushed down by containing JOIN node.
          */
+        @CanIgnoreReturnValue
         public QueryAssert joinIsNotFullyPushedDown()
         {
             return verifyPlan(plan -> {
