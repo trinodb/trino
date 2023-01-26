@@ -52,7 +52,8 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.ValidWriteIdList;
-import org.apache.hadoop.hive.ql.io.AcidUtils;
+import org.apache.hadoop.hive.ql.io.AcidUtils.Directory;
+import org.apache.hadoop.hive.ql.io.AcidUtils.ParsedDelta;
 import org.apache.hadoop.hive.shims.HadoopShims.HdfsFileStatusWithId;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileSplit;
@@ -117,6 +118,9 @@ import static io.trino.plugin.hive.fs.HiveFileIterator.NestedDirectoryPolicy.IGN
 import static io.trino.plugin.hive.fs.HiveFileIterator.NestedDirectoryPolicy.RECURSE;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getPartitionLocation;
+import static io.trino.plugin.hive.util.AcidTables.isFullAcidTable;
+import static io.trino.plugin.hive.util.AcidTables.isTransactionalTable;
+import static io.trino.plugin.hive.util.AcidTables.readAcidVersionFile;
 import static io.trino.plugin.hive.util.HiveClassNames.SYMLINK_TEXT_INPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static io.trino.plugin.hive.util.HiveUtil.getFooterCount;
@@ -132,6 +136,7 @@ import static java.util.Collections.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.hadoop.fs.Path.getPathWithoutSchemeAndAuthority;
+import static org.apache.hadoop.hive.ql.io.AcidUtils.getAcidState;
 
 public class BackgroundHiveSplitLoader
         implements HiveSplitLoader
@@ -515,7 +520,7 @@ public class BackgroundHiveSplitLoader
                 throw new TrinoException(NOT_SUPPORTED, "Trino cannot read bucketed partition in an input format with UseFileSplitsFromInputFormat annotation: " + inputFormat.getClass().getSimpleName());
             }
 
-            if (AcidUtils.isTransactionalTable(table.getParameters())) {
+            if (isTransactionalTable(table.getParameters())) {
                 throw new TrinoException(NOT_SUPPORTED, "Hive transactional tables in an input format with UseFileSplitsFromInputFormat annotation are not supported: " + inputFormat.getClass().getSimpleName());
             }
 
@@ -531,9 +536,9 @@ public class BackgroundHiveSplitLoader
         List<Path> readPaths;
         List<HdfsFileStatusWithId> fileStatusOriginalFiles = ImmutableList.of();
         AcidInfo.Builder acidInfoBuilder = AcidInfo.builder(path);
-        boolean isFullAcid = AcidUtils.isFullAcidTable(table.getParameters());
-        if (AcidUtils.isTransactionalTable(table.getParameters())) {
-            AcidUtils.Directory directory = hdfsEnvironment.doAs(hdfsContext.getIdentity(), () -> AcidUtils.getAcidState(
+        boolean isFullAcid = isFullAcidTable(table.getParameters());
+        if (isTransactionalTable(table.getParameters())) {
+            Directory directory = hdfsEnvironment.doAs(hdfsContext.getIdentity(), () -> getAcidState(
                     path,
                     configuration,
                     validWriteIds.orElseThrow(() -> new IllegalStateException("No validWriteIds present")),
@@ -546,7 +551,7 @@ public class BackgroundHiveSplitLoader
                         ? directory.getBaseDirectory()
                         : (directory.getCurrentDirectories().size() > 0 ? directory.getCurrentDirectories().get(0).getPath() : null);
 
-                if (baseOrDeltaPath != null && AcidUtils.OrcAcidVersion.getAcidVersionFromMetaFile(baseOrDeltaPath, fs) >= 2) {
+                if (baseOrDeltaPath != null && readAcidVersionFile(fs, baseOrDeltaPath) >= 2) {
                     // Trino cannot read ORC ACID tables with version < 2 (written by Hive older than 3.0)
                     // See https://github.com/trinodb/trino/issues/2790#issuecomment-591901728 for more context
 
@@ -565,14 +570,14 @@ public class BackgroundHiveSplitLoader
             }
 
             // delta directories
-            for (AcidUtils.ParsedDelta delta : directory.getCurrentDirectories()) {
+            for (ParsedDelta delta : directory.getCurrentDirectories()) {
                 if (!delta.isDeleteDelta()) {
                     readPaths.add(delta.getPath());
                 }
             }
 
             // Create a registry of delete_delta directories for the partition
-            for (AcidUtils.ParsedDelta delta : directory.getCurrentDirectories()) {
+            for (ParsedDelta delta : directory.getCurrentDirectories()) {
                 if (delta.isDeleteDelta()) {
                     if (!isFullAcid) {
                         throw new TrinoException(HIVE_BAD_DATA, format(
