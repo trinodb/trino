@@ -1348,9 +1348,9 @@ public class OrcTester
     {
         ImmutableList.Builder<TypeSignatureParameter> typeSignatureParameters = ImmutableList.builder();
         for (int i = 0; i < fieldTypes.length; i++) {
-            String filedName = "field_" + i;
+            String fieldName = "field_" + i;
             Type fieldType = fieldTypes[i];
-            typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(filedName)), fieldType.getTypeSignature())));
+            typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(fieldName)), fieldType.getTypeSignature())));
         }
         return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
     }
