@@ -263,15 +263,12 @@ public class QueryAssertions
             @Override
             public String toStringOf(Object object)
             {
-                if (object instanceof List) {
-                    List<?> list = (List<?>) object;
+                if (object instanceof List<?> list) {
                     return list.stream()
                             .map(this::toStringOf)
                             .collect(Collectors.joining(", "));
                 }
-                if (object instanceof MaterializedRow) {
-                    MaterializedRow row = (MaterializedRow) object;
-
+                if (object instanceof MaterializedRow row) {
                     return row.getFields().stream()
                             .map(this::formatRowElement)
                             .collect(Collectors.joining(", ", "(", ")"));
@@ -704,8 +701,7 @@ public class QueryAssertions
             @Override
             public String toStringOf(Object object)
             {
-                if (object instanceof SqlTimestamp) {
-                    SqlTimestamp timestamp = (SqlTimestamp) object;
+                if (object instanceof SqlTimestamp timestamp) {
                     return String.format(
                             "%s [p = %s, epochMicros = %s, fraction = %s]",
                             timestamp,
@@ -713,8 +709,7 @@ public class QueryAssertions
                             timestamp.getEpochMicros(),
                             timestamp.getPicosOfMicros());
                 }
-                if (object instanceof SqlTimestampWithTimeZone) {
-                    SqlTimestampWithTimeZone timestamp = (SqlTimestampWithTimeZone) object;
+                if (object instanceof SqlTimestampWithTimeZone timestamp) {
                     return String.format(
                             "%s [p = %s, epochMillis = %s, fraction = %s, tz = %s]",
                             timestamp,
@@ -723,12 +718,10 @@ public class QueryAssertions
                             timestamp.getPicosOfMilli(),
                             timestamp.getTimeZoneKey());
                 }
-                if (object instanceof SqlTime) {
-                    SqlTime time = (SqlTime) object;
+                if (object instanceof SqlTime time) {
                     return String.format("%s [picos = %s]", time, time.getPicos());
                 }
-                if (object instanceof SqlTimeWithTimeZone) {
-                    SqlTimeWithTimeZone time = (SqlTimeWithTimeZone) object;
+                if (object instanceof SqlTimeWithTimeZone time) {
                     return String.format(
                             "%s [picos = %s, offset = %s]",
                             time,

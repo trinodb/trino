@@ -876,9 +876,8 @@ public class OrcTester
         else if (actualValue instanceof ShortWritable) {
             actualValue = ((ShortWritable) actualValue).get();
         }
-        else if (actualValue instanceof HiveDecimalWritable) {
+        else if (actualValue instanceof HiveDecimalWritable writable) {
             DecimalType decimalType = (DecimalType) type;
-            HiveDecimalWritable writable = (HiveDecimalWritable) actualValue;
             // writable messes with the scale so rescale the values to the Trino type
             BigInteger rescaledValue = rescale(writable.getHiveDecimal().unscaledValue(), writable.getScale(), decimalType.getScale());
             actualValue = new SqlDecimal(rescaledValue, decimalType.getPrecision(), decimalType.getScale());
@@ -917,9 +916,8 @@ public class OrcTester
                 throw new IllegalArgumentException("Unsupported timestamp type: " + type);
             }
         }
-        else if (actualValue instanceof OrcStruct) {
+        else if (actualValue instanceof OrcStruct structObject) {
             List<Object> fields = new ArrayList<>();
-            OrcStruct structObject = (OrcStruct) actualValue;
             for (int fieldId = 0; fieldId < structObject.getNumFields(); fieldId++) {
                 fields.add(OrcUtil.getFieldValue(structObject, fieldId));
             }
@@ -1067,9 +1065,8 @@ public class OrcTester
         if (type instanceof VarcharType) {
             return javaStringObjectInspector;
         }
-        if (type instanceof CharType) {
-            int charLength = ((CharType) type).getLength();
-            return new JavaHiveCharObjectInspector(getCharTypeInfo(charLength));
+        if (type instanceof CharType charType) {
+            return new JavaHiveCharObjectInspector(getCharTypeInfo(charType.getLength()));
         }
         if (type instanceof VarbinaryType) {
             return javaByteArrayObjectInspector;
@@ -1086,8 +1083,7 @@ public class OrcTester
         if (type.equals(TIMESTAMP_TZ_MILLIS) || type.equals(TIMESTAMP_TZ_MICROS) || type.equals(TIMESTAMP_TZ_NANOS)) {
             return javaTimestampTZObjectInspector;
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             return getPrimitiveJavaObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
         }
         if (type instanceof ArrayType) {

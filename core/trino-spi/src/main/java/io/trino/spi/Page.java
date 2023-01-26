@@ -207,8 +207,7 @@ public final class Page
 
         for (int i = 0; i < blocks.length; i++) {
             Block block = blocks[i];
-            if (block instanceof DictionaryBlock) {
-                DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
+            if (block instanceof DictionaryBlock dictionaryBlock) {
                 relatedDictionaryBlocks.computeIfAbsent(dictionaryBlock.getDictionarySourceId(), id -> new DictionaryBlockIndexes())
                         .addBlock(dictionaryBlock, i);
             }

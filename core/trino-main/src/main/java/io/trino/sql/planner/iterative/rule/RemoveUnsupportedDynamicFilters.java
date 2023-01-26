@@ -344,10 +344,9 @@ public class RemoveUnsupportedDynamicFilters
             if (expression instanceof SymbolReference) {
                 return true;
             }
-            if (!(expression instanceof Cast)) {
+            if (!(expression instanceof Cast castExpression)) {
                 return false;
             }
-            Cast castExpression = (Cast) expression;
             if (!(castExpression.getExpression() instanceof SymbolReference)) {
                 return false;
             }

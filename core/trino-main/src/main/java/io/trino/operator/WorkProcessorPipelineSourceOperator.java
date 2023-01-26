@@ -84,11 +84,10 @@ public class WorkProcessorPipelineSourceOperator
             DataSize minOutputPageSize,
             int minOutputPageRowCount)
     {
-        if (operatorFactoriesWithTypes.isEmpty() || !(operatorFactoriesWithTypes.get(0).getOperatorFactory() instanceof WorkProcessorSourceOperatorFactory)) {
+        if (operatorFactoriesWithTypes.isEmpty() || !(operatorFactoriesWithTypes.get(0).getOperatorFactory() instanceof WorkProcessorSourceOperatorFactory sourceOperatorFactory)) {
             return toOperatorFactories(operatorFactoriesWithTypes);
         }
 
-        WorkProcessorSourceOperatorFactory sourceOperatorFactory = (WorkProcessorSourceOperatorFactory) operatorFactoriesWithTypes.get(0).getOperatorFactory();
         ImmutableList.Builder<WorkProcessorOperatorFactory> workProcessorOperatorFactoriesBuilder = ImmutableList.builder();
         int operatorIndex = 1;
         for (; operatorIndex < operatorFactoriesWithTypes.size(); ++operatorIndex) {
@@ -539,8 +538,7 @@ public class WorkProcessorPipelineSourceOperator
                 }
                 finally {
                     workProcessorOperatorContext.metrics.set(operator.getMetrics());
-                    if (operator instanceof WorkProcessorSourceOperator) {
-                        WorkProcessorSourceOperator sourceOperator = (WorkProcessorSourceOperator) operator;
+                    if (operator instanceof WorkProcessorSourceOperator sourceOperator) {
                         workProcessorOperatorContext.connectorMetrics.set(sourceOperator.getConnectorMetrics());
                     }
                     workProcessorOperatorContext.memoryTrackingContext.close();

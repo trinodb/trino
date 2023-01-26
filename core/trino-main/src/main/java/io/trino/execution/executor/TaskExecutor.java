@@ -551,9 +551,8 @@ public class TaskExecutor
                     catch (Throwable t) {
                         // ignore random errors due to driver thread interruption
                         if (!split.isDestroyed()) {
-                            if (t instanceof TrinoException) {
-                                TrinoException e = (TrinoException) t;
-                                log.error(t, "Error processing %s: %s: %s", split.getInfo(), e.getErrorCode().getName(), e.getMessage());
+                            if (t instanceof TrinoException trinoException) {
+                                log.error(t, "Error processing %s: %s: %s", split.getInfo(), trinoException.getErrorCode().getName(), trinoException.getMessage());
                             }
                             else {
                                 log.error(t, "Error processing %s", split.getInfo());

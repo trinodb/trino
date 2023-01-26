@@ -178,10 +178,9 @@ public class EqualityInference
      */
     public static boolean isInferenceCandidate(Metadata metadata, Expression expression)
     {
-        if (expression instanceof ComparisonExpression &&
+        if (expression instanceof ComparisonExpression comparison &&
                 isDeterministic(expression, metadata) &&
                 !mayReturnNullOnNonNullInput(expression)) {
-            ComparisonExpression comparison = (ComparisonExpression) expression;
             if (comparison.getOperator() == ComparisonExpression.Operator.EQUAL) {
                 // We should only consider equalities that have distinct left and right components
                 return !comparison.getLeft().equals(comparison.getRight());

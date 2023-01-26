@@ -233,16 +233,14 @@ public class BeginTableWrite
         {
             // TODO: begin these operations in pre-execution step, not here
             // TODO: we shouldn't need to store the schemaTableName in the handles, but there isn't a good way to pass this around with the current architecture
-            if (target instanceof CreateReference) {
-                CreateReference create = (CreateReference) target;
+            if (target instanceof CreateReference create) {
                 return new CreateTarget(
                         metadata.beginCreateTable(session, create.getCatalog(), create.getTableMetadata(), create.getLayout()),
                         create.getTableMetadata().getTable(),
                         target.supportsReportingWrittenBytes(metadata, session),
                         target.supportsMultipleWritersPerPartition(metadata, session));
             }
-            if (target instanceof InsertReference) {
-                InsertReference insert = (InsertReference) target;
+            if (target instanceof InsertReference insert) {
                 return new InsertTarget(
                         metadata.beginInsert(session, insert.getHandle(), insert.getColumns()),
                         metadata.getTableMetadata(session, insert.getHandle()).getTable(),
@@ -257,16 +255,14 @@ public class BeginTableWrite
                         merge.getSchemaTableName(),
                         merge.getMergeParadigmAndTypes());
             }
-            if (target instanceof TableWriterNode.RefreshMaterializedViewReference) {
-                TableWriterNode.RefreshMaterializedViewReference refreshMV = (TableWriterNode.RefreshMaterializedViewReference) target;
+            if (target instanceof TableWriterNode.RefreshMaterializedViewReference refreshMV) {
                 return new TableWriterNode.RefreshMaterializedViewTarget(
                         refreshMV.getStorageTableHandle(),
                         metadata.beginRefreshMaterializedView(session, refreshMV.getStorageTableHandle(), refreshMV.getSourceTableHandles()),
                         metadata.getTableMetadata(session, refreshMV.getStorageTableHandle()).getTable(),
                         refreshMV.getSourceTableHandles());
             }
-            if (target instanceof TableExecuteTarget) {
-                TableExecuteTarget tableExecute = (TableExecuteTarget) target;
+            if (target instanceof TableExecuteTarget tableExecute) {
                 BeginTableExecuteResult<TableExecuteHandle, TableHandle> result = metadata.beginTableExecute(session, tableExecute.getExecuteHandle(), tableExecute.getMandatorySourceHandle());
                 return new TableExecuteTarget(result.getTableExecuteHandle(), Optional.of(result.getSourceHandle()), tableExecute.getSchemaTableName(), tableExecute.isReportingWrittenBytesSupported());
             }

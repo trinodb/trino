@@ -238,9 +238,8 @@ public class BigQueryStorageAvroPageSource
 
     private static void writeObject(BlockBuilder output, Type type, Object value)
     {
-        if (type instanceof DecimalType) {
+        if (type instanceof DecimalType decimalType) {
             verify(isLongDecimal(type), "The type should be long decimal");
-            DecimalType decimalType = (DecimalType) type;
             BigDecimal decimal = DECIMAL_CONVERTER.convert(decimalType.getPrecision(), decimalType.getScale(), value);
             type.writeObject(output, Decimals.encodeScaledValue(decimal, decimalType.getScale()));
         }
@@ -261,8 +260,7 @@ public class BigQueryStorageAvroPageSource
             output.closeEntry();
             return;
         }
-        if (type instanceof RowType && value instanceof GenericRecord) {
-            GenericRecord record = (GenericRecord) value;
+        if (type instanceof RowType && value instanceof GenericRecord record) {
             BlockBuilder builder = output.beginBlockEntry();
 
             List<String> fieldNames = new ArrayList<>();

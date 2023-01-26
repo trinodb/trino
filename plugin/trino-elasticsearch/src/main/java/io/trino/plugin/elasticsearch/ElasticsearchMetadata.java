@@ -336,8 +336,8 @@ public class ElasticsearchMetadata
         }
 
         IndexMetadata.Type type = field.getType();
-        if (type instanceof PrimitiveType) {
-            switch (((PrimitiveType) type).getName()) {
+        if (type instanceof PrimitiveType primitiveType) {
+            switch (primitiveType.getName()) {
                 case "float":
                     return new TypeAndDecoder(REAL, new RealDecoder.Descriptor(path));
                 case "double":
@@ -364,15 +364,13 @@ public class ElasticsearchMetadata
         else if (type instanceof ScaledFloatType) {
             return new TypeAndDecoder(DOUBLE, new DoubleDecoder.Descriptor(path));
         }
-        else if (type instanceof DateTimeType) {
-            if (((DateTimeType) type).getFormats().isEmpty()) {
+        else if (type instanceof DateTimeType dateTimeType) {
+            if (dateTimeType.getFormats().isEmpty()) {
                 return new TypeAndDecoder(TIMESTAMP_MILLIS, new TimestampDecoder.Descriptor(path));
             }
             // otherwise, skip -- we don't support custom formats, yet
         }
-        else if (type instanceof ObjectType) {
-            ObjectType objectType = (ObjectType) type;
-
+        else if (type instanceof ObjectType objectType) {
             ImmutableList.Builder<RowType.Field> rowFieldsBuilder = ImmutableList.builder();
             ImmutableList.Builder<RowDecoder.NameAndDescriptor> decoderFields = ImmutableList.builder();
             for (IndexMetadata.Field rowField : objectType.getFields()) {
@@ -558,8 +556,7 @@ public class ElasticsearchMetadata
         List<ConnectorExpression> expressions = ConnectorExpressions.extractConjuncts(constraint.getExpression());
         List<ConnectorExpression> notHandledExpressions = new ArrayList<>();
         for (ConnectorExpression expression : expressions) {
-            if (expression instanceof Call) {
-                Call call = (Call) expression;
+            if (expression instanceof Call call) {
                 if (isSupportedLikeCall(call)) {
                     List<ConnectorExpression> arguments = call.getArguments();
                     String variableName = ((Variable) arguments.get(0)).getName();

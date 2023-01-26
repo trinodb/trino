@@ -555,8 +555,7 @@ public final class HiveUtil
 
         boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
 
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             if (isNull) {
                 return NullableValue.asNull(decimalType);
             }
@@ -680,16 +679,28 @@ public final class HiveUtil
         throw new VerifyException(format("Unhandled type [%s] for partition: %s", type, partitionName));
     }
 
+    /**
+     * @deprecated Use {@code instanceof} directly, as that allows variable assignment.
+     */
+    @Deprecated
     public static boolean isArrayType(Type type)
     {
         return type instanceof ArrayType;
     }
 
+    /**
+     * @deprecated Use {@code instanceof} directly, as that allows variable assignment.
+     */
+    @Deprecated
     public static boolean isMapType(Type type)
     {
         return type instanceof MapType;
     }
 
+    /**
+     * @deprecated Use {@code instanceof} directly, as that allows variable assignment.
+     */
+    @Deprecated
     public static boolean isRowType(Type type)
     {
         return type instanceof RowType;

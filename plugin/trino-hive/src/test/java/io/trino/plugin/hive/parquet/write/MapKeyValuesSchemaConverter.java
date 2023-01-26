@@ -105,8 +105,7 @@ public final class MapKeyValuesSchemaConverter
                     serdeConstants.VARCHAR_TYPE_NAME)) {
                 return Types.optional(PrimitiveTypeName.BINARY).as(LogicalTypeAnnotation.stringType()).named(name);
             }
-            if (typeInfo instanceof DecimalTypeInfo) {
-                DecimalTypeInfo decimalTypeInfo = (DecimalTypeInfo) typeInfo;
+            if (typeInfo instanceof DecimalTypeInfo decimalTypeInfo) {
                 int prec = decimalTypeInfo.precision();
                 int scale = decimalTypeInfo.scale();
                 int bytes = ParquetHiveSerDe.PRECISION_TO_BYTE_COUNT[prec - 1];

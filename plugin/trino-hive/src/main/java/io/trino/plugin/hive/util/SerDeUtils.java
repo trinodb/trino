@@ -325,8 +325,7 @@ public final class SerDeUtils
         long epochSecond;
         int nanoOfSecond;
 
-        if (object instanceof TimestampWritable) {
-            TimestampWritable timestamp = (TimestampWritable) object;
+        if (object instanceof TimestampWritable timestamp) {
             epochSecond = timestamp.getSeconds();
             nanoOfSecond = timestamp.getNanos();
         }

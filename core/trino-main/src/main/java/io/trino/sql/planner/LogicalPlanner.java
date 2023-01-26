@@ -827,11 +827,10 @@ public class LogicalPlanner
         Map<NodeRef<LambdaArgumentDeclaration>, Symbol> result = new LinkedHashMap<>();
 
         for (Entry<NodeRef<Expression>, Type> entry : analysis.getTypes().entrySet()) {
-            if (!(entry.getKey().getNode() instanceof LambdaArgumentDeclaration)) {
+            if (!(entry.getKey().getNode() instanceof LambdaArgumentDeclaration argument)) {
                 continue;
             }
 
-            LambdaArgumentDeclaration argument = (LambdaArgumentDeclaration) entry.getKey().getNode();
             Key key = new Key(argument, entry.getValue());
 
             // Allocate the same symbol for all lambda argument names with a given type. This is needed to be able to

@@ -117,11 +117,9 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             }
 
             Expression expression = getOnlyElement(node.getSubqueryAssignments().getExpressions());
-            if (!(expression instanceof QuantifiedComparisonExpression)) {
+            if (!(expression instanceof QuantifiedComparisonExpression quantifiedComparison)) {
                 return context.defaultRewrite(node);
             }
-
-            QuantifiedComparisonExpression quantifiedComparison = (QuantifiedComparisonExpression) expression;
 
             return rewriteQuantifiedApplyNode(node, quantifiedComparison, context);
         }

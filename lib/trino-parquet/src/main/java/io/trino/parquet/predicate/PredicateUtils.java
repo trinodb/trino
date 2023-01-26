@@ -86,8 +86,7 @@ public final class PredicateUtils
         if (type == BIGINT) {
             return false;
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             if (!decimalType.isShort()) {
                 // Smallest long decimal type with 0 scale has broader range than representable in long, as used in ParquetLongStatistics
                 return false;

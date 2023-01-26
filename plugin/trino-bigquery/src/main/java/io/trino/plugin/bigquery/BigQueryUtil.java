@@ -49,8 +49,7 @@ public final class BigQueryUtil
 
     private static boolean isRetryableInternalError(Throwable t)
     {
-        if (t instanceof StatusRuntimeException) {
-            StatusRuntimeException statusRuntimeException = (StatusRuntimeException) t;
+        if (t instanceof StatusRuntimeException statusRuntimeException) {
             return statusRuntimeException.getStatus().getCode() == Status.Code.INTERNAL &&
                     INTERNAL_ERROR_MESSAGES.stream()
                             .anyMatch(message -> statusRuntimeException.getMessage().contains(message));

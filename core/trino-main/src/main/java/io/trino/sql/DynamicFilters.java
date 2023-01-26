@@ -179,11 +179,10 @@ public final class DynamicFilters
 
     public static Optional<Descriptor> getDescriptor(Expression expression)
     {
-        if (!(expression instanceof FunctionCall)) {
+        if (!(expression instanceof FunctionCall functionCall)) {
             return Optional.empty();
         }
 
-        FunctionCall functionCall = (FunctionCall) expression;
         if (!isDynamicFilterFunction(functionCall)) {
             return Optional.empty();
         }

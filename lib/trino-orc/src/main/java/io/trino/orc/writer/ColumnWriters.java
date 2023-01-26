@@ -52,8 +52,7 @@ public final class ColumnWriters
     {
         requireNonNull(type, "type is null");
         OrcType orcType = orcTypes.get(columnId);
-        if (type instanceof TimeType) {
-            TimeType timeType = (TimeType) type;
+        if (type instanceof TimeType timeType) {
             checkArgument(timeType.getPrecision() == 6, "%s not supported for ORC writer", type);
             checkArgument(orcType.getOrcTypeKind() == LONG, "wrong ORC type %s for type %s", orcType, type);
             checkArgument("TIME".equals(orcType.getAttributes().get("iceberg.long-type")), "wrong attributes %s for type %s", orcType.getAttributes(), type);

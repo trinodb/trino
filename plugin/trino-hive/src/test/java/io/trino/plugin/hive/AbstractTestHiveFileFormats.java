@@ -722,8 +722,7 @@ public abstract class AbstractTestHiveFileFormats
         if (isStructuralType(type)) {
             return cursor.getObject(field);
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             if (decimalType.isShort()) {
                 return BigInteger.valueOf(cursor.getLong(field));
             }
@@ -752,8 +751,7 @@ public abstract class AbstractTestHiveFileFormats
                 if (fieldFromCursor == null) {
                     assertEquals(null, testColumn.getExpectedValue(), "Expected null for column " + testColumn.getName());
                 }
-                else if (type instanceof DecimalType) {
-                    DecimalType decimalType = (DecimalType) type;
+                else if (type instanceof DecimalType decimalType) {
                     fieldFromCursor = new BigDecimal((BigInteger) fieldFromCursor, decimalType.getScale());
                     assertEquals(fieldFromCursor, testColumn.getExpectedValue(), "Wrong value for column " + testColumn.getName());
                 }

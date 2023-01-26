@@ -48,13 +48,11 @@ public class ColumnReference
         TableHandle tableHandle;
         Map<Symbol, ColumnHandle> assignments;
 
-        if (node instanceof TableScanNode) {
-            TableScanNode tableScanNode = (TableScanNode) node;
+        if (node instanceof TableScanNode tableScanNode) {
             tableHandle = tableScanNode.getTable();
             assignments = tableScanNode.getAssignments();
         }
-        else if (node instanceof IndexSourceNode) {
-            IndexSourceNode indexSourceNode = (IndexSourceNode) node;
+        else if (node instanceof IndexSourceNode indexSourceNode) {
             tableHandle = indexSourceNode.getTableHandle();
             assignments = indexSourceNode.getAssignments();
         }

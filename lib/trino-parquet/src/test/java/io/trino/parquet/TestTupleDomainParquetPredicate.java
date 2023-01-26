@@ -464,11 +464,10 @@ public class TestTupleDomainParquetPredicate
         LocalDateTime maxTime = baseTime.plus(Duration.ofMillis(50));
 
         Object maxDomainValue;
-        if (baseDomainValue instanceof Long) {
-            maxDomainValue = (long) baseDomainValue + 50 * MICROSECONDS_PER_MILLISECOND;
+        if (baseDomainValue instanceof Long value) {
+            maxDomainValue = value + 50 * MICROSECONDS_PER_MILLISECOND;
         }
-        else if (baseDomainValue instanceof LongTimestamp) {
-            LongTimestamp longTimestamp = ((LongTimestamp) baseDomainValue);
+        else if (baseDomainValue instanceof LongTimestamp longTimestamp) {
             maxDomainValue = new LongTimestamp(longTimestamp.getEpochMicros() + 50 * MICROSECONDS_PER_MILLISECOND, longTimestamp.getPicosOfMicro());
         }
         else {

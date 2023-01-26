@@ -331,8 +331,7 @@ public class TestHiveBucketing
         int i = 0;
         for (Entry<ObjectInspector, Object> entry : columnBindings) {
             objectInspectors[i] = entry.getKey();
-            if (entry.getValue() != null && entry.getKey() instanceof JavaHiveVarcharObjectInspector) {
-                JavaHiveVarcharObjectInspector varcharObjectInspector = (JavaHiveVarcharObjectInspector) entry.getKey();
+            if (entry.getValue() != null && entry.getKey() instanceof JavaHiveVarcharObjectInspector varcharObjectInspector) {
                 objects[i] = new HiveVarchar(((String) entry.getValue()), varcharObjectInspector.getMaxLength());
             }
             else {

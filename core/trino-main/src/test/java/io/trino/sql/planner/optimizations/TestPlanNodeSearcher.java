@@ -97,9 +97,8 @@ public class TestPlanNodeSearcher
             return;
         }
 
-        if (root instanceof JoinNode) {
+        if (root instanceof JoinNode join) {
             builder.add(root.getId());
-            JoinNode join = (JoinNode) root;
             joinNodePreorder(join.getLeft(), builder);
             joinNodePreorder(join.getRight(), builder);
             return;

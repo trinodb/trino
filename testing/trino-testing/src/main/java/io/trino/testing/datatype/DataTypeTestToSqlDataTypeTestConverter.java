@@ -66,31 +66,29 @@ public final class DataTypeTestToSqlDataTypeTestConverter
 
     private String typeConstructor(Type type)
     {
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             return format("createDecimalType(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
         }
-        if (type instanceof CharType) {
-            return format("createCharType(%s)", ((CharType) type).getLength());
+        if (type instanceof CharType charType) {
+            return format("createCharType(%s)", charType.getLength());
         }
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             if (varcharType.isUnbounded()) {
                 return "createUnboundedVarcharType()";
             }
             return format("createVarcharType(%s)", varcharType.getBoundedLength());
         }
-        if (type instanceof TimeType) {
-            return format("createTimeType(%s)", ((TimeType) type).getPrecision());
+        if (type instanceof TimeType timeType) {
+            return format("createTimeType(%s)", timeType.getPrecision());
         }
-        if (type instanceof TimeWithTimeZoneType) {
-            return format("createTimeWithTimeZoneType(%s)", ((TimeWithTimeZoneType) type).getPrecision());
+        if (type instanceof TimeWithTimeZoneType timeWithTimeZoneType) {
+            return format("createTimeWithTimeZoneType(%s)", timeWithTimeZoneType.getPrecision());
         }
-        if (type instanceof TimestampType) {
-            return format("createTimestampType(%s)", ((TimestampType) type).getPrecision());
+        if (type instanceof TimestampType timestampType) {
+            return format("createTimestampType(%s)", timestampType.getPrecision());
         }
-        if (type instanceof TimestampWithTimeZoneType) {
-            return format("createTimestampWithTimeZoneType(%s)", ((TimestampWithTimeZoneType) type).getPrecision());
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            return format("createTimestampWithTimeZoneType(%s)", timestampWithTimeZoneType.getPrecision());
         }
 
         try {

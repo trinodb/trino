@@ -27,21 +27,19 @@ public class ColumnarMap
     {
         requireNonNull(block, "block is null");
 
-        if (block instanceof LazyBlock) {
-            block = ((LazyBlock) block).getBlock();
+        if (block instanceof LazyBlock lazyBlock) {
+            block = lazyBlock.getBlock();
         }
-        if (block instanceof DictionaryBlock) {
-            return toColumnarMap((DictionaryBlock) block);
+        if (block instanceof DictionaryBlock dictionaryBlock) {
+            return toColumnarMap(dictionaryBlock);
         }
-        if (block instanceof RunLengthEncodedBlock) {
-            return toColumnarMap((RunLengthEncodedBlock) block);
+        if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
+            return toColumnarMap(runLengthEncodedBlock);
         }
 
-        if (!(block instanceof AbstractMapBlock)) {
+        if (!(block instanceof AbstractMapBlock mapBlock)) {
             throw new IllegalArgumentException("Invalid map block: " + block.getClass().getName());
         }
-
-        AbstractMapBlock mapBlock = (AbstractMapBlock) block;
 
         int offsetBase = mapBlock.getOffsetBase();
         int[] offsets = mapBlock.getOffsets();

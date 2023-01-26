@@ -81,8 +81,7 @@ public class SlicePositionsAppender
             return;
         }
         ensurePositionCapacity(positionCount + positions.size());
-        if (block instanceof VariableWidthBlock) {
-            VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
+        if (block instanceof VariableWidthBlock variableWidthBlock) {
             int newByteCount = 0;
             int[] lengths = new int[positions.size()];
             int[] sourceOffsets = new int[positions.size()];

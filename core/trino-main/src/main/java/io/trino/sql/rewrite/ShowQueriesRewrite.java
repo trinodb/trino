@@ -557,8 +557,7 @@ public final class ShowQueriesRewrite
                 return new DoubleLiteral(value.toString());
             }
 
-            if (value instanceof List) {
-                List<?> list = (List<?>) value;
+            if (value instanceof List<?> list) {
                 return new Array(list.stream()
                         .map(Visitor::toExpression)
                         .collect(toList()));
