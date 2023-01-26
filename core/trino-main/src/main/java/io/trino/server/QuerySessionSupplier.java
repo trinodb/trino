@@ -71,18 +71,27 @@ public class QuerySessionSupplier
     @Override
     public Session createSession(QueryId queryId, Span querySpan, SessionContext context)
     {
-        Identity identity = context.getIdentity();
-        accessControl.checkCanSetUser(identity.getPrincipal(), identity.getUser());
+        Identity originalIdentity = context.getOriginalIdentity();
+        accessControl.checkCanSetUser(originalIdentity.getPrincipal(), originalIdentity.getUser());
 
         // authenticated identity is not present for HTTP or if authentication is not setup
         if (context.getAuthenticatedIdentity().isPresent()) {
             Identity authenticatedIdentity = context.getAuthenticatedIdentity().get();
             // only check impersonation if authenticated user is not the same as the explicitly set user
-            if (!authenticatedIdentity.getUser().equals(identity.getUser())) {
+            if (!authenticatedIdentity.getUser().equals(originalIdentity.getUser())) {
                 // add enabled roles for authenticated identity, so impersonation permissions can be assigned to roles
                 authenticatedIdentity = addEnabledRoles(authenticatedIdentity, context.getSelectedRole(), metadata);
-                accessControl.checkCanImpersonateUser(authenticatedIdentity, identity.getUser());
+                accessControl.checkCanImpersonateUser(authenticatedIdentity, originalIdentity.getUser());
             }
+        }
+
+        Identity identity = context.getIdentity();
+        if (!originalIdentity.getUser().equals(identity.getUser())) {
+            // When the current user (user) and the original user are different, we check if the original user can impersonate current user.
+            // We preserve the information of original user in the originalIdentity,
+            // and it will be used for the impersonation checks and be used as the source of audit information.
+            accessControl.checkCanSetUser(originalIdentity.getPrincipal(), identity.getUser());
+            accessControl.checkCanImpersonateUser(originalIdentity, identity.getUser());
         }
 
         // add the enabled roles
@@ -92,6 +101,7 @@ public class QuerySessionSupplier
                 .setQueryId(queryId)
                 .setQuerySpan(querySpan)
                 .setIdentity(identity)
+                .setOriginalIdentity(originalIdentity)
                 .setPath(context.getPath().or(() -> defaultPath).map(SqlPath::new))
                 .setSource(context.getSource())
                 .setRemoteUserAddress(context.getRemoteUserAddress())

@@ -28,6 +28,8 @@ record QueryResultsResponse(
         Optional<String> setCatalog,
         Optional<String> setSchema,
         Optional<String> setPath,
+        Optional<String> setAuthorizationUser,
+        boolean resetAuthorizationUser,
         Map<String, String> setSessionProperties,
         Set<String> resetSessionProperties,
         Map<String, SelectedRole> setRoles,
@@ -42,6 +44,7 @@ record QueryResultsResponse(
         requireNonNull(setCatalog, "setCatalog is null");
         requireNonNull(setSchema, "setSchema is null");
         requireNonNull(setPath, "setPath is null");
+        requireNonNull(setAuthorizationUser, "setAuthorizationUser is null");
         requireNonNull(setSessionProperties, "setSessionProperties is null");
         requireNonNull(resetSessionProperties, "resetSessionProperties is null");
         requireNonNull(setRoles, "setRoles is null");

@@ -503,6 +503,7 @@ public class LocalQueryRunner
                 transactionId,
                 defaultSession.isClientTransactionSupport(),
                 defaultSession.getIdentity(),
+                defaultSession.getOriginalIdentity(),
                 defaultSession.getSource(),
                 defaultSession.getCatalog(),
                 defaultSession.getSchema(),

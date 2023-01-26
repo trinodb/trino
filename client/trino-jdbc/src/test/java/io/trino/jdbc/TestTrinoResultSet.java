@@ -207,6 +207,18 @@ public class TestTrinoResultSet
                         }
 
                         @Override
+                        public Optional<String> getSetAuthorizationUser()
+                        {
+                            throw new UnsupportedOperationException();
+                        }
+
+                        @Override
+                        public boolean isResetAuthorizationUser()
+                        {
+                            throw new UnsupportedOperationException();
+                        }
+
+                        @Override
                         public Map<String, String> getSetSessionProperties()
                         {
                             throw new UnsupportedOperationException();
