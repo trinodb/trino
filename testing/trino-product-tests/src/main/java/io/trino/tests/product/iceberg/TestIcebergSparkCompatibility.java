@@ -505,7 +505,7 @@ public class TestIcebergSparkCompatibility
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testPartitionedByNestedFiled()
+    public void testPartitionedByNestedField()
     {
         String baseTableName = "test_trino_nested_field_partition_" + randomNameSuffix();
         String trinoTableName = trinoTableName(baseTableName);
@@ -2345,7 +2345,7 @@ public class TestIcebergSparkCompatibility
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testTrinoAnalyzeWithNonLowercaseColumnName()
     {
-        String baseTableName = "test_trino_analyze_with_uppercase_filed" + randomNameSuffix();
+        String baseTableName = "test_trino_analyze_with_uppercase_field" + randomNameSuffix();
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
