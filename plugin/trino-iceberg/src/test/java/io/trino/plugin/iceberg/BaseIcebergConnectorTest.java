@@ -5046,6 +5046,21 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testDropTableDeleteData()
+    {
+        String tableName = "test_drop_table_delete_data" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a_int) AS VALUES (1)", 1);
+        String tableLocation = getTableLocation(tableName);
+        assertUpdate("DROP TABLE " + tableName);
+
+        // Create a new table with the same location to verify the data was deleted in the above DROP TABLE
+        assertUpdate("CREATE TABLE " + tableName + "(a_int INTEGER) WITH (location = '" + tableLocation + "')");
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testPathHiddenColumn()
     {
         String tableName = "test_path_" + randomNameSuffix();
