@@ -580,6 +580,17 @@ table in the metastore, using its existing transaction logs and data files::
 To prevent unauthorized users from accessing data, this procedure is disabled by default.
 The procedure is enabled only when ``delta.register-table-procedure.enabled`` is set to ``true``.
 
+.. _delta-lake-unregister-table:
+
+Unregister table
+^^^^^^^^^^^^^^^^
+The connector can unregister existing Delta Lake tables from the metastore.
+
+The procedure ``system.unregister_table`` allows the caller to unregister an
+existing Delta Lake table from the metastores without deleting the data::
+
+    CALL example.system.unregister_table(schema_name => 'testdb', table_name => 'customer_orders')
+
 .. _delta-lake-write-support:
 
 Updating data
