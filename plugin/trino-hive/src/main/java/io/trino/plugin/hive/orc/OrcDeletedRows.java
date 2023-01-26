@@ -29,7 +29,6 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.AcidUtils;
 import org.apache.hadoop.hive.ql.io.BucketCodec;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -51,6 +50,7 @@ import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.trino.plugin.hive.BackgroundHiveSplitLoader.hasAttemptId;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static io.trino.plugin.hive.util.AcidTables.bucketFileName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.Math.toIntExact;
@@ -403,7 +403,7 @@ public class OrcDeletedRows
 
         if (acidInfo.getOriginalFiles().size() > 0) {
             // Original file format is different from delete delta, construct delete delta file path from bucket ID of original file.
-            return AcidUtils.createBucketFile(directory, acidInfo.getBucketId());
+            return bucketFileName(directory, acidInfo.getBucketId());
         }
         return new Path(directory, fileName);
     }
