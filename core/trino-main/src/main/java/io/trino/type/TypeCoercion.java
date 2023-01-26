@@ -46,7 +46,6 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.RowType.Field;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
@@ -461,7 +460,7 @@ public final class TypeCoercion
             case StandardTypes.TIME: {
                 switch (resultTypeBase) {
                     case StandardTypes.TIME_WITH_TIME_ZONE:
-                        return Optional.of(TIME_WITH_TIME_ZONE);
+                        return Optional.of(createTimeWithTimeZoneType(((TimeType) sourceType).getPrecision()));
                     default:
                         return Optional.empty();
                 }
