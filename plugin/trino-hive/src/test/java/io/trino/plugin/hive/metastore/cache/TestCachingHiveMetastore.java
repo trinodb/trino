@@ -522,8 +522,8 @@ public class TestCachingHiveMetastore
         assertEquals(metastore.getPartitionStatisticsStats().getRequestCount(), 2);
         assertEquals(metastore.getPartitionStatisticsStats().getHitRate(), 0.5);
 
-        assertEquals(metastore.getTableStats().getRequestCount(), 3);
-        assertEquals(metastore.getTableStats().getHitRate(), 2.0 / 3);
+        assertEquals(metastore.getTableStats().getRequestCount(), 2);
+        assertEquals(metastore.getTableStats().getHitRate(), 1.0 / 2);
 
         assertEquals(metastore.getPartitionStats().getRequestCount(), 2);
         assertEquals(metastore.getPartitionStats().getHitRate(), 0.5);
