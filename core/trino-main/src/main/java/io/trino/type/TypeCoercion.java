@@ -48,7 +48,6 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -452,7 +451,7 @@ public final class TypeCoercion
                     case StandardTypes.TIMESTAMP:
                         return Optional.of(createTimestampType(0));
                     case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
-                        return Optional.of(TIMESTAMP_TZ_MILLIS);
+                        return Optional.of(createTimestampWithTimeZoneType(0));
                     default:
                         return Optional.empty();
                 }
