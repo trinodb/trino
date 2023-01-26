@@ -27,6 +27,7 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICK
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 public class TestHiveAndDeltaLakeCompatibility
         extends ProductTest
@@ -52,5 +53,19 @@ public class TestHiveAndDeltaLakeCompatibility
             onTrino().executeQuery("DROP VIEW IF EXISTS " + hiveViewQualifiedName);
             onTrino().executeQuery("DROP SCHEMA " + schemaName);
         }
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testUnregisterNotDeltaLakeTable()
+    {
+        String baseTableName = "test_unregister_not_delta_table_" + randomNameSuffix();
+        String hiveTableName = "hive.default." + baseTableName;
+
+        onTrino().executeQuery("CREATE TABLE " + hiveTableName + " AS SELECT 1 a");
+
+        assertThatThrownBy(() -> onTrino().executeQuery("CALL delta.system.unregister_table('default', '" + baseTableName + "')"))
+                .hasMessageContaining("not a Delta Lake table");
+
+        onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
 }

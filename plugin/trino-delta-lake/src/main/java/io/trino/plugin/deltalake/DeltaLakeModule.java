@@ -27,6 +27,7 @@ import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.procedure.DropExtendedStatsProcedure;
 import io.trino.plugin.deltalake.procedure.OptimizeTableProcedure;
 import io.trino.plugin.deltalake.procedure.RegisterTableProcedure;
+import io.trino.plugin.deltalake.procedure.UnregisterTableProcedure;
 import io.trino.plugin.deltalake.procedure.VacuumProcedure;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess.ForCachingExtendedStatisticsAccess;
@@ -145,6 +146,7 @@ public class DeltaLakeModule
         procedures.addBinding().toProvider(DropExtendedStatsProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(VacuumProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(RegisterTableProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(UnregisterTableProcedure.class).in(Scopes.SINGLETON);
 
         Multibinder<TableProcedureMetadata> tableProcedures = newSetBinder(binder, TableProcedureMetadata.class);
         tableProcedures.addBinding().toProvider(OptimizeTableProcedure.class).in(Scopes.SINGLETON);
