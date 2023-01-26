@@ -73,7 +73,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
@@ -882,20 +881,6 @@ public final class ConnectorExpressionTranslator
         private Type typeOf(Expression node)
         {
             return types.get(NodeRef.of(node));
-        }
-
-        private Object evaluateConstant(Expression node)
-        {
-            Type type = typeOf(node);
-            Object value = evaluateConstantExpression(
-                    node,
-                    type,
-                    plannerContext,
-                    session,
-                    new AllowAllAccessControl(),
-                    ImmutableMap.of());
-            verify(!(value instanceof Expression), "Expression %s did not evaluate to constant: %s", node, value);
-            return value;
         }
     }
 }
