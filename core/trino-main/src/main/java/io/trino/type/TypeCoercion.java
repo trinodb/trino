@@ -80,9 +80,7 @@ public final class TypeCoercion
             return true;
         }
 
-        if (source instanceof DecimalType && result instanceof DecimalType) {
-            DecimalType sourceDecimal = (DecimalType) source;
-            DecimalType resultDecimal = (DecimalType) result;
+        if (source instanceof DecimalType sourceDecimal && result instanceof DecimalType resultDecimal) {
             boolean sameDecimalSubtype = (sourceDecimal.isShort() && resultDecimal.isShort())
                     || (!sourceDecimal.isShort() && !resultDecimal.isShort());
             boolean sameScale = sourceDecimal.getScale() == resultDecimal.getScale();
@@ -90,10 +88,7 @@ public final class TypeCoercion
             return sameDecimalSubtype && sameScale && sourcePrecisionIsLessOrEqualToResultPrecision;
         }
 
-        if (source instanceof RowType && result instanceof RowType) {
-            RowType sourceType = (RowType) source;
-            RowType resultType = (RowType) result;
-
+        if (source instanceof RowType sourceType && result instanceof RowType resultType) {
             List<Field> sourceFields = sourceType.getFields();
             List<Field> resultFields = resultType.getFields();
             if (sourceFields.size() != resultFields.size()) {

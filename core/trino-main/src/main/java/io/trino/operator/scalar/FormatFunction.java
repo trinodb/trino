@@ -198,11 +198,11 @@ public final class FormatFunction
         if (type.equals(DATE)) {
             return (session, block) -> LocalDate.ofEpochDay(type.getLong(block, position));
         }
-        if (type instanceof TimestampWithTimeZoneType) {
-            return (session, block) -> toZonedDateTime(((TimestampWithTimeZoneType) type), block, position);
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            return (session, block) -> toZonedDateTime(timestampWithTimeZoneType, block, position);
         }
-        if (type instanceof TimestampType) {
-            return (session, block) -> toLocalDateTime(((TimestampType) type), block, position);
+        if (type instanceof TimestampType timestampType) {
+            return (session, block) -> toLocalDateTime(timestampType, block, position);
         }
         if (type instanceof TimeType) {
             return (session, block) -> toLocalTime(type.getLong(block, position));
@@ -222,8 +222,7 @@ public final class FormatFunction
         if (type instanceof VarcharType) {
             return (session, block) -> type.getSlice(block, position).toStringUtf8();
         }
-        if (type instanceof CharType) {
-            CharType charType = (CharType) type;
+        if (type instanceof CharType charType) {
             return (session, block) -> padSpaces(type.getSlice(block, position), charType).toStringUtf8();
         }
 

@@ -466,9 +466,8 @@ public class EffectivePredicateExtractor
 
         private boolean hasNestedNulls(Type type, Object value)
         {
-            if (type instanceof RowType) {
+            if (type instanceof RowType rowType) {
                 Block container = (Block) value;
-                RowType rowType = (RowType) type;
                 for (int i = 0; i < rowType.getFields().size(); i++) {
                     Type elementType = rowType.getFields().get(i).getType();
 
@@ -477,9 +476,8 @@ public class EffectivePredicateExtractor
                     }
                 }
             }
-            else if (type instanceof ArrayType) {
+            else if (type instanceof ArrayType arrayType) {
                 Block container = (Block) value;
-                ArrayType arrayType = (ArrayType) type;
                 Type elementType = arrayType.getElementType();
 
                 for (int i = 0; i < container.getPositionCount(); i++) {

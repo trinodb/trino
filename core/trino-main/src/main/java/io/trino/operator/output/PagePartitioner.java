@@ -350,10 +350,9 @@ public class PagePartitioner
 
     private boolean isDictionaryProcessingFaster(Block block)
     {
-        if (!(block instanceof DictionaryBlock)) {
+        if (!(block instanceof DictionaryBlock dictionaryBlock)) {
             return false;
         }
-        DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
         // if dictionary block positionCount is greater than number of elements in the dictionary
         // it will be faster to compute hash for the dictionary values only once and re-use it
         // instead of recalculating it.

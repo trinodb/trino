@@ -58,8 +58,7 @@ public class RewriteExactNumericConstant
             return Optional.of(Long.toString((long) constant.getValue()));
         }
 
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             if (decimalType.isShort()) {
                 return Optional.of(Decimals.toString((long) constant.getValue(), decimalType.getScale()));
             }

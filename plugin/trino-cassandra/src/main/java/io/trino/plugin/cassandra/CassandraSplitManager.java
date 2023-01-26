@@ -153,13 +153,11 @@ public class CassandraSplitManager
     {
         Number startTokenValue;
         Number endTokenValue;
-        if (tokenRange instanceof Murmur3TokenRange) {
-            Murmur3TokenRange murmur3TokenRange = (Murmur3TokenRange) tokenRange;
+        if (tokenRange instanceof Murmur3TokenRange murmur3TokenRange) {
             startTokenValue = ((Murmur3Token) murmur3TokenRange.getStart()).getValue();
             endTokenValue = ((Murmur3Token) murmur3TokenRange.getEnd()).getValue();
         }
-        else if (tokenRange instanceof RandomTokenRange) {
-            RandomTokenRange randomTokenRange = (RandomTokenRange) tokenRange;
+        else if (tokenRange instanceof RandomTokenRange randomTokenRange) {
             startTokenValue = ((RandomToken) randomTokenRange.getStart()).getValue();
             endTokenValue = ((RandomToken) randomTokenRange.getEnd()).getValue();
         }

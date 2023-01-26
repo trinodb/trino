@@ -163,8 +163,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
         // Here, any underlying projection that was a source of the correlated UnnestNode, is appended as a source of the rewritten UnnestNode.
         // If the projection is not necessary for UnnestNode (i.e. it does not produce any unnest symbols), it should be pruned afterwards.
         PlanNode unnestSource = context.getLookup().resolve(unnestNode.getSource());
-        if (unnestSource instanceof ProjectNode) {
-            ProjectNode sourceProjection = (ProjectNode) unnestSource;
+        if (unnestSource instanceof ProjectNode sourceProjection) {
             input = new ProjectNode(
                     sourceProjection.getId(),
                     input,
@@ -214,22 +213,20 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
 
     private static boolean isGlobalAggregation(PlanNode node)
     {
-        if (!(node instanceof AggregationNode)) {
+        if (!(node instanceof AggregationNode aggregationNode)) {
             return false;
         }
 
-        AggregationNode aggregationNode = (AggregationNode) node;
         return aggregationNode.hasSingleGlobalAggregation() &&
                 aggregationNode.getStep() == SINGLE;
     }
 
     private static boolean isGroupedAggregation(PlanNode node)
     {
-        if (!(node instanceof AggregationNode)) {
+        if (!(node instanceof AggregationNode aggregationNode)) {
             return false;
         }
 
-        AggregationNode aggregationNode = (AggregationNode) node;
         return aggregationNode.hasNonEmptyGroupingSet() &&
                 aggregationNode.getGroupingSetCount() == 1 &&
                 aggregationNode.getStep() == SINGLE;
@@ -245,11 +242,10 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
      */
     private static boolean isSupportedUnnest(PlanNode node, List<Symbol> correlation, Lookup lookup)
     {
-        if (!(node instanceof UnnestNode)) {
+        if (!(node instanceof UnnestNode unnestNode)) {
             return false;
         }
 
-        UnnestNode unnestNode = (UnnestNode) node;
         List<Symbol> unnestSymbols = unnestNode.getMappings().stream()
                 .map(Mapping::getInput)
                 .collect(toImmutableList());
@@ -293,8 +289,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
                     source);
         }
 
-        if (root instanceof ProjectNode) {
-            ProjectNode projectNode = (ProjectNode) root;
+        if (root instanceof ProjectNode projectNode) {
             return new ProjectNode(
                     projectNode.getId(),
                     source,

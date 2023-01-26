@@ -79,9 +79,7 @@ public class ShortDecimalColumnReader
             }
         }
 
-        if (trinoType instanceof DecimalType) {
-            DecimalType trinoDecimalType = (DecimalType) trinoType;
-
+        if (trinoType instanceof DecimalType trinoDecimalType) {
             if (isShortDecimal(trinoDecimalType)) {
                 long rescale = longTenToNth(Math.abs(trinoDecimalType.getScale() - parquetDecimalType.getScale()));
                 long convertedValue = shortToShortCast(

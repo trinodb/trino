@@ -667,8 +667,7 @@ public class IoPlanPrinter
         public Void visitFilter(FilterNode node, IoPlanBuilder context)
         {
             PlanNode source = node.getSource();
-            if (source instanceof TableScanNode) {
-                TableScanNode tableScanNode = (TableScanNode) source;
+            if (source instanceof TableScanNode tableScanNode) {
                 DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(
                         plannerContext,
                         session,
@@ -694,15 +693,13 @@ public class IoPlanPrinter
         public Void visitTableFinish(TableFinishNode node, IoPlanBuilder context)
         {
             WriterTarget writerTarget = node.getTarget();
-            if (writerTarget instanceof CreateTarget) {
-                CreateTarget target = (CreateTarget) writerTarget;
+            if (writerTarget instanceof CreateTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
                         target.getHandle().getCatalogHandle().getCatalogName(),
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }
-            else if (writerTarget instanceof InsertTarget) {
-                InsertTarget target = (InsertTarget) writerTarget;
+            else if (writerTarget instanceof InsertTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
                         target.getHandle().getCatalogHandle().getCatalogName(),
                         target.getSchemaTableName().getSchemaName(),
@@ -714,8 +711,7 @@ public class IoPlanPrinter
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }
-            else if (writerTarget instanceof TableWriterNode.RefreshMaterializedViewTarget) {
-                TableWriterNode.RefreshMaterializedViewTarget target = (TableWriterNode.RefreshMaterializedViewTarget) writerTarget;
+            else if (writerTarget instanceof TableWriterNode.RefreshMaterializedViewTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
                         target.getInsertHandle().getCatalogHandle().getCatalogName(),
                         target.getSchemaTableName().getSchemaName(),

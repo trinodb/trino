@@ -63,24 +63,23 @@ public final class ColumnarTestUtils
         }
         assertFalse(block.isNull(position));
 
-        if (expectedValue instanceof Slice) {
-            Slice expectedSliceValue = (Slice) expectedValue;
+        if (expectedValue instanceof Slice expected) {
             int length = block.getSliceLength(position);
-            assertEquals(length, expectedSliceValue.length());
+            assertEquals(length, expected.length());
 
             Slice actual = block.getSlice(position, 0, length);
-            assertEquals(actual, expectedSliceValue);
+            assertEquals(actual, expected);
         }
-        else if (expectedValue instanceof Slice[]) {
+        else if (expectedValue instanceof Slice[] expected) {
             // array or row
             Block actual = block.getObject(position, Block.class);
-            assertBlock(actual, (Slice[]) expectedValue);
+            assertBlock(actual, expected);
         }
-        else if (expectedValue instanceof Slice[][]) {
+        else if (expectedValue instanceof Slice[][] expected) {
             // map
             Block actual = block.getObject(position, Block.class);
             // a map is exposed as a block alternating key and value entries, so we need to flatten the expected values array
-            assertBlock(actual, flattenMapEntries((Slice[][]) expectedValue));
+            assertBlock(actual, flattenMapEntries(expected));
         }
         else {
             throw new IllegalArgumentException(expectedValue.getClass().getName());

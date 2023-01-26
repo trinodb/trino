@@ -116,12 +116,11 @@ public class SliceColumnReader
 
     private static int getMaxCodePointCount(Type type)
     {
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             return varcharType.isUnbounded() ? -1 : varcharType.getBoundedLength();
         }
-        if (type instanceof CharType) {
-            return ((CharType) type).getLength();
+        if (type instanceof CharType charType) {
+            return charType.getLength();
         }
         if (type instanceof VarbinaryType) {
             return -1;

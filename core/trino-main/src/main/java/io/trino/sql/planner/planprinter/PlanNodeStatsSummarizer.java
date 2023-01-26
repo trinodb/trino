@@ -159,8 +159,7 @@ public final class PlanNodeStatsSummarizer
                 PlanNodeId planNodeId = operatorStats.getPlanNodeId();
 
                 // The only statistics we have for Window Functions are very low level, thus displayed only in VERBOSE mode
-                if (operatorStats.getInfo() instanceof WindowInfo) {
-                    WindowInfo windowInfo = (WindowInfo) operatorStats.getInfo();
+                if (operatorStats.getInfo() instanceof WindowInfo windowInfo) {
                     windowNodeStats.merge(planNodeId, WindowOperatorStats.create(windowInfo), WindowOperatorStats::mergeWith);
                 }
             }

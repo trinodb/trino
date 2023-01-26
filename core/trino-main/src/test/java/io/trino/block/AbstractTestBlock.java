@@ -262,9 +262,7 @@ public abstract class AbstractTestBlock
 
         assertFalse(block.isNull(position));
 
-        if (expectedValue instanceof Slice) {
-            Slice expectedSliceValue = (Slice) expectedValue;
-
+        if (expectedValue instanceof Slice expectedSliceValue) {
             if (isByteAccessSupported()) {
                 for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_BYTE; offset++) {
                     assertEquals(block.getByte(position, offset), expectedSliceValue.getByte(offset));
@@ -302,25 +300,22 @@ public abstract class AbstractTestBlock
 
             assertPositionEquals(block, position, expectedSliceValue);
         }
-        else if (expectedValue instanceof long[]) {
+        else if (expectedValue instanceof long[] expected) {
             Block actual = block.getObject(position, Block.class);
-            long[] expected = (long[]) expectedValue;
             assertEquals(actual.getPositionCount(), expected.length);
             for (int i = 0; i < expected.length; i++) {
                 assertEquals(BIGINT.getLong(actual, i), expected[i]);
             }
         }
-        else if (expectedValue instanceof Slice[]) {
+        else if (expectedValue instanceof Slice[] expected) {
             Block actual = block.getObject(position, Block.class);
-            Slice[] expected = (Slice[]) expectedValue;
             assertEquals(actual.getPositionCount(), expected.length);
             for (int i = 0; i < expected.length; i++) {
                 assertEquals(VARCHAR.getSlice(actual, i), expected[i]);
             }
         }
-        else if (expectedValue instanceof long[][]) {
+        else if (expectedValue instanceof long[][] expected) {
             Block actual = block.getObject(position, Block.class);
-            long[][] expected = (long[][]) expectedValue;
             assertEquals(actual.getPositionCount(), expected.length);
             for (int i = 0; i < expected.length; i++) {
                 assertPositionValue(actual, i, expected[i]);

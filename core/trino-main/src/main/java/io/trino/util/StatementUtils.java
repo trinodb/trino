@@ -274,8 +274,7 @@ public final class StatementUtils
     private static <T extends Statement> void verifyTaskInterfaceType(Class<T> statementType, Class<?> taskType, Class<?> expectedInterfaceType)
     {
         for (Type genericInterface : taskType.getGenericInterfaces()) {
-            if (genericInterface instanceof ParameterizedType) {
-                ParameterizedType parameterizedInterface = (ParameterizedType) genericInterface;
+            if (genericInterface instanceof ParameterizedType parameterizedInterface) {
                 if (parameterizedInterface.getRawType().equals(expectedInterfaceType)) {
                     Type actualStatementType = parameterizedInterface.getActualTypeArguments()[0];
                     checkArgument(actualStatementType.equals(statementType), format("Expected %s statement type to be %s", statementType.getSimpleName(), taskType.getSimpleName()));

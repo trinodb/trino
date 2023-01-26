@@ -5996,11 +5996,10 @@ public abstract class BaseHiveConnectorTest
         return plan -> {
             int actualLocalExchangesCount = searchFrom(plan.getRoot())
                     .where(node -> {
-                        if (!(node instanceof ExchangeNode)) {
+                        if (!(node instanceof ExchangeNode exchangeNode)) {
                             return false;
                         }
 
-                        ExchangeNode exchangeNode = (ExchangeNode) node;
                         return exchangeNode.getScope() == ExchangeNode.Scope.LOCAL && exchangeNode.getType() == ExchangeNode.Type.REPARTITION;
                     })
                     .findAll()

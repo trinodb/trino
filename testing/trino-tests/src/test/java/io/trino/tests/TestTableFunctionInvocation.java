@@ -55,8 +55,7 @@ public class TestTableFunctionInvocation
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withTableFunctions(ImmutableSet.of(new SimpleTableFunction()))
                 .withApplyTableFunction((session, handle) -> {
-                    if (handle instanceof SimpleTableFunctionHandle) {
-                        SimpleTableFunctionHandle functionHandle = (SimpleTableFunctionHandle) handle;
+                    if (handle instanceof SimpleTableFunctionHandle functionHandle) {
                         return Optional.of(new TableFunctionApplicationResult<>(functionHandle.getTableHandle(), functionHandle.getTableHandle().getColumns().orElseThrow()));
                     }
                     throw new IllegalStateException("Unsupported table function handle: " + handle.getClass().getSimpleName());

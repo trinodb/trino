@@ -249,8 +249,7 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, SplitSource> visitFilter(FilterNode node, Void context)
         {
-            if (node.getSource() instanceof TableScanNode) {
-                TableScanNode scan = (TableScanNode) node.getSource();
+            if (node.getSource() instanceof TableScanNode scan) {
                 return visitScanAndFilter(scan, Optional.of(node));
             }
 

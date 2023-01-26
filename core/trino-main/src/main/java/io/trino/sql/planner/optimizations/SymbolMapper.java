@@ -296,8 +296,7 @@ public class SymbolMapper
         // with no outer usage or dependencies.
         ImmutableList.Builder<ValuePointer> newValuePointers = ImmutableList.builder();
         for (ValuePointer valuePointer : expressionAndValuePointers.getValuePointers()) {
-            if (valuePointer instanceof ScalarValuePointer) {
-                ScalarValuePointer scalarValuePointer = (ScalarValuePointer) valuePointer;
+            if (valuePointer instanceof ScalarValuePointer scalarValuePointer) {
                 Symbol inputSymbol = scalarValuePointer.getInputSymbol();
                 if (expressionAndValuePointers.getClassifierSymbols().contains(inputSymbol) || expressionAndValuePointers.getMatchNumberSymbols().contains(inputSymbol)) {
                     newValuePointers.add(scalarValuePointer);

@@ -346,11 +346,10 @@ public class PreAggregateCaseAggregations
             unwrappedProjection = projection;
         }
 
-        if (!(unwrappedProjection instanceof SearchedCaseExpression)) {
+        if (!(unwrappedProjection instanceof SearchedCaseExpression caseExpression)) {
             return Optional.empty();
         }
 
-        SearchedCaseExpression caseExpression = (SearchedCaseExpression) unwrappedProjection;
         if (caseExpression.getWhenClauses().size() != 1) {
             return Optional.empty();
         }

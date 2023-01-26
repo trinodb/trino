@@ -60,8 +60,7 @@ public class TestTableFunctionInvocation
                         new TwoScalarArgumentsFunction(),
                         new DescriptorArgumentFunction()))
                 .withApplyTableFunction((session, handle) -> {
-                    if (handle instanceof TestingTableFunctionHandle) {
-                        TestingTableFunctionHandle functionHandle = (TestingTableFunctionHandle) handle;
+                    if (handle instanceof TestingTableFunctionHandle functionHandle) {
                         return Optional.of(new TableFunctionApplicationResult<>(functionHandle.getTableHandle(), functionHandle.getTableHandle().getColumns().orElseThrow()));
                     }
                     throw new IllegalStateException("Unsupported table function handle: " + handle.getClass().getSimpleName());

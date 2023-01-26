@@ -154,8 +154,7 @@ public class JdbcRecordCursor
                     resultSet = resultSetFuture.get();
                 }
                 catch (ExecutionException e) {
-                    if (e.getCause() instanceof SQLException) {
-                        SQLException cause = (SQLException) e.getCause();
+                    if (e.getCause() instanceof SQLException cause) {
                         SQLException sqlException = new SQLException(cause.getMessage(), cause.getSQLState(), cause.getErrorCode(), e);
                         if (cause.getNextException() != null) {
                             sqlException.setNextException(cause.getNextException());

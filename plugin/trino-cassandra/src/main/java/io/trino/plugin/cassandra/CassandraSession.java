@@ -586,25 +586,24 @@ public class CassandraSession
 
     private List<DataType> getTypeArguments(DataType dataType)
     {
-        if (dataType instanceof UserDefinedType) {
-            return ImmutableList.copyOf(((UserDefinedType) dataType).getFieldTypes());
+        if (dataType instanceof UserDefinedType userDefinedType) {
+            return ImmutableList.copyOf(userDefinedType.getFieldTypes());
         }
 
-        if (dataType instanceof MapType) {
-            MapType mapType = (MapType) dataType;
+        if (dataType instanceof MapType mapType) {
             return ImmutableList.of(mapType.getKeyType(), mapType.getValueType());
         }
 
-        if (dataType instanceof ListType) {
-            return ImmutableList.of(((ListType) dataType).getElementType());
+        if (dataType instanceof ListType listType) {
+            return ImmutableList.of(listType.getElementType());
         }
 
-        if (dataType instanceof TupleType) {
-            return ImmutableList.copyOf(((TupleType) dataType).getComponentTypes());
+        if (dataType instanceof TupleType tupleType) {
+            return ImmutableList.copyOf(tupleType.getComponentTypes());
         }
 
-        if (dataType instanceof SetType) {
-            return ImmutableList.of(((SetType) dataType).getElementType());
+        if (dataType instanceof SetType setType) {
+            return ImmutableList.of(setType.getElementType());
         }
 
         return ImmutableList.of();

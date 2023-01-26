@@ -486,11 +486,10 @@ public class PlanNodeDecorrelator
         {
             ImmutableMultimap.Builder<Symbol, Symbol> mapping = ImmutableMultimap.builder();
             for (Expression conjunct : correlatedConjuncts) {
-                if (!(conjunct instanceof ComparisonExpression)) {
+                if (!(conjunct instanceof ComparisonExpression comparison)) {
                     continue;
                 }
 
-                ComparisonExpression comparison = (ComparisonExpression) conjunct;
                 if (!(comparison.getLeft() instanceof SymbolReference
                         && comparison.getRight() instanceof SymbolReference
                         && comparison.getOperator() == EQUAL)) {
@@ -546,10 +545,9 @@ public class PlanNodeDecorrelator
         // checks whether the expression is an injective cast over a symbol
         private boolean isSimpleInjectiveCast(Expression expression)
         {
-            if (!(expression instanceof Cast)) {
+            if (!(expression instanceof Cast cast)) {
                 return false;
             }
-            Cast cast = (Cast) expression;
             if (!(cast.getExpression() instanceof SymbolReference)) {
                 return false;
             }

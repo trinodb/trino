@@ -563,8 +563,7 @@ public class ParquetTester
                 return toRowValue(block, type.getTypeParameters());
             }
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             return new SqlDecimal((BigInteger) fieldFromCursor, decimalType.getPrecision(), decimalType.getScale());
         }
         if (type instanceof VarcharType) {

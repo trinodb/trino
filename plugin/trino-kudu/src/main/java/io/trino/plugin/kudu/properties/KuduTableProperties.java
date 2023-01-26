@@ -528,8 +528,7 @@ public final class KuduTableProperties
         if (Number.class.isAssignableFrom(obj.getClass())) {
             return ((Number) obj).longValue();
         }
-        if (obj instanceof String) {
-            String s = (String) obj;
+        if (obj instanceof String s) {
             s = s.trim().replace(' ', 'T');
             long millis = ISODateTimeFormat.dateOptionalTimeParser().withZone(DateTimeZone.UTC).parseMillis(s);
             return millis * 1000;

@@ -793,39 +793,38 @@ public class RcFileTester
 
     private static Object decodeRecordReaderValue(Format format, Type type, Object actualValue)
     {
-        if (actualValue instanceof LazyPrimitive) {
-            actualValue = ((LazyPrimitive<?, ?>) actualValue).getWritableObject();
+        if (actualValue instanceof LazyPrimitive<?, ?> lazyPrimitive) {
+            actualValue = lazyPrimitive.getWritableObject();
         }
-        if (actualValue instanceof BooleanWritable) {
-            actualValue = ((BooleanWritable) actualValue).get();
+        if (actualValue instanceof BooleanWritable writable) {
+            actualValue = writable.get();
         }
-        else if (actualValue instanceof ByteWritable) {
-            actualValue = ((ByteWritable) actualValue).get();
+        else if (actualValue instanceof ByteWritable writable) {
+            actualValue = writable.get();
         }
-        else if (actualValue instanceof BytesWritable) {
-            actualValue = new SqlVarbinary(((BytesWritable) actualValue).copyBytes());
+        else if (actualValue instanceof BytesWritable writable) {
+            actualValue = new SqlVarbinary(writable.copyBytes());
         }
-        else if (actualValue instanceof DateWritableV2) {
-            actualValue = new SqlDate(((DateWritableV2) actualValue).getDays());
+        else if (actualValue instanceof DateWritableV2 writable) {
+            actualValue = new SqlDate(writable.getDays());
         }
-        else if (actualValue instanceof DoubleWritable) {
-            actualValue = ((DoubleWritable) actualValue).get();
+        else if (actualValue instanceof DoubleWritable writable) {
+            actualValue = writable.get();
         }
-        else if (actualValue instanceof FloatWritable) {
-            actualValue = ((FloatWritable) actualValue).get();
+        else if (actualValue instanceof FloatWritable writable) {
+            actualValue = writable.get();
         }
-        else if (actualValue instanceof IntWritable) {
-            actualValue = ((IntWritable) actualValue).get();
+        else if (actualValue instanceof IntWritable writable) {
+            actualValue = writable.get();
         }
-        else if (actualValue instanceof LongWritable) {
-            actualValue = ((LongWritable) actualValue).get();
+        else if (actualValue instanceof LongWritable writable) {
+            actualValue = writable.get();
         }
-        else if (actualValue instanceof ShortWritable) {
-            actualValue = ((ShortWritable) actualValue).get();
+        else if (actualValue instanceof ShortWritable writable) {
+            actualValue = writable.get();
         }
-        else if (actualValue instanceof HiveDecimalWritable) {
+        else if (actualValue instanceof HiveDecimalWritable writable) {
             DecimalType decimalType = (DecimalType) type;
-            HiveDecimalWritable writable = (HiveDecimalWritable) actualValue;
             // writable messes with the scale so rescale the values to the Trino type
             BigInteger rescaledValue = rescale(writable.getHiveDecimal().unscaledValue(), writable.getScale(), decimalType.getScale());
             actualValue = new SqlDecimal(rescaledValue, decimalType.getPrecision(), decimalType.getScale());
@@ -833,31 +832,30 @@ public class RcFileTester
         else if (actualValue instanceof Text) {
             actualValue = actualValue.toString();
         }
-        else if (actualValue instanceof TimestampWritableV2) {
-            long millis = ((TimestampWritableV2) actualValue).getTimestamp().toEpochMilli();
+        else if (actualValue instanceof TimestampWritableV2 writable) {
+            long millis = writable.getTimestamp().toEpochMilli();
             if (format == Format.BINARY) {
                 millis = HIVE_STORAGE_TIME_ZONE.convertUTCToLocal(millis);
             }
             actualValue = sqlTimestampOf(3, millis);
         }
-        else if (actualValue instanceof StructObject) {
-            StructObject structObject = (StructObject) actualValue;
+        else if (actualValue instanceof StructObject structObject) {
             actualValue = decodeRecordReaderStruct(format, type, structObject.getFieldsAsList());
         }
-        else if (actualValue instanceof LazyBinaryArray) {
-            actualValue = decodeRecordReaderList(format, type, ((LazyBinaryArray) actualValue).getList());
+        else if (actualValue instanceof LazyBinaryArray array) {
+            actualValue = decodeRecordReaderList(format, type, array.getList());
         }
-        else if (actualValue instanceof LazyBinaryMap) {
-            actualValue = decodeRecordReaderMap(format, type, ((LazyBinaryMap) actualValue).getMap());
+        else if (actualValue instanceof LazyBinaryMap map) {
+            actualValue = decodeRecordReaderMap(format, type, map.getMap());
         }
-        else if (actualValue instanceof LazyArray) {
-            actualValue = decodeRecordReaderList(format, type, ((LazyArray) actualValue).getList());
+        else if (actualValue instanceof LazyArray array) {
+            actualValue = decodeRecordReaderList(format, type, array.getList());
         }
-        else if (actualValue instanceof LazyMap) {
-            actualValue = decodeRecordReaderMap(format, type, ((LazyMap) actualValue).getMap());
+        else if (actualValue instanceof LazyMap map) {
+            actualValue = decodeRecordReaderMap(format, type, map.getMap());
         }
-        else if (actualValue instanceof List) {
-            actualValue = decodeRecordReaderList(format, type, ((List<?>) actualValue));
+        else if (actualValue instanceof List<?> list) {
+            actualValue = decodeRecordReaderList(format, type, list);
         }
         return actualValue;
     }
@@ -960,8 +958,7 @@ public class RcFileTester
         if (type.equals(TIMESTAMP_MILLIS)) {
             return javaTimestampObjectInspector;
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             return getPrimitiveJavaObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
         }
         if (type instanceof ArrayType) {

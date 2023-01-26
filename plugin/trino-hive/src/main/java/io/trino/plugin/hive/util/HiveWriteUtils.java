@@ -254,8 +254,7 @@ public final class HiveWriteUtils
         if (type instanceof TimestampType) {
             return javaTimestampObjectInspector;
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             return getPrimitiveJavaObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
         }
         if (isArrayType(type)) {
@@ -328,8 +327,7 @@ public final class HiveWriteUtils
         if (type instanceof VarcharType) {
             return new Text(type.getSlice(block, position).getBytes());
         }
-        if (type instanceof CharType) {
-            CharType charType = (CharType) type;
+        if (type instanceof CharType charType) {
             return new Text(padSpaces(type.getSlice(block, position), charType).toStringUtf8());
         }
         if (VARBINARY.equals(type)) {
@@ -341,8 +339,7 @@ public final class HiveWriteUtils
         if (type instanceof TimestampType) {
             return getHiveTimestamp(localZone, (TimestampType) type, block, position);
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             return getHiveDecimal(decimalType, block, position);
         }
         if (type instanceof ArrayType) {
@@ -704,8 +701,7 @@ public final class HiveWriteUtils
             return writableDoubleObjectInspector;
         }
 
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             if (varcharType.isUnbounded()) {
                 // Unbounded VARCHAR is not supported by Hive.
                 // Values for such columns must be stored as STRING in Hive
@@ -717,8 +713,7 @@ public final class HiveWriteUtils
             }
         }
 
-        if (type instanceof CharType) {
-            CharType charType = (CharType) type;
+        if (type instanceof CharType charType) {
             int charLength = charType.getLength();
             return getPrimitiveWritableObjectInspector(getCharTypeInfo(charLength));
         }
@@ -735,8 +730,7 @@ public final class HiveWriteUtils
             return writableTimestampObjectInspector;
         }
 
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             return getPrimitiveWritableObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
         }
 
