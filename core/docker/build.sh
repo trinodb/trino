@@ -10,13 +10,13 @@ Builds the Trino Docker image
 -h       Display help
 -a       Build the specified comma-separated architectures, defaults to: amd64,arm64,ppc64le
 -r       Build the specified Trino release version, downloads all required artifacts
--c       Use trinodb/trino:latest as additional Docker build cache
+-c       Use Docker build cache
 EOF
 }
 
 ARCHITECTURES=(amd64 arm64 ppc64le)
 TRINO_VERSION=
-BUILD_CACHE_IMAGE=
+BUILD_CACHE=
 
 while getopts ":a:h:r:c" o; do
     case "${o}" in
@@ -27,7 +27,7 @@ while getopts ":a:h:r:c" o; do
             TRINO_VERSION=${OPTARG}
             ;;
         c)
-            BUILD_CACHE_IMAGE="trinodb/trino:latest"
+            BUILD_CACHE="type=gha"
             ;;
         h)
             usage
@@ -72,27 +72,40 @@ rm "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
 cp -R bin "${WORK_DIR}/trino-server-${TRINO_VERSION}"
 cp -R default "${WORK_DIR}/"
 
+# Prepare an empty build context for base image to speed up context copying
+BASE_WORK_DIR="$(mktemp -d)"
+
+BASE_PREFIX="trino-base:${TRINO_VERSION}"
 TAG_PREFIX="trino:${TRINO_VERSION}"
 
+echo "👷 Docker buildx builders available:"
+docker buildx ls
+
 for arch in "${ARCHITECTURES[@]}"; do
-    echo "🫙  Building the image for $arch"
-    BUILD_OPTIONS=(
-        "${WORK_DIR}"
+    echo "🫙  Building the base image for $arch"
+    BASE_BUILD_OPTIONS=(
+        ${BASE_WORK_DIR}
         --platform "linux/$arch"
-        -f Dockerfile
-        -t "${TAG_PREFIX}-$arch"
-        --build-arg "TRINO_VERSION=${TRINO_VERSION}"
+        --load
+        --tag "${BASE_PREFIX}-$arch"
+        -f base.Dockerfile
         )
-    if [ -n "${BUILD_CACHE_IMAGE}" ]; then
-        echo "🎯 Using ${BUILD_CACHE_IMAGE} as Docker build cache"
-        docker pull \
-            --platform "linux/$arch" \
-            "${BUILD_CACHE_IMAGE}"
-        BUILD_OPTIONS+=(--cache-from "${BUILD_CACHE_IMAGE}")
+    if [ -n "${BUILD_CACHE}" ]; then
+        echo "🎯 Using Docker build cache"
+        SCOPE="${GITHUB_REF_NAME:-$( git rev-parse --short HEAD: )}-${arch}"
+        BASE_BUILD_OPTIONS+=(--cache-from "${BUILD_CACHE},scope=${SCOPE}" --cache-to "${BUILD_CACHE},scope=${SCOPE},mode=max")
     else
-        BUILD_OPTIONS+=(--pull)
+        BASE_BUILD_OPTIONS+=(--pull)
     fi
-    docker build "${BUILD_OPTIONS[@]}"
+    docker buildx build "${BASE_BUILD_OPTIONS[@]}"
+
+    echo "🫙  Building the main image for $arch"
+    DOCKER_BUILDKIT=1 docker build \
+            "${WORK_DIR}" \
+            --platform "linux/$arch" \
+            -f Dockerfile \
+            -t "${TAG_PREFIX}-$arch" \
+            --build-arg "TRINO_VERSION=${TRINO_VERSION}"
 done
 
 echo "🧹 Cleaning up the build context directory"

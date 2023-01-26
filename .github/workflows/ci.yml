@@ -85,6 +85,10 @@ jobs:
       - uses: docker/setup-qemu-action@v2
         with:
           platforms: arm64,ppc64le
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Expose GitHub Runtime
+        uses: crazy-max/ghaction-github-runtime@v2
       - name: Test Docker Image
         run: core/docker/build.sh -c
       - name: Remove Trino from local Maven repo to avoid caching it
