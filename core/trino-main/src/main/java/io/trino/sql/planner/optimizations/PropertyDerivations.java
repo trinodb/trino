@@ -217,7 +217,7 @@ public final class PropertyDerivations
             ImmutableList.Builder<LocalProperty<Symbol>> newLocalProperties = ImmutableList.builder();
             newLocalProperties.addAll(properties.getLocalProperties());
             newLocalProperties.add(new GroupingProperty<>(ImmutableList.of(node.getIdColumn())));
-            node.getSource().getOutputSymbols().stream()
+            node.getSource().getOutputSymbols()
                     .forEach(column -> newLocalProperties.add(new ConstantProperty<>(column)));
 
             if (properties.getNodePartitioning().isPresent()) {

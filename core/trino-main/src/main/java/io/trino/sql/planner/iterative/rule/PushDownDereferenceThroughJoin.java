@@ -132,7 +132,7 @@ public class PushDownDereferenceThroughJoin
         Assignments.Builder rightAssignmentsBuilder = Assignments.builder();
 
         // Separate dereferences coming from left and right nodes
-        dereferenceAssignments.entrySet().stream()
+        dereferenceAssignments.entrySet()
                 .forEach(entry -> {
                     Symbol baseSymbol = getOnlyElement(extractAll(entry.getValue()));
                     if (joinNode.getLeft().getOutputSymbols().contains(baseSymbol)) {

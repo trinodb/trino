@@ -170,8 +170,7 @@ public class SimplifyFilterPredicate
             // all results not true, and default true
             if (notTrueResultsCount == results.size() && defaultValue.isPresent() && defaultValue.get().equals(TRUE_LITERAL)) {
                 ImmutableList.Builder<Expression> builder = ImmutableList.builder();
-                operands.stream()
-                        .forEach(operand -> builder.add(isFalseOrNullPredicate(operand)));
+                operands.forEach(operand -> builder.add(isFalseOrNullPredicate(operand)));
                 return Optional.of(combineConjuncts(metadata, builder.build()));
             }
             // skip clauses with not true conditions

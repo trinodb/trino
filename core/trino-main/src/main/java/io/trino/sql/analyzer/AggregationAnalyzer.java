@@ -420,7 +420,7 @@ class AggregationAnalyzer
 
                     // in case of aggregate function in ORDER BY, ensure that no output fields are referenced from aggregation's arguments or filter
                     if (orderByScope.isPresent()) {
-                        node.getArguments().stream()
+                        node.getArguments()
                                 .forEach(argument -> verifyNoOrderByReferencesToOutputColumns(
                                         argument,
                                         COLUMN_NOT_FOUND,

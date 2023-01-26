@@ -186,8 +186,7 @@ public class ReplaceJoinOverConstantWithProject
         Assignments.Builder assignments = Assignments.builder()
                 .putIdentities(sourceOutputs);
 
-        constantOutputs.stream()
-                .forEach(symbol -> assignments.put(symbol, mapping.get(symbol)));
+        constantOutputs.forEach(symbol -> assignments.put(symbol, mapping.get(symbol)));
 
         return new ProjectNode(idAllocator.getNextId(), source, assignments.build());
     }
