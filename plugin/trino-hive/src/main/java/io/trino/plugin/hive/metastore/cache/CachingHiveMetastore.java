@@ -279,16 +279,6 @@ public class CachingHiveMetastore
         partitionCache = partitionCacheFactory.buildBulkCache(this::loadPartitionsByNames);
     }
 
-    private static <K, V> LoadingCache<K, V> neverCache(com.google.common.base.Function<K, V> loader)
-    {
-        return buildCache(OptionalLong.of(0), OptionalLong.empty(), Optional.empty(), 0, StatsRecording.DISABLED, loader);
-    }
-
-    private static <K, V> LoadingCache<K, V> neverCache(Function<Iterable<K>, Map<K, V>> bulkLoader)
-    {
-        return buildCache(OptionalLong.of(0), 0, StatsRecording.DISABLED, bulkLoader);
-    }
-
     @Managed
     public void flushCache()
     {
@@ -1131,20 +1121,12 @@ public class CachingHiveMetastore
 
     private static CacheFactory neverCacheFactory()
     {
-        return new CacheFactory()
-        {
-            @Override
-            public <K, V> LoadingCache<K, V> buildCache(com.google.common.base.Function<K, V> loader)
-            {
-                return neverCache(loader);
-            }
-
-            @Override
-            public <K, V> LoadingCache<K, V> buildBulkCache(Function<Iterable<K>, Map<K, V>> bulkLoader)
-            {
-                return neverCache(bulkLoader);
-            }
-        };
+        return cacheFactory(
+                OptionalLong.of(0),
+                OptionalLong.empty(),
+                Optional.empty(),
+                0,
+                StatsRecording.DISABLED);
     }
 
     private static <K, V> LoadingCache<K, V> buildCache(
