@@ -66,19 +66,22 @@ public class AggregationStatsRule
     public static PlanNodeStatsEstimate groupBy(PlanNodeStatsEstimate sourceStats, Collection<Symbol> groupBySymbols, Map<Symbol, Aggregation> aggregations)
     {
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
-        for (Symbol groupBySymbol : groupBySymbols) {
-            SymbolStatsEstimate symbolStatistics = sourceStats.getSymbolStatistics(groupBySymbol);
-            result.addSymbolStatistics(groupBySymbol, symbolStatistics.mapNullsFraction(nullsFraction -> {
-                if (nullsFraction == 0.0) {
-                    return 0.0;
-                }
-                return 1.0 / (symbolStatistics.getDistinctValuesCount() + 1);
-            }));
+        if (groupBySymbols.isEmpty()) {
+            result.setOutputRowCount(1);
         }
-
-        double rowsCount = getRowsCount(sourceStats, groupBySymbols);
-        result.setOutputRowCount(min(rowsCount, sourceStats.getOutputRowCount()));
-
+        else {
+            for (Symbol groupBySymbol : groupBySymbols) {
+                SymbolStatsEstimate symbolStatistics = sourceStats.getSymbolStatistics(groupBySymbol);
+                result.addSymbolStatistics(groupBySymbol, symbolStatistics.mapNullsFraction(nullsFraction -> {
+                    if (nullsFraction == 0.0) {
+                        return 0.0;
+                    }
+                    return 1.0 / (symbolStatistics.getDistinctValuesCount() + 1);
+                }));
+            }
+            double rowsCount = getRowsCount(sourceStats, groupBySymbols);
+            result.setOutputRowCount(min(rowsCount, sourceStats.getOutputRowCount()));
+        }
         for (Map.Entry<Symbol, Aggregation> aggregationEntry : aggregations.entrySet()) {
             result.addSymbolStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), sourceStats));
         }
