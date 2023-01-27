@@ -88,8 +88,10 @@ public class TestMongoConnectorTest
     @AfterAll
     public final void destroy()
     {
-        server.close();
-        server = null;
+        if (server != null) {
+            server.close();
+            server = null;
+        }
         client.close();
         client = null;
     }

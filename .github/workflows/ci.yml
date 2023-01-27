@@ -728,6 +728,7 @@ jobs:
           matrix.modules != 'plugin/trino-singlestore'
           && matrix.modules != 'plugin/starburst-snowflake'
           && matrix.modules != 'plugin/starburst-synapse'
+          && matrix.modules != 'plugin/trino-mongodb'
           && ! (contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-2'))
@@ -888,6 +889,14 @@ jobs:
         if: matrix.modules == 'plugin/trino-singlestore' && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.MEMSQL_LICENSE != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-singlestore -Dmemsql.license=${MEMSQL_LICENSE}
+      - name: Mongodb Maven Tests
+        if: matrix.modules == 'plugin/trino-mongodb'
+        env:
+          MONGODB_CONFIG: >-
+            -Dtest.mongodb.atlas.connection-url=${{ secrets.MONGODB_ATLAS_CONNECTION_URL }}
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }} ${MONGODB_CONFIG}
       - name: Cloud BigQuery Tests
         id: tests-bq
         env:
