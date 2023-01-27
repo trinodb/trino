@@ -846,6 +846,15 @@ public class TestMongoConnectorTest
         assertThat(getQueryRunner().execute("SHOW TABLES FROM mongodb.huge_schema").getRowCount()).isEqualTo(10_000);
     }
 
+    @Test
+    public void testSystemSchemas()
+    {
+        // Ensures that system schemas are inaccessible
+        assertQueryReturnsEmptyResult("SHOW SCHEMAS IN mongodb LIKE 'admin'");
+        assertQueryReturnsEmptyResult("SHOW SCHEMAS IN mongodb LIKE 'config'");
+        assertQueryReturnsEmptyResult("SHOW SCHEMAS IN mongodb LIKE 'local'");
+    }
+
     @Override
     protected OptionalInt maxSchemaNameLength()
     {
