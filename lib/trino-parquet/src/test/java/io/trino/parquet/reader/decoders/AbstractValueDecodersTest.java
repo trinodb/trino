@@ -33,6 +33,7 @@ import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.column.values.delta.DeltaBinaryPackingValuesWriterForInteger;
 import org.apache.parquet.column.values.delta.DeltaBinaryPackingValuesWriterForLong;
+import org.apache.parquet.column.values.deltalengthbytearray.DeltaLengthByteArrayValuesWriter;
 import org.apache.parquet.column.values.plain.BooleanPlainValuesWriter;
 import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
@@ -61,6 +62,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.parquet.ParquetEncoding.DELTA_BINARY_PACKED;
+import static io.trino.parquet.ParquetEncoding.DELTA_LENGTH_BYTE_ARRAY;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
@@ -82,6 +84,7 @@ import static org.apache.parquet.column.values.dictionary.DictionaryValuesWriter
 import static org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainIntegerDictionaryValuesWriter;
 import static org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainLongDictionaryValuesWriter;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 
 public abstract class AbstractValueDecodersTest
 {
@@ -377,6 +380,12 @@ public abstract class AbstractValueDecodersTest
                 case INT64 -> new DeltaBinaryPackingValuesWriterForLong(MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
                 default -> throw new IllegalArgumentException("Delta binary packing encoding writer is not supported for type " + typeName);
             };
+        }
+        if (encoding.equals(DELTA_LENGTH_BYTE_ARRAY)) {
+            if (typeName.equals(BINARY)) {
+                return new DeltaLengthByteArrayValuesWriter(MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
+            }
+            throw new IllegalArgumentException("Delta length byte array encoding writer is not supported for type " + typeName);
         }
         throw new UnsupportedOperationException(format("Encoding %s is not supported", encoding));
     }
