@@ -13,157 +13,368 @@
  */
 package io.trino.operator.scalar;
 
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestBitwiseFunctions
-        extends AbstractTestFunctions
 {
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     @Test
     public void testBitCount()
     {
-        assertFunction("bit_count(0, 64)", BIGINT, 0L);
-        assertFunction("bit_count(7, 64)", BIGINT, 3L);
-        assertFunction("bit_count(24, 64)", BIGINT, 2L);
-        assertFunction("bit_count(-8, 64)", BIGINT, 61L);
-        assertFunction("bit_count(" + Integer.MAX_VALUE + ", 64)", BIGINT, 31L);
-        assertFunction("bit_count(" + Integer.MIN_VALUE + ", 64)", BIGINT, 33L);
-        assertFunction("bit_count(" + Long.MAX_VALUE + ", 64)", BIGINT, 63L);
-        assertFunction("bit_count(-" + Long.MAX_VALUE + "-1, 64)", BIGINT, 1L); // bit_count(MIN_VALUE, 64)
+        assertThat(assertions.function("bit_count", "0", "64"))
+                .isEqualTo(0L);
 
-        assertFunction("bit_count(0, 32)", BIGINT, 0L);
-        assertFunction("bit_count(7, 32)", BIGINT, 3L);
-        assertFunction("bit_count(24, 32)", BIGINT, 2L);
-        assertFunction("bit_count(-8, 32)", BIGINT, 29L);
-        assertFunction("bit_count(" + Integer.MAX_VALUE + ", 32)", BIGINT, 31L);
-        assertFunction("bit_count(" + Integer.MIN_VALUE + ", 32)", BIGINT, 1L);
-        assertInvalidFunction("bit_count(" + (Integer.MAX_VALUE + 1L) + ", 32)", "Number must be representable with the bits specified. 2147483648 cannot be represented with 32 bits");
-        assertInvalidFunction("bit_count(" + (Integer.MIN_VALUE - 1L) + ", 32)", "Number must be representable with the bits specified. -2147483649 cannot be represented with 32 bits");
+        assertThat(assertions.function("bit_count", "7", "64"))
+                .isEqualTo(3L);
 
-        assertFunction("bit_count(1152921504598458367, 62)", BIGINT, 59L);
-        assertFunction("bit_count(-1, 62)", BIGINT, 62L);
-        assertFunction("bit_count(33554132, 26)", BIGINT, 20L);
-        assertFunction("bit_count(-1, 26)", BIGINT, 26L);
-        assertInvalidFunction("bit_count(1152921504598458367, 60)", "Number must be representable with the bits specified. 1152921504598458367 cannot be represented with 60 bits");
-        assertInvalidFunction("bit_count(33554132, 25)", "Number must be representable with the bits specified. 33554132 cannot be represented with 25 bits");
+        assertThat(assertions.function("bit_count", "24", "64"))
+                .isEqualTo(2L);
 
-        assertInvalidFunction("bit_count(0, -1)", "Bits specified in bit_count must be between 2 and 64, got -1");
-        assertInvalidFunction("bit_count(0, 1)", "Bits specified in bit_count must be between 2 and 64, got 1");
-        assertInvalidFunction("bit_count(0, 65)", "Bits specified in bit_count must be between 2 and 64, got 65");
+        assertThat(assertions.function("bit_count", "-8", "64"))
+                .isEqualTo(61L);
+
+        assertThat(assertions.function("bit_count", Long.toString(Integer.MAX_VALUE), "64"))
+                .isEqualTo(31L);
+
+        assertThat(assertions.function("bit_count", Long.toString(Integer.MIN_VALUE), "64"))
+                .isEqualTo(33L);
+
+        assertThat(assertions.function("bit_count", Long.toString(Long.MAX_VALUE), "64"))
+                .isEqualTo(63L);
+
+        // bit_count(MIN_VALUE, 64)
+        assertThat(assertions.function("bit_count", Long.toString(-Long.MAX_VALUE - 1), "64"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("bit_count", "0", "32"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("bit_count", "7", "32"))
+                .isEqualTo(3L);
+
+        assertThat(assertions.function("bit_count", "24", "32"))
+                .isEqualTo(2L);
+
+        assertThat(assertions.function("bit_count", "-8", "32"))
+                .isEqualTo(29L);
+
+        assertThat(assertions.function("bit_count", Long.toString(Integer.MAX_VALUE), "32"))
+                .isEqualTo(31L);
+
+        assertThat(assertions.function("bit_count", Long.toString(Integer.MIN_VALUE), "32"))
+                .isEqualTo(1L);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("bit_count", Long.toString(Integer.MAX_VALUE + 1L), "32").evaluate())
+                .hasMessage("Number must be representable with the bits specified. 2147483648 cannot be represented with 32 bits");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("bit_count", Long.toString(Integer.MIN_VALUE - 1L), "32").evaluate())
+                .hasMessage("Number must be representable with the bits specified. -2147483649 cannot be represented with 32 bits");
+
+        assertThat(assertions.function("bit_count", "1152921504598458367", "62"))
+                .isEqualTo(59L);
+
+        assertThat(assertions.function("bit_count", "-1", "62"))
+                .isEqualTo(62L);
+
+        assertThat(assertions.function("bit_count", "33554132", "26"))
+                .isEqualTo(20L);
+
+        assertThat(assertions.function("bit_count", "-1", "26"))
+                .isEqualTo(26L);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("bit_count", "1152921504598458367", "60").evaluate())
+                .hasMessage("Number must be representable with the bits specified. 1152921504598458367 cannot be represented with 60 bits");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("bit_count", "33554132", "25").evaluate())
+                .hasMessage("Number must be representable with the bits specified. 33554132 cannot be represented with 25 bits");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("bit_count", "0", "-1").evaluate())
+                .hasMessage("Bits specified in bit_count must be between 2 and 64, got -1");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("bit_count", "0", "1").evaluate())
+                .hasMessage("Bits specified in bit_count must be between 2 and 64, got 1");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("bit_count", "0", "65").evaluate())
+                .hasMessage("Bits specified in bit_count must be between 2 and 64, got 65");
     }
 
     @Test
     public void testBitwiseNot()
     {
-        assertFunction("bitwise_not(0)", BIGINT, ~0L);
-        assertFunction("bitwise_not(-1)", BIGINT, ~-1L);
-        assertFunction("bitwise_not(8)", BIGINT, ~8L);
-        assertFunction("bitwise_not(-8)", BIGINT, ~-8L);
-        assertFunction("bitwise_not(" + Long.MAX_VALUE + ")", BIGINT, ~Long.MAX_VALUE);
-        assertFunction("bitwise_not(-" + Long.MAX_VALUE + "-1)", BIGINT, ~Long.MIN_VALUE); // bitwise_not(MIN_VALUE)
+        assertThat(assertions.function("bitwise_not", "0"))
+                .isEqualTo(~0L);
+
+        assertThat(assertions.function("bitwise_not", "-1"))
+                .isEqualTo(~-1L);
+
+        assertThat(assertions.function("bitwise_not", "8"))
+                .isEqualTo(~8L);
+
+        assertThat(assertions.function("bitwise_not", "-8"))
+                .isEqualTo(~-8L);
+
+        assertThat(assertions.function("bitwise_not", Long.toString(Long.MAX_VALUE)))
+                .isEqualTo(~Long.MAX_VALUE);
+
+        // bitwise_not(MIN_VALUE)
+        assertThat(assertions.function("bitwise_not", Long.toString(-Long.MAX_VALUE - 1)))
+                .isEqualTo(~Long.MIN_VALUE);
     }
 
     @Test
     public void testBitwiseAnd()
     {
-        assertFunction("bitwise_and(0, -1)", BIGINT, 0L);
-        assertFunction("bitwise_and(3, 8)", BIGINT, 3L & 8L);
-        assertFunction("bitwise_and(-4, 12)", BIGINT, -4L & 12L);
-        assertFunction("bitwise_and(60, 21)", BIGINT, 60L & 21L);
+        assertThat(assertions.function("bitwise_and", "0", "-1"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("bitwise_and", "3", "8"))
+                .isEqualTo(3L & 8L);
+
+        assertThat(assertions.function("bitwise_and", "-4", "12"))
+                .isEqualTo(-4L & 12L);
+
+        assertThat(assertions.function("bitwise_and", "60", "21"))
+                .isEqualTo(60L & 21L);
     }
 
     @Test
     public void testBitwiseOr()
     {
-        assertFunction("bitwise_or(0, -1)", BIGINT, -1L);
-        assertFunction("bitwise_or(3, 8)", BIGINT, 3L | 8L);
-        assertFunction("bitwise_or(-4, 12)", BIGINT, -4L | 12L);
-        assertFunction("bitwise_or(60, 21)", BIGINT, 60L | 21L);
+        assertThat(assertions.function("bitwise_or", "0", "-1"))
+                .isEqualTo(-1L);
+
+        assertThat(assertions.function("bitwise_or", "3", "8"))
+                .isEqualTo(3L | 8L);
+
+        assertThat(assertions.function("bitwise_or", "-4", "12"))
+                .isEqualTo(-4L | 12L);
+
+        assertThat(assertions.function("bitwise_or", "60", "21"))
+                .isEqualTo(60L | 21L);
     }
 
     @Test
     public void testBitwiseXor()
     {
-        assertFunction("bitwise_xor(0, -1)", BIGINT, -1L);
-        assertFunction("bitwise_xor(3, 8)", BIGINT, 3L ^ 8L);
-        assertFunction("bitwise_xor(-4, 12)", BIGINT, -4L ^ 12L);
-        assertFunction("bitwise_xor(60, 21)", BIGINT, 60L ^ 21L);
+        assertThat(assertions.function("bitwise_xor", "0", "-1"))
+                .isEqualTo(-1L);
+
+        assertThat(assertions.function("bitwise_xor", "3", "8"))
+                .isEqualTo(3L ^ 8L);
+
+        assertThat(assertions.function("bitwise_xor", "-4", "12"))
+                .isEqualTo(-4L ^ 12L);
+
+        assertThat(assertions.function("bitwise_xor", "60", "21"))
+                .isEqualTo(60L ^ 21L);
     }
 
     @Test
     public void testBitwiseLeftShift()
     {
-        assertFunction("bitwise_left_shift(TINYINT'7', 2)", TINYINT, (byte) (7 << 2));
-        assertFunction("bitwise_left_shift(TINYINT '-7', 2)", TINYINT, (byte) (-7 << 2));
-        assertFunction("bitwise_left_shift(TINYINT '1', 7)", TINYINT, (byte) (1 << 7));
-        assertFunction("bitwise_left_shift(TINYINT '-128', 1)", TINYINT, (byte) 0);
-        assertFunction("bitwise_left_shift(TINYINT '-65', 1)", TINYINT, (byte) (-65 << 1));
-        assertFunction("bitwise_left_shift(TINYINT '-7', 64)", TINYINT, (byte) 0);
-        assertFunction("bitwise_left_shift(TINYINT '-128', 0)", TINYINT, (byte) -128);
-        assertFunction("bitwise_left_shift(SMALLINT '7', 2)", SMALLINT, (short) (7 << 2));
-        assertFunction("bitwise_left_shift(SMALLINT '-7', 2)", SMALLINT, (short) (-7 << 2));
-        assertFunction("bitwise_left_shift(SMALLINT '1', 7)", SMALLINT, (short) (1 << 7));
-        assertFunction("bitwise_left_shift(SMALLINT '-32768', 1)", SMALLINT, (short) 0);
-        assertFunction("bitwise_left_shift(SMALLINT '-65', 1)", SMALLINT, (short) (-65 << 1));
-        assertFunction("bitwise_left_shift(SMALLINT '-7', 64)", SMALLINT, (short) 0);
-        assertFunction("bitwise_left_shift(SMALLINT '-32768', 0)", SMALLINT, (short) -32768);
-        assertFunction("bitwise_left_shift(INTEGER '7', 2)", INTEGER, 7 << 2);
-        assertFunction("bitwise_left_shift(INTEGER '-7', 2)", INTEGER, -7 << 2);
-        assertFunction("bitwise_left_shift(INTEGER '1', 7)", INTEGER, 1 << 7);
-        assertFunction("bitwise_left_shift(INTEGER '-2147483648', 1)", INTEGER, 0);
-        assertFunction("bitwise_left_shift(INTEGER '-65', 1)", INTEGER, -65 << 1);
-        assertFunction("bitwise_left_shift(INTEGER '-7', 64)", INTEGER, 0);
-        assertFunction("bitwise_left_shift(INTEGER '-2147483648', 0)", INTEGER, -2147483648);
-        assertFunction("bitwise_left_shift(BIGINT '7', 2)", BIGINT, 7L << 2);
-        assertFunction("bitwise_left_shift(BIGINT '-7', 2)", BIGINT, -7L << 2);
-        assertFunction("bitwise_left_shift(BIGINT '-7', 64)", BIGINT, 0L);
+        assertThat(assertions.function("bitwise_left_shift", "TINYINT'7'", "2"))
+                .isEqualTo((byte) (7 << 2));
+
+        assertThat(assertions.function("bitwise_left_shift", "TINYINT '-7'", "2"))
+                .isEqualTo((byte) (-7 << 2));
+
+        assertThat(assertions.function("bitwise_left_shift", "TINYINT '1'", "7"))
+                .isEqualTo((byte) (1 << 7));
+
+        assertThat(assertions.function("bitwise_left_shift", "TINYINT '-128'", "1"))
+                .isEqualTo((byte) 0);
+
+        assertThat(assertions.function("bitwise_left_shift", "TINYINT '-65'", "1"))
+                .isEqualTo((byte) (-65 << 1));
+
+        assertThat(assertions.function("bitwise_left_shift", "TINYINT '-7'", "64"))
+                .isEqualTo((byte) 0);
+
+        assertThat(assertions.function("bitwise_left_shift", "TINYINT '-128'", "0"))
+                .isEqualTo((byte) -128);
+
+        assertThat(assertions.function("bitwise_left_shift", "SMALLINT '7'", "2"))
+                .isEqualTo((short) (7 << 2));
+
+        assertThat(assertions.function("bitwise_left_shift", "SMALLINT '-7'", "2"))
+                .isEqualTo((short) (-7 << 2));
+
+        assertThat(assertions.function("bitwise_left_shift", "SMALLINT '1'", "7"))
+                .isEqualTo((short) (1 << 7));
+
+        assertThat(assertions.function("bitwise_left_shift", "SMALLINT '-32768'", "1"))
+                .isEqualTo((short) 0);
+
+        assertThat(assertions.function("bitwise_left_shift", "SMALLINT '-65'", "1"))
+                .isEqualTo((short) (-65 << 1));
+
+        assertThat(assertions.function("bitwise_left_shift", "SMALLINT '-7'", "64"))
+                .isEqualTo((short) 0);
+
+        assertThat(assertions.function("bitwise_left_shift", "SMALLINT '-32768'", "0"))
+                .isEqualTo((short) -32768);
+
+        assertThat(assertions.function("bitwise_left_shift", "INTEGER '7'", "2"))
+                .isEqualTo(7 << 2);
+
+        assertThat(assertions.function("bitwise_left_shift", "INTEGER '-7'", "2"))
+                .isEqualTo(-7 << 2);
+
+        assertThat(assertions.function("bitwise_left_shift", "INTEGER '1'", "7"))
+                .isEqualTo(1 << 7);
+
+        assertThat(assertions.function("bitwise_left_shift", "INTEGER '-2147483648'", "1"))
+                .isEqualTo(0);
+
+        assertThat(assertions.function("bitwise_left_shift", "INTEGER '-65'", "1"))
+                .isEqualTo(-65 << 1);
+
+        assertThat(assertions.function("bitwise_left_shift", "INTEGER '-7'", "64"))
+                .isEqualTo(0);
+
+        assertThat(assertions.function("bitwise_left_shift", "INTEGER '-2147483648'", "0"))
+                .isEqualTo(-2147483648);
+
+        assertThat(assertions.function("bitwise_left_shift", "BIGINT '7'", "2"))
+                .isEqualTo(7L << 2);
+
+        assertThat(assertions.function("bitwise_left_shift", "BIGINT '-7'", "2"))
+                .isEqualTo(-7L << 2);
+
+        assertThat(assertions.function("bitwise_left_shift", "BIGINT '-7'", "64"))
+                .isEqualTo(0L);
     }
 
     @Test
     public void testBitwiseRightShift()
     {
-        assertFunction("bitwise_right_shift(TINYINT '7', 2)", TINYINT, (byte) (7 >>> 2));
-        assertFunction("bitwise_right_shift(TINYINT '-7', 2)", TINYINT, (byte) 62);
-        assertFunction("bitwise_right_shift(TINYINT '-7', 64)", TINYINT, (byte) 0);
-        assertFunction("bitwise_right_shift(TINYINT '-128', 0)", TINYINT, (byte) -128);
-        assertFunction("bitwise_right_shift(SMALLINT '7', 2)", SMALLINT, (short) (7 >>> 2));
-        assertFunction("bitwise_right_shift(SMALLINT '-7', 2)", SMALLINT, (short) 16382);
-        assertFunction("bitwise_right_shift(SMALLINT '-7', 64)", SMALLINT, (short) 0);
-        assertFunction("bitwise_right_shift(SMALLINT '-32768', 0)", SMALLINT, (short) -32768);
-        assertFunction("bitwise_right_shift(INTEGER '7', 2)", INTEGER, 7 >>> 2);
-        assertFunction("bitwise_right_shift(INTEGER '-7', 2)", INTEGER, 1073741822);
-        assertFunction("bitwise_right_shift(INTEGER '-7', 64)", INTEGER, 0);
-        assertFunction("bitwise_right_shift(INTEGER '-2147483648', 0)", INTEGER, -2147483648);
-        assertFunction("bitwise_right_shift(BIGINT '7', 2)", BIGINT, 7L >>> 2);
-        assertFunction("bitwise_right_shift(BIGINT '-7', 2)", BIGINT, -7L >>> 2);
-        assertFunction("bitwise_right_shift(BIGINT '-7', 64)", BIGINT, 0L);
+        assertThat(assertions.function("bitwise_right_shift", "TINYINT '7'", "2"))
+                .isEqualTo((byte) (7 >>> 2));
+
+        assertThat(assertions.function("bitwise_right_shift", "TINYINT '-7'", "2"))
+                .isEqualTo((byte) 62);
+
+        assertThat(assertions.function("bitwise_right_shift", "TINYINT '-7'", "64"))
+                .isEqualTo((byte) 0);
+
+        assertThat(assertions.function("bitwise_right_shift", "TINYINT '-128'", "0"))
+                .isEqualTo((byte) -128);
+
+        assertThat(assertions.function("bitwise_right_shift", "SMALLINT '7'", "2"))
+                .isEqualTo((short) (7 >>> 2));
+
+        assertThat(assertions.function("bitwise_right_shift", "SMALLINT '-7'", "2"))
+                .isEqualTo((short) 16382);
+
+        assertThat(assertions.function("bitwise_right_shift", "SMALLINT '-7'", "64"))
+                .isEqualTo((short) 0);
+
+        assertThat(assertions.function("bitwise_right_shift", "SMALLINT '-32768'", "0"))
+                .isEqualTo((short) -32768);
+
+        assertThat(assertions.function("bitwise_right_shift", "INTEGER '7'", "2"))
+                .isEqualTo(7 >>> 2);
+
+        assertThat(assertions.function("bitwise_right_shift", "INTEGER '-7'", "2"))
+                .isEqualTo(1073741822);
+
+        assertThat(assertions.function("bitwise_right_shift", "INTEGER '-7'", "64"))
+                .isEqualTo(0);
+
+        assertThat(assertions.function("bitwise_right_shift", "INTEGER '-2147483648'", "0"))
+                .isEqualTo(-2147483648);
+
+        assertThat(assertions.function("bitwise_right_shift", "BIGINT '7'", "2"))
+                .isEqualTo(7L >>> 2);
+
+        assertThat(assertions.function("bitwise_right_shift", "BIGINT '-7'", "2"))
+                .isEqualTo(-7L >>> 2);
+
+        assertThat(assertions.function("bitwise_right_shift", "BIGINT '-7'", "64"))
+                .isEqualTo(0L);
     }
 
     @Test
     public void testBitwiseRightShiftArithmetic()
     {
-        assertFunction("bitwise_right_shift_arithmetic(TINYINT '7', 2)", TINYINT, (byte) (7 >> 2));
-        assertFunction("bitwise_right_shift_arithmetic(TINYINT '-7', 2)", TINYINT, (byte) (-7 >> 2));
-        assertFunction("bitwise_right_shift_arithmetic(TINYINT '7', 64)", TINYINT, (byte) 0);
-        assertFunction("bitwise_right_shift_arithmetic(TINYINT '-7', 64)", TINYINT, (byte) -1);
-        assertFunction("bitwise_right_shift_arithmetic(TINYINT '-128', 0)", TINYINT, (byte) -128);
-        assertFunction("bitwise_right_shift_arithmetic(SMALLINT '7', 2)", SMALLINT, (short) (7 >> 2));
-        assertFunction("bitwise_right_shift_arithmetic(SMALLINT '-7', 2)", SMALLINT, (short) (-7 >> 2));
-        assertFunction("bitwise_right_shift_arithmetic(SMALLINT '7', 64)", SMALLINT, (short) 0);
-        assertFunction("bitwise_right_shift_arithmetic(SMALLINT '-7', 64)", SMALLINT, (short) -1);
-        assertFunction("bitwise_right_shift_arithmetic(SMALLINT '-32768', 0)", SMALLINT, (short) -32768);
-        assertFunction("bitwise_right_shift_arithmetic(INTEGER '7', 2)", INTEGER, (7 >> 2));
-        assertFunction("bitwise_right_shift_arithmetic(INTEGER '-7', 2)", INTEGER, -7 >> 2);
-        assertFunction("bitwise_right_shift_arithmetic(INTEGER '7', 64)", INTEGER, 0);
-        assertFunction("bitwise_right_shift_arithmetic(INTEGER '-7', 64)", INTEGER, -1);
-        assertFunction("bitwise_right_shift_arithmetic(INTEGER '-2147483648', 0)", INTEGER, -2147483648);
-        assertFunction("bitwise_right_shift_arithmetic(BIGINT '7', 2)", BIGINT, 7L >> 2);
-        assertFunction("bitwise_right_shift_arithmetic(BIGINT '-7', 2)", BIGINT, -7L >> 2);
-        assertFunction("bitwise_right_shift_arithmetic(BIGINT '7', 64)", BIGINT, 0L);
-        assertFunction("bitwise_right_shift_arithmetic(BIGINT '-7', 64)", BIGINT, -1L);
+        assertThat(assertions.function("bitwise_right_shift_arithmetic", "TINYINT '7'", "2"))
+                .isEqualTo((byte) (7 >> 2));
+
+        assertThat(assertions.function("bitwise_right_shift_arithmetic", "TINYINT '-7'", "2"))
+                .isEqualTo((byte) (-7 >> 2));
+
+        assertThat(assertions.function("bitwise_right_shift_arithmetic", "TINYINT '7'", "64"))
+                .isEqualTo((byte) 0);
+
+        assertThat(assertions.function("bitwise_right_shift_arithmetic", "TINYINT '-7'", "64"))
+                .isEqualTo((byte) -1);
+
+        assertThat(assertions.function("bitwise_right_shift_arithmetic", "TINYINT '-128'", "0"))
+                .isEqualTo((byte) -128);
+
+        assertThat(assertions.function("bitwise_right_shift_arithmetic", "SMALLINT '7'", "2"))
+                .isEqualTo((short) (7 >> 2));
+
+        assertThat(assertions.function("bitwise_right_shift_arithmetic", "SMALLINT '-7'", "2"))
+                .isEqualTo((short) (-7 >> 2));
+
+        assertThat(assertions.function("bitwise_right_shift_arithmetic", "SMALLINT '7'", "64"))
+                .isEqualTo((short) 0);
+
+        assertThat(assertions.function("bitwise_right_shift_arithmetic", "SMALLINT '-7'", "64"))
+                .isEqualTo((short) -1);
+
+        assertThat(assertions.function("bitwise_right_shift_arithmetic", "SMALLINT '-32768'", "0"))
+                .isEqualTo((short) -32768);
+
+        assertThat(assertions.function("bitwise_right_shift_arithmetic", "INTEGER '7'", "2"))
+                .isEqualTo(7 >> 2);
+
+        assertThat(assertions.function("bitwise_right_shift_arithmetic", "INTEGER '-7'", "2"))
+                .isEqualTo(-7 >> 2);
+
+        assertThat(assertions.function("bitwise_right_shift_arithmetic", "INTEGER '7'", "64"))
+                .isEqualTo(0);
+
+        assertThat(assertions.function("bitwise_right_shift_arithmetic", "INTEGER '-7'", "64"))
+                .isEqualTo(-1);
+
+        assertThat(assertions.function("bitwise_right_shift_arithmetic", "INTEGER '-2147483648'", "0"))
+                .isEqualTo(-2147483648);
+
+        assertThat(assertions.function("bitwise_right_shift_arithmetic", "BIGINT '7'", "2"))
+                .isEqualTo(7L >> 2);
+
+        assertThat(assertions.function("bitwise_right_shift_arithmetic", "BIGINT '-7'", "2"))
+                .isEqualTo(-7L >> 2);
+
+        assertThat(assertions.function("bitwise_right_shift_arithmetic", "BIGINT '7'", "64"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("bitwise_right_shift_arithmetic", "BIGINT '-7'", "64"))
+                .isEqualTo(-1L);
     }
 }
