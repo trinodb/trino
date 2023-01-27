@@ -116,6 +116,7 @@ import static java.util.stream.Collectors.toSet;
 public class MongoSession
 {
     private static final Logger log = Logger.get(MongoSession.class);
+    private static final Set<String> SYSTEM_DATABASES = Set.of("admin", "local", "config");
     private static final List<String> SYSTEM_TABLES = Arrays.asList("system.indexes", "system.users", "system.version", "system.views");
 
     private static final String TABLE_NAME_KEY = "table";
@@ -187,7 +188,10 @@ public class MongoSession
 
     public List<String> getAllSchemas()
     {
-        return ImmutableList.copyOf(listDatabaseNames().map(name -> name.toLowerCase(ENGLISH)));
+        return Streams.stream(listDatabaseNames())
+                .filter(schema -> !SYSTEM_DATABASES.contains(schema))
+                .map(schema -> schema.toLowerCase(ENGLISH))
+                .collect(toImmutableList());
     }
 
     public void createSchema(String schemaName)
@@ -863,6 +867,9 @@ public class MongoSession
     {
         verify(schemaName.equals(schemaName.toLowerCase(ENGLISH)), "schemaName not in lower-case: %s", schemaName);
         if (!caseInsensitiveNameMatching) {
+            return schemaName;
+        }
+        if (SYSTEM_DATABASES.contains(schemaName)) {
             return schemaName;
         }
         for (String remoteSchemaName : listDatabaseNames()) {
