@@ -81,6 +81,7 @@ public final class SystemSessionProperties
     public static final String PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS = "preferred_write_partitioning_min_number_of_partitions";
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String TASK_SCALE_WRITERS_ENABLED = "task_scale_writers_enabled";
+    public static final String MAX_WRITERS_NODES_COUNT = "max_writers_nodes_count";
     public static final String TASK_SCALE_WRITERS_MAX_WRITER_COUNT = "task_scale_writers_max_writer_count";
     public static final String WRITER_MIN_SIZE = "writer_min_size";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
@@ -294,6 +295,11 @@ public final class SystemSessionProperties
                         SCALE_WRITERS,
                         "Scale out writers based on throughput (use minimum necessary)",
                         featuresConfig.isScaleWriters(),
+                        false),
+                integerProperty(
+                        MAX_WRITERS_NODES_COUNT,
+                        "Set upper limit on number of nodes that take part in writing if task.scale-writers.enabled is set",
+                        queryManagerConfig.getMaxWritersNodesCount(),
                         false),
                 booleanProperty(
                         TASK_SCALE_WRITERS_ENABLED,
@@ -994,6 +1000,11 @@ public final class SystemSessionProperties
     public static int getTaskScaleWritersMaxWriterCount(Session session)
     {
         return session.getSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_COUNT, Integer.class);
+    }
+
+    public static int getMaxWritersNodesCount(Session session)
+    {
+        return session.getSystemProperty(MAX_WRITERS_NODES_COUNT, Integer.class);
     }
 
     public static DataSize getWriterMinSize(Session session)

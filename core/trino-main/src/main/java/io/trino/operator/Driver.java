@@ -336,6 +336,7 @@ public class Driver
                 driverContext.isCpuTimerEnabled() && driverContext.isPerOperatorCpuTimerEnabled());
     }
 
+    // sourceBlockedFuture rezprezentuje blokade
     private ListenableFuture<Void> updateDriverBlockedFuture(ListenableFuture<Void> sourceBlockedFuture)
     {
         // driverBlockedFuture will be completed as soon as the sourceBlockedFuture is completed

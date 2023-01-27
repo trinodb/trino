@@ -55,6 +55,8 @@ public class QueryManagerConfig
 
     private int maxHashPartitionCount = 100;
     private int minHashPartitionCount = 4;
+    private int maxWritersNodesCount = 100;
+
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
@@ -185,6 +187,21 @@ public class QueryManagerConfig
     public QueryManagerConfig setMinHashPartitionCount(int minHashPartitionCount)
     {
         this.minHashPartitionCount = minHashPartitionCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxWritersNodesCount()
+    {
+        return maxWritersNodesCount;
+    }
+
+    @Config("query.max-writer-node-count")
+    @ConfigDescription("Maximum number of nodes that will take part in writer tasks. It is an upper bound on scaling of writers " +
+            "and works only if task.scale-writers.enabled is set")
+    public QueryManagerConfig setMaxWritersNodesCount(int maxWritersNodesCount)
+    {
+        this.maxWritersNodesCount = maxWritersNodesCount;
         return this;
     }
 

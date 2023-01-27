@@ -232,6 +232,8 @@ public class ExchangeOperator
     @Override
     public Page getOutput()
     {
+        System.out.println("ExchangeOperator::isBlocked. My id is %s, exchangeDataSource id is %s".formatted(this, exchangeDataSource));
+
         Slice page = exchangeDataSource.pollPage();
         if (page == null) {
             return null;

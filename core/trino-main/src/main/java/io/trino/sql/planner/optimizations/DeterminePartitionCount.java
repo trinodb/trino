@@ -44,6 +44,7 @@ import java.util.Optional;
 import java.util.function.ToDoubleFunction;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.MAX_WRITERS_NODES_COUNT;
 import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
 import static io.trino.SystemSessionProperties.getMinHashPartitionCount;
 import static io.trino.SystemSessionProperties.getMinInputRowsPerTask;
@@ -54,6 +55,7 @@ import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostSc
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static java.lang.Double.isNaN;
+import static java.lang.Math.incrementExact;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
@@ -82,7 +84,7 @@ public class DeterminePartitionCount
         implements PlanOptimizer
 {
     private static final Logger log = Logger.get(DeterminePartitionCount.class);
-    private static final List<Class<? extends PlanNode>> SKIP_PLAN_NODES = ImmutableList.of(TableExecuteNode.class, TableWriterNode.class, MergeWriterNode.class);
+    private static final List<Class<? extends PlanNode>> SKIP_PLAN_NODES = ImmutableList.of(TableExecuteNode.class, MergeWriterNode.class);
 
     private final StatsCalculator statsCalculator;
 
@@ -114,11 +116,21 @@ public class DeterminePartitionCount
             return plan;
         }
 
+        List<ExchangeNode> tableWriterSources = PlanNodeSearcher
+                .searchFrom(plan)
+                .recurseOnlyWhen(planNode -> planNode instanceof TableWriterNode)
+                .where(planNode -> planNode instanceof ExchangeNode)
+                .findAll();
+
+        Optional<Integer> partitionCount = tableWriterSources.isEmpty()
+                ? determinePartitionCount(plan, session, types, tableStatsProvider)
+                : Optional.of(session.getSystemProperty(MAX_WRITERS_NODES_COUNT, Integer.class));
         try {
-            return determinePartitionCount(plan, session, types, tableStatsProvider)
-                    .map(partitionCount -> rewriteWith(new Rewriter(partitionCount), plan))
+            return partitionCount
+                    .map(count -> rewriteWith(new Rewriter(count), plan))
                     .orElse(plan);
         }
+
         catch (RuntimeException e) {
             log.warn(e, "Error occurred when determining hash partition count for query %s", session.getQueryId());
         }
