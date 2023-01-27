@@ -2583,6 +2583,7 @@ public abstract class BaseConnectorTest
         assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + invalidTargetTableName))
                 .satisfies(this::verifyTableNameLengthFailurePermissible);
         assertFalse(getQueryRunner().tableExists(getSession(), invalidTargetTableName));
+        assertUpdate("DROP TABLE " + sourceTableName);
     }
 
     protected OptionalInt maxTableNameLength()
