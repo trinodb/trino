@@ -99,6 +99,7 @@ import io.trino.operator.scalar.ArrayElementAtFunction;
 import io.trino.operator.scalar.ArrayExceptFunction;
 import io.trino.operator.scalar.ArrayFilterFunction;
 import io.trino.operator.scalar.ArrayFunctions;
+import io.trino.operator.scalar.ArrayHistogramFunction;
 import io.trino.operator.scalar.ArrayIntersectFunction;
 import io.trino.operator.scalar.ArrayMaxFunction;
 import io.trino.operator.scalar.ArrayMinFunction;
@@ -584,7 +585,8 @@ public final class SystemFunctionBundle
                 .scalars(SetDigestOperators.class)
                 .scalars(WilsonInterval.class)
                 .aggregates(BigintApproximateMostFrequent.class)
-                .aggregates(VarcharApproximateMostFrequent.class);
+                .aggregates(VarcharApproximateMostFrequent.class)
+                .scalar(ArrayHistogramFunction.class);
 
         // timestamp operators and functions
         builder

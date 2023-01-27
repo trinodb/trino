@@ -172,6 +172,11 @@ public class SingleTypedHistogram
         return values.getPositionCount() == 0;
     }
 
+    public int getPositionCount()
+    {
+        return values.getPositionCount();
+    }
+
     private void addNewGroup(int hashPosition, int position, Block block, long count)
     {
         hashPositions.set(hashPosition, values.getPositionCount());
