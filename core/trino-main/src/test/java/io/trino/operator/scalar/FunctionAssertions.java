@@ -119,7 +119,6 @@ import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.block.BlockAssertions.createTimestampsWithTimeZoneMillisBlock;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -381,11 +380,6 @@ public final class FunctionAssertions
                 .hasMessage(message);
     }
 
-    public void assertInvalidFunction(String projection, String message)
-    {
-        assertInvalidFunction(projection, INVALID_FUNCTION_ARGUMENT, message);
-    }
-
     public void assertInvalidFunction(String projection, ErrorCodeSupplier expectedErrorCode)
     {
         assertTrinoExceptionThrownBy(() -> evaluateInvalid(projection))
@@ -397,12 +391,6 @@ public final class FunctionAssertions
         assertTrinoExceptionThrownBy(() -> evaluateInvalid(projection))
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage(message);
-    }
-
-    public void assertInvalidCast(String projection)
-    {
-        assertTrinoExceptionThrownBy(() -> evaluateInvalid(projection))
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
     }
 
     public void assertInvalidCast(String projection, String message)
