@@ -1812,7 +1812,7 @@ public class DeltaLakeMetadata
         Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
 
-        metastore.dropTable(session, handle.getSchemaName(), handle.getTableName(), table.getTableType().equals(EXTERNAL_TABLE.toString()));
+        metastore.dropTable(session, handle.getSchemaName(), handle.getTableName(), table.getTableType().equals(MANAGED_TABLE.toString()));
     }
 
     @Override

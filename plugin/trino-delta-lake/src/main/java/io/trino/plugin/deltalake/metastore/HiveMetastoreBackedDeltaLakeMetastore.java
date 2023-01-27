@@ -166,13 +166,13 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     }
 
     @Override
-    public void dropTable(ConnectorSession session, String databaseName, String tableName, boolean externalTable)
+    public void dropTable(ConnectorSession session, String databaseName, String tableName, boolean deleteData)
     {
         String tableLocation = getTableLocation(new SchemaTableName(databaseName, tableName), session);
-        delegate.dropTable(databaseName, tableName, true);
+        delegate.dropTable(databaseName, tableName, deleteData);
         statisticsAccess.invalidateCache(tableLocation);
         transactionLogAccess.invalidateCaches(tableLocation);
-        if (!externalTable) {
+        if (deleteData) {
             try {
                 fileSystemFactory.create(session).deleteDirectory(tableLocation);
             }
