@@ -70,9 +70,9 @@ public class TrinoHadoopCatalog
     private final Cache<String, Catalog> catalogCache;
     private final String warehouse;
 
-    public TrinoHadoopCatalog(CatalogName catalogName, HdfsEnvironment hdfsEnvironment, TypeManager typeManager, IcebergTableOperationsProvider tableOperationsProvider, String trinoVersion, boolean useUniqueTableLocation, IcebergConfig config)
+    public TrinoHadoopCatalog(CatalogName catalogName, HdfsEnvironment hdfsEnvironment, TypeManager typeManager, IcebergTableOperationsProvider tableOperationsProvider, boolean useUniqueTableLocation, IcebergConfig config)
     {
-        super(catalogName, typeManager, tableOperationsProvider, trinoVersion, useUniqueTableLocation);
+        super(catalogName, typeManager, tableOperationsProvider, useUniqueTableLocation);
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.catalogProperties = convertToCatalogProperties(config);
         this.catalogCache = SafeCaches.buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(config.getCatalogCacheSize()));
@@ -222,6 +222,12 @@ public class TrinoHadoopCatalog
     }
 
     @Override
+    public void registerTable(ConnectorSession session, SchemaTableName tableName, String tableLocation, String metadataLocation)
+    {
+        getCatalog(session).registerTable(TableIdentifier.of(tableName.getSchemaName(), tableName.getTableName()), metadataLocation);
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         getCatalog(session).dropTable(toTableId(schemaTableName), true);
@@ -311,6 +317,12 @@ public class TrinoHadoopCatalog
     public void updateViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
     {
         throw new TrinoException(NOT_SUPPORTED, "updateViewComment is not supported by " + getCatalog(session).name());
+    }
+
+    @Override
+    public void updateViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "updateViewColumnComment is not supported by " + getCatalog(session).name());
     }
 
     @Override

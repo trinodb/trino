@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static java.lang.String.format;
@@ -69,7 +70,8 @@ public class HadoopIcebergTableOperations
     @Override
     protected void commitNewTable(TableMetadata metadata)
     {
-        String newMetadataLocation = writeNewMetadata(metadata, version + 1);
+        verify(version.isEmpty(), "commitNewTable called on a table which already exists");
+        String newMetadataLocation = writeNewMetadata(metadata, 0);
 
         Map<String, String> properties = Map.of(
                 TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE,
