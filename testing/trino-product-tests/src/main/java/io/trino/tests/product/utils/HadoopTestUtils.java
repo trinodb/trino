@@ -37,9 +37,10 @@ public final class HadoopTestUtils
      * Link to issues:
      * <ul>
      *     <ol><a href="https://github.com/trinodb/trino/issues/4936">#4936</a></ol>
+     *     <ol><a href="https://github.com/trinodb/trino/issues/5427">#5427</a></ol>
      * </ul>
      */
-    public static final String RETRYABLE_FAILURES_ISSUES = "https://github.com/trinodb/trino/issues?q=is%3Aissue+issue%3A+4936";
+    public static final String RETRYABLE_FAILURES_ISSUES = "https://github.com/trinodb/trino/issues?q=is%3Aissue+issue%3A+4936+5427";
     @Language("RegExp")
     public static final String RETRYABLE_FAILURES_MATCH =
             // "Error committing write to Hive" is present depending on when the exception is thrown.
@@ -47,6 +48,8 @@ public final class HadoopTestUtils
             "(could only be replicated to 0 nodes instead of minReplication" +
                     // "could only be written to 0 of the 1 minReplication" is the error wording used by e.g. HDP 3
                     "|could only be written to 0 of the 1 minReplication" +
+                    // "Error while processing statement: FAILED: Execution Error, return code 1 from org.apache.hadoop.hive.ql.exec.mr.MapRedTask. Error caching map.xml: java.nio.channels.ClosedByInterruptException"
+                    "|return code 1 from \\Qorg.apache.hadoop.hive.ql.exec.mr.MapRedTask.\\E Error caching \\S*: \\Qjava.nio.channels.ClosedByInterruptException\\E" +
                     ")";
 
     public static final RetryPolicy<QueryResult> ERROR_COMMITTING_WRITE_TO_HIVE_RETRY_POLICY = new RetryPolicy<QueryResult>()
