@@ -82,6 +82,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -176,6 +177,8 @@ public class MongoSession
     private final boolean caseInsensitiveNameMatching;
     private final int cursorBatchSize;
 
+    private final AtomicReference<Boolean> isFederatedDatabase;
+
     private final Cache<SchemaTableName, MongoTable> tableCache;
     private final String implicitPrefix;
 
@@ -191,6 +194,21 @@ public class MongoSession
         this.tableCache = EvictableCacheBuilder.newBuilder()
                 .expireAfterWrite(1, MINUTES)  // TODO: Configure
                 .build();
+        this.isFederatedDatabase = new AtomicReference<>();
+    }
+
+    public boolean isFederatedDatabase()
+    {
+        Boolean isFederatedDatabase = this.isFederatedDatabase.get();
+        if (isFederatedDatabase == null) {
+            // Database is data federation if result of buildInfo command contains dataLake key
+            // https://github.com/mongodb-js/mongodb-build-info/blob/43361427661033307590dfd7b538093b158f25cd/index.js#L13-L14
+            // https://github.com/mongodb-js/mongosh/blob/1dbc89bde3cb0d532bce1cc8f9089fa44ffa2fab/packages/shell-api/src/shell-instance-state.ts#L440-L446
+            // https://github.com/mongodb-js/mongosh/blob/1dbc89bde3cb0d532bce1cc8f9089fa44ffa2fab/packages/service-provider-core/src/connect-info.ts#L30-L31
+            isFederatedDatabase = client.getDatabase("sample").runCommand(new Document("buildInfo", 1)).containsKey("dataLake");
+            this.isFederatedDatabase.set(isFederatedDatabase);
+        }
+        return isFederatedDatabase;
     }
 
     public void shutdown()
@@ -794,11 +812,14 @@ public class MongoSession
             }
             Document metadata = new Document(TABLE_NAME_KEY, tableName);
             metadata.append(FIELDS_KEY, guessTableFields(schemaName, tableName));
-            if (!indexExists(schema)) {
-                schema.createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
-            }
 
-            schema.insertOne(metadata);
+            // Federated database instance can also be configured to use external non-federated database instance for storing indices, which needs additional connection parameters. Do not support it for now.
+            if (!isFederatedDatabase()) {
+                if (!indexExists(schema)) {
+                    schema.createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
+                }
+                schema.insertOne(metadata);
+            }
 
             return metadata;
         }
@@ -834,6 +855,9 @@ public class MongoSession
 
     private void createTableMetadata(RemoteTableName remoteSchemaTableName, List<MongoColumnHandle> columns, Optional<String> tableComment)
     {
+        // Federated database instance can also be configured to use external non-federated database instance for storing indices, which needs additional connection parameters. Do not support it for now.
+        verify(!isFederatedDatabase(), "Cannot create table metadata in Atlas federated database");
+
         String remoteSchemaName = remoteSchemaTableName.getDatabaseName();
         String remoteTableName = remoteSchemaTableName.getCollectionName();
 

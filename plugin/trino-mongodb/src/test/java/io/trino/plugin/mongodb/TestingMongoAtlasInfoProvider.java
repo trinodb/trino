@@ -22,6 +22,26 @@ public final class TestingMongoAtlasInfoProvider
 {
     private TestingMongoAtlasInfoProvider() {}
 
+    record MongoAtlasFederatedDatabaseInfo(ConnectionString federatedDatabaseConnectionString, ConnectionString federatedDatabaseSourceConnectionString)
+    {
+        MongoAtlasFederatedDatabaseInfo
+        {
+            requireNonNull(federatedDatabaseConnectionString, "federatedDatabaseConnectionString is null");
+            requireNonNull(federatedDatabaseSourceConnectionString, "federatedDatabaseSourceConnectionString is null");
+        }
+    }
+
+    public static MongoAtlasFederatedDatabaseInfo getMongoAtlasFederatedDatabaseInfo()
+    {
+        String connectionUrl = requireSystemProperty("test.mongodb.federated-database.connection-url");
+        checkArgument(connectionUrl.matches("^mongodb(\\+srv)?://.*"));
+        ConnectionString connectionString = new ConnectionString(connectionUrl);
+        String sourceConnectionUrl = requireSystemProperty("test.mongodb.federated-datasource.connection-url");
+        checkArgument(sourceConnectionUrl.matches("^mongodb(\\+srv)?://.*"));
+        ConnectionString sourceConnectionString = new ConnectionString(sourceConnectionUrl);
+        return new MongoAtlasFederatedDatabaseInfo(connectionString, sourceConnectionString);
+    }
+
     public static ConnectionString getConnectionString()
     {
         String atlasConnectionUrl = requireSystemProperty("test.mongodb.atlas.connection-url");

@@ -894,6 +894,10 @@ jobs:
         env:
           MONGODB_CONFIG: >-
             -Dtest.mongodb.atlas.connection-url=${{ secrets.MONGODB_ATLAS_CONNECTION_URL }}
+            -Dtest.mongodb.federated-database.connection-url=${{ secrets.MONGODB_FEDERATED_DATABASE_CONNECTION_URL }}
+            -Dtest.mongodb.federated-datasource.connection-url=${{ secrets.MONGODB_FEDERATED_DATASOURCE_CONNECTION_URL }}
+            -Dtest.mongodb.federated-datasource.cluster-name=${{ secrets.MONGODB_FEDERATED_DATASOURCE_CLUSTER_NAME }}
+            -Dtest.mongodb.federated-datasource.project-id=${{ secrets.MONGODB_FEDERATED_DATASOURCE_PROJECT_ID }}
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }} ${MONGODB_CONFIG}

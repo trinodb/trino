@@ -142,6 +142,9 @@ public class MongoMetadata
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
+        if (mongoSession.isFederatedDatabase()) {
+            throw new TrinoException(NOT_SUPPORTED, "Creating schemas is not supported on Atlas data federation");
+        }
         checkArgument(properties.isEmpty(), "Can't have properties for schema creation");
         mongoSession.createSchema(schemaName);
     }
@@ -149,6 +152,9 @@ public class MongoMetadata
     @Override
     public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
+        if (mongoSession.isFederatedDatabase()) {
+            throw new TrinoException(NOT_SUPPORTED, "Dropping schemas is not supported on Atlas data federation");
+        }
         mongoSession.dropSchema(schemaName, cascade);
     }
 
@@ -233,6 +239,9 @@ public class MongoMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
+        if (mongoSession.isFederatedDatabase()) {
+            throw new TrinoException(NOT_SUPPORTED, "Creating tables is not supported on Atlas data federation");
+        }
         RemoteTableName remoteTableName = mongoSession.toRemoteSchemaTableName(tableMetadata.getTable());
         mongoSession.createTable(remoteTableName, buildColumnHandles(tableMetadata), tableMetadata.getComment());
     }
@@ -240,6 +249,9 @@ public class MongoMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
+        if (mongoSession.isFederatedDatabase()) {
+            throw new TrinoException(NOT_SUPPORTED, "Dropping tables is not supported on Atlas data federation");
+        }
         MongoTableHandle table = (MongoTableHandle) tableHandle;
 
         mongoSession.dropTable(table.getRemoteTableName());
@@ -248,6 +260,9 @@ public class MongoMetadata
     @Override
     public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
     {
+        if (mongoSession.isFederatedDatabase()) {
+            throw new TrinoException(NOT_SUPPORTED, "Setting table comments is not supported on Atlas data federation");
+        }
         MongoTableHandle table = (MongoTableHandle) tableHandle;
         mongoSession.setTableComment(table, comment);
     }
@@ -255,6 +270,9 @@ public class MongoMetadata
     @Override
     public void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Optional<String> comment)
     {
+        if (mongoSession.isFederatedDatabase()) {
+            throw new TrinoException(NOT_SUPPORTED, "Setting column comments is not supported on Atlas data federation");
+        }
         MongoTableHandle table = (MongoTableHandle) tableHandle;
         MongoColumnHandle column = (MongoColumnHandle) columnHandle;
         mongoSession.setColumnComment(table, column.getBaseName(), comment);
@@ -263,6 +281,9 @@ public class MongoMetadata
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
+        if (mongoSession.isFederatedDatabase()) {
+            throw new TrinoException(NOT_SUPPORTED, "Renaming tables is not supported on Atlas data federation");
+        }
         if (newTableName.toString().getBytes(UTF_8).length > MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH) {
             throw new TrinoException(NOT_SUPPORTED, format("Qualified identifier name must be shorter than or equal to '%s' bytes: '%s'", MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH, newTableName));
         }
@@ -273,24 +294,36 @@ public class MongoMetadata
     @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
+        if (mongoSession.isFederatedDatabase()) {
+            throw new TrinoException(NOT_SUPPORTED, "Adding columns is not supported on Atlas data federation");
+        }
         mongoSession.addColumn(((MongoTableHandle) tableHandle), column);
     }
 
     @Override
     public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
+        if (mongoSession.isFederatedDatabase()) {
+            throw new TrinoException(NOT_SUPPORTED, "Renaming columns is not supported on Atlas data federation");
+        }
         mongoSession.renameColumn(((MongoTableHandle) tableHandle), ((MongoColumnHandle) source).getBaseName(), target);
     }
 
     @Override
     public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
+        if (mongoSession.isFederatedDatabase()) {
+            throw new TrinoException(NOT_SUPPORTED, "Dropping columns is not supported on Atlas data federation");
+        }
         mongoSession.dropColumn(((MongoTableHandle) tableHandle), ((MongoColumnHandle) column).getBaseName());
     }
 
     @Override
     public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Type type)
     {
+        if (mongoSession.isFederatedDatabase()) {
+            throw new TrinoException(NOT_SUPPORTED, "Setting column data types is not supported on Atlas data federation");
+        }
         MongoTableHandle table = (MongoTableHandle) tableHandle;
         MongoColumnHandle column = (MongoColumnHandle) columnHandle;
         if (!canChangeColumnType(column.getType(), type)) {
@@ -365,6 +398,9 @@ public class MongoMetadata
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
+        if (mongoSession.isFederatedDatabase()) {
+            throw new TrinoException(NOT_SUPPORTED, "Creating tables with data is not supported on Atlas data federation");
+        }
         RemoteTableName remoteTableName = mongoSession.toRemoteSchemaTableName(tableMetadata.getTable());
 
         List<MongoColumnHandle> columns = buildColumnHandles(tableMetadata);
@@ -422,6 +458,9 @@ public class MongoMetadata
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> insertedColumns, RetryMode retryMode)
     {
+        if (mongoSession.isFederatedDatabase()) {
+            throw new TrinoException(NOT_SUPPORTED, "Insert is not supported on Atlas data federation");
+        }
         MongoTable table = mongoSession.getTable(((MongoTableHandle) tableHandle).getSchemaTableName());
         MongoTableHandle handle = table.getTableHandle();
         List<MongoColumnHandle> columns = table.getColumns();
@@ -523,6 +562,9 @@ public class MongoMetadata
     @Override
     public OptionalLong executeDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
+        if (mongoSession.isFederatedDatabase()) {
+            throw new TrinoException(NOT_SUPPORTED, "Delete is not supported on Atlas data federation");
+        }
         MongoTableHandle table = (MongoTableHandle) handle;
         return OptionalLong.of(mongoSession.deleteDocuments(table.getRemoteTableName(), table.getConstraint()));
     }
