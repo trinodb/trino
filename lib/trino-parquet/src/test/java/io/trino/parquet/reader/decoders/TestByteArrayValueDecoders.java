@@ -29,6 +29,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static io.trino.parquet.ParquetEncoding.DELTA_LENGTH_BYTE_ARRAY;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.reader.TestData.randomAsciiData;
@@ -64,7 +65,7 @@ public final class TestByteArrayValueDecoders
                                 BinaryApacheParquetValueDecoder::new,
                                 BINARY_ADAPTER,
                                 BINARY_ASSERT),
-                        ImmutableList.of(PLAIN, RLE_DICTIONARY),
+                        ImmutableList.of(PLAIN, RLE_DICTIONARY, DELTA_LENGTH_BYTE_ARRAY),
                         generateUnboundedBinaryInputs()),
                 testArgs(
                         new TestType<>(
@@ -73,15 +74,15 @@ public final class TestByteArrayValueDecoders
                                 BinaryApacheParquetValueDecoder::new,
                                 BINARY_ADAPTER,
                                 BINARY_ASSERT),
-                        ImmutableList.of(PLAIN, RLE_DICTIONARY),
+                        ImmutableList.of(PLAIN, RLE_DICTIONARY, DELTA_LENGTH_BYTE_ARRAY),
                         generateUnboundedBinaryInputs()),
                 testArgs(
                         createBoundedVarcharTestType(),
-                        ImmutableList.of(PLAIN, RLE_DICTIONARY),
+                        ImmutableList.of(PLAIN, RLE_DICTIONARY, DELTA_LENGTH_BYTE_ARRAY),
                         generateBoundedVarcharInputs()),
                 testArgs(
                         createCharTestType(),
-                        ImmutableList.of(PLAIN, RLE_DICTIONARY),
+                        ImmutableList.of(PLAIN, RLE_DICTIONARY, DELTA_LENGTH_BYTE_ARRAY),
                         generateCharInputs()));
     }
 
