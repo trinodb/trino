@@ -41,6 +41,7 @@ public class TrinoJdbcCatalogFactory
     private final TypeManager typeManager;
     private final IcebergTableOperationsProvider tableOperationsProvider;
     private final TrinoFileSystemFactory fileSystemFactory;
+    private final IcebergJdbcClient jdbcClient;
     private final String jdbcCatalogName;
     private final String connectionUrl;
     private final Optional<String> connectionUser;
@@ -57,6 +58,7 @@ public class TrinoJdbcCatalogFactory
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
             TrinoFileSystemFactory fileSystemFactory,
+            IcebergJdbcClient jdbcClient,
             IcebergJdbcCatalogConfig jdbcConfig,
             IcebergConfig icebergConfig)
     {
@@ -65,6 +67,7 @@ public class TrinoJdbcCatalogFactory
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.isUniqueTableLocation = requireNonNull(icebergConfig, "icebergConfig is null").isUniqueTableLocation();
+        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.jdbcCatalogName = jdbcConfig.getCatalogName();
         this.connectionUrl = jdbcConfig.getConnectionUrl();
         this.connectionUser = jdbcConfig.getConnectionUser();
@@ -84,6 +87,7 @@ public class TrinoJdbcCatalogFactory
                 typeManager,
                 tableOperationsProvider,
                 icebergCatalog,
+                jdbcClient,
                 fileSystemFactory,
                 isUniqueTableLocation,
                 defaultWarehouseDir);
