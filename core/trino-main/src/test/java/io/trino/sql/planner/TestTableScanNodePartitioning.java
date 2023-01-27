@@ -21,7 +21,6 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNodeManager;
-import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -30,16 +29,13 @@ import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
-import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTablePartitioning;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.testing.LocalQueryRunner;
-import io.trino.testing.TestingTransactionHandle;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -64,7 +60,6 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
-import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
@@ -98,20 +93,6 @@ public class TestTableScanNodePartitioning
     public static final ConnectorPartitioningHandle PARTITIONING_HANDLE = new ConnectorPartitioningHandle() {};
     public static final ConnectorPartitioningHandle SINGLE_BUCKET_HANDLE = new ConnectorPartitioningHandle() {};
     public static final ConnectorPartitioningHandle FIXED_PARTITIONING_HANDLE = new ConnectorPartitioningHandle() {};
-
-    public static final ConnectorTableHandle CONNECTOR_PARTITIONED_TABLE_HANDLE =
-            new MockConnectorTableHandle(new SchemaTableName(TEST_SCHEMA, PARTITIONED_TABLE));
-    public static final ConnectorTableHandle CONNECTOR_SINGLE_BUCKET_TABLE_HANDLE =
-            new MockConnectorTableHandle(new SchemaTableName(TEST_SCHEMA, SINGLE_BUCKET_TABLE));
-    public static final ConnectorTableHandle CONNECTOR_FIXED_PARTITIONED_TABLE_HANDLE =
-            new MockConnectorTableHandle(new SchemaTableName(TEST_SCHEMA, FIXED_PARTITIONED_TABLE));
-    public static final ConnectorTableHandle CONNECTOR_UNPARTITIONED_TABLE_HANDLE =
-            new MockConnectorTableHandle(new SchemaTableName(TEST_SCHEMA, UNPARTITIONED_TABLE));
-
-    public static final TableHandle PARTITIONED_TABLE_HANDLE = tableHandle(CONNECTOR_PARTITIONED_TABLE_HANDLE);
-    public static final TableHandle SINGLE_BUCKET_TABLE_HANDLE = tableHandle(CONNECTOR_SINGLE_BUCKET_TABLE_HANDLE);
-    public static final TableHandle FIXED_PARTITIONED_TABLE_HANDLE = tableHandle(CONNECTOR_FIXED_PARTITIONED_TABLE_HANDLE);
-    public static final TableHandle UNPARTITIONED_TABLE_HANDLE = tableHandle(CONNECTOR_UNPARTITIONED_TABLE_HANDLE);
 
     public static final String COLUMN_A = "column_a";
     public static final String COLUMN_B = "column_b";
@@ -203,7 +184,8 @@ public class TestTableScanNodePartitioning
                         new ColumnMetadata(COLUMN_A, BIGINT),
                         new ColumnMetadata(COLUMN_B, VARCHAR)))
                 .withGetTableProperties((session, tableHandle) -> {
-                    if (tableHandle.equals(CONNECTOR_PARTITIONED_TABLE_HANDLE)) {
+                    String tableName = ((MockConnectorTableHandle) tableHandle).getTableName().getTableName();
+                    if (tableName.equals(PARTITIONED_TABLE)) {
                         return new ConnectorTableProperties(
                                 TupleDomain.all(),
                                 Optional.of(new ConnectorTablePartitioning(PARTITIONING_HANDLE, ImmutableList.of(COLUMN_HANDLE_A))),
@@ -211,7 +193,7 @@ public class TestTableScanNodePartitioning
                                 Optional.empty(),
                                 ImmutableList.of());
                     }
-                    if (tableHandle.equals(CONNECTOR_SINGLE_BUCKET_TABLE_HANDLE)) {
+                    if (tableName.equals(SINGLE_BUCKET_TABLE)) {
                         return new ConnectorTableProperties(
                                 TupleDomain.all(),
                                 Optional.of(new ConnectorTablePartitioning(SINGLE_BUCKET_HANDLE, ImmutableList.of(COLUMN_HANDLE_A))),
@@ -219,7 +201,7 @@ public class TestTableScanNodePartitioning
                                 Optional.empty(),
                                 ImmutableList.of());
                     }
-                    if (tableHandle.equals(CONNECTOR_FIXED_PARTITIONED_TABLE_HANDLE)) {
+                    if (tableName.equals(FIXED_PARTITIONED_TABLE)) {
                         return new ConnectorTableProperties(
                                 TupleDomain.all(),
                                 Optional.of(new ConnectorTablePartitioning(FIXED_PARTITIONING_HANDLE, ImmutableList.of(COLUMN_HANDLE_A))),
@@ -268,13 +250,5 @@ public class TestTableScanNodePartitioning
         {
             throw new UnsupportedOperationException();
         }
-    }
-
-    private static TableHandle tableHandle(ConnectorTableHandle connectorTableHandle)
-    {
-        return new TableHandle(
-                TEST_CATALOG_HANDLE,
-                connectorTableHandle,
-                TestingTransactionHandle.create());
     }
 }

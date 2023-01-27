@@ -31,8 +31,6 @@ import static software.amazon.awssdk.utils.FunctionalUtils.invokeSafely;
  *  An implementation of {@link AsyncResponseTransformer} that writes data to the specified range of the given buffer.
  *  This class mimics the implementation of {@link ByteArrayAsyncResponseTransformer} but avoids memory copying.
  *
- * {@link AsyncResponseTransformer} that writes the data to the specified range of the given buffer
- *
  * @param <ResponseT> Response POJO type.
  */
 public final class BufferWriteAsyncResponseTransformer<ResponseT>

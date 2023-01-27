@@ -24,9 +24,13 @@ import java.util.Set;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.StandardTypes.JSON;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 
 public final class TypeUtils
@@ -36,7 +40,11 @@ public final class TypeUtils
             TINYINT,
             SMALLINT,
             INTEGER,
-            BIGINT);
+            BIGINT,
+            DATE,
+            TIME_MILLIS,
+            TIMESTAMP_MILLIS,
+            TIMESTAMP_TZ_MILLIS);
 
     private TypeUtils() {}
 

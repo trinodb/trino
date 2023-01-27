@@ -34,9 +34,7 @@ public class TestH2DatabaseConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("metadata.db.filename", "/tmp/db")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("metadata.db.filename", "/tmp/db");
 
         H2DatabaseConfig expected = new H2DatabaseConfig()
                 .setFilename("/tmp/db");

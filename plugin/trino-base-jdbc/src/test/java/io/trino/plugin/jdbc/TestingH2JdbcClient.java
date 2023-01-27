@@ -19,6 +19,7 @@ import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.RewriteVariable;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
@@ -89,7 +90,7 @@ class TestingH2JdbcClient
 
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory, new DefaultQueryBuilder(), identifierMapping);
+        super(config, "\"", connectionFactory, new DefaultQueryBuilder(RemoteQueryModifier.NONE), identifierMapping, RemoteQueryModifier.NONE);
     }
 
     @Override
@@ -107,6 +108,16 @@ class TestingH2JdbcClient
     {
         // Don't return a comment until the connector supports creating tables with comment
         return Optional.empty();
+    }
+
+    @Override
+    public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    {
+        // Ignore (not fail) when comment is empty for testing purposes.
+        // however do not allow to set non-empty comment, not to have increased expectations from the invoking test
+        if (comment.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column comments");
+        }
     }
 
     @Override

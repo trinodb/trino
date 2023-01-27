@@ -24,14 +24,14 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 
 public class TestDeltaLakeRenameToWithGlueMetastore
         extends AbstractTestQueryFramework
 {
-    protected static final String SCHEMA = "test_delta_lake_rename_to_with_glue_" + randomTableSuffix();
+    protected static final String SCHEMA = "test_delta_lake_rename_to_with_glue_" + randomNameSuffix();
     protected static final String CATALOG_NAME = "test_delta_lake_rename_to_with_glue";
 
     private File schemaLocation;
@@ -58,8 +58,8 @@ public class TestDeltaLakeRenameToWithGlueMetastore
     @Test
     public void testRenameOfExternalTable()
     {
-        String oldTable = "test_table_external_to_be_renamed_" + randomTableSuffix();
-        String newTable = "test_table_external_renamed_" + randomTableSuffix();
+        String oldTable = "test_table_external_to_be_renamed_" + randomNameSuffix();
+        String newTable = "test_table_external_renamed_" + randomNameSuffix();
         String location = schemaLocation.getPath() + "/tableLocation/";
         try {
             assertUpdate(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS val ", oldTable, location), 1);
@@ -80,8 +80,8 @@ public class TestDeltaLakeRenameToWithGlueMetastore
     @Test
     public void testRenameOfManagedTable()
     {
-        String oldTable = "test_table_managed_to_be_renamed_" + randomTableSuffix();
-        String newTable = "test_table_managed_renamed_" + randomTableSuffix();
+        String oldTable = "test_table_managed_to_be_renamed_" + randomNameSuffix();
+        String newTable = "test_table_managed_renamed_" + randomNameSuffix();
         try {
             assertUpdate(format("CREATE TABLE %s AS SELECT 1 AS val ", oldTable), 1);
             String oldLocation = (String) computeScalar("SELECT \"$path\" FROM " + oldTable);
@@ -98,7 +98,7 @@ public class TestDeltaLakeRenameToWithGlueMetastore
         }
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void cleanup()
     {
         assertUpdate("DROP SCHEMA IF EXISTS " + SCHEMA);

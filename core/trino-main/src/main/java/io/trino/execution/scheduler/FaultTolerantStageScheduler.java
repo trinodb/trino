@@ -106,6 +106,10 @@ import static io.trino.util.Failures.toFailure;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Deprecated in favor of {@link EventDrivenFaultTolerantQueryScheduler}
+ */
+@Deprecated
 public class FaultTolerantStageScheduler
 {
     private static final Logger log = Logger.get(FaultTolerantStageScheduler.class);
@@ -656,7 +660,7 @@ public class FaultTolerantStageScheduler
                             ExecutionFailureInfo failureInfo = taskStatus.getFailures().stream()
                                     .findFirst()
                                     .map(this::rewriteTransportFailure)
-                                    .orElse(toFailure(new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason")));
+                                    .orElseGet(() -> toFailure(new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason")));
                             log.warn(failureInfo.toException(), "Task failed: %s", taskId);
                             ErrorCode errorCode = failureInfo.getErrorCode();
                             partitionMemoryEstimator.registerPartitionFinished(session, memoryLimits, taskStatus.getPeakMemoryReservation(), false, Optional.ofNullable(errorCode));

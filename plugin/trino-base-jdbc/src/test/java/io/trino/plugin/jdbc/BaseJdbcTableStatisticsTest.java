@@ -24,7 +24,7 @@ import org.testng.annotations.Test;
 import java.util.Locale;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -74,7 +74,7 @@ public abstract class BaseJdbcTableStatisticsTest
     @Test
     public void testEmptyTable()
     {
-        String tableName = "test_stats_table_empty_" + randomTableSuffix();
+        String tableName = "test_stats_table_empty_" + randomNameSuffix();
         computeActual(format("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false", tableName));
         try {
             gatherStats(tableName);

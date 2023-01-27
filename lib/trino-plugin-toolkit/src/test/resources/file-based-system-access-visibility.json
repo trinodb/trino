@@ -37,6 +37,11 @@
         {
             "catalog": ".*session.*",
             "allow": "read-only"
+        },
+        {
+            "user": "alice",
+            "catalog": "ptf-catalog",
+            "allow": "all"
         }
     ],
     "schemas": [
@@ -118,6 +123,34 @@
             "catalog": "bob-catalog-session",
             "property": "safe",
             "allow": true
+        }
+    ],
+    "functions": [
+        {
+            "user": "alice",
+            "catalog": "ptf-catalog",
+            "schema": "ptf_schema",
+            "function_kinds": [
+                "TABLE"
+            ],
+            "function": "some_table_function",
+            "privileges": [
+                "EXECUTE",
+                "GRANT_EXECUTE"
+            ]
+        },
+        {
+            "user": "bob",
+            "function_kinds": [
+                "SCALAR",
+                "AGGREGATE",
+                "WINDOW"
+            ],
+            "function": "some_function",
+            "privileges": [
+                "EXECUTE",
+                "GRANT_EXECUTE"
+            ]
         }
     ]
 }

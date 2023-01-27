@@ -29,6 +29,7 @@ import org.apache.iceberg.io.SeekableInputStream;
 import javax.annotation.concurrent.Immutable;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -131,6 +132,13 @@ public class TrackingFileSystemFactory
                 throws IOException
         {
             delegate.deleteFile(path);
+        }
+
+        @Override
+        public void deleteFiles(Collection<String> paths)
+                throws IOException
+        {
+            delegate.deleteFiles(paths);
         }
 
         @Override

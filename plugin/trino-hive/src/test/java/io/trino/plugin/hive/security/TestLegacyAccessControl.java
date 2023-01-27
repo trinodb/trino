@@ -22,7 +22,6 @@ public class TestLegacyAccessControl
 {
     @Test
     public void testEverythingImplemented()
-            throws NoSuchMethodException
     {
         assertAllMethodsOverridden(ConnectorAccessControl.class, LegacyAccessControl.class);
     }

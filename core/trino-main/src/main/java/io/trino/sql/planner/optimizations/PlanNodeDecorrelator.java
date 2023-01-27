@@ -34,6 +34,7 @@ import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.LimitNode;
@@ -44,7 +45,6 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
-import io.trino.sql.planner.plan.WindowNode.Specification;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
@@ -336,7 +336,7 @@ public class PlanNodeDecorrelator
                         TopNRankingNode topNRankingNode = new TopNRankingNode(
                                 node.getId(),
                                 decorrelatedChildNode,
-                                new Specification(
+                                new DataOrganizationSpecification(
                                         ImmutableList.copyOf(childDecorrelationResult.symbolsToPropagate),
                                         Optional.of(orderingScheme)),
                                 ROW_NUMBER,

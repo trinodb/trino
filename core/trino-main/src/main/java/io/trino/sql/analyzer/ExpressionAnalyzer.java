@@ -2070,8 +2070,8 @@ public class ExpressionAnalyzer
             if (parameters.size() == 0) {
                 throw semanticException(INVALID_PARAMETER_USAGE, node, "Query takes no parameters");
             }
-            if (node.getPosition() >= parameters.size()) {
-                throw semanticException(INVALID_PARAMETER_USAGE, node, "Invalid parameter index %s, max value is %s", node.getPosition(), parameters.size() - 1);
+            if (node.getId() >= parameters.size()) {
+                throw semanticException(INVALID_PARAMETER_USAGE, node, "Invalid parameter index %s, max value is %s", node.getId(), parameters.size() - 1);
             }
 
             Expression providedValue = parameters.get(NodeRef.of(node));

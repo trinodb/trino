@@ -114,6 +114,12 @@ public class PartitioningScheme
         return new PartitioningScheme(partitioning, outputLayout, hashColumn, replicateNullsAndAny, bucketToPartition);
     }
 
+    public PartitioningScheme withPartitioningHandle(PartitioningHandle partitioningHandle)
+    {
+        Partitioning newPartitioning = partitioning.withAlternativePartitioningHandle(partitioningHandle);
+        return new PartitioningScheme(newPartitioning, outputLayout, hashColumn, replicateNullsAndAny, bucketToPartition);
+    }
+
     public PartitioningScheme translateOutputLayout(List<Symbol> newOutputLayout)
     {
         requireNonNull(newOutputLayout, "newOutputLayout is null");

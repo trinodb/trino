@@ -27,7 +27,7 @@ JSON path language
 
 The JSON path language is a special language, used exclusively by certain SQL
 operators to specify the query to perform on the JSON input. Although JSON path
-expressions are embedded in a SQL query, their syntax significantly differs
+expressions are embedded in SQL queries, their syntax significantly differs
 from SQL. The semantics of predicates, operators, etc. in JSON path expressions
 generally follow the semantics of SQL. The JSON path language is case-sensitive
 for keywords and identifiers.
@@ -37,13 +37,13 @@ for keywords and identifiers.
 JSON path syntax and semantics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A JSON path expression, similar to a SQL expression, is a recursive structure.
-Although the name "path" suggests a linear sequence of operations going step by
-step deeper into the JSON structure, a JSON path expression is in fact a tree.
-It can access the input JSON item multiple times, in multiple ways, and combine
-the results. Moreover, the result of a JSON path expression is not a single
-item, but an ordered sequence of items. Each of the sub-expressions takes one
-or more input sequences, and returns a sequence as the result.
+JSON path expressions are recursive structures. Although the name "path"
+suggests a linear sequence of operations going step by step deeper into the JSON
+structure, a JSON path expression is in fact a tree. It can access the input
+JSON item multiple times, in multiple ways, and combine the results. Moreover,
+the result of a JSON path expression is not a single item, but an ordered
+sequence of items. Each of the sub-expressions takes one or more input
+sequences, and returns a sequence as the result.
 
 .. note::
 
@@ -993,7 +993,7 @@ to the ``ON ERROR`` clause are:
 json_value
 ----------
 
-The ``json_value`` function extracts an SQL scalar from a JSON value.
+The ``json_value`` function extracts a scalar SQL value from a JSON value.
 
 .. code-block:: text
 
@@ -1492,7 +1492,7 @@ The following examples show the behavior of casting to JSON with these types::
     -- JSON '{"v1":123,"v2":"abc","v3":true}'
 
 Casting from NULL to ``JSON`` is not straightforward. Casting
-from a standalone ``NULL`` will produce a SQL ``NULL`` instead of
+from a standalone ``NULL`` will produce SQL ``NULL`` instead of
 ``JSON 'null'``. However, when casting from arrays or map containing
 ``NULL``\s, the produced ``JSON`` will have ``null``\s in it.
 
@@ -1559,8 +1559,12 @@ some cases. To address this, Trino supports partial casting of arrays and maps::
 
 When casting from ``JSON`` to ``ROW``, both JSON array and JSON object are supported.
 
-JSON functions
---------------
+Other JSON functions
+--------------------
+
+In addition to the functions explained in more details in the preceding
+sections, the following functions are available:
+
 .. function:: is_json_scalar(json) -> boolean
 
     Determine if ``json`` is a scalar (i.e. a JSON number, a JSON string, ``true``, ``false`` or ``null``)::

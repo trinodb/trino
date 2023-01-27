@@ -31,6 +31,7 @@ import java.util.OptionalLong;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -133,7 +134,8 @@ public class TestMemoryPagesStore
         ConnectorPageSink pageSink = pageSinkProvider.createPageSink(
                 MemoryTransactionHandle.INSTANCE,
                 SESSION,
-                createMemoryInsertTableHandle(tableId, activeTableIds));
+                createMemoryInsertTableHandle(tableId, activeTableIds),
+                TESTING_PAGE_SINK_ID);
         pageSink.appendPage(page);
         pageSink.finish();
     }
@@ -143,7 +145,8 @@ public class TestMemoryPagesStore
         ConnectorPageSink pageSink = pageSinkProvider.createPageSink(
                 MemoryTransactionHandle.INSTANCE,
                 SESSION,
-                createMemoryOutputTableHandle(tableId, activeTableIds));
+                createMemoryOutputTableHandle(tableId, activeTableIds),
+                TESTING_PAGE_SINK_ID);
         pageSink.finish();
     }
 

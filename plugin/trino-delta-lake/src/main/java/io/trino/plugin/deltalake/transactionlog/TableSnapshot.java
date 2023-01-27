@@ -58,6 +58,7 @@ public class TableSnapshot
     private final Path tableLocation;
     private final ParquetReaderOptions parquetReaderOptions;
     private final boolean checkpointRowStatisticsWritingEnabled;
+    private final int domainCompactionThreshold;
 
     private Optional<MetadataEntry> cachedMetadata = Optional.empty();
 
@@ -67,7 +68,8 @@ public class TableSnapshot
             TransactionLogTail logTail,
             Path tableLocation,
             ParquetReaderOptions parquetReaderOptions,
-            boolean checkpointRowStatisticsWritingEnabled)
+            boolean checkpointRowStatisticsWritingEnabled,
+            int domainCompactionThreshold)
     {
         this.table = requireNonNull(table, "table is null");
         this.lastCheckpoint = requireNonNull(lastCheckpoint, "lastCheckpoint is null");
@@ -75,6 +77,7 @@ public class TableSnapshot
         this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
         this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         this.checkpointRowStatisticsWritingEnabled = checkpointRowStatisticsWritingEnabled;
+        this.domainCompactionThreshold = domainCompactionThreshold;
     }
 
     public static TableSnapshot load(
@@ -82,7 +85,8 @@ public class TableSnapshot
             TrinoFileSystem fileSystem,
             Path tableLocation,
             ParquetReaderOptions parquetReaderOptions,
-            boolean checkpointRowStatisticsWritingEnabled)
+            boolean checkpointRowStatisticsWritingEnabled,
+            int domainCompactionThreshold)
             throws IOException
     {
         Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(fileSystem, tableLocation);
@@ -95,7 +99,8 @@ public class TableSnapshot
                 transactionLogTail,
                 tableLocation,
                 parquetReaderOptions,
-                checkpointRowStatisticsWritingEnabled);
+                checkpointRowStatisticsWritingEnabled,
+                domainCompactionThreshold);
     }
 
     public Optional<TableSnapshot> getUpdatedSnapshot(TrinoFileSystem fileSystem)
@@ -119,7 +124,8 @@ public class TableSnapshot
                 transactionLogTail,
                 tableLocation,
                 parquetReaderOptions,
-                checkpointRowStatisticsWritingEnabled));
+                checkpointRowStatisticsWritingEnabled,
+                domainCompactionThreshold));
     }
 
     public long getVersion()
@@ -229,7 +235,8 @@ public class TableSnapshot
                 metadataEntry,
                 stats,
                 parquetReaderOptions,
-                checkpointRowStatisticsWritingEnabled));
+                checkpointRowStatisticsWritingEnabled,
+                domainCompactionThreshold));
     }
 
     private MetadataEntry getCheckpointMetadataEntry(

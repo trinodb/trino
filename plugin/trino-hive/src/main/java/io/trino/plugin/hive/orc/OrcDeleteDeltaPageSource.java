@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.hdfs.HdfsEnvironment;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.NameBasedFieldMapper;
 import io.trino.orc.OrcColumn;
@@ -29,10 +29,6 @@ import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.security.ConnectorIdentity;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
 
@@ -76,23 +72,18 @@ public class OrcDeleteDeltaPageSource
     private boolean closed;
 
     public static Optional<ConnectorPageSource> createOrcDeleteDeltaPageSource(
-            Path path,
-            long fileSize,
+            TrinoInputFile inputFile,
             OrcReaderOptions options,
-            ConnectorIdentity identity,
-            Configuration configuration,
-            HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats)
     {
         OrcDataSource orcDataSource;
+        String path = inputFile.location();
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(identity, path, configuration);
-            FSDataInputStream inputStream = hdfsEnvironment.doAs(identity, () -> fileSystem.open(path));
             orcDataSource = new HdfsOrcDataSource(
-                    new OrcDataSourceId(path.toString()),
-                    fileSize,
+                    new OrcDataSourceId(inputFile.location()),
+                    inputFile.length(),
                     options,
-                    inputStream,
+                    inputFile,
                     stats);
         }
         catch (Exception e) {
@@ -106,7 +97,7 @@ public class OrcDeleteDeltaPageSource
         try {
             Optional<OrcReader> orcReader = createOrcReader(orcDataSource, options);
             if (orcReader.isPresent()) {
-                return Optional.of(new OrcDeleteDeltaPageSource(path, fileSize, orcReader.get(), orcDataSource, stats));
+                return Optional.of(new OrcDeleteDeltaPageSource(path, inputFile.length(), orcReader.get(), orcDataSource, stats));
             }
             return Optional.empty();
         }
@@ -129,7 +120,7 @@ public class OrcDeleteDeltaPageSource
     }
 
     private OrcDeleteDeltaPageSource(
-            Path path,
+            String path,
             long fileSize,
             OrcReader reader,
             OrcDataSource orcDataSource,
@@ -139,7 +130,7 @@ public class OrcDeleteDeltaPageSource
         this.stats = requireNonNull(stats, "stats is null");
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
 
-        verifyAcidSchema(reader, path);
+        verifyAcidSchema(reader, new Path(path));
         Map<String, OrcColumn> acidColumns = uniqueIndex(
                 reader.getRootColumn().getNestedColumns(),
                 orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
@@ -228,7 +219,7 @@ public class OrcDeleteDeltaPageSource
         return memoryContext.getBytes();
     }
 
-    private static String openError(Throwable t, Path path)
+    private static String openError(Throwable t, String path)
     {
         return format("Error opening Hive delete delta file %s: %s", path, t.getMessage());
     }

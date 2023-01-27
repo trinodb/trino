@@ -13,8 +13,22 @@
  */
 package io.trino.parquet;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
+import io.trino.parquet.reader.SimpleSliceInputStream;
 import org.apache.parquet.bytes.ByteBufferInputStream;
+import org.apache.parquet.column.Encoding;
+import org.apache.parquet.column.EncodingStats;
+import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
+
+import java.util.Set;
+
+import static com.google.common.base.Verify.verify;
+import static java.lang.String.format;
+import static org.apache.parquet.column.Encoding.BIT_PACKED;
+import static org.apache.parquet.column.Encoding.PLAIN_DICTIONARY;
+import static org.apache.parquet.column.Encoding.RLE;
 
 public final class ParquetReaderUtils
 {
@@ -28,5 +42,150 @@ public final class ParquetReaderUtils
     public static ByteBufferInputStream toInputStream(DictionaryPage page)
     {
         return toInputStream(page.getSlice());
+    }
+
+    /**
+     * Reads an integer formatted in ULEB128 variable-width format described in
+     * <a href="https://en.wikipedia.org/wiki/LEB128">...</a>
+     */
+    public static int readUleb128Int(SimpleSliceInputStream input)
+    {
+        byte[] inputBytes = input.getByteArray();
+        int offset = input.getByteArrayOffset();
+        // Manual loop unrolling shows improvements in BenchmarkReadUleb128Int
+        int inputByte = inputBytes[offset];
+        int value = inputByte & 0x7F;
+        if ((inputByte & 0x80) == 0) {
+            input.skip(1);
+            return value;
+        }
+        inputByte = inputBytes[offset + 1];
+        value |= (inputByte & 0x7F) << 7;
+        if ((inputByte & 0x80) == 0) {
+            input.skip(2);
+            return value;
+        }
+        inputByte = inputBytes[offset + 2];
+        value |= (inputByte & 0x7F) << 14;
+        if ((inputByte & 0x80) == 0) {
+            input.skip(3);
+            return value;
+        }
+        inputByte = inputBytes[offset + 3];
+        value |= (inputByte & 0x7F) << 21;
+        if ((inputByte & 0x80) == 0) {
+            input.skip(4);
+            return value;
+        }
+        inputByte = inputBytes[offset + 4];
+        verify((inputByte & 0x80) == 0, "ULEB128 variable-width integer should not be longer than 5 bytes");
+        input.skip(5);
+        return value | inputByte << 28;
+    }
+
+    public static int readFixedWidthInt(SimpleSliceInputStream input, int bytesWidth)
+    {
+        return switch (bytesWidth) {
+            case 0 -> 0;
+            case 1 -> input.readByte() & 0xFF;
+            case 2 -> input.readShort() & 0xFFFF;
+            case 3 -> {
+                int value = input.readShort() & 0xFFFF;
+                yield ((input.readByte() & 0xFF) << 16) | value;
+            }
+            case 4 -> input.readInt();
+            default -> throw new IllegalArgumentException(format("Encountered bytesWidth (%d) that requires more than 4 bytes", bytesWidth));
+        };
+    }
+
+    /**
+     * Propagate the sign bit in values that are shorter than 8 bytes.
+     * <p>
+     * When the value of less than 8 bytes in put into a long variable, the padding bytes on the
+     * left side of the number should be all zeros for a positive number or all ones for negatives.
+     * This method does this padding using signed bit shift operator without branches.
+     *
+     * @param value Value to trim
+     * @param bitsToPad Number of bits to pad
+     * @return Value with correct padding
+     */
+    public static long propagateSignBit(long value, int bitsToPad)
+    {
+        return value << bitsToPad >> bitsToPad;
+    }
+
+    /**
+     * Method simulates a cast from boolean to byte value. Despite using
+     * a ternary (?) operator, the just-in-time compiler usually figures out
+     * that this is a cast and turns that into a no-op.
+     * <p>
+     * Method may be used to avoid branches that may be CPU costly due to
+     * branch misprediction.
+     * The following code:
+     * <pre>
+     *      boolean[] flags = ...
+     *      int sum = 0;
+     *      for (int i = 0; i &lt; length; i++){
+     *          if (flags[i])
+     *              sum++;
+     *      }
+     * </pre>
+     * will perform better when rewritten to
+     * <pre>
+     *      boolean[] flags = ...
+     *      int sum = 0;
+     *      for (int i = 0; i &lt; length; i++){
+     *          sum += castToByte(flags[i]);
+     *      }
+     * </pre>
+     */
+    public static byte castToByte(boolean value)
+    {
+        return (byte) (value ? 1 : 0);
+    }
+
+    /**
+     * Works the same as {@link io.trino.parquet.ParquetReaderUtils#castToByte(boolean)} and negates the boolean value
+     */
+    public static byte castToByteNegate(boolean value)
+    {
+        return (byte) (value ? 0 : 1);
+    }
+
+    public static short toShortExact(int value)
+    {
+        if ((short) value != value) {
+            throw new ArithmeticException(format("Value %d exceeds short range", value));
+        }
+        return (short) value;
+    }
+
+    public static byte toByteExact(int value)
+    {
+        if ((byte) value != value) {
+            throw new ArithmeticException(format("Value %d exceeds byte range", value));
+        }
+        return (byte) value;
+    }
+
+    @SuppressWarnings("deprecation")
+    public static boolean isOnlyDictionaryEncodingPages(ColumnChunkMetaData columnMetaData)
+    {
+        // Files written with newer versions of Parquet libraries (e.g. parquet-mr 1.9.0) will have EncodingStats available
+        // Otherwise, fallback to v1 logic
+        EncodingStats stats = columnMetaData.getEncodingStats();
+        if (stats != null) {
+            return stats.hasDictionaryPages() && !stats.hasNonDictionaryEncodedPages();
+        }
+
+        Set<Encoding> encodings = columnMetaData.getEncodings();
+        if (encodings.contains(PLAIN_DICTIONARY)) {
+            // PLAIN_DICTIONARY was present, which means at least one page was
+            // dictionary-encoded and 1.0 encodings are used
+            // The only other allowed encodings are RLE and BIT_PACKED which are used for repetition or definition levels
+            return Sets.difference(encodings, ImmutableSet.of(PLAIN_DICTIONARY, RLE, BIT_PACKED)).isEmpty();
+        }
+
+        return false;
     }
 }

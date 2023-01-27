@@ -38,24 +38,6 @@ public final class JdbcTypeHandle
     private final Optional<Integer> arrayDimensions;
     private final Optional<CaseSensitivity> caseSensitivity;
 
-    @Deprecated
-    public JdbcTypeHandle(int jdbcType, Optional<String> jdbcTypeName, int columnSize, int decimalDigits, Optional<Integer> arrayDimensions)
-    {
-        this(jdbcType, jdbcTypeName, columnSize, decimalDigits, arrayDimensions, Optional.empty());
-    }
-
-    @Deprecated
-    public JdbcTypeHandle(
-            int jdbcType,
-            Optional<String> jdbcTypeName,
-            int columnSize,
-            int decimalDigits,
-            Optional<Integer> arrayDimensions,
-            Optional<CaseSensitivity> caseSensitivity)
-    {
-        this(jdbcType, jdbcTypeName, Optional.of(columnSize), Optional.of(decimalDigits), arrayDimensions, caseSensitivity);
-    }
-
     @JsonCreator
     public JdbcTypeHandle(
             @JsonProperty("jdbcType") int jdbcType,
@@ -152,8 +134,8 @@ public final class JdbcTypeHandle
                 .omitNullValues()
                 .add("jdbcType", jdbcType)
                 .add("jdbcTypeName", jdbcTypeName.orElse(null))
-                .add("columnSize", columnSize)
-                .add("decimalDigits", decimalDigits)
+                .add("columnSize", columnSize.orElse(null))
+                .add("decimalDigits", decimalDigits.orElse(null))
                 .add("arrayDimensions", arrayDimensions.orElse(null))
                 .add("caseSensitivity", caseSensitivity.orElse(null))
                 .toString();

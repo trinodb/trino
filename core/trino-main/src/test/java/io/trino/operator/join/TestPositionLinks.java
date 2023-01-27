@@ -21,6 +21,7 @@ import io.trino.spi.Page;
 import io.trino.spi.type.TypeOperators;
 import io.trino.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -313,7 +314,7 @@ public class TestPositionLinks
         return new SimplePagesHashStrategy(
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(),
-                ImmutableList.of(ImmutableList.of(TEST_PAGE.getBlock(0))),
+                ImmutableList.of(new ObjectArrayList<>(ImmutableList.of(TEST_PAGE.getBlock(0)))),
                 ImmutableList.of(),
                 OptionalInt.empty(),
                 Optional.of(0),

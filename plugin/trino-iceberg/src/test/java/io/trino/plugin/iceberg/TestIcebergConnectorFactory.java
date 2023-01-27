@@ -27,9 +27,7 @@ public class TestIcebergConnectorFactory
     @Test
     public void testBasicConfig()
     {
-        Map<String, String> config = ImmutableMap.<String, String>builder()
-                .put("hive.metastore.uri", "thrift://localhost:1234")
-                .buildOrThrow();
+        Map<String, String> config = ImmutableMap.of("hive.metastore.uri", "thrift://localhost:1234");
         createConnector(config);
     }
 

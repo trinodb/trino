@@ -136,6 +136,11 @@ public final class SqlStage
         return stateMachine.getStageId();
     }
 
+    public StageState getState()
+    {
+        return stateMachine.getState();
+    }
+
     public synchronized void finish()
     {
         if (stateMachine.transitionToFinished()) {

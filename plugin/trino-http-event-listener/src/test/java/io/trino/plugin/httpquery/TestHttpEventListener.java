@@ -27,6 +27,7 @@ import io.trino.spi.eventlistener.QueryMetadata;
 import io.trino.spi.eventlistener.QueryStatistics;
 import io.trino.spi.eventlistener.SplitCompletedEvent;
 import io.trino.spi.eventlistener.SplitStatistics;
+import io.trino.spi.eventlistener.StageOutputBufferUtilization;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.session.ResourceEstimates;
@@ -62,7 +63,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
@@ -179,6 +182,7 @@ public class TestHttpEventListener
                 0,
                 true,
                 Collections.emptyList(),
+                List.of(new StageOutputBufferUtilization(0, 10, 0.1, 0.5, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99, 0.0, 1.0, Duration.ofSeconds(1234))),
                 Collections.emptyList(),
                 Optional.empty());
 
@@ -232,6 +236,7 @@ public class TestHttpEventListener
         catch (IOException ignored) {
             // MockWebServer.close() method sometimes throws 'Gave up waiting for executor to shut down'
         }
+        server = null;
     }
 
     /**
@@ -464,8 +469,9 @@ public class TestHttpEventListener
         TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         trustManagerFactory.init(keyStore);
 
-        X509TrustManager x509TrustManager = (X509TrustManager) List.of(trustManagerFactory.getTrustManagers()).stream().filter(tm -> tm instanceof X509TrustManager)
-                .findFirst().get();
+        X509TrustManager x509TrustManager = (X509TrustManager) Stream.of(trustManagerFactory.getTrustManagers())
+                .filter(tm -> tm instanceof X509TrustManager)
+                .collect(onlyElement());
 
         KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
         keyManagerFactory.init(keyStore, "testing-ssl".toCharArray());

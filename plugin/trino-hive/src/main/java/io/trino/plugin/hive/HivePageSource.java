@@ -98,6 +98,10 @@ import static java.util.Objects.requireNonNull;
 public class HivePageSource
         implements ConnectorPageSource
 {
+    public static final int ORIGINAL_TRANSACTION_CHANNEL = 0;
+    public static final int BUCKET_CHANNEL = 1;
+    public static final int ROW_ID_CHANNEL = 2;
+
     private final List<ColumnMapping> columnMappings;
     private final Optional<BucketAdapter> bucketAdapter;
     private final Optional<BucketValidator> bucketValidator;
@@ -354,12 +358,10 @@ public class HivePageSource
             return Optional.of(new MapCoercer(typeManager, fromHiveType, toHiveType));
         }
         if (isRowType(fromType) && isRowType(toType)) {
-            if (fromHiveType.getCategory() == ObjectInspector.Category.UNION || toHiveType.getCategory() == ObjectInspector.Category.UNION) {
-                HiveType fromHiveTypeStruct = HiveType.toHiveType(fromType);
-                HiveType toHiveTypeStruct = HiveType.toHiveType(toType);
-                return Optional.of(new StructCoercer(typeManager, fromHiveTypeStruct, toHiveTypeStruct));
-            }
-            return Optional.of(new StructCoercer(typeManager, fromHiveType, toHiveType));
+            HiveType fromHiveTypeStruct = (fromHiveType.getCategory() == ObjectInspector.Category.UNION) ? HiveType.toHiveType(fromType) : fromHiveType;
+            HiveType toHiveTypeStruct = (toHiveType.getCategory() == ObjectInspector.Category.UNION) ? HiveType.toHiveType(toType) : toHiveType;
+
+            return Optional.of(new StructCoercer(typeManager, fromHiveTypeStruct, toHiveTypeStruct));
         }
 
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));

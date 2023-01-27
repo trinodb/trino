@@ -22,11 +22,20 @@ public class ConnectorTableLayout
 {
     private final Optional<ConnectorPartitioningHandle> partitioning;
     private final List<String> partitionColumns;
+    private final boolean multipleWritersPerPartitionSupported;
 
     public ConnectorTableLayout(ConnectorPartitioningHandle partitioning, List<String> partitionColumns)
     {
+        // Keep the value of multipleWritersPerPartitionSupported false by default if partitioning is present
+        // for backward compatibility.
+        this(partitioning, partitionColumns, false);
+    }
+
+    public ConnectorTableLayout(ConnectorPartitioningHandle partitioning, List<String> partitionColumns, boolean multipleWritersPerPartitionSupported)
+    {
         this.partitioning = Optional.of(requireNonNull(partitioning, "partitioning is null"));
         this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
+        this.multipleWritersPerPartitionSupported = multipleWritersPerPartitionSupported;
     }
 
     /**
@@ -37,6 +46,7 @@ public class ConnectorTableLayout
     {
         this.partitioning = Optional.empty();
         this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
+        this.multipleWritersPerPartitionSupported = true;
     }
 
     public Optional<ConnectorPartitioningHandle> getPartitioning()
@@ -47,5 +57,10 @@ public class ConnectorTableLayout
     public List<String> getPartitionColumns()
     {
         return partitionColumns;
+    }
+
+    public boolean supportsMultipleWritersPerPartition()
+    {
+        return multipleWritersPerPartitionSupported;
     }
 }

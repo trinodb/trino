@@ -35,10 +35,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.cartesianProduct;
 import static io.trino.plugin.hive.aws.athena.projection.Projection.invalidProjectionMessage;
+import static io.trino.plugin.hive.util.HiveUtil.escapePathName;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.common.FileUtils.escapePathName;
 
 public final class PartitionProjection
 {
@@ -111,7 +111,7 @@ public final class PartitionProjection
                                         table.getPartitionColumns().stream()
                                                 .map(column -> column.getName()).collect(Collectors.toList()),
                                         partitionValues))
-                                .orElse(format("%s/%s/", table.getStorage().getLocation(), partitionName)))
+                                .orElseGet(() -> format("%s/%s/", table.getStorage().getLocation(), partitionName)))
                         .setBucketProperty(table.getStorage().getBucketProperty())
                         .setSerdeParameters(table.getStorage().getSerdeParameters()))
                 .build();

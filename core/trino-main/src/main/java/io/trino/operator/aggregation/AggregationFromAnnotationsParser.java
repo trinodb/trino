@@ -278,10 +278,9 @@ public final class AggregationFromAnnotationsParser
             // verify state parameter types
             List<Class<?>> parameterTypes = getNonDependencyParameterTypes(inputFunction)
                     .subList(0, stateDetails.size());
-            List<Class<?>> expectedParameterTypes = ImmutableList.<Class<?>>builder()
-                    .addAll(stateDetails.stream().map(AccumulatorStateDetails::getStateClass).collect(toImmutableList()))
-                    .build()
-                    .subList(0, stateDetails.size());
+            List<Class<?>> expectedParameterTypes = stateDetails.stream()
+                    .map(AccumulatorStateDetails::getStateClass)
+                    .collect(toImmutableList());
             checkArgument(parameterTypes.equals(expectedParameterTypes),
                     "Expected input function non-dependency parameters to begin with state types %s: %s",
                     expectedParameterTypes.stream().map(Class::getSimpleName).collect(toImmutableList()),

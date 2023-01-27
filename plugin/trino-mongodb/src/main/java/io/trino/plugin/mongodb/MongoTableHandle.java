@@ -19,31 +19,40 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
+import org.bson.Document;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class MongoTableHandle
         implements ConnectorTableHandle
 {
     private final SchemaTableName schemaTableName;
+    private final RemoteTableName remoteTableName;
     private final TupleDomain<ColumnHandle> constraint;
+    private final Optional<Document> filter;
     private final OptionalInt limit;
 
-    public MongoTableHandle(SchemaTableName schemaTableName)
+    public MongoTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName, Optional<Document> filter)
     {
-        this(schemaTableName, TupleDomain.all(), OptionalInt.empty());
+        this(schemaTableName, remoteTableName, filter, TupleDomain.all(), OptionalInt.empty());
     }
 
     @JsonCreator
     public MongoTableHandle(
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+            @JsonProperty("remoteTableName") RemoteTableName remoteTableName,
+            @JsonProperty("filter") Optional<Document> filter,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("limit") OptionalInt limit)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        this.remoteTableName = requireNonNull(remoteTableName, "remoteTableName is null");
+        this.filter = requireNonNull(filter, "filter is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.limit = requireNonNull(limit, "limit is null");
     }
@@ -52,6 +61,18 @@ public class MongoTableHandle
     public SchemaTableName getSchemaTableName()
     {
         return schemaTableName;
+    }
+
+    @JsonProperty
+    public RemoteTableName getRemoteTableName()
+    {
+        return remoteTableName;
+    }
+
+    @JsonProperty
+    public Optional<Document> getFilter()
+    {
+        return filter;
     }
 
     @JsonProperty
@@ -69,7 +90,7 @@ public class MongoTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaTableName, constraint, limit);
+        return Objects.hash(schemaTableName, filter, constraint, limit);
     }
 
     @Override
@@ -83,6 +104,8 @@ public class MongoTableHandle
         }
         MongoTableHandle other = (MongoTableHandle) obj;
         return Objects.equals(this.schemaTableName, other.schemaTableName) &&
+                Objects.equals(this.remoteTableName, other.remoteTableName) &&
+                Objects.equals(this.filter, other.filter) &&
                 Objects.equals(this.constraint, other.constraint) &&
                 Objects.equals(this.limit, other.limit);
     }
@@ -90,6 +113,12 @@ public class MongoTableHandle
     @Override
     public String toString()
     {
-        return schemaTableName.toString();
+        return toStringHelper(this)
+                .add("schemaTableName", schemaTableName)
+                .add("remoteTableName", remoteTableName)
+                .add("filter", filter)
+                .add("limit", limit)
+                .add("constraint", constraint)
+                .toString();
     }
 }

@@ -16,7 +16,6 @@ package io.trino.cost;
 import io.trino.Session;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
@@ -25,7 +24,6 @@ import io.trino.sql.planner.plan.ProjectNode;
 
 import java.util.Optional;
 
-import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.SystemSessionProperties.isNonEstimatablePredicateApproximationEnabled;
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static io.trino.sql.planner.plan.Patterns.filter;
@@ -61,7 +59,7 @@ public class FilterProjectAggregationStatsRule
         if (!isNonEstimatablePredicateApproximationEnabled(session)) {
             return Optional.empty();
         }
-        PlanNode nodeSource = resolveGroup(lookup, node.getSource());
+        PlanNode nodeSource = lookup.resolve(node.getSource());
         AggregationNode aggregationNode;
         // TODO match the required source nodes through separate patterns when
         //  ComposableStatsCalculator allows patterns other than TypeOfPattern
@@ -70,7 +68,7 @@ public class FilterProjectAggregationStatsRule
             if (!projectNode.isIdentity()) {
                 return Optional.empty();
             }
-            PlanNode projectNodeSource = resolveGroup(lookup, projectNode.getSource());
+            PlanNode projectNodeSource = lookup.resolve(projectNode.getSource());
             if (!(projectNodeSource instanceof AggregationNode)) {
                 return Optional.empty();
             }
@@ -98,13 +96,5 @@ public class FilterProjectAggregationStatsRule
             return Optional.of(sourceStats.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT));
         }
         return Optional.of(filteredStats);
-    }
-
-    private static PlanNode resolveGroup(Lookup lookup, PlanNode node)
-    {
-        if (node instanceof GroupReference) {
-            return lookup.resolveGroup(node).collect(onlyElement());
-        }
-        return node;
     }
 }

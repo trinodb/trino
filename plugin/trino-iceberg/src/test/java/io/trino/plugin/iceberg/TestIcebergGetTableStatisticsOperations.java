@@ -92,6 +92,9 @@ public class TestIcebergGetTableStatisticsOperations
             throws IOException
     {
         deleteRecursively(metastoreDir.toPath(), ALLOW_INSECURE);
+        localQueryRunner.close();
+        localQueryRunner = null;
+        metadata = null;
     }
 
     @BeforeMethod

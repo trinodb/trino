@@ -14,14 +14,13 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
@@ -38,11 +37,13 @@ import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
+import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.Callable;
@@ -51,6 +52,7 @@ import java.util.concurrent.Executors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
@@ -63,8 +65,6 @@ import static java.util.stream.Collectors.toList;
 public class HivePageSink
         implements ConnectorPageSink, ConnectorMergeSink
 {
-    private static final Logger log = Logger.get(HivePageSink.class);
-
     private static final int MAX_PAGE_POSITIONS = 4096;
 
     private final HiveWriterFactory writerFactory;
@@ -89,7 +89,7 @@ public class HivePageSink
     private final ConnectorSession session;
 
     private final long targetMaxFileSize;
-    private final List<HiveWriter> closedWriters = new ArrayList<>();
+    private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
     private final List<Slice> partitionUpdates = new ArrayList<>();
     private final List<Callable<Object>> verificationTasks = new ArrayList<>();
 
@@ -218,17 +218,12 @@ public class HivePageSink
 
     private ListenableFuture<Collection<Slice>> doInsertSinkFinish()
     {
-        for (HiveWriter writer : writers) {
-            closeWriter(writer);
+        for (int writerIndex = 0; writerIndex < writers.size(); writerIndex++) {
+            closeWriter(writerIndex);
         }
-        List<Slice> result = ImmutableList.copyOf(partitionUpdates);
+        writers.clear();
 
-        writtenBytes = closedWriters.stream()
-                .mapToLong(HiveWriter::getWrittenBytes)
-                .sum();
-        validationCpuNanos = closedWriters.stream()
-                .mapToLong(HiveWriter::getValidationCpuNanos)
-                .sum();
+        List<Slice> result = ImmutableList.copyOf(partitionUpdates);
 
         if (verificationTasks.isEmpty()) {
             return Futures.immediateFuture(result);
@@ -256,21 +251,27 @@ public class HivePageSink
 
     private void doAbort()
     {
-        Optional<Exception> rollbackException = Optional.empty();
-        for (HiveWriter writer : Iterables.concat(writers, closedWriters)) {
-            // writers can contain nulls if an exception is thrown when doAppend expends the writer list
-            if (writer != null) {
-                try {
-                    writer.rollback();
+        List<Closeable> rollbackActions = Streams.concat(
+                        writers.stream()
+                                // writers can contain nulls if an exception is thrown when doAppend expands the writer list
+                                .filter(Objects::nonNull)
+                                .map(writer -> writer::rollback),
+                        closedWriterRollbackActions.stream())
+                .collect(toImmutableList());
+        RuntimeException rollbackException = null;
+        for (Closeable rollbackAction : rollbackActions) {
+            try {
+                rollbackAction.close();
+            }
+            catch (Throwable t) {
+                if (rollbackException == null) {
+                    rollbackException = new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive");
                 }
-                catch (Exception e) {
-                    log.warn("exception '%s' while rollback on %s", e, writer);
-                    rollbackException = Optional.of(e);
-                }
+                rollbackException.addSuppressed(t);
             }
         }
-        if (rollbackException.isPresent()) {
-            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", rollbackException.get());
+        if (rollbackException != null) {
+            throw rollbackException;
         }
     }
 
@@ -349,15 +350,20 @@ public class HivePageSink
         }
     }
 
-    private void closeWriter(HiveWriter writer)
+    private void closeWriter(int writerIndex)
     {
+        HiveWriter writer = writers.get(writerIndex);
+
         long currentWritten = writer.getWrittenBytes();
         long currentMemory = writer.getMemoryUsage();
-        writer.commit();
-        writtenBytes += (writer.getWrittenBytes() - currentWritten);
-        memoryUsage += (writer.getMemoryUsage() - currentMemory);
 
-        closedWriters.add(writer);
+        closedWriterRollbackActions.add(writer.commit());
+
+        writtenBytes += (writer.getWrittenBytes() - currentWritten);
+        memoryUsage -= currentMemory;
+        validationCpuNanos += writer.getValidationCpuNanos();
+
+        writers.set(writerIndex, null);
 
         PartitionUpdate partitionUpdate = writer.getPartitionUpdate();
         partitionUpdates.add(wrappedBuffer(partitionUpdateCodec.toJsonBytes(partitionUpdate)));
@@ -392,7 +398,7 @@ public class HivePageSink
                     continue;
                 }
                 // close current writer
-                closeWriter(writer);
+                closeWriter(writerIndex);
             }
 
             OptionalInt bucketNumber = OptionalInt.empty();
@@ -403,6 +409,7 @@ public class HivePageSink
             writer = writerFactory.createWriter(partitionColumns, position, bucketNumber);
 
             writers.set(writerIndex, writer);
+            memoryUsage += writer.getMemoryUsage();
         }
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
         verify(!writers.contains(null));

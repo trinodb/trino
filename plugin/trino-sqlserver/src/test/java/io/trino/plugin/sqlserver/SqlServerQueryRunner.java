@@ -24,6 +24,7 @@ import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -47,13 +48,28 @@ public final class SqlServerQueryRunner
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
+        return createSqlServerQueryRunner(testingSqlServer, extraProperties, Map.of(), connectorProperties, tables, runner -> {});
+    }
+
+    public static QueryRunner createSqlServerQueryRunner(
+            TestingSqlServer testingSqlServer,
+            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables,
+            Consumer<QueryRunner> moreSetup)
+            throws Exception
+    {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession(testingSqlServer.getUsername()))
                 .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
+                .setAdditionalSetup(moreSetup)
                 .build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
+            // note: additional copy via ImmutableList so that if fails on nulls
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("connection-url", testingSqlServer.getJdbcUrl());
             connectorProperties.putIfAbsent("connection-user", testingSqlServer.getUsername());

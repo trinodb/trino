@@ -55,22 +55,12 @@ public final class Patterns
         return typeOf(ApplyNode.class);
     }
 
-    public static Pattern<DeleteNode> delete()
-    {
-        return typeOf(DeleteNode.class);
-    }
-
-    public static Pattern<UpdateNode> update()
-    {
-        return typeOf(UpdateNode.class);
-    }
-
     public static Pattern<TableExecuteNode> tableExecute()
     {
         return typeOf(TableExecuteNode.class);
     }
 
-    public static Pattern<MergeWriterNode> merge()
+    public static Pattern<MergeWriterNode> mergeWriter()
     {
         return typeOf(MergeWriterNode.class);
     }

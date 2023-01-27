@@ -33,7 +33,6 @@ import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Node;
@@ -337,7 +336,7 @@ public final class ExpressionVerifier
          * For example, InListExpression.toString returns "(onlyitem)" rather than "onlyitem".
          */
         List<Expression> values = ((InListExpression) expected.getValueList()).getValues();
-        checkState(values.size() == 1, "Multiple expressions in expected value list %s, but actual value is not a list", values, actual.getValue());
+        checkState(values.size() == 1, "Multiple expressions in expected value list %s, but actual value is not a list: %s", values, actual.getValue());
         Expression onlyExpectedExpression = values.get(0);
         return process(actual.getValue(), expected.getValue()) &&
                 process(actual.getValueList(), onlyExpectedExpression);
@@ -572,20 +571,6 @@ public final class ExpressionVerifier
         TryExpression expected = (TryExpression) expectedExpression;
 
         return process(actual.getInnerExpression(), expected.getInnerExpression());
-    }
-
-    @Override
-    protected Boolean visitLikePredicate(LikePredicate actual, Node expectedExpression)
-    {
-        if (!(expectedExpression instanceof LikePredicate)) {
-            return false;
-        }
-
-        LikePredicate expected = (LikePredicate) expectedExpression;
-
-        return process(actual.getValue(), expected.getValue())
-                && process(actual.getPattern(), expected.getPattern())
-                && process(actual.getEscape(), expected.getEscape());
     }
 
     @Override

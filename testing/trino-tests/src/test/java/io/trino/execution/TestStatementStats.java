@@ -33,9 +33,7 @@ public class TestStatementStats
             throws Exception
     {
         try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
-                .setCoordinatorProperties(ImmutableMap.<String, String>builder()
-                        .put("query-manager.required-workers", "2") // wait for both nodes before starting the query
-                        .buildOrThrow())
+                .setCoordinatorProperties(ImmutableMap.of("query-manager.required-workers", "2"))
                 .setNodeCount(2)
                 .build()) {
             MaterializedResult result = queryRunner.execute(testSessionBuilder().setCatalog("tpch").setSchema("tiny").build(), "SELECT COUNT(*) from lineitem LIMIT 10");

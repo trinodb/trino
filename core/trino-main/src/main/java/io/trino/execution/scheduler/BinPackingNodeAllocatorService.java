@@ -75,6 +75,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryEstimationQuantile;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryGrowthFactor;
 import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
+import static io.trino.execution.scheduler.ErrorCodes.isWorkerCrashAssociatedError;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.lang.Math.max;
 import static java.lang.Thread.currentThread;
@@ -100,6 +101,7 @@ public class BinPackingNodeAllocatorService
     private final AtomicReference<Map<String, MemoryPoolInfo>> nodePoolMemoryInfos = new AtomicReference<>(ImmutableMap.of());
     private final AtomicReference<Optional<DataSize>> maxNodePoolSize = new AtomicReference<>(Optional.empty());
     private final boolean scheduleOnCoordinator;
+    private final boolean memoryRequirementIncreaseOnWorkerCrashEnabled;
     private final DataSize taskRuntimeMemoryEstimationOverhead;
     private final Ticker ticker;
 
@@ -118,6 +120,7 @@ public class BinPackingNodeAllocatorService
         this(nodeManager,
                 clusterMemoryManager::getWorkerMemoryInfo,
                 nodeSchedulerConfig.isIncludeCoordinator(),
+                memoryManagerConfig.isFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled(),
                 Duration.ofMillis(nodeSchedulerConfig.getAllowedNoMatchingNodePeriod().toMillis()),
                 memoryManagerConfig.getFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(),
                 Ticker.systemTicker());
@@ -128,6 +131,7 @@ public class BinPackingNodeAllocatorService
             InternalNodeManager nodeManager,
             Supplier<Map<String, Optional<MemoryInfo>>> workerMemoryInfoSupplier,
             boolean scheduleOnCoordinator,
+            boolean memoryRequirementIncreaseOnWorkerCrashEnabled,
             Duration allowedNoMatchingNodePeriod,
             DataSize taskRuntimeMemoryEstimationOverhead,
             Ticker ticker)
@@ -135,6 +139,7 @@ public class BinPackingNodeAllocatorService
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.workerMemoryInfoSupplier = requireNonNull(workerMemoryInfoSupplier, "workerMemoryInfoSupplier is null");
         this.scheduleOnCoordinator = scheduleOnCoordinator;
+        this.memoryRequirementIncreaseOnWorkerCrashEnabled = memoryRequirementIncreaseOnWorkerCrashEnabled;
         this.allowedNoMatchingNodePeriod = requireNonNull(allowedNoMatchingNodePeriod, "allowedNoMatchingNodePeriod is null");
         this.taskRuntimeMemoryEstimationOverhead = requireNonNull(taskRuntimeMemoryEstimationOverhead, "taskRuntimeMemoryEstimationOverhead is null");
         this.ticker = requireNonNull(ticker, "ticker is null");
@@ -642,7 +647,7 @@ public class BinPackingNodeAllocatorService
 
             // start with the maximum of previously used memory and actual usage
             DataSize newMemory = Ordering.natural().max(peakMemoryUsage, previousMemory);
-            if (isOutOfMemoryError(errorCode)) {
+            if (shouldIncreaseMemoryRequirement(errorCode)) {
                 // multiply if we hit an oom error
                 double growthFactor = getFaultTolerantExecutionTaskMemoryGrowthFactor(session);
                 newMemory = DataSize.of((long) (newMemory.toBytes() * growthFactor), DataSize.Unit.BYTE);
@@ -670,7 +675,7 @@ public class BinPackingNodeAllocatorService
             if (success) {
                 memoryUsageDistribution.add(peakMemoryUsage.toBytes());
             }
-            if (!success && errorCode.isPresent() && isOutOfMemoryError(errorCode.get())) {
+            if (!success && errorCode.isPresent() && shouldIncreaseMemoryRequirement(errorCode.get())) {
                 double growthFactor = getFaultTolerantExecutionTaskMemoryGrowthFactor(session);
                 // take previousRequiredBytes into account when registering failure on oom. It is conservative hence safer (and in-line with getNextRetryMemoryRequirements)
                 long previousRequiredBytes = previousMemoryRequirements.getRequiredMemory().toBytes();
@@ -709,5 +714,10 @@ public class BinPackingNodeAllocatorService
         {
             return "memoryUsageDistribution=" + memoryUsageDistributionInfo();
         }
+    }
+
+    private boolean shouldIncreaseMemoryRequirement(ErrorCode errorCode)
+    {
+        return isOutOfMemoryError(errorCode) || (memoryRequirementIncreaseOnWorkerCrashEnabled && isWorkerCrashAssociatedError(errorCode));
     }
 }

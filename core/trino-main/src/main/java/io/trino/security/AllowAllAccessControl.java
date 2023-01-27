@@ -79,7 +79,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName)
+    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName, Map<String, Object> properties)
     {
     }
 
@@ -178,6 +178,11 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanAddColumns(SecurityContext context, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
+    public void checkCanAlterColumn(SecurityContext context, QualifiedObjectName tableName)
     {
     }
 

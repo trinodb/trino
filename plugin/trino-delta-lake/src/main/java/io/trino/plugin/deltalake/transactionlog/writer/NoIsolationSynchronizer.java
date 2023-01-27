@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static java.util.Objects.requireNonNull;
 
 public class NoIsolationSynchronizer
@@ -45,7 +46,7 @@ public class NoIsolationSynchronizer
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
             TrinoOutputFile outputFile = fileSystem.newOutputFile(newLogEntryPath.toString());
-            try (OutputStream outputStream = outputFile.create()) {
+            try (OutputStream outputStream = outputFile.create(newSimpleAggregatedMemoryContext())) {
                 outputStream.write(entryContents);
             }
         }

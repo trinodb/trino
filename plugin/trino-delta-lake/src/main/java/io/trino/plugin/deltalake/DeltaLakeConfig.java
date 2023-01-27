@@ -74,6 +74,8 @@ public class DeltaLakeConfig
     private String parquetTimeZone = TimeZone.getDefault().getID();
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
     private boolean uniqueTableLocation = true;
+    private boolean legacyCreateTableWithExistingLocationEnabled;
+    private boolean registerTableProcedureEnabled;
 
     public Duration getMetadataCacheTtl()
     {
@@ -337,7 +339,7 @@ public class DeltaLakeConfig
     }
 
     @Config(EXTENDED_STATISTICS_ENABLED)
-    @ConfigDescription("Use extended statistics collected by ANALYZE")
+    @ConfigDescription("Enable collection (ANALYZE) and use of extended statistics.")
     public DeltaLakeConfig setExtendedStatisticsEnabled(boolean extendedStatisticsEnabled)
     {
         this.extendedStatisticsEnabled = extendedStatisticsEnabled;
@@ -429,6 +431,34 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setUniqueTableLocation(boolean uniqueTableLocation)
     {
         this.uniqueTableLocation = uniqueTableLocation;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isLegacyCreateTableWithExistingLocationEnabled()
+    {
+        return legacyCreateTableWithExistingLocationEnabled;
+    }
+
+    @Deprecated
+    @Config("delta.legacy-create-table-with-existing-location.enabled")
+    @ConfigDescription("Enable using the CREATE TABLE statement to register an existing table")
+    public DeltaLakeConfig setLegacyCreateTableWithExistingLocationEnabled(boolean legacyCreateTableWithExistingLocationEnabled)
+    {
+        this.legacyCreateTableWithExistingLocationEnabled = legacyCreateTableWithExistingLocationEnabled;
+        return this;
+    }
+
+    public boolean isRegisterTableProcedureEnabled()
+    {
+        return registerTableProcedureEnabled;
+    }
+
+    @Config("delta.register-table-procedure.enabled")
+    @ConfigDescription("Allow users to call the register_table procedure")
+    public DeltaLakeConfig setRegisterTableProcedureEnabled(boolean registerTableProcedureEnabled)
+    {
+        this.registerTableProcedureEnabled = registerTableProcedureEnabled;
         return this;
     }
 }

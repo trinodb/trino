@@ -18,6 +18,7 @@ import com.google.common.cache.LoadingCache;
 /**
  * A {@link com.google.common.cache.LoadingCache} that does not support key-based eviction.
  */
+@ElementTypesAreNonnullByDefault
 public interface NonKeyEvictableLoadingCache<K, V>
         extends LoadingCache<K, V>
 {
@@ -27,6 +28,15 @@ public interface NonKeyEvictableLoadingCache<K, V>
     @Deprecated
     @Override
     void invalidate(Object key);
+
+    /**
+     * Allows invalidation for a key, but does not invalidate ongoing loads.
+     * It is caller responsibility to ensure correct use.
+     * The method is deprecated to discourage the usage of it.
+     * Use {@link EvictableCacheBuilder} to build a cache instead.
+     */
+    @Deprecated
+    void unsafeInvalidate(Object key);
 
     /**
      * @deprecated Not supported. Use {@link EvictableCacheBuilder} to build a cache instead.

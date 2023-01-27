@@ -20,8 +20,6 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
 import io.trino.type.Constraint;
-import org.joda.time.DateTimeField;
-import org.joda.time.chrono.ISOChronology;
 
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -30,6 +28,7 @@ import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
 import static io.trino.type.DateTimes.roundToNearest;
+import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @SuppressWarnings("UtilityClassWithoutPrivateConstructor")
 public final class TimestampWithTimeZoneOperators
@@ -89,8 +88,6 @@ public final class TimestampWithTimeZoneOperators
     @ScalarOperator(ADD)
     public static final class TimestampPlusIntervalYearToMonth
     {
-        private static final DateTimeField MONTH_OF_YEAR_UTC = ISOChronology.getInstanceUTC().monthOfYear();
-
         @LiteralParameters("p")
         @SqlType("timestamp(p) with time zone")
         public static long add(
@@ -98,7 +95,7 @@ public final class TimestampWithTimeZoneOperators
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
         {
             long epochMillis = unpackMillisUtc(packedEpochMillis);
-            long result = MONTH_OF_YEAR_UTC.add(epochMillis, interval);
+            long result = unpackChronology(packedEpochMillis).monthOfYear().add(epochMillis, interval);
 
             return packDateTimeWithZone(result, unpackZoneKey(packedEpochMillis));
         }
@@ -110,7 +107,7 @@ public final class TimestampWithTimeZoneOperators
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
         {
             long epochMillis = timestamp.getEpochMillis();
-            long result = MONTH_OF_YEAR_UTC.add(epochMillis, interval);
+            long result = unpackChronology(timestamp.getTimeZoneKey()).monthOfYear().add(epochMillis, interval);
 
             return LongTimestampWithTimeZone.fromEpochMillisAndFraction(result, timestamp.getPicosOfMilli(), timestamp.getTimeZoneKey());
         }

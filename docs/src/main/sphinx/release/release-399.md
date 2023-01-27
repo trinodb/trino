@@ -58,11 +58,6 @@
   with other Iceberg catalog implementations. ({issue}`14384`)
 * Allow setting the AWS STS endpoint and region when using a Glue metastore. ({issue}`14412`)
 
-## MongoDB connector
-
-* Support predicate pushdown on `date`, `time(3)`, `timestamp(3)` and
-  `timestamp(3) with time zone` columns. ({issue}`5658`)
-
 ## Phoenix connector
 
 * Fix bug where the intended default value of the `domain-compaction-threshold`

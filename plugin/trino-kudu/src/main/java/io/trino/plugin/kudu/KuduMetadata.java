@@ -394,33 +394,6 @@ public class KuduMetadata
     }
 
     @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return KuduColumnHandle.ROW_ID_HANDLE;
-    }
-
-    @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle table, RetryMode retryMode)
-    {
-        if (retryMode != NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
-        KuduTableHandle handle = (KuduTableHandle) table;
-        return new KuduTableHandle(
-                handle.getSchemaTableName(),
-                handle.getConstraint(),
-                handle.getDesiredColumns(),
-                true,
-                handle.getBucketCount(),
-                handle.getLimit());
-    }
-
-    @Override
-    public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
-    {
-    }
-
-    @Override
     public RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return CHANGE_ONLY_UPDATED_COLUMNS;
@@ -449,7 +422,7 @@ public class KuduMetadata
         PartitionDesign design = KuduTableProperties.getPartitionDesign(tableMetadata.getProperties());
         boolean generateUUID = !design.hasPartitions();
         return new KuduMergeTableHandle(
-                kuduTableHandle,
+                kuduTableHandle.withRequiresRowId(true),
                 new KuduOutputTableHandle(tableMetadata.getTable(), columnOriginalTypes, columnTypes, generateUUID, table));
     }
 
@@ -492,7 +465,7 @@ public class KuduMetadata
                 handle.getTable(clientSession),
                 newDomain,
                 handle.getDesiredColumns(),
-                handle.isDeleteHandle(),
+                handle.isRequiresRowId(),
                 handle.getBucketCount(),
                 handle.getLimit());
 
@@ -550,7 +523,7 @@ public class KuduMetadata
                 handle.getTable(clientSession),
                 handle.getConstraint(),
                 Optional.of(desiredColumns.build()),
-                handle.isDeleteHandle(),
+                handle.isRequiresRowId(),
                 handle.getBucketCount(),
                 handle.getLimit());
 
@@ -571,7 +544,7 @@ public class KuduMetadata
                 handle.getTable(clientSession),
                 handle.getConstraint(),
                 handle.getDesiredColumns(),
-                handle.isDeleteHandle(),
+                handle.isRequiresRowId(),
                 handle.getBucketCount(),
                 OptionalLong.of(limit));
 

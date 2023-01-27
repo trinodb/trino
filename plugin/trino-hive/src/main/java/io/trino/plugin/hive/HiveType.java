@@ -32,10 +32,14 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.lenientFormat;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.UNION_FIELD_FIELD_PREFIX;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.UNION_FIELD_TAG_NAME;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.UNION_FIELD_TAG_TYPE;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.fromPrimitiveType;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeInfo;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeSignature;
@@ -199,9 +203,9 @@ public final class HiveType
     public static List<HiveType> toHiveTypes(String hiveTypes)
     {
         requireNonNull(hiveTypes, "hiveTypes is null");
-        return ImmutableList.copyOf(getTypeInfosFromTypeString(hiveTypes).stream()
+        return getTypeInfosFromTypeString(hiveTypes).stream()
                 .map(HiveType::toHiveType)
-                .collect(toImmutableList()));
+                .collect(toImmutableList());
     }
 
     public static HiveType toHiveType(TypeInfo typeInfo)
@@ -219,13 +223,32 @@ public final class HiveType
     {
         TypeInfo typeInfo = getTypeInfo();
         for (int fieldIndex : dereferences) {
-            checkArgument(typeInfo instanceof StructTypeInfo, "typeInfo should be struct type", typeInfo);
-            StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
-            try {
-                typeInfo = structTypeInfo.getAllStructFieldTypeInfos().get(fieldIndex);
+            if (typeInfo instanceof StructTypeInfo structTypeInfo) {
+                try {
+                    typeInfo = structTypeInfo.getAllStructFieldTypeInfos().get(fieldIndex);
+                }
+                catch (RuntimeException e) {
+                    // return empty when failed to dereference, this could happen when partition and table schema mismatch
+                    return Optional.empty();
+                }
             }
-            catch (RuntimeException e) {
-                return Optional.empty();
+            else if (typeInfo instanceof UnionTypeInfo unionTypeInfo) {
+                try {
+                    if (fieldIndex == 0) {
+                        //  union's tag field, defined in {@link io.trino.plugin.hive.util.HiveTypeTranslator#toTypeSignature}
+                        return Optional.of(HiveType.toHiveType(UNION_FIELD_TAG_TYPE));
+                    }
+                    else {
+                        typeInfo = unionTypeInfo.getAllUnionObjectTypeInfos().get(fieldIndex - 1);
+                    }
+                }
+                catch (RuntimeException e) {
+                    // return empty when failed to dereference, this could happen when partition and table schema mismatch
+                    return Optional.empty();
+                }
+            }
+            else {
+                throw new IllegalArgumentException(lenientFormat("typeInfo: %s should be struct or union type", typeInfo));
             }
         }
         return Optional.of(toHiveType(typeInfo));
@@ -235,16 +258,35 @@ public final class HiveType
     {
         ImmutableList.Builder<String> dereferenceNames = ImmutableList.builder();
         TypeInfo typeInfo = getTypeInfo();
-        for (int fieldIndex : dereferences) {
-            checkArgument(typeInfo instanceof StructTypeInfo, "typeInfo should be struct type", typeInfo);
-            StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
-
+        for (int i = 0; i < dereferences.size(); i++) {
+            int fieldIndex = dereferences.get(i);
             checkArgument(fieldIndex >= 0, "fieldIndex cannot be negative");
-            checkArgument(fieldIndex < structTypeInfo.getAllStructFieldNames().size(),
-                    "fieldIndex should be less than the number of fields in the struct");
-            String fieldName = structTypeInfo.getAllStructFieldNames().get(fieldIndex);
-            dereferenceNames.add(fieldName);
-            typeInfo = structTypeInfo.getAllStructFieldTypeInfos().get(fieldIndex);
+
+            if (typeInfo instanceof StructTypeInfo structTypeInfo) {
+                checkArgument(fieldIndex < structTypeInfo.getAllStructFieldNames().size(),
+                        "fieldIndex should be less than the number of fields in the struct");
+
+                String fieldName = structTypeInfo.getAllStructFieldNames().get(fieldIndex);
+                dereferenceNames.add(fieldName);
+                typeInfo = structTypeInfo.getAllStructFieldTypeInfos().get(fieldIndex);
+            }
+            else if (typeInfo instanceof UnionTypeInfo unionTypeInfo) {
+                checkArgument((fieldIndex - 1) < unionTypeInfo.getAllUnionObjectTypeInfos().size(),
+                        "fieldIndex should be less than the number of fields in the union plus tag field");
+
+                if (fieldIndex == 0) {
+                    checkArgument(i == (dereferences.size() - 1), "Union's tag field should not have more subfields");
+                    dereferenceNames.add(UNION_FIELD_TAG_NAME);
+                    break;
+                }
+                else {
+                    typeInfo = unionTypeInfo.getAllUnionObjectTypeInfos().get(fieldIndex - 1);
+                    dereferenceNames.add(UNION_FIELD_FIELD_PREFIX + (fieldIndex - 1));
+                }
+            }
+            else {
+                throw new IllegalArgumentException(lenientFormat("typeInfo: %s should be struct or union type", typeInfo));
+            }
         }
 
         return dereferenceNames.build();

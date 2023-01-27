@@ -51,8 +51,6 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
-import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
-import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -73,20 +71,23 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
+import static io.trino.plugin.hive.util.HiveClassNames.COLUMNAR_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.LAZY_BINARY_COLUMNAR_SERDE_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
+import static io.trino.plugin.hive.util.SerdeConstants.COLLECTION_DELIM;
+import static io.trino.plugin.hive.util.SerdeConstants.ESCAPE_CHAR;
+import static io.trino.plugin.hive.util.SerdeConstants.FIELD_DELIM;
+import static io.trino.plugin.hive.util.SerdeConstants.MAPKEY_DELIM;
+import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_FORMAT;
+import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LAST_COLUMN_TAKES_REST;
+import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
+import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_NULL_FORMAT;
 import static io.trino.rcfile.text.TextRcFileEncoding.DEFAULT_NULL_SEQUENCE;
 import static io.trino.rcfile.text.TextRcFileEncoding.getDefaultSeparators;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.serde.serdeConstants.COLLECTION_DELIM;
-import static org.apache.hadoop.hive.serde.serdeConstants.ESCAPE_CHAR;
-import static org.apache.hadoop.hive.serde.serdeConstants.FIELD_DELIM;
-import static org.apache.hadoop.hive.serde.serdeConstants.MAPKEY_DELIM;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LAST_COLUMN_TAKES_REST;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_NULL_FORMAT;
 import static org.apache.hadoop.hive.serde2.lazy.LazySerDeParameters.SERIALIZATION_EXTEND_NESTING_LEVELS;
 import static org.apache.hadoop.hive.serde2.lazy.LazyUtils.getByte;
 
@@ -111,6 +112,16 @@ public class RcFilePageSourceFactory
         this.timeZone = hiveConfig.getRcfileDateTimeZone();
     }
 
+    public static Properties stripUnnecessaryProperties(Properties schema)
+    {
+        if (LAZY_BINARY_COLUMNAR_SERDE_CLASS.equals(getDeserializerClassName(schema))) {
+            Properties stripped = new Properties();
+            stripped.put(SERIALIZATION_LIB, schema.getProperty(SERIALIZATION_LIB));
+            return stripped;
+        }
+        return schema;
+    }
+
     @Override
     public Optional<ReaderPageSource> createPageSource(
             Configuration configuration,
@@ -129,10 +140,10 @@ public class RcFilePageSourceFactory
     {
         RcFileEncoding rcFileEncoding;
         String deserializerClassName = getDeserializerClassName(schema);
-        if (deserializerClassName.equals(LazyBinaryColumnarSerDe.class.getName())) {
+        if (deserializerClassName.equals(LAZY_BINARY_COLUMNAR_SERDE_CLASS)) {
             rcFileEncoding = new BinaryRcFileEncoding(timeZone);
         }
-        else if (deserializerClassName.equals(ColumnarSerDe.class.getName())) {
+        else if (deserializerClassName.equals(COLUMNAR_SERDE_CLASS)) {
             rcFileEncoding = createTextVectorEncoding(schema);
         }
         else {

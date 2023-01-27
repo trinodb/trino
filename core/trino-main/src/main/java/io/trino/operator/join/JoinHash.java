@@ -42,11 +42,14 @@ public final class JoinHash
     @Nullable
     private final PositionLinks positionLinks;
 
-    public JoinHash(PagesHash pagesHash, Optional<JoinFilterFunction> filterFunction, Optional<PositionLinks> positionLinks)
+    private final long pageInstancesRetainedSizeInBytes;
+
+    public JoinHash(PagesHash pagesHash, Optional<JoinFilterFunction> filterFunction, Optional<PositionLinks> positionLinks, long pageInstancesRetainedSizeInBytes)
     {
         this.pagesHash = requireNonNull(pagesHash, "pagesHash is null");
         this.filterFunction = filterFunction.orElse(null);
         this.positionLinks = positionLinks.orElse(null);
+        this.pageInstancesRetainedSizeInBytes = pageInstancesRetainedSizeInBytes;
     }
 
     @Override
@@ -64,7 +67,7 @@ public final class JoinHash
     @Override
     public long getInMemorySizeInBytes()
     {
-        return INSTANCE_SIZE + pagesHash.getInMemorySizeInBytes() + (positionLinks == null ? 0 : positionLinks.getSizeInBytes());
+        return INSTANCE_SIZE + pagesHash.getInMemorySizeInBytes() + (positionLinks == null ? 0 : positionLinks.getSizeInBytes()) + pageInstancesRetainedSizeInBytes;
     }
 
     @Override

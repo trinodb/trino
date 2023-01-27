@@ -276,7 +276,9 @@ public class SqlTask
         long queuedPartitionedSplitsWeight = 0L;
         int runningPartitionedDrivers = 0;
         long runningPartitionedSplitsWeight = 0L;
+        DataSize outputDataSize = DataSize.ofBytes(0);
         DataSize physicalWrittenDataSize = DataSize.ofBytes(0);
+        Optional<Integer> writerCount = Optional.empty();
         DataSize userMemoryReservation = DataSize.ofBytes(0);
         DataSize peakUserMemoryReservation = DataSize.ofBytes(0);
         DataSize revocableMemoryReservation = DataSize.ofBytes(0);
@@ -291,9 +293,11 @@ public class SqlTask
             runningPartitionedDrivers = taskStats.getRunningPartitionedDrivers();
             runningPartitionedSplitsWeight = taskStats.getRunningPartitionedSplitsWeight();
             physicalWrittenDataSize = taskStats.getPhysicalWrittenDataSize();
+            writerCount = taskStats.getMaxWriterCount();
             userMemoryReservation = taskStats.getUserMemoryReservation();
             peakUserMemoryReservation = taskStats.getPeakUserMemoryReservation();
             revocableMemoryReservation = taskStats.getRevocableMemoryReservation();
+            outputDataSize = taskStats.getOutputDataSize();
             fullGcCount = taskStats.getFullGcCount();
             fullGcTime = taskStats.getFullGcTime();
             dynamicFiltersVersion = taskHolder.getDynamicFiltersVersion();
@@ -310,9 +314,11 @@ public class SqlTask
                 physicalWrittenBytes += pipelineContext.getPhysicalWrittenDataSize();
             }
             physicalWrittenDataSize = succinctBytes(physicalWrittenBytes);
+            writerCount = taskContext.getMaxWriterCount();
             userMemoryReservation = taskContext.getMemoryReservation();
             peakUserMemoryReservation = taskContext.getPeakMemoryReservation();
             revocableMemoryReservation = taskContext.getRevocableMemoryReservation();
+            outputDataSize = DataSize.ofBytes(taskContext.getOutputDataSize().getTotalCount());
             fullGcCount = taskContext.getFullGcCount();
             fullGcTime = taskContext.getFullGcTime();
             dynamicFiltersVersion = taskContext.getDynamicFiltersVersion();
@@ -329,7 +335,9 @@ public class SqlTask
                 queuedPartitionedDrivers,
                 runningPartitionedDrivers,
                 outputBuffer.getStatus(),
+                outputDataSize,
                 physicalWrittenDataSize,
+                writerCount,
                 userMemoryReservation,
                 peakUserMemoryReservation,
                 revocableMemoryReservation,

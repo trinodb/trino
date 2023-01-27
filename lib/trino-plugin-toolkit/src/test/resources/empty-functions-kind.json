@@ -1,0 +1,12 @@
+{
+    "functions": [
+        {
+            "function_kinds": [
+            ],
+            "privileges": [
+                "EXECUTE",
+                "GRANT_EXECUTE"
+            ]
+        }
+    ]
+}

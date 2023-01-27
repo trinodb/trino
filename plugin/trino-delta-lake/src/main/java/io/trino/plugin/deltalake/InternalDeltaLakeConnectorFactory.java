@@ -72,6 +72,7 @@ public final class InternalDeltaLakeConnectorFactory
             String catalogName,
             Map<String, String> config,
             ConnectorContext context,
+            Optional<Module> metastoreModule,
             Module module)
     {
         ClassLoader classLoader = InternalDeltaLakeConnectorFactory.class.getClassLoader();
@@ -79,17 +80,20 @@ public final class InternalDeltaLakeConnectorFactory
             Bootstrap app = new Bootstrap(
                     new EventModule(),
                     new MBeanModule(),
-                    new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.deltalake", "trino.plugin.deltalake"),
+                    new ConnectorObjectNameGeneratorModule("io.trino.plugin.deltalake", "trino.plugin.deltalake"),
                     new JsonModule(),
                     new MBeanServerModule(),
                     new HdfsModule(),
                     new HiveS3Module(),
+                    new DeltaLakeS3Module(),
                     new HiveAzureModule(),
+                    new DeltaLakeAzureModule(),
                     new HiveGcsModule(),
+                    new DeltaLakeGcsModule(),
                     new HdfsAuthenticationModule(),
                     new HdfsFileSystemModule(),
                     new CatalogNameModule(catalogName),
-                    new DeltaLakeMetastoreModule(),
+                    metastoreModule.orElse(new DeltaLakeMetastoreModule()),
                     new DeltaLakeModule(),
                     new DeltaLakeSecurityModule(),
                     binder -> {

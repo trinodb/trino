@@ -193,6 +193,7 @@ public interface Block
      * and not dependent on any particular specific position. This allows for some complex block wrappings
      * to potentially avoid having to call {@link Block#getPositionsSizeInBytes(boolean[], int)}  which
      * would require computing the specific positions selected
+     *
      * @return The size in bytes, per position, if this block type does not require specific position information to compute its size
      */
     OptionalInt fixedSizeInBytesPerPosition();

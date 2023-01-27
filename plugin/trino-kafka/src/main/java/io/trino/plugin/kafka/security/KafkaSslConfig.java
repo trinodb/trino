@@ -41,7 +41,7 @@ import static org.apache.kafka.common.config.SslConfigs.SSL_TRUSTSTORE_TYPE_CONF
 import static org.apache.kafka.common.security.auth.SecurityProtocol.SSL;
 
 /**
- *  {@KafkaSslConfig} manages Kafka SSL authentication and encryption between clients and brokers.
+ *  Manages Kafka SSL authentication and encryption between clients and brokers.
  */
 public class KafkaSslConfig
 {

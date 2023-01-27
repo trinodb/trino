@@ -13,8 +13,8 @@
  */
 package io.trino.metadata;
 
-import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 

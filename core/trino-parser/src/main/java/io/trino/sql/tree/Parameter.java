@@ -22,7 +22,7 @@ import java.util.Optional;
 public class Parameter
         extends Expression
 {
-    private final int position;
+    private final int id;
 
     public Parameter(int id)
     {
@@ -34,15 +34,15 @@ public class Parameter
         this(Optional.of(location), id);
     }
 
-    private Parameter(Optional<NodeLocation> location, int position)
+    private Parameter(Optional<NodeLocation> location, int id)
     {
         super(location);
-        this.position = position;
+        this.id = id;
     }
 
-    public int getPosition()
+    public int getId()
     {
-        return position;
+        return id;
     }
 
     @Override
@@ -68,13 +68,13 @@ public class Parameter
         }
 
         Parameter that = (Parameter) o;
-        return Objects.equals(position, that.position);
+        return Objects.equals(id, that.id);
     }
 
     @Override
     public int hashCode()
     {
-        return position;
+        return id;
     }
 
     @Override
@@ -84,6 +84,6 @@ public class Parameter
             return false;
         }
 
-        return position == ((Parameter) other).position;
+        return id == ((Parameter) other).id;
     }
 }

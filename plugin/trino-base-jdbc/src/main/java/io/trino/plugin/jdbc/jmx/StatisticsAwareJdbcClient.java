@@ -159,10 +159,10 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session, JdbcSplit split)
+    public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
             throws SQLException
     {
-        return stats.getGetConnectionWithSplit().wrap(() -> delegate().getConnection(session, split));
+        return stats.getGetConnectionWithSplit().wrap(() -> delegate().getConnection(session, split, tableHandle));
     }
 
     @Override
@@ -241,6 +241,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        stats.getSetColumnType().wrap(() -> delegate().setColumnType(session, handle, column, type));
+    }
+
+    @Override
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
         stats.getRenameTable().wrap(() -> delegate().renameTable(session, handle, newTableName));
@@ -265,9 +271,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
-        stats.getCommitCreateTable().wrap(() -> delegate().commitCreateTable(session, handle));
+        stats.getCommitCreateTable().wrap(() -> delegate().commitCreateTable(session, handle, pageSinkIds));
     }
 
     @Override
@@ -277,9 +283,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
-        stats.getFinishInsertTable().wrap(() -> delegate().finishInsertTable(session, handle));
+        stats.getFinishInsertTable().wrap(() -> delegate().finishInsertTable(session, handle, pageSinkIds));
     }
 
     @Override
@@ -292,6 +298,12 @@ public final class StatisticsAwareJdbcClient
     public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         stats.getRollbackCreateTable().wrap(() -> delegate().rollbackCreateTable(session, handle));
+    }
+
+    @Override
+    public boolean supportsRetries()
+    {
+        return delegate().supportsRetries();
     }
 
     @Override

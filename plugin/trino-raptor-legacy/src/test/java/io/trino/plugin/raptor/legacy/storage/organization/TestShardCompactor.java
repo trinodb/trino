@@ -101,6 +101,7 @@ public class TestShardCompactor
     {
         if (dummyHandle != null) {
             dummyHandle.close();
+            dummyHandle = null;
         }
         deleteRecursively(temporary, ALLOW_INSECURE);
     }

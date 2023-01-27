@@ -29,14 +29,17 @@ public class CreateMaterializedView
     private final Query query;
     private final boolean replace;
     private final boolean notExists;
+    private final Optional<IntervalLiteral> gracePeriod;
     private final List<Property> properties;
     private final Optional<String> comment;
 
-    public CreateMaterializedView(Optional<NodeLocation> location,
+    public CreateMaterializedView(
+            Optional<NodeLocation> location,
             QualifiedName name,
             Query query,
             boolean replace,
             boolean notExists,
+            Optional<IntervalLiteral> gracePeriod,
             List<Property> properties,
             Optional<String> comment)
     {
@@ -45,8 +48,9 @@ public class CreateMaterializedView
         this.query = requireNonNull(query, "query is null");
         this.replace = replace;
         this.notExists = notExists;
-        this.properties = properties;
-        this.comment = comment;
+        this.gracePeriod = requireNonNull(gracePeriod, "gracePeriod is null");
+        this.properties = ImmutableList.copyOf(requireNonNull(properties, "properties is null"));
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     public QualifiedName getName()
@@ -69,6 +73,11 @@ public class CreateMaterializedView
         return notExists;
     }
 
+    public Optional<IntervalLiteral> getGracePeriod()
+    {
+        return gracePeriod;
+    }
+
     public List<Property> getProperties()
     {
         return properties;
@@ -88,13 +97,16 @@ public class CreateMaterializedView
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of(query);
+        ImmutableList.Builder<Node> children = ImmutableList.builder();
+        children.add(query);
+        gracePeriod.ifPresent(children::add);
+        return children.build();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, query, replace, notExists, properties, comment);
+        return Objects.hash(name, query, replace, notExists, gracePeriod, properties, comment);
     }
 
     @Override
@@ -111,6 +123,7 @@ public class CreateMaterializedView
                 && Objects.equals(query, o.query)
                 && Objects.equals(replace, o.replace)
                 && Objects.equals(notExists, o.notExists)
+                && Objects.equals(gracePeriod, o.gracePeriod)
                 && Objects.equals(properties, o.properties)
                 && Objects.equals(comment, o.comment);
     }
@@ -123,6 +136,7 @@ public class CreateMaterializedView
                 .add("query", query)
                 .add("replace", replace)
                 .add("notExists", notExists)
+                .add("gracePeriod", gracePeriod)
                 .add("properties", properties)
                 .add("comment", comment)
                 .toString();

@@ -23,6 +23,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -50,6 +51,14 @@ public class TestGetTableStatisticsOperations
         localQueryRunner.installPlugin(new TpchPlugin());
         localQueryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
         return localQueryRunner;
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        localQueryRunner.close();
+        localQueryRunner = null;
+        metadata = null;
     }
 
     @BeforeMethod

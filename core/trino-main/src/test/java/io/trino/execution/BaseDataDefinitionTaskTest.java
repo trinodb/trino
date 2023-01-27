@@ -16,7 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
+import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
@@ -34,7 +34,9 @@ import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -128,7 +130,14 @@ public abstract class BaseDataDefinitionTaskTest
     {
         if (queryRunner != null) {
             queryRunner.close();
+            queryRunner = null;
         }
+        testSession = null;
+        metadata = null;
+        plannerContext = null;
+        materializedViewPropertyManager = null;
+        transactionManager = null;
+        queryStateMachine = null;
     }
 
     protected static QualifiedObjectName qualifiedObjectName(String objectName)
@@ -158,7 +167,7 @@ public abstract class BaseDataDefinitionTaskTest
 
     protected MaterializedViewDefinition someMaterializedView()
     {
-        return someMaterializedView("select * from some_table", ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId())));
+        return someMaterializedView("select * from some_table", ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId(), Optional.empty())));
     }
 
     protected MaterializedViewDefinition someMaterializedView(String sql, List<ViewColumn> columns)
@@ -181,7 +190,7 @@ public abstract class BaseDataDefinitionTaskTest
 
     protected static ViewDefinition someView()
     {
-        return viewDefinition("SELECT 1", ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId())));
+        return viewDefinition("SELECT 1", ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId(), Optional.empty())));
     }
 
     protected static ViewDefinition viewDefinition(String sql, ImmutableList<ViewColumn> columns)
@@ -210,7 +219,9 @@ public abstract class BaseDataDefinitionTaskTest
                 directExecutor(),
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                Optional.empty(),
+                true,
+                new NodeVersion("test"));
     }
 
     protected static class MockMetadata
@@ -292,17 +303,36 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public void dropTable(Session session, TableHandle tableHandle)
+        public void dropTable(Session session, TableHandle tableHandle, CatalogSchemaTableName tableName)
         {
-            tables.remove(getTableName(tableHandle));
+            tables.remove(tableName.getSchemaTableName());
         }
 
         @Override
-        public void renameTable(Session session, TableHandle tableHandle, QualifiedObjectName newTableName)
+        public void renameTable(Session session, TableHandle tableHandle, CatalogSchemaTableName currentTableName, QualifiedObjectName newTableName)
         {
-            SchemaTableName oldTableName = getTableName(tableHandle);
+            SchemaTableName oldTableName = currentTableName.getSchemaTableName();
             tables.put(newTableName.asSchemaTableName(), verifyNotNull(tables.get(oldTableName), "Table not found %s", oldTableName));
             tables.remove(oldTableName);
+        }
+
+        @Override
+        public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle columnHandle, Type type)
+        {
+            SchemaTableName tableName = getTableName(tableHandle);
+            ConnectorTableMetadata metadata = tables.get(tableName);
+
+            ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builderWithExpectedSize(metadata.getColumns().size());
+            for (ColumnMetadata column : metadata.getColumns()) {
+                if (column.getName().equals(((TestingColumnHandle) columnHandle).getName())) {
+                    columns.add(new ColumnMetadata(column.getName(), type));
+                }
+                else {
+                    columns.add(column);
+                }
+            }
+
+            tables.put(tableName, new ConnectorTableMetadata(tableName, columns.build()));
         }
 
         private ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
@@ -440,6 +470,23 @@ public abstract class BaseDataDefinitionTaskTest
                     tableMetadata.getProperties(),
                     tableMetadata.getComment());
             tables.put(tableMetadata.getTable(), newTableMetadata);
+        }
+
+        @Override
+        public void setViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment)
+        {
+            ViewDefinition view = views.get(viewName.asSchemaTableName());
+            views.put(
+                    viewName.asSchemaTableName(),
+                    new ViewDefinition(
+                            view.getOriginalSql(),
+                            view.getCatalog(),
+                            view.getSchema(),
+                            view.getColumns().stream()
+                                    .map(currentViewColumn -> columnName.equals(currentViewColumn.getName()) ? new ViewColumn(currentViewColumn.getName(), currentViewColumn.getType(), comment) : currentViewColumn)
+                                    .collect(toImmutableList()),
+                            view.getComment(),
+                            view.getRunAsIdentity()));
         }
 
         @Override

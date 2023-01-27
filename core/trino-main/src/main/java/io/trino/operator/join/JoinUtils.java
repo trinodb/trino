@@ -16,6 +16,7 @@ package io.trino.operator.join;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -26,14 +27,17 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
@@ -47,7 +51,7 @@ public final class JoinUtils
 {
     private JoinUtils() {}
 
-    public static List<Page> channelsToPages(List<List<Block>> channels)
+    public static List<Page> channelsToPages(List<ObjectArrayList<Block>> channels)
     {
         if (channels.isEmpty()) {
             return ImmutableList.of();
@@ -63,6 +67,14 @@ public final class JoinUtils
             pagesBuilder.add(new Page(blocks));
         }
         return pagesBuilder.build();
+    }
+
+    public static OptionalInt getSingleBigintJoinChannel(List<Integer> joinChannels, List<Type> types)
+    {
+        if (joinChannels.size() == 1 && types.get(getOnlyElement(joinChannels)) == BIGINT) {
+            return OptionalInt.of(getOnlyElement(joinChannels));
+        }
+        return OptionalInt.empty();
     }
 
     public static boolean isBuildSideReplicated(PlanNode node)

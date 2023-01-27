@@ -57,6 +57,7 @@ public abstract class BaseDruidConnectorTest
     {
         if (druidServer != null) {
             druidServer.close();
+            druidServer = null;
         }
     }
 
@@ -78,6 +79,7 @@ public abstract class BaseDruidConnectorTest
 
             case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
+            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:

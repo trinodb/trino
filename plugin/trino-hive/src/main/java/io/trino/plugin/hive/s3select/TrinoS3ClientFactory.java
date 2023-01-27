@@ -27,7 +27,6 @@ import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.s3.HiveS3Config;
 import io.trino.plugin.hive.s3.TrinoS3FileSystem;
-import io.trino.plugin.hive.s3.TrinoS3FileSystemMetricCollector;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -109,7 +108,7 @@ public class TrinoS3ClientFactory
         AmazonS3Builder<? extends AmazonS3Builder<?, ?>, ? extends AmazonS3> clientBuilder = AmazonS3Client.builder()
                 .withCredentials(awsCredentialsProvider)
                 .withClientConfiguration(clientConfiguration)
-                .withMetricsCollector(new TrinoS3FileSystemMetricCollector(TrinoS3FileSystem.getFileSystemStats()))
+                .withMetricsCollector(TrinoS3FileSystem.getFileSystemStats().newRequestMetricCollector())
                 .enablePathStyleAccess();
 
         boolean regionOrEndpointSet = false;

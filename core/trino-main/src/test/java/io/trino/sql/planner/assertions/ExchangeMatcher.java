@@ -63,11 +63,10 @@ final class ExchangeMatcher
     @Override
     public boolean shapeMatches(PlanNode node)
     {
-        if (!(node instanceof ExchangeNode)) {
+        if (!(node instanceof ExchangeNode exchangeNode)) {
             return false;
         }
 
-        ExchangeNode exchangeNode = (ExchangeNode) node;
         return exchangeNode.getScope() == scope
                 && type.map(requiredType -> requiredType == exchangeNode.getType()).orElse(true)
                 && partitioningHandle.map(handle -> handle.equals(exchangeNode.getPartitioningScheme().getPartitioning().getHandle())).orElse(true);

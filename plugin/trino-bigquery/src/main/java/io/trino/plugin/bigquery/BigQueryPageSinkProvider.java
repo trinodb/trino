@@ -16,11 +16,14 @@ package io.trino.plugin.bigquery;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
+
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -36,16 +39,30 @@ public class BigQueryPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId)
     {
         BigQueryOutputTableHandle handle = (BigQueryOutputTableHandle) outputTableHandle;
-        return new BigQueryPageSink(clientFactory.createBigQueryClient(session), handle.getRemoteTableName(), handle.getColumnNames(), handle.getColumnTypes());
+        return new BigQueryPageSink(
+                clientFactory.createBigQueryClient(session),
+                handle.getRemoteTableName(),
+                handle.getColumnNames(),
+                handle.getColumnTypes(),
+                pageSinkId,
+                handle.getTemporaryTableName(),
+                handle.getPageSinkIdColumnName());
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId)
     {
         BigQueryInsertTableHandle handle = (BigQueryInsertTableHandle) insertTableHandle;
-        return new BigQueryPageSink(clientFactory.createBigQueryClient(session), handle.getRemoteTableName(), handle.getColumnNames(), handle.getColumnTypes());
+        return new BigQueryPageSink(
+                clientFactory.createBigQueryClient(session),
+                handle.getRemoteTableName(),
+                handle.getColumnNames(),
+                handle.getColumnTypes(),
+                pageSinkId,
+                Optional.of(handle.getTemporaryTableName()),
+                Optional.of(handle.getPageSinkIdColumnName()));
     }
 }

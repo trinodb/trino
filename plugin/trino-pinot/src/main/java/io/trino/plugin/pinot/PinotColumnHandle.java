@@ -15,7 +15,6 @@ package io.trino.plugin.pinot;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
@@ -25,9 +24,6 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.plugin.pinot.PinotMetadata.PINOT_COLUMN_NAME_PROPERTY;
-import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.quoteIdentifier;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class PinotColumnHandle
@@ -70,17 +66,6 @@ public class PinotColumnHandle
         checkState((pushedDownAggregateFunctionName.isPresent() && aggregate) || pushedDownAggregateFunctionName.isEmpty(), "Unexpected arguments: aggregate is false but pushed down aggregation is present");
         this.pushedDownAggregateFunctionName = pushedDownAggregateFunctionName;
         this.pushedDownAggregateFunctionArgument = pushedDownAggregateFunctionArgument;
-    }
-
-    public static PinotColumnHandle fromNonAggregateColumnHandle(PinotColumnHandle columnHandle)
-    {
-        return new PinotColumnHandle(columnHandle.getColumnName(), columnHandle.getDataType(), quoteIdentifier(columnHandle.getColumnName()), false, false, true, Optional.empty(), Optional.empty());
-    }
-
-    public static PinotColumnHandle fromColumnMetadata(ColumnMetadata columnMetadata)
-    {
-        String columnName = (String) requireNonNull(columnMetadata.getProperties().get(PINOT_COLUMN_NAME_PROPERTY), format("Missing required column property '%s'", PINOT_COLUMN_NAME_PROPERTY));
-        return new PinotColumnHandle(columnName, columnMetadata.getType());
     }
 
     @JsonProperty
@@ -151,9 +136,6 @@ public class PinotColumnHandle
         return ColumnMetadata.builder()
                 .setName(columnName)
                 .setType(dataType)
-                .setProperties(ImmutableMap.<String, Object>builder()
-                        .put(PINOT_COLUMN_NAME_PROPERTY, columnName)
-                        .buildOrThrow())
                 .build();
     }
 

@@ -76,6 +76,10 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+/**
+ * Deprecated in favor of {@link EventDrivenFaultTolerantQueryScheduler}
+ */
+@Deprecated
 public class FaultTolerantQueryScheduler
         implements QueryScheduler
 {

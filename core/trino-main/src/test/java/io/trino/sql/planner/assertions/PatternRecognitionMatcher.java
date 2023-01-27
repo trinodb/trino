@@ -14,10 +14,12 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.WindowNode;
@@ -52,7 +54,7 @@ import static java.util.Objects.requireNonNull;
 public class PatternRecognitionMatcher
         implements Matcher
 {
-    private final Optional<ExpectedValueProvider<WindowNode.Specification>> specification;
+    private final Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification;
     private final Optional<ExpectedValueProvider<WindowNode.Frame>> frame;
     private final RowsPerMatch rowsPerMatch;
     private final Optional<IrLabel> skipToLabel;
@@ -63,7 +65,7 @@ public class PatternRecognitionMatcher
     private final Map<IrLabel, ExpressionAndValuePointers> variableDefinitions;
 
     private PatternRecognitionMatcher(
-            Optional<ExpectedValueProvider<WindowNode.Specification>> specification,
+            Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification,
             Optional<ExpectedValueProvider<WindowNode.Frame>> frame,
             RowsPerMatch rowsPerMatch,
             Optional<IrLabel> skipToLabel,
@@ -178,7 +180,7 @@ public class PatternRecognitionMatcher
     public static class Builder
     {
         private final PlanMatchPattern source;
-        private Optional<ExpectedValueProvider<WindowNode.Specification>> specification = Optional.empty();
+        private Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification = Optional.empty();
         private final List<AliasMatcher> windowFunctionMatchers = new LinkedList<>();
         private final Map<String, Map.Entry<String, Type>> measures = new HashMap<>();
         private Optional<ExpectedValueProvider<WindowNode.Frame>> frame = Optional.empty();
@@ -196,36 +198,42 @@ public class PatternRecognitionMatcher
             this.source = requireNonNull(source, "source is null");
         }
 
-        public Builder specification(ExpectedValueProvider<WindowNode.Specification> specification)
+        @CanIgnoreReturnValue
+        public Builder specification(ExpectedValueProvider<DataOrganizationSpecification> specification)
         {
             this.specification = Optional.of(specification);
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder addFunction(String outputAlias, ExpectedValueProvider<FunctionCall> functionCall)
         {
             windowFunctionMatchers.add(new AliasMatcher(Optional.of(outputAlias), new WindowFunctionMatcher(functionCall, Optional.empty(), Optional.empty())));
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder addMeasure(String outputAlias, String expression, Type type)
         {
             measures.put(outputAlias, new AbstractMap.SimpleEntry<>(expression, type));
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder frame(ExpectedValueProvider<WindowNode.Frame> frame)
         {
             this.frame = Optional.of(frame);
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder rowsPerMatch(RowsPerMatch rowsPerMatch)
         {
             this.rowsPerMatch = rowsPerMatch;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder skipTo(SkipTo.Position position, IrLabel label)
         {
             this.skipToLabel = Optional.of(label);
@@ -233,36 +241,42 @@ public class PatternRecognitionMatcher
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder skipTo(SkipTo.Position position)
         {
             this.skipToPosition = position;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder seek()
         {
             this.initial = false;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder pattern(IrRowPattern pattern)
         {
             this.pattern = pattern;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder addSubset(IrLabel name, Set<IrLabel> elements)
         {
             subsets.put(name, elements);
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder addVariableDefinition(IrLabel name, String expression)
         {
             this.variableDefinitionsBySql.put(name, expression);
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder addVariableDefinition(IrLabel name, Expression expression)
         {
             this.variableDefinitionsByExpression.put(name, expression);

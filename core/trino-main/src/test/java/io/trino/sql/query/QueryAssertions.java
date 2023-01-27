@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBundle;
+import io.trino.spi.Plugin;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.SqlTimeWithTimeZone;
@@ -28,6 +29,7 @@ import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.assertions.PlanAssert;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
+import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.LocalQueryRunner;
@@ -106,6 +108,11 @@ public class QueryAssertions
     public void addFunctions(FunctionBundle functionBundle)
     {
         runner.addFunctions(functionBundle);
+    }
+
+    public void addPlugin(Plugin plugin)
+    {
+        runner.installPlugin(plugin);
     }
 
     public AssertProvider<QueryAssert> query(@Language("SQL") String query)
@@ -521,6 +528,21 @@ public class QueryAssertions
         }
 
         /**
+         * Verifies join query is not fully pushed down by containing JOIN node.
+         */
+        public QueryAssert joinIsNotFullyPushedDown()
+        {
+            return verifyPlan(plan -> {
+                if (PlanNodeSearcher.searchFrom(plan.getRoot())
+                        .whereIsInstanceOfAny(JoinNode.class)
+                        .findFirst()
+                        .isEmpty()) {
+                    throw new IllegalStateException("Join node should be present in explain plan, when pushdown is not applied");
+                }
+            });
+        }
+
+        /**
          * Verifies query has the expected plan and that results are the same as when pushdown is fully disabled.
          */
         @CanIgnoreReturnValue
@@ -542,6 +564,21 @@ public class QueryAssertions
                                 plan,
                                 expectedPlan);
                         additionalPlanVerification.accept(plan);
+                    });
+
+            if (!skipResultsCorrectnessCheckForPushdown) {
+                // Compare the results with pushdown disabled, so that explicit matches() call is not needed
+                hasCorrectResultsRegardlessOfPushdown();
+            }
+            return this;
+        }
+
+        private QueryAssert verifyPlan(Consumer<Plan> planVerification)
+        {
+            transaction(runner.getTransactionManager(), runner.getAccessControl())
+                    .execute(session, session -> {
+                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
+                        planVerification.accept(plan);
                     });
 
             if (!skipResultsCorrectnessCheckForPushdown) {

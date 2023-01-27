@@ -33,7 +33,8 @@ public class TestPhoenixConfig
         assertRecordedDefaults(recordDefaults(PhoenixConfig.class)
                 .setConnectionUrl(null)
                 .setResourceConfigFiles("")
-                .setMaxScansPerSplit(20));
+                .setMaxScansPerSplit(20)
+                .setReuseConnection(true));
     }
 
     @Test
@@ -46,12 +47,14 @@ public class TestPhoenixConfig
                 .put("phoenix.connection-url", "jdbc:phoenix:localhost:2181:/hbase")
                 .put("phoenix.config.resources", configFile.toString())
                 .put("phoenix.max-scans-per-split", "1")
+                .put("query.reuse-connection", "false")
                 .buildOrThrow();
 
         PhoenixConfig expected = new PhoenixConfig()
                 .setConnectionUrl("jdbc:phoenix:localhost:2181:/hbase")
                 .setResourceConfigFiles(configFile.toString())
-                .setMaxScansPerSplit(1);
+                .setMaxScansPerSplit(1)
+                .setReuseConnection(false);
 
         assertFullMapping(properties, expected);
     }

@@ -73,9 +73,7 @@ public class TestKafkaIntegrationPushDown
                         .put(createEmptyTopicDescription(topicNameCreateTime, new SchemaTableName("default", topicNameCreateTime)))
                         .put(createEmptyTopicDescription(topicNameLogAppend, new SchemaTableName("default", topicNameLogAppend)))
                         .buildOrThrow())
-                .setExtraKafkaProperties(ImmutableMap.<String, String>builder()
-                        .put("kafka.messages-per-split", "100")
-                        .buildOrThrow())
+                .setExtraKafkaProperties(ImmutableMap.of("kafka.messages-per-split", "100"))
                 .build();
         testingKafka.createTopicWithConfig(2, 1, topicNamePartition, false);
         testingKafka.createTopicWithConfig(2, 1, topicNameOffset, false);

@@ -114,7 +114,7 @@ public class RenameTableTask
         }
         accessControl.checkCanRenameTable(session.toSecurityContext(), source, target);
 
-        metadata.renameTable(session, tableHandle, target);
+        metadata.renameTable(session, tableHandle, source.asCatalogSchemaTableName(), target);
 
         return immediateVoidFuture();
     }

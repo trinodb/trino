@@ -192,21 +192,17 @@ public class TestEvictableLoadingCache
         // Should be reloaded
         assertEquals(cache.getUnchecked(key), "11 ala ma kota");
         assertThat(loads.get()).as("loads count should reflect reloading of value after expiration").isEqualTo(2);
-        // TODO (https://github.com/trinodb/trino/issues/14545) tokensCount should be 1; 0 means we lost the token for a live entry
-        assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(0);
+        assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(1);
 
         // Should be served from the cache
         assertEquals(cache.getUnchecked(key), "11 ala ma kota");
-        // TODO (https://github.com/trinodb/trino/issues/14545) loads count should be 2; it got incremented because we lost the token for a live entry
-        assertThat(loads.get()).as("loads count should not change before value expires again").isEqualTo(3);
+        assertThat(loads.get()).as("loads count should not change before value expires again").isEqualTo(2);
         assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(1);
 
-        // TODO (https://github.com/trinodb/trino/issues/14545) cache size should be 1; it is misreported, because there are two live entries for the same key, due to first token being lost
-        assertThat(cache.size()).as("cacheSize").isEqualTo(2);
+        assertThat(cache.size()).as("cacheSize").isEqualTo(1);
         assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(1);
         assertThat(cache.asMap().keySet()).as("keySet").hasSize(1);
-        // TODO (https://github.com/trinodb/trino/issues/14545) values size should be 1; it is misreported, because there are two live entries for the same key, due to first token being lost
-        assertThat(cache.asMap().values()).as("values").hasSize(2);
+        assertThat(cache.asMap().values()).as("values").hasSize(1);
     }
 
     @Test(timeOut = TEST_TIMEOUT_MILLIS, dataProvider = "testDisabledCacheDataProvider")
@@ -678,6 +674,41 @@ public class TestEvictableLoadingCache
             executor.shutdownNow();
             executor.awaitTermination(10, SECONDS);
         }
+    }
+
+    @Test(dataProvider = "disabledCacheImplementations", dataProviderClass = TestEvictableCache.class)
+    public void testPutOnEmptyCacheImplementation(EvictableCacheBuilder.DisabledCacheImplementation disabledCacheImplementation)
+    {
+        LoadingCache<Object, Object> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(0)
+                .disabledCacheImplementation(disabledCacheImplementation)
+                .build(CacheLoader.from(key -> key));
+        Map<Object, Object> cacheMap = cache.asMap();
+
+        int key = 0;
+        int value = 1;
+        assertThat(cacheMap.put(key, value)).isNull();
+        assertThat(cacheMap.put(key, value)).isNull();
+        assertThat(cacheMap.putIfAbsent(key, value)).isNull();
+        assertThat(cacheMap.putIfAbsent(key, value)).isNull();
+    }
+
+    @Test
+    public void testPutOnNonEmptyCacheImplementation()
+    {
+        LoadingCache<Object, Object> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(10)
+                .build(CacheLoader.from(key -> key));
+        Map<Object, Object> cacheMap = cache.asMap();
+
+        int key = 0;
+        int value = 1;
+        assertThatThrownBy(() -> cacheMap.put(key, value))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessage("The operation is not supported, as in inherently races with cache invalidation. Use get(key, callable) instead.");
+        assertThatThrownBy(() -> cacheMap.putIfAbsent(key, value))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessage("The operation is not supported, as in inherently races with cache invalidation");
     }
 
     /**

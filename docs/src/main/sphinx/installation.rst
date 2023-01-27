@@ -14,6 +14,7 @@ information, in the following sections:
     installation/containers
     installation/kubernetes
     installation/rpm
+    installation/query-resiliency
 
 Once you have a completed the deployment, or if you have access to a running
 cluster already, you can proceed to configure your :doc:`client application

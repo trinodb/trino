@@ -38,8 +38,6 @@ public class PasswordAuthenticatorPlugin
     @Override
     public Iterable<GroupProviderFactory> getGroupProviderFactories()
     {
-        return ImmutableList.<GroupProviderFactory>builder()
-                .add(new FileGroupProviderFactory())
-                .build();
+        return ImmutableList.of(new FileGroupProviderFactory());
     }
 }

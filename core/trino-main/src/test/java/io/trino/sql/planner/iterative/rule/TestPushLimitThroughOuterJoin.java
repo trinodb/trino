@@ -19,7 +19,6 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
 import org.testng.annotations.Test;
 
-import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -46,11 +45,10 @@ public class TestPushLimitThroughOuterJoin
                 })
                 .matches(
                         limit(1,
-                                join(
-                                        LEFT,
-                                        ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
-                                        limit(1, ImmutableList.of(), true, values("leftKey")),
-                                        values("rightKey"))));
+                               join(LEFT, builder -> builder
+                                        .equiCriteria("leftKey", "rightKey")
+                                        .left(limit(1, ImmutableList.of(), true, values("leftKey")))
+                                        .right(values("rightKey")))));
     }
 
     @Test
@@ -69,11 +67,10 @@ public class TestPushLimitThroughOuterJoin
                 })
                 .matches(
                         limit(1,
-                                join(
-                                        RIGHT,
-                                        ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
-                                        values("leftKey"),
-                                        limit(1, ImmutableList.of(), true, values("rightKey")))));
+                                join(RIGHT, builder -> builder
+                                        .equiCriteria("leftKey", "rightKey")
+                                        .left(values("leftKey"))
+                                        .right(limit(1, ImmutableList.of(), true, values("rightKey"))))));
     }
 
     @Test
@@ -164,11 +161,10 @@ public class TestPushLimitThroughOuterJoin
                 })
                 .matches(
                         limit(1, ImmutableList.of(), false, ImmutableList.of("leftKey"),
-                                join(
-                                        LEFT,
-                                        ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
-                                        limit(1, ImmutableList.of(), true, ImmutableList.of("leftKey"), values("leftKey")),
-                                        values("rightKey"))));
+                               join(LEFT, builder -> builder
+                                        .equiCriteria("leftKey", "rightKey")
+                                        .left(limit(1, ImmutableList.of(), true, ImmutableList.of("leftKey"), values("leftKey")))
+                                        .right(values("rightKey")))));
     }
 
     @Test
@@ -206,10 +202,9 @@ public class TestPushLimitThroughOuterJoin
                 })
                 .matches(
                         limit(1, ImmutableList.of(), false, ImmutableList.of("rightKey"),
-                                join(
-                                        RIGHT,
-                                        ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
-                                        values("leftKey"),
-                                        limit(1, ImmutableList.of(), true, ImmutableList.of("rightKey"), values("rightKey")))));
+                                join(RIGHT, builder -> builder
+                                        .equiCriteria("leftKey", "rightKey")
+                                        .left(values("leftKey"))
+                                        .right(limit(1, ImmutableList.of(), true, ImmutableList.of("rightKey"), values("rightKey"))))));
     }
 }

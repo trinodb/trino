@@ -19,14 +19,11 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.StructLike;
-import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.util.StructLikeSet;
 import org.apache.iceberg.util.StructProjection;
 
 import java.util.List;
-import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
 import static java.util.Objects.requireNonNull;
 
@@ -60,15 +57,11 @@ public final class EqualityDeleteFilter
 
     public static DeleteFilter readEqualityDeletes(ConnectorPageSource pageSource, List<IcebergColumnHandle> columns, Schema tableSchema)
     {
-        Set<Integer> ids = columns.stream()
-                .map(IcebergColumnHandle::getId)
-                .collect(toImmutableSet());
-
         Type[] types = columns.stream()
                 .map(IcebergColumnHandle::getType)
                 .toArray(Type[]::new);
 
-        Schema deleteSchema = TypeUtil.select(tableSchema, ids);
+        Schema deleteSchema = schemaFromHandles(columns);
         StructLikeSet deleteSet = StructLikeSet.create(deleteSchema.asStruct());
 
         while (!pageSource.isFinished()) {

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.s3select;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -43,10 +44,10 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
+import static io.trino.plugin.hive.util.SerdeConstants.COLUMN_NAME_DELIMITER;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.serde.serdeConstants.COLUMN_NAME_DELIMITER;
-import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMNS;
-import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMN_TYPES;
 
 public class S3SelectRecordCursorProvider
         implements HiveRecordCursorProvider
@@ -92,7 +93,7 @@ public class S3SelectRecordCursorProvider
 
         List<HiveColumnHandle> readerColumns = projectedReaderColumns
                 .map(readColumns -> readColumns.get().stream().map(HiveColumnHandle.class::cast).collect(toImmutableList()))
-                .orElse(columns.stream().collect(toImmutableList()));
+                .orElseGet(() -> ImmutableList.copyOf(columns));
         // Query is not going to filter any data, no need to use S3 Select
         if (!hasFilters(schema, effectivePredicate, readerColumns)) {
             return Optional.empty();

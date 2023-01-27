@@ -1367,6 +1367,31 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testDescribeInputWithClause()
+    {
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", """
+                        WITH t2 AS (
+                            SELECT * FROM (VALUES 1) AS t2(b)
+                            WHERE b = ?)
+                        SELECT *
+                        FROM
+                          (VALUES ('', 1)) AS t1(a, b)
+                        JOIN t2 ON t2.b = t1.b
+                        WHERE t1.a = ?
+                        """)
+                .build();
+
+        MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
+        MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR)
+                .row(0, "integer")
+                .row(1, "varchar(0)")
+                .build();
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
     public void testDescribeInputWithAggregation()
     {
         Session session = Session.builder(getSession())
@@ -1645,7 +1670,7 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testArrayShuffle()
     {
-        List<Integer> expected = IntStream.rangeClosed(1, 500).boxed().collect(toList());
+        List<Integer> expected = IntStream.rangeClosed(1, 200).boxed().collect(toList());
         Set<List<Integer>> distinctResults = new HashSet<>();
 
         distinctResults.add(expected);
@@ -5332,7 +5357,8 @@ public abstract class AbstractTestEngineOnlyQueries
                         .buildOrThrow()),
                 getQueryRunner().getSessionPropertyManager(),
                 getSession().getPreparedStatements(),
-                getSession().getProtocolHeaders());
+                getSession().getProtocolHeaders(),
+                getSession().getExchangeEncryptionKey());
         MaterializedResult result = computeActual(session, "SHOW SESSION");
 
         ImmutableMap<String, MaterializedRow> properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {

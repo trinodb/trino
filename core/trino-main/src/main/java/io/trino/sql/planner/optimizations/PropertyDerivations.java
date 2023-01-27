@@ -42,7 +42,6 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
-import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
@@ -78,7 +77,6 @@ import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnnestNode;
-import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.CoalesceExpression;
@@ -101,7 +99,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
 import static io.trino.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.coordinatorSingleStreamPartition;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
@@ -294,6 +293,8 @@ public final class PropertyDerivations
         public ActualProperties visitPatternRecognition(PatternRecognitionNode node, List<ActualProperties> inputProperties)
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+            // Crop properties to output columns.
+            ActualProperties translatedProperties = properties.translate(symbol -> node.getOutputSymbols().contains(symbol) ? Optional.of(symbol) : Optional.empty());
 
             // If the input is completely pre-partitioned and sorted, then the original input properties will be respected is some cases.
             // ALL ROW PER MATCH with overlapping matches might shuffle rows and break the order.
@@ -301,12 +302,10 @@ public final class PropertyDerivations
             Optional<OrderingScheme> orderingScheme = node.getOrderingScheme();
             if (ImmutableSet.copyOf(node.getPartitionBy()).equals(node.getPrePartitionedInputs())
                     && (orderingScheme.isEmpty() || node.getPreSortedOrderPrefix() == orderingScheme.get().getOrderBy().size())) {
-                if (node.getRowsPerMatch() == WINDOW || (!node.getRowsPerMatch().isOneRow() && node.getSkipToPosition() == PAST_LAST)) {
-                    return properties;
-                }
-                if (node.getRowsPerMatch() == ONE) {
-                    // Crop properties to output columns.
-                    return properties.translate(symbol -> node.getOutputSymbols().contains(symbol) ? Optional.of(symbol) : Optional.empty());
+                if (node.getRowsPerMatch() == WINDOW ||
+                        node.getRowsPerMatch() == ONE ||
+                        node.getSkipToPosition() == PAST_LAST) {
+                    return translatedProperties;
                 }
             }
 
@@ -317,7 +316,7 @@ public final class PropertyDerivations
             // TODO: come up with a more general form of this operation for other streaming operators
             if (!node.getPrePartitionedInputs().isEmpty()) {
                 GroupingProperty<Symbol> prePartitionedProperty = new GroupingProperty<>(node.getPrePartitionedInputs());
-                for (LocalProperty<Symbol> localProperty : properties.getLocalProperties()) {
+                for (LocalProperty<Symbol> localProperty : translatedProperties.getLocalProperties()) {
                     if (!prePartitionedProperty.isSimplifiedBy(localProperty)) {
                         break;
                     }
@@ -339,8 +338,8 @@ public final class PropertyDerivations
                                 .forEach(localProperties::add));
             }
 
-            return ActualProperties.builderFrom(properties)
-                    .local(LocalProperties.normalizeAndPrune(localProperties.build()))
+            return ActualProperties.builderFrom(translatedProperties)
+                    .local(localProperties.build())
                     .build();
         }
 
@@ -458,19 +457,6 @@ public final class PropertyDerivations
         }
 
         @Override
-        public ActualProperties visitDelete(DeleteNode node, List<ActualProperties> inputProperties)
-        {
-            // drop all symbols in property because delete doesn't pass on any of the columns
-            return Iterables.getOnlyElement(inputProperties).translate(symbol -> Optional.empty());
-        }
-
-        @Override
-        public ActualProperties visitUpdate(UpdateNode node, List<ActualProperties> inputProperties)
-        {
-            return Iterables.getOnlyElement(inputProperties).translate(symbol -> Optional.empty());
-        }
-
-        @Override
         public ActualProperties visitTableExecute(TableExecuteNode node, List<ActualProperties> inputProperties)
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
@@ -546,8 +532,8 @@ public final class PropertyDerivations
                         .unordered(true)
                         .build();
                 case FULL ->
-                    // We can't say anything about the partitioning scheme because any partition of
-                    // a hash-partitioned join can produce nulls in case of a lack of matches
+                        // We can't say anything about the partitioning scheme because any partition of
+                        // a hash-partitioned join can produce nulls in case of a lack of matches
                         ActualProperties.builder()
                                 .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
                                 .build();
@@ -653,7 +639,7 @@ public final class PropertyDerivations
             // This is acceptable because AddLocalExchanges does not use global properties and is only
             // interested in the local properties.
             // However, for the purpose of validation, some global properties (single-node vs distributed)
-            // are computed for local exchanges.
+            // need to be propagated through local exchanges.
             // TODO: implement full properties for local exchanges
             if (node.getScope() == LOCAL) {
                 if (inputProperties.size() == 1) {
@@ -674,17 +660,18 @@ public final class PropertyDerivations
                 builder.constants(constants);
 
                 if (inputProperties.stream().anyMatch(ActualProperties::isCoordinatorOnly)) {
-                    builder.global(coordinatorSingleStreamPartition());
+                    builder.global(partitionedOn(
+                            COORDINATOR_DISTRIBUTION,
+                            ImmutableList.of(),
+                            // only gathering local exchange preserves single stream property
+                            node.getType() == GATHER ? Optional.of(ImmutableList.of()) : Optional.empty()));
                 }
                 else if (inputProperties.stream().anyMatch(ActualProperties::isSingleNode)) {
-                    builder.global(coordinatorSingleStreamPartition());
-                }
-                else if (node.getOrderingScheme().isPresent() && node.getType() == GATHER) {
-                    // Local merging exchange uses passthrough distribution
                     builder.global(partitionedOn(
-                            FIXED_PASSTHROUGH_DISTRIBUTION,
+                            SINGLE_DISTRIBUTION,
                             ImmutableList.of(),
-                            Optional.of(ImmutableList.of())));
+                            // only gathering local exchange preserves single stream property
+                            node.getType() == GATHER ? Optional.of(ImmutableList.of()) : Optional.empty()));
                 }
 
                 return builder.build();
@@ -704,7 +691,7 @@ public final class PropertyDerivations
                         .constants(constants)
                         .build();
                 case REPLICATE ->
-                    // TODO: this should have the same global properties as the stream taking the replicated data
+                        // TODO: this should have the same global properties as the stream taking the replicated data
                         ActualProperties.builder()
                                 .global(arbitraryPartition())
                                 .constants(constants)

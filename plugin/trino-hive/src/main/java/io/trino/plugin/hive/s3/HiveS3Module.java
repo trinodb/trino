@@ -22,7 +22,6 @@ import io.trino.hdfs.DynamicConfigurationProvider;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.rubix.RubixEnabledConfig;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hive.common.JavaUtils;
 
 import java.util.concurrent.TimeUnit;
 
@@ -93,7 +92,7 @@ public class HiveS3Module
     {
         // verify that the class exists
         try {
-            Class.forName(EMR_FS_CLASS_NAME, true, JavaUtils.getClassLoader());
+            Class.forName(EMR_FS_CLASS_NAME);
         }
         catch (ClassNotFoundException e) {
             throw new RuntimeException("EMR File System class not found: " + EMR_FS_CLASS_NAME, e);

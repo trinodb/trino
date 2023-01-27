@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.google.common.base.VerifyException;
+import io.trino.execution.scheduler.FaultTolerantPartitioningScheme;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.PartitionFunction;
 import io.trino.spi.Page;
@@ -28,6 +29,7 @@ import io.trino.sql.planner.SystemPartitioningHandle.SystemPartitionFunction.Rou
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -69,6 +71,26 @@ public final class MergePartitioningHandle
     }
 
     @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        MergePartitioningHandle that = (MergePartitioningHandle) o;
+        return insertPartitioning.equals(that.insertPartitioning) &&
+                updatePartitioning.equals(that.updatePartitioning);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(insertPartitioning, updatePartitioning);
+    }
+
+    @Override
     public String toString()
     {
         List<String> parts = new ArrayList<>();
@@ -92,6 +114,24 @@ public final class MergePartitioningHandle
         }
 
         return optionalInsertMap.orElseGet(optionalUpdateMap::orElseThrow);
+    }
+
+    public FaultTolerantPartitioningScheme getFaultTolerantPartitioningScheme(Function<PartitioningHandle, FaultTolerantPartitioningScheme> getScheme)
+    {
+        Optional<FaultTolerantPartitioningScheme> optionalInsertScheme = insertPartitioning.map(scheme -> scheme.getPartitioning().getHandle()).map(getScheme);
+        Optional<FaultTolerantPartitioningScheme> optionalUpdateScheme = updatePartitioning.map(scheme -> scheme.getPartitioning().getHandle()).map(getScheme);
+
+        if (optionalInsertScheme.isPresent() && optionalUpdateScheme.isPresent()) {
+            FaultTolerantPartitioningScheme insertScheme = optionalInsertScheme.get();
+            FaultTolerantPartitioningScheme updateScheme = optionalUpdateScheme.get();
+            if (insertScheme.getPartitionCount() != updateScheme.getPartitionCount()
+                    || !Arrays.equals(insertScheme.getBucketToPartitionMap().orElse(null), updateScheme.getBucketToPartitionMap().orElse(null))
+                    || !Objects.equals(insertScheme.getPartitionToNodeMap(), updateScheme.getPartitionToNodeMap())) {
+                throw new TrinoException(NOT_SUPPORTED, "Insert and update layout have mismatched BucketNodeMap");
+            }
+        }
+
+        return optionalInsertScheme.orElseGet(optionalUpdateScheme::orElseThrow);
     }
 
     public PartitionFunction getPartitionFunction(PartitionFunctionLookup partitionFunctionLookup, List<Type> types, int[] bucketToPartition)

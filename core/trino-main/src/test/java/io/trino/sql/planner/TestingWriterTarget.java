@@ -32,4 +32,10 @@ public class TestingWriterTarget
     {
         return false;
     }
+
+    @Override
+    public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
+    {
+        return false;
+    }
 }

@@ -39,8 +39,8 @@ Configuration
 -------------
 
 To configure the Kafka connector, create a catalog properties file
-``etc/catalog/kafka.properties`` with the following content,
-replacing the properties as appropriate.
+``etc/catalog/example.properties`` with the following content, replacing the
+properties as appropriate.
 
 In some cases, such as when using specialized authentication methods, it is necessary to specify
 additional Kafka client properties in order to access your Kafka cluster. To do so,
@@ -86,6 +86,7 @@ Property name                                              Description
 ``kafka.nodes``                                            List of nodes in the Kafka cluster.
 ``kafka.buffer-size``                                      Kafka read buffer size.
 ``kafka.hide-internal-columns``                            Controls whether internal columns are part of the table schema or not.
+``kafka.internal-column-prefix``                           Prefix for internal columns, defaults to ``_``
 ``kafka.messages-per-split``                               Number of messages that are processed by each Trino split; defaults to ``100000``.
 ``kafka.timestamp-upper-bound-force-push-down-enabled``    Controls if upper bound timestamp pushdown is enabled for topics using ``CreateTime`` mode.
 ``kafka.security-protocol``                                Security protocol for connection to Kafka cluster; defaults to ``PLAINTEXT``.
@@ -227,6 +228,12 @@ This property is optional; default is ``https``.
 
 Internal columns
 ----------------
+
+The internal column prefix is configurable by ``kafka.internal-column-prefix``
+configuration property and defaults to ``_``. A different prefix affects the
+internal column names in the following sections. For example, a value of
+``internal_`` changes the partition ID column name from ``_partition_id``
+to ``internal_partition_id``.
 
 For each defined table, the connector maintains the following columns:
 
@@ -472,22 +479,6 @@ used to resolve the subject name via the topic name. Note that a case
 insensitive match must be done, as identifiers cannot contain upper case
 characters.
 
-.. _kafka-sql-support:
-
-SQL support
------------
-
-The connector provides read and write access to data and metadata in Trino
-tables populated by Kafka topics. See :ref:`kafka-row-decoding` for more
-information.
-
-In addition to the :ref:`globally available <sql-globally-available>`
-and :ref:`read operation <sql-read-operations>` statements, the connector
-supports the following features:
-
-* :doc:`/sql/insert`, encoded to a specified data format. See also
-  :ref:`kafka-sql-inserts`.
-
 .. _kafka-sql-inserts:
 
 Kafka inserts
@@ -496,12 +487,13 @@ Kafka inserts
 The Kafka connector supports the use of :doc:`/sql/insert` statements to write
 data to a Kafka topic. Table column data is mapped to Kafka messages as defined
 in the `table definition file <#table-definition-files>`__. There are
-four supported data formats for key and message encoding:
+five supported data formats for key and message encoding:
 
 * `raw format <#raw-encoder>`__
 * `CSV format <#csv-encoder>`__
 * `JSON format <#json-encoder>`__
 * `Avro format <#avro-encoder>`__
+* `Protobuf format <#protobuf-encoder>`__
 
 These data formats each have an encoder that maps column values into bytes to be
 sent to a Kafka topic.
@@ -517,8 +509,21 @@ used as the target for a message. If a message includes a key, the producer will
 use a hash algorithm to choose the target partition for the message. The same
 key will always be assigned the same partition.
 
-Row encoding
+.. _kafka-type-mapping:
+
+Type mapping
 ------------
+
+Because Trino and Kafka each support types that the other does not, this
+connector :ref:`maps some types <type-mapping-overview>` when reading
+(:ref:`decoding <kafka-row-decoding>`) or writing (:ref:`encoding
+<kafka-row-encoding>`) data. Type mapping depends on the format (Raw, Avro,
+JSON, CSV).
+
+.. _kafka-row-encoding:
+
+Row encoding
+^^^^^^^^^^^^
 
 Encoding is required to allow writing data; it defines how table columns in
 Trino map to Kafka keys and message data.
@@ -533,6 +538,8 @@ The Kafka connector contains the following encoders:
   fields.
 * `Avro encoder <#avro-encoder>`__ - Table columns are mapped to Avro
   fields based on an Avro schema.
+* `Protobuf encoder <#protobuf-encoder>`__ - Table columns are mapped to
+  Protobuf fields based on a Protobuf schema.
 
 .. note::
 
@@ -540,7 +547,7 @@ The Kafka connector contains the following encoders:
     for the encoder to work.
 
 Raw encoder
-^^^^^^^^^^^
+"""""""""""
 
 The raw encoder formats the table columns as raw bytes using the mapping
 information specified in the
@@ -583,6 +590,8 @@ Trino data type                       ``dataFormat`` values
 ``VARCHAR`` / ``VARCHAR(x)``          ``BYTE``
 ===================================== =======================================
 
+No other types are supported.
+
 The ``mapping`` attribute specifies the range of bytes in a key or
 message used for encoding.
 
@@ -618,9 +627,9 @@ for a Kafka message:
 .. code-block:: json
 
     {
-      "tableName": "your-table-name",
-      "schemaName": "your-schema-name",
-      "topicName": "your-topic-name",
+      "tableName": "example_table_name",
+      "schemaName": "example_schema_name",
+      "topicName": "example_topic_name",
       "key": { "..." },
       "message": {
         "dataFormat": "raw",
@@ -673,7 +682,7 @@ Example insert query for the above table definition::
     padding character.
 
 CSV encoder
-^^^^^^^^^^^
+"""""""""""
 
 The CSV encoder formats the values for each row as a line of
 comma-separated-values (CSV) using UTF-8 encoding. The CSV line is formatted
@@ -698,6 +707,8 @@ The following Trino data types are supported by the CSV encoder:
 * ``BOOLEAN``
 * ``VARCHAR`` / ``VARCHAR(x)``
 
+No other types are supported.
+
 Column values are converted to strings before they are formatted as a CSV line.
 
 The following is an example CSV field definition in a `table definition file
@@ -706,9 +717,9 @@ The following is an example CSV field definition in a `table definition file
 .. code-block:: json
 
     {
-      "tableName": "your-table-name",
-      "schemaName": "your-schema-name",
-      "topicName": "your-topic-name",
+      "tableName": "example_table_name",
+      "schemaName": "example_schema_name",
+      "topicName": "example_topic_name",
       "key": { "..." },
       "message": {
         "dataFormat": "csv",
@@ -738,7 +749,7 @@ Example insert query for the above table definition::
       VALUES (123456789, 'example text', TRUE);
 
 JSON encoder
-^^^^^^^^^^^^
+""""""""""""
 
 The JSON encoder maps table columns to JSON fields defined in the
 `table definition file <#table-definition-files>`__ according to
@@ -785,6 +796,8 @@ The following Trino data types are supported by the JSON encoder:
 | ``TIMESTAMP WITH TIME ZONE``        |
 +-------------------------------------+
 
+No other types are supported.
+
 The following ``dataFormats`` are available for temporal data:
 
 * ``iso8601``
@@ -823,9 +836,9 @@ The following is an example JSON field definition in a `table definition file
 .. code-block:: json
 
     {
-      "tableName": "your-table-name",
-      "schemaName": "your-schema-name",
-      "topicName": "your-topic-name",
+      "tableName": "example_table_name",
+      "schemaName": "example_schema_name",
+      "topicName": "example_topic_name",
       "key": { "..." },
       "message": {
         "dataFormat": "json",
@@ -857,7 +870,7 @@ The following shows an example insert query for the preceding table definition::
       VALUES (123456789, 'example text', TIMESTAMP '2020-07-15 01:02:03.456');
 
 Avro encoder
-^^^^^^^^^^^^
+""""""""""""
 
 The Avro encoder serializes rows to Avro records as defined by the
 `Avro schema <https://avro.apache.org/docs/current/>`_.
@@ -901,15 +914,17 @@ Trino data type                       Avro data type
 ``VARCHAR`` / ``VARCHAR(x)``          ``STRING``
 ===================================== =======================================
 
+No other types are supported.
+
 The following example shows an Avro field definition in a `table definition file
 <#table-definition-files>`__ for a Kafka message:
 
 .. code-block:: json
 
     {
-      "tableName": "your-table-name",
-      "schemaName": "your-schema-name",
-      "topicName": "your-topic-name",
+      "tableName": "example_table_name",
+      "schemaName": "example_schema_name",
+      "topicName": "example_topic_name",
       "key": { "..." },
       "message":
       {
@@ -966,15 +981,124 @@ definition is shown:
       "doc:" : "A basic avro schema"
     }
 
-The following is an example insert query for the preceding table definition::
+The following is an example insert query for the preceding table definition:
 
     INSERT INTO example_avro_table (field1, field2, field3)
+      VALUES (123456789, 'example text', FALSE);
+
+.. _kafka-protobuf-encoding:
+
+Protobuf encoder
+""""""""""""""""
+
+The Protobuf encoder serializes rows to Protobuf DynamicMessages as defined by
+the `Protobuf schema <https://developers.google.com/protocol-buffers/docs/overview>`_.
+
+.. note::
+
+    The Protobuf schema is encoded with the table column values in each Kafka message.
+
+The ``dataSchema`` must be defined in the table definition file to use the
+Protobuf encoder. It points to the location of the ``proto`` file for the key
+or message.
+
+Protobuf schema files can be retrieved via HTTP or HTTPS from a remote server
+with the syntax:
+
+``"dataSchema": "http://example.org/schema/schema.proto"``
+
+Local files need to be available on all Trino nodes and use an absolute path in
+the syntax, for example:
+
+``"dataSchema": "/usr/local/schema/schema.proto"``
+
+The following field attributes are supported:
+
+* ``name`` - Name of the column in the Trino table.
+* ``type`` - Trino type of column.
+* ``mapping`` - slash-separated list of field names to select a field from the
+  Protobuf schema. If the field specified in ``mapping`` does not exist in the
+  original Protobuf schema, then a write operation fails.
+
+The following table lists supported Trino data types, which can be used in ``type``
+for the equivalent Protobuf field type.
+
+===================================== =======================================
+Trino data type                       Protobuf data type
+===================================== =======================================
+``BOOLEAN``                           ``bool``
+``INTEGER``                           ``int32``, ``uint32``, ``sint32``, ``fixed32``, ``sfixed32``
+``BIGINT``                            ``int64``, ``uint64``, ``sint64``, ``fixed64``, ``sfixed64``
+``DOUBLE``                            ``double``
+``REAL``                              ``float``
+``VARCHAR`` / ``VARCHAR(x)``          ``string``
+``VARBINARY``                         ``bytes``
+``ROW``                               ``Message``
+``ARRAY``                             Protobuf type with ``repeated`` field
+``MAP``                               ``Map``
+``TIMESTAMP``                         ``Timestamp``, predefined in ``timestamp.proto``
+===================================== =======================================
+
+The following example shows a Protobuf field definition in a `table definition
+file <#table-definition-files>`__ for a Kafka message:
+
+
+.. code-block:: json
+
+    {
+      "tableName": "example_table_name",
+      "schemaName": "example_schema_name",
+      "topicName": "example_topic_name",
+      "key": { "..." },
+      "message":
+      {
+        "dataFormat": "protobuf",
+        "dataSchema": "/message_schema.proto",
+        "fields":
+        [
+          {
+            "name": "field1",
+            "type": "BIGINT",
+            "mapping": "field1"
+          },
+          {
+            "name": "field2",
+            "type": "VARCHAR",
+            "mapping": "field2"
+          },
+          {
+            "name": "field3",
+            "type": "BOOLEAN",
+            "mapping": "field3"
+          }
+        ]
+      }
+    }
+
+In the following example, a Protobuf schema definition for the preceding table
+definition is shown:
+
+.. code-block:: text
+
+    syntax = "proto3";
+
+    message schema {
+      uint64 field1 = 1 ;
+      string field2 = 2;
+      bool field3 = 3;
+    }
+
+The following is an example insert query for the preceding table definition:
+
+.. code-block:: sql
+
+    INSERT INTO example_protobuf_table (field1, field2, field3)
       VALUES (123456789, 'example text', FALSE);
 
 .. _kafka-row-decoding:
 
 Row decoding
-------------
+^^^^^^^^^^^^
 
 For key and message, a decoder is used to map message and key data onto table columns.
 
@@ -984,14 +1108,15 @@ The Kafka connector contains the following decoders:
 * ``csv`` - Kafka message is interpreted as comma separated message, and fields are mapped to table columns.
 * ``json`` - Kafka message is parsed as JSON, and JSON fields are mapped to table columns.
 * ``avro`` - Kafka message is parsed based on an Avro schema, and Avro fields are mapped to table columns.
+* ``protobuf`` - Kafka message is parsed based on a Protobuf schema, and Protobuf fields are mapped to table columns.
 
 .. note::
 
     If no table definition file exists for a table, the ``dummy`` decoder is used,
     which does not expose any columns.
 
-``raw`` decoder
-^^^^^^^^^^^^^^^
+Raw decoder
+"""""""""""
 
 The raw decoder supports reading of raw byte-based values from Kafka message
 or key, and converting it into Trino columns.
@@ -1031,6 +1156,8 @@ Trino data type                       Allowed ``dataFormat`` values
 ``VARCHAR`` / ``VARCHAR(x)``          ``BYTE``
 ===================================== =======================================
 
+No other types are supported.
+
 The ``mapping`` attribute specifies the range of the bytes in a key or
 message used for decoding. It can be one or two numbers separated by a colon (``<start>[:<end>]``).
 
@@ -1054,10 +1181,11 @@ A sequence of bytes is read from input message and decoded according to either:
 
 Length of decoded byte sequence is implied by the ``dataFormat``.
 
-For ``VARCHAR`` data type a sequence of bytes is interpreted according to UTF-8 encoding.
+For ``VARCHAR`` data type a sequence of bytes is interpreted according to UTF-8
+encoding.
 
-``csv`` decoder
-^^^^^^^^^^^^^^^
+CSV decoder
+"""""""""""
 
 The CSV decoder converts the bytes representing a message or key into a
 string using UTF-8 encoding and then interprets the result as a CSV
@@ -1088,9 +1216,10 @@ Table below lists supported Trino types, which can be used in ``type`` and decod
 | ``VARCHAR`` / ``VARCHAR(x)``        | Used as is                                                                     |
 +-------------------------------------+--------------------------------------------------------------------------------+
 
+No other types are supported.
 
-``json`` decoder
-^^^^^^^^^^^^^^^^
+JSON decoder
+""""""""""""
 
 The JSON decoder converts the bytes representing a message or key into a
 JSON according to :rfc:`4627`. Note that the message or key *MUST* convert
@@ -1136,9 +1265,10 @@ which can be specified via ``dataFormat`` attribute.
 | |                                   | ``seconds-since-epoch``                                                        |
 +-------------------------------------+--------------------------------------------------------------------------------+
 
+No other types are supported.
 
 Default field decoder
-^^^^^^^^^^^^^^^^^^^^^
++++++++++++++++++++++
 
 This is the standard field decoder, supporting all the Trino physical data
 types. A field value is transformed under JSON conversion rules into
@@ -1146,7 +1276,7 @@ boolean, long, double or string values. For non-date/time based columns,
 this decoder should be used.
 
 Date and time decoders
-^^^^^^^^^^^^^^^^^^^^^^
+++++++++++++++++++++++
 
 To convert values from JSON objects into Trino ``DATE``, ``TIME``, ``TIME WITH TIME ZONE``,
 ``TIMESTAMP`` or ``TIMESTAMP WITH TIME ZONE`` columns, special decoders must be selected using the
@@ -1163,8 +1293,8 @@ To convert values from JSON objects into Trino ``DATE``, ``TIME``, ``TIME WITH T
 For ``TIMESTAMP WITH TIME ZONE`` and ``TIME WITH TIME ZONE`` data types, if timezone information is present in decoded value, it will
 be used as Trino value. Otherwise result time zone will be set to ``UTC``.
 
-``avro`` decoder
-^^^^^^^^^^^^^^^^
+Avro decoder
+""""""""""""
 
 The Avro decoder converts the bytes representing a message or key in
 Avro format based on a schema. The message must have the Avro schema embedded.
@@ -1195,8 +1325,10 @@ Trino data type                       Allowed Avro data type
 ``MAP``                               ``MAP``
 ===================================== =======================================
 
+No other types are supported.
+
 Avro schema evolution
-"""""""""""""""""""""
++++++++++++++++++++++
 
 The Avro decoder supports schema evolution feature with backward compatibility. With backward compatibility,
 a newer schema can be used to read Avro data created with an older schema. Any change in the Avro schema must also be
@@ -1215,4 +1347,91 @@ The schema evolution behavior is as follows:
   produces a *default* value when table is using the new schema.
 
 * Changing type of column in the new schema:
-  If the type coercion is supported by Avro, then the conversion happens. An error is thrown for incompatible types.
+  If the type coercion is supported by Avro, then the conversion happens. An
+  error is thrown for incompatible types.
+
+Protobuf decoder
+""""""""""""""""
+
+The Protobuf decoder converts the bytes representing a message or key in
+Protobuf formatted message based on a schema.
+
+For key/message, using the ``protobuf`` decoder, the ``dataSchema`` must be
+defined. It points to the location of a valid ``proto`` file of the message
+which needs to be decoded. This location can be a remote web server,
+``dataSchema: 'http://example.org/schema/schema.proto'``,  or local file,
+``dataSchema: '/usr/local/schema/schema.proto'``. The decoder fails if the
+location is not accessible from the coordinator.
+
+For fields, the following attributes are supported:
+
+* ``name`` - Name of the column in the Trino table.
+* ``type`` - Trino data type of column.
+* ``mapping`` - slash-separated list of field names to select a field from the
+  Protobuf schema. If field specified in ``mapping`` does not exist in the
+  original ``proto`` file then a read operation returns NULL.
+
+The following table lists the supported Trino types which can be used in
+``type`` for the equivalent Protobuf field types:
+
+===================================== =======================================
+Trino data type                       Allowed Protobuf data type
+===================================== =======================================
+``BOOLEAN``                           ``bool``
+``INTEGER``                           ``int32``, ``uint32``, ``sint32``, ``fixed32``, ``sfixed32``
+``BIGINT``                            ``int64``, ``uint64``, ``sint64``, ``fixed64``, ``sfixed64``
+``DOUBLE``                            ``double``
+``REAL``                              ``float``
+``VARCHAR`` / ``VARCHAR(x)``          ``string``
+``VARBINARY``                         ``bytes``
+``ROW``                               ``Message``
+``ARRAY``                             Protobuf type with ``repeated`` field
+``MAP``                               ``Map``
+``TIMESTAMP``                         ``Timestamp``, predefined in ``timestamp.proto``
+===================================== =======================================
+
+Protobuf schema evolution
++++++++++++++++++++++++++
+
+The Protobuf decoder supports the schema evolution feature with backward
+compatibility. With backward compatibility, a newer schema can be used to read
+Protobuf data created with an older schema. Any change in the Protobuf schema
+*must* also be reflected in the topic definition file.
+
+The schema evolution behavior is as follows:
+
+* Column added in new schema:
+  Data created with an older schema produces a *default* value when the table is using the new schema.
+
+* Column removed in new schema:
+  Data created with an older schema no longer outputs the data from the column that was removed.
+
+* Column is renamed in the new schema:
+  This is equivalent to removing the column and adding a new one, and data created with an older schema
+  produces a *default* value when table is using the new schema.
+
+* Changing type of column in the new schema:
+  If the type coercion is supported by Protobuf, then the conversion happens. An error is thrown for incompatible types.
+
+Protobuf limitations
+++++++++++++++++++++
+
+* Protobuf specific types like ``any``, ``oneof`` are not supported.
+* Protobuf Timestamp has a nanosecond precision but Trino supports
+  decoding/encoding at microsecond precision.
+
+.. _kafka-sql-support:
+
+SQL support
+-----------
+
+The connector provides read and write access to data and metadata in Trino
+tables populated by Kafka topics. See :ref:`kafka-row-decoding` for more
+information.
+
+In addition to the :ref:`globally available <sql-globally-available>`
+and :ref:`read operation <sql-read-operations>` statements, the connector
+supports the following features:
+
+* :doc:`/sql/insert`, encoded to a specified data format. See also
+  :ref:`kafka-sql-inserts`.

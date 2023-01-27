@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
@@ -382,15 +383,12 @@ public class TestCheckpointWriter
                 Optional.empty(),
                 Optional.of(new DeltaLakeParquetFileStatistics(
                         Optional.of(5L),
-                        Optional.of(ImmutableMap.<String, Object>builder()
-                                .put("row", RowBlock.fromFieldBlocks(1, Optional.empty(), minMaxRowFieldBlocks).getSingleValueBlock(0))
-                                .buildOrThrow()),
-                        Optional.of(ImmutableMap.<String, Object>builder()
-                                .put("row", RowBlock.fromFieldBlocks(1, Optional.empty(), minMaxRowFieldBlocks).getSingleValueBlock(0))
-                                .buildOrThrow()),
-                        Optional.of(ImmutableMap.<String, Object>builder()
-                                .put("row", RowBlock.fromFieldBlocks(1, Optional.empty(), nullCountRowFieldBlocks).getSingleValueBlock(0))
-                                .buildOrThrow()))),
+                        Optional.of(ImmutableMap.of(
+                                "row", RowBlock.fromFieldBlocks(1, Optional.empty(), minMaxRowFieldBlocks).getSingleValueBlock(0))),
+                        Optional.of(ImmutableMap.of(
+                                "row", RowBlock.fromFieldBlocks(1, Optional.empty(), minMaxRowFieldBlocks).getSingleValueBlock(0))),
+                        Optional.of(ImmutableMap.of(
+                                "row", RowBlock.fromFieldBlocks(1, Optional.empty(), nullCountRowFieldBlocks).getSingleValueBlock(0))))),
                 ImmutableMap.of());
 
         CheckpointEntries entries = new CheckpointEntries(
@@ -457,8 +455,7 @@ public class TestCheckpointWriter
         ImmutableMap.Builder<String, Object> comparableStats = ImmutableMap.builder();
         for (String key : stats.keySet()) {
             Object statsValue = stats.get(key);
-            if (statsValue instanceof RowBlock) {
-                RowBlock rowBlock = (RowBlock) statsValue;
+            if (statsValue instanceof RowBlock rowBlock) {
                 ColumnarRow columnarRow = toColumnarRow(rowBlock);
                 int size = columnarRow.getFieldCount();
                 ImmutableList<Long> logicalSizes = IntStream.range(0, size)
@@ -467,8 +464,8 @@ public class TestCheckpointWriter
                         .collect(toImmutableList());
                 comparableStats.put(key, logicalSizes);
             }
-            else if (statsValue instanceof Slice) {
-                comparableStats.put(key, ((Slice) statsValue).toStringUtf8());
+            else if (statsValue instanceof Slice slice) {
+                comparableStats.put(key, slice.toStringUtf8());
             }
             else {
                 comparableStats.put(key, statsValue);
@@ -494,7 +491,8 @@ public class TestCheckpointWriter
                 Optional.of(metadataEntry),
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig().toParquetReaderOptions(),
-                rowStatisticsEnabled);
+                rowStatisticsEnabled,
+                new DeltaLakeConfig().getDomainCompactionThreshold());
 
         CheckpointBuilder checkpointBuilder = new CheckpointBuilder();
         while (checkpointEntryIterator.hasNext()) {

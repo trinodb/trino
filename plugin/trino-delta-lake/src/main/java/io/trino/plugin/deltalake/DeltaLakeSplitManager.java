@@ -36,6 +36,7 @@ import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
+import java.net.URI;
 import java.net.URLDecoder;
 import java.time.Instant;
 import java.util.List;
@@ -226,7 +227,7 @@ public class DeltaLakeSplitManager
     {
         return effectivePredicate.getDomains()
                 .flatMap(domains -> Optional.ofNullable(domains.get(pathColumnHandle())))
-                .orElse(Domain.all(pathColumnHandle().getType()));
+                .orElseGet(() -> Domain.all(pathColumnHandle().getType()));
     }
 
     private static boolean pathMatchesPredicate(Domain pathDomain, String path)
@@ -290,8 +291,21 @@ public class DeltaLakeSplitManager
 
     private static String buildSplitPath(String tableLocation, AddFileEntry addAction)
     {
-        // paths are relative to the table location and URL encoded
-        return tableLocation + '/' + URLDecoder.decode(addAction.getPath(), UTF_8);
+        // paths are relative to the table location and are RFC 2396 URIs
+        // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file
+        URI uri = URI.create(addAction.getPath());
+        String path = uri.getPath();
+
+        // org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem encodes the path as URL when opening files
+        // https://issues.apache.org/jira/browse/HADOOP-18580
+        if (tableLocation.startsWith("abfs://") || tableLocation.startsWith("abfss://")) {
+            // Replace '+' with '%2B' beforehand. Otherwise, the character becomes a space ' ' by URL decode.
+            path = URLDecoder.decode(path.replace("+", "%2B"), UTF_8);
+        }
+        if (tableLocation.endsWith("/")) {
+            return tableLocation + path;
+        }
+        return tableLocation + "/" + path;
     }
 
     private DeltaLakeMetastore getMetastore(ConnectorSession session, ConnectorTransactionHandle transactionHandle)

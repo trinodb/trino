@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.util;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.VerifyException;
@@ -53,16 +54,11 @@ import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.common.JavaUtils;
-import org.apache.hadoop.hive.ql.exec.Utilities;
-import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
-import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
-import org.apache.hadoop.hive.serde2.avro.AvroSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
@@ -100,11 +96,10 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.function.Function;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Lists.newArrayList;
@@ -141,6 +136,12 @@ import static io.trino.plugin.hive.HiveType.toHiveTypes;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
+import static io.trino.plugin.hive.util.HiveClassNames.AVRO_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
+import static io.trino.plugin.hive.util.SerdeConstants.COLLECTION_DELIM;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
+import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -148,7 +149,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.trimTrailingSpaces;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -166,15 +166,12 @@ import static java.lang.Long.parseLong;
 import static java.lang.Math.floorDiv;
 import static java.lang.Short.parseShort;
 import static java.lang.String.format;
-import static java.math.BigDecimal.ROUND_UNNECESSARY;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
-import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
-import static org.apache.hadoop.hive.serde.serdeConstants.COLLECTION_DELIM;
-import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_IDS_CONF_STR;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
@@ -188,18 +185,23 @@ public final class HiveUtil
     public static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
     public static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
 
+    // Input formats class names are listed below as String due to hudi-hadoop-mr dependency is not in the context of trino-hive plugin
+    private static final String HUDI_PARQUET_INPUT_FORMAT = "org.apache.hudi.hadoop.HoodieParquetInputFormat";
+    private static final String HUDI_PARQUET_REALTIME_INPUT_FORMAT = "org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat";
+    private static final String HUDI_INPUT_FORMAT = "com.uber.hoodie.hadoop.HoodieInputFormat";
+    private static final String HUDI_REALTIME_INPUT_FORMAT = "com.uber.hoodie.hadoop.realtime.HoodieRealtimeInputFormat";
+
     private static final LocalDateTime EPOCH_DAY = new LocalDateTime(1970, 1, 1, 0, 0);
     private static final DateTimeFormatter HIVE_DATE_PARSER;
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
     private static final Field COMPRESSION_CODECS_FIELD;
 
-    private static final Pattern SUPPORTED_DECIMAL_TYPE = Pattern.compile(DECIMAL_TYPE_NAME + "\\((\\d+),(\\d+)\\)");
-    private static final int DECIMAL_PRECISION_GROUP = 1;
-    private static final int DECIMAL_SCALE_GROUP = 2;
-
     private static final String BIG_DECIMAL_POSTFIX = "BD";
 
     private static final Splitter COLUMN_NAMES_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+
+    private static final CharMatcher PATH_CHAR_TO_ESCAPE = CharMatcher.inRange((char) 0, (char) 31)
+            .or(CharMatcher.anyOf("\"#%'*/:=?\\\u007F{[]^"));
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
@@ -257,13 +259,14 @@ public final class HiveUtil
         configureCompressionCodecs(jobConf);
 
         try {
-            @SuppressWarnings({"rawtypes", "unchecked"}) // raw type on WritableComparable can't be fixed because Utilities#skipHeader takes them raw
-            RecordReader<WritableComparable, Writable> recordReader = (RecordReader<WritableComparable, Writable>) inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
+            @SuppressWarnings("unchecked")
+            RecordReader<? extends WritableComparable<?>, ? extends Writable> recordReader = (RecordReader<? extends WritableComparable<?>, ? extends Writable>)
+                    inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
 
             int headerCount = getHeaderCount(schema);
             //  Only skip header rows when the split is at the beginning of the file
             if (start == 0 && headerCount > 0) {
-                Utilities.skipHeader(recordReader, headerCount, recordReader.createKey(), recordReader.createValue());
+                skipHeader(recordReader, headerCount);
             }
 
             int footerCount = getFooterCount(schema);
@@ -285,6 +288,20 @@ public final class HiveUtil
                     getInputFormatName(schema),
                     firstNonNull(e.getMessage(), e.getClass().getName())),
                     e);
+        }
+    }
+
+    private static <K, V> void skipHeader(RecordReader<K, V> reader, int headerCount)
+            throws IOException
+    {
+        K key = reader.createKey();
+        V value = reader.createValue();
+
+        while (headerCount > 0) {
+            if (!reader.next(key, value)) {
+                return;
+            }
+            headerCount--;
         }
     }
 
@@ -434,11 +451,6 @@ public final class HiveUtil
         }
     }
 
-    public static boolean isDeserializerClass(Properties schema, Class<?> deserializerClass)
-    {
-        return getDeserializerClassName(schema).equals(deserializerClass.getName());
-    }
-
     public static String getDeserializerClassName(Properties schema)
     {
         String name = schema.getProperty(SERIALIZATION_LIB);
@@ -452,7 +464,7 @@ public final class HiveUtil
 
         // for collection delimiter, Hive 1.x, 2.x uses "colelction.delim" but Hive 3.x uses "collection.delim"
         // see also https://issues.apache.org/jira/browse/HIVE-16922
-        if (name.equals("org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe")) {
+        if (name.equals(LAZY_SIMPLE_SERDE_CLASS)) {
             if (schema.containsKey("colelction.delim") && !schema.containsKey(COLLECTION_DELIM)) {
                 schema.setProperty(COLLECTION_DELIM, schema.getProperty("colelction.delim"));
             }
@@ -465,17 +477,12 @@ public final class HiveUtil
 
     private static Class<? extends Deserializer> getDeserializerClass(String name)
     {
-        // legacy name for Parquet
-        if ("parquet.hive.serde.ParquetHiveSerDe".equals(name)) {
-            return ParquetHiveSerDe.class;
-        }
-
-        if (AvroSerDe.class.getName().equals(name)) {
+        if (AVRO_SERDE_CLASS.equals(name)) {
             return TrinoAvroSerDe.class;
         }
 
         try {
-            return Class.forName(name, true, JavaUtils.getClassLoader()).asSubclass(Deserializer.class);
+            return Class.forName(name).asSubclass(Deserializer.class);
         }
         catch (ClassNotFoundException e) {
             throw new TrinoException(HIVE_SERDE_NOT_FOUND, "deserializer does not exist: " + name);
@@ -673,22 +680,6 @@ public final class HiveUtil
         throw new VerifyException(format("Unhandled type [%s] for partition: %s", type, partitionName));
     }
 
-    public static Optional<DecimalType> getDecimalType(HiveType hiveType)
-    {
-        return getDecimalType(hiveType.getHiveTypeName().toString());
-    }
-
-    public static Optional<DecimalType> getDecimalType(String hiveTypeName)
-    {
-        Matcher matcher = SUPPORTED_DECIMAL_TYPE.matcher(hiveTypeName);
-        if (matcher.matches()) {
-            int precision = parseInt(matcher.group(DECIMAL_PRECISION_GROUP));
-            int scale = parseInt(matcher.group(DECIMAL_SCALE_GROUP));
-            return Optional.of(createDecimalType(precision, scale));
-        }
-        return Optional.empty();
-    }
-
     public static boolean isArrayType(Type type)
     {
         return type instanceof ArrayType;
@@ -823,7 +814,7 @@ public final class HiveUtil
             }
 
             BigDecimal decimal = new BigDecimal(value);
-            decimal = decimal.setScale(type.getScale(), ROUND_UNNECESSARY);
+            decimal = decimal.setScale(type.getScale(), UNNECESSARY);
             if (decimal.precision() > type.getPrecision()) {
                 throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, type, name));
             }
@@ -1071,12 +1062,12 @@ public final class HiveUtil
 
     public static List<String> getColumnNames(Properties schema)
     {
-        return COLUMN_NAMES_SPLITTER.splitToList(schema.getProperty(IOConstants.COLUMNS, ""));
+        return COLUMN_NAMES_SPLITTER.splitToList(schema.getProperty(LIST_COLUMNS, ""));
     }
 
     public static List<HiveType> getColumnTypes(Properties schema)
     {
-        return toHiveTypes(schema.getProperty(IOConstants.COLUMNS_TYPES, ""));
+        return toHiveTypes(schema.getProperty(LIST_COLUMN_TYPES, ""));
     }
 
     public static OrcWriterOptions getOrcWriterOptions(Properties schema, OrcWriterOptions orcWriterOptions)
@@ -1153,6 +1144,17 @@ public final class HiveUtil
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(tableParameters.get(ICEBERG_TABLE_TYPE_NAME));
     }
 
+    public static boolean isHudiTable(Table table)
+    {
+        requireNonNull(table, "table is null");
+        String inputFormat = table.getStorage().getStorageFormat().getInputFormat();
+
+        return HUDI_PARQUET_INPUT_FORMAT.equals(inputFormat) ||
+                HUDI_PARQUET_REALTIME_INPUT_FORMAT.equals(inputFormat) ||
+                HUDI_INPUT_FORMAT.equals(inputFormat) ||
+                HUDI_REALTIME_INPUT_FORMAT.equals(inputFormat);
+    }
+
     public static boolean isSparkBucketedTable(Table table)
     {
         return table.getParameters().containsKey(SPARK_TABLE_PROVIDER_KEY)
@@ -1190,5 +1192,66 @@ public final class HiveUtil
                 .setExtraInfo(Optional.ofNullable(columnExtraInfo(handle.isPartitionKey())))
                 .setHidden(handle.isHidden())
                 .build();
+    }
+
+    // copy of org.apache.hadoop.hive.common.FileUtils#unescapePathName
+    @SuppressWarnings({"NumericCastThatLosesPrecision", "AssignmentToForLoopParameter"})
+    public static String unescapePathName(String path)
+    {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < path.length(); i++) {
+            char c = path.charAt(i);
+            if ((c == '%') && ((i + 2) < path.length())) {
+                int code;
+                try {
+                    code = parseInt(path.substring(i + 1, i + 3), 16);
+                }
+                catch (NumberFormatException e) {
+                    code = -1;
+                }
+                if (code >= 0) {
+                    sb.append((char) code);
+                    i += 2;
+                    continue;
+                }
+            }
+            sb.append(c);
+        }
+        return sb.toString();
+    }
+
+    // copy of org.apache.hadoop.hive.common.FileUtils#escapePathName
+    public static String escapePathName(String path)
+    {
+        if (isNullOrEmpty(path)) {
+            return HIVE_DEFAULT_DYNAMIC_PARTITION;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < path.length(); i++) {
+            char c = path.charAt(i);
+            if (PATH_CHAR_TO_ESCAPE.matches(c)) {
+                sb.append("%%%02X".formatted((int) c));
+            }
+            else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
+
+    // copy of org.apache.hadoop.hive.common.FileUtils#makePartName
+    public static String makePartName(List<String> columns, List<String> values)
+    {
+        StringBuilder name = new StringBuilder();
+        for (int i = 0; i < columns.size(); i++) {
+            if (i > 0) {
+                name.append("/");
+            }
+            name.append(escapePathName(columns.get(i).toLowerCase(ENGLISH)));
+            name.append('=');
+            name.append(escapePathName(values.get(i)));
+        }
+        return name.toString();
     }
 }

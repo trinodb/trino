@@ -27,6 +27,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.index.strtree.STRtree;
 import org.openjdk.jol.info.ClassLayout;
@@ -54,7 +55,7 @@ public class PagesRTreeIndex
     private final LongArrayList addresses;
     private final List<Type> types;
     private final List<Integer> outputChannels;
-    private final List<List<Block>> channels;
+    private final List<ObjectArrayList<Block>> channels;
     private final STRtree rtree;
     private final int radiusChannel;
     private final SpatialPredicate spatialRelationshipTest;
@@ -102,7 +103,7 @@ public class PagesRTreeIndex
             LongArrayList addresses,
             List<Type> types,
             List<Integer> outputChannels,
-            List<List<Block>> channels,
+            List<ObjectArrayList<Block>> channels,
             STRtree rtree,
             Optional<Integer> radiusChannel,
             SpatialPredicate spatialRelationshipTest,

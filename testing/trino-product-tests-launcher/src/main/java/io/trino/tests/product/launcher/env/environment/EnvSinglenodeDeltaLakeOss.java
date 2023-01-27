@@ -24,6 +24,7 @@ import io.trino.tests.product.launcher.env.common.Minio;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
+import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
@@ -60,7 +61,7 @@ public class EnvSinglenodeDeltaLakeOss
 
     private static final String SPARK_CONTAINER_NAME = "spark";
 
-    private static final String DEFAULT_S3_BUCKET_NAME = "presto-ci-test";
+    private static final String DEFAULT_S3_BUCKET_NAME = "trino-ci-test";
 
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
@@ -114,7 +115,7 @@ public class EnvSinglenodeDeltaLakeOss
         FileAttribute<Set<PosixFilePermission>> posixFilePermissions = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
         Path minioBucketDirectory;
         try {
-            minioBucketDirectory = Files.createTempDirectory("presto-ci-test", posixFilePermissions);
+            minioBucketDirectory = Files.createTempDirectory("trino-ci-test", posixFilePermissions);
             minioBucketDirectory.toFile().deleteOnExit();
         }
         catch (IOException e) {
@@ -131,6 +132,7 @@ public class EnvSinglenodeDeltaLakeOss
     {
         DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark3-delta:" + hadoopImagesVersion, SPARK_CONTAINER_NAME)
                 .withCopyFileToContainer(forHostPath(configDir.getPath("spark-defaults.conf")), "/spark/conf/spark-defaults.conf")
+                .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(forSelectedPorts(SPARK_THRIFT_PORT));
 
         portBinder.exposePort(container, SPARK_THRIFT_PORT);

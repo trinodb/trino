@@ -24,12 +24,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.type.StandardTypes.ARRAY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Locale.ENGLISH;
-import static java.util.stream.Collectors.toList;
 
 public class RaptorTableProperties
 {
@@ -132,9 +132,9 @@ public class RaptorTableProperties
                 List.class,
                 ImmutableList.of(),
                 false,
-                value -> ImmutableList.copyOf(stringList(value).stream()
+                value -> stringList(value).stream()
                         .map(s -> s.toLowerCase(ENGLISH))
-                        .collect(toList())),
+                        .collect(toImmutableList()),
                 value -> value);
     }
 

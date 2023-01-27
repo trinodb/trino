@@ -20,7 +20,7 @@ import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,7 +38,7 @@ public class TestCreateDropSchema
     @Test
     public void testCreateDropSchema()
     {
-        String schemaName = "test_drop_schema_" + randomTableSuffix();
+        String schemaName = "test_drop_schema_" + randomNameSuffix();
         String schemaDir = format("%s/%s.db", warehouseDirectory, schemaName);
 
         onTrino().executeQuery("CREATE SCHEMA " + schemaName);
@@ -56,7 +56,7 @@ public class TestCreateDropSchema
     @Test
     public void testDropSchemaFiles()
     {
-        String schemaName = "schema_without_location_" + randomTableSuffix();
+        String schemaName = "schema_without_location_" + randomNameSuffix();
         String schemaDir = format("%s/%s.db/", warehouseDirectory, schemaName);
 
         onTrino().executeQuery(format("CREATE SCHEMA %s", schemaName));
@@ -68,7 +68,7 @@ public class TestCreateDropSchema
     @Test
     public void testDropSchemaFilesWithLocation()
     {
-        String schemaName = "schema_with_empty_location_" + randomTableSuffix();
+        String schemaName = "schema_with_empty_location_" + randomNameSuffix();
         String schemaDir = warehouseDirectory + "/schema-with-empty-location/";
 
         onTrino().executeQuery(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
@@ -80,7 +80,7 @@ public class TestCreateDropSchema
     @Test // specified location, external file in subdir
     public void testDropWithExternalFilesInSubdirectory()
     {
-        String schemaName = "schema_with_nonempty_location_" + randomTableSuffix();
+        String schemaName = "schema_with_nonempty_location_" + randomNameSuffix();
         String schemaDir = warehouseDirectory + "/schema-with-nonempty-location/";
         // Use subdirectory to make sure file check is recursive
         String subDir = schemaDir + "subdir/";
@@ -101,7 +101,7 @@ public class TestCreateDropSchema
     @Test // default location, empty external subdir
     public void testDropSchemaFilesWithEmptyExternalSubdir()
     {
-        String schemaName = "schema_with_empty_subdirectory_" + randomTableSuffix();
+        String schemaName = "schema_with_empty_subdirectory_" + randomNameSuffix();
         String schemaDir = format("%s/%s.db/", warehouseDirectory, schemaName);
         String externalSubdir = schemaDir + "external-subdir/";
 
@@ -118,7 +118,7 @@ public class TestCreateDropSchema
     @Test // default location, transactions without external files
     public void testDropSchemaFilesTransactions()
     {
-        String schemaName = "schema_directory_transactions_" + randomTableSuffix();
+        String schemaName = "schema_directory_transactions_" + randomNameSuffix();
         String schemaDir = format("%s/%s.db/", warehouseDirectory, schemaName);
 
         onTrino().executeQuery(format("CREATE SCHEMA %s", schemaName));
@@ -142,7 +142,7 @@ public class TestCreateDropSchema
     @Test // specified location, transaction with top-level external file
     public void testDropTransactionsWithExternalFiles()
     {
-        String schemaName = "schema_transactions_with_external_files_" + randomTableSuffix();
+        String schemaName = "schema_transactions_with_external_files_" + randomNameSuffix();
         String schemaDir = warehouseDirectory + "/schema-transactions-with-external-files/";
 
         // Create file in schema directory before creating schema

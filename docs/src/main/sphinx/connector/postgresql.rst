@@ -27,9 +27,9 @@ The connector can query a database on a PostgreSQL server. Create a catalog
 properties file that specifies the PostgreSQL connector by setting the
 ``connector.name`` to ``postgresql``.
 
-For example, to access a database as the ``postgresql`` catalog, create the
-file ``etc/catalog/postgresql.properties``. Replace the connection properties
-as appropriate for your setup:
+For example, to access a database as the ``example`` catalog, create the file
+``etc/catalog/example.properties``. Replace the connection properties as
+appropriate for your setup:
 
 .. code-block:: text
 
@@ -70,6 +70,8 @@ property:
 
 For more information on TLS configuration options, see the `PostgreSQL JDBC
 driver documentation <https://jdbc.postgresql.org/documentation/use/#connecting-to-the-database>`__.
+
+.. include:: jdbc-authentication.fragment
 
 Multiple PostgreSQL databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -259,19 +261,7 @@ No other types are supported.
 
 .. _postgresql-decimal-type-handling:
 
-Decimal type handling
-^^^^^^^^^^^^^^^^^^^^^
-
-``DECIMAL`` types with precision larger than 38 can be mapped to a Trino ``DECIMAL``
-by setting the ``decimal-mapping`` configuration property or the ``decimal_mapping`` session property to
-``allow_overflow``. The scale of the resulting type is controlled via the ``decimal-default-scale``
-configuration property or the ``decimal-rounding-mode`` session property. The precision is always 38.
-
-By default, values that require rounding or truncation to fit will cause a failure at runtime. This behavior
-is controlled via the ``decimal-rounding-mode`` configuration property or the ``decimal_rounding_mode`` session
-property, which can be set to ``UNNECESSARY`` (the default),
-``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
-(see `RoundingMode <https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
+.. include:: decimal-type-handling.fragment
 
 .. _postgresql-array-type-handling:
 
@@ -296,25 +286,25 @@ Querying PostgreSQL
 The PostgreSQL connector provides a schema for every PostgreSQL schema.
 You can see the available PostgreSQL schemas by running ``SHOW SCHEMAS``::
 
-    SHOW SCHEMAS FROM postgresql;
+    SHOW SCHEMAS FROM example;
 
 If you have a PostgreSQL schema named ``web``, you can view the tables
 in this schema by running ``SHOW TABLES``::
 
-    SHOW TABLES FROM postgresql.web;
+    SHOW TABLES FROM example.web;
 
 You can see a list of the columns in the ``clicks`` table in the ``web`` database
 using either of the following::
 
-    DESCRIBE postgresql.web.clicks;
-    SHOW COLUMNS FROM postgresql.web.clicks;
+    DESCRIBE example.web.clicks;
+    SHOW COLUMNS FROM example.web.clicks;
 
 Finally, you can access the ``clicks`` table in the ``web`` schema::
 
-    SELECT * FROM postgresql.web.clicks;
+    SELECT * FROM example.web.clicks;
 
 If you used a different name for your catalog properties file, use
-that catalog name instead of ``postgresql`` in the above examples.
+that catalog name instead of ``example`` in the above examples.
 
 .. _postgresql-sql-support:
 
@@ -354,13 +344,15 @@ processed in PostgreSQL. This can be useful for accessing native features which
 are not available in Trino or for improving query performance in situations
 where running a query natively may be faster.
 
+.. include:: polymorphic-table-function-ordering.fragment
+
 As a simple example, to select an entire table::
 
     SELECT
       *
     FROM
       TABLE(
-        postgresql.system.query(
+        example.system.query(
           query => 'SELECT
             *
           FROM
@@ -376,7 +368,7 @@ when using window functions::
       *
     FROM
       TABLE(
-        postgresql.system.query(
+        example.system.query(
           query => 'SELECT
             *,
             array_agg(week) OVER (
@@ -458,10 +450,15 @@ The connector supports pushdown for a number of operations:
 * :func:`regr_intercept`
 * :func:`regr_slope`
 
+.. include:: pushdown-correctness-behavior.fragment
+
 .. include:: join-pushdown-enabled-true.fragment
 
 Predicate pushdown support
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Predicates are pushed down for most types, including ``UUID`` and temporal
+types, such as ``DATE``.
 
 The connector does not support pushdown of range predicates, such as ``>``,
 ``<``, or ``BETWEEN``, on columns with :ref:`character string types

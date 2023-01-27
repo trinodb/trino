@@ -34,9 +34,7 @@ public class TestJdbcStatisticsConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("statistics.enabled", "false")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("statistics.enabled", "false");
 
         JdbcStatisticsConfig expected = new JdbcStatisticsConfig()
                 .setEnabled(false);

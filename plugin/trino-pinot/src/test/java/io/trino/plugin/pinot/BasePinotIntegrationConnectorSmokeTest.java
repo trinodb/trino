@@ -703,9 +703,7 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
     protected Map<String, String> additionalPinotProperties()
     {
         if (isGrpcEnabled()) {
-            return ImmutableMap.<String, String>builder()
-                    .put("pinot.grpc.enabled", "true")
-                    .buildOrThrow();
+            return ImmutableMap.of("pinot.grpc.enabled", "true");
         }
         return ImmutableMap.of();
     }
@@ -1000,7 +998,16 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
     @Override
     public void testShowCreateTable()
     {
-        assertQueryFails("SHOW CREATE TABLE region", "No PropertyMetadata for property: pinotColumnName");
+        assertThat((String) computeScalar("SHOW CREATE TABLE region"))
+                .isEqualTo(
+                        "CREATE TABLE %s.%s.region (\n" +
+                                "   regionkey bigint,\n" +
+                                "   updated_at_seconds bigint,\n" +
+                                "   name varchar,\n" +
+                                "   comment varchar\n" +
+                                ")",
+                        getSession().getCatalog().orElseThrow(),
+                        getSession().getSchema().orElseThrow());
     }
 
     @Override

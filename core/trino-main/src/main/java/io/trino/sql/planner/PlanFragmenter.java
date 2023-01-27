@@ -34,7 +34,6 @@ import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
-import io.trino.sql.planner.plan.MergeProcessorNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
@@ -46,6 +45,7 @@ import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
+import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -72,6 +72,8 @@ import static io.trino.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static io.trino.spi.connector.StandardWarningCode.TOO_MANY_STAGES;
 import static io.trino.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
@@ -323,31 +325,32 @@ public class PlanFragmenter
         @Override
         public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<FragmentProperties> context)
         {
-            if (node.getPartitioningScheme().isPresent()) {
-                context.get().setDistribution(node.getPartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
-            }
+            node.getPartitioningScheme().ifPresent(scheme -> context.get().setDistribution(scheme.getPartitioning().getHandle(), metadata, session));
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitTableExecute(TableExecuteNode node, RewriteContext<FragmentProperties> context)
+        {
+            node.getPartitioningScheme().ifPresent(scheme -> context.get().setDistribution(scheme.getPartitioning().getHandle(), metadata, session));
             return context.defaultRewrite(node, context.get());
         }
 
         @Override
         public PlanNode visitMergeWriter(MergeWriterNode node, RewriteContext<FragmentProperties> context)
         {
-            if (node.getPartitioningScheme().isPresent()) {
-                context.get().setDistribution(node.getPartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
-            }
-            return context.defaultRewrite(node, context.get());
-        }
-
-        @Override
-        public PlanNode visitMergeProcessor(MergeProcessorNode node, RewriteContext<FragmentProperties> context)
-        {
+            node.getPartitioningScheme().ifPresent(scheme -> context.get().setDistribution(scheme.getPartitioning().getHandle(), metadata, session));
             return context.defaultRewrite(node, context.get());
         }
 
         @Override
         public PlanNode visitValues(ValuesNode node, RewriteContext<FragmentProperties> context)
         {
-            context.get().setSingleNodeDistribution();
+            // An empty values node is compatible with any distribution, so
+            // don't attempt to overwrite one's already been chosen
+            if (node.getRowCount() != 0 || !context.get().hasDistribution()) {
+                context.get().setSingleNodeDistribution();
+            }
             return context.defaultRewrite(node, context.get());
         }
 
@@ -435,6 +438,11 @@ public class PlanFragmenter
             return children;
         }
 
+        public boolean hasDistribution()
+        {
+            return partitioningHandle.isPresent();
+        }
+
         public FragmentProperties setSingleNodeDistribution()
         {
             if (partitioningHandle.isPresent() && partitioningHandle.get().isSingleNode()) {
@@ -461,12 +469,7 @@ public class PlanFragmenter
 
             PartitioningHandle currentPartitioning = this.partitioningHandle.get();
 
-            if (isCompatibleSystemPartitioning(distribution)) {
-                return this;
-            }
-
-            if (currentPartitioning.equals(SOURCE_DISTRIBUTION)) {
-                this.partitioningHandle = Optional.of(distribution);
+            if (currentPartitioning.equals(distribution)) {
                 return this;
             }
 
@@ -475,7 +478,17 @@ public class PlanFragmenter
                 return this;
             }
 
-            if (currentPartitioning.equals(distribution)) {
+            if (isCompatibleSystemPartitioning(distribution)) {
+                return this;
+            }
+
+            if (isCompatibleScaledWriterPartitioning(currentPartitioning, distribution)) {
+                this.partitioningHandle = Optional.of(distribution);
+                return this;
+            }
+
+            if (currentPartitioning.equals(SOURCE_DISTRIBUTION)) {
+                this.partitioningHandle = Optional.of(distribution);
                 return this;
             }
 
@@ -501,6 +514,19 @@ public class PlanFragmenter
                         ((SystemPartitioningHandle) distributionHandle).getPartitioning();
             }
             return false;
+        }
+
+        private static boolean isCompatibleScaledWriterPartitioning(PartitioningHandle current, PartitioningHandle suggested)
+        {
+            if (current.equals(FIXED_HASH_DISTRIBUTION) && suggested.equals(SCALED_WRITER_HASH_DISTRIBUTION)) {
+                return true;
+            }
+            PartitioningHandle currentWithScaledWritersEnabled = new PartitioningHandle(
+                    current.getCatalogHandle(),
+                    current.getTransactionHandle(),
+                    current.getConnectorHandle(),
+                    true);
+            return currentWithScaledWritersEnabled.equals(suggested);
         }
 
         public FragmentProperties setCoordinatorOnlyDistribution()

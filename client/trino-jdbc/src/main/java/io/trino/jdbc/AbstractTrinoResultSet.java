@@ -80,7 +80,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.jdbc.ColumnInfo.setTypeInfo;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
-import static java.math.BigDecimal.ROUND_HALF_UP;
+import static java.math.RoundingMode.HALF_UP;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Locale.ENGLISH;
@@ -311,7 +311,7 @@ abstract class AbstractTrinoResultSet
     {
         BigDecimal bigDecimal = getBigDecimal(columnIndex);
         if (bigDecimal != null) {
-            bigDecimal = bigDecimal.setScale(scale, ROUND_HALF_UP);
+            bigDecimal = bigDecimal.setScale(scale, HALF_UP);
         }
         return bigDecimal;
     }

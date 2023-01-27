@@ -16,8 +16,10 @@ package io.trino.plugin.jdbc;
 import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.JoinType;
@@ -42,6 +44,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public class DefaultQueryBuilder
@@ -52,6 +55,14 @@ public class DefaultQueryBuilder
     // not all databases support booleans, so use 1=1 and 1=0 instead
     private static final String ALWAYS_TRUE = "1=1";
     private static final String ALWAYS_FALSE = "1=0";
+
+    private final RemoteQueryModifier queryModifier;
+
+    @Inject
+    public DefaultQueryBuilder(RemoteQueryModifier queryModifier)
+    {
+        this.queryModifier = requireNonNull(queryModifier, "queryModifier is null");
+    }
 
     @Override
     public PreparedQuery prepareSelectQuery(
@@ -163,8 +174,9 @@ public class DefaultQueryBuilder
             PreparedQuery preparedQuery)
             throws SQLException
     {
-        log.debug("Preparing query: %s", preparedQuery.getQuery());
-        PreparedStatement statement = client.getPreparedStatement(connection, preparedQuery.getQuery());
+        String modifiedQuery = queryModifier.apply(session, preparedQuery.getQuery());
+        log.debug("Preparing query: %s", modifiedQuery);
+        PreparedStatement statement = client.getPreparedStatement(connection, modifiedQuery);
 
         List<QueryParameter> parameters = preparedQuery.getParameters();
         for (int i = 0; i < parameters.size(); i++) {

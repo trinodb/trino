@@ -278,7 +278,9 @@ public class TestMapOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1e-323,1e308,nan()], ARRAY[-323,308,null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1.0E-323\":-323,\"1.0E308\":308,\"NaN\":null}");
+                .isEqualTo(Runtime.version().feature() >= 19
+                        ? "{\"1.0E308\":308,\"9.9E-324\":-323,\"NaN\":null}"
+                        : "{\"1.0E-323\":-323,\"1.0E308\":308,\"NaN\":null}");
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[DECIMAL '3.14', DECIMAL '0.01'], ARRAY[0.14, null])"))
@@ -329,7 +331,9 @@ public class TestMapOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1, 2, 3, 5, 8, 13, 21], ARRAY[3.14E0, 1e-323, 1e308, nan(), infinity(), -infinity(), null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":3.14,\"13\":\"-Infinity\",\"2\":1.0E-323,\"21\":null,\"3\":1.0E308,\"5\":\"NaN\",\"8\":\"Infinity\"}");
+                .isEqualTo(Runtime.version().feature() >= 19
+                        ? "{\"1\":3.14,\"13\":\"-Infinity\",\"2\":9.9E-324,\"21\":null,\"3\":1.0E308,\"5\":\"NaN\",\"8\":\"Infinity\"}"
+                        : "{\"1\":3.14,\"13\":\"-Infinity\",\"2\":1.0E-323,\"21\":null,\"3\":1.0E308,\"5\":\"NaN\",\"8\":\"Infinity\"}");
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1, 2], ARRAY[DECIMAL '3.14', null])"))

@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.io.Closer;
 import io.trino.plugin.hive.HiveWriterFactory.RowIdSortingFileWriterMaker;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
@@ -28,6 +29,8 @@ import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -41,7 +44,6 @@ public class MergeFileWriter
         extends AbstractHiveAcidWriters
         implements FileWriter
 {
-    private final String partitionName;
     private final List<HiveColumnHandle> inputColumns;
 
     private int deleteRowCount;
@@ -53,7 +55,6 @@ public class MergeFileWriter
             OptionalInt bucketNumber,
             RowIdSortingFileWriterMaker sortingFileWriterMaker,
             Path bucketPath,
-            Optional<String> partitionName,
             OrcFileWriterFactory orcFileWriterFactory,
             List<HiveColumnHandle> inputColumns,
             Configuration configuration,
@@ -73,7 +74,6 @@ public class MergeFileWriter
                 typeManager,
                 hiveRowType,
                 AcidOperation.MERGE);
-        this.partitionName = partitionName.orElse("");
         this.inputColumns = requireNonNull(inputColumns, "inputColumns is null");
     }
 
@@ -93,7 +93,6 @@ public class MergeFileWriter
         });
         mergePage.getInsertionsPage().ifPresent(insertPage -> {
             Page orcInsertPage = buildInsertPage(insertPage, transaction.getWriteId(), inputColumns, bucketValueBlock, insertRowCount);
-            insertRowCount += insertPage.getPositionCount();
             getOrCreateInsertFileWriter().appendRows(orcInsertPage);
             insertRowCount += insertPage.getPositionCount();
         });
@@ -107,7 +106,7 @@ public class MergeFileWriter
                 .filter(column -> !column.isPartitionKey() && !column.isHidden())
                 .map(column -> insertPage.getBlock(column.getBaseHiveColumnIndex()))
                 .collect(toImmutableList());
-        Block mergedColumnsBlock = RowBlock.fromFieldBlocks(positionCount, Optional.empty(), dataColumns.toArray(new Block[]{}));
+        Block mergedColumnsBlock = RowBlock.fromFieldBlocks(positionCount, Optional.empty(), dataColumns.toArray(new Block[] {}));
         Block currentTransactionBlock = RunLengthEncodedBlock.create(BIGINT, writeId, positionCount);
         Block[] blockArray = {
                 RunLengthEncodedBlock.create(INSERT_OPERATION_BLOCK, positionCount),
@@ -119,11 +118,6 @@ public class MergeFileWriter
         };
 
         return new Page(blockArray);
-    }
-
-    public String getPartitionName()
-    {
-        return partitionName;
     }
 
     @Override
@@ -141,21 +135,28 @@ public class MergeFileWriter
     }
 
     @Override
-    public void commit()
+    public Closeable commit()
     {
-        deleteFileWriter.ifPresent(FileWriter::commit);
-        insertFileWriter.ifPresent(FileWriter::commit);
+        Optional<Closeable> deleteRollbackAction = deleteFileWriter.map(FileWriter::commit);
+        Optional<Closeable> insertRollbackAction = insertFileWriter.map(FileWriter::commit);
+        return () -> {
+            try (Closer closer = Closer.create()) {
+                insertRollbackAction.ifPresent(closer::register);
+                deleteRollbackAction.ifPresent(closer::register);
+            }
+        };
     }
 
     @Override
     public void rollback()
     {
         // Make sure both writers get rolled back
-        try {
-            deleteFileWriter.ifPresent(FileWriter::rollback);
+        try (Closer closer = Closer.create()) {
+            closer.register(() -> insertFileWriter.ifPresent(FileWriter::rollback));
+            closer.register(() -> deleteFileWriter.ifPresent(FileWriter::rollback));
         }
-        finally {
-            insertFileWriter.ifPresent(FileWriter::rollback);
+        catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -169,7 +170,7 @@ public class MergeFileWriter
     public PartitionUpdateAndMergeResults getPartitionUpdateAndMergeResults(PartitionUpdate partitionUpdate)
     {
         return new PartitionUpdateAndMergeResults(
-                partitionUpdate,
+                partitionUpdate.withRowCount(insertRowCount - deleteRowCount),
                 insertRowCount,
                 insertFileWriter.isPresent() ? Optional.of(deltaDirectory.toString()) : Optional.empty(),
                 deleteRowCount,

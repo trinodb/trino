@@ -116,6 +116,7 @@ public class TestJdbcConnection
         closeAll(
                 server,
                 executor::shutdownNow);
+        server = null;
     }
 
     @Test
@@ -419,13 +420,13 @@ public class TestJdbcConnection
     public void testSessionProperties()
             throws SQLException
     {
-        try (Connection connection = createConnection("roles=hive:admin&sessionProperties=hive.temporary_staging_directory_path:/tmp;execution_policy:legacy-phased")) {
+        try (Connection connection = createConnection("roles=hive:admin&sessionProperties=hive.temporary_staging_directory_path:/tmp;execution_policy:all-at-once")) {
             TrinoConnection trinoConnection = connection.unwrap(TrinoConnection.class);
             assertThat(trinoConnection.getSessionProperties())
                     .extractingByKeys("hive.temporary_staging_directory_path", "execution_policy")
-                    .containsExactly("/tmp", "legacy-phased");
+                    .containsExactly("/tmp", "all-at-once");
             assertThat(listSession(connection)).containsAll(ImmutableSet.of(
-                    "execution_policy|legacy-phased|phased",
+                    "execution_policy|all-at-once|phased",
                     "hive.temporary_staging_directory_path|/tmp|/tmp/presto-${USER}"));
         }
     }

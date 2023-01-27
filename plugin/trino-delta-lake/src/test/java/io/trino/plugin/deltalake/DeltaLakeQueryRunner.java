@@ -14,10 +14,12 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -31,11 +33,11 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_ACCESS_KEY;
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_SECRET_KEY;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
+import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.util.Strings.isNullOrEmpty;
@@ -74,12 +76,14 @@ public final class DeltaLakeQueryRunner
             super(defaultSession);
         }
 
+        @CanIgnoreReturnValue
         public Builder setCatalogName(String catalogName)
         {
             this.catalogName = catalogName;
             return self();
         }
 
+        @CanIgnoreReturnValue
         public Builder setDeltaProperties(Map<String, String> deltaProperties)
         {
             this.deltaProperties = ImmutableMap.<String, String>builder()
@@ -95,6 +99,9 @@ public final class DeltaLakeQueryRunner
             try {
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch");
+
+                queryRunner.installPlugin(new TpcdsPlugin());
+                queryRunner.createCatalog("tpcds", "tpcds");
 
                 queryRunner.installPlugin(new TestingDeltaLakePlugin());
                 Map<String, String> deltaProperties = new HashMap<>(this.deltaProperties.buildOrThrow());
@@ -289,7 +296,7 @@ public final class DeltaLakeQueryRunner
                     ImmutableMap.of("http-server.http.port", "8080"),
                     ImmutableMap.of(),
                     ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
-                    hiveMinioDataLake.getMinioAddress(),
+                    hiveMinioDataLake.getMinio().getMinioAddress(),
                     hiveMinioDataLake.getHiveHadoop(),
                     runner -> {});
 

@@ -13,10 +13,9 @@
  */
 package io.trino.execution.buffer;
 
-import io.airlift.compress.lz4.Lz4Compressor;
-import io.airlift.compress.lz4.Lz4Decompressor;
 import io.trino.spi.block.BlockEncodingSerde;
-import io.trino.spiller.SpillCipher;
+
+import javax.crypto.SecretKey;
 
 import java.util.Optional;
 
@@ -24,6 +23,8 @@ import static java.util.Objects.requireNonNull;
 
 public class PagesSerdeFactory
 {
+    private static final int SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES = 64 * 1024;
+
     private final BlockEncodingSerde blockEncodingSerde;
     private final boolean compressionEnabled;
 
@@ -33,22 +34,13 @@ public class PagesSerdeFactory
         this.compressionEnabled = compressionEnabled;
     }
 
-    public PagesSerde createPagesSerde()
+    public PageSerializer createSerializer(Optional<SecretKey> encryptionKey)
     {
-        return createPagesSerdeInternal(Optional.empty());
+        return new PageSerializer(blockEncodingSerde, compressionEnabled, encryptionKey, SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES);
     }
 
-    public PagesSerde createPagesSerdeForSpill(Optional<SpillCipher> spillCipher)
+    public PageDeserializer createDeserializer(Optional<SecretKey> encryptionKey)
     {
-        return createPagesSerdeInternal(spillCipher);
-    }
-
-    private PagesSerde createPagesSerdeInternal(Optional<SpillCipher> spillCipher)
-    {
-        if (compressionEnabled) {
-            return new PagesSerde(blockEncodingSerde, Optional.of(new Lz4Compressor()), Optional.of(new Lz4Decompressor()), spillCipher);
-        }
-
-        return new PagesSerde(blockEncodingSerde, Optional.empty(), Optional.empty(), spillCipher);
+        return new PageDeserializer(blockEncodingSerde, compressionEnabled, encryptionKey, SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES);
     }
 }

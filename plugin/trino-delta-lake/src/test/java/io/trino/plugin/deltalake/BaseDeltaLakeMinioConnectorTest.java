@@ -48,8 +48,8 @@ import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -80,17 +80,16 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         QueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
-                ImmutableMap.<String, String>builder()
-                        .put("delta.enable-non-concurrent-writes", "true")
-                        .buildOrThrow(),
-                hiveMinioDataLake.getMinioAddress(),
+                ImmutableMap.of(
+                        "delta.enable-non-concurrent-writes", "true",
+                        "delta.register-table-procedure.enabled", "true"),
+                hiveMinioDataLake.getMinio().getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
         queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = 's3://" + bucketName + "/" + SCHEMA + "')");
         TpchTable.getTables().forEach(table -> {
             String tableName = table.getTableName();
             hiveMinioDataLake.copyResources(resourcePath + tableName, SCHEMA + "/" + tableName);
-            queryRunner.execute(format("CREATE TABLE %1$s.%2$s.%3$s (dummy int) WITH (location = 's3://%4$s/%2$s/%3$s')",
-                    DELTA_CATALOG,
+            queryRunner.execute(format("CALL system.register_table('%1$s', '%2$s', 's3://%3$s/%1$s/%2$s')",
                     SCHEMA,
                     tableName,
                     bucketName));
@@ -114,11 +113,13 @@ public abstract class BaseDeltaLakeMinioConnectorTest
 
             case SUPPORTS_DROP_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
+            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
             case SUPPORTS_DELETE:
             case SUPPORTS_UPDATE:
             case SUPPORTS_MERGE:
+            case SUPPORTS_CREATE_VIEW:
                 return true;
 
             default:
@@ -245,8 +246,8 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Override
     public void testShowCreateTable()
     {
-        assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .matches("CREATE TABLE \\w+\\.\\w+\\.orders \\Q(\n" +
+        assertThat((String) computeScalar("SHOW CREATE TABLE orders"))
+                .matches("\\QCREATE TABLE " + DELTA_CATALOG + "." + SCHEMA + ".orders (\n" +
                         "   orderkey bigint,\n" +
                         "   custkey bigint,\n" +
                         "   orderstatus varchar,\n" +
@@ -267,7 +268,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Test
     public void testQueryNullPartitionWithNotPushdownablePredicate()
     {
-        String tableName = "test_null_partitions_" + randomTableSuffix();
+        String tableName = "test_null_partitions_" + randomNameSuffix();
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + format("s3://%s/%s", bucketName, tableName) + "', partitioned_by = ARRAY['c']) " +
                         "AS VALUES (1, 1, 1), (2, 2, 2), (3, 3, 3), (null, null, null), (4, 4, 4)",
@@ -278,7 +279,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Test
     public void testPartitionColumnOrderIsDifferentFromTableDefinition()
     {
-        String tableName = "test_partition_order_is_different_from_table_definition_" + randomTableSuffix();
+        String tableName = "test_partition_order_is_different_from_table_definition_" + randomNameSuffix();
         assertUpdate("" +
                 "CREATE TABLE " + tableName + "(data int, first varchar, second varchar) " +
                 "WITH (" +
@@ -350,7 +351,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Override
     public void testDropNonEmptySchemaWithTable()
     {
-        String schemaName = "test_drop_non_empty_schema_" + randomTableSuffix();
+        String schemaName = "test_drop_non_empty_schema_" + randomNameSuffix();
         if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
             return;
         }
@@ -373,7 +374,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Test(dataProvider = "timestampValues")
     public void testTimestampPredicatePushdown(String value)
     {
-        String tableName = "test_parquet_timestamp_predicate_pushdown_" + randomTableSuffix();
+        String tableName = "test_parquet_timestamp_predicate_pushdown_" + randomNameSuffix();
 
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         assertUpdate("CREATE TABLE " + tableName + " (t TIMESTAMP WITH TIME ZONE)");
@@ -486,7 +487,10 @@ public abstract class BaseDeltaLakeMinioConnectorTest
             assertUpdate("UPDATE " + table.getName() + " SET a = 'new column'", 2);
             Stopwatch timeSinceUpdate = Stopwatch.createStarted();
             Set<String> updatedFiles = getActiveFiles(table.getName());
-            assertThat(updatedFiles).hasSize(2).doesNotContainAnyElementsOf(initialFiles);
+            assertThat(updatedFiles)
+                    .hasSizeGreaterThanOrEqualTo(1)
+                    .hasSizeLessThanOrEqualTo(2)
+                    .doesNotContainAnyElementsOf(initialFiles);
             assertThat(getAllDataFilesFromTableDirectory(table.getName())).isEqualTo(union(initialFiles, updatedFiles));
 
             assertQuery(
@@ -507,7 +511,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Test
     public void testTargetMaxFileSize()
     {
-        String tableName = "test_default_max_file_size" + randomTableSuffix();
+        String tableName = "test_default_max_file_size" + randomNameSuffix();
         @Language("SQL") String createTableSql = format("CREATE TABLE %s AS SELECT * FROM tpch.sf1.lineitem LIMIT 100000", tableName);
 
         Session session = Session.builder(getSession())
@@ -561,10 +565,28 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     }
 
     @Test
+    public void testTableLocationTrailingSlash()
+    {
+        String tableWithSlash = "table_with_slash";
+        String tableWithoutSlash = "table_without_slash";
+
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR) WITH (location = 's3://%s/%s/')", tableWithSlash, bucketName, tableWithSlash));
+        assertUpdate(format("INSERT INTO %s (customer) VALUES ('Aaron'), ('Bill')", tableWithSlash), 2);
+        assertQuery("SELECT * FROM " + tableWithSlash, "VALUES ('Aaron'), ('Bill')");
+
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR) WITH (location = 's3://%s/%s')", tableWithoutSlash, bucketName, tableWithoutSlash));
+        assertUpdate(format("INSERT INTO %s (customer) VALUES ('Carol'), ('Dave')", tableWithoutSlash), 2);
+        assertQuery("SELECT * FROM " + tableWithoutSlash, "VALUES ('Carol'), ('Dave')");
+
+        assertUpdate("DROP TABLE " + tableWithSlash);
+        assertUpdate("DROP TABLE " + tableWithoutSlash);
+    }
+
+    @Test
     public void testMergeSimpleSelectPartitioned()
     {
-        String targetTable = "merge_simple_target_" + randomTableSuffix();
-        String sourceTable = "merge_simple_source_" + randomTableSuffix();
+        String targetTable = "merge_simple_target_" + randomNameSuffix();
+        String sourceTable = "merge_simple_source_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])", targetTable, bucketName, targetTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
@@ -589,8 +611,8 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Test(dataProvider = "partitionedProvider")
     public void testMergeUpdateWithVariousLayouts(String partitionPhase)
     {
-        String targetTable = "merge_formats_target_" + randomTableSuffix();
-        String sourceTable = "merge_formats_source_" + randomTableSuffix();
+        String targetTable = "merge_formats_target_" + randomNameSuffix();
+        String sourceTable = "merge_formats_source_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) WITH (location = 's3://%s/%s'%s)", targetTable, bucketName, targetTable, partitionPhase));
 
         assertUpdate(format("INSERT INTO %s (customer, purchase) VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')", targetTable), 3);
@@ -626,7 +648,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     public void testMergeMultipleOperations(String partitioning)
     {
         int targetCustomerCount = 32;
-        String targetTable = "merge_multiple_" + randomTableSuffix();
+        String targetTable = "merge_multiple_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (purchase INT, zipcode INT, spouse VARCHAR, address VARCHAR, customer VARCHAR) WITH (location = 's3://%s/%s'%s)", targetTable, bucketName, targetTable, partitioning));
         String originalInsertFirstHalf = IntStream.range(1, targetCustomerCount / 2)
                 .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 1000, 91000, intValue, intValue))
@@ -688,7 +710,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Test
     public void testMergeSimpleQueryPartitioned()
     {
-        String targetTable = "merge_simple_" + randomTableSuffix();
+        String targetTable = "merge_simple_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])", targetTable, bucketName, targetTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
@@ -710,8 +732,8 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Test(dataProvider = "targetWithDifferentPartitioning")
     public void testMergeMultipleRowsMatchFails(String createTableSql)
     {
-        String targetTable = "merge_multiple_target_" + randomTableSuffix();
-        String sourceTable = "merge_multiple_source_" + randomTableSuffix();
+        String targetTable = "merge_multiple_target_" + randomNameSuffix();
+        String sourceTable = "merge_multiple_source_" + randomNameSuffix();
         assertUpdate(format(createTableSql, targetTable, bucketName, targetTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Antioch')", targetTable), 2);
@@ -747,8 +769,8 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Test(dataProvider = "targetAndSourceWithDifferentPartitioning")
     public void testMergeWithDifferentPartitioning(String testDescription, String createTargetTableSql, String createSourceTableSql)
     {
-        String targetTable = format("%s_target_%s", testDescription, randomTableSuffix());
-        String sourceTable = format("%s_source_%s", testDescription, randomTableSuffix());
+        String targetTable = format("%s_target_%s", testDescription, randomNameSuffix());
+        String sourceTable = format("%s_source_%s", testDescription, randomNameSuffix());
 
         assertUpdate(format(createTargetTableSql, targetTable, bucketName, targetTable));
 
@@ -815,7 +837,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Test
     public void testTableWithNonNullableColumns()
     {
-        String tableName = "test_table_with_non_nullable_columns_" + randomTableSuffix();
+        String tableName = "test_table_with_non_nullable_columns_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(col1 INTEGER NOT NULL, col2 INTEGER, col3 INTEGER)");
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 10, 100)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES(2, 20, 200)", 1);

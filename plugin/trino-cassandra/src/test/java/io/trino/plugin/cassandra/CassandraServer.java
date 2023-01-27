@@ -25,6 +25,7 @@ import com.google.common.io.Resources;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.GenericContainer;
 
 import java.io.Closeable;
@@ -69,13 +70,13 @@ public class CassandraServer
     public CassandraServer()
             throws Exception
     {
-        this("cassandra:2.2");
+        this("cassandra:3.0", "cu-cassandra.yaml");
     }
 
-    public CassandraServer(String imageName)
+    public CassandraServer(String imageName, String configFileName)
             throws Exception
     {
-        this(imageName, ImmutableMap.of(), "/etc/cassandra/cassandra.yaml", "cu-cassandra.yaml");
+        this(imageName, ImmutableMap.of(), "/etc/cassandra/cassandra.yaml", configFileName);
     }
 
     public CassandraServer(String imageName, Map<String, String> environmentVariables, String configPath, String configFileName)
@@ -196,9 +197,13 @@ public class CassandraServer
     @Override
     public void close()
     {
-        if (session != null) {
-            session.close();
-        }
+        session.close();
         dockerContainer.close();
+    }
+
+    @ResourcePresence
+    public boolean isRunning()
+    {
+        return dockerContainer.getContainerId() != null;
     }
 }

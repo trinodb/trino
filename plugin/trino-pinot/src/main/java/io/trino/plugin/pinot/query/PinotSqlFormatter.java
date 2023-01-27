@@ -95,9 +95,7 @@ public class PinotSqlFormatter
             .add(new BinaryOperatorPredicateRule())
             .build();
 
-    private static final List<Rule<FunctionContext>> GLOBAL_FUNCTION_RULES = ImmutableList.<Rule<FunctionContext>>builder()
-            .add(new MinusFunctionRule())
-            .build();
+    private static final List<Rule<FunctionContext>> GLOBAL_FUNCTION_RULES = ImmutableList.of(new MinusFunctionRule());
 
     private static final Map<Predicate.Type, Rule<Predicate>> PREDICATE_RULE_MAP;
     private static final Map<TransformFunctionType, Rule<FunctionContext>> FUNCTION_RULE_MAP;

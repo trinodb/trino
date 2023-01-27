@@ -20,12 +20,14 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TestingTicker;
+import io.trino.collect.cache.EvictableCacheBuilder.DisabledCacheImplementation;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -38,11 +40,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.collect.cache.CacheStatsAssertions.assertCacheStats;
+import static io.trino.testing.DataProviders.toDataProvider;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -170,21 +174,16 @@ public class TestEvictableCache
         ticker.increment(ttl, MILLISECONDS);
         // Should be reloaded
         assertEquals(cache.get(key, () -> "new value"), "new value");
-        // TODO (https://github.com/trinodb/trino/issues/14545) tokensCount should be 1; 0 means we lost the token for a live entry
-        assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(0);
+        assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(1);
 
         // Should be served from the cache
-        // TODO (https://github.com/trinodb/trino/issues/14545) this should return "new value" inserted into the cache above; it's not doing that due to the token being lost
-        assertEquals(cache.get(key, () -> "something yet different"), "something yet different");
-        // TODO (https://github.com/trinodb/trino/issues/14545) loads count should be 2; it got incremented because we lost the token for a live entry
+        assertEquals(cache.get(key, () -> "something yet different"), "new value");
         assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(1);
 
-        // TODO (https://github.com/trinodb/trino/issues/14545) cache size should be 1; it is misreported, because there are two live entries for the same key, due to first token being lost
-        assertThat(cache.size()).as("cacheSize").isEqualTo(2);
+        assertThat(cache.size()).as("cacheSize").isEqualTo(1);
         assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(1);
         assertThat(cache.asMap().keySet()).as("keySet").hasSize(1);
-        // TODO (https://github.com/trinodb/trino/issues/14545) values size should be 1; it is misreported, because there are two live entries for the same key, due to first token being lost
-        assertThat(cache.asMap().values()).as("values").hasSize(2);
+        assertThat(cache.asMap().values()).as("values").hasSize(1);
     }
 
     @Test(timeOut = TEST_TIMEOUT_MILLIS)
@@ -546,5 +545,47 @@ public class TestEvictableCache
             executor.shutdownNow();
             executor.awaitTermination(10, SECONDS);
         }
+    }
+
+    @Test(dataProvider = "disabledCacheImplementations")
+    public void testPutOnEmptyCacheImplementation(DisabledCacheImplementation disabledCacheImplementation)
+    {
+        Cache<Object, Object> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(0)
+                .disabledCacheImplementation(disabledCacheImplementation)
+                .build();
+        Map<Object, Object> cacheMap = cache.asMap();
+
+        int key = 0;
+        int value = 1;
+        assertThat(cacheMap.put(key, value)).isNull();
+        assertThat(cacheMap.put(key, value)).isNull();
+        assertThat(cacheMap.putIfAbsent(key, value)).isNull();
+        assertThat(cacheMap.putIfAbsent(key, value)).isNull();
+    }
+
+    @Test
+    public void testPutOnNonEmptyCacheImplementation()
+    {
+        Cache<Object, Object> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(10)
+                .build();
+        Map<Object, Object> cacheMap = cache.asMap();
+
+        int key = 0;
+        int value = 1;
+        assertThatThrownBy(() -> cacheMap.put(key, value))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessage("The operation is not supported, as in inherently races with cache invalidation. Use get(key, callable) instead.");
+        assertThatThrownBy(() -> cacheMap.putIfAbsent(key, value))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessage("The operation is not supported, as in inherently races with cache invalidation");
+    }
+
+    @DataProvider
+    public static Object[][] disabledCacheImplementations()
+    {
+        return Stream.of(DisabledCacheImplementation.values())
+                .collect(toDataProvider());
     }
 }

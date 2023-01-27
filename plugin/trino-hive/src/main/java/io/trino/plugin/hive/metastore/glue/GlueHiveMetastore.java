@@ -17,12 +17,14 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.AmazonWebServiceRequest;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.handlers.AsyncHandler;
 import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.metrics.RequestMetricCollector;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
+import com.amazonaws.services.glue.model.AccessDeniedException;
 import com.amazonaws.services.glue.model.AlreadyExistsException;
 import com.amazonaws.services.glue.model.BatchCreatePartitionRequest;
 import com.amazonaws.services.glue.model.BatchCreatePartitionResult;
@@ -59,6 +61,7 @@ import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.UpdateDatabaseRequest;
 import com.amazonaws.services.glue.model.UpdatePartitionRequest;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -67,8 +70,13 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionNotFoundException;
@@ -76,6 +84,7 @@ import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.aws.AwsApiCallStats;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
@@ -124,6 +133,7 @@ import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
@@ -131,7 +141,10 @@ import static com.google.common.collect.Comparators.lexicographical;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
+import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toPartitionName;
@@ -146,13 +159,11 @@ import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.function.Predicate.not;
 import static java.util.function.UnaryOperator.identity;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
-import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 
 public class GlueHiveMetastore
         implements HiveMetastore
@@ -166,6 +177,7 @@ public class GlueHiveMetastore
     private static final int BATCH_UPDATE_PARTITION_MAX_PAGE_SIZE = 100;
     private static final int AWS_GLUE_GET_PARTITIONS_MAX_RESULTS = 1000;
     private static final Comparator<Iterable<String>> PARTITION_VALUE_COMPARATOR = lexicographical(String.CASE_INSENSITIVE_ORDER);
+    private static final Predicate<com.amazonaws.services.glue.model.Table> VIEWS_FILTER = table -> VIRTUAL_VIEW.name().equals(table.getTableType());
 
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
@@ -230,6 +242,23 @@ public class GlueHiveMetastore
         asyncGlueClientBuilder.setCredentials(credentialsProvider);
 
         return asyncGlueClientBuilder.build();
+    }
+
+    @VisibleForTesting
+    public static GlueHiveMetastore createTestingGlueHiveMetastore(String defaultWarehouseDir)
+    {
+        HdfsConfig hdfsConfig = new HdfsConfig();
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
+        return new GlueHiveMetastore(
+                hdfsEnvironment,
+                new GlueHiveMetastoreConfig()
+                        .setDefaultWarehouseDir(defaultWarehouseDir),
+                DefaultAWSCredentialsProviderChain.getInstance(),
+                directExecutor(),
+                new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
+                Optional.empty(),
+                table -> true);
     }
 
     @Managed
@@ -427,8 +456,8 @@ public class GlueHiveMetastore
                     .collect(toImmutableList());
             return tableNames;
         }
-        catch (EntityNotFoundException e) {
-            // database does not exist
+        catch (EntityNotFoundException | AccessDeniedException e) {
+            // database does not exist or permission denied
             return ImmutableList.of();
         }
         catch (AmazonServiceException e) {
@@ -439,12 +468,16 @@ public class GlueHiveMetastore
     @Override
     public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
-        // TODO
-        throw new UnsupportedOperationException("getTablesWithParameter for GlueHiveMetastore is not implemented");
+        return getAllViews(databaseName, table -> parameterValue.equals(firstNonNull(table.getParameters(), ImmutableMap.of()).get(parameterKey)));
     }
 
     @Override
     public List<String> getAllViews(String databaseName)
+    {
+        return getAllViews(databaseName, table -> true);
+    }
+
+    private List<String> getAllViews(String databaseName, Predicate<com.amazonaws.services.glue.model.Table> additionalFilter)
     {
         try {
             List<String> views = getPaginatedResults(
@@ -456,13 +489,13 @@ public class GlueHiveMetastore
                     stats.getGetTables())
                     .map(GetTablesResult::getTableList)
                     .flatMap(List::stream)
-                    .filter(table -> VIRTUAL_VIEW.name().equals(table.getTableType()))
+                    .filter(VIEWS_FILTER.and(additionalFilter))
                     .map(com.amazonaws.services.glue.model.Table::getName)
                     .collect(toImmutableList());
             return views;
         }
-        catch (EntityNotFoundException e) {
-            // database does not exist
+        catch (EntityNotFoundException | AccessDeniedException e) {
+            // database does not exist or permission denied
             return ImmutableList.of();
         }
         catch (AmazonServiceException e) {
@@ -1125,13 +1158,19 @@ public class GlueHiveMetastore
         return ImmutableSet.of();
     }
 
+    @Override
+    public void checkSupportsTransactions()
+    {
+        throw new TrinoException(NOT_SUPPORTED, "Glue does not support ACID tables");
+    }
+
     static class StatsRecordingAsyncHandler<Request extends AmazonWebServiceRequest, Result>
             implements AsyncHandler<Request, Result>
     {
-        private final GlueMetastoreApiStats stats;
+        private final AwsApiCallStats stats;
         private final Stopwatch stopwatch;
 
-        public StatsRecordingAsyncHandler(GlueMetastoreApiStats stats)
+        public StatsRecordingAsyncHandler(AwsApiCallStats stats)
         {
             this.stats = requireNonNull(stats, "stats is null");
             this.stopwatch = Stopwatch.createStarted();
@@ -1140,13 +1179,13 @@ public class GlueHiveMetastore
         @Override
         public void onError(Exception e)
         {
-            stats.recordCall(stopwatch.elapsed(MILLISECONDS), true);
+            stats.recordCall(stopwatch.elapsed(NANOSECONDS), true);
         }
 
         @Override
         public void onSuccess(AmazonWebServiceRequest request, Object o)
         {
-            stats.recordCall(stopwatch.elapsed(MILLISECONDS), false);
+            stats.recordCall(stopwatch.elapsed(NANOSECONDS), false);
         }
     }
 }

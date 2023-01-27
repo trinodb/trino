@@ -31,9 +31,7 @@ public class TestClickHouseConnectorSmokeTest
         return createClickHouseQueryRunner(
                 clickHouseServer,
                 ImmutableMap.of(),
-                ImmutableMap.<String, String>builder()
-                        .put("clickhouse.map-string-as-varchar", "true") // To handle string types in TPCH tables as varchar instead of varbinary
-                        .buildOrThrow(),
+                ImmutableMap.of("clickhouse.map-string-as-varchar", "true"), // To handle string types in TPCH tables as varchar instead of varbinary
                 REQUIRED_TPCH_TABLES);
     }
 }

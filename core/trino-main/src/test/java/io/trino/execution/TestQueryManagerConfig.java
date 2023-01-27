@@ -70,6 +70,7 @@ public class TestQueryManagerConfig
                 .setRetryInitialDelay(new Duration(10, SECONDS))
                 .setRetryMaxDelay(new Duration(1, MINUTES))
                 .setRetryDelayScaleFactor(2.0)
+                .setMaxTasksWaitingForExecutionPerQuery(10)
                 .setMaxTasksWaitingForNodePerStage(5)
                 .setFaultTolerantExecutionTargetTaskInputSize(DataSize.of(4, GIGABYTE))
                 .setFaultTolerantExecutionMinTaskSplitCount(16)
@@ -77,7 +78,8 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionMaxTaskSplitCount(256)
                 .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15)))
                 .setFaultTolerantExecutionPartitionCount(50)
-                .setFaultTolerantPreserveInputPartitionsInWriteStage(true));
+                .setFaultTolerantExecutionEventDrivenSchedulerEnabled(true)
+                .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(true));
     }
 
     @Test
@@ -100,7 +102,7 @@ public class TestQueryManagerConfig
                 .put("query.remote-task.min-error-duration", "30s")
                 .put("query.remote-task.max-error-duration", "60s")
                 .put("query.remote-task.max-callback-threads", "10")
-                .put("query.execution-policy", "legacy-phased")
+                .put("query.execution-policy", "foo-bar-execution-policy")
                 .put("query.max-run-time", "2h")
                 .put("query.max-execution-time", "3h")
                 .put("query.max-planning-time", "1h")
@@ -115,6 +117,7 @@ public class TestQueryManagerConfig
                 .put("retry-initial-delay", "1m")
                 .put("retry-max-delay", "1h")
                 .put("retry-delay-scale-factor", "2.3")
+                .put("max-tasks-waiting-for-execution-per-query", "22")
                 .put("max-tasks-waiting-for-node-per-stage", "3")
                 .put("fault-tolerant-execution-target-task-input-size", "222MB")
                 .put("fault-tolerant-execution-min-task-split-count", "2")
@@ -122,7 +125,8 @@ public class TestQueryManagerConfig
                 .put("fault-tolerant-execution-max-task-split-count", "22")
                 .put("fault-tolerant-execution-task-descriptor-storage-max-memory", "3GB")
                 .put("fault-tolerant-execution-partition-count", "123")
-                .put("fault-tolerant-execution-preserve-input-partitions-in-write-stage", "false")
+                .put("experimental.fault-tolerant-execution-event-driven-scheduler-enabled", "false")
+                .put("experimental.fault-tolerant-execution-force-preferred-write-partitioning-enabled", "false")
                 .buildOrThrow();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -142,7 +146,7 @@ public class TestQueryManagerConfig
                 .setRemoteTaskMinErrorDuration(new Duration(60, SECONDS))
                 .setRemoteTaskMaxErrorDuration(new Duration(60, SECONDS))
                 .setRemoteTaskMaxCallbackThreads(10)
-                .setQueryExecutionPolicy("legacy-phased")
+                .setQueryExecutionPolicy("foo-bar-execution-policy")
                 .setQueryMaxRunTime(new Duration(2, HOURS))
                 .setQueryMaxExecutionTime(new Duration(3, HOURS))
                 .setQueryMaxPlanningTime(new Duration(1, HOURS))
@@ -157,6 +161,7 @@ public class TestQueryManagerConfig
                 .setRetryInitialDelay(new Duration(1, MINUTES))
                 .setRetryMaxDelay(new Duration(1, HOURS))
                 .setRetryDelayScaleFactor(2.3)
+                .setMaxTasksWaitingForExecutionPerQuery(22)
                 .setMaxTasksWaitingForNodePerStage(3)
                 .setFaultTolerantExecutionTargetTaskInputSize(DataSize.of(222, MEGABYTE))
                 .setFaultTolerantExecutionMinTaskSplitCount(2)
@@ -164,7 +169,8 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionMaxTaskSplitCount(22)
                 .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.of(3, GIGABYTE))
                 .setFaultTolerantExecutionPartitionCount(123)
-                .setFaultTolerantPreserveInputPartitionsInWriteStage(false);
+                .setFaultTolerantExecutionEventDrivenSchedulerEnabled(false)
+                .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(false);
 
         assertFullMapping(properties, expected);
     }

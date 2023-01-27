@@ -334,12 +334,13 @@ public class TestLogicalPlanner
                         node(DistinctLimitNode.class,
                                 anyTree(
                                         filter("O_ORDERKEY < L_ORDERKEY",
-                                                join(INNER,
-                                                        ImmutableList.of(),
-                                                        ImmutableList.of(new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY")),
-                                                        filter(TRUE_LITERAL,
-                                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))),
-                                                        any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
+                                                join(INNER, builder -> builder
+                                                        .dynamicFilter(ImmutableList.of(new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY")))
+                                                        .left(
+                                                                filter(TRUE_LITERAL,
+                                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
+                                                        .right(
+                                                                any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))
                                                         .withExactOutputs(ImmutableList.of("O_ORDERKEY", "L_ORDERKEY")))))));
 
         assertPlan(
@@ -348,15 +349,17 @@ public class TestLogicalPlanner
                 anyTree(
                         node(DistinctLimitNode.class,
                                 anyTree(
-                                        join(INNER,
-                                                ImmutableList.of(equiJoinClause("O_SHIPPRIORITY", "L_LINENUMBER")),
-                                                Optional.of("O_ORDERKEY < L_ORDERKEY"),
-                                                anyTree(tableScan("orders", ImmutableMap.of(
-                                                        "O_SHIPPRIORITY", "shippriority",
-                                                        "O_ORDERKEY", "orderkey"))),
-                                                anyTree(tableScan("lineitem", ImmutableMap.of(
-                                                        "L_LINENUMBER", "linenumber",
-                                                        "L_ORDERKEY", "orderkey"))))
+                                        join(INNER, builder -> builder
+                                                .equiCriteria("O_SHIPPRIORITY", "L_LINENUMBER")
+                                                .filter("O_ORDERKEY < L_ORDERKEY")
+                                                .left(
+                                                        anyTree(tableScan("orders", ImmutableMap.of(
+                                                                "O_SHIPPRIORITY", "shippriority",
+                                                                "O_ORDERKEY", "orderkey"))))
+                                                .right(
+                                                        anyTree(tableScan("lineitem", ImmutableMap.of(
+                                                                "L_LINENUMBER", "linenumber",
+                                                                "L_ORDERKEY", "orderkey")))))
                                                 .withExactOutputs(ImmutableList.of("O_ORDERKEY"))))));
     }
 
@@ -380,12 +383,13 @@ public class TestLogicalPlanner
         assertPlan("SELECT 1 FROM orders o JOIN lineitem l ON o.orderkey < l.orderkey",
                 anyTree(
                         filter("O_ORDERKEY < L_ORDERKEY",
-                                join(INNER,
-                                        ImmutableList.of(),
-                                        ImmutableList.of(new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY")),
-                                        filter(TRUE_LITERAL,
-                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))),
-                                        any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))));
+                                join(INNER, builder -> builder
+                                        .dynamicFilter(ImmutableList.of(new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY")))
+                                        .left(
+                                                filter(TRUE_LITERAL,
+                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
+                                        .right(
+                                                any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))))));
     }
 
     @Test
@@ -394,22 +398,26 @@ public class TestLogicalPlanner
         assertPlan("SELECT 1 FROM orders o JOIN lineitem l ON o.shippriority = l.linenumber AND o.orderkey < l.orderkey",
                 anyTree(
                         anyNot(FilterNode.class,
-                                join(INNER,
-                                        ImmutableList.of(equiJoinClause("O_SHIPPRIORITY", "L_LINENUMBER")),
-                                        Optional.of("O_ORDERKEY < L_ORDERKEY"),
-                                        Optional.of(ImmutableList.of(
-                                                new DynamicFilterPattern("O_SHIPPRIORITY", EQUAL, "L_LINENUMBER"),
-                                                new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY"))),
-                                        Optional.empty(),
-                                        Optional.empty(),
-                                        project(
-                                                filter(TRUE_LITERAL,
-                                                        tableScan("orders", ImmutableMap.of(
-                                                                "O_SHIPPRIORITY", "shippriority",
-                                                                "O_ORDERKEY", "orderkey")))),
-                                        anyTree(tableScan("lineitem", ImmutableMap.of(
-                                                "L_LINENUMBER", "linenumber",
-                                                "L_ORDERKEY", "orderkey")))))));
+                                join(INNER, builder -> builder
+                                        .equiCriteria("O_SHIPPRIORITY", "L_LINENUMBER")
+                                        .filter("O_ORDERKEY < L_ORDERKEY")
+                                        .dynamicFilter(
+                                                ImmutableList.of(
+                                                        new DynamicFilterPattern("O_SHIPPRIORITY", EQUAL, "L_LINENUMBER"),
+                                                        new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY")))
+                                        .left(
+                                                project(
+                                                        filter(TRUE_LITERAL,
+                                                                tableScan("orders",
+                                                                        ImmutableMap.of(
+                                                                                "O_SHIPPRIORITY", "shippriority",
+                                                                                "O_ORDERKEY", "orderkey")))))
+                                        .right(
+                                                anyTree(
+                                                        tableScan("lineitem",
+                                                                ImmutableMap.of(
+                                                                        "L_LINENUMBER", "linenumber",
+                                                                        "L_ORDERKEY", "orderkey"))))))));
     }
 
     @Test
@@ -418,12 +426,14 @@ public class TestLogicalPlanner
         assertPlan("SELECT 1 FROM orders o LEFT JOIN lineitem l ON o.orderkey < l.orderkey WHERE l.orderkey IS NOT NULL",
                 anyTree(
                         filter("O_ORDERKEY < L_ORDERKEY",
-                                join(INNER, ImmutableList.of(), Optional.empty(),
-                                        filter(TRUE_LITERAL,
-                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))),
-                                        any(
-                                                filter("NOT (L_ORDERKEY IS NULL)",
-                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))))));
+                                join(INNER, builder -> builder
+                                        .left(
+                                                filter(TRUE_LITERAL,
+                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
+                                        .right(
+                                                any(
+                                                        filter("NOT (L_ORDERKEY IS NULL)",
+                                                                tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))))));
     }
 
     @Test
@@ -431,11 +441,14 @@ public class TestLogicalPlanner
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
-                                anyTree(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
-                                anyTree(
-                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("ORDERS_OK", "LINEITEM_OK")
+                                .left(
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
+                                .right(
+                                        anyTree(
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
     }
 
     @Test
@@ -443,11 +456,14 @@ public class TestLogicalPlanner
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey ORDER BY l.orderkey ASC, o.orderkey ASC",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
-                                anyTree(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
-                                anyTree(
-                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("ORDERS_OK", "LINEITEM_OK")
+                                .left(
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
+                                .right(
+                                        anyTree(
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
     }
 
     @Test
@@ -462,25 +478,25 @@ public class TestLogicalPlanner
                         // predicate above outer join is not pushed to build side
                         filter(
                                 "O_CUSTKEY - BIGINT '24' < COALESCE(L_PARTKEY - BIGINT '24', BIGINT '0')",
-                                join(
-                                        LEFT,
-                                        ImmutableList.of(equiJoinClause("O_ORDERKEY", "L_ORDERKEY")),
-                                        // part of inequality predicate within outer join is pushed down to build side
-                                        Optional.of("O_CUSTKEY + BIGINT '42' < EXPR"),
-                                        anyTree(
-                                                tableScan(
-                                                        "orders",
-                                                        ImmutableMap.of(
-                                                                "O_ORDERKEY", "orderkey",
-                                                                "O_CUSTKEY", "custkey"))),
-                                        anyTree(
-                                                project(
-                                                        ImmutableMap.of("EXPR", expression("L_PARTKEY + BIGINT '42'")),
+                                join(LEFT, builder -> builder
+                                        .equiCriteria("O_ORDERKEY", "L_ORDERKEY")
+                                        .filter("O_CUSTKEY + BIGINT '42' < EXPR")
+                                        .left(
+                                                anyTree(
                                                         tableScan(
-                                                                "lineitem",
+                                                                "orders",
                                                                 ImmutableMap.of(
-                                                                        "L_ORDERKEY", "orderkey",
-                                                                        "L_PARTKEY", "partkey"))))))));
+                                                                        "O_ORDERKEY", "orderkey",
+                                                                        "O_CUSTKEY", "custkey"))))
+                                        .right(
+                                                anyTree(
+                                                        project(
+                                                                ImmutableMap.of("EXPR", expression("L_PARTKEY + BIGINT '42'")),
+                                                                tableScan(
+                                                                        "lineitem",
+                                                                        ImmutableMap.of(
+                                                                                "L_ORDERKEY", "orderkey",
+                                                                                "L_PARTKEY", "partkey")))))))));
     }
 
     @Test
@@ -491,12 +507,13 @@ public class TestLogicalPlanner
                         project(
                                 topN(1, ImmutableList.of(sort("N_COMM", ASCENDING, LAST)), TopNNode.Step.FINAL,
                                         anyTree(
-                                                join(LEFT, ImmutableList.of(equiJoinClause("N_KEY", "R_KEY")),
-                                                        project(
+                                                join(LEFT, builder -> builder
+                                                        .equiCriteria("N_KEY", "R_KEY")
+                                                        .left(project(
                                                                 topN(1, ImmutableList.of(sort("N_COMM", ASCENDING, LAST)), TopNNode.Step.PARTIAL,
-                                                                        tableScan("nation", ImmutableMap.of("N_NAME", "name", "N_KEY", "regionkey", "N_COMM", "comment")))),
-                                                        anyTree(
-                                                                tableScan("region", ImmutableMap.of("R_NAME", "name", "R_KEY", "regionkey")))))))));
+                                                                        tableScan("nation", ImmutableMap.of("N_NAME", "name", "N_KEY", "regionkey", "N_COMM", "comment")))))
+                                                        .right(anyTree(
+                                                                tableScan("region", ImmutableMap.of("R_NAME", "name", "R_KEY", "regionkey"))))))))));
     }
 
     @Test
@@ -504,14 +521,17 @@ public class TestLogicalPlanner
     {
         assertPlan("SELECT * FROM orders WHERE orderkey = (SELECT orderkey FROM lineitem ORDER BY orderkey LIMIT 1)",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("X", "Y")),
-                                project(
-                                        filter(TRUE_LITERAL,
-                                                tableScan("orders", ImmutableMap.of("X", "orderkey")))),
-                                project(
-                                        node(EnforceSingleRowNode.class,
-                                                anyTree(
-                                                        tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))))))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("X", "Y")
+                                .left(
+                                        project(
+                                                filter(TRUE_LITERAL,
+                                                        tableScan("orders", ImmutableMap.of("X", "orderkey")))))
+                                .right(
+                                        project(
+                                                node(EnforceSingleRowNode.class,
+                                                        anyTree(
+                                                                tableScan("lineitem", ImmutableMap.of("Y", "orderkey")))))))));
 
         assertPlan("SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0)",
                 noSemiJoinRewrite(),
@@ -542,23 +562,29 @@ public class TestLogicalPlanner
                 "SELECT nationkey FROM nation LEFT OUTER JOIN region " +
                         "ON nation.regionkey = region.regionkey and nation.name = region.name WHERE nation.name = 'blah'",
                 anyTree(
-                        join(LEFT, ImmutableList.of(equiJoinClause("NATION_NAME", "REGION_NAME"), equiJoinClause("NATION_REGIONKEY", "REGION_REGIONKEY")),
-                                anyTree(
-                                        filter("NATION_NAME = CAST ('blah' AS varchar(25))",
-                                                constrainedTableScan(
-                                                        "nation",
-                                                        ImmutableMap.of(),
-                                                        ImmutableMap.of(
-                                                                "NATION_NAME", "name",
-                                                                "NATION_REGIONKEY", "regionkey")))),
-                                anyTree(
-                                        filter("REGION_NAME = CAST ('blah' AS varchar(25))",
-                                                constrainedTableScan(
-                                                        "region",
-                                                        ImmutableMap.of(),
-                                                        ImmutableMap.of(
-                                                                "REGION_NAME", "name",
-                                                                "REGION_REGIONKEY", "regionkey")))))));
+                        join(LEFT, builder -> builder
+                                .equiCriteria(
+                                        ImmutableList.of(
+                                                equiJoinClause("NATION_NAME", "REGION_NAME"),
+                                                equiJoinClause("NATION_REGIONKEY", "REGION_REGIONKEY")))
+                                .left(
+                                        anyTree(
+                                                filter("NATION_NAME = CAST ('blah' AS varchar(25))",
+                                                        constrainedTableScan(
+                                                                "nation",
+                                                                ImmutableMap.of(),
+                                                                ImmutableMap.of(
+                                                                        "NATION_NAME", "name",
+                                                                        "NATION_REGIONKEY", "regionkey")))))
+                                .right(
+                                        anyTree(
+                                                filter("REGION_NAME = CAST ('blah' AS varchar(25))",
+                                                        constrainedTableScan(
+                                                                "region",
+                                                                ImmutableMap.of(),
+                                                                ImmutableMap.of(
+                                                                        "REGION_NAME", "name",
+                                                                        "REGION_REGIONKEY", "regionkey"))))))));
     }
 
     @Test
@@ -685,11 +711,14 @@ public class TestLogicalPlanner
                 "SELECT nationkey FROM nation JOIN region ON nation.regionkey = region.regionkey",
                 noJoinReordering(),
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("REGIONKEY_LEFT", "REGIONKEY_RIGHT")),
-                                anyTree(
-                                        tableScan("nation", ImmutableMap.of("REGIONKEY_LEFT", "regionkey", "NATIONKEY", "nationkey"))),
-                                anyTree(
-                                        tableScan("region", ImmutableMap.of("REGIONKEY_RIGHT", "regionkey")))))
+                        join(INNER, builder -> builder
+                                .equiCriteria("REGIONKEY_LEFT", "REGIONKEY_RIGHT")
+                                .left(
+                                        anyTree(
+                                                tableScan("nation", ImmutableMap.of("REGIONKEY_LEFT", "regionkey", "NATIONKEY", "nationkey"))))
+                                .right(
+                                        anyTree(
+                                                tableScan("region", ImmutableMap.of("REGIONKEY_RIGHT", "regionkey"))))))
                         .withNumberOfOutputColumns(1)
                         .withOutputs(ImmutableList.of("NATIONKEY")));
     }
@@ -728,27 +757,25 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT regionkey, n.name FROM region LEFT JOIN LATERAL (SELECT name FROM nation WHERE region.regionkey = regionkey LIMIT 2) n ON TRUE",
                 any(
-                        join(
-                                LEFT,
-                                ImmutableList.of(equiJoinClause("region_regionkey", "nation_regionkey")),
-                                any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey"))),
-                                any(rowNumber(
+                        join(LEFT, builder -> builder
+                                .equiCriteria("region_regionkey", "nation_regionkey")
+                                .left(any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey"))))
+                                .right(any(rowNumber(
                                         pattern -> pattern
                                                 .partitionBy(ImmutableList.of("nation_regionkey"))
                                                 .maxRowCountPerPartition(Optional.of(2)),
-                                        anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey"))))))));
+                                        anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey")))))))));
 
         // rewrite Limit to decorrelated Limit
         assertPlan("SELECT regionkey, n.nationkey FROM region LEFT JOIN LATERAL (SELECT nationkey FROM nation WHERE region.regionkey = 3 LIMIT 2) n ON TRUE",
                 any(
-                        join(
-                                LEFT,
-                                ImmutableList.of(),
-                                Optional.of("region_regionkey = BIGINT '3'"),
-                                tableScan("region", ImmutableMap.of("region_regionkey", "regionkey")),
-                                limit(
-                                        2,
-                                        any(tableScan("nation", ImmutableMap.of("nation_nationkey", "nationkey")))))));
+                        join(LEFT, builder -> builder
+                                .filter("region_regionkey = BIGINT '3'")
+                                .left(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey")))
+                                .right(
+                                        limit(
+                                                2,
+                                                any(tableScan("nation", ImmutableMap.of("nation_nationkey", "nationkey"))))))));
     }
 
     @Test
@@ -758,11 +785,10 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT regionkey, n.name FROM region LEFT JOIN LATERAL (SELECT name FROM nation WHERE region.regionkey = regionkey ORDER BY name LIMIT 2) n ON TRUE",
                 any(
-                        join(
-                                LEFT,
-                                ImmutableList.of(equiJoinClause("region_regionkey", "nation_regionkey")),
-                                any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey"))),
-                                any(topNRanking(
+                        join(LEFT, builder -> builder
+                                .equiCriteria("region_regionkey", "nation_regionkey")
+                                .left(any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey"))))
+                                .right(any(topNRanking(
                                         pattern -> pattern
                                                 .specification(
                                                         ImmutableList.of("nation_regionkey"),
@@ -771,21 +797,20 @@ public class TestLogicalPlanner
                                                 .rankingType(ROW_NUMBER)
                                                 .maxRankingPerPartition(2)
                                                 .partial(false),
-                                        anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey"))))))));
+                                        anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey")))))))));
 
         // rewrite TopN to RowNumberNode
         assertPlan(
                 "SELECT regionkey, n.name FROM region LEFT JOIN LATERAL (SELECT name FROM nation WHERE region.regionkey = regionkey ORDER BY regionkey LIMIT 2) n ON TRUE",
                 any(
-                        join(
-                                LEFT,
-                                ImmutableList.of(equiJoinClause("region_regionkey", "nation_regionkey")),
-                                any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey"))),
-                                any(rowNumber(
+                        join(LEFT, builder -> builder
+                                .equiCriteria("region_regionkey", "nation_regionkey")
+                                .left(any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey"))))
+                                .right(any(rowNumber(
                                         pattern -> pattern
                                                 .partitionBy(ImmutableList.of("nation_regionkey"))
                                                 .maxRowCountPerPartition(Optional.of(2)),
-                                        anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey"))))))));
+                                        anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey")))))))));
     }
 
     @Test
@@ -797,12 +822,13 @@ public class TestLogicalPlanner
                         filter(format("CASE \"is_distinct\" WHEN true THEN true ELSE CAST(fail(%d, VARCHAR 'Scalar sub-query has returned multiple rows') AS boolean) END", SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()),
                                 project(
                                         markDistinct("is_distinct", ImmutableList.of("unique"),
-                                                join(LEFT, ImmutableList.of(equiJoinClause("n_regionkey", "r_regionkey")),
-                                                        assignUniqueId("unique",
+                                                join(LEFT, builder -> builder
+                                                        .equiCriteria("n_regionkey", "r_regionkey")
+                                                        .left(assignUniqueId("unique",
                                                                 exchange(REMOTE, REPARTITION,
-                                                                        anyTree(tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey"))))),
-                                                        anyTree(
-                                                                tableScan("region", ImmutableMap.of("r_regionkey", "regionkey")))))))));
+                                                                        anyTree(tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey"))))))
+                                                        .right(anyTree(
+                                                                tableScan("region", ImmutableMap.of("r_regionkey", "regionkey"))))))))));
 
         assertDistributedPlan("SELECT name, (SELECT name FROM region WHERE regionkey = nation.regionkey) FROM nation",
                 automaticJoinDistribution(),
@@ -810,12 +836,15 @@ public class TestLogicalPlanner
                         filter(format("CASE \"is_distinct\" WHEN true THEN true ELSE CAST(fail(%d, VARCHAR 'Scalar sub-query has returned multiple rows') AS boolean) END", SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()),
                                 project(
                                         markDistinct("is_distinct", ImmutableList.of("unique"),
-                                                join(LEFT, ImmutableList.of(equiJoinClause("n_regionkey", "r_regionkey")),
-                                                        project(
-                                                                assignUniqueId("unique",
-                                                                        tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey", "n_name", "name")))),
-                                                        anyTree(
-                                                                tableScan("region", ImmutableMap.of("r_regionkey", "regionkey")))))))));
+                                                join(LEFT, builder -> builder
+                                                        .equiCriteria("n_regionkey", "r_regionkey")
+                                                        .left(
+                                                                project(
+                                                                        assignUniqueId("unique",
+                                                                                tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey", "n_name", "name")))))
+                                                        .right(
+                                                                anyTree(
+                                                                        tableScan("region", ImmutableMap.of("r_regionkey", "regionkey"))))))))));
     }
 
     @Test
@@ -879,11 +908,14 @@ public class TestLogicalPlanner
                                 ImmutableList.of("o_orderkey"), // streaming
                                 Optional.empty(),
                                 SINGLE,
-                                join(INNER, ImmutableList.of(equiJoinClause("o_orderkey", "l_orderkey")),
-                                        anyTree(
-                                                tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey"))),
-                                        anyTree(
-                                                tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey")))))));
+                                join(INNER, builder -> builder
+                                        .equiCriteria("o_orderkey", "l_orderkey")
+                                        .left(
+                                                anyTree(
+                                                        tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey"))))
+                                        .right(
+                                                anyTree(
+                                                        tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey"))))))));
 
         // left join -> streaming aggregation
         assertPlan("SELECT o.orderkey, count(*) FROM orders o LEFT JOIN lineitem l ON o.orderkey=l.orderkey GROUP BY 1",
@@ -894,11 +926,14 @@ public class TestLogicalPlanner
                                 ImmutableList.of("o_orderkey"), // streaming
                                 Optional.empty(),
                                 SINGLE,
-                                join(LEFT, ImmutableList.of(equiJoinClause("o_orderkey", "l_orderkey")),
-                                        anyTree(
-                                                tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey"))),
-                                        anyTree(
-                                                tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey")))))));
+                                join(LEFT, builder -> builder
+                                        .equiCriteria("o_orderkey", "l_orderkey")
+                                        .left(
+                                                anyTree(
+                                                        tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey"))))
+                                        .right(
+                                                anyTree(
+                                                        tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey"))))))));
 
         // cross join - no streaming
         assertPlan("SELECT o.orderkey, count(*) FROM orders o, lineitem l GROUP BY 1",
@@ -909,10 +944,11 @@ public class TestLogicalPlanner
                                 ImmutableList.of(), // not streaming
                                 Optional.empty(),
                                 SINGLE,
-                                join(INNER, ImmutableList.of(),
-                                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey")),
-                                        anyTree(
-                                                node(TableScanNode.class))))));
+                                join(INNER, builder -> builder
+                                        .left(tableScan("orders", ImmutableMap.of("orderkey", "orderkey")))
+                                        .right(
+                                                anyTree(
+                                                        node(TableScanNode.class)))))));
     }
 
     /**
@@ -989,12 +1025,15 @@ public class TestLogicalPlanner
                                         ImmutableList.of("NON_NULL"),
                                         Optional.empty(),
                                         SINGLE,
-                                        join(LEFT, ImmutableList.of(), Optional.of("BIGINT '3' = ORDERKEY"),
-                                                assignUniqueId(
-                                                        "UNIQUE",
-                                                        tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))),
-                                                project(ImmutableMap.of("NON_NULL", expression("true")),
-                                                        node(ValuesNode.class)))))));
+                                        join(LEFT, builder -> builder
+                                                .filter("BIGINT '3' = ORDERKEY")
+                                                .left(
+                                                        assignUniqueId(
+                                                                "UNIQUE",
+                                                                tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))))
+                                                .right(
+                                                        project(ImmutableMap.of("NON_NULL", expression("true")),
+                                                                node(ValuesNode.class))))))));
     }
 
     @Test
@@ -1003,28 +1042,27 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT (SELECT count(DISTINCT o.orderkey) FROM orders o WHERE c.custkey = o.custkey), c.custkey FROM customer c",
                 output(
-                        project(join(
-                                INNER,
-                                ImmutableList.of(),
-                                join(
-                                        LEFT,
-                                        ImmutableList.of(equiJoinClause("c_custkey", "o_custkey")),
-                                        anyTree(tableScan("customer", ImmutableMap.of("c_custkey", "custkey"))),
-                                        anyTree(aggregation(
-                                                singleGroupingSet("o_custkey"),
-                                                ImmutableMap.of(Optional.of("count"), functionCall("count", ImmutableList.of("o_orderkey"))),
-                                                ImmutableList.of(),
-                                                ImmutableList.of("non_null"),
-                                                Optional.empty(),
-                                                SINGLE,
-                                                project(ImmutableMap.of("non_null", expression("true")),
-                                                        aggregation(
-                                                                singleGroupingSet("o_orderkey", "o_custkey"),
-                                                                ImmutableMap.of(),
+                        project(
+                                join(INNER, builder -> builder
+                                        .left(
+                                                join(LEFT, leftJoinBuilder -> leftJoinBuilder
+                                                        .equiCriteria("c_custkey", "o_custkey")
+                                                        .left(anyTree(tableScan("customer", ImmutableMap.of("c_custkey", "custkey"))))
+                                                        .right(anyTree(aggregation(
+                                                                singleGroupingSet("o_custkey"),
+                                                                ImmutableMap.of(Optional.of("count"), functionCall("count", ImmutableList.of("o_orderkey"))),
+                                                                ImmutableList.of(),
+                                                                ImmutableList.of("non_null"),
                                                                 Optional.empty(),
-                                                                FINAL,
-                                                                anyTree(tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey", "o_custkey", "custkey")))))))),
-                                anyTree(node(ValuesNode.class))))));
+                                                                SINGLE,
+                                                                project(ImmutableMap.of("non_null", expression("true")),
+                                                                        aggregation(
+                                                                                singleGroupingSet("o_orderkey", "o_custkey"),
+                                                                                ImmutableMap.of(),
+                                                                                Optional.empty(),
+                                                                                FINAL,
+                                                                                anyTree(tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey", "o_custkey", "custkey"))))))))))
+                                        .right(anyTree(node(ValuesNode.class)))))));
     }
 
     @Test
@@ -1038,25 +1076,26 @@ public class TestLogicalPlanner
                                 project(markDistinct(
                                         "is_distinct",
                                         ImmutableList.of("unique"),
-                                        join(
-                                                LEFT,
-                                                ImmutableList.of(equiJoinClause("c_custkey", "o_custkey")),
-                                                project(assignUniqueId(
-                                                        "unique",
-                                                        tableScan("customer", ImmutableMap.of("c_custkey", "custkey")))),
-                                                project(aggregation(
-                                                        singleGroupingSet("o_orderstatus", "o_custkey"),
-                                                        ImmutableMap.of(Optional.of("count"), functionCall("count", ImmutableList.of("o_orderkey"))),
-                                                        Optional.empty(),
-                                                        SINGLE,
+                                        join(LEFT, builder -> builder
+                                                .equiCriteria("c_custkey", "o_custkey")
+                                                .left(
+                                                        project(assignUniqueId(
+                                                                "unique",
+                                                                tableScan("customer", ImmutableMap.of("c_custkey", "custkey")))))
+                                                .right(
                                                         project(aggregation(
-                                                                singleGroupingSet("o_orderstatus", "o_orderkey", "o_custkey"),
-                                                                ImmutableMap.of(),
+                                                                singleGroupingSet("o_orderstatus", "o_custkey"),
+                                                                ImmutableMap.of(Optional.of("count"), functionCall("count", ImmutableList.of("o_orderkey"))),
                                                                 Optional.empty(),
-                                                                FINAL,
-                                                                anyTree(tableScan(
-                                                                        "orders",
-                                                                        ImmutableMap.of("o_orderkey", "orderkey", "o_orderstatus", "orderstatus", "o_custkey", "custkey"))))))))))))));
+                                                                SINGLE,
+                                                                project(aggregation(
+                                                                        singleGroupingSet("o_orderstatus", "o_orderkey", "o_custkey"),
+                                                                        ImmutableMap.of(),
+                                                                        Optional.empty(),
+                                                                        FINAL,
+                                                                        anyTree(tableScan(
+                                                                                "orders",
+                                                                                ImmutableMap.of("o_orderkey", "orderkey", "o_orderstatus", "orderstatus", "o_custkey", "custkey")))))))))))))));
     }
 
     @Test
@@ -1200,16 +1239,19 @@ public class TestLogicalPlanner
                 broadcastJoin,
                 false,
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("LEFT_REGIONKEY", "RIGHT_REGIONKEY")), Optional.empty(), Optional.of(PARTITIONED),
-                                // the only remote exchange in probe side should be below aggregation
-                                aggregation(ImmutableMap.of(),
+                        join(INNER, builder -> builder
+                                .equiCriteria("LEFT_REGIONKEY", "RIGHT_REGIONKEY")
+                                .distributionType(PARTITIONED)
+                                .left(
+                                        aggregation(ImmutableMap.of(),
+                                                anyTree(
+                                                        exchange(REMOTE, REPARTITION,
+                                                                anyTree(
+                                                                        tableScan("region", ImmutableMap.of("LEFT_REGIONKEY", "regionkey")))))))
+                                .right(
                                         anyTree(
                                                 exchange(REMOTE, REPARTITION,
-                                                        anyTree(
-                                                                tableScan("region", ImmutableMap.of("LEFT_REGIONKEY", "regionkey")))))),
-                                anyTree(
-                                        exchange(REMOTE, REPARTITION,
-                                                tableScan("region", ImmutableMap.of("RIGHT_REGIONKEY", "regionkey")))))),
+                                                        tableScan("region", ImmutableMap.of("RIGHT_REGIONKEY", "regionkey"))))))),
                 plan -> // make sure there are only two remote exchanges (one in probe and one in build side)
                         assertEquals(
                                 countOfMatchingNodes(
@@ -1236,12 +1278,15 @@ public class TestLogicalPlanner
                 broadcastJoin,
                 false,
                 anyTree(
-                        join(INNER, ImmutableList.of(), Optional.empty(), Optional.of(REPLICATED),
-                                anyTree(
-                                        node(TableScanNode.class)),
-                                anyTree(
-                                        exchange(REMOTE, REPLICATE,
-                                                node(TableScanNode.class))))));
+                        join(INNER, builder -> builder
+                                .distributionType(REPLICATED)
+                                .left(
+                                        anyTree(
+                                                node(TableScanNode.class)))
+                                .right(
+                                        anyTree(
+                                                exchange(REMOTE, REPLICATE,
+                                                        node(TableScanNode.class)))))));
     }
 
     @Test
@@ -1325,19 +1370,20 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT custkey FROM orders WHERE custkey IN (SELECT custkey FROM customer)",
                 any(
-                        join(
-                                INNER,
-                                ImmutableList.of(equiJoinClause("CUSTOMER_CUSTKEY", "ORDER_CUSTKEY")),
-                                project(
-                                        aggregation(
-                                                singleGroupingSet("CUSTOMER_CUSTKEY"),
-                                                ImmutableMap.of(),
-                                                Optional.empty(),
-                                                FINAL,
-                                                anyTree(
-                                                        tableScan("customer", ImmutableMap.of("CUSTOMER_CUSTKEY", "custkey"))))),
-                                anyTree(
-                                        tableScan("orders", ImmutableMap.of("ORDER_CUSTKEY", "custkey"))))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("CUSTOMER_CUSTKEY", "ORDER_CUSTKEY")
+                                .left(
+                                        project(
+                                                aggregation(
+                                                        singleGroupingSet("CUSTOMER_CUSTKEY"),
+                                                        ImmutableMap.of(),
+                                                        Optional.empty(),
+                                                        FINAL,
+                                                        anyTree(
+                                                                tableScan("customer", ImmutableMap.of("CUSTOMER_CUSTKEY", "custkey"))))))
+                                .right(
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("ORDER_CUSTKEY", "custkey")))))));
     }
 
     @Test
@@ -1360,23 +1406,23 @@ public class TestLogicalPlanner
                                                         "unique", expression("unique")),
                                                 filter(
                                                         "(region_regionkey IS NULL OR region_regionkey = nation_regionkey OR nation_regionkey IS NULL) AND nation_name < region_name",
-                                                        join(
-                                                                INNER,
-                                                                ImmutableList.of(),
-                                                                ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern("region_name", GREATER_THAN, "nation_name")),
-                                                                assignUniqueId(
-                                                                        "unique",
-                                                                        filter(
-                                                                                "NOT (region_regionkey IS NULL)",
-                                                                                tableScan("region", ImmutableMap.of(
-                                                                                        "region_regionkey", "regionkey",
-                                                                                        "region_name", "name")))),
-                                                                any(
-                                                                        filter(
-                                                                                "NOT (nation_regionkey IS NULL)",
-                                                                                tableScan("nation", ImmutableMap.of(
-                                                                                        "nation_name", "name",
-                                                                                        "nation_regionkey", "regionkey")))))))))));
+                                                        join(INNER, builder -> builder
+                                                                .dynamicFilter(ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern("region_name", GREATER_THAN, "nation_name")))
+                                                                .left(
+                                                                        assignUniqueId(
+                                                                                "unique",
+                                                                                filter(
+                                                                                        "NOT (region_regionkey IS NULL)",
+                                                                                        tableScan("region", ImmutableMap.of(
+                                                                                                "region_regionkey", "regionkey",
+                                                                                                "region_name", "name")))))
+                                                                .right(
+                                                                        any(
+                                                                                filter(
+                                                                                        "NOT (nation_regionkey IS NULL)",
+                                                                                        tableScan("nation", ImmutableMap.of(
+                                                                                                "nation_name", "name",
+                                                                                                "nation_regionkey", "regionkey"))))))))))));
     }
 
     @Test
@@ -1394,19 +1440,19 @@ public class TestLogicalPlanner
                                         project(
                                                 filter(
                                                         "nation_name < region_name",
-                                                        join(
-                                                                INNER,
-                                                                ImmutableList.of(),
-                                                                ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern("region_name", GREATER_THAN, "nation_name")),
-                                                                assignUniqueId(
-                                                                        "unique",
-                                                                        filter(
-                                                                                "true",
-                                                                                tableScan("region", ImmutableMap.of(
-                                                                                        "region_regionkey", "regionkey",
-                                                                                        "region_name", "name")))),
-                                                                any(
-                                                                        tableScan("nation", ImmutableMap.of("nation_name", "name"))))))))));
+                                                        join(INNER, builder -> builder
+                                                                .dynamicFilter(ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern("region_name", GREATER_THAN, "nation_name")))
+                                                                .left(
+                                                                        assignUniqueId(
+                                                                                "unique",
+                                                                                filter(
+                                                                                        "true",
+                                                                                        tableScan("region", ImmutableMap.of(
+                                                                                                "region_regionkey", "regionkey",
+                                                                                                "region_name", "name")))))
+                                                                .right(
+                                                                        any(
+                                                                                tableScan("nation", ImmutableMap.of("nation_name", "name")))))))))));
     }
 
     @Test
@@ -1718,14 +1764,15 @@ public class TestLogicalPlanner
                         "FROM orders " +
                         "JOIN (VALUES CAST('' || 'O' AS varchar(1)), CAST('' || 'F' AS varchar(1))) t2(s) " +
                         "ON orders.orderstatus = t2.s",
-                any(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("expr", "ORDER_STATUS")),
-                        anyTree(values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new StringLiteral("O")), ImmutableList.of(new StringLiteral("F"))))),
-                        exchange(project(strictConstrainedTableScan(
-                                "orders",
-                                ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
-                                ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O"))))))))));
+                any(
+                        join(INNER, builder -> builder
+                                .equiCriteria("expr", "ORDER_STATUS")
+                                .left(anyTree(values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new StringLiteral("O")), ImmutableList.of(new StringLiteral("F"))))))
+                                .right(
+                                        exchange(project(strictConstrainedTableScan(
+                                                "orders",
+                                                ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
+                                                ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O")))))))))));
     }
 
     @Test
@@ -1783,14 +1830,14 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT * FROM nation, (SELECT a * 2 FROM (VALUES 1, 2, 3) t(a))",
                 anyTree(
-                        join(
-                                INNER,
-                                ImmutableList.of(),
-                                tableScan("nation"),
-                                values(ImmutableList.of("a"), ImmutableList.of(
-                                        ImmutableList.of(new LongLiteral("2")),
-                                        ImmutableList.of(new LongLiteral("4")),
-                                        ImmutableList.of(new LongLiteral("6")))))));
+                        join(INNER, builder -> builder
+                                .left(tableScan("nation"))
+                                .right(
+                                        values(ImmutableList.of("a"),
+                                                ImmutableList.of(
+                                                        ImmutableList.of(new LongLiteral("2")),
+                                                        ImmutableList.of(new LongLiteral("4")),
+                                                        ImmutableList.of(new LongLiteral("6"))))))));
 
         // Constraint is enforced on table scan, based on constant value in the other branch of the join.
         // The scalar constant branch of the join becomes obsolete, and join is removed.
@@ -1813,16 +1860,19 @@ public class TestLogicalPlanner
                         "JOIN (SELECT CAST('' || x AS varchar(1)) FROM (VALUES 'O', 'F') t(x)) t2(s) " +
                         "ON orders.orderstatus = t2.s",
                 anyTree(
-                        join(
-                                INNER,
-                                ImmutableList.of(equiJoinClause("expr", "ORDER_STATUS")),
-                                project(filter(
-                                        "expr IN ('F', 'O')",
-                                        values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new StringLiteral("O")), ImmutableList.of(new StringLiteral("F")))))),
-                                exchange(project(strictConstrainedTableScan(
-                                        "orders",
-                                        ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
-                                        ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O"))))))))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("expr", "ORDER_STATUS")
+                                .left(
+                                        project(
+                                                filter("expr IN ('F', 'O')",
+                                                        values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new StringLiteral("O")), ImmutableList.of(new StringLiteral("F")))))))
+                                .right(
+                                        exchange(
+                                                project(
+                                                        strictConstrainedTableScan(
+                                                                "orders",
+                                                                ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
+                                                                ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O")))))))))));
 
         // Constraint for the table is derived, based on constant values in the other branch of the join.
         // It is not accepted by the connector, and remains in form of a filter over TableScan.
@@ -1832,18 +1882,19 @@ public class TestLogicalPlanner
                         "JOIN (SELECT x * 1 FROM (VALUES BIGINT '1', BIGINT '2') t(x)) t2(s) " +
                         "ON orders.orderkey = t2.s",
                 anyTree(
-                        join(
-                                INNER,
-                                ImmutableList.of(equiJoinClause("expr", "ORDER_KEY")),
-                                project(filter(
-                                        "expr IN (BIGINT '1', BIGINT '2')",
-                                        values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1")), ImmutableList.of(new GenericLiteral("BIGINT", "2")))))),
-                                anyTree(filter(
-                                        "ORDER_KEY IN (BIGINT '1', BIGINT '2')",
-                                        strictConstrainedTableScan(
-                                                "orders",
-                                                ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
-                                                ImmutableMap.of()))))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("expr", "ORDER_KEY")
+                                .left(
+                                        project(filter(
+                                                "expr IN (BIGINT '1', BIGINT '2')",
+                                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1")), ImmutableList.of(new GenericLiteral("BIGINT", "2")))))))
+                                .right(
+                                        anyTree(filter(
+                                                "ORDER_KEY IN (BIGINT '1', BIGINT '2')",
+                                                strictConstrainedTableScan(
+                                                        "orders",
+                                                        ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
+                                                        ImmutableMap.of())))))));
     }
 
     @Test
@@ -1895,20 +1946,27 @@ public class TestLogicalPlanner
         assertDistributedPlan("SELECT custkey FROM \"test-catalog\".\"sf42.5\".nation, \"test-catalog\".\"sf42.5\".orders WHERE nation.nationkey = orders.custkey",
                 automaticJoinDistribution(),
                 output(
-                        join(INNER, ImmutableList.of(equiJoinClause("NATIONKEY", "CUSTKEY")),
-                                anyTree(
-                                        tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey"))),
-                                anyTree(
-                                        tableScan("orders", ImmutableMap.of("CUSTKEY", "custkey"))))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("NATIONKEY", "CUSTKEY")
+                                .left(
+                                        anyTree(
+                                                tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey"))))
+                                .right(
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("CUSTKEY", "custkey")))))));
 
         assertDistributedPlan("SELECT custkey FROM (VALUES CAST(1 AS BIGINT), CAST(2 AS BIGINT)) t(a), \"test-catalog\".\"sf42.5\".orders WHERE t.a = orders.custkey",
                 automaticJoinDistribution(),
                 output(
-                        join(INNER, ImmutableList.of(equiJoinClause("CUSTKEY", "T_A")), Optional.empty(), Optional.of(REPLICATED),
-                                anyTree(
-                                        tableScan("orders", ImmutableMap.of("CUSTKEY", "custkey"))),
-                                anyTree(
-                                        values("T_A")))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("CUSTKEY", "T_A")
+                                .distributionType(REPLICATED)
+                                .left(
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("CUSTKEY", "custkey"))))
+                                .right(
+                                        anyTree(
+                                                values("T_A"))))));
     }
 
     @Test
@@ -2180,20 +2238,23 @@ public class TestLogicalPlanner
                         "FROM customer",
                 output(
                         project(
-                                join(INNER,
-                                        ImmutableList.of(),
-                                        join(LEFT,
-                                                ImmutableList.of(equiJoinClause("CUSTOMER_CUSTKEY", "ORDERS2_CUSTKEY")),
-                                                project(
-                                                        join(INNER,
-                                                                ImmutableList.of(),
-                                                                join(LEFT,
-                                                                        ImmutableList.of(equiJoinClause("CUSTOMER_CUSTKEY", "ORDERS_CUSTKEY")),
-                                                                        project(tableScan("customer", ImmutableMap.of("CUSTOMER_CUSTKEY", "custkey"))),
-                                                                        anyTree(project(tableScan("orders", ImmutableMap.of("ORDERS_CUSTKEY", "custkey"))))),
-                                                                anyTree(node(ValuesNode.class)))),
-                                                anyTree(project(tableScan("orders", ImmutableMap.of("ORDERS2_CUSTKEY", "custkey"))))),
-                                        anyTree(node(ValuesNode.class))))));
+                                join(INNER, builder -> builder
+                                        .left(
+                                                join(LEFT, leftJoinBuilder -> leftJoinBuilder
+                                                        .equiCriteria("CUSTOMER_CUSTKEY", "ORDERS2_CUSTKEY")
+                                                        .left(
+                                                                project(
+                                                                        join(INNER, leftInnerJoinBuilder -> leftInnerJoinBuilder
+                                                                                .left(
+                                                                                        join(LEFT, innerBuilder -> innerBuilder
+                                                                                                .equiCriteria("CUSTOMER_CUSTKEY", "ORDERS_CUSTKEY")
+                                                                                                .left(project(tableScan("customer", ImmutableMap.of("CUSTOMER_CUSTKEY", "custkey"))))
+                                                                                                .right(anyTree(project(tableScan("orders", ImmutableMap.of("ORDERS_CUSTKEY", "custkey")))))))
+                                                                                .right(anyTree(node(ValuesNode.class))))))
+                                                        .right(
+                                                                anyTree(project(tableScan("orders", ImmutableMap.of("ORDERS2_CUSTKEY", "custkey")))))))
+                                        .right(
+                                                anyTree(node(ValuesNode.class)))))));
     }
 
     private Session noJoinReordering()

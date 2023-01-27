@@ -220,11 +220,6 @@ public final class FunctionAssertions
     private final LocalQueryRunner runner;
     private final TestingFunctionResolution testingFunctionResolution;
 
-    public FunctionAssertions()
-    {
-        this(TEST_SESSION);
-    }
-
     public FunctionAssertions(Session session)
     {
         this(session, new FeaturesConfig());
@@ -633,11 +628,6 @@ public final class FunctionAssertions
         assertEquals(block.getPositionCount(), 1);
 
         return type.getObjectValue(session.toConnectorSession(), block, 0);
-    }
-
-    public void assertFilter(String filter, boolean expected, boolean withNoInputColumns)
-    {
-        assertFilter(filter, expected, withNoInputColumns, runner.getExpressionCompiler());
     }
 
     private void assertFilter(String filter, boolean expected, boolean withNoInputColumns, ExpressionCompiler compiler)

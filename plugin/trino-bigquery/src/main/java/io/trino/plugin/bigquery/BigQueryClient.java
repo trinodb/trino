@@ -33,10 +33,14 @@ import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.http.BaseHttpServiceException;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 
 import java.util.Collections;
@@ -45,12 +49,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
 import static com.google.cloud.bigquery.JobStatistics.QueryStatistics.StatementType.SELECT;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -58,9 +64,11 @@ import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_AMBIGUOUS_OBJECT_NAME;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_INVALID_STATEMENT;
+import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_DATASET_ERROR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
 
 public class BigQueryClient
@@ -70,12 +78,24 @@ public class BigQueryClient
     private final BigQuery bigQuery;
     private final ViewMaterializationCache materializationCache;
     private final boolean caseInsensitiveNameMatching;
+    private final LoadingCache<String, List<Dataset>> remoteDatasetCache;
+    private final Optional<String> configProjectId;
 
-    public BigQueryClient(BigQuery bigQuery, boolean caseInsensitiveNameMatching, ViewMaterializationCache materializationCache)
+    public BigQueryClient(
+            BigQuery bigQuery,
+            boolean caseInsensitiveNameMatching,
+            ViewMaterializationCache materializationCache,
+            Duration metadataCacheTtl,
+            Optional<String> configProjectId)
     {
         this.bigQuery = requireNonNull(bigQuery, "bigQuery is null");
         this.materializationCache = requireNonNull(materializationCache, "materializationCache is null");
         this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
+        this.remoteDatasetCache = EvictableCacheBuilder.newBuilder()
+                .expireAfterWrite(metadataCacheTtl.toMillis(), MILLISECONDS)
+                .shareNothingWhenDisabled()
+                .build(CacheLoader.from(this::listDatasetsFromBigQuery));
+        this.configProjectId = requireNonNull(configProjectId, "projectId is null");
     }
 
     public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName)
@@ -170,12 +190,25 @@ public class BigQueryClient
 
     public String getProjectId()
     {
-        return bigQuery.getOptions().getProjectId();
+        String projectId = configProjectId.orElseGet(() -> bigQuery.getOptions().getProjectId());
+        checkState(projectId.toLowerCase(ENGLISH).equals(projectId), "projectId must be lowercase but it's " + projectId);
+        return projectId;
     }
 
     public Iterable<Dataset> listDatasets(String projectId)
     {
-        return bigQuery.listDatasets(projectId).iterateAll();
+        try {
+            return remoteDatasetCache.get(projectId);
+        }
+        catch (ExecutionException e) {
+            throw new TrinoException(BIGQUERY_LISTING_DATASET_ERROR, "Failed to retrieve datasets from BigQuery", e);
+        }
+    }
+
+    private List<Dataset> listDatasetsFromBigQuery(String projectId)
+    {
+        return stream(bigQuery.listDatasets(projectId).iterateAll())
+                .collect(toImmutableList());
     }
 
     public Iterable<Table> listTables(DatasetId remoteDatasetId, TableDefinition.Type... types)
@@ -316,19 +349,21 @@ public class BigQueryClient
     public List<BigQueryColumnHandle> getColumns(BigQueryTableHandle tableHandle)
     {
         if (tableHandle.getProjectedColumns().isPresent()) {
-            return tableHandle.getProjectedColumns().get().stream()
-                    .map(column -> (BigQueryColumnHandle) column)
-                    .collect(toImmutableList());
+            return tableHandle.getProjectedColumns().get();
         }
         checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
 
         TableInfo tableInfo = getTable(tableHandle.asPlainTable().getRemoteTableName().toTableId())
                 .orElseThrow(() -> new TableNotFoundException(tableHandle.asPlainTable().getSchemaTableName()));
+        return buildColumnHandles(tableInfo);
+    }
+
+    public static List<BigQueryColumnHandle> buildColumnHandles(TableInfo tableInfo)
+    {
         Schema schema = tableInfo.getDefinition().getSchema();
         if (schema == null) {
-            throw new TableNotFoundException(
-                    tableHandle.asPlainTable().getSchemaTableName(),
-                    format("Table '%s' has no schema", tableHandle.asPlainTable().getSchemaTableName()));
+            SchemaTableName schemaTableName = new SchemaTableName(tableInfo.getTableId().getDataset(), tableInfo.getTableId().getTable());
+            throw new TableNotFoundException(schemaTableName, format("Table '%s' has no schema", schemaTableName));
         }
         return schema.getFields()
                 .stream()

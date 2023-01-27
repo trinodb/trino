@@ -15,12 +15,20 @@ package io.trino.plugin.hive.parquet;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
+import io.airlift.units.MinDataSize;
 import io.trino.parquet.ParquetReaderOptions;
 
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+@DefunctConfig({
+        "hive.parquet.fail-on-corrupted-statistics",
+        "parquet.fail-on-corrupted-statistics",
+})
 public class ParquetReaderConfig
 {
     private ParquetReaderOptions options = new ParquetReaderOptions();
@@ -40,16 +48,6 @@ public class ParquetReaderConfig
         return this;
     }
 
-    /**
-     * @deprecated Use {@link #setIgnoreStatistics} instead.
-     */
-    @Deprecated
-    @LegacyConfig(value = {"hive.parquet.fail-on-corrupted-statistics", "parquet.fail-on-corrupted-statistics"}, replacedBy = "parquet.ignore-statistics")
-    public ParquetReaderConfig setFailOnCorruptedStatistics(boolean failOnCorruptedStatistics)
-    {
-        return setIgnoreStatistics(!failOnCorruptedStatistics);
-    }
-
     @NotNull
     public DataSize getMaxReadBlockSize()
     {
@@ -61,6 +59,21 @@ public class ParquetReaderConfig
     public ParquetReaderConfig setMaxReadBlockSize(DataSize maxReadBlockSize)
     {
         options = options.withMaxReadBlockSize(maxReadBlockSize);
+        return this;
+    }
+
+    @Min(128)
+    @Max(65536)
+    public int getMaxReadBlockRowCount()
+    {
+        return options.getMaxReadBlockRowCount();
+    }
+
+    @Config("parquet.max-read-block-row-count")
+    @ConfigDescription("Maximum number of rows read in a batch")
+    public ParquetReaderConfig setMaxReadBlockRowCount(int length)
+    {
+        options = options.withMaxReadBlockRowCount(length);
         return this;
     }
 
@@ -78,6 +91,7 @@ public class ParquetReaderConfig
     }
 
     @NotNull
+    @MinDataSize("1MB")
     public DataSize getMaxBufferSize()
     {
         return options.getMaxBufferSize();
@@ -101,6 +115,32 @@ public class ParquetReaderConfig
     public boolean isUseColumnIndex()
     {
         return options.isUseColumnIndex();
+    }
+
+    @Config("parquet.optimized-reader.enabled")
+    @ConfigDescription("Use optimized Parquet reader")
+    public ParquetReaderConfig setOptimizedReaderEnabled(boolean optimizedReaderEnabled)
+    {
+        options = options.withBatchColumnReaders(optimizedReaderEnabled);
+        return this;
+    }
+
+    public boolean isOptimizedReaderEnabled()
+    {
+        return options.useBatchColumnReaders();
+    }
+
+    @Config("parquet.use-bloom-filter")
+    @ConfigDescription("Enable using Parquet bloom filter")
+    public ParquetReaderConfig setUseBloomFilter(boolean useBloomFilter)
+    {
+        options = options.withBloomFilter(useBloomFilter);
+        return this;
+    }
+
+    public boolean isUseBloomFilter()
+    {
+        return options.useBloomFilter();
     }
 
     public ParquetReaderOptions toParquetReaderOptions()

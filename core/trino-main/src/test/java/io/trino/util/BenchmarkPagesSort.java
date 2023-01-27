@@ -219,10 +219,9 @@ public class BenchmarkPagesSort
         private void createPageProducers(int numMergeSources)
         {
             AtomicInteger counter = new AtomicInteger(0);
-            splitPages = pages.stream()
+            splitPages = ImmutableList.copyOf(pages.stream()
                     .collect(Collectors.groupingBy(it -> counter.getAndIncrement() % numMergeSources))
-                    .values().stream()
-                    .collect(toImmutableList());
+                    .values());
         }
 
         List<Page> getPages()

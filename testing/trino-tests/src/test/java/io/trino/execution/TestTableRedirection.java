@@ -149,7 +149,6 @@ public class TestTableRedirection
         return MockConnectorFactory.builder()
                 .withListSchemaNames(session -> SCHEMAS)
                 .withListTables((session, schemaName) -> SCHEMA_TABLE_MAPPING.getOrDefault(schemaName, ImmutableSet.of()).stream()
-                        .map(name -> new SchemaTableName(schemaName, name))
                         .collect(toImmutableList()))
                 .withStreamTableColumns((session, prefix) -> {
                     List<TableColumnsMetadata> allColumnsMetadata = SCHEMA_TABLE_MAPPING.entrySet().stream()
@@ -423,11 +422,11 @@ public class TestTableRedirection
                     TableFinishNode finishNode = searchFrom(plan.getRoot())
                             .where(TableFinishNode.class::isInstance)
                             .findOnlyElement();
-                    TableWriterNode.DeleteTarget deleteTarget = ((TableWriterNode.DeleteTarget) finishNode.getTarget());
+                    TableWriterNode.MergeTarget mergeTarget = (TableWriterNode.MergeTarget) finishNode.getTarget();
                     assertEquals(
-                            ((MockConnectorTableHandle) deleteTarget.getHandle().get().getConnectorHandle()).getTableName(),
+                            ((MockConnectorTableHandle) mergeTarget.getHandle().getConnectorHandle()).getTableName(),
                             schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
-                    assertEquals(deleteTarget.getSchemaTableName(), schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+                    assertEquals(mergeTarget.getSchemaTableName(), schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
                 });
     }
 
@@ -443,11 +442,11 @@ public class TestTableRedirection
                     TableFinishNode finishNode = searchFrom(plan.getRoot())
                             .where(TableFinishNode.class::isInstance)
                             .findOnlyElement();
-                    TableWriterNode.UpdateTarget updateTarget = ((TableWriterNode.UpdateTarget) finishNode.getTarget());
+                    TableWriterNode.MergeTarget mergeTarget = (TableWriterNode.MergeTarget) finishNode.getTarget();
                     assertEquals(
-                            ((MockConnectorTableHandle) updateTarget.getHandle().get().getConnectorHandle()).getTableName(),
+                            ((MockConnectorTableHandle) mergeTarget.getHandle().getConnectorHandle()).getTableName(),
                             schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
-                    assertEquals(updateTarget.getSchemaTableName(), schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+                    assertEquals(mergeTarget.getSchemaTableName(), schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
                 });
     }
 

@@ -57,13 +57,13 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.SystemSessionProperties.getInitialSplitsPerNode;
@@ -107,8 +107,8 @@ public class SqlTaskExecution
     @GuardedBy("this")
     private final Map<PlanNodeId, PendingSplitsForPlanNode> pendingSplitsByPlanNode;
 
-    // number of created Drivers that haven't yet finished
-    private final AtomicLong remainingDrivers = new AtomicLong();
+    // number of created PrioritizedSplitRunners that haven't yet finished
+    private final AtomicLong remainingSplitRunners = new AtomicLong();
 
     public SqlTaskExecution(
             TaskStateMachine taskStateMachine,
@@ -238,12 +238,15 @@ public class SqlTaskExecution
         // first remove any split that was already acknowledged
         long currentMaxAcknowledgedSplit = this.maxAcknowledgedSplit;
         splitAssignments = splitAssignments.stream()
-                .map(source -> new SplitAssignment(
-                        source.getPlanNodeId(),
-                        source.getSplits().stream()
+                .map(assignment -> new SplitAssignment(
+                        assignment.getPlanNodeId(),
+                        assignment.getSplits().stream()
                                 .filter(scheduledSplit -> scheduledSplit.getSequenceId() > currentMaxAcknowledgedSplit)
-                                .collect(Collectors.toSet()),
-                        source.isNoMoreSplits()))
+                                .collect(toImmutableSet()),
+                        assignment.isNoMoreSplits()))
+                // drop assignments containing no unacknowledged splits
+                // the noMoreSplits signal acknowledgement is not tracked but it is okay to deliver it more than once
+                .filter(assignment -> !assignment.getSplits().isEmpty() || assignment.isNoMoreSplits())
                 .collect(toList());
 
         // update task with new assignments
@@ -340,13 +343,13 @@ public class SqlTaskExecution
         List<ListenableFuture<Void>> finishedFutures = taskExecutor.enqueueSplits(taskHandle, forceRunSplit, runners);
         checkState(finishedFutures.size() == runners.size(), "Expected %s futures but got %s", runners.size(), finishedFutures.size());
 
-        // when driver completes, update state and fire events
+        // record new split runners
+        remainingSplitRunners.addAndGet(runners.size());
+
+        // when split runner completes, update state and fire events
         for (int i = 0; i < finishedFutures.size(); i++) {
             ListenableFuture<Void> finishedFuture = finishedFutures.get(i);
             DriverSplitRunner splitRunner = runners.get(i);
-
-            // record new driver
-            remainingDrivers.incrementAndGet();
 
             Futures.addCallback(finishedFuture, new FutureCallback<Object>()
             {
@@ -355,9 +358,9 @@ public class SqlTaskExecution
                 {
                     try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
                         // record driver is finished
-                        remainingDrivers.decrementAndGet();
-
-                        checkTaskCompletion();
+                        if (remainingSplitRunners.decrementAndGet() == 0) {
+                            checkTaskCompletion();
+                        }
 
                         splitMonitor.splitCompletedEvent(taskId, getDriverStats());
                     }
@@ -370,7 +373,9 @@ public class SqlTaskExecution
                         taskStateMachine.failed(cause);
 
                         // record driver is finished
-                        remainingDrivers.decrementAndGet();
+                        if (remainingSplitRunners.decrementAndGet() == 0) {
+                            checkTaskCompletion();
+                        }
 
                         // fire failed event with cause
                         splitMonitor.splitFailedEvent(taskId, getDriverStats(), cause);
@@ -424,7 +429,7 @@ public class SqlTaskExecution
             }
         }
         // do we still have running tasks?
-        if (remainingDrivers.get() != 0) {
+        if (remainingSplitRunners.get() != 0) {
             return;
         }
 
@@ -460,7 +465,7 @@ public class SqlTaskExecution
     {
         return toStringHelper(this)
                 .add("taskId", taskId)
-                .add("remainingDrivers", remainingDrivers.get())
+                .add("remainingSplitRunners", remainingSplitRunners.get())
                 .toString();
     }
 
@@ -568,20 +573,34 @@ public class SqlTaskExecution
         {
             Driver driver = driverFactory.createDriver(driverContext);
 
-            if (partitionedSplit != null) {
-                // TableScanOperator requires partitioned split to be added before the first call to process
-                driver.updateSplitAssignment(new SplitAssignment(partitionedSplit.getPlanNodeId(), ImmutableSet.of(partitionedSplit), true));
+            try {
+                if (partitionedSplit != null) {
+                    // TableScanOperator requires partitioned split to be added before the first call to process
+                    driver.updateSplitAssignment(new SplitAssignment(partitionedSplit.getPlanNodeId(), ImmutableSet.of(partitionedSplit), true));
+                }
+
+                if (pendingCreations.decrementAndGet() == 0) {
+                    closeDriverFactoryIfFullyCreated();
+                }
+
+                if (driverFactory.getSourceId().isPresent() && partitionedSplit == null) {
+                    driverReferences.add(new WeakReference<>(driver));
+                    scheduleSplits();
+                }
+
+                return driver;
             }
-
-            pendingCreations.decrementAndGet();
-            closeDriverFactoryIfFullyCreated();
-
-            if (driverFactory.getSourceId().isPresent() && partitionedSplit == null) {
-                driverReferences.add(new WeakReference<>(driver));
-                scheduleSplits();
+            catch (Throwable failure) {
+                try {
+                    driver.close();
+                }
+                catch (Throwable closeFailure) {
+                    if (failure != closeFailure) {
+                        failure.addSuppressed(closeFailure);
+                    }
+                }
+                throw failure;
             }
-
-            return driver;
         }
 
         public void enqueueSplits(Set<ScheduledSplit> splits, boolean noMoreSplits)

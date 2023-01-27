@@ -63,8 +63,8 @@ import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.CREATE_TA
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_DATABASE;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_TABLE;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.UPDATE_TABLE;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.lang.annotation.ElementType.FIELD;
@@ -84,7 +84,7 @@ import static org.testng.Assert.fail;
 public class TestIcebergGlueCatalogAccessOperations
         extends AbstractTestQueryFramework
 {
-    private final String testSchema = "test_schema_" + randomTableSuffix();
+    private final String testSchema = "test_schema_" + randomNameSuffix();
     private final Session testSession = testSessionBuilder()
             .setCatalog("iceberg")
             .setSchema(testSchema)

@@ -23,11 +23,11 @@ To connect to SingleStore, you need:
 Configuration
 -------------
 
-To configure the SingleStore connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``singlestore.properties``, to
-mount the SingleStore connector as the ``singlestore`` catalog.
-Create the file with the following contents, replacing the
-connection properties as appropriate for your setup:
+To configure the SingleStore connector, create a catalog properties file in
+``etc/catalog`` named, for example, ``example.properties``, to mount the
+SingleStore connector as the ``example`` catalog. Create the file with the
+following contents, replacing the connection properties as appropriate for your
+setup:
 
 .. code-block:: text
 
@@ -93,25 +93,25 @@ Querying SingleStore
 The SingleStore connector provides a schema for every SingleStore *database*.
 You can see the available SingleStore databases by running ``SHOW SCHEMAS``::
 
-    SHOW SCHEMAS FROM singlestore;
+    SHOW SCHEMAS FROM example;
 
 If you have a SingleStore database named ``web``, you can view the tables
 in this database by running ``SHOW TABLES``::
 
-    SHOW TABLES FROM singlestore.web;
+    SHOW TABLES FROM example.web;
 
 You can see a list of the columns in the ``clicks`` table in the ``web``
 database using either of the following::
 
-    DESCRIBE singlestore.web.clicks;
-    SHOW COLUMNS FROM singlestore.web.clicks;
+    DESCRIBE example.web.clicks;
+    SHOW COLUMNS FROM example.web.clicks;
 
 Finally, you can access the ``clicks`` table in the ``web`` database::
 
-    SELECT * FROM singlestore.web.clicks;
+    SELECT * FROM example.web.clicks;
 
 If you used a different name for your catalog properties file, use
-that catalog name instead of ``singlestore`` in the above examples.
+that catalog name instead of ``example`` in the above examples.
 
 .. _singlestore-type-mapping:
 
@@ -296,19 +296,7 @@ No other types are supported.
 
 .. _singlestore-decimal-handling:
 
-Decimal type handling
-^^^^^^^^^^^^^^^^^^^^^
-
-``DECIMAL`` types with precision larger than 38 can be mapped to a Trino ``DECIMAL``
-by setting the ``decimal-mapping`` configuration property or the ``decimal_mapping`` session property to
-``allow_overflow``. The scale of the resulting type is controlled via the ``decimal-default-scale``
-configuration property or the ``decimal-rounding-mode`` session property. The precision is always 38.
-
-By default, values that require rounding or truncation to fit will cause a failure at runtime. This behavior
-is controlled via the ``decimal-rounding-mode`` configuration property or the ``decimal_rounding_mode`` session
-property, which can be set to ``UNNECESSARY`` (the default),
-``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
-(see `RoundingMode <https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
+.. include:: decimal-type-handling.fragment
 
 .. include:: jdbc-type-mapping.fragment
 
@@ -352,6 +340,8 @@ The connector supports pushdown for a number of operations:
 * :ref:`join-pushdown`
 * :ref:`limit-pushdown`
 * :ref:`topn-pushdown`
+
+.. include:: pushdown-correctness-behavior.fragment
 
 .. include:: join-pushdown-enabled-false.fragment
 

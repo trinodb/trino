@@ -16,8 +16,8 @@ package io.trino.execution.scheduler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.connector.CatalogHandle;
 import io.trino.metadata.Split;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.split.SplitSource;
 
 import java.util.Iterator;

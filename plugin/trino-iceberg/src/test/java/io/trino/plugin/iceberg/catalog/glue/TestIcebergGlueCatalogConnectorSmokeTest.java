@@ -13,6 +13,10 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
+import com.amazonaws.services.glue.AWSGlueAsync;
+import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
+import com.amazonaws.services.glue.model.DeleteTableRequest;
+import com.amazonaws.services.glue.model.GetTableRequest;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
@@ -20,7 +24,7 @@ import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.metastore.glue.GlueMetastoreApiStats;
+import io.trino.plugin.hive.aws.AwsApiCallStats;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
@@ -35,7 +39,7 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,13 +55,15 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
 {
     private final String bucketName;
     private final String schemaName;
+    private final AWSGlueAsync glueClient;
 
     @Parameters("s3.bucket")
     public TestIcebergGlueCatalogConnectorSmokeTest(String bucketName)
     {
         super(FileFormat.PARQUET);
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
-        this.schemaName = "test_iceberg_smoke_" + randomTableSuffix();
+        this.schemaName = "test_iceberg_smoke_" + randomNameSuffix();
+        glueClient = AWSGlueAsyncClientBuilder.defaultClient();
     }
 
     @Override
@@ -68,7 +74,8 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                 .setIcebergProperties(
                         ImmutableMap.of(
                                 "iceberg.catalog.type", "glue",
-                                "hive.metastore.glue.default-warehouse-dir", schemaPath()))
+                                "hive.metastore.glue.default-warehouse-dir", schemaPath(),
+                                "iceberg.register-table-procedure.enabled", "true"))
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
                                 .withClonedTpchTables(REQUIRED_TPCH_TABLES)
@@ -95,7 +102,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                 listObjectsRequest,
                 ListObjectsV2Request::setContinuationToken,
                 ListObjectsV2Result::getNextContinuationToken,
-                new GlueMetastoreApiStats())
+                new AwsApiCallStats())
                 .map(ListObjectsV2Result::getObjectSummaries)
                 .flatMap(objectSummaries -> objectSummaries.stream().map(S3ObjectSummary::getKey))
                 .map(DeleteObjectsRequest.KeyVersion::new)
@@ -160,9 +167,54 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
         }
     }
 
-    private String getTableComment(String tableName)
+    @Test
+    public void testCommentViewColumn()
     {
-        return (String) computeScalar("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'iceberg' AND schema_name = '" + schemaName + "' AND table_name = '" + tableName + "'");
+        // TODO: Consider moving to BaseConnectorSmokeTest
+        String viewColumnName = "regionkey";
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view", "SELECT * FROM region")) {
+            // comment set
+            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS 'new region key comment'");
+            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("new region key comment");
+
+            // comment updated
+            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS 'updated region key comment'");
+            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("updated region key comment");
+
+            // comment set to empty
+            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS ''");
+            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("");
+
+            // comment deleted
+            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS NULL");
+            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo(null);
+        }
+    }
+
+    @Override
+    protected void dropTableFromMetastore(String tableName)
+    {
+        DeleteTableRequest deleteTableRequest = new DeleteTableRequest()
+                .withDatabaseName(schemaName)
+                .withName(tableName);
+        glueClient.deleteTable(deleteTableRequest);
+        GetTableRequest getTableRequest = new GetTableRequest()
+                .withDatabaseName(schemaName)
+                .withName(tableName);
+        assertThatThrownBy(() -> glueClient.getTable(getTableRequest))
+                .as("Table in metastore should not exist")
+                .hasMessageMatching(".*Table (.*) not found.*");
+    }
+
+    @Override
+    protected String getMetadataLocation(String tableName)
+    {
+        GetTableRequest getTableRequest = new GetTableRequest()
+                .withDatabaseName(schemaName)
+                .withName(tableName);
+        return glueClient.getTable(getTableRequest)
+                .getTable()
+                .getParameters().get("metadata_location");
     }
 
     private String schemaPath()

@@ -73,4 +73,13 @@ public interface ExchangeManager
      * @return {@link ExchangeSource} used by the engine to read data from an exchange
      */
     ExchangeSource createSource();
+
+    /**
+     * Shutdown the exchange manager by releasing any held resources such as
+     * threads, sockets, etc. This method will only be called when no
+     * queries are using the exchange manager. After this method is called,
+     * no methods will be called on the exchange manager or any objects obtained
+     * from exchange manager.
+     */
+    default void shutdown() {}
 }

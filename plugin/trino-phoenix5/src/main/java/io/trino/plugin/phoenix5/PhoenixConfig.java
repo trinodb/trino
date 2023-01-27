@@ -41,6 +41,7 @@ public class PhoenixConfig
      * A large value here makes sense when the Guidepost-width in Phoenix has been reduced.
      */
     private int maxScansPerSplit = 20;
+    private boolean reuseConnection = true;
 
     @NotNull
     public String getConnectionUrl()
@@ -80,6 +81,19 @@ public class PhoenixConfig
     public PhoenixConfig setMaxScansPerSplit(int scansPerSplit)
     {
         this.maxScansPerSplit = scansPerSplit;
+        return this;
+    }
+
+    public boolean isReuseConnection()
+    {
+        return reuseConnection;
+    }
+
+    @Config("query.reuse-connection")
+    @ConfigDescription("Enables reusing JDBC connection within single Trino query to run metadata queries from Coordinator to remote service")
+    public PhoenixConfig setReuseConnection(boolean reuseConnection)
+    {
+        this.reuseConnection = reuseConnection;
         return this;
     }
 }

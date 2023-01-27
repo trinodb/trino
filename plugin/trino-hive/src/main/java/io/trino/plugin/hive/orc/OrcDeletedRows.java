@@ -14,7 +14,9 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.hdfs.HdfsEnvironment;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.orc.OrcCorruptionException;
@@ -26,9 +28,6 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.security.ConnectorIdentity;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.AcidUtils;
 import org.apache.hadoop.hive.ql.io.BucketCodec;
@@ -37,7 +36,6 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Objects;
@@ -69,9 +67,7 @@ public class OrcDeletedRows
 
     private final String sourceFileName;
     private final OrcDeleteDeltaPageSourceFactory pageSourceFactory;
-    private final ConnectorIdentity identity;
-    private final Configuration configuration;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystem fileSystem;
     private final AcidInfo acidInfo;
     private final OptionalInt bucketNumber;
     private final LocalMemoryContext memoryUsage;
@@ -93,17 +89,14 @@ public class OrcDeletedRows
             String sourceFileName,
             OrcDeleteDeltaPageSourceFactory pageSourceFactory,
             ConnectorIdentity identity,
-            Configuration configuration,
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             AcidInfo acidInfo,
             OptionalInt bucketNumber,
             AggregatedMemoryContext memoryContext)
     {
         this.sourceFileName = requireNonNull(sourceFileName, "sourceFileName is null");
         this.pageSourceFactory = requireNonNull(pageSourceFactory, "pageSourceFactory is null");
-        this.identity = requireNonNull(identity, "identity is null");
-        this.configuration = requireNonNull(configuration, "configuration is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystem = requireNonNull(fileSystemFactory, "fileSystemFactory is null").create(identity);
         this.acidInfo = requireNonNull(acidInfo, "acidInfo is null");
         this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
         this.memoryUsage = memoryContext.newLocalMemoryContext(OrcDeletedRows.class.getSimpleName());
@@ -324,48 +317,48 @@ public class OrcDeletedRows
                     if (currentPageSource == null) {
                         AcidInfo.DeleteDeltaInfo deleteDeltaInfo = deleteDeltas.next();
                         currentPath = createPath(acidInfo, deleteDeltaInfo, sourceFileName);
-                        FileSystem fileSystem = hdfsEnvironment.getFileSystem(identity, currentPath, configuration);
-                        FileStatus fileStatus = hdfsEnvironment.doAs(identity, () -> fileSystem.getFileStatus(currentPath));
-                        currentPageSource = pageSourceFactory.createPageSource(fileStatus.getPath(), fileStatus.getLen()).orElseGet(() -> new EmptyPageSource());
+                        TrinoInputFile inputFile = fileSystem.newInputFile(currentPath.toString());
+                        if (inputFile.exists()) {
+                            currentPageSource = pageSourceFactory.createPageSource(inputFile).orElseGet(() -> new EmptyPageSource());
+                        }
                     }
 
-                    while (!currentPageSource.isFinished() || currentPage != null) {
-                        if (currentPage == null) {
-                            currentPage = currentPageSource.getNextPage();
-                            currentPagePosition = 0;
-                        }
+                    if (currentPageSource != null) {
+                        while (!currentPageSource.isFinished() || currentPage != null) {
+                            if (currentPage == null) {
+                                currentPage = currentPageSource.getNextPage();
+                                currentPagePosition = 0;
+                            }
 
-                        if (currentPage == null) {
-                            continue;
-                        }
+                            if (currentPage == null) {
+                                continue;
+                            }
 
-                        while (currentPagePosition < currentPage.getPositionCount()) {
-                            long originalTransaction = BIGINT.getLong(currentPage.getBlock(ORIGINAL_TRANSACTION_INDEX), currentPagePosition);
-                            int encodedBucketValue = toIntExact(INTEGER.getLong(currentPage.getBlock(BUCKET_ID_INDEX), currentPagePosition));
-                            BucketCodec bucketCodec = BucketCodec.determineVersion(encodedBucketValue);
-                            int bucket = bucketCodec.decodeWriterId(encodedBucketValue);
-                            int statement = bucketCodec.decodeStatementId(encodedBucketValue);
-                            long row = BIGINT.getLong(currentPage.getBlock(ROW_ID_INDEX), currentPagePosition);
-                            RowId rowId = new RowId(originalTransaction, bucket, statement, row);
-                            deletedRowsBuilder.add(rowId);
-                            deletedRowsBuilderSize++;
-                            currentPagePosition++;
+                            while (currentPagePosition < currentPage.getPositionCount()) {
+                                long originalTransaction = BIGINT.getLong(currentPage.getBlock(ORIGINAL_TRANSACTION_INDEX), currentPagePosition);
+                                int encodedBucketValue = toIntExact(INTEGER.getLong(currentPage.getBlock(BUCKET_ID_INDEX), currentPagePosition));
+                                BucketCodec bucketCodec = BucketCodec.determineVersion(encodedBucketValue);
+                                int bucket = bucketCodec.decodeWriterId(encodedBucketValue);
+                                int statement = bucketCodec.decodeStatementId(encodedBucketValue);
+                                long row = BIGINT.getLong(currentPage.getBlock(ROW_ID_INDEX), currentPagePosition);
+                                RowId rowId = new RowId(originalTransaction, bucket, statement, row);
+                                deletedRowsBuilder.add(rowId);
+                                deletedRowsBuilderSize++;
+                                currentPagePosition++;
 
-                            if (deletedRowsBuilderSize % 1000 == 0) {
-                                long currentMemorySize = retainedMemorySize(deletedRowsBuilderSize, currentPage);
-                                if (currentMemorySize - initialMemorySize >= DELETED_ROWS_MEMORY_INCREASE_YIELD_THREHOLD) {
-                                    memoryUsage.setBytes(currentMemorySize);
-                                    return Optional.empty();
+                                if (deletedRowsBuilderSize % 1000 == 0) {
+                                    long currentMemorySize = retainedMemorySize(deletedRowsBuilderSize, currentPage);
+                                    if (currentMemorySize - initialMemorySize >= DELETED_ROWS_MEMORY_INCREASE_YIELD_THREHOLD) {
+                                        memoryUsage.setBytes(currentMemorySize);
+                                        return Optional.empty();
+                                    }
                                 }
                             }
+                            currentPage = null;
                         }
-                        currentPage = null;
+                        currentPageSource.close();
+                        currentPageSource = null;
                     }
-                    currentPageSource.close();
-                    currentPageSource = null;
-                }
-                catch (FileNotFoundException ignored) {
-                    // source file does not have a delete delta file in this location
                 }
                 catch (TrinoException e) {
                     throw e;

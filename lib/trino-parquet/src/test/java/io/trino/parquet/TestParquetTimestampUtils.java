@@ -55,7 +55,7 @@ public class TestParquetTimestampUtils
         Timestamp timestamp = Timestamp.ofEpochSecond(dateTime.toEpochSecond(UTC), dateTime.getNano());
         Binary timestampBytes = getNanoTime(timestamp, false).toBinary();
         DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(timestampBytes);
-        assertEquals(decodedTimestamp.getEpochSeconds(), dateTime.toEpochSecond(UTC));
-        assertEquals(decodedTimestamp.getNanosOfSecond(), dateTime.getNano());
+        assertEquals(decodedTimestamp.epochSeconds(), dateTime.toEpochSecond(UTC));
+        assertEquals(decodedTimestamp.nanosOfSecond(), dateTime.getNano());
     }
 }

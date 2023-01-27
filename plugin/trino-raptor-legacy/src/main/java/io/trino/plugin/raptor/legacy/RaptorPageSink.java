@@ -42,6 +42,7 @@ import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.allAsList;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.spi.type.DateType.DATE;
@@ -89,7 +90,7 @@ public class RaptorPageSink
         this.storageManager = requireNonNull(storageManager, "storageManager is null");
         this.maxBufferBytes = maxBufferSize.toBytes();
 
-        this.sortFields = ImmutableList.copyOf(sortColumnIds.stream().map(columnIds::indexOf).collect(toList()));
+        this.sortFields = sortColumnIds.stream().map(columnIds::indexOf).collect(toImmutableList());
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
 
         this.bucketCount = bucketCount;

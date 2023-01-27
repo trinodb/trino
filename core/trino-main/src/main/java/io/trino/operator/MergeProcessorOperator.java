@@ -18,6 +18,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableWriterNode.MergeParadigmAndTypes;
 
 import java.util.List;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
@@ -40,15 +41,21 @@ public class MergeProcessorOperator
             int rowIdChannel,
             int mergeRowChannel,
             List<Integer> redistributionColumns,
-            List<Integer> dataColumnChannels)
+            List<Integer> dataColumnChannels,
+            Function<Page, Page> pagePreprocessor)
     {
         MergeRowChangeProcessor rowChangeProcessor = createRowChangeProcessor(merge, rowIdChannel, mergeRowChannel, redistributionColumns, dataColumnChannels);
-        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, rowChangeProcessor));
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, rowChangeProcessor, pagePreprocessor));
     }
 
-    private static MergeRowChangeProcessor createRowChangeProcessor(MergeParadigmAndTypes merge, int rowIdChannel, int mergeRowChannel, List<Integer> redistributionColumnChannels, List<Integer> dataColumnChannels)
+    private static MergeRowChangeProcessor createRowChangeProcessor(
+            MergeParadigmAndTypes merge,
+            int rowIdChannel,
+            int mergeRowChannel,
+            List<Integer> redistributionColumnChannels,
+            List<Integer> dataColumnChannels)
     {
-        return switch (merge.getParadigm()) {
+        return switch (merge.getParadigm().orElseThrow()) {
             case DELETE_ROW_AND_INSERT_ROW -> new DeleteAndInsertMergeProcessor(
                     merge.getColumnTypes(),
                     merge.getRowIdType(),
@@ -70,20 +77,22 @@ public class MergeProcessorOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final MergeRowChangeProcessor rowChangeProcessor;
+        private final Function<Page, Page> pagePreprocessor;
         private boolean closed;
 
-        public Factory(int operatorId, PlanNodeId planNodeId, MergeRowChangeProcessor rowChangeProcessor)
+        public Factory(int operatorId, PlanNodeId planNodeId, MergeRowChangeProcessor rowChangeProcessor, Function<Page, Page> pagePreprocessor)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.rowChangeProcessor = requireNonNull(rowChangeProcessor, "rowChangeProcessor is null");
+            this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
         }
 
         @Override
         public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
         {
             checkState(!closed, "Factory is already closed");
-            return new MergeProcessorOperator(sourcePages, rowChangeProcessor);
+            return new MergeProcessorOperator(sourcePages, rowChangeProcessor, pagePreprocessor);
         }
 
         @Override
@@ -113,7 +122,7 @@ public class MergeProcessorOperator
         @Override
         public Factory duplicate()
         {
-            return new Factory(operatorId, planNodeId, rowChangeProcessor);
+            return new Factory(operatorId, planNodeId, rowChangeProcessor, pagePreprocessor);
         }
     }
 
@@ -121,14 +130,15 @@ public class MergeProcessorOperator
 
     private MergeProcessorOperator(
             WorkProcessor<Page> sourcePages,
-            MergeRowChangeProcessor rowChangeProcessor)
+            MergeRowChangeProcessor rowChangeProcessor,
+            Function<Page, Page> pagePreprocessor)
     {
         pages = sourcePages
                 .transform(page -> {
                     if (page == null) {
                         return finished();
                     }
-                    return ofResult(rowChangeProcessor.transformPage(page));
+                    return ofResult(rowChangeProcessor.transformPage(pagePreprocessor.apply(page)));
                 });
     }
 

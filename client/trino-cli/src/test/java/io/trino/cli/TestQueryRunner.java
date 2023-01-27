@@ -67,6 +67,7 @@ public class TestQueryRunner
             throws IOException
     {
         server.close();
+        server = null;
     }
 
     @Test

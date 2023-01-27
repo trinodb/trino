@@ -86,7 +86,7 @@ public class DropTableTask
         QualifiedObjectName tableName = redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName);
         accessControl.checkCanDropTable(session.toSecurityContext(), tableName);
 
-        metadata.dropTable(session, redirectionAwareTableHandle.getTableHandle().get());
+        metadata.dropTable(session, redirectionAwareTableHandle.getTableHandle().get(), tableName.asCatalogSchemaTableName());
 
         return immediateVoidFuture();
     }

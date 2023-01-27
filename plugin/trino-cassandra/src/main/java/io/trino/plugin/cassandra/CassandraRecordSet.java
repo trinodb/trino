@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
@@ -21,8 +20,8 @@ import io.trino.spi.type.Type;
 import java.util.List;
 import java.util.function.Function;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class CassandraRecordSet
         implements RecordSet
@@ -58,6 +57,6 @@ public class CassandraRecordSet
 
     private static <T, R> List<R> transformList(List<T> list, Function<T, R> function)
     {
-        return ImmutableList.copyOf(list.stream().map(function).collect(toList()));
+        return list.stream().map(function).collect(toImmutableList());
     }
 }

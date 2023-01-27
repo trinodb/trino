@@ -440,7 +440,7 @@ public class TestDynamicFilterSourceOperator
     }
 
     @Test
-    public void testMultipleColumnsCollectMinMaxRangeWhenTooManyDistinctValues()
+    public void testMultipleColumnsBothSetAndRangeWhenTooManyDistinctValues()
     {
         int maxDistinctValues = 100;
         Page largePage = new Page(
@@ -452,9 +452,26 @@ public class TestDynamicFilterSourceOperator
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         new DynamicFilterId("0"), Domain.create(ValueSet.ofRanges(
                                 range(BIGINT, 0L, true, 100L, true)), false),
+                        new DynamicFilterId("1"), Domain.singleValue(COLOR, 100L),
                         new DynamicFilterId("2"), Domain.create(ValueSet.ofRanges(
                                 equal(BIGINT, 200L)), false))));
         assertDynamicFilters(maxDistinctValues, ImmutableList.of(BIGINT, COLOR, BIGINT), ImmutableList.of(largePage), expectedTupleDomains);
+    }
+
+    @Test
+    public void testMultipleColumnsSingleSetWithNoRangeWhenTooManyDistinctValues()
+    {
+        int maxDistinctValues = 100;
+        Page largePage = new Page(
+                createLongSequenceBlock(0, 101),
+                createColorRepeatBlock(100, 101),
+                createLongRepeatBlock(200, 101));
+
+        List<TupleDomain<DynamicFilterId>> expectedTupleDomains = ImmutableList.of(
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        new DynamicFilterId("1"), Domain.singleValue(COLOR, 100L),
+                        new DynamicFilterId("2"), Domain.singleValue(BIGINT, 200L))));
+        assertDynamicFilters(maxDistinctValues, DataSize.of(10, KILOBYTE), 100, ImmutableList.of(BIGINT, COLOR, BIGINT), ImmutableList.of(largePage), expectedTupleDomains);
     }
 
     @Test

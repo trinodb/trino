@@ -68,7 +68,7 @@ public final class LazyConnectionFactory
         }
 
         @Override
-        protected synchronized Connection getDelegate()
+        protected synchronized Connection delegate()
                 throws SQLException
         {
             checkState(!closed, "Connection is already closed");

@@ -40,9 +40,7 @@ public class TestFileResourceGroupConfig
     {
         Path resourceGroupConfigFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("resource-groups.config-file", resourceGroupConfigFile.toString())
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("resource-groups.config-file", resourceGroupConfigFile.toString());
 
         FileResourceGroupConfig expected = new FileResourceGroupConfig()
                 .setConfigFile(resourceGroupConfigFile.toString());

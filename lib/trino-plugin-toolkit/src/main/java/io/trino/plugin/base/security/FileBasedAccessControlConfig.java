@@ -14,31 +14,34 @@
 package io.trino.plugin.base.security;
 
 import io.airlift.configuration.Config;
-import io.airlift.configuration.validation.FileExists;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotNull;
 
 import java.io.File;
+
+import static com.google.common.base.Strings.nullToEmpty;
 
 public class FileBasedAccessControlConfig
 {
     public static final String SECURITY_CONFIG_FILE = "security.config-file";
     public static final String SECURITY_REFRESH_PERIOD = "security.refresh-period";
 
-    private File configFile;
+    private String configFile;
     private Duration refreshPeriod;
+    private String jsonPointer = "";
 
     @NotNull
-    @FileExists
-    public File getConfigFile()
+    public String getConfigFile()
     {
         return configFile;
     }
 
     @Config(SECURITY_CONFIG_FILE)
-    public FileBasedAccessControlConfig setConfigFile(File configFile)
+    public FileBasedAccessControlConfig setConfigFile(String configFile)
     {
         this.configFile = configFile;
         return this;
@@ -55,5 +58,35 @@ public class FileBasedAccessControlConfig
     {
         this.refreshPeriod = refreshPeriod;
         return this;
+    }
+
+    @NotNull
+    public String getJsonPointer()
+    {
+        return jsonPointer;
+    }
+
+    @Config("security.json-pointer")
+    @ConfigDescription("JSON pointer (RFC 6901) to mappings inside JSON config")
+    public FileBasedAccessControlConfig setJsonPointer(String jsonPointer)
+    {
+        this.jsonPointer = jsonPointer;
+        return this;
+    }
+
+    public boolean isHttp()
+    {
+        String nonNullConfigFile = nullToEmpty(configFile);
+        return nonNullConfigFile.startsWith("https://") ||
+                nonNullConfigFile.startsWith("http://");
+    }
+
+    @AssertTrue(message = "Config file does not exist.")
+    public boolean isConfigFileValid()
+    {
+        if (!isHttp() && !new File(nullToEmpty(configFile)).exists()) {
+            return false;
+        }
+        return true;
     }
 }

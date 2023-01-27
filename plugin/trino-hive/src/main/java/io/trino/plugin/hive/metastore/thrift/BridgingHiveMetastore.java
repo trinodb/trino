@@ -453,6 +453,12 @@ public class BridgingHiveMetastore
     }
 
     @Override
+    public void checkSupportsTransactions()
+    {
+        delegate.checkSupportsTransactions();
+    }
+
+    @Override
     public long openTransaction(AcidTransactionOwner transactionOwner)
     {
         return delegate.openTransaction(transactionOwner);

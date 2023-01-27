@@ -1,4 +1,4 @@
-# Release 400 (12 Oct 2022)
+# Release 400 (13 Oct 2022)
 
 ## General
 
@@ -6,6 +6,11 @@
 * Increase concurrency for large clusters. ({issue}`14395`)
 * Fix JSON serialization failure for `QueryCompletedEvent` in event listener.
   ({issue}`14604`)
+* Fix occasional `maximum pending connection acquisitions exceeded` failure
+  when fault-tolerant execution is enabled. ({issue}`14580`)
+* Fix incorrect results when calling the `round` function on large `real` and
+  `double` values. ({issue}`14613`)
+* Fix query failure when using the `merge(qdigest)` function. ({issue}`14616`)
 
 ## BigQuery connector
 
@@ -33,6 +38,7 @@
 
 ## Iceberg connector
 
+* Reduce query latency when querying tables with a large number of files. ({issue}`14504`)
 * Prevent table corruption when changing a table fails due to an inability to
   release the table lock from the Hive metastore. ({issue}`14386`)
 * Fix query failure when reading from a table with a leading double slash in the

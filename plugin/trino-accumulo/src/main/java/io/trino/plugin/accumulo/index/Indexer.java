@@ -13,11 +13,13 @@
  */
 package io.trino.plugin.accumulo.index;
 
+import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Table;
 import com.google.common.primitives.UnsignedBytes;
 import io.trino.plugin.accumulo.Types;
 import io.trino.plugin.accumulo.iterators.MaxByteArrayCombiner;
@@ -150,7 +152,7 @@ public class Indexer
         indexWriter = connector.createBatchWriter(table.getIndexTableName(), writerConfig);
 
         ImmutableMultimap.Builder<ByteBuffer, ByteBuffer> indexColumnsBuilder = ImmutableMultimap.builder();
-        Map<ByteBuffer, Map<ByteBuffer, Type>> indexColumnTypesBuilder = new HashMap<>();
+        Table<ByteBuffer, ByteBuffer, Type> indexColumnTypesBuilder = HashBasedTable.create();
 
         // Initialize metadata
         table.getColumns().forEach(columnHandle -> {
@@ -163,17 +165,12 @@ public class Indexer
 
                 // Create a mapping for this column's Trino type, again creating a new one for the
                 // family if necessary
-                Map<ByteBuffer, Type> types = indexColumnTypesBuilder.get(family);
-                if (types == null) {
-                    types = new HashMap<>();
-                    indexColumnTypesBuilder.put(family, types);
-                }
-                types.put(qualifier, columnHandle.getType());
+                indexColumnTypesBuilder.put(family, qualifier, columnHandle.getType());
             }
         });
 
         indexColumns = indexColumnsBuilder.build();
-        indexColumnTypes = ImmutableMap.copyOf(indexColumnTypesBuilder);
+        indexColumnTypes = ImmutableMap.copyOf(indexColumnTypesBuilder.rowMap());
 
         // If there are no indexed columns, throw an exception
         if (indexColumns.isEmpty()) {

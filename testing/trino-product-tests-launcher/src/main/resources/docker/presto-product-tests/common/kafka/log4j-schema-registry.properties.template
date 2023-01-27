@@ -1,0 +1,14 @@
+# https://github.com/confluentinc/schema-registry-images/blob/master/schema-registry/include/etc/confluent/docker/log4j.properties.template
+
+log4j.rootLogger={{ env["SCHEMA_REGISTRY_LOG4J_ROOT_LOGLEVEL"] | default('WARN') }}, stdout
+
+log4j.appender.stdout=org.apache.log4j.ConsoleAppender
+log4j.appender.stdout.layout=org.apache.log4j.PatternLayout
+log4j.appender.stdout.layout.ConversionPattern=[%d] %p %m (%c)%n
+
+{% if env['SCHEMA_REGISTRY_LOG4J_LOGGERS'] %}
+{% set loggers = parse_log4j_loggers(env['SCHEMA_REGISTRY_LOG4J_LOGGERS']) %}
+{% for logger,loglevel in loggers.items() %}
+log4j.logger.{{logger}}={{loglevel}}, stdout
+{% endfor %}
+{% endif %}

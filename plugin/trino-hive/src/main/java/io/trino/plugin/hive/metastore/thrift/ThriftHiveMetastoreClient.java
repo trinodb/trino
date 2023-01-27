@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.trino.plugin.base.util.LoggingInvocationHandler;
@@ -21,7 +22,6 @@ import io.trino.plugin.base.util.LoggingInvocationHandler.ParameterNamesProvider
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport;
 import org.apache.hadoop.hive.common.ValidTxnList;
-import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.AbortTxnRequest;
 import org.apache.hadoop.hive.metastore.api.AddDynamicPartitions;
 import org.apache.hadoop.hive.metastore.api.AllocateTableWriteIdsRequest;
@@ -71,11 +71,11 @@ import org.apache.thrift.TApplicationException;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TTransport;
+import org.apache.thrift.transport.TTransportException;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -87,8 +87,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.reflect.Reflection.newProxy;
+import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
-import static io.trino.plugin.hive.metastore.MetastoreUtil.adjustRowCount;
 import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.NOT_SUPPORTED;
 import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.SUPPORTED;
 import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.UNKNOWN;
@@ -110,40 +110,59 @@ public class ThriftHiveMetastoreClient
     private static final Pattern TABLE_PARAMETER_SAFE_KEY_PATTERN = Pattern.compile("^[a-zA-Z_]+$");
     private static final Pattern TABLE_PARAMETER_SAFE_VALUE_PATTERN = Pattern.compile("^[a-zA-Z0-9\\s]*$");
 
-    private final TTransport transport;
-    protected final ThriftHiveMetastore.Iface client;
+    private final TransportSupplier transportSupplier;
+    private TTransport transport;
+    protected ThriftHiveMetastore.Iface client;
     private final String hostname;
 
     private final MetastoreSupportsDateStatistics metastoreSupportsDateStatistics;
     private final AtomicInteger chosenGetTableAlternative;
     private final AtomicInteger chosenTableParamAlternative;
     private final AtomicInteger chosenGetAllViewsAlternative;
+    private final AtomicInteger chosenAlterTransactionalTableAlternative;
+    private final AtomicInteger chosenAlterPartitionsAlternative;
 
     public ThriftHiveMetastoreClient(
-            TTransport transport,
+            TransportSupplier transportSupplier,
             String hostname,
             MetastoreSupportsDateStatistics metastoreSupportsDateStatistics,
             AtomicInteger chosenGetTableAlternative,
             AtomicInteger chosenTableParamAlternative,
-            AtomicInteger chosenGetAllViewsAlternative)
+            AtomicInteger chosenGetAllViewsAlternative,
+            AtomicInteger chosenAlterTransactionalTableAlternative,
+            AtomicInteger chosenAlterPartitionsAlternative)
+            throws TTransportException
     {
-        this.transport = requireNonNull(transport, "transport is null");
-        ThriftHiveMetastore.Client client = new ThriftHiveMetastore.Client(new TBinaryProtocol(transport));
-        if (log.isDebugEnabled()) {
-            this.client = newProxy(ThriftHiveMetastore.Iface.class, new LoggingInvocationHandler(client, PARAMETER_NAMES_PROVIDER, log::debug));
-        }
-        else {
-            this.client = client;
-        }
+        this.transportSupplier = requireNonNull(transportSupplier, "transportSupplier is null");
         this.hostname = requireNonNull(hostname, "hostname is null");
         this.metastoreSupportsDateStatistics = requireNonNull(metastoreSupportsDateStatistics, "metastoreSupportsDateStatistics is null");
         this.chosenGetTableAlternative = requireNonNull(chosenGetTableAlternative, "chosenGetTableAlternative is null");
         this.chosenTableParamAlternative = requireNonNull(chosenTableParamAlternative, "chosenTableParamAlternative is null");
         this.chosenGetAllViewsAlternative = requireNonNull(chosenGetAllViewsAlternative, "chosenGetAllViewsAlternative is null");
+        this.chosenAlterTransactionalTableAlternative = requireNonNull(chosenAlterTransactionalTableAlternative, "chosenAlterTransactionalTableAlternative is null");
+        this.chosenAlterPartitionsAlternative = requireNonNull(chosenAlterPartitionsAlternative, "chosenAlterPartitionsAlternative is null");
+
+        connect();
+    }
+
+    private void connect()
+            throws TTransportException
+    {
+        transport = transportSupplier.createTransport();
+        ThriftHiveMetastore.Iface client = new ThriftHiveMetastore.Client(new TBinaryProtocol(transport));
+        if (log.isDebugEnabled()) {
+            client = newProxy(ThriftHiveMetastore.Iface.class, new LoggingInvocationHandler(client, PARAMETER_NAMES_PROVIDER, log::debug));
+        }
+        this.client = client;
     }
 
     @Override
     public void close()
+    {
+        disconnect();
+    }
+
+    private void disconnect()
     {
         transport.close();
     }
@@ -176,7 +195,7 @@ public class ThriftHiveMetastoreClient
         return alternativeCall(
                 exception -> !isUnknownMethodExceptionalResponse(exception),
                 chosenGetAllViewsAlternative,
-                () -> client.get_tables_by_type(databaseName, ".*", TableType.VIRTUAL_VIEW.name()),
+                () -> client.get_tables_by_type(databaseName, ".*", VIRTUAL_VIEW.name()),
                 // fallback to enumerating Presto views only (Hive views can still be executed, but will be listed as tables and not views)
                 () -> getTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true"));
     }
@@ -189,13 +208,13 @@ public class ThriftHiveMetastoreClient
         /*
          * The parameter value is restricted to have only alphanumeric characters so that it's safe
          * to be used against HMS. When using with a LIKE operator, the HMS may want the parameter
-         * value to follow a Java regex pattern or a SQL pattern. And it's hard to predict the
+         * value to follow a Java regex pattern or an SQL pattern. And it's hard to predict the
          * HMS's behavior from outside. Also, by restricting parameter values, we avoid the problem
          * of how to quote them when passing within the filter string.
          */
         checkArgument(TABLE_PARAMETER_SAFE_VALUE_PATTERN.matcher(parameterValue).matches(), "Parameter value contains invalid characters: '%s'", parameterValue);
         /*
-         * Thrift call `get_table_names_by_filter` may be translated by Metastore to a SQL query against Metastore database.
+         * Thrift call `get_table_names_by_filter` may be translated by Metastore to an SQL query against Metastore database.
          * Hive 2.3 on some databases uses CLOB for table parameter value column and some databases disallow `=` predicate over
          * CLOB values. At the same time, they allow `LIKE` predicates over them.
          */
@@ -264,16 +283,6 @@ public class ThriftHiveMetastoreClient
                     return client.get_table_req(request).getTable();
                 },
                 () -> client.get_table(databaseName, tableName));
-    }
-
-    private Table getTableWithCapabilities(String databaseName, String tableName)
-            throws TException
-    {
-        GetTableRequest request = new GetTableRequest();
-        request.setDbName(databaseName);
-        request.setTblName(tableName);
-        request.setCapabilities(new ClientCapabilities(ImmutableList.of(ClientCapability.INSERT_ONLY_TABLES)));
-        return client.get_table_req(request).getTable();
     }
 
     @Override
@@ -682,22 +691,22 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
-            throws TException
-    {
-        Table table = getTableWithCapabilities(dbName, tableName);
-        rowCountChange.ifPresent(rowCount ->
-                table.setParameters(adjustRowCount(table.getParameters(), tableName, rowCount)));
-        alterTransactionalTable(table, transactionId, writeId, new EnvironmentContext());
-    }
-
-    @Override
     public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
             throws TException
     {
-        AlterPartitionsRequest request = new AlterPartitionsRequest(dbName, tableName, partitions);
-        request.setWriteId(writeId);
-        client.alter_partitions_req(request);
+        alternativeCall(
+                exception -> !isUnknownMethodExceptionalResponse(exception),
+                chosenAlterPartitionsAlternative,
+                () -> {
+                    AlterPartitionsRequest request = new AlterPartitionsRequest(dbName, tableName, partitions);
+                    request.setWriteId(writeId);
+                    client.alter_partitions_req(request);
+                    return null;
+                },
+                () -> {
+                    client.alter_partitions_with_environment_context(dbName, tableName, partitions, new EnvironmentContext());
+                    return null;
+                });
     }
 
     @Override
@@ -713,17 +722,31 @@ public class ThriftHiveMetastoreClient
     public void alterTransactionalTable(Table table, long transactionId, long writeId, EnvironmentContext environmentContext)
             throws TException
     {
-        table.setWriteId(writeId);
-        checkArgument(writeId >= table.getWriteId(), "The writeId supplied %s should be greater than or equal to the table writeId %s", writeId, table.getWriteId());
-        AlterTableRequest request = new AlterTableRequest(table.getDbName(), table.getTableName(), table);
-        request.setValidWriteIdList(getValidWriteIds(ImmutableList.of(format("%s.%s", table.getDbName(), table.getTableName())), transactionId));
-        request.setWriteId(writeId);
-        request.setEnvironmentContext(environmentContext);
-        client.alter_table_req(request);
+        long originalWriteId = table.getWriteId();
+        alternativeCall(
+                exception -> !isUnknownMethodExceptionalResponse(exception),
+                chosenAlterTransactionalTableAlternative,
+                () -> {
+                    table.setWriteId(writeId);
+                    checkArgument(writeId >= table.getWriteId(), "The writeId supplied %s should be greater than or equal to the table writeId %s", writeId, table.getWriteId());
+                    AlterTableRequest request = new AlterTableRequest(table.getDbName(), table.getTableName(), table);
+                    request.setValidWriteIdList(getValidWriteIds(ImmutableList.of(format("%s.%s", table.getDbName(), table.getTableName())), transactionId));
+                    request.setWriteId(writeId);
+                    request.setEnvironmentContext(environmentContext);
+                    client.alter_table_req(request);
+                    return null;
+                },
+                () -> {
+                    table.setWriteId(originalWriteId);
+                    client.alter_table_with_environment_context(table.getDbName(), table.getTableName(), table, environmentContext);
+                    return null;
+                });
     }
 
+    // Method needs to be final for @SafeVarargs to work
     @SafeVarargs
-    private static <T> T alternativeCall(
+    @VisibleForTesting
+    final <T> T alternativeCall(
             Predicate<Exception> isValidExceptionalResponse,
             AtomicInteger chosenAlternative,
             AlternativeCall<T>... alternatives)
@@ -757,6 +780,10 @@ public class ThriftHiveMetastoreClient
                 else if (firstException != exception) {
                     firstException.addSuppressed(exception);
                 }
+                // Client that threw exception is in an unknown state. We need to open it again to
+                // make sure it will respond properly to the next call.
+                disconnect();
+                connect();
             }
         }
 
@@ -799,8 +826,9 @@ public class ThriftHiveMetastoreClient
         throw new RuntimeException(throwable);
     }
 
+    @VisibleForTesting
     @FunctionalInterface
-    private interface AlternativeCall<T>
+    interface AlternativeCall<T>
     {
         T execute()
                 throws TException;
@@ -811,5 +839,11 @@ public class ThriftHiveMetastoreClient
     {
         void call(A arg)
                 throws TException;
+    }
+
+    public interface TransportSupplier
+    {
+        TTransport createTransport()
+                throws TTransportException;
     }
 }

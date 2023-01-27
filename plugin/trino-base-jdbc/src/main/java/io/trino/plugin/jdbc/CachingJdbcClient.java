@@ -208,10 +208,10 @@ public class CachingJdbcClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session, JdbcSplit split)
+    public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
             throws SQLException
     {
-        return delegate.getConnection(session, split);
+        return delegate.getConnection(session, split, tableHandle);
     }
 
     @Override
@@ -300,9 +300,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
-        delegate.commitCreateTable(session, handle);
+        delegate.commitCreateTable(session, handle, pageSinkIds);
         invalidateTableCaches(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
     }
 
@@ -313,9 +313,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
-        delegate.finishInsertTable(session, handle);
+        delegate.finishInsertTable(session, handle, pageSinkIds);
         onDataChanged(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
     }
 
@@ -330,6 +330,12 @@ public class CachingJdbcClient
     public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         delegate.rollbackCreateTable(session, handle);
+    }
+
+    @Override
+    public boolean supportsRetries()
+    {
+        return delegate.supportsRetries();
     }
 
     @Override
@@ -412,28 +418,35 @@ public class CachingJdbcClient
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
         delegate.setColumnComment(session, handle, column, comment);
-        invalidateColumnsCache(handle.asPlainTable().getSchemaTableName());
+        invalidateTableCaches(handle.asPlainTable().getSchemaTableName());
     }
 
     @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
         delegate.addColumn(session, handle, column);
-        invalidateColumnsCache(handle.asPlainTable().getSchemaTableName());
+        invalidateTableCaches(handle.asPlainTable().getSchemaTableName());
     }
 
     @Override
     public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
         delegate.dropColumn(session, handle, column);
-        invalidateColumnsCache(handle.asPlainTable().getSchemaTableName());
+        invalidateTableCaches(handle.asPlainTable().getSchemaTableName());
     }
 
     @Override
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         delegate.renameColumn(session, handle, jdbcColumn, newColumnName);
-        invalidateColumnsCache(handle.asPlainTable().getSchemaTableName());
+        invalidateTableCaches(handle.asPlainTable().getSchemaTableName());
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        delegate.setColumnType(session, handle, column, type);
+        invalidateTableCaches(handle.asPlainTable().getSchemaTableName());
     }
 
     @Override
@@ -576,6 +589,12 @@ public class CachingJdbcClient
     CacheStats getTableNamesCacheStats()
     {
         return tableNamesCache.stats();
+    }
+
+    @VisibleForTesting
+    CacheStats getTableHandlesByNameCacheStats()
+    {
+        return tableHandlesByNameCache.stats();
     }
 
     @VisibleForTesting

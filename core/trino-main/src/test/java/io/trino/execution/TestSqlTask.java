@@ -31,13 +31,13 @@ import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
-import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.operator.TaskContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.predicate.Domain;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -63,7 +63,7 @@ import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.trino.execution.TaskTestUtils.createTestSplitMonitor;
 import static io.trino.execution.TaskTestUtils.createTestingPlanner;
 import static io.trino.execution.TaskTestUtils.updateTask;
-import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
+import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -82,14 +82,16 @@ import static org.testng.Assert.assertTrue;
 public class TestSqlTask
 {
     public static final OutputBufferId OUT = new OutputBufferId(0);
-    private final TaskExecutor taskExecutor;
-    private final ScheduledExecutorService taskNotificationExecutor;
-    private final ScheduledExecutorService driverYieldExecutor;
-    private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
+
+    private TaskExecutor taskExecutor;
+    private ScheduledExecutorService taskNotificationExecutor;
+    private ScheduledExecutorService driverYieldExecutor;
+    private SqlTaskExecutionFactory sqlTaskExecutionFactory;
 
     private final AtomicInteger nextTaskId = new AtomicInteger();
 
-    public TestSqlTask()
+    @BeforeClass
+    public void setUp()
     {
         taskExecutor = new TaskExecutor(8, 16, 3, 4, Ticker.systemTicker());
         taskExecutor.start();
@@ -111,8 +113,10 @@ public class TestSqlTask
     public void destroy()
     {
         taskExecutor.stop();
+        taskExecutor = null;
         taskNotificationExecutor.shutdownNow();
         driverYieldExecutor.shutdown();
+        sqlTaskExecutionFactory = null;
     }
 
     @Test(timeOut = 30_000)
@@ -405,7 +409,7 @@ public class TestSqlTask
                 sqlTask -> {},
                 DataSize.of(32, MEGABYTE),
                 DataSize.of(200, MEGABYTE),
-                new ExchangeManagerRegistry(new ExchangeHandleResolver()),
+                new ExchangeManagerRegistry(),
                 new CounterStat());
     }
 }

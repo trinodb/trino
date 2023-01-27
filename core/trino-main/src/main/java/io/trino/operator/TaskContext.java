@@ -31,6 +31,7 @@ import io.trino.execution.TaskStateMachine;
 import io.trino.execution.buffer.LazyOutputBuffer;
 import io.trino.memory.QueryContext;
 import io.trino.memory.QueryContextVisitor;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.spi.predicate.Domain;
@@ -43,9 +44,11 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -91,6 +94,8 @@ public class TaskContext
 
     private final Object cumulativeMemoryLock = new Object();
     private final AtomicDouble cumulativeUserMemory = new AtomicDouble(0.0);
+
+    private final AtomicInteger maxWriterCount = new AtomicInteger(-1);
 
     @GuardedBy("cumulativeMemoryLock")
     private long lastUserMemoryReservation;
@@ -285,6 +290,11 @@ public class TaskContext
         return taskMemoryContext.localUserMemoryContext();
     }
 
+    public AggregatedMemoryContext newAggregateMemoryContext()
+    {
+        return taskMemoryContext.newAggregateUserMemoryContext();
+    }
+
     public boolean isPerOperatorCpuTimerEnabled()
     {
         return perOperatorCpuTimerEnabled;
@@ -347,6 +357,20 @@ public class TaskContext
             physicalWrittenBytes += context.getPhysicalWrittenDataSize();
         }
         return physicalWrittenBytes;
+    }
+
+    public void setMaxWriterCount(int maxWriterCount)
+    {
+        checkArgument(maxWriterCount > 0, "maxWriterCount must be > 0");
+
+        int oldMaxWriterCount = this.maxWriterCount.getAndSet(maxWriterCount);
+        checkArgument(oldMaxWriterCount == -1 || oldMaxWriterCount == maxWriterCount, "maxWriterCount already set to " + oldMaxWriterCount);
+    }
+
+    public Optional<Integer> getMaxWriterCount()
+    {
+        int value = maxWriterCount.get();
+        return value == -1 ? Optional.empty() : Optional.of(value);
     }
 
     public Duration getFullGcTime()
@@ -570,6 +594,7 @@ public class TaskContext
                 outputPositions,
                 new Duration(outputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(physicalWrittenDataSize),
+                getMaxWriterCount(),
                 fullGcCount,
                 fullGcTime,
                 pipelineStats);

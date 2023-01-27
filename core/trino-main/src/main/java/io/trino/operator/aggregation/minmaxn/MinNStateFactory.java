@@ -56,6 +56,7 @@ public class MinNStateFactory
                     "second argument of min_n must be less than or equal to %s; found %s",
                     MAX_NUMBER_OF_VALUES,
                     n);
+
             return new TypedHeap(true, compare, elementType, toIntExact(n));
         };
         deserializer = rowBlock -> TypedHeap.deserialize(true, compare, elementType, rowBlock);

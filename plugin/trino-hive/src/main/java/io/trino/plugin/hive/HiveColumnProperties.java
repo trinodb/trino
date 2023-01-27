@@ -65,8 +65,7 @@ public class HiveColumnProperties
                         List.class,
                         null,
                         false,
-                        value -> ((List<?>) value).stream()
-                                .collect(toImmutableList()),
+                        value -> ImmutableList.copyOf((List<?>) value),
                         value -> value))
                 .add(integerProperty(
                         COLUMN_PROJECTION_INTERVAL,

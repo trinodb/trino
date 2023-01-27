@@ -28,6 +28,7 @@ import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.protocol.internal.ProtocolConstants;
 import com.datastax.oss.protocol.internal.util.Bytes;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.InetAddresses;
 import com.google.inject.Inject;
@@ -213,7 +214,7 @@ public class CassandraTypeManager
                         .map(field -> new RowType.Field(Optional.of(field.getKey()), field.getValue().getTrinoType()))
                         .collect(toImmutableList()));
 
-        return Optional.of(new CassandraType(UDT, trinoType, argumentTypes.buildOrThrow().values().stream().collect(toImmutableList())));
+        return Optional.of(new CassandraType(UDT, trinoType, ImmutableList.copyOf(argumentTypes.buildOrThrow().values())));
     }
 
     public NullableValue getColumnValue(CassandraType cassandraType, Row row, int position)
@@ -471,8 +472,9 @@ public class CassandraTypeManager
             case INET:
             case VARINT:
             case TUPLE:
-            case UDT:
                 return quoteStringLiteralForJson(cassandraValue.toString());
+            case UDT:
+                return quoteStringLiteralForJson(((UdtValue) cassandraValue).getFormattedContents());
 
             case BLOB:
             case CUSTOM:

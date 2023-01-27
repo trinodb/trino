@@ -141,17 +141,20 @@ public final class JoinTestUtils
 
         int partitionCount = parallelBuild ? PARTITION_COUNT : 1;
         List<Integer> hashChannels = buildPages.getHashChannels().orElseThrow();
+        List<Type> types = buildPages.getTypes();
+        List<Type> hashChannelTypes = hashChannels.stream()
+                .map(types::get)
+                .collect(toImmutableList());
         LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 taskContext.getSession(),
                 partitionCount,
                 FIXED_HASH_DISTRIBUTION,
                 hashChannels,
-                buildPages.getTypes(),
+                hashChannelTypes,
                 buildPages.getHashChannel(),
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
                 TYPE_OPERATOR_FACTORY,
-                taskContext::getPhysicalWrittenDataSize,
                 DataSize.of(32, DataSize.Unit.MEGABYTE));
 
         // collect input data into the partitioned exchange

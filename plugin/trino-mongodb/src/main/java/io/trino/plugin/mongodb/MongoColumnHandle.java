@@ -23,7 +23,6 @@ import org.bson.Document;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class MongoColumnHandle
@@ -114,11 +113,6 @@ public class MongoColumnHandle
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("name", name)
-                .add("type", type)
-                .add("hidden", hidden)
-                .add("comment", comment)
-                .toString();
+        return name + ":" + type;
     }
 }

@@ -17,23 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.hdfs.DynamicHdfsConfiguration;
-import io.trino.hdfs.HdfsConfig;
-import io.trino.hdfs.HdfsConfiguration;
-import io.trino.hdfs.HdfsConfigurationInitializer;
-import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveTableHandle;
-import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TestingHiveConnectorFactory;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -53,10 +43,10 @@ import java.util.Optional;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.createProjectedColumnHandle;
+import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -89,17 +79,7 @@ public class TestHiveProjectionPushdownIntoTableScan
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        HdfsConfig config = new HdfsConfig();
-        HdfsConfiguration configuration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
-        HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
-
-        HiveMetastore metastore = new FileHiveMetastore(
-                new NodeVersion("test_version"),
-                environment,
-                new HiveMetastoreConfig().isHideDeltaLakeTables(),
-                new FileHiveMetastoreConfig()
-                        .setCatalogDirectory(baseDir.toURI().toString())
-                        .setMetastoreUser("test"));
+        HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
         Database database = Database.builder()
                 .setDatabaseName(SCHEMA_NAME)
                 .setOwnerName(Optional.of("public"))
@@ -213,23 +193,24 @@ public class TestHiveProjectionPushdownIntoTableScan
                                         "expr_0_x", expression("expr_0[1]"),
                                         "expr_0", expression("expr_0"),
                                         "expr_0_y", expression("expr_0[2]")),
-                                join(
-                                        INNER,
-                                        ImmutableList.of(equiJoinClause("t_expr_1", "s_expr_1")),
-                                        anyTree(
-                                                filter(
-                                                        "expr_0_x = BIGINT '2'",
+                                join(INNER, builder -> builder
+                                        .equiCriteria("t_expr_1", "s_expr_1")
+                                        .left(
+                                                anyTree(
+                                                        filter(
+                                                                "expr_0_x = BIGINT '2'",
+                                                                tableScan(
+                                                                        table -> ((HiveTableHandle) table).getCompactEffectivePredicate().getDomains().get()
+                                                                                .equals(ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L))),
+                                                                        TupleDomain.all(),
+                                                                        ImmutableMap.of("expr_0_x", columnX::equals, "expr_0", column0Handle::equals, "t_expr_1", column1Handle::equals)))))
+                                        .right(
+                                                anyTree(
                                                         tableScan(
-                                                                table -> ((HiveTableHandle) table).getCompactEffectivePredicate().getDomains().get()
-                                                                        .equals(ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L))),
+                                                                ((HiveTableHandle) tableHandle.get().getConnectorHandle())
+                                                                        .withProjectedColumns(ImmutableSet.of(column1Handle))::equals,
                                                                 TupleDomain.all(),
-                                                                ImmutableMap.of("expr_0_x", columnX::equals, "expr_0", column0Handle::equals, "t_expr_1", column1Handle::equals)))),
-                                        anyTree(
-                                                tableScan(
-                                                        ((HiveTableHandle) tableHandle.get().getConnectorHandle())
-                                                                .withProjectedColumns(ImmutableSet.of(column1Handle))::equals,
-                                                        TupleDomain.all(),
-                                                        ImmutableMap.of("s_expr_1", column1Handle::equals)))))));
+                                                                ImmutableMap.of("s_expr_1", column1Handle::equals))))))));
     }
 
     @AfterClass(alwaysRun = true)

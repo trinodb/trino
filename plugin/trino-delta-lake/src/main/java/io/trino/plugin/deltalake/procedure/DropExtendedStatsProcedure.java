@@ -29,7 +29,7 @@ import javax.inject.Provider;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static io.trino.plugin.deltalake.procedure.Procedures.checkProcedureArgument;
+import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;

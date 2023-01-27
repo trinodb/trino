@@ -16,19 +16,14 @@ package io.trino.plugin.bigquery;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldList;
 import com.google.cloud.bigquery.LegacySQLTypeName;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Enums;
-import com.google.common.collect.ImmutableMap;
-import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Decimals;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.bigquery.BigQueryType.toTrinoType;
 
 public final class Conversions
 {
@@ -45,24 +40,14 @@ public final class Conversions
                         .collect(Collectors.toList());
         return new BigQueryColumnHandle(
                 field.getName(),
-                BigQueryType.valueOf(field.getType().name()),
+                toTrinoType(field).orElseThrow(() -> new IllegalArgumentException("Unsupported type: " + field)),
+                field.getType().getStandardType(),
                 getMode(field),
                 field.getPrecision(),
                 field.getScale(),
                 subColumns,
                 field.getDescription(),
                 false);
-    }
-
-    @VisibleForTesting
-    public static ColumnMetadata toColumnMetadata(Field field)
-    {
-        return ColumnMetadata.builder()
-                .setName(field.getName())
-                .setType(adapt(field).getTrinoType())
-                .setComment(Optional.ofNullable(field.getDescription()))
-                .setNullable(getMode(field) == Field.Mode.NULLABLE)
-                .build();
     }
 
     public static boolean isSupportedType(Field field)
@@ -77,47 +62,8 @@ public final class Conversions
                 return false;
             }
         }
-        return Enums.getIfPresent(BigQueryType.class, type.name()).isPresent();
-    }
 
-    static BigQueryType.Adaptor adapt(Field field)
-    {
-        return new BigQueryType.Adaptor()
-        {
-            @Override
-            public BigQueryType getBigQueryType()
-            {
-                return BigQueryType.valueOf(field.getType().name());
-            }
-
-            @Override
-            public Long getPrecision()
-            {
-                return field.getPrecision();
-            }
-
-            @Override
-            public Long getScale()
-            {
-                return field.getScale();
-            }
-
-            @Override
-            public ImmutableMap<String, BigQueryType.Adaptor> getBigQuerySubTypes()
-            {
-                FieldList subFields = field.getSubFields();
-                if (subFields == null) {
-                    return ImmutableMap.of();
-                }
-                return subFields.stream().collect(toImmutableMap(Field::getName, Conversions::adapt));
-            }
-
-            @Override
-            public Field.Mode getMode()
-            {
-                return Conversions.getMode(field);
-            }
-        };
+        return toTrinoType(field).isPresent();
     }
 
     private static Field.Mode getMode(Field field)

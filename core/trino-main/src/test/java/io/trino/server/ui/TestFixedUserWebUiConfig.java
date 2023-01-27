@@ -34,9 +34,7 @@ public class TestFixedUserWebUiConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("web-ui.user", "some-user")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("web-ui.user", "some-user");
 
         FixedUserWebUiConfig expected = new FixedUserWebUiConfig()
                 .setUsername("some-user");

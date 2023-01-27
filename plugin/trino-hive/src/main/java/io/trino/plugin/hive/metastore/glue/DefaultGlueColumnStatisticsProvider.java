@@ -48,7 +48,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -125,19 +124,6 @@ public class DefaultGlueColumnStatisticsProvider
         }
         catch (RuntimeException ex) {
             throw new TrinoException(HIVE_METASTORE_ERROR, ex);
-        }
-    }
-
-    private Optional<Map<String, HiveColumnStatistics>> getPartitionColumnStatisticsIfPresent(Partition partition)
-    {
-        try {
-            return Optional.of(getPartitionColumnStatistics(partition));
-        }
-        catch (TrinoException ex) {
-            if (ex.getErrorCode() == HIVE_PARTITION_NOT_FOUND.toErrorCode()) {
-                return Optional.empty();
-            }
-            throw ex;
         }
     }
 
@@ -227,11 +213,11 @@ public class DefaultGlueColumnStatisticsProvider
             List<List<ColumnStatistics>> columnChunks = Lists.partition(columnStats, GLUE_COLUMN_WRITE_STAT_PAGE_SIZE);
 
             List<CompletableFuture<Void>> updateFutures = columnChunks.stream().map(columnChunk -> runAsync(
-                    () -> stats.getUpdateColumnStatisticsForTable().call(() -> glueClient.updateColumnStatisticsForTable(
-                            new UpdateColumnStatisticsForTableRequest()
-                                    .withDatabaseName(table.getDatabaseName())
-                                    .withTableName(table.getTableName())
-                                    .withColumnStatisticsList(columnChunk))), this.writeExecutor))
+                            () -> stats.getUpdateColumnStatisticsForTable().call(() -> glueClient.updateColumnStatisticsForTable(
+                                    new UpdateColumnStatisticsForTableRequest()
+                                            .withDatabaseName(table.getDatabaseName())
+                                            .withTableName(table.getTableName())
+                                            .withColumnStatisticsList(columnChunk))), this.writeExecutor))
                     .collect(toUnmodifiableList());
 
             Map<String, HiveColumnStatistics> currentTableColumnStatistics = this.getTableColumnStatistics(table);

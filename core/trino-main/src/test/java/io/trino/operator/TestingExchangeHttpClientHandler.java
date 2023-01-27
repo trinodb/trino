@@ -25,12 +25,13 @@ import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.trino.execution.TaskId;
-import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.spi.Page;
+
+import java.util.Optional;
 
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
-import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
@@ -44,13 +45,13 @@ import static org.testng.Assert.assertEquals;
 public class TestingExchangeHttpClientHandler
         implements TestingHttpClient.Processor
 {
-    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
-
     private final LoadingCache<TaskId, TestingTaskBuffer> taskBuffers;
+    private final PagesSerdeFactory serdeFactory;
 
-    public TestingExchangeHttpClientHandler(LoadingCache<TaskId, TestingTaskBuffer> taskBuffers)
+    public TestingExchangeHttpClientHandler(LoadingCache<TaskId, TestingTaskBuffer> taskBuffers, PagesSerdeFactory serdeFactory)
     {
         this.taskBuffers = requireNonNull(taskBuffers, "taskBuffers is null");
+        this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
     }
 
     @Override
@@ -77,10 +78,7 @@ public class TestingExchangeHttpClientHandler
         if (page != null) {
             headers.put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(pageToken + 1));
             headers.put(TRINO_BUFFER_COMPLETE, String.valueOf(false));
-            Slice serializedPage;
-            try (PagesSerde.PagesSerdeContext context = PAGES_SERDE.newContext()) {
-                serializedPage = PAGES_SERDE.serialize(context, page);
-            }
+            Slice serializedPage = serdeFactory.createSerializer(Optional.empty()).serialize(page);
             DynamicSliceOutput output = new DynamicSliceOutput(256);
             output.writeInt(SERIALIZED_PAGES_MAGIC);
             output.writeLong(calculateChecksum(ImmutableList.of(serializedPage)));

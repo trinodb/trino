@@ -287,8 +287,10 @@ public class TaskExecutor
         }
 
         // replace blocked splits that were terminated
-        addNewEntrants();
-        recordLeafSplitsSize();
+        synchronized (this) {
+            addNewEntrants();
+            recordLeafSplitsSize();
+        }
     }
 
     private void doRemoveTask(TaskHandle taskHandle)
@@ -333,23 +335,27 @@ public class TaskExecutor
                         blockedQuantaWallTime,
                         unblockedQuantaWallTime);
 
-                if (taskHandle.isDestroyed()) {
-                    // If the handle is destroyed, we destroy the task splits to complete the future
-                    splitsToDestroy.add(prioritizedSplitRunner);
-                }
-                else if (intermediate) {
-                    // Note: we do not record queued time for intermediate splits
-                    startIntermediateSplit(prioritizedSplitRunner);
+                if (intermediate) {
                     // add the runner to the handle so it can be destroyed if the task is canceled
-                    taskHandle.recordIntermediateSplit(prioritizedSplitRunner);
+                    if (taskHandle.recordIntermediateSplit(prioritizedSplitRunner)) {
+                        // Note: we do not record queued time for intermediate splits
+                        startIntermediateSplit(prioritizedSplitRunner);
+                    }
+                    else {
+                        splitsToDestroy.add(prioritizedSplitRunner);
+                    }
                 }
                 else {
                     // add this to the work queue for the task
-                    taskHandle.enqueueSplit(prioritizedSplitRunner);
-                    // if task is under the limit for guaranteed splits, start one
-                    scheduleTaskIfNecessary(taskHandle);
-                    // if globally we have more resources, start more
-                    addNewEntrants();
+                    if (taskHandle.enqueueSplit(prioritizedSplitRunner)) {
+                        // if task is under the limit for guaranteed splits, start one
+                        scheduleTaskIfNecessary(taskHandle);
+                        // if globally we have more resources, start more
+                        addNewEntrants();
+                    }
+                    else {
+                        splitsToDestroy.add(prioritizedSplitRunner);
+                    }
                 }
 
                 finishedFutures.add(prioritizedSplitRunner.getFinishedFuture());
@@ -480,8 +486,10 @@ public class TaskExecutor
         if (timeDifference > 0) {
             this.leafSplitsSize.add(lastLeafSplitsSize, timeDifference);
             this.lastLeafSplitsSizeRecordTime = now;
-            this.lastLeafSplitsSize = allSplits.size() - intermediateSplits.size();
         }
+        // always record new lastLeafSplitsSize as it might have changed
+        // even if timeDifference is 0
+        this.lastLeafSplitsSize = allSplits.size() - intermediateSplits.size();
     }
 
     private class TaskRunner
@@ -520,7 +528,9 @@ public class TaskExecutor
                         }
 
                         if (split.isFinished()) {
-                            log.debug("%s is finished", split.getInfo());
+                            if (log.isDebugEnabled()) {
+                                log.debug("%s is finished", split.getInfo());
+                            }
                             splitFinished(split);
                         }
                         else {
@@ -550,6 +560,15 @@ public class TaskExecutor
                             }
                         }
                         splitFinished(split);
+                    }
+                    finally {
+                        // Clear the interrupted flag on the current thread, driver cancellation may have triggered an interrupt
+                        if (Thread.interrupted()) {
+                            if (closed) {
+                                // reset interrupted flag if closed before interrupt
+                                Thread.currentThread().interrupt();
+                            }
+                        }
                     }
                 }
             }
@@ -878,6 +897,12 @@ public class TaskExecutor
                 .filter(filter).map(RunningSplitInfo::getTaskId).collect(toImmutableSet());
     }
 
+    /**
+     * A class representing a split that is running on the TaskRunner.
+     * It has a Thread object that gets assigned while assigning the split
+     * to the taskRunner. However, when the TaskRunner moves to a different split,
+     * the thread stored here will not remain assigned to this split anymore.
+     */
     public static class RunningSplitInfo
             implements Comparable<RunningSplitInfo>
     {

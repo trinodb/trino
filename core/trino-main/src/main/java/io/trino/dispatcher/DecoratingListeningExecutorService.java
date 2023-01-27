@@ -17,14 +17,21 @@ import com.google.common.util.concurrent.ForwardingListeningExecutorService;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
+import javax.annotation.Nullable;
+
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -32,6 +39,27 @@ public class DecoratingListeningExecutorService
         extends ForwardingListeningExecutorService
         implements ListeningExecutorService
 {
+    // TODO remove after requiring Java 19+ for runtime.
+    private static final @Nullable MethodHandle CLOSE_METHOD;
+
+    static {
+        Method closeMethod;
+        try {
+            closeMethod = ExecutorService.class.getMethod("close");
+        }
+        catch (NoSuchMethodException e) {
+            closeMethod = null;
+        }
+        try {
+            CLOSE_METHOD = closeMethod != null
+                    ? MethodHandles.lookup().unreflect(closeMethod)
+                    : null;
+        }
+        catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private final ListeningExecutorService delegate;
     private final TaskDecorator decorator;
 
@@ -140,6 +168,23 @@ public class DecoratingListeningExecutorService
             throws InterruptedException
     {
         return super.awaitTermination(timeout, unit);
+    }
+
+    // TODO This is temporary, until Guava's ForwardingExecutorService has the method in their interface. See https://github.com/google/guava/issues/6296
+    //@Override
+    public void close()
+    {
+        if (CLOSE_METHOD == null) {
+            throw new UnsupportedOperationException("ExecutorService.close has close() method since Java 19. " +
+                    "The DecoratingListeningExecutorService supports the method only when run with Java 19 runtime.");
+        }
+        try {
+            CLOSE_METHOD.invoke(delegate());
+        }
+        catch (Throwable e) {
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
+        }
     }
 
     public interface TaskDecorator

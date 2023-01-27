@@ -50,6 +50,7 @@ import static org.testng.Assert.assertEquals;
 public class TestTableSnapshot
 {
     private final ParquetReaderOptions parquetReaderOptions = new ParquetReaderConfig().toParquetReaderOptions();
+    private final int domainCompactionThreshold = 32;
 
     private CheckpointSchemaManager checkpointSchemaManager;
     private AccessTrackingFileSystemFactory accessTrackingFileSystemFactory;
@@ -74,7 +75,7 @@ public class TestTableSnapshot
     {
         Map<String, Integer> expectedFileAccess = new HashMap<>();
         TableSnapshot tableSnapshot = TableSnapshot.load(
-                new SchemaTableName("schema", "person"), accessTrackingFileSystem, tableLocation, parquetReaderOptions, true);
+                new SchemaTableName("schema", "person"), accessTrackingFileSystem, tableLocation, parquetReaderOptions, true, domainCompactionThreshold);
         expectedFileAccess.put("_last_checkpoint", 1);
         expectedFileAccess.put("00000000000000000011.json", 1);
         expectedFileAccess.put("00000000000000000012.json", 1);
@@ -92,7 +93,7 @@ public class TestTableSnapshot
             throws IOException
     {
         TableSnapshot tableSnapshot = TableSnapshot.load(
-                new SchemaTableName("schema", "person"), accessTrackingFileSystem, tableLocation, parquetReaderOptions, true);
+                new SchemaTableName("schema", "person"), accessTrackingFileSystem, tableLocation, parquetReaderOptions, true, domainCompactionThreshold);
         tableSnapshot.setCachedMetadata(Optional.of(new MetadataEntry("id", "name", "description", null, "schema", ImmutableList.of(), ImmutableMap.of(), 0)));
         try (Stream<DeltaLakeTransactionLogEntry> stream = tableSnapshot.getCheckpointTransactionLogEntries(
                 SESSION, ImmutableSet.of(ADD), checkpointSchemaManager, TESTING_TYPE_MANAGER, accessTrackingFileSystem, new FileFormatDataSourceStats())) {
@@ -181,7 +182,7 @@ public class TestTableSnapshot
             throws IOException
     {
         TableSnapshot tableSnapshot = TableSnapshot.load(
-                new SchemaTableName("schema", "person"), accessTrackingFileSystem, tableLocation, parquetReaderOptions, true);
+                new SchemaTableName("schema", "person"), accessTrackingFileSystem, tableLocation, parquetReaderOptions, true, domainCompactionThreshold);
         assertEquals(tableSnapshot.getVersion(), 13L);
     }
 }

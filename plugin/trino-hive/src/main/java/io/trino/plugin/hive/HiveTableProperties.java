@@ -56,6 +56,7 @@ public class HiveTableProperties
     public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
     public static final String AVRO_SCHEMA_URL = "avro_schema_url";
+    public static final String AVRO_SCHEMA_LITERAL = "avro_schema_literal";
     public static final String TEXTFILE_FIELD_SEPARATOR = "textfile_field_separator";
     public static final String TEXTFILE_FIELD_SEPARATOR_ESCAPE = "textfile_field_separator_escape";
     public static final String NULL_FORMAT_PROPERTY = "null_format";
@@ -143,6 +144,7 @@ public class HiveTableProperties
                 integerProperty(BUCKETING_VERSION, "Bucketing version", null, false),
                 integerProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false),
                 stringProperty(AVRO_SCHEMA_URL, "URI pointing to Avro schema for the table", null, false),
+                stringProperty(AVRO_SCHEMA_LITERAL, "JSON-encoded Avro schema for the table", null, false),
                 integerProperty(SKIP_HEADER_LINE_COUNT, "Number of header lines", null, false),
                 integerProperty(SKIP_FOOTER_LINE_COUNT, "Number of footer lines", null, false),
                 stringProperty(TEXTFILE_FIELD_SEPARATOR, "TEXTFILE field separator character", null, false),
@@ -183,6 +185,11 @@ public class HiveTableProperties
     public static String getAvroSchemaUrl(Map<String, Object> tableProperties)
     {
         return (String) tableProperties.get(AVRO_SCHEMA_URL);
+    }
+
+    public static String getAvroSchemaLiteral(Map<String, Object> tableProperties)
+    {
+        return (String) tableProperties.get(AVRO_SCHEMA_LITERAL);
     }
 
     public static Optional<Integer> getHeaderSkipCount(Map<String, Object> tableProperties)

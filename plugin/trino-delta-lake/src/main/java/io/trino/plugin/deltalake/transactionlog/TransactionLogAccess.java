@@ -93,6 +93,7 @@ public class TransactionLogAccess
     private final Cache<String /* table location */, TableSnapshot> tableSnapshots;
     private final Cache<String /* table location */, DeltaLakeDataFileCacheEntry> activeDataFileCache;
     private final boolean checkpointRowStatisticsWritingEnabled;
+    private final int domainCompactionThreshold;
 
     @Inject
     public TransactionLogAccess(
@@ -107,8 +108,9 @@ public class TransactionLogAccess
         this.checkpointSchemaManager = requireNonNull(checkpointSchemaManager, "checkpointSchemaManager is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions();
+        this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions().withBloomFilter(false);
         this.checkpointRowStatisticsWritingEnabled = deltaLakeConfig.isCheckpointRowStatisticsWritingEnabled();
+        this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
 
         tableSnapshots = EvictableCacheBuilder.newBuilder()
                 .expireAfterWrite(deltaLakeConfig.getMetadataCacheTtl().toMillis(), TimeUnit.MILLISECONDS)
@@ -154,7 +156,8 @@ public class TransactionLogAccess
                                 fileSystem,
                                 tableLocation,
                                 parquetReaderOptions,
-                                checkpointRowStatisticsWritingEnabled));
+                                checkpointRowStatisticsWritingEnabled,
+                                domainCompactionThreshold));
             }
             catch (UncheckedExecutionException | ExecutionException e) {
                 throwIfUnchecked(e.getCause());

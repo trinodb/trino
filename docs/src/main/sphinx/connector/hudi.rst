@@ -26,10 +26,10 @@ metastore configuration properties as the :doc:`Hive connector
 The connector recognizes Hudi tables synced to the metastore by the
 `Hudi sync tool <https://hudi.apache.org/docs/syncing_metastore>`_.
 
-To create a catalog that uses the Hudi connector, create a catalog properties file,
-for example ``etc/catalog/example.properties``, that references the ``hudi``
-connector. Update the ``hive.metastore.uri`` with the URI of your Hive metastore
-Thrift service:
+To create a catalog that uses the Hudi connector, create a catalog properties
+file ``etc/catalog/example.properties`` that references the ``hudi`` connector.
+Update the ``hive.metastore.uri`` with the URI of your Hive metastore Thrift
+service:
 
 .. code-block:: properties
 
@@ -119,7 +119,7 @@ Here are some sample queries:
 
 .. code-block:: sql
 
-    USE a-catalog.myschema;
+    USE example.example_schema;
 
     SELECT symbol, max(ts)
     FROM stock_ticks_cow
@@ -157,11 +157,3 @@ Here are some sample queries:
     ------------+--------+
      2018-08-31 |  99  |
     (1 rows)
-
-Reading Hudi tables with the Hive connector
--------------------------------------------
-
-Hudi tables can also be accessed with a catalog using the Hive connector. The supported query types
-with the Hive connector are same as that of Hudi connector. To query Hudi tables on Trino, place
-the `hudi-trino-bundle <https://repo.maven.apache.org/maven2/org/apache/hudi/hudi-trino-bundle>`_
-JAR file into the Hive connector installation ``<trino_install>/plugin/hive``.

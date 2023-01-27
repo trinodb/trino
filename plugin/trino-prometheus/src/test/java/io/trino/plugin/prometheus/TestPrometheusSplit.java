@@ -28,6 +28,7 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import org.apache.http.NameValuePair;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -74,6 +75,13 @@ public class TestPrometheusSplit
     public void setUp()
     {
         prometheusHttpServer = new PrometheusHttpServer();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        prometheusHttpServer.stop();
+        prometheusHttpServer = null;
     }
 
     @Test

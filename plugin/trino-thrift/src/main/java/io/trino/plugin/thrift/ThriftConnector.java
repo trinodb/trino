@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.thrift;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorIndexProvider;
@@ -37,7 +38,6 @@ public class ThriftConnector
     private final ThriftMetadata metadata;
     private final ThriftSplitManager splitManager;
     private final ThriftPageSourceProvider pageSourceProvider;
-    private final ThriftSessionProperties sessionProperties;
     private final ThriftIndexProvider indexProvider;
 
     @Inject
@@ -46,14 +46,12 @@ public class ThriftConnector
             ThriftMetadata metadata,
             ThriftSplitManager splitManager,
             ThriftPageSourceProvider pageSourceProvider,
-            ThriftSessionProperties sessionProperties,
             ThriftIndexProvider indexProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
-        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.indexProvider = requireNonNull(indexProvider, "indexProvider is null");
     }
 
@@ -84,7 +82,7 @@ public class ThriftConnector
     @Override
     public List<PropertyMetadata<?>> getSessionProperties()
     {
-        return sessionProperties.getSessionProperties();
+        return ImmutableList.of();
     }
 
     @Override

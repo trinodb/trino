@@ -14,9 +14,9 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
@@ -26,9 +26,9 @@ import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.ScalarOperator;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
-import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
@@ -36,6 +36,9 @@ import static io.trino.spi.type.Chars.compareChars;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.Slices.sliceRepresentation;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
+import static java.lang.Character.MAX_CODE_POINT;
+import static java.lang.Character.MIN_CODE_POINT;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Collections.singletonList;
@@ -46,15 +49,38 @@ public final class CharType
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(CharType.class, lookup(), Slice.class);
 
     public static final int MAX_LENGTH = 65_536;
+    private static final CharType[] CACHED_INSTANCES = new CharType[128];
+
+    static {
+        for (int i = 0; i < CACHED_INSTANCES.length; i++) {
+            CACHED_INSTANCES[i] = new CharType(i);
+        }
+    }
 
     private final int length;
+    private volatile Optional<Range> range;
 
+    /**
+     * @deprecated Use {@link #createCharType(int)} instead.
+     */
+    @Deprecated
     public static CharType createCharType(long length)
     {
+        if (length < 0 || length > MAX_LENGTH) {
+            throw new IllegalArgumentException(format("CHAR length must be in range [0, %s], got %s", MAX_LENGTH, length));
+        }
+        return createCharType(toIntExact(length));
+    }
+
+    public static CharType createCharType(int length)
+    {
+        if (0 <= length && length < CACHED_INSTANCES.length) {
+            return CACHED_INSTANCES[length];
+        }
         return new CharType(length);
     }
 
-    private CharType(long length)
+    private CharType(int length)
     {
         super(
                 new TypeSignature(
@@ -63,9 +89,9 @@ public final class CharType
                 Slice.class);
 
         if (length < 0 || length > MAX_LENGTH) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("CHAR length must be in range [0, %s], got %s", MAX_LENGTH, length));
+            throw new IllegalArgumentException(format("CHAR length must be in range [0, %s], got %s", MAX_LENGTH, length));
         }
-        this.length = (int) length;
+        this.length = length;
     }
 
     public int getLength()
@@ -89,6 +115,41 @@ public final class CharType
     public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
     {
         return TYPE_OPERATOR_DECLARATION;
+    }
+
+    @Override
+    public Optional<Range> getRange()
+    {
+        Optional<Range> range = this.range;
+        @SuppressWarnings("OptionalAssignedToNull")
+        boolean cachedRangePresent = range != null;
+        if (!cachedRangePresent) {
+            if (length > 100) {
+                // The max/min values may be materialized in the plan, so we don't want them to be too large.
+                // Range comparison against large values are usually nonsensical, too, so no need to support them
+                // beyond a certain size. They specific choice above is arbitrary and can be adjusted if needed.
+                range = Optional.empty();
+            }
+            else {
+                int minCodePointSize = SliceUtf8.lengthOfCodePoint(MIN_CODE_POINT);
+                int maxCodePointSize = SliceUtf8.lengthOfCodePoint(MAX_CODE_POINT);
+
+                Slice min = Slices.allocate(minCodePointSize * length);
+                Slice max = Slices.allocate(maxCodePointSize * length);
+                int position = 0;
+                for (int i = 0; i < length; i++) {
+                    position += SliceUtf8.setCodePointAt(MIN_CODE_POINT, min, position);
+                }
+                position = 0;
+                for (int i = 0; i < length; i++) {
+                    position += SliceUtf8.setCodePointAt(MAX_CODE_POINT, max, position);
+                }
+
+                range = Optional.of(new Range(min, max));
+            }
+            this.range = range;
+        }
+        return range;
     }
 
     @Override

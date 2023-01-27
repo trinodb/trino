@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.RuleStatsRecorder;
@@ -97,6 +97,11 @@ public class BasePlanTest
     protected CatalogHandle getCurrentCatalogHandle()
     {
         return queryRunner.inTransaction(transactionSession -> queryRunner.getMetadata().getCatalogHandle(transactionSession, transactionSession.getCatalog().get())).get();
+    }
+
+    protected CatalogHandle getCatalogHandle(String catalogName)
+    {
+        return queryRunner.inTransaction(transactionSession -> queryRunner.getMetadata().getCatalogHandle(transactionSession, catalogName)).get();
     }
 
     protected LocalQueryRunner getQueryRunner()

@@ -28,7 +28,6 @@ import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
-import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
@@ -46,15 +45,12 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TableWriterNode.CreateReference;
 import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
-import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
 import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import io.trino.sql.planner.plan.TableWriterNode.TableExecuteTarget;
-import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.plan.UnionNode;
-import io.trino.sql.planner.plan.UpdateNode;
 
 import java.util.List;
 import java.util.Optional;
@@ -138,37 +134,12 @@ public class BeginTableWrite
         }
 
         @Override
-        public PlanNode visitDelete(DeleteNode node, RewriteContext<Optional<WriterTarget>> context)
-        {
-            DeleteTarget deleteTarget = (DeleteTarget) getContextTarget(context);
-            return new DeleteNode(
-                    node.getId(),
-                    rewriteModifyTableScan(node.getSource(), deleteTarget.getHandleOrElseThrow()),
-                    deleteTarget,
-                    node.getRowId(),
-                    node.getOutputSymbols());
-        }
-
-        @Override
-        public PlanNode visitUpdate(UpdateNode node, RewriteContext<Optional<WriterTarget>> context)
-        {
-            UpdateTarget updateTarget = (UpdateTarget) getContextTarget(context);
-            return new UpdateNode(
-                    node.getId(),
-                    rewriteModifyTableScan(node.getSource(), updateTarget.getHandleOrElseThrow()),
-                    updateTarget,
-                    node.getRowId(),
-                    node.getColumnValueAndRowIdSymbols(),
-                    node.getOutputSymbols());
-        }
-
-        @Override
         public PlanNode visitTableExecute(TableExecuteNode node, RewriteContext<Optional<WriterTarget>> context)
         {
             TableExecuteTarget tableExecuteTarget = (TableExecuteTarget) getContextTarget(context);
             return new TableExecuteNode(
                     node.getId(),
-                    rewriteModifyTableScan(node.getSource(), tableExecuteTarget.getSourceHandle().orElseThrow()),
+                    rewriteModifyTableScan(node.getSource(), tableExecuteTarget.getSourceHandle().orElseThrow(), false),
                     tableExecuteTarget,
                     node.getRowCountSymbol(),
                     node.getFragmentSymbol(),
@@ -184,7 +155,7 @@ public class BeginTableWrite
             MergeTarget mergeTarget = (MergeTarget) getContextTarget(context);
             return new MergeWriterNode(
                     mergeNode.getId(),
-                    rewriteModifyTableScan(mergeNode.getSource(), mergeTarget.getHandle()),
+                    rewriteModifyTableScan(mergeNode.getSource(), mergeTarget.getHandle(), true),
                     mergeTarget,
                     mergeNode.getProjectedSymbols(),
                     mergeNode.getPartitioningScheme(),
@@ -233,22 +204,6 @@ public class BeginTableWrite
             if (node instanceof TableWriterNode) {
                 return ((TableWriterNode) node).getTarget();
             }
-            if (node instanceof DeleteNode) {
-                DeleteNode deleteNode = (DeleteNode) node;
-                DeleteTarget delete = deleteNode.getTarget();
-                return new DeleteTarget(
-                        Optional.of(findTableScanHandleForDeleteOrUpdate(deleteNode.getSource())),
-                        delete.getSchemaTableName());
-            }
-            if (node instanceof UpdateNode) {
-                UpdateNode updateNode = (UpdateNode) node;
-                UpdateTarget update = updateNode.getTarget();
-                return new UpdateTarget(
-                        Optional.of(findTableScanHandleForDeleteOrUpdate(updateNode.getSource())),
-                        update.getSchemaTableName(),
-                        update.getUpdatedColumns(),
-                        update.getUpdatedColumnHandles());
-            }
             if (node instanceof TableExecuteNode) {
                 TableExecuteTarget target = ((TableExecuteNode) node).getTarget();
                 return new TableExecuteTarget(
@@ -259,7 +214,18 @@ public class BeginTableWrite
             }
 
             if (node instanceof MergeWriterNode mergeWriterNode) {
-                return mergeWriterNode.getTarget();
+                MergeTarget mergeTarget = mergeWriterNode.getTarget();
+                Optional<TableHandle> tableHandle = findTableScanHandleForMergeWriter(mergeWriterNode.getSource());
+                if (tableHandle.isEmpty()) {
+                    // The table scan was eliminated by constant folding.  But since it was eliminated, we
+                    // won't ever need to access the table, so returning the existing mergeTarget works.
+                    return mergeTarget;
+                }
+                return new MergeTarget(
+                        tableHandle.get(),
+                        mergeTarget.getMergeHandle(),
+                        mergeTarget.getSchemaTableName(),
+                        mergeTarget.getMergeParadigmAndTypes());
             }
 
             if (node instanceof ExchangeNode || node instanceof UnionNode) {
@@ -277,25 +243,19 @@ public class BeginTableWrite
             // TODO: we shouldn't need to store the schemaTableName in the handles, but there isn't a good way to pass this around with the current architecture
             if (target instanceof CreateReference) {
                 CreateReference create = (CreateReference) target;
-                return new CreateTarget(metadata.beginCreateTable(session, create.getCatalog(), create.getTableMetadata(), create.getLayout()), create.getTableMetadata().getTable(), target.supportsReportingWrittenBytes(metadata, session));
+                return new CreateTarget(
+                        metadata.beginCreateTable(session, create.getCatalog(), create.getTableMetadata(), create.getLayout()),
+                        create.getTableMetadata().getTable(),
+                        target.supportsReportingWrittenBytes(metadata, session),
+                        target.supportsMultipleWritersPerPartition(metadata, session));
             }
             if (target instanceof InsertReference) {
                 InsertReference insert = (InsertReference) target;
-                return new InsertTarget(metadata.beginInsert(session, insert.getHandle(), insert.getColumns()), metadata.getTableMetadata(session, insert.getHandle()).getTable(), target.supportsReportingWrittenBytes(metadata, session));
-            }
-            if (target instanceof DeleteTarget) {
-                DeleteTarget delete = (DeleteTarget) target;
-                TableHandle newHandle = metadata.beginDelete(session, delete.getHandleOrElseThrow());
-                return new DeleteTarget(Optional.of(newHandle), delete.getSchemaTableName());
-            }
-            if (target instanceof UpdateTarget) {
-                UpdateTarget update = (UpdateTarget) target;
-                TableHandle newHandle = metadata.beginUpdate(session, update.getHandleOrElseThrow(), update.getUpdatedColumnHandles());
-                return new UpdateTarget(
-                        Optional.of(newHandle),
-                        update.getSchemaTableName(),
-                        update.getUpdatedColumns(),
-                        update.getUpdatedColumnHandles());
+                return new InsertTarget(
+                        metadata.beginInsert(session, insert.getHandle(), insert.getColumns()),
+                        metadata.getTableMetadata(session, insert.getHandle()).getTable(),
+                        target.supportsReportingWrittenBytes(metadata, session),
+                        target.supportsMultipleWritersPerPartition(metadata, session));
             }
             if (target instanceof MergeTarget merge) {
                 MergeHandle mergeHandle = metadata.beginMerge(session, merge.getHandle());
@@ -365,7 +325,22 @@ public class BeginTableWrite
             throw new IllegalArgumentException("Expected to find exactly one update target TableScanNode in plan but found: " + tableScanNodes);
         }
 
-        private PlanNode rewriteModifyTableScan(PlanNode node, TableHandle handle)
+        private Optional<TableHandle> findTableScanHandleForMergeWriter(PlanNode startNode)
+        {
+            List<PlanNode> tableScanNodes = PlanNodeSearcher.searchFrom(startNode)
+                    .where(node -> node instanceof TableScanNode scanNode && scanNode.isUpdateTarget())
+                    .findAll();
+
+            if (tableScanNodes.isEmpty()) {
+                return Optional.empty();
+            }
+            if (tableScanNodes.size() == 1) {
+                return Optional.of(((TableScanNode) tableScanNodes.get(0)).getTable());
+            }
+            throw new IllegalArgumentException("Expected to find zero or one update target TableScanNode in plan but found: " + tableScanNodes);
+        }
+
+        private PlanNode rewriteModifyTableScan(PlanNode node, TableHandle handle, boolean tableScanNotFoundIsOk)
         {
             AtomicInteger modifyCount = new AtomicInteger(0);
             PlanNode rewrittenNode = SimplePlanRewriter.rewriteWith(
@@ -393,7 +368,13 @@ public class BeginTableWrite
                     node,
                     null);
 
-            verify(modifyCount.get() == 1, "Expected to find exactly one update target TableScanNode but found %s", modifyCount);
+            int countFound = modifyCount.get();
+            if (tableScanNotFoundIsOk) {
+                verify(countFound == 0 || countFound == 1, "Expected to find zero or one update target TableScanNodes but found %s", countFound);
+            }
+            else {
+                verify(countFound == 1, "Expected to find exactly one update target TableScanNode but found %s", countFound);
+            }
             return rewrittenNode;
         }
     }

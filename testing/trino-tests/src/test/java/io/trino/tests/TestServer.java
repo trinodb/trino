@@ -42,6 +42,7 @@ import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
@@ -66,6 +67,7 @@ import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static io.trino.client.ClientCapabilities.PATH;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -77,6 +79,7 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.Response.Status.OK;
 import static javax.ws.rs.core.Response.Status.SEE_OTHER;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -92,9 +95,7 @@ public class TestServer
     public void setup()
     {
         server = TestingTrinoServer.builder()
-                .setProperties(ImmutableMap.<String, String>builder()
-                        .put("http-server.process-forwarded", "true")
-                        .buildOrThrow())
+                .setProperties(ImmutableMap.of("http-server.process-forwarded", "true"))
                 .build();
 
         server.installPlugin(new MemoryPlugin());
@@ -108,6 +109,8 @@ public class TestServer
             throws Exception
     {
         closeAll(server, client);
+        server = null;
+        client = null;
     }
 
     @Test
@@ -210,9 +213,7 @@ public class TestServer
         assertEquals(queryInfo.getSession().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
 
         // verify prepared statements
-        assertEquals(queryInfo.getSession().getPreparedStatements(), ImmutableMap.builder()
-                .put("foo", "select * from bar")
-                .buildOrThrow());
+        assertEquals(queryInfo.getSession().getPreparedStatements(), ImmutableMap.of("foo", "select * from bar"));
 
         List<List<Object>> rows = data.build();
         assertEquals(rows, ImmutableList.of(ImmutableList.of("memory"), ImmutableList.of("system")));
@@ -274,6 +275,19 @@ public class TestServer
                     "FROM " + tableName;
 
             checkVersionOnError(query, "TrinoException: Compiler failed(?s:.*)at io.trino.sql.gen.ExpressionCompiler.compile");
+        }
+    }
+
+    @Test
+    public void testSetPathSupportByClient()
+    {
+        try (TestingTrinoClient testingClient = new TestingTrinoClient(server, testSessionBuilder().setClientCapabilities(Set.of()).build())) {
+            assertThatThrownBy(() -> testingClient.execute("SET PATH foo"))
+                    .hasMessage("SET PATH not supported by client");
+        }
+
+        try (TestingTrinoClient testingClient = new TestingTrinoClient(server, testSessionBuilder().setClientCapabilities(Set.of(PATH.name())).build())) {
+            testingClient.execute("SET PATH foo");
         }
     }
 

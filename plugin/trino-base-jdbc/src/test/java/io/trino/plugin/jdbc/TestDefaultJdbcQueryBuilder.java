@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.JoinCondition;
@@ -102,7 +103,7 @@ public class TestDefaultJdbcQueryBuilder
     private TestingDatabase database;
     private JdbcClient jdbcClient;
 
-    private final QueryBuilder queryBuilder = new DefaultQueryBuilder();
+    private final QueryBuilder queryBuilder = new DefaultQueryBuilder(RemoteQueryModifier.NONE);
 
     private List<JdbcColumnHandle> columns;
 
@@ -181,6 +182,7 @@ public class TestDefaultJdbcQueryBuilder
             throws Exception
     {
         database.close();
+        database = null;
     }
 
     @Test

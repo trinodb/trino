@@ -88,6 +88,7 @@ public class TestShardEjector
     {
         if (dummyHandle != null) {
             dummyHandle.close();
+            dummyHandle = null;
         }
         if (dataDir != null) {
             deleteRecursively(dataDir, ALLOW_INSECURE);

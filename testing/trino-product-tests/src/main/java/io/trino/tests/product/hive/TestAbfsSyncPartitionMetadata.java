@@ -19,8 +19,8 @@ import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.AZURE;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
 import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
@@ -32,7 +32,7 @@ import static org.apache.parquet.Strings.isNullOrEmpty;
 public class TestAbfsSyncPartitionMetadata
         extends BaseTestSyncPartitionMetadata
 {
-    private final String schema = "test_" + randomTableSuffix();
+    private final String schema = "test_" + randomNameSuffix();
 
     @BeforeTestWithContext
     public void setUp()
@@ -117,6 +117,13 @@ public class TestAbfsSyncPartitionMetadata
     public void testConflictingMixedCasePartitionNames()
     {
         super.testConflictingMixedCasePartitionNames();
+    }
+
+    @Test(groups = AZURE)
+    @Override
+    public void testSyncPartitionMetadataWithNullArgument()
+    {
+        super.testSyncPartitionMetadataWithNullArgument();
     }
 
     @Override
