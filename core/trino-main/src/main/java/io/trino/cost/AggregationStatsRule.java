@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static java.lang.Math.min;
@@ -53,7 +54,7 @@ public class AggregationStatsRule
             return Optional.empty();
         }
 
-        if (node.getStep() != SINGLE) {
+        if (node.getStep() != SINGLE && node.getStep() != FINAL) {
             return Optional.empty();
         }
 

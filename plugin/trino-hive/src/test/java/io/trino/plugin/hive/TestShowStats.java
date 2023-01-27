@@ -492,12 +492,11 @@ public class TestShowStats
     @Test
     public void testShowStatsWithAggregation()
     {
-        // TODO - row count should be 1 - https://github.com/trinodb/trino/issues/6323
         assertQuery(
                 "SHOW STATS FOR (SELECT count(*) AS x FROM orders)",
                 "VALUES " +
                         "   ('x', null, null, null, null, null, null), " +
-                        "   (null, null, null, null, null, null, null)");
+                        "   (null, null, null, null, 1, null, null)");
 
         assertQuery(
                 sessionWith(getSession(), PREFER_PARTIAL_AGGREGATION, "false"),
