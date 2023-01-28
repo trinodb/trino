@@ -18,6 +18,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOperators
@@ -585,5 +587,17 @@ public class TestOperators
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.0002222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.0009999999 Asia/Kathmandu'")).matches("INTERVAL '0.999' SECOND");
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.00022222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.00099999999 Asia/Kathmandu'")).matches("INTERVAL '0.999' SECOND");
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.000222222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.000999999999 Asia/Kathmandu'")).matches("INTERVAL '0.999' SECOND");
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertThat(assertions.operator(INDETERMINATE, "cast(null as TIMESTAMP WITH TIME ZONE)"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(INDETERMINATE, "TIMESTAMP '2001-01-02 01:04:05.321 +02:09'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
     }
 }
