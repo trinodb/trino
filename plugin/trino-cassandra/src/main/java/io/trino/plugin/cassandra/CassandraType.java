@@ -44,6 +44,7 @@ public class CassandraType
         BLOB,
         UUID,
         TIMEUUID,
+        TIME,
         COUNTER,
         VARINT,
         INET,

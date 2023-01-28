@@ -47,6 +47,7 @@ import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
@@ -148,6 +149,8 @@ public class CassandraTypeManager
                 return Optional.of(CassandraTypes.SMALLINT);
             case ProtocolConstants.DataType.TIMESTAMP:
                 return Optional.of(CassandraTypes.TIMESTAMP);
+            case ProtocolConstants.DataType.TIME:
+                return Optional.of(CassandraTypes.TIME);
             case ProtocolConstants.DataType.TIMEUUID:
                 return Optional.of(CassandraTypes.TIMEUUID);
             case ProtocolConstants.DataType.TINYINT:
@@ -660,6 +663,9 @@ public class CassandraTypeManager
         }
         if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS)) {
             return CassandraTypes.TIMESTAMP;
+        }
+        if (type.equals(TimeType.TIME_MILLIS)) {
+            return CassandraTypes.TIME;
         }
         if (type.equals(UuidType.UUID)) {
             return CassandraTypes.UUID;
