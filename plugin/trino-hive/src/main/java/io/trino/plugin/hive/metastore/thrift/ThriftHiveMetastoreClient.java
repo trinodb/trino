@@ -62,8 +62,6 @@ import io.trino.hive.thrift.metastore.ThriftHiveMetastore;
 import io.trino.hive.thrift.metastore.TxnToWriteId;
 import io.trino.hive.thrift.metastore.UnlockRequest;
 import io.trino.plugin.base.util.LoggingInvocationHandler;
-import io.trino.plugin.base.util.LoggingInvocationHandler.AirliftParameterNamesProvider;
-import io.trino.plugin.base.util.LoggingInvocationHandler.ParameterNamesProvider;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport;
 import org.apache.thrift.TApplicationException;
@@ -104,8 +102,6 @@ public class ThriftHiveMetastoreClient
         implements ThriftMetastoreClient
 {
     private static final Logger log = Logger.get(ThriftHiveMetastoreClient.class);
-
-    private static final ParameterNamesProvider PARAMETER_NAMES_PROVIDER = new AirliftParameterNamesProvider(ThriftHiveMetastore.Iface.class, ThriftHiveMetastore.Client.class);
 
     private static final Pattern TABLE_PARAMETER_SAFE_KEY_PATTERN = Pattern.compile("^[a-zA-Z_]+$");
     private static final Pattern TABLE_PARAMETER_SAFE_VALUE_PATTERN = Pattern.compile("^[a-zA-Z0-9\\s]*$");
@@ -151,7 +147,7 @@ public class ThriftHiveMetastoreClient
         transport = transportSupplier.createTransport();
         ThriftHiveMetastore.Iface client = new ThriftHiveMetastore.Client(new TBinaryProtocol(transport));
         if (log.isDebugEnabled()) {
-            client = newProxy(ThriftHiveMetastore.Iface.class, new LoggingInvocationHandler(client, PARAMETER_NAMES_PROVIDER, log::debug));
+            client = newProxy(ThriftHiveMetastore.Iface.class, new LoggingInvocationHandler(client, log::debug));
         }
         this.client = client;
     }
