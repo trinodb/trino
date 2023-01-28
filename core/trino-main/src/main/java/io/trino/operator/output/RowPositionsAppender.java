@@ -74,22 +74,32 @@ public class RowPositionsAppender
             return;
         }
         ensureCapacity(positions.size());
-        AbstractRowBlock sourceRowBlock = (AbstractRowBlock) block;
-        IntArrayList nonNullPositions;
-        if (sourceRowBlock.mayHaveNull()) {
-            nonNullPositions = processNullablePositions(positions, sourceRowBlock);
-            hasNullRow |= nonNullPositions.size() < positions.size();
-            hasNonNullRow |= nonNullPositions.size() > 0;
+        if (block instanceof AbstractRowBlock sourceRowBlock) {
+            IntArrayList nonNullPositions;
+            if (sourceRowBlock.mayHaveNull()) {
+                nonNullPositions = processNullablePositions(positions, sourceRowBlock);
+                hasNullRow |= nonNullPositions.size() < positions.size();
+                hasNonNullRow |= nonNullPositions.size() > 0;
+            }
+            else {
+                // the source Block does not have nulls
+                nonNullPositions = processNonNullablePositions(positions, sourceRowBlock);
+                hasNonNullRow = true;
+            }
+
+            List<Block> fieldBlocks = sourceRowBlock.getChildren();
+            for (int i = 0; i < fieldAppenders.length; i++) {
+                fieldAppenders[i].append(nonNullPositions, fieldBlocks.get(i));
+            }
+        }
+        else if (allPositionsNull(positions, block)) {
+            // all input positions are null. We can handle that even if block type is not RowBLock.
+            // append positions.size() nulls
+            Arrays.fill(rowIsNull, positionCount, positionCount + positions.size(), true);
+            hasNullRow = true;
         }
         else {
-            // the source Block does not have nulls
-            nonNullPositions = processNonNullablePositions(positions, sourceRowBlock);
-            hasNonNullRow = true;
-        }
-
-        List<Block> fieldBlocks = sourceRowBlock.getChildren();
-        for (int i = 0; i < fieldAppenders.length; i++) {
-            fieldAppenders[i].append(nonNullPositions, fieldBlocks.get(i));
+            throw new IllegalArgumentException("unsupported block type: " + block);
         }
 
         positionCount += positions.size();
@@ -100,20 +110,29 @@ public class RowPositionsAppender
     public void appendRle(Block value, int rlePositionCount)
     {
         ensureCapacity(rlePositionCount);
-        AbstractRowBlock sourceRowBlock = (AbstractRowBlock) value;
-        if (sourceRowBlock.isNull(0)) {
+        if (value instanceof AbstractRowBlock sourceRowBlock) {
+            if (sourceRowBlock.isNull(0)) {
+                // append rlePositionCount nulls
+                Arrays.fill(rowIsNull, positionCount, positionCount + rlePositionCount, true);
+                hasNullRow = true;
+            }
+            else {
+                // append not null row value
+                List<Block> fieldBlocks = sourceRowBlock.getChildren();
+                int fieldPosition = sourceRowBlock.getFieldBlockOffset(0);
+                for (int i = 0; i < fieldAppenders.length; i++) {
+                    fieldAppenders[i].appendRle(fieldBlocks.get(i).getSingleValueBlock(fieldPosition), rlePositionCount);
+                }
+                hasNonNullRow = true;
+            }
+        }
+        else if (value.isNull(0)) {
             // append rlePositionCount nulls
             Arrays.fill(rowIsNull, positionCount, positionCount + rlePositionCount, true);
             hasNullRow = true;
         }
         else {
-            // append not null row value
-            List<Block> fieldBlocks = sourceRowBlock.getChildren();
-            int fieldPosition = sourceRowBlock.getFieldBlockOffset(0);
-            for (int i = 0; i < fieldAppenders.length; i++) {
-                fieldAppenders[i].appendRle(fieldBlocks.get(i).getSingleValueBlock(fieldPosition), rlePositionCount);
-            }
-            hasNonNullRow = true;
+            throw new IllegalArgumentException("unsupported block type: " + value);
         }
         positionCount += rlePositionCount;
         updateSize();
@@ -165,6 +184,16 @@ public class RowPositionsAppender
         hasNonNullRow = false;
         hasNullRow = false;
         updateRetainedSize();
+    }
+
+    private boolean allPositionsNull(IntArrayList positions, Block block)
+    {
+        for (int i = 0; i < positions.size(); i++) {
+            if (!block.isNull(positions.getInt(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private IntArrayList processNullablePositions(IntArrayList positions, AbstractRowBlock sourceRowBlock)
