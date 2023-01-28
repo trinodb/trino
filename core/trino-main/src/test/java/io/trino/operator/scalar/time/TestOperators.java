@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -445,5 +446,15 @@ public class TestOperators
         assertThat(assertions.expression("TIME '12:34:55.1111111111' - TIME '12:34:56.9999999999'")).matches("INTERVAL '-1.889' SECOND");
         assertThat(assertions.expression("TIME '12:34:55.11111111111' - TIME '12:34:56.99999999999'")).matches("INTERVAL '-1.889' SECOND");
         assertThat(assertions.expression("TIME '12:34:55.111111111111' - TIME '12:34:56.999999999999'")).matches("INTERVAL '-1.889' SECOND");
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertThat(assertions.operator(INDETERMINATE, "cast(null as TIME)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(INDETERMINATE, "TIME '00:00:00'"))
+                .isEqualTo(false);
     }
 }
