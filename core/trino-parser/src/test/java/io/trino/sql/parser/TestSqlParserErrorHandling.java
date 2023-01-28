@@ -99,9 +99,9 @@ public class TestSqlParserErrorHandling
                 Arguments.of("SELECT grouping(a+2) FROM (VALUES (1)) AS t (a) GROUP BY a+2",
                         "line 1:18: mismatched input '+'. Expecting: ')', ',', '.'"),
                 Arguments.of("SELECT x() over (ROWS select) FROM t",
-                        "line 1:23: mismatched input 'select'. Expecting: 'BETWEEN', 'CURRENT', 'UNBOUNDED', <expression>"),
+                        "line 1:23: mismatched input 'select'. Expecting: ')', 'BETWEEN', 'CURRENT', 'GROUPS', 'MEASURES', 'ORDER', 'PARTITION', 'RANGE', 'ROWS', 'UNBOUNDED', <expression>"),
                 Arguments.of("SELECT X() OVER (ROWS UNBOUNDED) FROM T",
-                        "line 1:32: mismatched input ')'. Expecting: 'FOLLOWING', 'PRECEDING'"),
+                        "line 1:32: mismatched input ')'. Expecting: '%', '(', '*', '+', '-', '->', '.', '/', 'AND', 'AT', 'FOLLOWING', 'OR', 'OVER', 'PRECEDING', '[', '||', <predicate>, <string>"),
                 Arguments.of("SELECT a FROM x ORDER BY (SELECT b FROM t WHERE ",
                         "line 1:49: mismatched input '<EOF>'. Expecting: <expression>"),
                 Arguments.of("SELECT a FROM a AS x TABLESAMPLE x ",
@@ -160,7 +160,13 @@ public class TestSqlParserErrorHandling
                 Arguments.of("SELECT * FROM t FOR TIMESTAMP AS OF TIMESTAMP WHERE",
                         "line 1:52: mismatched input '<EOF>'. Expecting: <expression>"),
                 Arguments.of("SELECT * FROM t FOR VERSION AS OF TIMESTAMP WHERE",
-                        "line 1:50: mismatched input '<EOF>'. Expecting: <expression>"));
+                        "line 1:50: mismatched input '<EOF>'. Expecting: <expression>"),
+                Arguments.of("SELECT ROW(DATE '2022-10-10', DOUBLE 12.0)",
+                        "line 1:38: mismatched input '12.0'. Expecting: '%', '(', ')', '*', '+', ',', '-', '->', '.', '/', 'AND', 'AT', 'OR', 'ORDER', 'OVER', 'PRECISION', '[', '||', <predicate>, <string>"),
+                Arguments.of("VALUES(DATE 2)",
+                        "line 1:13: mismatched input '2'. Expecting: '%', '(', ')', '*', '+', ',', '-', '->', '.', '/', 'AND', 'AT', 'OR', 'OVER', '[', '||', <predicate>, <string>"),
+                Arguments.of("SELECT count(DISTINCT *) FROM (VALUES 1)",
+                        "line 1:23: mismatched input '*'. Expecting: <expression>"));
     }
 
     @Test
@@ -178,7 +184,7 @@ public class TestSqlParserErrorHandling
                         "1 * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * " +
                         "1 * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * " +
                         "1 * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9",
-                "line 1:375: mismatched input '<EOF>'. Expecting: '%', '*', '+', '-', '/', 'AT', 'THEN', '||'");
+                "line 1:375: mismatched input '<EOF>'. Expecting: '%', '*', '+', '-', '.', '/', 'AND', 'AT', 'OR', 'THEN', '[', '||', <predicate>");
     }
 
     @Test
@@ -208,7 +214,7 @@ public class TestSqlParserErrorHandling
                         "OR (f()\n" +
                         "OR (f()\n" +
                         "GROUP BY id",
-                "line 24:1: mismatched input 'GROUP'. Expecting: ')', ',', '.', 'FILTER', 'IGNORE', 'OVER', 'RESPECT', '['");
+                "line 24:1: mismatched input 'GROUP'. Expecting: '%', ')', '*', '+', ',', '-', '.', '/', 'AND', 'AT', 'FILTER', 'IGNORE', 'OR', 'OVER', 'RESPECT', '[', '||', <predicate>");
     }
 
     @ParameterizedTest

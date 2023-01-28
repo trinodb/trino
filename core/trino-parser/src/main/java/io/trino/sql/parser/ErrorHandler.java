@@ -301,7 +301,7 @@ class ErrorHandler
                     if (transition instanceof RuleTransition) {
                         RuleTransition ruleTransition = (RuleTransition) transition;
                         for (int endToken : process(new ParsingState(ruleTransition.target, tokenIndex, suppressed, parser), ruleTransition.precedence)) {
-                            activeStates.push(new ParsingState(ruleTransition.followState, endToken, suppressed, parser));
+                            activeStates.push(new ParsingState(ruleTransition.followState, endToken, suppressed && endToken == currentToken, parser));
                         }
                     }
                     else if (transition instanceof PrecedencePredicateTransition) {
