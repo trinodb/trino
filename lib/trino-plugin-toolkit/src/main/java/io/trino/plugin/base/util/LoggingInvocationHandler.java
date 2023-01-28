@@ -13,11 +13,7 @@
  */
 package io.trino.plugin.base.util;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.AbstractInvocationHandler;
-import io.airlift.log.Logger;
-import io.airlift.parameternames.ParameterNames;
 import io.airlift.units.Duration;
 
 import java.lang.reflect.InvocationTargetException;
@@ -25,7 +21,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
@@ -40,19 +35,17 @@ public class LoggingInvocationHandler
         extends AbstractInvocationHandler
 {
     private final Object delegate;
-    private final ParameterNamesProvider parameterNames;
     private final Consumer<String> logger;
     private final boolean includeResult;
 
-    public LoggingInvocationHandler(Object delegate, ParameterNamesProvider parameterNames, Consumer<String> logger)
+    public LoggingInvocationHandler(Object delegate, Consumer<String> logger)
     {
-        this(delegate, parameterNames, logger, false);
+        this(delegate, logger, false);
     }
 
-    public LoggingInvocationHandler(Object delegate, ParameterNamesProvider parameterNames, Consumer<String> logger, boolean includeResult)
+    public LoggingInvocationHandler(Object delegate, Consumer<String> logger, boolean includeResult)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
-        this.parameterNames = requireNonNull(parameterNames, "parameterNames is null");
         this.logger = requireNonNull(logger, "logger is null");
         this.includeResult = includeResult;
     }
@@ -82,9 +75,9 @@ public class LoggingInvocationHandler
         return result;
     }
 
-    private String invocationDescription(Method method, Object[] args)
+    private static String invocationDescription(Method method, Object[] args)
     {
-        Optional<List<String>> parameterNames = this.parameterNames.getParameterNames(method);
+        Optional<List<String>> parameterNames = getParameterNames(method);
         return "Invocation of " + method.getName() +
                 IntStream.range(0, args.length)
                         .mapToObj(i -> {
@@ -104,70 +97,14 @@ public class LoggingInvocationHandler
         return String.valueOf(arg);
     }
 
-    public interface ParameterNamesProvider
+    private static Optional<List<String>> getParameterNames(Method method)
     {
-        Optional<List<String>> getParameterNames(Method method);
-    }
-
-    public static class ReflectiveParameterNamesProvider
-            implements ParameterNamesProvider
-    {
-        @Override
-        public Optional<List<String>> getParameterNames(Method method)
-        {
-            Parameter[] parameters = method.getParameters();
-            if (Arrays.stream(parameters).noneMatch(Parameter::isNamePresent)) {
-                return Optional.empty();
-            }
-            return Arrays.stream(parameters)
-                    .map(Parameter::getName)
-                    .collect(collectingAndThen(toImmutableList(), Optional::of));
+        Parameter[] parameters = method.getParameters();
+        if (Arrays.stream(parameters).noneMatch(Parameter::isNamePresent)) {
+            return Optional.empty();
         }
-    }
-
-    public static class AirliftParameterNamesProvider
-            implements ParameterNamesProvider
-    {
-        private static final Logger log = Logger.get(AirliftParameterNamesProvider.class);
-
-        private final Map<Method, List<String>> parameterNames;
-
-        public <I, C extends I> AirliftParameterNamesProvider(Class<I> interfaceClass, Class<C> implementationClass)
-        {
-            requireNonNull(interfaceClass, "interfaceClass is null");
-            requireNonNull(implementationClass, "implementationClass is null");
-
-            ImmutableMap.Builder<Method, List<String>> parameterNames = ImmutableMap.builder();
-            for (Method interfaceMethod : interfaceClass.getMethods()) {
-                tryGetParameterNamesForMethod(interfaceMethod, implementationClass)
-                        .map(ImmutableList::copyOf)
-                        .ifPresent(names -> parameterNames.put(interfaceMethod, names));
-            }
-            this.parameterNames = parameterNames.buildOrThrow();
-        }
-
-        private static Optional<List<String>> tryGetParameterNamesForMethod(Method interfaceMethod, Class<?> implementationClass)
-        {
-            Optional<List<String>> names = ParameterNames.tryGetParameterNames(interfaceMethod);
-            if (names.isPresent()) {
-                return names;
-            }
-
-            Method implementationMethod;
-            try {
-                implementationMethod = implementationClass.getMethod(interfaceMethod.getName(), interfaceMethod.getParameterTypes());
-            }
-            catch (NoSuchMethodException e) {
-                log.debug(e, "Could not find implementation for %s", interfaceMethod);
-                return Optional.empty();
-            }
-            return ParameterNames.tryGetParameterNames(implementationMethod);
-        }
-
-        @Override
-        public Optional<List<String>> getParameterNames(Method method)
-        {
-            return Optional.ofNullable(parameterNames.get(method));
-        }
+        return Arrays.stream(parameters)
+                .map(Parameter::getName)
+                .collect(collectingAndThen(toImmutableList(), Optional::of));
     }
 }

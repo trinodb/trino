@@ -15,7 +15,6 @@ package io.trino.plugin.hive.util;
 
 import io.trino.hive.thrift.metastore.ThriftHiveMetastore;
 import io.trino.plugin.base.util.LoggingInvocationHandler;
-import io.trino.plugin.base.util.LoggingInvocationHandler.AirliftParameterNamesProvider;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.testng.annotations.Test;
 
@@ -37,10 +36,9 @@ public class TestLoggingInvocationHandlerWithHiveMetastore
         List<String> messages = new ArrayList<>();
         // LoggingInvocationHandler is used e.g. with ThriftHiveMetastore.Iface. Since the logging is reflection-based,
         // we test it with this interface as well.
-        ThriftHiveMetastore.Iface proxy = newProxy(ThriftHiveMetastore.Iface.class, new LoggingInvocationHandler(
-                dummyThriftHiveMetastoreClient(),
-                new AirliftParameterNamesProvider(ThriftHiveMetastore.Iface.class, ThriftHiveMetastore.Client.class),
-                messages::add));
+        ThriftHiveMetastore.Iface proxy = newProxy(
+                ThriftHiveMetastore.Iface.class,
+                new LoggingInvocationHandler(dummyThriftHiveMetastoreClient(), messages::add));
         proxy.getTable("some_database", "some_table_name");
         assertThat(messages)
                 .hasSize(1)
