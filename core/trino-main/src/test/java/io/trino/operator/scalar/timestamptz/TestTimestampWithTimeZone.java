@@ -26,9 +26,11 @@ import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.function.BiFunction;
 
+import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.DateTimes.MILLISECONDS_PER_SECOND;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -377,6 +379,56 @@ public class TestTimestampWithTimeZone
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123456789012 -00:35'"))
                 .hasType(createTimestampWithTimeZoneType(12))
                 .isEqualTo(timestampWithTimeZone(12, 2020, 5, 1, 12, 34, 56, 123_456_789_012L, getTimeZoneKey("-00:35")));
+
+        // others
+        assertThat(assertions.expression("TIMESTAMP '2001-01-02 +07:09'"))
+                .hasType(createTimestampWithTimeZoneType(0))
+                .isEqualTo(timestampWithTimeZone(0, 2001, 1, 2, 0, 0, 0, 0, getTimeZoneKey("+07:09")));
+
+        assertThat(assertions.expression("TIMESTAMP '2001-1-2 3:4:5.321+07:09'"))
+                .hasType(createTimestampWithTimeZoneType(3))
+                .isEqualTo(timestampWithTimeZone(3, 2001, 1, 2, 3, 4, 5, 321_000_000_000L, getTimeZoneKey("+07:09")));
+
+        assertThat(assertions.expression("TIMESTAMP '2001-1-2 3:4:5+07:09'"))
+                .hasType(createTimestampWithTimeZoneType(0))
+                .isEqualTo(timestampWithTimeZone(0, 2001, 1, 2, 3, 4, 5, 0, getTimeZoneKey("+07:09")));
+
+        assertThat(assertions.expression("TIMESTAMP '2001-1-2 3:4+07:09'"))
+                .hasType(createTimestampWithTimeZoneType(0))
+                .isEqualTo(timestampWithTimeZone(0, 2001, 1, 2, 3, 4, 0, 0, getTimeZoneKey("+07:09")));
+
+        assertThat(assertions.expression("TIMESTAMP '2001-1-2+07:09'"))
+                .hasType(createTimestampWithTimeZoneType(0))
+                .isEqualTo(timestampWithTimeZone(0, 2001, 1, 2, 0, 0, 0, 0, getTimeZoneKey("+07:09")));
+
+        assertThat(assertions.expression("TIMESTAMP '2001-01-02 03:04:05.321 Europe/Berlin'"))
+                .hasType(createTimestampWithTimeZoneType(3))
+                .isEqualTo(timestampWithTimeZone(3, 2001, 1, 2, 3, 4, 5, 321_000_000_000L, getTimeZoneKey("Europe/Berlin")));
+
+        assertThat(assertions.expression("TIMESTAMP '2001-01-02 03:04:05 Europe/Berlin'"))
+                .hasType(createTimestampWithTimeZoneType(0))
+                .isEqualTo(timestampWithTimeZone(0, 2001, 1, 2, 3, 4, 5, 0, getTimeZoneKey("Europe/Berlin")));
+
+        assertThat(assertions.expression("TIMESTAMP '2001-01-02 03:04 Europe/Berlin'"))
+                .hasType(createTimestampWithTimeZoneType(0))
+                .isEqualTo(timestampWithTimeZone(0, 2001, 1, 2, 3, 4, 0, 0, getTimeZoneKey("Europe/Berlin")));
+
+        assertThat(assertions.expression("TIMESTAMP '2001-01-02 Europe/Berlin'"))
+                .hasType(createTimestampWithTimeZoneType(0))
+                .isEqualTo(timestampWithTimeZone(0, 2001, 1, 2, 0, 0, 0, 0, getTimeZoneKey("Europe/Berlin")));
+
+        // Overflow
+        assertTrinoExceptionThrownBy(() -> assertions.expression("TIMESTAMP '123001-01-02 03:04:05.321 Europe/Berlin'").evaluate())
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:12: '123001-01-02 03:04:05.321 Europe/Berlin' is not a valid timestamp literal");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("TIMESTAMP '+123001-01-02 03:04:05.321 Europe/Berlin'").evaluate())
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:12: '+123001-01-02 03:04:05.321 Europe/Berlin' is not a valid timestamp literal");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("TIMESTAMP '-123001-01-02 03:04:05.321 Europe/Berlin'").evaluate())
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:12: '-123001-01-02 03:04:05.321 Europe/Berlin' is not a valid timestamp literal");
     }
 
     @Test
@@ -2347,6 +2399,26 @@ public class TestTimestampWithTimeZone
         assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.5555555555 Asia/Kathmandu')")).matches("TIMESTAMP '1500-05-10 12:34:56.5565555555 Asia/Kathmandu'");
         assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.55555555555 Asia/Kathmandu')")).matches("TIMESTAMP '1500-05-10 12:34:56.55655555555 Asia/Kathmandu'");
         assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.555555555555 Asia/Kathmandu')")).matches("TIMESTAMP '1500-05-10 12:34:56.556555555555 Asia/Kathmandu'");
+    }
+
+    @Test
+    public void testGreatest()
+    {
+        assertThat(assertions.function("greatest", "TIMESTAMP '2002-01-02 03:04:05.321 +07:09'", "TIMESTAMP '2001-01-02 01:04:05.321 +02:09'", "TIMESTAMP '2000-01-02 01:04:05.321 +02:09'"))
+                .matches("TIMESTAMP '2002-01-02 03:04:05.321 +07:09'");
+
+        assertThat(assertions.function("greatest", "TIMESTAMP '2001-01-02 03:04:05.321 +07:09'", "TIMESTAMP '2001-01-02 04:04:05.321 +10:09'"))
+                .matches("TIMESTAMP '2001-01-02 03:04:05.321 +07:09'");
+    }
+
+    @Test
+    public void testLeast()
+    {
+        assertThat(assertions.function("least", "TIMESTAMP '2001-01-02 03:04:05.321 +07:09'", "TIMESTAMP '2001-01-02 01:04:05.321 +02:09'", "TIMESTAMP '2002-01-02 01:04:05.321 +02:09'"))
+                .matches("TIMESTAMP '2001-01-02 03:04:05.321 +07:09'");
+
+        assertThat(assertions.function("least", "TIMESTAMP '2001-01-02 03:04:05.321 +07:09'", "TIMESTAMP '2001-01-02 01:04:05.321 +02:09'"))
+                .matches("TIMESTAMP '2001-01-02 03:04:05.321 +07:09'");
     }
 
     @Test
