@@ -19,7 +19,6 @@ import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.Type;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
@@ -34,7 +33,6 @@ import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.type.DecimalType.createDecimalType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.fail;
@@ -95,14 +93,6 @@ public abstract class AbstractTestFunctions
     protected void assertOperator(OperatorType operator, String value, Type expectedType, Object expected)
     {
         functionAssertions.assertFunction(format("\"%s\"(%s)", mangleOperatorName(operator), value), expectedType, expected);
-    }
-
-    protected void assertDecimalFunction(@Language("SQL") String statement, SqlDecimal expectedResult)
-    {
-        assertFunction(
-                statement,
-                createDecimalType(expectedResult.getPrecision(), expectedResult.getScale()),
-                expectedResult);
     }
 
     protected void assertAmbiguousFunction(@Language("SQL") String projection, Type expectedType, Set<Object> expected)

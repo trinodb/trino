@@ -313,35 +313,12 @@ public final class FunctionAssertions
     @Deprecated
     public void tryEvaluate(String expression, Type expectedType)
     {
-        tryEvaluate(expression, expectedType, session);
-    }
-
-    /**
-     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#expression(String)}
-     */
-    @Deprecated
-    public void tryEvaluate(String expression, Type expectedType, Session session)
-    {
         selectUniqueValue(expression, expectedType, session, runner.getExpressionCompiler());
     }
 
     public void tryEvaluateWithAll(String expression, Type expectedType)
     {
-        tryEvaluateWithAll(expression, expectedType, session);
-    }
-
-    /**
-     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#expression(String)}
-     */
-    @Deprecated
-    public void tryEvaluateWithAll(String expression, Type expectedType, Session session)
-    {
         executeProjectionWithAll(expression, expectedType, session, runner.getExpressionCompiler());
-    }
-
-    public void executeProjectionWithFullEngine(String projection)
-    {
-        runner.execute("SELECT " + projection);
     }
 
     private Object selectSingleValue(String projection, Type expectedType, ExpressionCompiler compiler)
