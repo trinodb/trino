@@ -36,10 +36,9 @@ import static java.util.Objects.requireNonNull;
 class HdfsInputFile
         implements TrinoInputFile
 {
-    private final Location location;
-    private final HdfsEnvironment environment;
-    private final HdfsContext context;
-    private final Path file;
+    protected final HdfsEnvironment environment;
+    protected final HdfsContext context;
+    protected final Path file;
     private Long length;
     private FileStatus status;
     private CallStats openFileCallStat;
@@ -122,7 +121,7 @@ class HdfsInputFile
         });
     }
 
-    private FileStatus lazyStatus()
+    protected FileStatus lazyStatus()
             throws IOException
     {
         if (status == null) {
