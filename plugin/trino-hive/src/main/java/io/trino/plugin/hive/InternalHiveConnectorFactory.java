@@ -26,6 +26,7 @@ import io.airlift.json.JsonModule;
 import io.trino.filesystem.hdfs.HdfsFileSystemModule;
 import io.trino.hdfs.HdfsModule;
 import io.trino.hdfs.authentication.HdfsAuthenticationModule;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.CatalogNameModule;
 import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorAccessControl;
@@ -39,6 +40,7 @@ import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.aws.athena.PartitionProjectionModule;
 import io.trino.plugin.hive.azure.HiveAzureModule;
+import io.trino.plugin.hive.cos.HiveCosModule;
 import io.trino.plugin.hive.fs.CachingDirectoryListerModule;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.gcs.HiveGcsModule;
@@ -102,7 +104,7 @@ public final class InternalHiveConnectorFactory
                     new CatalogNameModule(catalogName),
                     new EventModule(),
                     new MBeanModule(),
-                    new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.hive", "trino.plugin.hive"),
+                    new ConnectorObjectNameGeneratorModule("io.trino.plugin.hive", "trino.plugin.hive"),
                     new JsonModule(),
                     new TypeDeserializerModule(context.getTypeManager()),
                     new HiveModule(),
@@ -112,6 +114,7 @@ public final class InternalHiveConnectorFactory
                     new HiveS3Module(),
                     new HiveGcsModule(),
                     new HiveAzureModule(),
+                    new HiveCosModule(),
                     conditionalModule(RubixEnabledConfig.class, RubixEnabledConfig::isCacheEnabled, new RubixModule()),
                     new HiveMetastoreModule(metastore),
                     new HiveSecurityModule(),
@@ -126,6 +129,7 @@ public final class InternalHiveConnectorFactory
                         binder.bind(MetadataProvider.class).toInstance(context.getMetadataProvider());
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                         binder.bind(PageSorter.class).toInstance(context.getPageSorter());
+                        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                     },
                     binder -> newSetBinder(binder, EventListener.class),
                     binder -> bindSessionPropertiesProvider(binder, HiveSessionProperties.class),

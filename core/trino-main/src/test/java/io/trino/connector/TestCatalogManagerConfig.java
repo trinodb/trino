@@ -35,9 +35,7 @@ public class TestCatalogManagerConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("catalog.management", "dynamic")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("catalog.management", "dynamic");
 
         CatalogManagerConfig expected = new CatalogManagerConfig()
                 .setCatalogMangerKind(CatalogMangerKind.DYNAMIC);

@@ -68,8 +68,8 @@ public final class KuduOperationApplier
     /**
      * Not thread safe
      * Applies an operation without waiting for it to be flushed, operations are flushed in the background
+     *
      * @param operation kudu operation
-     * @throws KuduException
      */
     public void applyOperationAsync(Operation operation)
             throws KuduException

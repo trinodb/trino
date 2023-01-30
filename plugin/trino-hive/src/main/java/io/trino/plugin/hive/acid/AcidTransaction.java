@@ -16,42 +16,32 @@ package io.trino.plugin.hive.acid;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.orc.OrcWriter.OrcOperation;
-import io.trino.plugin.hive.HiveUpdateProcessor;
-import io.trino.plugin.hive.WriterKind;
-
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.hive.acid.AcidOperation.CREATE_TABLE;
-import static io.trino.plugin.hive.acid.AcidOperation.DELETE;
 import static io.trino.plugin.hive.acid.AcidOperation.INSERT;
 import static io.trino.plugin.hive.acid.AcidOperation.MERGE;
 import static io.trino.plugin.hive.acid.AcidOperation.NONE;
-import static io.trino.plugin.hive.acid.AcidOperation.UPDATE;
 import static java.util.Objects.requireNonNull;
 
 public class AcidTransaction
 {
-    public static final AcidTransaction NO_ACID_TRANSACTION = new AcidTransaction(NONE, 0, 0, Optional.empty());
+    public static final AcidTransaction NO_ACID_TRANSACTION = new AcidTransaction(NONE, 0, 0);
 
     private final AcidOperation operation;
     private final long transactionId;
     private final long writeId;
-    private final Optional<HiveUpdateProcessor> updateProcessor;
 
     @JsonCreator
     public AcidTransaction(
             @JsonProperty("operation") AcidOperation operation,
             @JsonProperty("transactionId") long transactionId,
-            @JsonProperty("writeId") long writeId,
-            @JsonProperty("updateProcessor") Optional<HiveUpdateProcessor> updateProcessor)
+            @JsonProperty("writeId") long writeId)
     {
         this.operation = requireNonNull(operation, "operation is null");
         this.transactionId = transactionId;
         this.writeId = writeId;
-        this.updateProcessor = requireNonNull(updateProcessor, "updateProcessor is null");
     }
 
     @JsonProperty
@@ -72,29 +62,16 @@ public class AcidTransaction
         return writeId;
     }
 
-    @JsonProperty
-    public Optional<HiveUpdateProcessor> getUpdateProcessor()
-    {
-        return updateProcessor;
-    }
-
     @JsonIgnore
     public boolean isAcidTransactionRunning()
     {
-        return operation == INSERT || operation == CREATE_TABLE || operation == DELETE || operation == UPDATE || operation == MERGE;
+        return operation == INSERT || operation == CREATE_TABLE || operation == MERGE;
     }
 
     @JsonIgnore
     public boolean isTransactional()
     {
         return operation != AcidOperation.NONE;
-    }
-
-    @JsonIgnore
-    public Optional<OrcOperation> getOrcOperation()
-    {
-        ensureTransactionRunning("accessing orcOperation");
-        return operation.getOrcOperation();
     }
 
     @JsonIgnore
@@ -123,36 +100,14 @@ public class AcidTransaction
     }
 
     @JsonIgnore
-    public boolean isDelete()
-    {
-        return operation == DELETE;
-    }
-
-    @JsonIgnore
-    public boolean isUpdate()
-    {
-        return operation == UPDATE;
-    }
-
-    @JsonIgnore
     public boolean isMerge()
     {
         return operation == MERGE;
     }
 
-    public boolean isAcidInsertOperation(WriterKind writerKind)
-    {
-        return isInsert() || (isUpdate() && writerKind == WriterKind.INSERT);
-    }
-
-    public boolean isAcidDeleteOperation(WriterKind writerKind)
-    {
-        return isDelete() || (isUpdate() && writerKind == WriterKind.DELETE);
-    }
-
     public static AcidTransaction forCreateTable()
     {
-        return new AcidTransaction(CREATE_TABLE, 0, 0, Optional.empty());
+        return new AcidTransaction(CREATE_TABLE, 0, 0);
     }
 
     @Override

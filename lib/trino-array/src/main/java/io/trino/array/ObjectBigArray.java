@@ -85,7 +85,6 @@ public final class ObjectBigArray<T>
      * Sets the element of this big array at specified index.
      *
      * @param index a position in this big array.
-     * @return true if the previous value was null
      */
     public void set(long index, T value)
     {

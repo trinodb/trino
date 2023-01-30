@@ -21,7 +21,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.ColumnPropertyManager;
@@ -40,6 +39,7 @@ import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -599,8 +599,15 @@ public final class ShowQueriesRewrite
                 Collection<PropertyMetadata<?>> allMaterializedViewProperties = materializedViewPropertyManager.getAllProperties(catalogHandle);
                 List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_MATERIALIZED_VIEW_PROPERTY, properties, allMaterializedViewProperties);
 
-                String sql = formatSql(new CreateMaterializedView(Optional.empty(), QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
-                        query, false, false, propertyNodes, viewDefinition.get().getComment())).trim();
+                String sql = formatSql(new CreateMaterializedView(
+                        Optional.empty(),
+                        QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
+                        query,
+                        false,
+                        false,
+                        Optional.empty(), // TODO support GRACE PERIOD
+                        propertyNodes,
+                        viewDefinition.get().getComment())).trim();
                 return singleValueQuery("Create Materialized View", sql);
             }
 

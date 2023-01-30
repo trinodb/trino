@@ -34,6 +34,7 @@ import io.trino.operator.join.StandardJoinFilterFunction;
 import io.trino.operator.join.unspilled.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.sql.planner.NodePartitioningManager;
@@ -136,17 +137,20 @@ public final class JoinTestUtils
 
         int partitionCount = parallelBuild ? PARTITION_COUNT : 1;
         List<Integer> hashChannels = buildPages.getHashChannels().orElseThrow();
+        List<Type> types = buildPages.getTypes();
+        List<Type> hashChannelTypes = hashChannels.stream()
+                .map(types::get)
+                .collect(toImmutableList());
         LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 taskContext.getSession(),
                 partitionCount,
                 FIXED_HASH_DISTRIBUTION,
                 hashChannels,
-                buildPages.getTypes(),
+                hashChannelTypes,
                 buildPages.getHashChannel(),
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
                 TYPE_OPERATOR_FACTORY,
-                taskContext::getPhysicalWrittenDataSize,
                 DataSize.of(32, DataSize.Unit.MEGABYTE));
 
         // collect input data into the partitioned exchange

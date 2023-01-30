@@ -49,6 +49,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -206,9 +207,10 @@ public class OracleClient
             OracleConfig oracleConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
-            IdentifierMapping identifierMapping)
+            IdentifierMapping identifierMapping,
+            RemoteQueryModifier queryModifier)
     {
-        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
+        super(config, "\"", connectionFactory, queryBuilder, identifierMapping, queryModifier);
 
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
 
@@ -216,7 +218,7 @@ public class OracleClient
                 .addStandardRules(this::quoted)
                 .build();
 
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(TRINO_BIGINT_TYPE, Optional.of("NUMBER"), 0, 0, Optional.empty(), Optional.empty());
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(TRINO_BIGINT_TYPE, Optional.of("NUMBER"), Optional.of(0), Optional.of(0), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 connectorExpressionRewriter,
                 ImmutableSet.<AggregateFunctionRule<JdbcExpression, String>>builder()
@@ -279,7 +281,7 @@ public class OracleClient
         }
 
         String newTableName = newRemoteTableName.toUpperCase(ENGLISH);
-        execute(connection, format(
+        execute(session, connection, format(
                 "ALTER TABLE %s RENAME TO %s",
                 quoted(catalogName, remoteSchemaName, remoteTableName),
                 quoted(newTableName)));
@@ -449,7 +451,7 @@ public class OracleClient
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
-        return Optional.of(new JdbcTypeHandle(OracleTypes.NUMBER, Optional.of("NUMBER"), decimalType.getPrecision(), decimalType.getScale(), Optional.empty()));
+        return Optional.of(new JdbcTypeHandle(OracleTypes.NUMBER, Optional.of("NUMBER"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
     }
 
     @Override
@@ -675,5 +677,11 @@ public class OracleClient
                 quoted(column.getColumnName()),
                 varcharLiteral(comment.orElse("")));
         execute(session, sql);
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
     }
 }

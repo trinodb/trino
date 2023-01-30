@@ -27,6 +27,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.assertions.Assert;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -62,6 +63,7 @@ import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertContainsEventually;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.String.format;
 import static java.util.Comparator.comparing;
@@ -100,6 +102,7 @@ public class TestCassandraConnectorTest
 
             case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
+            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:
@@ -133,6 +136,13 @@ public class TestCassandraConnectorTest
         session = server.getSession();
         session.execute("CREATE KEYSPACE IF NOT EXISTS " + KEYSPACE + " WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
         return createCassandraQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanUp()
+    {
+        session.close();
+        session = null;
     }
 
     @Override
@@ -548,15 +558,6 @@ public class TestCassandraConnectorTest
         execute("INSERT INTO test_create_table VALUES (12345)");
         assertQuery("SELECT * FROM smoke_test.test_create_table", "VALUES (12345)");
         execute("DROP TABLE test_create_table");
-    }
-
-    @Override
-    public void testCreateTableWithLongColumnName()
-    {
-        // TODO: Find the maximum column name length in Cassandra and enable this test.
-        assertThatThrownBy(super::testCreateTableWithLongColumnName)
-                .hasMessageMatching(".* Mutation of .* bytes is too large.*");
-        throw new SkipException("TODO");
     }
 
     @Test
@@ -994,6 +995,63 @@ public class TestCassandraConnectorTest
     }
 
     @Test
+    public void testUserDefinedTypeInArray()
+    {
+        String tableName = "test_udt_in_array" + randomNameSuffix();
+        String userDefinedTypeName = "test_udt" + randomNameSuffix();
+
+        session.execute("CREATE TYPE tpch." + userDefinedTypeName + "(udt_field bigint)");
+        session.execute("CREATE TABLE tpch." + tableName + "(id bigint, col list<frozen<tpch." + userDefinedTypeName + ">>, primary key (id))");
+        session.execute("INSERT INTO tpch." + tableName + "(id, col) values (1, [{udt_field: 10}])");
+        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), VARCHAR)
+                .row(tableName)
+                .build(), new Duration(1, MINUTES));
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, '[\"{udt_field:10}\"]')");
+
+        session.execute("DROP TABLE tpch." + tableName);
+        session.execute("DROP TYPE tpch." + userDefinedTypeName);
+    }
+
+    @Test
+    public void testUserDefinedTypeInMap()
+    {
+        String tableName = "test_udt_in_map" + randomNameSuffix();
+        String userDefinedTypeName = "test_udt" + randomNameSuffix();
+
+        session.execute("CREATE TYPE tpch." + userDefinedTypeName + "(udt_field bigint)");
+        session.execute("CREATE TABLE tpch." + tableName + "(id bigint, col map<frozen<tpch." + userDefinedTypeName + ">, frozen<tpch." + userDefinedTypeName + ">>, primary key (id))");
+        session.execute("INSERT INTO tpch." + tableName + "(id, col) values (1, {{udt_field: 10}: {udt_field: -10}})");
+        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), VARCHAR)
+                .row(tableName)
+                .build(), new Duration(1, MINUTES));
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, '{\"{udt_field:10}\":\"{udt_field:-10}\"}')");
+
+        session.execute("DROP TABLE tpch." + tableName);
+        session.execute("DROP TYPE tpch." + userDefinedTypeName);
+    }
+
+    @Test
+    public void testUserDefinedTypeInSet()
+    {
+        String tableName = "test_udt_in_set" + randomNameSuffix();
+        String userDefinedTypeName = "test_udt" + randomNameSuffix();
+
+        session.execute("CREATE TYPE tpch." + userDefinedTypeName + "(udt_field bigint)");
+        session.execute("CREATE TABLE tpch." + tableName + "(id bigint, col set<frozen<tpch." + userDefinedTypeName + ">>, primary key (id))");
+        session.execute("INSERT INTO tpch." + tableName + "(id, col) values (1, {{udt_field: 10}})");
+        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), VARCHAR)
+                .row(tableName)
+                .build(), new Duration(1, MINUTES));
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, '[\"{udt_field:10}\"]')");
+
+        session.execute("DROP TABLE tpch." + tableName);
+        session.execute("DROP TYPE tpch." + userDefinedTypeName);
+    }
+
+    @Test
     public void testUnsupportedColumnType()
     {
         // TODO currently all standard types are supported to some extent. We should add a test with custom type if possible.
@@ -1324,6 +1382,18 @@ public class TestCassandraConnectorTest
     {
         assertThatThrownBy(super::testRowLevelDelete)
                 .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+    }
+
+    @Override
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(65535);
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Attempted serializing to buffer exceeded maximum of 65535 bytes:");
     }
 
     @Override

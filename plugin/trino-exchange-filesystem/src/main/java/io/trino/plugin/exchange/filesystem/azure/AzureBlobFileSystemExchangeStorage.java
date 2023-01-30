@@ -23,7 +23,6 @@ import com.azure.storage.blob.batch.BlobBatchAsyncClient;
 import com.azure.storage.blob.batch.BlobBatchClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobRange;
-import com.azure.storage.blob.models.CustomerProvidedKey;
 import com.azure.storage.blob.models.DeleteSnapshotsOptionType;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.blob.specialized.BlockBlobAsyncClient;
@@ -53,7 +52,6 @@ import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.crypto.SecretKey;
 import javax.inject.Inject;
 
 import java.io.IOException;
@@ -125,7 +123,7 @@ public class AzureBlobFileSystemExchangeStorage
     }
 
     @Override
-    public ExchangeStorageWriter createExchangeStorageWriter(URI file, Optional<SecretKey> secretKey)
+    public ExchangeStorageWriter createExchangeStorageWriter(URI file)
     {
         String containerName = getContainerName(file);
         String blobName = getPath(file);
@@ -133,9 +131,6 @@ public class AzureBlobFileSystemExchangeStorage
                 .getBlobContainerAsyncClient(containerName)
                 .getBlobAsyncClient(blobName)
                 .getBlockBlobAsyncClient();
-        if (secretKey.isPresent()) {
-            blockBlobAsyncClient = blockBlobAsyncClient.getCustomerProvidedKeyAsyncClient(new CustomerProvidedKey(secretKey.get().getEncoded()));
-        }
         return new AzureExchangeStorageWriter(blockBlobAsyncClient, blockSize);
     }
 
@@ -412,10 +407,6 @@ public class AzureBlobFileSystemExchangeStorage
                         .getBlobContainerAsyncClient(getContainerName(currentFile.getFileUri()))
                         .getBlobAsyncClient(getPath(currentFile.getFileUri()))
                         .getBlockBlobAsyncClient();
-                Optional<SecretKey> secretKey = currentFile.getSecretKey();
-                if (secretKey.isPresent()) {
-                    blockBlobAsyncClient = blockBlobAsyncClient.getCustomerProvidedKeyAsyncClient(new CustomerProvidedKey(secretKey.get().getEncoded()));
-                }
                 for (int i = 0; i < readableBlocks && fileOffset < fileSize; ++i) {
                     int length = (int) min(blockSize, fileSize - fileOffset);
 

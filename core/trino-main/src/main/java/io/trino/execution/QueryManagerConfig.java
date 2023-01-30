@@ -46,6 +46,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class QueryManagerConfig
 {
     public static final long AVAILABLE_HEAP_MEMORY = Runtime.getRuntime().maxMemory();
+    public static final int MAX_TASK_RETRY_ATTEMPTS = 126;
 
     private int scheduleSplitBatchSize = 1000;
     private int minScheduleSplitBatchSize = 100;
@@ -64,6 +65,9 @@ public class QueryManagerConfig
     private int queryManagerExecutorPoolSize = 5;
     private int queryExecutorPoolSize = 1000;
 
+    /**
+     * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}
+     */
     private Duration remoteTaskMaxErrorDuration = new Duration(5, TimeUnit.MINUTES);
     private int remoteTaskMaxCallbackThreads = 1000;
 
@@ -85,6 +89,7 @@ public class QueryManagerConfig
     private Duration retryMaxDelay = new Duration(1, MINUTES);
     private double retryDelayScaleFactor = 2.0;
 
+    private int maxTasksWaitingForExecutionPerQuery = 10;
     private int maxTasksWaitingForNodePerStage = 5;
 
     private DataSize faultTolerantExecutionTargetTaskInputSize = DataSize.of(4, GIGABYTE);
@@ -94,7 +99,8 @@ public class QueryManagerConfig
     private int faultTolerantExecutionMaxTaskSplitCount = 256;
     private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15));
     private int faultTolerantExecutionPartitionCount = 50;
-    private boolean faultTolerantPreserveInputPartitionsInWriteStage = true;
+    private boolean faultTolerantExecutionEventDrivenSchedulerEnabled = true;
+    private boolean faultTolerantExecutionForcePreferredWritePartitioningEnabled = true;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -463,6 +469,7 @@ public class QueryManagerConfig
     }
 
     @Min(0)
+    @Max(MAX_TASK_RETRY_ATTEMPTS)
     public int getTaskRetryAttemptsPerTask()
     {
         return taskRetryAttemptsPerTask;
@@ -513,8 +520,22 @@ public class QueryManagerConfig
     @ConfigDescription("Factor by which retry delay is scaled on subsequent failures")
     public QueryManagerConfig setRetryDelayScaleFactor(double retryDelayScaleFactor)
     {
-        checkArgument(retryDelayScaleFactor >= 1.0, "retry-delay-scale-factor must be greater or equal to 1");
+        checkArgument(retryDelayScaleFactor >= 1.0, "retry-delay-scale-factor must be greater than or equal to 1");
         this.retryDelayScaleFactor = retryDelayScaleFactor;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxTasksWaitingForExecutionPerQuery()
+    {
+        return maxTasksWaitingForExecutionPerQuery;
+    }
+
+    @Config("max-tasks-waiting-for-execution-per-query")
+    @ConfigDescription("Maximum number of tasks waiting to be scheduled per query. Split enumeration is paused by the scheduler when this threshold is crossed")
+    public QueryManagerConfig setMaxTasksWaitingForExecutionPerQuery(int maxTasksWaitingForExecutionPerQuery)
+    {
+        this.maxTasksWaitingForExecutionPerQuery = maxTasksWaitingForExecutionPerQuery;
         return this;
     }
 
@@ -616,16 +637,32 @@ public class QueryManagerConfig
         return this;
     }
 
-    public boolean getFaultTolerantPreserveInputPartitionsInWriteStage()
+    public boolean isFaultTolerantExecutionEventDrivenSchedulerEnabled()
     {
-        return faultTolerantPreserveInputPartitionsInWriteStage;
+        return faultTolerantExecutionEventDrivenSchedulerEnabled;
     }
 
-    @Config("fault-tolerant-execution-preserve-input-partitions-in-write-stage")
-    @ConfigDescription("Ensure single task reads single hash partitioned input partition for stages which write table data")
-    public QueryManagerConfig setFaultTolerantPreserveInputPartitionsInWriteStage(boolean faultTolerantPreserveInputPartitionsInWriteStage)
+    @Config("experimental.fault-tolerant-execution-event-driven-scheduler-enabled")
+    public QueryManagerConfig setFaultTolerantExecutionEventDrivenSchedulerEnabled(boolean faultTolerantExecutionEventDrivenSchedulerEnabled)
     {
-        this.faultTolerantPreserveInputPartitionsInWriteStage = faultTolerantPreserveInputPartitionsInWriteStage;
+        this.faultTolerantExecutionEventDrivenSchedulerEnabled = faultTolerantExecutionEventDrivenSchedulerEnabled;
         return this;
+    }
+
+    public boolean isFaultTolerantExecutionForcePreferredWritePartitioningEnabled()
+    {
+        return faultTolerantExecutionForcePreferredWritePartitioningEnabled;
+    }
+
+    @Config("experimental.fault-tolerant-execution-force-preferred-write-partitioning-enabled")
+    public QueryManagerConfig setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(boolean faultTolerantExecutionForcePreferredWritePartitioningEnabled)
+    {
+        this.faultTolerantExecutionForcePreferredWritePartitioningEnabled = faultTolerantExecutionForcePreferredWritePartitioningEnabled;
+        return this;
+    }
+
+    public void applyFaultTolerantExecutionDefaults()
+    {
+        remoteTaskMaxErrorDuration = new Duration(1, MINUTES);
     }
 }

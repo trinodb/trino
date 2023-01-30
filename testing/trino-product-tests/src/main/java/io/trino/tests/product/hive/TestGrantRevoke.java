@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
@@ -37,7 +38,6 @@ import static io.trino.tests.product.utils.QueryExecutors.connectToTrino;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
-import static java.util.stream.Collectors.toSet;
 
 public class TestGrantRevoke
         extends ProductTest
@@ -88,6 +88,11 @@ public class TestGrantRevoke
         aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         aliceExecutor.executeQuery(format("DROP VIEW IF EXISTS %s", viewName));
         cleanupRoles();
+
+        // should not be closed, this would close a shared, global QueryExecutor
+        aliceExecutor = null;
+        bobExecutor = null;
+        charlieExecutor = null;
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -102,12 +107,11 @@ public class TestGrantRevoke
 
     private Set<String> listRoles()
     {
-        return ImmutableSet.copyOf(
-                onHive().executeQuery("SHOW ROLES")
-                        .rows()
-                        .stream()
-                        .map(row -> row.get(0).toString())
-                        .collect(toSet()));
+        return onHive().executeQuery("SHOW ROLES")
+                .rows()
+                .stream()
+                .map(row -> row.get(0).toString())
+                .collect(toImmutableSet());
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})

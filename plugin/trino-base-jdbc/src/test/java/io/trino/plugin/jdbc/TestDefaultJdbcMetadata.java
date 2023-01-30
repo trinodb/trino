@@ -25,10 +25,12 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.testing.TestingConnectorSession;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -66,8 +68,43 @@ public class TestDefaultJdbcMetadata
             throws Exception
     {
         database = new TestingDatabase();
-        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient()), false);
+        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(), Optional.empty()), false, ImmutableSet.of());
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
+    }
+
+    @Test
+    public void testSupportsRetriesValidation()
+    {
+        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(), Optional.of(false)), false, ImmutableSet.of());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
+
+        assertThatThrownBy(() -> {
+            metadata.beginCreateTable(SESSION, tableMetadata, Optional.empty(), RetryMode.RETRIES_ENABLED);
+        }).hasMessageContaining("This connector does not support query or task retries");
+
+        assertThatThrownBy(() -> {
+            metadata.beginInsert(SESSION, tableHandle, ImmutableList.of(), RetryMode.RETRIES_ENABLED);
+        }).hasMessageContaining("This connector does not support query or task retries");
+    }
+
+    @Test
+    public void testNonTransactionalInsertValidation()
+    {
+        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(), Optional.of(true)), false, ImmutableSet.of());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
+
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(ImmutableList.of(
+                        PropertyMetadata.booleanProperty(JdbcWriteSessionProperties.NON_TRANSACTIONAL_INSERT, "description", true, false)))
+                .build();
+
+        assertThatThrownBy(() -> {
+            metadata.beginCreateTable(session, tableMetadata, Optional.empty(), RetryMode.RETRIES_ENABLED);
+        }).hasMessageContaining("Query and task retries are incompatible with non-transactional inserts");
+
+        assertThatThrownBy(() -> {
+            metadata.beginInsert(session, tableHandle, ImmutableList.of(), RetryMode.RETRIES_ENABLED);
+        }).hasMessageContaining("Query and task retries are incompatible with non-transactional inserts");
     }
 
     @AfterMethod(alwaysRun = true)
@@ -75,6 +112,7 @@ public class TestDefaultJdbcMetadata
             throws Exception
     {
         database.close();
+        database = null;
     }
 
     @Test
@@ -381,16 +419,24 @@ public class TestDefaultJdbcMetadata
             extends ForwardingJdbcClient
     {
         private final JdbcClient delegate;
+        private final Optional<Boolean> supportsRetriesOverride;
 
-        public GroupingSetsEnabledJdbcClient(JdbcClient jdbcClient)
+        public GroupingSetsEnabledJdbcClient(JdbcClient jdbcClient, Optional<Boolean> supportsRetriesOverride)
         {
             this.delegate = jdbcClient;
+            this.supportsRetriesOverride = supportsRetriesOverride;
         }
 
         @Override
         protected JdbcClient delegate()
         {
             return delegate;
+        }
+
+        @Override
+        public boolean supportsRetries()
+        {
+            return supportsRetriesOverride.orElseGet(super::supportsRetries);
         }
 
         @Override

@@ -49,7 +49,6 @@ import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.connector.ConnectorSplit;
-import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -57,7 +56,6 @@ import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -77,7 +75,7 @@ import static io.trino.execution.TaskState.FLUSHING;
 import static io.trino.execution.TaskState.RUNNING;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.trino.execution.TaskTestUtils.createTestSplitMonitor;
-import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
+import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
@@ -103,8 +101,8 @@ public class TestSqlTaskExecution
         ScheduledExecutorService taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
         ScheduledExecutorService driverYieldExecutor = newScheduledThreadPool(2, threadsNamed("driver-yield-%s"));
         TaskExecutor taskExecutor = new TaskExecutor(5, 10, 3, 4, Ticker.systemTicker());
-        taskExecutor.start();
 
+        taskExecutor.start();
         try {
             TaskStateMachine taskStateMachine = new TaskStateMachine(TASK_ID, taskNotificationExecutor);
             PartitionedOutputBuffer outputBuffer = newTestingOutputBuffer(taskNotificationExecutor);
@@ -405,18 +403,17 @@ public class TestSqlTaskExecution
             }
 
             @Override
-            public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
+            public void addSplit(Split split)
             {
                 requireNonNull(split, "split is null");
                 checkState(this.split == null, "Table scan split already set");
 
                 if (finished) {
-                    return Optional::empty;
+                    return;
                 }
 
                 this.split = (TestingSplit) split.getConnectorSplit();
                 blocked.set(null);
-                return Optional::empty;
             }
 
             @Override

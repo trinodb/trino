@@ -32,7 +32,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.ForQueryExecution;
 import io.trino.execution.QueryManagerConfig;
@@ -45,6 +44,7 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
 import io.trino.spi.QueryId;
 import io.trino.spi.SplitWeight;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.split.RemoteSplit;
 import io.trino.split.SplitSource;
@@ -91,17 +91,20 @@ import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxTaskS
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMinTaskSplitCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskInputSize;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskSplitCount;
-import static io.trino.SystemSessionProperties.getFaultTolerantPreserveInputPartitionsInWriteStage;
 import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Deprecated in favor of {@link EventDrivenTaskSourceFactory}
+ */
+@Deprecated
 public class StageTaskSourceFactory
         implements TaskSourceFactory
 {
@@ -156,7 +159,7 @@ public class StageTaskSourceFactory
         if (partitioning.equals(SINGLE_DISTRIBUTION) || partitioning.equals(COORDINATOR_DISTRIBUTION)) {
             return SingleDistributionTaskSource.create(fragment, exchangeSourceHandles, nodeManager, partitioning.equals(COORDINATOR_DISTRIBUTION));
         }
-        if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION) || partitioning.equals(SCALED_WRITER_DISTRIBUTION)) {
+        if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION) || partitioning.equals(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION)) {
             return ArbitraryDistributionTaskSource.create(
                     fragment,
                     exchangeSourceHandles,
@@ -174,7 +177,6 @@ public class StageTaskSourceFactory
                     sourcePartitioningScheme,
                     getFaultTolerantExecutionTargetTaskSplitCount(session) * SplitWeight.standard().getRawValue(),
                     getFaultTolerantExecutionTargetTaskInputSize(session),
-                    getFaultTolerantPreserveInputPartitionsInWriteStage(session),
                     executor);
         }
         if (partitioning.equals(SOURCE_DISTRIBUTION)) {
@@ -379,7 +381,6 @@ public class StageTaskSourceFactory
                 FaultTolerantPartitioningScheme sourcePartitioningScheme,
                 long targetPartitionSplitWeight,
                 DataSize targetPartitionSourceSize,
-                boolean preserveInputPartitionsInWriteStage,
                 Executor executor)
         {
             Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(session, fragment);
@@ -392,7 +393,7 @@ public class StageTaskSourceFactory
                     sourcePartitioningScheme,
                     fragment.getPartitioning().getCatalogHandle(),
                     targetPartitionSplitWeight,
-                    (preserveInputPartitionsInWriteStage && isWriteFragment(fragment)) ? DataSize.of(0, BYTE) : targetPartitionSourceSize,
+                    isWriteFragment(fragment) ? DataSize.of(0, BYTE) : targetPartitionSourceSize,
                     executor);
         }
 
@@ -904,8 +905,7 @@ public class StageTaskSourceFactory
         ImmutableListMultimap.Builder<PlanNodeId, ExchangeSourceHandle> result = ImmutableListMultimap.builder();
         for (RemoteSourceNode remoteSource : remoteSources) {
             for (PlanFragmentId fragmentId : remoteSource.getSourceFragmentIds()) {
-                Collection<ExchangeSourceHandle> handles = requireNonNull(exchangeSourceHandles.get(fragmentId), () -> "exchange source handle is missing for fragment: " + fragmentId);
-                result.putAll(remoteSource.getId(), handles);
+                result.putAll(remoteSource.getId(), exchangeSourceHandles.get(fragmentId));
             }
         }
         return result.build();

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.BeforeClass;
@@ -20,7 +21,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 
 public class TestDeltaLakePartitioning
@@ -30,14 +31,14 @@ public class TestDeltaLakePartitioning
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaLakeQueryRunner(DELTA_CATALOG);
+        return createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), ImmutableMap.of("delta.register-table-procedure.enabled", "true"));
     }
 
     @BeforeClass
     public void registerTables()
     {
         String dataPath = getClass().getClassLoader().getResource("deltalake/partitions").toExternalForm();
-        getQueryRunner().execute(format("CREATE TABLE partitions (t_string VARCHAR) WITH (location = '%s')", dataPath));
+        getQueryRunner().execute(format("CALL system.register_table('%s', 'partitions', '%s')", getSession().getSchema().orElseThrow(), dataPath));
     }
 
     @Test
@@ -146,7 +147,7 @@ public class TestDeltaLakePartitioning
     @Test
     public void testPartitioningWithSpecialCharactersInPartitionColumn()
     {
-        String dataPath = getClass().getClassLoader().getResource("deltalake").toExternalForm() + "/special_char" + randomTableSuffix();
+        String dataPath = getClass().getClassLoader().getResource("deltalake").toExternalForm() + "/special_char" + randomNameSuffix();
         assertUpdate(
                 "CREATE TABLE special_chars (id, col_name) " +
                         "WITH(partitioned_by = ARRAY['col_name'], " +

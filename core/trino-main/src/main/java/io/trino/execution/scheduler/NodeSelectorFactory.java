@@ -14,7 +14,7 @@
 package io.trino.execution.scheduler;
 
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogHandle;
 
 import java.util.Optional;
 

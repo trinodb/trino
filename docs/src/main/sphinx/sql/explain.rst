@@ -49,7 +49,7 @@ Examples
 EXPLAIN (TYPE LOGICAL)
 ^^^^^^^^^^^^^^^^^^^^^^
 
-Logical plan::
+Process the supplied query statement and create a logical plan in text format::
 
     EXPLAIN (TYPE LOGICAL) SELECT regionkey, count(*) FROM nation GROUP BY 1;
 
@@ -57,6 +57,7 @@ Logical plan::
 
                                                        Query Plan
     -----------------------------------------------------------------------------------------------------------------
+     Trino version: version
      Output[regionkey, _col1]
      │   Layout: [regionkey:bigint, count:bigint]
      │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
@@ -91,7 +92,7 @@ EXPLAIN (TYPE LOGICAL, FORMAT JSON)
 
 .. warning:: The output format is not guaranteed to be backward compatible across Trino versions.
 
-JSON Logical plan::
+Process the supplied query statement and create a logical plan in JSON format::
 
     EXPLAIN (TYPE LOGICAL, FORMAT JSON) SELECT regionkey, count(*) FROM nation GROUP BY 1;
 
@@ -353,7 +354,10 @@ JSON Logical plan::
 EXPLAIN (TYPE DISTRIBUTED)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Distributed plan::
+Process the supplied query statement and create a distributed plan in text
+format. The distributed plan splits the logical plan into stages, and therefore
+explicitly shows the data exchange between workers::
+
 
     EXPLAIN (TYPE DISTRIBUTED) SELECT regionkey, count(*) FROM nation GROUP BY 1;
 
@@ -361,6 +365,7 @@ Distributed plan::
 
                                                   Query Plan
     ------------------------------------------------------------------------------------------------------
+     Trino version: version
      Fragment 0 [SINGLE]
          Output layout: [regionkey, count]
          Output partitioning: SINGLE []
@@ -404,7 +409,9 @@ EXPLAIN (TYPE DISTRIBUTED, FORMAT JSON)
 
 .. warning:: The output format is not guaranteed to be backward compatible across Trino versions.
 
-JSON Distributed plan::
+Process the supplied query statement and create a distributed plan in JSON
+format. The distributed plan splits the logical plan into stages, and therefore
+explicitly shows the data exchange between workers::
 
     EXPLAIN (TYPE DISTRIBUTED, FORMAT JSON) SELECT regionkey, count(*) FROM nation GROUP BY 1;
 
@@ -605,7 +612,8 @@ JSON Distributed plan::
 EXPLAIN (TYPE VALIDATE)
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Validate::
+Validate the supplied query statement for syntactical and semantic correctness.
+Returns true if the statement is valid::
 
     EXPLAIN (TYPE VALIDATE) SELECT regionkey, count(*) FROM nation GROUP BY 1;
 
@@ -615,10 +623,37 @@ Validate::
     -------
      true
 
+If the statement is not correct because a syntax error, such as an unknown
+keyword, is found the error message details the problem::
+
+    EXPLAIN (TYPE VALIDATE) SELET 1=0;
+
+.. code-block:: text
+
+    Query 20220929_234840_00001_vjwxj failed: line 1:25: mismatched input 'SELET'.
+    Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMENT', 'COMMIT', 'CREATE',
+    'DEALLOCATE', 'DELETE', 'DENY', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE',
+    'EXPLAIN', 'GRANT', 'INSERT', 'MERGE', 'PREPARE', 'REFRESH', 'RESET',
+    'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'TRUNCATE', 'UPDATE', 'USE',
+    <query>
+
+Similarly if semantic issues are detected, such as an invalid object name
+``nations`` instead of ``nation``, the error message returns useful
+information::
+
+    EXPLAIN(TYPE VALIDATE) SELECT * FROM tpch.tiny.nations;
+
+.. code-block:: text
+
+    Query 20220929_235059_00003_vjwxj failed: line 1:15: Table 'tpch.tiny.nations' does not exist
+    SELECT * FROM tpch.tiny.nations
+
+
 EXPLAIN (TYPE IO)
 ^^^^^^^^^^^^^^^^^
 
-IO::
+Process the supplied query statement and create a plan with input and output
+details about the accessed objects in JSON format::
 
     EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_lineitem
     SELECT * FROM lineitem WHERE shipdate = '2020-02-01' AND quantity > 10;

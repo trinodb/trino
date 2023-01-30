@@ -17,7 +17,6 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.scheduler.BucketNodeMap;
 import io.trino.execution.scheduler.NodeScheduler;
@@ -27,6 +26,7 @@ import io.trino.metadata.Split;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.PartitionFunction;
 import io.trino.spi.connector.BucketFunction;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorSplit;
@@ -276,7 +276,7 @@ public class NodePartitioningManager
                 partitioningHandle.getConnectorHandle());
     }
 
-    private ToIntFunction<Split> getSplitToBucket(Session session, PartitioningHandle partitioningHandle)
+    public ToIntFunction<Split> getSplitToBucket(Session session, PartitioningHandle partitioningHandle)
     {
         CatalogHandle catalogHandle = requiredCatalogHandle(partitioningHandle);
         ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(catalogHandle);

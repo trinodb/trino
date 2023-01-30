@@ -45,7 +45,8 @@ public class TestMemoryManagerConfig
                 .setFaultTolerantExecutionTaskMemory(DataSize.of(5, GIGABYTE))
                 .setFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(DataSize.of(1, GIGABYTE))
                 .setFaultTolerantExecutionTaskMemoryGrowthFactor(3.0)
-                .setFaultTolerantExecutionTaskMemoryEstimationQuantile(0.9));
+                .setFaultTolerantExecutionTaskMemoryEstimationQuantile(0.9)
+                .setFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled(true));
     }
 
     @Test
@@ -62,6 +63,7 @@ public class TestMemoryManagerConfig
                 .put("fault-tolerant-execution-task-runtime-memory-estimation-overhead", "300MB")
                 .put("fault-tolerant-execution-task-memory-growth-factor", "17.3")
                 .put("fault-tolerant-execution-task-memory-estimation-quantile", "0.7")
+                .put("fault-tolerant-execution.memory-requirement-increase-on-worker-crash-enabled", "false")
                 .buildOrThrow();
 
         MemoryManagerConfig expected = new MemoryManagerConfig()
@@ -74,7 +76,8 @@ public class TestMemoryManagerConfig
                 .setFaultTolerantExecutionTaskMemory(DataSize.of(2, GIGABYTE))
                 .setFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(DataSize.of(300, MEGABYTE))
                 .setFaultTolerantExecutionTaskMemoryGrowthFactor(17.3)
-                .setFaultTolerantExecutionTaskMemoryEstimationQuantile(0.7);
+                .setFaultTolerantExecutionTaskMemoryEstimationQuantile(0.7)
+                .setFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled(false);
 
         assertFullMapping(properties, expected);
     }

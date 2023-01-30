@@ -43,8 +43,8 @@ import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PRO
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -65,6 +65,9 @@ public abstract class BaseClickHouseConnectorTest
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
             case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+
+            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
             case SUPPORTS_DELETE:
@@ -105,6 +108,18 @@ public abstract class BaseClickHouseConnectorTest
     }
 
     @Override
+    public void testDropAndAddColumnWithSameName()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_add_column", "(x int NOT NULL, y int, z int) WITH (engine = 'MergeTree', order_by = ARRAY['x'])", ImmutableList.of("1,2,3"))) {
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN y");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3, NULL)");
+        }
+    }
+
+    @Override
     public void testAddAndDropColumnName(String columnName)
     {
         // TODO: Enable this test
@@ -140,7 +155,7 @@ public abstract class BaseClickHouseConnectorTest
     @Override
     public void testDropColumn()
     {
-        String tableName = "test_drop_column_" + randomTableSuffix();
+        String tableName = "test_drop_column_" + randomNameSuffix();
 
         // only MergeTree engine table can drop column
         assertUpdate("CREATE TABLE " + tableName + "(x int NOT NULL, y int, a int) WITH (engine = 'MergeTree', order_by = ARRAY['x'])");
@@ -174,7 +189,7 @@ public abstract class BaseClickHouseConnectorTest
     @Override
     public void testAddColumn()
     {
-        String tableName = "test_add_column_" + randomTableSuffix();
+        String tableName = "test_add_column_" + randomNameSuffix();
         // Only MergeTree engine table can add column
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'])");
         assertUpdate("INSERT INTO " + tableName + " (id, x) VALUES(1, 'first')", 1);
@@ -324,7 +339,7 @@ public abstract class BaseClickHouseConnectorTest
     @Test
     public void testDifferentEngine()
     {
-        String tableName = "test_add_column_" + randomTableSuffix();
+        String tableName = "test_add_column_" + randomNameSuffix();
         // MergeTree
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'])");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
@@ -357,7 +372,7 @@ public abstract class BaseClickHouseConnectorTest
     @Test
     public void testTableProperty()
     {
-        String tableName = "test_add_column_" + randomTableSuffix();
+        String tableName = "test_add_column_" + randomNameSuffix();
         // no table property, it should create a table with default Log engine table
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR)");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
@@ -769,7 +784,7 @@ public abstract class BaseClickHouseConnectorTest
     public void testCreateTableWithLongTableName()
     {
         // Override because ClickHouse connector can create a table which can't be dropped
-        String baseTableName = "test_create_" + randomTableSuffix();
+        String baseTableName = "test_create_" + randomNameSuffix();
         String validTableName = baseTableName + "z".repeat(maxTableNameLength().orElseThrow() - baseTableName.length());
 
         assertUpdate("CREATE TABLE " + validTableName + " (a bigint)");
@@ -788,10 +803,10 @@ public abstract class BaseClickHouseConnectorTest
     public void testRenameSchemaToLongName()
     {
         // Override because the max length is different from CREATE SCHEMA case
-        String sourceTableName = "test_rename_source_" + randomTableSuffix();
+        String sourceTableName = "test_rename_source_" + randomNameSuffix();
         assertUpdate("CREATE SCHEMA " + sourceTableName);
 
-        String baseSchemaName = "test_rename_target_" + randomTableSuffix();
+        String baseSchemaName = "test_rename_target_" + randomNameSuffix();
 
         // The numeric value depends on file system
         int maxLength = 255 - ".sql".length();
@@ -825,10 +840,10 @@ public abstract class BaseClickHouseConnectorTest
     public void testRenameTableToLongTableName()
     {
         // Override because ClickHouse connector can rename to a table which can't be dropped
-        String sourceTableName = "test_source_long_table_name_" + randomTableSuffix();
+        String sourceTableName = "test_source_long_table_name_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
 
-        String baseTableName = "test_target_long_table_name_" + randomTableSuffix();
+        String baseTableName = "test_target_long_table_name_" + randomNameSuffix();
         // The max length is different from CREATE TABLE case
         String validTargetTableName = baseTableName + "z".repeat(255 - ".sql".length() - baseTableName.length());
 

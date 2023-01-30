@@ -5,7 +5,7 @@
     <parent>
         <artifactId>trino-root</artifactId>
         <groupId>io.trino</groupId>
-        <version>400</version>
+        <version>406</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,7 +15,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.hudi.version>0.11.1</dep.hudi.version>
+        <dep.hudi.version>0.12.2</dep.hudi.version>
     </properties>
 
     <dependencies>
@@ -142,6 +142,10 @@
                 <exclusion>
                     <groupId>org.apache.hbase</groupId>
                     <artifactId>hbase-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.osgi</groupId>
+                    <artifactId>org.osgi.core</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>org.apache.orc</groupId>
@@ -458,13 +462,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <argLine>
-                        --add-opens=java.base/java.lang=ALL-UNNAMED
-                        --add-opens=java.base/java.util=ALL-UNNAMED
-                        --add-opens=java.base/java.util.concurrent=ALL-UNNAMED
-                    </argLine>
-                </configuration>
             </plugin>
         </plugins>
     </build>

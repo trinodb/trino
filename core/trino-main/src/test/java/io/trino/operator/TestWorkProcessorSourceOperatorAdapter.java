@@ -23,7 +23,6 @@ import io.trino.operator.WorkProcessorSourceOperatorAdapter.AdapterWorkProcessor
 import io.trino.plugin.base.metrics.DurationTiming;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
-import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
@@ -31,9 +30,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Supplier;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -74,7 +71,7 @@ public class TestWorkProcessorSourceOperatorAdapter
         operator.getOutput();
         assertThat(operator.isFinished()).isFalse();
         assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics())
-                .hasSize(4)
+                .hasSize(5)
                 .containsEntry("testOperatorMetric", new LongCount(1));
         assertThat(getOnlyElement(context.getNestedOperatorStats()).getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of(
                 "testConnectorMetric", new LongCount(2),
@@ -83,7 +80,7 @@ public class TestWorkProcessorSourceOperatorAdapter
         operator.getOutput();
         assertThat(operator.isFinished()).isTrue();
         assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics())
-                .hasSize(4)
+                .hasSize(5)
                 .containsEntry("testOperatorMetric", new LongCount(2));
         assertThat(getOnlyElement(context.getNestedOperatorStats()).getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of(
                 "testConnectorMetric", new LongCount(3),
@@ -156,12 +153,6 @@ public class TestWorkProcessorSourceOperatorAdapter
         {
             return WorkProcessor.of(new Page(0))
                     .withProcessEntryMonitor(() -> count++);
-        }
-
-        @Override
-        public Supplier<Optional<UpdatablePageSource>> getUpdatablePageSourceSupplier()
-        {
-            return null;
         }
     }
 }

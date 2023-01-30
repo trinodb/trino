@@ -60,6 +60,7 @@ public class ChangeOnlyUpdatedColumnsMergeProcessor
     public Page transformPage(Page inputPage)
     {
         requireNonNull(inputPage, "inputPage is null");
+
         int inputChannelCount = inputPage.getChannelCount();
         checkArgument(inputChannelCount >= 2 + writeRedistributionColumnCount, "inputPage channelCount (%s) should be >= 2 + %s", inputChannelCount, writeRedistributionColumnCount);
         int positionCount = inputPage.getPositionCount();

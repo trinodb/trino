@@ -16,6 +16,7 @@ package io.trino.filesystem;
 import org.apache.iceberg.io.FileIO;
 
 import java.io.IOException;
+import java.util.Collection;
 
 public interface TrinoFileSystem
 {
@@ -26,6 +27,15 @@ public interface TrinoFileSystem
     TrinoOutputFile newOutputFile(String path);
 
     void deleteFile(String path)
+            throws IOException;
+
+    /**
+     * Delete paths in batches, it is not guaranteed to be atomic.
+     *
+     * @param paths collection of paths to be deleted
+     * @throws IOException when there is a problem with deletion of one or more specific paths
+     */
+    void deleteFiles(Collection<String> paths)
             throws IOException;
 
     void deleteDirectory(String path)

@@ -4,7 +4,7 @@
     <parent>
         <artifactId>trino-root</artifactId>
         <groupId>io.trino</groupId>
-        <version>400</version>
+        <version>406</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -39,7 +39,7 @@
             <dependency>
                 <groupId>com.google.protobuf</groupId>
                 <artifactId>protobuf-java</artifactId>
-                <version>3.19.2</version>
+                <version>3.19.6</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.zookeeper</groupId>

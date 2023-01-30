@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>400</version>
+        <version>406</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,6 +15,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.native-protocol.version>1.5.1</dep.native-protocol.version>
+        <air.test.parallel>instances</air.test.parallel>
     </properties>
 
     <dependencies>
@@ -167,6 +168,12 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-services</artifactId>
             <scope>test</scope>
         </dependency>
 

@@ -155,5 +155,10 @@ public final class QueryExecutors
         };
     }
 
+    public static QueryExecutor onHudi()
+    {
+        return testContext().getDependency(QueryExecutor.class, "hudi");
+    }
+
     private QueryExecutors() {}
 }

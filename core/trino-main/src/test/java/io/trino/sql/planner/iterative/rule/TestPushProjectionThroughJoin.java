@@ -98,20 +98,21 @@ public class TestPushProjectionThroughJoin
                 createTestingFunctionManager(),
                 node -> unknown(),
                 new Plan(rewritten.get(), p.getTypes(), empty()), noLookup(),
-                join(
-                        INNER,
-                        ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol("a1"), new Symbol("b1"))),
-                        strictProject(ImmutableMap.of(
-                                "a3", expression("-(+a0)"),
-                                "a1", expression("a1")),
+                join(INNER, builder -> builder
+                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol("a1"), new Symbol("b1"))))
+                        .left(
                                 strictProject(ImmutableMap.of(
-                                        "a0", expression("a0"),
-                                        "a1", expression("a1")),
-                                        PlanMatchPattern.values("a0", "a1"))),
-                        strictProject(ImmutableMap.of(
-                                "b2", expression("+b1"),
-                                "b1", expression("b1")),
-                                PlanMatchPattern.values("b0", "b1")))
+                                                "a3", expression("-(+a0)"),
+                                                "a1", expression("a1")),
+                                        strictProject(ImmutableMap.of(
+                                                        "a0", expression("a0"),
+                                                        "a1", expression("a1")),
+                                                PlanMatchPattern.values("a0", "a1"))))
+                        .right(
+                                strictProject(ImmutableMap.of(
+                                                "b2", expression("+b1"),
+                                                "b1", expression("b1")),
+                                        PlanMatchPattern.values("b0", "b1"))))
                         .withExactOutputs("a3", "b2"));
     }
 

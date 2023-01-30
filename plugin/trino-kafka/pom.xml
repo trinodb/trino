@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>400</version>
+        <version>406</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -89,6 +89,16 @@
         </dependency>
 
         <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java-util</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-schema-registry-client</artifactId>
         </dependency>
@@ -135,6 +145,13 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- used by trino-record-decoder -->
+        <dependency>
+            <groupId>com.squareup.wire</groupId>
+            <artifactId>wire-schema</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>javax.ws.rs</groupId>
             <artifactId>javax.ws.rs-api</artifactId>
@@ -167,6 +184,13 @@
         </dependency>
 
         <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-protobuf-provider</artifactId>
+            <!-- This is under Confluent Community License and it should not be used with compile scope -->
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.openjdk.jol</groupId>
             <artifactId>jol-core</artifactId>
             <scope>provided</scope>
@@ -188,6 +212,13 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-record-decoder</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
@@ -244,8 +275,21 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-json-schema-serializer</artifactId>
-            <!-- This is under Confluence Community License and it should not be used with compile scope -->
+            <!-- This is under Confluent Community License and it should not be used with compile scope -->
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-protobuf-serializer</artifactId>
+            <!-- This is under Confluent Community License and it should not be used with compile scope -->
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.kafka</groupId>
+                    <artifactId>kafka-clients</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -272,4 +316,29 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-maven-plugin</artifactId>
+                <extensions>true</extensions>
+                <configuration>
+                    <allowedProvidedDependencies>
+                        <id>io.confluent:kafka-protobuf-provider</id>
+                    </allowedProvidedDependencies>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredResourcePatterns combine.children="append">
+                        <!-- com.google.protobuf:protobuf-java and com.squareup.wire:wire-schema proto file duplicate -->
+                        <ignoredResourcePattern>google/protobuf/.*\.proto$</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

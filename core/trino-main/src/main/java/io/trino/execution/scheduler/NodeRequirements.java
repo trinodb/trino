@@ -14,8 +14,8 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.connector.CatalogHandle;
 import io.trino.spi.HostAddress;
+import io.trino.spi.connector.CatalogHandle;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;

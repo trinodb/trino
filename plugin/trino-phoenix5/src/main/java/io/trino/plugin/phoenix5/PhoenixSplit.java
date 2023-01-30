@@ -80,8 +80,6 @@ public class PhoenixSplit
     @Override
     public Object getInfo()
     {
-        return ImmutableMap.builder()
-                .put("addresses", addresses)
-                .buildOrThrow();
+        return ImmutableMap.of("addresses", addresses);
     }
 }

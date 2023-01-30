@@ -165,6 +165,7 @@ public class TestRaptorStorageManager
     {
         if (dummyHandle != null) {
             dummyHandle.close();
+            dummyHandle = null;
         }
         deleteRecursively(temporary, ALLOW_INSECURE);
     }
@@ -297,9 +298,7 @@ public class TestRaptorStorageManager
         }
 
         // tuple domain within the column range
-        tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.<RaptorColumnHandle, NullableValue>builder()
-                .put(new RaptorColumnHandle("c1", 2, BIGINT), NullableValue.of(BIGINT, 124L))
-                .buildOrThrow());
+        tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(new RaptorColumnHandle("c1", 2, BIGINT), NullableValue.of(BIGINT, 124L)));
 
         try (ConnectorPageSource pageSource = getPageSource(manager, columnIds, columnTypes, uuid, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
@@ -307,9 +306,7 @@ public class TestRaptorStorageManager
         }
 
         // tuple domain outside the column range
-        tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.<RaptorColumnHandle, NullableValue>builder()
-                .put(new RaptorColumnHandle("c1", 2, BIGINT), NullableValue.of(BIGINT, 122L))
-                .buildOrThrow());
+        tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(new RaptorColumnHandle("c1", 2, BIGINT), NullableValue.of(BIGINT, 122L)));
 
         try (ConnectorPageSource pageSource = getPageSource(manager, columnIds, columnTypes, uuid, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);

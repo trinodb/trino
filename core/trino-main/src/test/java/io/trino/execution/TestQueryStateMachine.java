@@ -20,6 +20,7 @@ import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.FailureInfo;
+import io.trino.client.NodeVersion;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
@@ -534,7 +535,9 @@ public class TestQueryStateMachine
                 ticker,
                 metadata,
                 WarningCollector.NOOP,
-                QUERY_TYPE);
+                QUERY_TYPE,
+                true,
+                new NodeVersion("test"));
         stateMachine.setInputs(INPUTS);
         stateMachine.setOutput(OUTPUT);
         stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.TrinoOutputFile;
 import io.trino.orc.OrcDataSink;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcReaderOptions;
@@ -41,12 +42,11 @@ import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
 
+import java.io.Closeable;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
@@ -170,12 +170,9 @@ public class IcebergFileWriterFactory
                 .collect(toImmutableList());
 
         try {
-            OutputStream outputStream = fileSystem.newOutputFile(outputPath).create();
+            TrinoOutputFile outputFile = fileSystem.newOutputFile(outputPath);
 
-            Callable<Void> rollbackAction = () -> {
-                fileSystem.deleteFile(outputPath);
-                return null;
-            };
+            Closeable rollbackAction = () -> fileSystem.deleteFile(outputPath);
 
             ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                     .setMaxPageSize(getParquetWriterPageSize(session))
@@ -185,7 +182,7 @@ public class IcebergFileWriterFactory
 
             return new IcebergParquetFileWriter(
                     metricsConfig,
-                    outputStream,
+                    outputFile,
                     rollbackAction,
                     fileColumnTypes,
                     fileColumnNames,
@@ -213,12 +210,9 @@ public class IcebergFileWriterFactory
             DataSize stringStatisticsLimit)
     {
         try {
-            OrcDataSink orcDataSink = new OutputStreamOrcDataSink(fileSystem.newOutputFile(outputPath).create());
+            OrcDataSink orcDataSink = OutputStreamOrcDataSink.create(fileSystem.newOutputFile(outputPath));
 
-            Callable<Void> rollbackAction = () -> {
-                fileSystem.deleteFile(outputPath);
-                return null;
-            };
+            Closeable rollbackAction = () -> fileSystem.deleteFile(outputPath);
 
             List<Types.NestedField> columnFields = icebergSchema.columns();
             List<String> fileColumnNames = columnFields.stream()
@@ -297,10 +291,7 @@ public class IcebergFileWriterFactory
             Schema icebergSchema,
             ConnectorSession session)
     {
-        Callable<Void> rollbackAction = () -> {
-            fileIo.deleteFile(outputPath);
-            return null;
-        };
+        Closeable rollbackAction = () -> fileIo.deleteFile(outputPath);
 
         List<Type> columnTypes = icebergSchema.columns().stream()
                 .map(column -> toTrinoType(column.type(), typeManager))

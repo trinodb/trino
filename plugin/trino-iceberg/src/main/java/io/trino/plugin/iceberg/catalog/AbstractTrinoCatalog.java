@@ -17,8 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HiveMetadata;
-import io.trino.plugin.hive.HiveViewNotSupportedException;
-import io.trino.plugin.hive.ViewReaderUtil;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
 import io.trino.plugin.iceberg.IcebergUtil;
@@ -33,6 +31,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TypeManager;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
+import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -48,20 +47,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.ViewReaderUtil.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
-import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
-import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.STORAGE_SCHEMA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.getStorageSchema;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergUtil.commit;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static java.lang.String.format;
@@ -74,31 +71,24 @@ import static org.apache.iceberg.Transactions.createTableTransaction;
 public abstract class AbstractTrinoCatalog
         implements TrinoCatalog
 {
-    // Be compatible with views defined by the Hive connector, which can be useful under certain conditions.
+    public static final String TRINO_CREATED_BY_VALUE = "Trino Iceberg connector";
     protected static final String TRINO_CREATED_BY = HiveMetadata.TRINO_CREATED_BY;
-    protected static final String TRINO_CREATED_BY_VALUE = "Trino Iceberg connector";
-    protected static final String PRESTO_VIEW_COMMENT = HiveMetadata.PRESTO_VIEW_COMMENT;
-    protected static final String PRESTO_VERSION_NAME = HiveMetadata.PRESTO_VERSION_NAME;
     protected static final String PRESTO_QUERY_ID_NAME = HiveMetadata.PRESTO_QUERY_ID_NAME;
-    protected static final String PRESTO_VIEW_EXPANDED_TEXT_MARKER = HiveMetadata.PRESTO_VIEW_EXPANDED_TEXT_MARKER;
 
     protected final CatalogName catalogName;
     private final TypeManager typeManager;
     protected final IcebergTableOperationsProvider tableOperationsProvider;
-    private final String trinoVersion;
     private final boolean useUniqueTableLocation;
 
     protected AbstractTrinoCatalog(
             CatalogName catalogName,
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
-            String trinoVersion,
             boolean useUniqueTableLocation)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
-        this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.useUniqueTableLocation = useUniqueTableLocation;
     }
 
@@ -199,56 +189,6 @@ public abstract class AbstractTrinoCatalog
         }
     }
 
-    protected Optional<ConnectorViewDefinition> getView(
-            SchemaTableName viewName,
-            Optional<String> viewOriginalText,
-            String tableType,
-            Map<String, String> tableParameters,
-            Optional<String> tableOwner)
-    {
-        if (!isView(tableType, tableParameters)) {
-            // Filter out Tables and Materialized Views
-            return Optional.empty();
-        }
-
-        if (!isPrestoView(tableParameters)) {
-            // Hive views are not compatible
-            throw new HiveViewNotSupportedException(viewName);
-        }
-
-        checkArgument(viewOriginalText.isPresent(), "viewOriginalText must be present");
-        ConnectorViewDefinition definition = ViewReaderUtil.PrestoViewReader.decodeViewData(viewOriginalText.get());
-        // use owner from table metadata if it exists
-        if (tableOwner.isPresent() && !definition.isRunAsInvoker()) {
-            definition = new ConnectorViewDefinition(
-                    definition.getOriginalSql(),
-                    definition.getCatalog(),
-                    definition.getSchema(),
-                    definition.getColumns(),
-                    definition.getComment(),
-                    tableOwner,
-                    false);
-        }
-        return Optional.of(definition);
-    }
-
-    private static boolean isView(String tableType, Map<String, String> tableParameters)
-
-    {
-        return isHiveOrPrestoView(tableType) && PRESTO_VIEW_COMMENT.equals(tableParameters.get(TABLE_COMMENT));
-    }
-
-    protected Map<String, String> createViewProperties(ConnectorSession session)
-    {
-        return ImmutableMap.<String, String>builder()
-                .put(PRESTO_VIEW_FLAG, "true") // Ensures compatibility with views created by the Hive connector
-                .put(TRINO_CREATED_BY, TRINO_CREATED_BY_VALUE)
-                .put(PRESTO_VERSION_NAME, trinoVersion)
-                .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
-                .put(TABLE_COMMENT, PRESTO_VIEW_COMMENT)
-                .buildOrThrow();
-    }
-
     protected SchemaTableName createMaterializedViewStorageTable(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition)
     {
         // Generate a storage table name and create a storage table. The properties in the definition are table properties for the
@@ -265,7 +205,8 @@ public abstract class AbstractTrinoCatalog
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, storageTableProperties, Optional.empty());
         Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session);
-        transaction.newAppend().commit();
+        AppendFiles appendFiles = transaction.newAppend();
+        commit(appendFiles, session);
         transaction.commitTransaction();
         return storageTable;
     }

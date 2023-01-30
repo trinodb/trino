@@ -15,10 +15,13 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 
@@ -51,7 +54,11 @@ public class JdbcPageSink
     private final int maxBatchSize;
     private int batchSize;
 
-    public JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient)
+    private final ConnectorPageSinkId pageSinkId;
+    private final LongWriteFunction pageSinkIdWriteFunction;
+    private final boolean includePageSinkIdColumn;
+
+    public JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient, ConnectorPageSinkId pageSinkId, RemoteQueryModifier remoteQueryModifier)
     {
         try {
             connection = jdbcClient.getConnection(session, handle);
@@ -72,6 +79,11 @@ public class JdbcPageSink
             closeAllSuppress(e, connection);
             throw new TrinoException(JDBC_ERROR, e);
         }
+
+        this.pageSinkId = pageSinkId;
+
+        pageSinkIdWriteFunction = (LongWriteFunction) jdbcClient.toWriteMapping(session, BaseJdbcClient.TRINO_PAGE_SINK_ID_COLUMN_TYPE).getWriteFunction();
+        includePageSinkIdColumn = handle.getPageSinkIdColumnName().isPresent();
 
         columnTypes = handle.getColumnTypes();
 
@@ -99,8 +111,13 @@ public class JdbcPageSink
                     .collect(toImmutableList());
         }
 
+        String insertSql = jdbcClient.buildInsertSql(handle, columnWriters);
         try {
-            statement = connection.prepareStatement(jdbcClient.buildInsertSql(handle, columnWriters));
+            insertSql = remoteQueryModifier.apply(session, insertSql);
+            statement = connection.prepareStatement(insertSql);
+        }
+        catch (TrinoException e) {
+            throw closeAllSuppress(e, connection);
         }
         catch (SQLException e) {
             closeAllSuppress(e, connection);
@@ -116,6 +133,10 @@ public class JdbcPageSink
     {
         try {
             for (int position = 0; position < page.getPositionCount(); position++) {
+                if (includePageSinkIdColumn) {
+                    pageSinkIdWriteFunction.set(statement, page.getChannelCount() + 1, pageSinkId.getId());
+                }
+
                 for (int channel = 0; channel < page.getChannelCount(); channel++) {
                     appendColumn(page, position, channel);
                 }
@@ -193,8 +214,8 @@ public class JdbcPageSink
             }
             throw new TrinoException(JDBC_ERROR, "Failed to insert data: " + firstNonNull(e.getMessage(), e), e);
         }
-        // the committer does not need any additional info
-        return completedFuture(ImmutableList.of());
+        // pass the successful page sink id
+        return completedFuture(ImmutableList.of(Slices.wrappedLongArray(pageSinkId.getId())));
     }
 
     @SuppressWarnings("unused")

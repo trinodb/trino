@@ -17,10 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriterOptions;
@@ -40,7 +39,6 @@ import io.trino.spi.connector.MergePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.joda.time.DateTimeZone;
@@ -48,6 +46,7 @@ import org.roaringbitmap.longlong.ImmutableLongBitmapDataProvider;
 import org.roaringbitmap.longlong.LongBitmapDataProvider;
 import org.roaringbitmap.longlong.Roaring64Bitmap;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -55,7 +54,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 
@@ -73,6 +71,7 @@ import static io.trino.spi.connector.MergePage.createDeleteAndInsertPages;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -82,8 +81,7 @@ public class DeltaLakeMergeSink
 {
     private static final JsonCodec<List<String>> PARTITIONS_CODEC = listJsonCodec(String.class);
 
-    private final TrinoFileSystemFactory fileSystemFactory;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystem fileSystem;
     private final ConnectorSession session;
     private final DateTimeZone parquetDateTimeZone;
     private final String trinoVersion;
@@ -94,11 +92,11 @@ public class DeltaLakeMergeSink
     private final ConnectorPageSink insertPageSink;
     private final List<DeltaLakeColumnHandle> dataColumns;
     private final int tableColumnCount;
+    private final int domainCompactionThreshold;
     private final Map<Slice, FileDeletion> fileDeletions = new HashMap<>();
 
     public DeltaLakeMergeSink(
             TrinoFileSystemFactory fileSystemFactory,
-            HdfsEnvironment hdfsEnvironment,
             ConnectorSession session,
             DateTimeZone parquetDateTimeZone,
             String trinoVersion,
@@ -107,11 +105,11 @@ public class DeltaLakeMergeSink
             DeltaLakeWriterStats writerStats,
             String rootTableLocation,
             ConnectorPageSink insertPageSink,
-            List<DeltaLakeColumnHandle> tableColumns)
+            List<DeltaLakeColumnHandle> tableColumns,
+            int domainCompactionThreshold)
     {
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.session = requireNonNull(session, "session is null");
+        this.fileSystem = fileSystemFactory.create(session);
         this.parquetDateTimeZone = requireNonNull(parquetDateTimeZone, "parquetDateTimeZone is null");
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
@@ -124,6 +122,7 @@ public class DeltaLakeMergeSink
         this.dataColumns = tableColumns.stream()
                 .filter(column -> column.getColumnType() == REGULAR)
                 .collect(toImmutableList());
+        this.domainCompactionThreshold = domainCompactionThreshold;
     }
 
     @Override
@@ -169,17 +168,16 @@ public class DeltaLakeMergeSink
         return completedFuture(fragments);
     }
 
-     // In spite of the name "Delta" Lake, we must rewrite the entire file to delete rows.
+    // In spite of the name "Delta" Lake, we must rewrite the entire file to delete rows.
     private List<Slice> rewriteFile(Path sourcePath, FileDeletion deletion)
     {
         try {
             Path rootTablePath = new Path(rootTableLocation);
             String sourceRelativePath = rootTablePath.toUri().relativize(sourcePath.toUri()).toString();
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsContext(session.getIdentity()), rootTablePath);
 
             Path targetPath = new Path(sourcePath.getParent(), session.getQueryId() + "_" + randomUUID());
             String targetRelativePath = rootTablePath.toUri().relativize(targetPath.toUri()).toString();
-            FileWriter fileWriter = createParquetFileWriter(fileSystem, targetPath, dataColumns);
+            FileWriter fileWriter = createParquetFileWriter(targetPath.toString(), dataColumns);
 
             DeltaLakeWriter writer = new DeltaLakeWriter(
                     fileSystem,
@@ -190,9 +188,9 @@ public class DeltaLakeMergeSink
                     writerStats,
                     dataColumns);
 
-            DataFileInfo newFileInfo = rewriteParquetFile(sourcePath, deletion.rowsToDelete(), writer);
+            Optional<DataFileInfo> newFileInfo = rewriteParquetFile(sourcePath, deletion.rowsToDelete(), writer);
 
-            DeltaLakeMergeResult result = new DeltaLakeMergeResult(Optional.of(sourceRelativePath), Optional.of(newFileInfo));
+            DeltaLakeMergeResult result = new DeltaLakeMergeResult(Optional.of(sourceRelativePath), newFileInfo);
             return ImmutableList.of(utf8Slice(mergeResultJsonCodec.toJson(result)));
         }
         catch (IOException e) {
@@ -200,7 +198,7 @@ public class DeltaLakeMergeSink
         }
     }
 
-    private FileWriter createParquetFileWriter(FileSystem fileSystem, Path path, List<DeltaLakeColumnHandle> dataColumns)
+    private FileWriter createParquetFileWriter(String path, List<DeltaLakeColumnHandle> dataColumns)
     {
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                 .setMaxBlockSize(getParquetWriterBlockSize(session))
@@ -209,10 +207,7 @@ public class DeltaLakeMergeSink
         CompressionCodecName compressionCodecName = getCompressionCodec(session).getParquetCompressionCodec();
 
         try {
-            Callable<Void> rollbackAction = () -> {
-                fileSystem.delete(path, false);
-                return null;
-            };
+            Closeable rollbackAction = () -> fileSystem.deleteFile(path);
 
             List<Type> parquetTypes = dataColumns.stream()
                     .map(column -> {
@@ -235,7 +230,7 @@ public class DeltaLakeMergeSink
                     false);
 
             return new ParquetFileWriter(
-                    fileSystem.create(path),
+                    fileSystem.newOutputFile(path),
                     rollbackAction,
                     parquetTypes,
                     dataColumnNames,
@@ -245,6 +240,7 @@ public class DeltaLakeMergeSink
                     IntStream.range(0, dataColumns.size()).toArray(),
                     compressionCodecName,
                     trinoVersion,
+                    false,
                     Optional.empty(),
                     Optional.empty());
         }
@@ -253,7 +249,7 @@ public class DeltaLakeMergeSink
         }
     }
 
-    private DataFileInfo rewriteParquetFile(Path path, ImmutableLongBitmapDataProvider rowsToDelete, DeltaLakeWriter fileWriter)
+    private Optional<DataFileInfo> rewriteParquetFile(Path path, ImmutableLongBitmapDataProvider rowsToDelete, DeltaLakeWriter fileWriter)
             throws IOException
     {
         try (ConnectorPageSource connectorPageSource = createParquetPageSource(path).get()) {
@@ -278,7 +274,13 @@ public class DeltaLakeMergeSink
                     page = page.getPositions(retained, 0, retainedCount);
                 }
 
-                fileWriter.appendRows(page);
+                if (page.getPositionCount() > 0) {
+                    fileWriter.appendRows(page);
+                }
+            }
+            if (fileWriter.getRowCount() == 0) {
+                fileWriter.rollback();
+                return Optional.empty();
             }
             fileWriter.commit();
         }
@@ -294,13 +296,13 @@ public class DeltaLakeMergeSink
             throw t;
         }
 
-        return fileWriter.getDataFileInfo();
+        return Optional.of(fileWriter.getDataFileInfo());
     }
 
     private ReaderPageSource createParquetPageSource(Path path)
             throws IOException
     {
-        TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(path.toString());
+        TrinoInputFile inputFile = fileSystem.newInputFile(path.toString());
 
         return ParquetPageSourceFactory.createPageSource(
                 inputFile,
@@ -313,8 +315,9 @@ public class DeltaLakeMergeSink
                 true,
                 parquetDateTimeZone,
                 new FileFormatDataSourceStats(),
-                new ParquetReaderOptions(),
-                Optional.empty());
+                new ParquetReaderOptions().withBloomFilter(false),
+                Optional.empty(),
+                domainCompactionThreshold);
     }
 
     private static class FileDeletion
@@ -324,7 +327,9 @@ public class DeltaLakeMergeSink
 
         private FileDeletion(List<String> partitionValues)
         {
-            this.partitionValues = ImmutableList.copyOf(requireNonNull(partitionValues, "partitionValues is null"));
+            // Use ArrayList since Delta Lake allows NULL partition values, and wrap it in
+            // an unmodifiableList.
+            this.partitionValues = unmodifiableList(new ArrayList<>(requireNonNull(partitionValues, "partitionValues is null")));
         }
 
         public List<String> partitionValues()

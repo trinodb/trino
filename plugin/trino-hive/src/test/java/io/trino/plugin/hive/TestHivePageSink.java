@@ -66,6 +66,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveCompressionOption.LZ4;
 import static io.trino.plugin.hive.HiveCompressionOption.NONE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
@@ -85,6 +86,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.round;
@@ -270,14 +272,13 @@ public class TestHivePageSink
                 config,
                 getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT, config),
                 getDefaultHiveRecordCursorProviders(config, HDFS_ENVIRONMENT),
-                new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, config),
-                Optional.empty());
+                new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, config));
         return provider.createPageSource(transaction, getHiveSession(config), split, table, ImmutableList.copyOf(getColumnHandles()), DynamicFilter.EMPTY);
     }
 
     private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveConfig config, HiveMetastore metastore, Path outputPath, HiveWriterStats stats)
     {
-        LocationHandle locationHandle = new LocationHandle(outputPath, outputPath, false, DIRECT_TO_TARGET_NEW_DIRECTORY);
+        LocationHandle locationHandle = new LocationHandle(outputPath, outputPath, DIRECT_TO_TARGET_NEW_DIRECTORY);
         HiveOutputTableHandle handle = new HiveOutputTableHandle(
                 SCHEMA_NAME,
                 TABLE_NAME,
@@ -298,6 +299,7 @@ public class TestHivePageSink
         BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
         HivePageSinkProvider provider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, HDFS_ENVIRONMENT),
+                HDFS_FILE_SYSTEM_FACTORY,
                 HDFS_ENVIRONMENT,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastore),
@@ -310,7 +312,7 @@ public class TestHivePageSink
                 new HiveEventClient(),
                 getHiveSessionProperties(config),
                 stats);
-        return provider.createPageSink(transaction, getHiveSession(config), handle);
+        return provider.createPageSink(transaction, getHiveSession(config), handle, TESTING_PAGE_SINK_ID);
     }
 
     private static List<HiveColumnHandle> getColumnHandles()

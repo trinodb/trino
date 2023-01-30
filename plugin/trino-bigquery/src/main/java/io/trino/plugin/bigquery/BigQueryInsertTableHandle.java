@@ -30,17 +30,23 @@ public class BigQueryInsertTableHandle
     private final RemoteTableName remoteTableName;
     private final List<String> columnNames;
     private final List<Type> columnTypes;
+    private final String temporaryTableName;
+    private final String pageSinkIdColumnName;
 
     @JsonCreator
     public BigQueryInsertTableHandle(
             @JsonProperty("remoteTableName") RemoteTableName remoteTableName,
             @JsonProperty("columnNames") List<String> columnNames,
-            @JsonProperty("columnTypes") List<Type> columnTypes)
+            @JsonProperty("columnTypes") List<Type> columnTypes,
+            @JsonProperty("temporaryTableName") String temporaryTableName,
+            @JsonProperty("pageSinkIdColumnName") String pageSinkIdColumnName)
     {
         this.remoteTableName = requireNonNull(remoteTableName, "remoteTableName is null");
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes must have the same size");
+        this.temporaryTableName = requireNonNull(temporaryTableName, "temporaryTableName is null");
+        this.pageSinkIdColumnName = requireNonNull(pageSinkIdColumnName, "pageSinkIdColumnName is null");
     }
 
     @JsonProperty
@@ -59,5 +65,22 @@ public class BigQueryInsertTableHandle
     public List<Type> getColumnTypes()
     {
         return columnTypes;
+    }
+
+    @JsonProperty
+    public String getTemporaryTableName()
+    {
+        return temporaryTableName;
+    }
+
+    public RemoteTableName getTemporaryRemoteTableName()
+    {
+        return new RemoteTableName(remoteTableName.getProjectId(), remoteTableName.getDatasetName(), temporaryTableName);
+    }
+
+    @JsonProperty
+    public String getPageSinkIdColumnName()
+    {
+        return pageSinkIdColumnName;
     }
 }

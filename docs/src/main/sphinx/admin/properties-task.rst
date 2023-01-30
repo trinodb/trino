@@ -7,7 +7,7 @@ Task properties
 
 * **Type:** :ref:`prop-type-integer`
 * **Restrictions:** Must be a power of two
-* **Default value:** ``16``
+* **Default value:** The number of physical CPUs of the node, with a minimum value of 2 and a maximum of 32
 
 Default local concurrency for parallel operators, such as joins and aggregations.
 This value should be adjusted up or down based on the query concurrency and worker
@@ -125,15 +125,37 @@ the task has remaining splits to process.
 ^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** :ref:`prop-type-integer`
-* **Restrictions:** Must be a power of two
 * **Default value:** ``1``
 
-The number of concurrent writer threads per worker per query. Increasing this value may
-increase write speed, especially when a query is not I/O bound and can take advantage
-of additional CPU for parallel writes. Some connectors can be bottlenecked on CPU when
-writing due to compression or other factors. Setting this too high may cause the cluster
-to become overloaded due to excessive resource utilization. This can also be specified on
-a per-query basis using the ``task_writer_count`` session property.
+The number of concurrent writer threads per worker per query when
+:ref:`preferred partitioning <preferred-write-partitioning>` and
+:ref:`task writer scaling <prop-task-scale-writers>` are not used. Increasing this value may
+increase write speed, especially when a query is not I/O bound and can take advantage of
+additional CPU for parallel writes.
+
+Some connectors can be bottlenecked on the CPU when writing due to compression or other factors.
+Setting this too high may cause the cluster to become overloaded due to excessive resource
+utilization. Especially when the engine is inserting into a partitioned table without using
+:ref:`preferred partitioning <preferred-write-partitioning>`. In such case, each writer thread
+could write to all partitions. This can lead to out of memory error since writing to a partition
+allocates a certain amount of memory for buffering.
+
+This can also be specified on a per-query basis using the ``task_writer_count`` session property.
+
+``task.partitioned-writer-count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-integer`
+* **Restrictions:** Must be a power of two
+* **Default value:** The number of physical CPUs of the node, with a minimum value of 2 and a maximum of 32
+
+The number of concurrent writer threads per worker per query when
+:ref:`preferred partitioning <preferred-write-partitioning>` is used. Increasing this value may
+increase write speed, especially when a query is not I/O bound and can take advantage of additional
+CPU for parallel writes. Some connectors can be bottlenecked on CPU when writing due to compression
+or other factors. Setting this too high may cause the cluster to become overloaded due to excessive
+resource utilization. This can also be specified on a per-query basis using the
+``task_partitioned_writer_count`` session property.
 
 ``task.interrupt-stuck-split-tasks-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -349,7 +349,7 @@ public final class Environment
         }
 
         if (!container.isHealthy()) {
-            log.warn("Container %s is not healthy", container.getLogicalName());
+            log.warn("Container %s is not healthy, logs of container healthcheck:\n%s", container.getLogicalName(), container.getCurrentContainerInfo().getState().getHealth().getLog());
             return false;
         }
 
@@ -691,10 +691,7 @@ public final class Environment
                     commandParts[i + 1] += (commandParts[i + 1].length() == 0 ? "" : ",") + temptoConfig;
                 }
             }
-            testContainer.setCommandParts(
-                    ImmutableList.<String>builder()
-                            .addAll(Arrays.asList(commandParts))
-                            .build().toArray(new String[0]));
+            testContainer.setCommandParts(commandParts.clone());
         }
 
         private static Consumer<OutputFrame> combineConsumers(Consumer<OutputFrame>... consumers)

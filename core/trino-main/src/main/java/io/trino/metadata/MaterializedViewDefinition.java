@@ -54,7 +54,7 @@ public class MaterializedViewDefinition
                 view.getCatalog(),
                 view.getSchema(),
                 view.getColumns().stream()
-                        .map(column -> new ViewColumn(column.getName(), column.getType()))
+                        .map(column -> new ViewColumn(column.getName(), column.getType(), Optional.empty()))
                         .collect(toImmutableList()),
                 view.getComment(),
                 Optional.of(runAsIdentity));

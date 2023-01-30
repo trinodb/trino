@@ -95,7 +95,7 @@ public class VariableWidthBlock
     }
 
     /**
-     * Gets the offset of the value at the {@code position} in the {@link Slice} returned by {@link #getRawSlice())}.
+     * Gets the offset of the value at the {@code position} in the {@link Slice} returned by {@link #getRawSlice()}.
      */
     public int getRawSliceOffset(int position)
     {

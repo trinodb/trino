@@ -17,18 +17,19 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
-import java.io.File;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -44,8 +45,9 @@ import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivileg
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.OWNERSHIP;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.SELECT;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.UPDATE;
-import static io.trino.plugin.base.util.JsonUtils.parseJson;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
+import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
@@ -65,6 +67,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
+import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
@@ -92,6 +95,8 @@ import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
 import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl
@@ -102,18 +107,19 @@ public class FileBasedAccessControl
     private final List<SchemaAccessControlRule> schemaRules;
     private final List<TableAccessControlRule> tableRules;
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
+    private final List<FunctionAccessControlRule> functionRules;
     private final Set<AnySchemaPermissionsRule> anySchemaPermissionsRules;
 
-    public FileBasedAccessControl(CatalogName catalogName, File configFile)
+    public FileBasedAccessControl(CatalogName catalogName, AccessControlRules rules)
     {
         this.catalogName = catalogName.toString();
 
-        AccessControlRules rules = parseJson(configFile.toPath(), AccessControlRules.class);
-        checkArgument(!rules.hasRoleRules(), "File connector access control does not support role rules: %s", configFile);
+        checkArgument(!rules.hasRoleRules(), "File connector access control does not support role rules");
 
         this.schemaRules = rules.getSchemaRules();
         this.tableRules = rules.getTableRules();
         this.sessionPropertyRules = rules.getSessionPropertyRules();
+        this.functionRules = rules.getFunctionRules();
         ImmutableSet.Builder<AnySchemaPermissionsRule> anySchemaPermissionsRules = ImmutableSet.builder();
         schemaRules.stream()
                 .map(SchemaAccessControlRule::toAnySchemaPermissionsRule)
@@ -125,11 +131,16 @@ public class FileBasedAccessControl
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .forEach(anySchemaPermissionsRules::add);
+        functionRules.stream()
+                .map(FunctionAccessControlRule::toAnySchemaPermissionsRule)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(anySchemaPermissionsRules::add);
         this.anySchemaPermissionsRules = anySchemaPermissionsRules.build();
     }
 
     @Override
-    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
+    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName, Map<String, Object> properties)
     {
         if (!isSchemaOwner(context, schemaName)) {
             denyCreateSchema(schemaName);
@@ -323,6 +334,14 @@ public class FileBasedAccessControl
     }
 
     @Override
+    public void checkCanAlterColumn(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
+            denyAlterColumn(tableName.toString());
+        }
+    }
+
+    @Override
     public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, TrinoPrincipal principal)
     {
         if (!checkTablePermission(context, tableName, OWNERSHIP)) {
@@ -471,13 +490,10 @@ public class FileBasedAccessControl
     @Override
     public void checkCanGrantExecuteFunctionPrivilege(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
     {
-        switch (functionKind) {
-            case SCALAR, AGGREGATE, WINDOW:
-                return;
-            case TABLE:
-                denyExecuteFunction(functionName.toString());
+        if (!checkFunctionPermission(context, functionKind, functionName, FunctionAccessControlRule::canGrantExecuteFunction)) {
+            String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(ENGLISH), grantee.getName());
+            denyGrantExecuteFunctionPrivilege(functionName.toString(), Identity.ofUser(context.getIdentity().getUser()), granteeAsString);
         }
-        throw new UnsupportedOperationException("Unsupported function kind: " + functionKind);
     }
 
     @Override
@@ -616,13 +632,9 @@ public class FileBasedAccessControl
     @Override
     public void checkCanExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
     {
-        switch (functionKind) {
-            case SCALAR, AGGREGATE, WINDOW:
-                return;
-            case TABLE:
-                denyExecuteFunction(function.toString());
+        if (!checkFunctionPermission(context, functionKind, function, FunctionAccessControlRule::canExecuteFunction)) {
+            denyExecuteFunction(function.toString());
         }
-        throw new UnsupportedOperationException("Unsupported function kind: " + functionKind);
     }
 
     @Override
@@ -644,21 +656,33 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
-            return ImmutableList.of();
+            return Optional.empty();
         }
 
         ConnectorIdentity identity = context.getIdentity();
-        return tableRules.stream()
+        List<ViewExpression> masks = tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), tableName))
                 .map(rule -> rule.getColumnMask(identity.getUser(), catalogName, tableName.getSchemaName(), columnName))
                 // we return the first one we find
                 .findFirst()
                 .stream()
                 .flatMap(Optional::stream)
-                .collect(toImmutableList());
+                .toList();
+
+        if (masks.size() > 1) {
+            throw new TrinoException(INVALID_COLUMN_MASK, format("Multiple masks defined for %s.%s", tableName, columnName));
+        }
+
+        return masks.stream().findFirst();
+    }
+
+    @Override
+    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    {
+        throw new UnsupportedOperationException();
     }
 
     private boolean canSetSessionProperty(ConnectorSecurityContext context, String property)
@@ -714,5 +738,15 @@ public class FileBasedAccessControl
             }
         }
         return false;
+    }
+
+    private boolean checkFunctionPermission(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName functionName, Predicate<FunctionAccessControlRule> executePredicate)
+    {
+        ConnectorIdentity identity = context.getIdentity();
+        return functionRules.stream()
+                .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), functionKind, functionName))
+                .findFirst()
+                .filter(executePredicate)
+                .isPresent();
     }
 }

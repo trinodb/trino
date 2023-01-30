@@ -172,10 +172,9 @@ public class TestDynamicTable
         String query = format("select FlightNum from %s limit 60", tableName.toLowerCase(ENGLISH));
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         PinotColumnHandle columnHandle = new PinotColumnHandle("OriginCityName", VARCHAR);
-        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
-                .put(columnHandle,
-                        Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, Slices.utf8Slice("Catfish Paradise"))), false))
-                .buildOrThrow());
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+                columnHandle,
+                Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, Slices.utf8Slice("Catfish Paradise"))), false)));
         String expectedPql = "select \"FlightNum\" from realtimeOnly where (\"OriginCityName\" = 'Catfish Paradise') limit 60";
         assertEquals(extractPql(dynamicTable, tupleDomain), expectedPql);
     }

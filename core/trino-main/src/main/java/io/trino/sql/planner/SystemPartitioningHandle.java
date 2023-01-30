@@ -41,7 +41,6 @@ public final class SystemPartitioningHandle
         SINGLE,
         FIXED,
         SOURCE,
-        SCALED,
         COORDINATOR_ONLY,
         ARBITRARY
     }
@@ -51,7 +50,8 @@ public final class SystemPartitioningHandle
     public static final PartitioningHandle FIXED_HASH_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.HASH);
     public static final PartitioningHandle FIXED_ARBITRARY_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.ROUND_ROBIN);
     public static final PartitioningHandle FIXED_BROADCAST_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.BROADCAST);
-    public static final PartitioningHandle SCALED_WRITER_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.SCALED, SystemPartitionFunction.ROUND_ROBIN);
+    public static final PartitioningHandle SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION = createScaledWriterSystemPartitioning(SystemPartitionFunction.ROUND_ROBIN);
+    public static final PartitioningHandle SCALED_WRITER_HASH_DISTRIBUTION = createScaledWriterSystemPartitioning(SystemPartitionFunction.HASH);
     public static final PartitioningHandle SOURCE_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.SOURCE, SystemPartitionFunction.UNKNOWN);
     public static final PartitioningHandle ARBITRARY_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.ARBITRARY, SystemPartitionFunction.UNKNOWN);
     public static final PartitioningHandle FIXED_PASSTHROUGH_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.UNKNOWN);
@@ -59,6 +59,11 @@ public final class SystemPartitioningHandle
     private static PartitioningHandle createSystemPartitioning(SystemPartitioning partitioning, SystemPartitionFunction function)
     {
         return new PartitioningHandle(Optional.empty(), Optional.empty(), new SystemPartitioningHandle(partitioning, function));
+    }
+
+    private static PartitioningHandle createScaledWriterSystemPartitioning(SystemPartitionFunction function)
+    {
+        return new PartitioningHandle(Optional.empty(), Optional.empty(), new SystemPartitioningHandle(SystemPartitioning.ARBITRARY, function), true);
     }
 
     private final SystemPartitioning partitioning;
@@ -125,7 +130,7 @@ public final class SystemPartitioningHandle
     @Override
     public String toString()
     {
-        if (partitioning == SystemPartitioning.FIXED) {
+        if (partitioning == SystemPartitioning.FIXED || partitioning == SystemPartitioning.ARBITRARY) {
             return function.toString();
         }
         return partitioning.toString();

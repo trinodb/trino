@@ -80,8 +80,7 @@ public class TestMetadataManager
 
                             return new MockConnectorTableHandle(schemaTableName);
                         })
-                        .withListTables((session, schemaNameOrNull) ->
-                                ImmutableList.of(new SchemaTableName("UPPER_CASE_SCHEMA", "UPPER_CASE_TABLE")))
+                        .withListTables((session, schemaName) -> ImmutableList.of("UPPER_CASE_TABLE"))
                         .withGetViews((session, prefix) -> ImmutableMap.of(viewTableName, getConnectorViewDefinition()))
                         .build();
                 return ImmutableList.of(connectorFactory);
@@ -212,7 +211,7 @@ public class TestMetadataManager
                 "test view SQL",
                 Optional.of("upper_case_schema_catalog"),
                 Optional.of("upper_case_schema"),
-                ImmutableList.of(new ConnectorViewDefinition.ViewColumn("col", BIGINT.getTypeId())),
+                ImmutableList.of(new ConnectorViewDefinition.ViewColumn("col", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of("test_owner"),
                 false);

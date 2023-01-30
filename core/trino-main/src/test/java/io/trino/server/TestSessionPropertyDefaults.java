@@ -90,9 +90,7 @@ public class TestSessionPropertyDefaults
                 session.getCatalogProperties(),
                 ImmutableMap.of(
                         TEST_CATALOG_NAME,
-                        ImmutableMap.<String, String>builder()
-                                .put("explicit_set", "explicit_set")
-                                .buildOrThrow()));
+                        ImmutableMap.of("explicit_set", "explicit_set")));
 
         session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), TEST_RESOURCE_GROUP_ID);
 

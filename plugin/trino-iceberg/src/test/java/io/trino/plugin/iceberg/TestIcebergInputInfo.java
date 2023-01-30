@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergInputInfo
@@ -43,7 +43,7 @@ public class TestIcebergInputInfo
     @Test
     public void testInputWithPartitioning()
     {
-        String tableName = "test_input_info_with_part_" + randomTableSuffix();
+        String tableName = "test_input_info_with_part_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey', 'truncate(name, 1)']) AS SELECT * FROM nation WHERE nationkey < 10", 10);
         assertInputInfo(tableName, true, "ORC");
         assertUpdate("DROP TABLE " + tableName);
@@ -52,7 +52,7 @@ public class TestIcebergInputInfo
     @Test
     public void testInputWithoutPartitioning()
     {
-        String tableName = "test_input_info_without_part_" + randomTableSuffix();
+        String tableName = "test_input_info_without_part_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation WHERE nationkey < 10", 10);
         assertInputInfo(tableName, false, "ORC");
         assertUpdate("DROP TABLE " + tableName);
@@ -61,7 +61,7 @@ public class TestIcebergInputInfo
     @Test
     public void testInputWithParquetFileFormat()
     {
-        String tableName = "test_input_info_with_parquet_file_format_" + randomTableSuffix();
+        String tableName = "test_input_info_with_parquet_file_format_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format = 'PARQUET') AS SELECT * FROM nation WHERE nationkey < 10", 10);
         assertInputInfo(tableName, false, "PARQUET");
         assertUpdate("DROP TABLE " + tableName);

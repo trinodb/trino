@@ -36,9 +36,7 @@ public class TestIcebergSecurityConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("iceberg.security", "read-only")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("iceberg.security", "read-only");
 
         IcebergSecurityConfig expected = new IcebergSecurityConfig()
                 .setSecuritySystem(READ_ONLY);

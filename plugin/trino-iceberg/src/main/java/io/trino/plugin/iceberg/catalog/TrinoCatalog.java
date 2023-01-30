@@ -73,6 +73,8 @@ public interface TrinoCatalog
             String location,
             Map<String, String> properties);
 
+    void registerTable(ConnectorSession session, SchemaTableName tableName, String tableLocation, String metadataLocation);
+
     void dropTable(ConnectorSession session, SchemaTableName schemaTableName);
 
     void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to);
@@ -90,6 +92,8 @@ public interface TrinoCatalog
     void updateTableComment(ConnectorSession session, SchemaTableName schemaTableName, Optional<String> comment);
 
     void updateViewComment(ConnectorSession session, SchemaTableName schemaViewName, Optional<String> comment);
+
+    void updateViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment);
 
     String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName);
 

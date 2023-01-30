@@ -15,6 +15,7 @@ package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -77,7 +78,7 @@ public class TestOrcPageSourceFactory
     private static final Map<NationColumn, Integer> ALL_COLUMNS = ImmutableMap.of(NATION_KEY, 0, NAME, 1, REGION_KEY, 2, COMMENT, 3);
     private static final HivePageSourceFactory PAGE_SOURCE_FACTORY = new OrcPageSourceFactory(
             new OrcReaderConfig(),
-            HDFS_ENVIRONMENT,
+            new HdfsFileSystemFactory(HDFS_ENVIRONMENT),
             new FileFormatDataSourceStats(),
             new HiveConfig());
 

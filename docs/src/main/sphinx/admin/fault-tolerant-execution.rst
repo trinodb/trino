@@ -19,6 +19,10 @@ worker outage or other fault during query execution.
     example, Trino does not spend resources retrying a query that fails because
     its SQL cannot be parsed.
 
+    For a step-by-step guide explaining how to configure a Trino cluster with
+    fault-tolerant execution to improve query processing resilience, read
+    :doc:`/installation/query-resiliency`.
+
 Configuration
 -------------
 
@@ -43,8 +47,16 @@ depending on the desired :ref:`retry policy <fte-retry-policy>`.
   * Fault-tolerant execution of :ref:`read operations <sql-read-operations>` is
     supported by all connectors.
   * Fault tolerant execution of :ref:`write operations <sql-write-operations>`
-    is only supported by the :doc:`/connector/delta-lake`,
-    :doc:`/connector/hive`, and :doc:`/connector/iceberg`.
+    is supported by the following connectors:
+
+    * :doc:`/connector/bigquery`
+    * :doc:`/connector/delta-lake`
+    * :doc:`/connector/hive`
+    * :doc:`/connector/iceberg`
+    * :doc:`/connector/mongodb`
+    * :doc:`/connector/mysql`
+    * :doc:`/connector/postgresql`
+    * :doc:`/connector/sqlserver`
 
 The following configuration properties control the behavior of fault-tolerant
 execution on a Trino cluster:
@@ -112,8 +124,13 @@ recommended when executing large batch queries, as the cluster can more
 efficiently retry smaller tasks within the query rather than retry the whole
 query.
 
-The following cluster configuration changes are recommended to improve
-fault-tolerant execution with a ``TASK`` retry policy:
+When a cluster is configured with a ``TASK`` retry policy, some relevant
+configuration properties have their default values changed to follow best
+practices for a fault-tolerant cluster. However, this automatic change does not
+affect clusters that have these properties manually configured. If you have
+any of the following properties configured in the ``config.properties`` file on
+a cluster with a ``TASK`` retry policy, it is strongly recommended to make the
+following changes:
 
 * Set the ``task.low-memory-killer.policy``
   :doc:`query management property </admin/properties-query-management>` to
@@ -326,8 +343,10 @@ Exchange manager
 
 Exchange spooling is responsible for storing and managing spooled data for
 fault-tolerant execution. You can configure a filesystem-based exchange manager
-that stores spooled data in a specified location, such as an S3-compatible
-storage system, Google Cloud Storage (GCS), or a local filesystem.
+that stores spooled data in a specified location, such as :ref:`AWS S3
+<fte-exchange-aws-s3>` and S3-compatible systems, :ref:`Azure Blob Storage
+<fte-exchange-azure-blob>`, :ref:`Google Cloud Storage <fte-exchange-gcs>`,
+or :ref:`HDFS <fte-exchange-hdfs>`.
 
 Configuration
 ^^^^^^^^^^^^^
@@ -335,7 +354,7 @@ Configuration
 To configure an exchange manager, create a new
 ``etc/exchange-manager.properties`` configuration file on the coordinator and
 all worker nodes. In this file, set the ``exchange-manager.name`` configuration
-propertry to ``filesystem``, and additional configuration properties as needed
+property to ``filesystem`` or ``hdfs``, and set additional configuration properties as needed
 for your storage solution.
 
 The following table lists the available configuration properties for
@@ -352,12 +371,8 @@ the property may be configured for:
      - Supported filesystem
    * - ``exchange.base-directories``
      - Comma-separated list of URI locations that the exchange manager uses to
-       store spooling data. Only supports S3 and local filesystems.
+       store spooling data.
      -
-     - Any
-   * - ``exchange.encryption-enabled``
-     - Enable encrypting of spooling data.
-     - ``true``
      - Any
    * - ``exchange.sink-buffer-pool-min-size``
      - The minimum buffer pool size for an exchange sink. The larger the buffer
@@ -412,6 +427,11 @@ the property may be configured for:
        a request.
      - ``10``
      - Any S3-compatible storage
+   * - ``exchange.s3.path-style-access``
+     - Enables using `path-style access <https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html#path-style-access>`_
+       for all requests to S3.
+     - ``false``
+     - Any S3-compatible storage
    * - ``exchange.s3.upload.part-size``
      - Part size for S3 multi-part upload.
      - ``5MB``
@@ -440,6 +460,15 @@ the property may be configured for:
        retry a request.
      - ``10``
      - Azure Blob Storage
+   * - ``exchange.hdfs.block-size``
+     - Block size for HDFS storage.
+     - ``4MB``
+     - HDFS
+   * - ``hdfs.config.resources``
+     - Comma-separated list of paths to HDFS configuration files, for example ``/etc/hdfs-site.xml``.
+       The files must exist on all nodes in the Trino cluster.
+     -
+     - HDFS
 
 It is recommended to set the ``exchange.compression-enabled`` property to
 ``true`` in the cluster's ``config.properties`` file, to reduce the exchange
@@ -517,6 +546,20 @@ GCS bucket as the spooling storage destination.
     exchange.s3.aws-secret-key=example-secret-key
     exchange.s3.endpoint=https://storage.googleapis.com
     exchange.gcs.json-key-file-path=/path/to/gcs_keyfile.json
+
+.. _fte-exchange-hdfs:
+
+HDFS
+~~~~
+
+The following ``exchange-manager.properties`` configuration example specifies HDFS
+as the spooling storage destination.
+
+.. code-block:: properties
+
+    exchange-manager.name=hdfs
+    exchange.base-directories=hadoop-master:9000/exchange-spooling-directory
+    hdfs.config.resources=/usr/lib/hadoop/etc/hadoop/core-site.xml
 
 .. _fte-exchange-local-filesystem:
 

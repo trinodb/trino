@@ -1,0 +1,85 @@
+{
+    "catalogs": [
+        {
+            "user": "alice|bob",
+            "catalog": "blackhole|mock",
+            "allow": "all"
+        },
+        {
+            "user": "charlie",
+            "catalog": "blackhole",
+            "allow": "read-only"
+        }
+    ],
+    "tables": [
+        {
+            "user": "alice|bob",
+            "catalog": "blackhole",
+            "schema": "default",
+            "table": "view_.*",
+            "privileges": [
+                "SELECT",
+                "OWNERSHIP"
+            ]
+        },
+        {
+            "user": "charlie",
+            "catalog": "blackhole",
+            "schema": "default",
+            "table": "view_.*",
+            "privileges": [
+                "SELECT"
+            ]
+        }
+    ],
+    "functions": [
+        {
+            "user": "alice",
+            "function_kinds": [
+                "SCALAR",
+                "AGGREGATE",
+                "WINDOW"
+            ],
+            "privileges": [
+                "EXECUTE",
+                "GRANT_EXECUTE"
+            ]
+        },
+        {
+            "user": "alice",
+            "catalog": "mock",
+            "schema": "system",
+            "function": "simple_table_function",
+            "function_kinds": [
+                "TABLE"
+            ],
+            "privileges": [
+                "EXECUTE",
+                "GRANT_EXECUTE"
+            ]
+        },
+        {
+            "user": "bob",
+            "function_kinds": [
+                "SCALAR",
+                "AGGREGATE",
+                "WINDOW"
+            ],
+            "privileges": [
+                "EXECUTE"
+            ]
+        },
+        {
+            "user": "bob",
+            "catalog": "mock",
+            "schema": "system",
+            "function": "simple_table_function",
+            "function_kinds": [
+                "TABLE"
+            ],
+            "privileges": [
+                "EXECUTE"
+            ]
+        }
+    ]
+}

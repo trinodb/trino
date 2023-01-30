@@ -38,9 +38,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.operator.scalar.timestamp.VarcharToTimestampCast.castToLongTimestamp;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.fail;
@@ -149,13 +147,6 @@ public abstract class AbstractTestFunctions
     protected void assertCachedInstanceHasBoundedRetainedSize(String projection)
     {
         functionAssertions.assertCachedInstanceHasBoundedRetainedSize(projection);
-    }
-
-    protected void assertNotSupported(String projection, String message)
-    {
-        assertTrinoExceptionThrownBy(() -> functionAssertions.executeProjectionWithFullEngine(projection))
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage(message);
     }
 
     protected void tryEvaluateWithAll(String projection, Type expectedType)

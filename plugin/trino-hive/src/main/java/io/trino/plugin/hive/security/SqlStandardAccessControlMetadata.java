@@ -114,6 +114,12 @@ public class SqlStandardAccessControlMetadata
     }
 
     @Override
+    public Optional<HivePrincipal> getSchemaOwner(ConnectorSession session, String schemaName)
+    {
+        return metastore.getDatabaseOwner(schemaName);
+    }
+
+    @Override
     public void grantTablePrivileges(ConnectorSession session, SchemaTableName schemaTableName, Set<Privilege> privileges, HivePrincipal grantee, boolean grantOption)
     {
         String schemaName = schemaTableName.getSchemaName();

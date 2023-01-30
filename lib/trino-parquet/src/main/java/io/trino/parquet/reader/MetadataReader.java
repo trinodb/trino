@@ -155,6 +155,7 @@ public final class MetadataReader
                             metaData.total_uncompressed_size);
                     column.setColumnIndexReference(toColumnIndexReference(columnChunk));
                     column.setOffsetIndexReference(toOffsetIndexReference(columnChunk));
+                    column.setBloomFilterOffset(metaData.bloom_filter_offset);
                     blockMetaData.addColumn(column);
                 }
                 blockMetaData.setPath(filePath);

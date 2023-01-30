@@ -110,6 +110,13 @@ public class TestHdfsSyncPartitionMetadata
         super.testConflictingMixedCasePartitionNames();
     }
 
+    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Override
+    public void testSyncPartitionMetadataWithNullArgument()
+    {
+        super.testSyncPartitionMetadataWithNullArgument();
+    }
+
     @Override
     protected void removeHdfsDirectory(String path)
     {

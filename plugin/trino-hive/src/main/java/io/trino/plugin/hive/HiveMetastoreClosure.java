@@ -305,8 +305,14 @@ public class HiveMetastoreClosure
         return delegate.listTablePrivileges(databaseName, tableName, tableOwner, principal);
     }
 
+    public void checkSupportsTransactions()
+    {
+        delegate.checkSupportsTransactions();
+    }
+
     public long openTransaction(AcidTransactionOwner transactionOwner)
     {
+        checkSupportsTransactions();
         return delegate.openTransaction(transactionOwner);
     }
 

@@ -14,14 +14,15 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.parquet.writer.ParquetSchemaConverter;
@@ -30,6 +31,7 @@ import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.RecordFileWriter;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
+import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.plugin.hive.util.HiveWriteUtils;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
@@ -42,22 +44,21 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.joda.time.DateTimeZone;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Verify.verify;
@@ -74,12 +75,12 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.cano
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.util.CompressionConfigUtil.configureCompression;
+import static io.trino.plugin.hive.util.HiveUtil.escapePathName;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.common.FileUtils.escapePathName;
 
 public class DeltaLakePageSink
         implements ConnectorPageSink
@@ -98,7 +99,7 @@ public class DeltaLakePageSink
     private final List<Type> partitionColumnTypes;
 
     private final PageIndexer pageIndexer;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystem fileSystem;
 
     private final int maxOpenWriters;
 
@@ -117,7 +118,7 @@ public class DeltaLakePageSink
     private long writtenBytes;
     private long memoryUsage;
 
-    private final List<DeltaLakeWriter> closedWriters = new ArrayList<>();
+    private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
     private final ImmutableList.Builder<Slice> dataFileInfos = ImmutableList.builder();
 
     public DeltaLakePageSink(
@@ -125,6 +126,7 @@ public class DeltaLakePageSink
             List<String> originalPartitionColumns,
             PageIndexerFactory pageIndexerFactory,
             HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             int maxOpenWriters,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             String outputPath,
@@ -137,7 +139,7 @@ public class DeltaLakePageSink
 
         requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
 
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystem = requireNonNull(fileSystemFactory, "fileSystemFactory is null").create(session);
         this.maxOpenWriters = maxOpenWriters;
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
 
@@ -223,63 +225,50 @@ public class DeltaLakePageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        ListenableFuture<Collection<Slice>> result = hdfsEnvironment.doAs(session.getIdentity(), this::doFinish);
-        return MoreFutures.toCompletableFuture(result);
-    }
-
-    private ListenableFuture<Collection<Slice>> doFinish()
-    {
-        for (DeltaLakeWriter writer : writers) {
-            closeWriter(writer);
+        for (int writerIndex = 0; writerIndex < writers.size(); writerIndex++) {
+            closeWriter(writerIndex);
         }
+        writers.clear();
 
         List<Slice> result = dataFileInfos.build();
 
-        writtenBytes = closedWriters.stream()
-                .mapToLong(DeltaLakeWriter::getWrittenBytes)
-                .sum();
-
-        return Futures.immediateFuture(result);
+        return MoreFutures.toCompletableFuture(Futures.immediateFuture(result));
     }
 
     @Override
     public void abort()
     {
-        hdfsEnvironment.doAs(session.getIdentity(), this::doAbort);
-    }
-
-    private void doAbort()
-    {
-        Optional<Exception> rollbackException = Optional.empty();
-        for (DeltaLakeWriter writer : Iterables.concat(writers, closedWriters)) {
-            // writers can contain nulls if an exception is thrown when doAppend expends the writer list
-            if (writer != null) {
-                try {
-                    writer.rollback();
+        List<Closeable> rollbackActions = Streams.concat(
+                        writers.stream()
+                                // writers can contain nulls if an exception is thrown when doAppend expands the writer list
+                                .filter(Objects::nonNull)
+                                .map(writer -> writer::rollback),
+                        closedWriterRollbackActions.stream())
+                .collect(toImmutableList());
+        RuntimeException rollbackException = null;
+        for (Closeable rollbackAction : rollbackActions) {
+            try {
+                rollbackAction.close();
+            }
+            catch (Throwable t) {
+                if (rollbackException == null) {
+                    rollbackException = new TrinoException(DELTA_LAKE_BAD_WRITE, "Error rolling back write to Delta Lake");
                 }
-                catch (Exception e) {
-                    LOG.warn("exception '%s' while rollback on %s", e, writer);
-                    rollbackException = Optional.of(e);
-                }
+                rollbackException.addSuppressed(t);
             }
         }
-        if (rollbackException.isPresent()) {
-            throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Error rolling back write to Delta Lake", rollbackException.get());
+        if (rollbackException != null) {
+            throw rollbackException;
         }
     }
 
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        if (page.getPositionCount() > 0) {
-            hdfsEnvironment.doAs(session.getIdentity(), () -> doAppend(page));
+        if (page.getPositionCount() == 0) {
+            return NOT_BLOCKED;
         }
 
-        return NOT_BLOCKED;
-    }
-
-    private void doAppend(Page page)
-    {
         while (page.getPositionCount() > MAX_PAGE_POSITIONS) {
             Page chunk = page.getRegion(0, MAX_PAGE_POSITIONS);
             page = page.getRegion(MAX_PAGE_POSITIONS, page.getPositionCount() - MAX_PAGE_POSITIONS);
@@ -287,6 +276,7 @@ public class DeltaLakePageSink
         }
 
         writePage(page);
+        return NOT_BLOCKED;
     }
 
     private void writePage(Page page)
@@ -363,7 +353,7 @@ public class DeltaLakePageSink
                     if (deltaLakeWriter.getWrittenBytes() <= targetMaxFileSize) {
                         continue;
                     }
-                    closeWriter(deltaLakeWriter);
+                    closeWriter(writerIndex);
                 }
                 else {
                     continue;
@@ -385,28 +375,24 @@ public class DeltaLakePageSink
 
             FileWriter fileWriter;
             if (isOptimizedParquetWriter) {
-                fileWriter = createParquetFileWriter(filePath);
+                fileWriter = createParquetFileWriter(filePath.toString());
             }
             else {
                 fileWriter = createRecordFileWriter(filePath);
             }
 
             Path rootTableLocation = new Path(outputPath);
-            try {
-                DeltaLakeWriter writer = new DeltaLakeWriter(
-                        hdfsEnvironment.getFileSystem(session.getIdentity(), rootTableLocation, conf),
-                        fileWriter,
-                        rootTableLocation,
-                        partitionName.map(partition -> new Path(partition, fileName).toString()).orElse(fileName),
-                        partitionValues,
-                        stats,
-                        dataColumnHandles);
+            DeltaLakeWriter writer = new DeltaLakeWriter(
+                    fileSystem,
+                    fileWriter,
+                    rootTableLocation,
+                    partitionName.map(partition -> new Path(partition, fileName).toString()).orElse(fileName),
+                    partitionValues,
+                    stats,
+                    dataColumnHandles);
 
-                writers.set(writerIndex, writer);
-            }
-            catch (IOException e) {
-                throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Unable to create writer for location: " + outputPath, e);
-            }
+            writers.set(writerIndex, writer);
+            memoryUsage += writer.getMemoryUsage();
         }
         verify(writers.size() == pageIndexer.getMaxIndex() + 1);
         verify(!writers.contains(null));
@@ -414,13 +400,20 @@ public class DeltaLakePageSink
         return writerIndexes;
     }
 
-    private void closeWriter(DeltaLakeWriter writer)
+    private void closeWriter(int writerIndex)
     {
+        DeltaLakeWriter writer = writers.get(writerIndex);
+
         long currentWritten = writer.getWrittenBytes();
         long currentMemory = writer.getMemoryUsage();
-        writer.commit();
+
+        closedWriterRollbackActions.add(writer.commit());
+
         writtenBytes += writer.getWrittenBytes() - currentWritten;
-        memoryUsage += writer.getMemoryUsage() - currentMemory;
+        memoryUsage -= currentMemory;
+
+        writers.set(writerIndex, null);
+
         try {
             DataFileInfo dataFileInfo = writer.getDataFileInfo();
             dataFileInfos.add(wrappedBuffer(dataFileInfoCodec.toJsonBytes(dataFileInfo)));
@@ -429,11 +422,10 @@ public class DeltaLakePageSink
             LOG.warn("exception '%s' while finishing write on %s", e, writer);
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Error committing Parquet file to Delta Lake", e);
         }
-        closedWriters.add(writer);
     }
 
     /**
-     * Copy of {@link FileUtils#makePartName(List, List)} modified to preserve case of partition columns.
+     * Copy of {@link HiveUtil#makePartName} modified to preserve case of partition columns.
      */
     private static String makePartName(List<String> partitionColumns, List<String> partitionValues)
     {
@@ -444,9 +436,9 @@ public class DeltaLakePageSink
                 name.append("/");
             }
 
-            name.append(escapePathName(partitionColumns.get(i), null));
+            name.append(escapePathName(partitionColumns.get(i)));
             name.append('=');
-            name.append(escapePathName(partitionValues.get(i), null));
+            name.append(escapePathName(partitionValues.get(i)));
         }
 
         return name.toString();
@@ -459,7 +451,7 @@ public class DeltaLakePageSink
                 .collect(toList());
     }
 
-    private FileWriter createParquetFileWriter(Path path)
+    private FileWriter createParquetFileWriter(String path)
     {
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                 .setMaxBlockSize(getParquetWriterBlockSize(session))
@@ -468,11 +460,7 @@ public class DeltaLakePageSink
         CompressionCodecName compressionCodecName = getCompressionCodec(session).getParquetCompressionCodec();
 
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), path, conf);
-            Callable<Void> rollbackAction = () -> {
-                fileSystem.delete(path, false);
-                return null;
-            };
+            Closeable rollbackAction = () -> fileSystem.deleteFile(path);
 
             List<Type> parquetTypes = dataColumnTypes.stream()
                     .map(type -> {
@@ -493,7 +481,7 @@ public class DeltaLakePageSink
 
             ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(parquetTypes, dataColumnNames, false, false);
             return new ParquetFileWriter(
-                    fileSystem.create(path),
+                    fileSystem.newOutputFile(path),
                     rollbackAction,
                     parquetTypes,
                     dataColumnNames,
@@ -503,6 +491,7 @@ public class DeltaLakePageSink
                     identityMapping,
                     compressionCodecName,
                     trinoVersion,
+                    false,
                     Optional.empty(),
                     Optional.empty());
         }

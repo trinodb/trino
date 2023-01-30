@@ -25,8 +25,6 @@ import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
 import io.trino.plugin.hive.gcs.HiveGcsConfig;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.sql.TestTable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -34,7 +32,6 @@ import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Parameters;
-import org.testng.annotations.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
@@ -56,7 +53,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDockerizedDeltaLakeQueryRunner;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -75,15 +71,21 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     private static final FileAttribute<?> READ_ONLY_PERMISSIONS = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
 
     private final String gcpStorageBucket;
-    private final Path gcpCredentialsFile;
-    private final FileSystem fileSystem;
+    private final String gcpCredentialKey;
+
+    private Path gcpCredentialsFile;
+    private FileSystem fileSystem;
 
     @Parameters({"testing.gcp-storage-bucket", "testing.gcp-credentials-key"})
     public TestDeltaLakeGcsConnectorSmokeTest(String gcpStorageBucket, String gcpCredentialKey)
     {
         this.gcpStorageBucket = requireNonNull(gcpStorageBucket, "gcpStorageBucket is null");
+        this.gcpCredentialKey = requireNonNull(gcpCredentialKey, "gcpCredentialKey is null");
+    }
 
-        requireNonNull(gcpCredentialKey, "gcpCredentialKey is null");
+    @Override
+    protected void environmentSetup()
+    {
         InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(gcpCredentialKey));
         try {
             this.gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json", READ_ONLY_PERMISSIONS);
@@ -115,21 +117,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
                 // The GCS bucket should be configured to expire objects automatically. Clean up issues do not need to fail the test.
                 LOG.warn(e, "Failed to clean up GCS test directory: %s", bucketUrl());
             }
-        }
-    }
-
-    @Override
-    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
-    {
-        switch (connectorBehavior) {
-            case SUPPORTS_INSERT:
-            case SUPPORTS_DELETE:
-            case SUPPORTS_UPDATE:
-            case SUPPORTS_MERGE:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
+            fileSystem = null;
         }
     }
 
@@ -173,7 +161,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     }
 
     @Override
-    protected void createTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
+    protected void registerTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
     {
         String targetDirectory = bucketName + "/" + table;
 
@@ -195,7 +183,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
             throw new UncheckedIOException(e);
         }
 
-        queryRunner.execute(format("CREATE TABLE %s (dummy int) WITH (location = '%s')", table, getLocationForTable(bucketName, table)));
+        queryRunner.execute(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, table, getLocationForTable(bucketName, table)));
     }
 
     @Override
@@ -245,60 +233,5 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     protected String bucketUrl()
     {
         return format("gs://%s/%s/", gcpStorageBucket, bucketName);
-    }
-
-    // These overrides are required because the error message does not match the standard format
-    @Override
-    @Test
-    public void testInsert()
-    {
-        assertQueryFails("INSERT INTO region (regionkey) VALUES (42)", "Inserts are not supported on the gs filesystem");
-    }
-
-    @Override
-    @Test
-    public void testUpdate()
-    {
-        assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", "Updates are not supported on the gs filesystem");
-    }
-
-    @Override
-    @Test
-    public void testMerge()
-    {
-        assertQueryFails("MERGE INTO nation n USING nation s ON (n.nationkey = s.nationkey) " +
-                        "WHEN MATCHED AND n.regionkey < 1 THEN UPDATE SET nationkey = 5",
-                "Updates are not supported on the gs filesystem");
-    }
-
-    @Override
-    @Test
-    public void verifySupportsDeleteDeclaration()
-    {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_delete", "AS SELECT * FROM region")) {
-            assertQueryFails("DELETE FROM " + table.getName(), "Deletes are not supported on the gs filesystem");
-        }
-    }
-
-    @Override
-    @Test
-    public void verifySupportsRowLevelDeleteDeclaration()
-    {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_row_level_delete", "AS SELECT * FROM region")) {
-            assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", "Deletes are not supported on the gs filesystem");
-        }
-    }
-
-    // Override required because inserts on GCS are not supported, however CTAS is
-    @Override
-    @Test
-    public void testCreatePartitionedTable()
-    {
-        String tableName = "test_create_partitioned_table_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (a, b, c) " +
-                "WITH (location = '" + getLocationForTable(bucketName, tableName) + "', partitioned_by = ARRAY['b']) " +
-                "AS VALUES (1, 'a', TIMESTAMP '2020-01-01 01:22:34.000 UTC'), (2, 'b', TIMESTAMP '2021-01-01 01:22:34.000 UTC')", 2);
-        assertQuery("SELECT a, b, CAST(c AS VARCHAR) FROM " + tableName, "VALUES (1, 'a', '2020-01-01 01:22:34.000 UTC'), (2, 'b', '2021-01-01 01:22:34.000 UTC')");
-        assertUpdate("DROP TABLE " + tableName);
     }
 }

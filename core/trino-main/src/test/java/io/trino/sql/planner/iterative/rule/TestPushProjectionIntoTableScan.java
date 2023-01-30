@@ -86,10 +86,8 @@ public class TestPushProjectionIntoTableScan
 {
     private static final String TEST_SCHEMA = "test_schema";
     private static final String TEST_TABLE = "test_table";
-    private static final SchemaTableName TEST_SCHEMA_TABLE = new SchemaTableName(TEST_SCHEMA, TEST_TABLE);
     private static final Type ROW_TYPE = RowType.from(asList(field("a", BIGINT), field("b", BIGINT)));
 
-    private static final TableHandle TEST_TABLE_HANDLE = createTableHandle(TEST_SCHEMA, TEST_TABLE);
     private static final ConnectorPartitioningHandle PARTITIONING_HANDLE = new ConnectorPartitioningHandle() {};
 
     private static final Session MOCK_SESSION = testSessionBuilder().setCatalog(TEST_CATALOG_NAME).setSchema(TEST_SCHEMA).build();
@@ -110,7 +108,10 @@ public class TestPushProjectionIntoTableScan
                         Symbol symbol = p.symbol(columnName, columnType);
                         return p.project(
                                 Assignments.of(p.symbol("symbol_dereference", BIGINT), new SubscriptExpression(symbol.toSymbolReference(), new LongLiteral("1"))),
-                                p.tableScan(TEST_TABLE_HANDLE, ImmutableList.of(symbol), ImmutableMap.of(symbol, inputColumnHandle)));
+                                p.tableScan(
+                                        ruleTester.getCurrentCatalogTableHandle(TEST_SCHEMA, TEST_TABLE),
+                                        ImmutableList.of(symbol),
+                                        ImmutableMap.of(symbol, inputColumnHandle)));
                     })
                     .withSession(MOCK_SESSION)
                     .doesNotFire();
@@ -173,7 +174,7 @@ public class TestPushProjectionIntoTableScan
                         return p.project(
                                 new Assignments(inputProjections),
                                 p.tableScan(tableScan -> tableScan
-                                        .setTableHandle(TEST_TABLE_HANDLE)
+                                        .setTableHandle(ruleTester.getCurrentCatalogTableHandle(TEST_SCHEMA, TEST_TABLE))
                                         .setSymbols(ImmutableList.copyOf(types.keySet()))
                                         .setAssignments(types.keySet().stream()
                                                 .collect(Collectors.toMap(Function.identity(), v -> columnHandle)))
@@ -231,7 +232,7 @@ public class TestPushProjectionIntoTableScan
                     .on(p -> p.project(
                             Assignments.of(),
                             p.tableScan(
-                                    TEST_TABLE_HANDLE,
+                                    ruleTester.getCurrentCatalogTableHandle(TEST_SCHEMA, TEST_TABLE),
                                     ImmutableList.of(p.symbol("col", VARCHAR)),
                                     ImmutableMap.of(p.symbol("col", VARCHAR), columnHandle),
                                     Optional.of(true))))
@@ -249,7 +250,7 @@ public class TestPushProjectionIntoTableScan
 
         MockConnectorFactory.Builder builder = MockConnectorFactory.builder()
                 .withListSchemaNames(connectorSession -> ImmutableList.of(TEST_SCHEMA))
-                .withListTables((connectorSession, schema) -> TEST_SCHEMA.equals(schema) ? ImmutableList.of(TEST_SCHEMA_TABLE) : ImmutableList.of())
+                .withListTables((connectorSession, schema) -> TEST_SCHEMA.equals(schema) ? ImmutableList.of(TEST_TABLE) : ImmutableList.of())
                 .withGetColumns(schemaTableName -> metadata)
                 .withGetTableProperties((session, tableHandle) -> {
                     MockConnectorTableHandle mockTableHandle = (MockConnectorTableHandle) tableHandle;

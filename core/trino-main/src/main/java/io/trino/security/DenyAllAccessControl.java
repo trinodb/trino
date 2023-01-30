@@ -31,6 +31,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
+import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
@@ -152,7 +153,7 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName)
+    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName, Map<String, Object> properties)
     {
         denyCreateSchema(schemaName.toString());
     }
@@ -269,6 +270,12 @@ public class DenyAllAccessControl
     public void checkCanAddColumns(SecurityContext context, QualifiedObjectName tableName)
     {
         denyAddColumn(tableName.toString());
+    }
+
+    @Override
+    public void checkCanAlterColumn(SecurityContext context, QualifiedObjectName tableName)
+    {
+        denyAlterColumn(tableName.toString());
     }
 
     @Override

@@ -10,6 +10,8 @@ uses an S3 prefix, rather than an HDFS prefix.
 Trino uses its own S3 filesystem for the URI prefixes
 ``s3://``, ``s3n://`` and  ``s3a://``.
 
+.. _hive-s3-configuration:
+
 S3 configuration properties
 ---------------------------
 
@@ -284,6 +286,8 @@ Property name                                           Description
                                                         value that is not used in any of your IAM ARNs.
 ======================================================= =================================================================
 
+.. _hive-s3-tuning-configuration:
+
 Tuning properties
 -----------------
 
@@ -315,9 +319,10 @@ Property name                         Description                               
 ``hive.s3.multipart.min-part-size``   Minimum multi-part upload part size.                        ``5 MB``
 ===================================== =========================================================== ===============
 
+.. _hive-s3-data-encryption:
+
 S3 data encryption
 ------------------
-
 
 Trino supports reading and writing encrypted data in S3 using both
 server-side encryption with S3 managed keys and client-side encryption using
@@ -384,7 +389,7 @@ workload:
 Considerations and limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* Only objects stored in CSV format are supported. Objects can be uncompressed,
+* Only objects stored in CSV and JSON format are supported. Objects can be uncompressed,
   or optionally compressed with gzip or bzip2.
 * The "AllowQuotedRecordDelimiters" property is not supported. If this property
   is specified, the query fails.
@@ -399,7 +404,16 @@ Enabling S3 Select pushdown
 You can enable S3 Select Pushdown using the ``s3_select_pushdown_enabled``
 Hive session property, or using the ``hive.s3select-pushdown.enabled``
 configuration property. The session property overrides the config
-property, allowing you enable or disable on a per-query basis.
+property, allowing you enable or disable on a per-query basis. Non-filtering
+queries (``SELECT * FROM table``) are not pushed down to S3 Select,
+as they retrieve the entire object content.
+
+For uncompressed files, S3 Select scans ranges of bytes in parallel. The scan range
+requests run across the byte ranges of the internal Hive splits for the query fragments
+pushed down to S3 Select. Changes in the Hive connector :ref:`performance tuning
+configuration properties <hive-performance-tuning-configuration>` are likely to impact
+S3 Select pushdown performance.
+
 
 Understanding and tuning the maximum connections
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

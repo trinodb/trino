@@ -71,7 +71,6 @@ import static java.time.ZoneOffset.UTC;
 import static org.apache.iceberg.types.Type.TypeID.DECIMAL;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestIcebergBucketing
 {
@@ -267,9 +266,8 @@ public class TestIcebergBucketing
 
     private Integer computeIcebergBucket(Type type, Object icebergValue, int bucketCount)
     {
-        Transform<Object, Integer> bucketTransform = Transforms.bucket(type, bucketCount);
-        assertTrue(bucketTransform.canTransform(type), format("bucket function %s is not able to transform type %s", bucketTransform, type));
-        return bucketTransform.apply(icebergValue);
+        Transform<Object, Integer> bucketTransform = Transforms.bucket(bucketCount);
+        return bucketTransform.bind(type).apply(icebergValue);
     }
 
     private Integer computeTrinoBucket(Type icebergType, Object icebergValue, int bucketCount)

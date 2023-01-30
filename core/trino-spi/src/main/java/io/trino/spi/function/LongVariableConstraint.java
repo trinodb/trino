@@ -73,6 +73,7 @@ public class LongVariableConstraint
 
     /**
      * This method is only visible for JSON deserialization.
+     *
      * @deprecated use builder
      */
     @Deprecated

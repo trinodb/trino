@@ -90,6 +90,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
+import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
@@ -98,6 +99,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.EXTENDED_STATISTICS_ENABLED;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
+import static io.trino.plugin.iceberg.IcebergUtil.TRINO_QUERY_ID_NAME;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -110,10 +112,10 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
@@ -140,7 +142,7 @@ public abstract class BaseIcebergConnectorTest
 {
     private static final Pattern WITH_CLAUSE_EXTRACTOR = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
 
-    private final IcebergFileFormat format;
+    protected final IcebergFileFormat format;
 
     protected BaseIcebergConnectorTest(IcebergFileFormat format)
     {
@@ -151,6 +153,12 @@ public abstract class BaseIcebergConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        return createQueryRunnerBuilder()
+                .build();
+    }
+
+    protected IcebergQueryRunner.Builder createQueryRunnerBuilder()
+    {
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.file-format", format.name())
@@ -158,8 +166,7 @@ public abstract class BaseIcebergConnectorTest
                 .setInitialTables(ImmutableList.<TpchTable<?>>builder()
                         .addAll(REQUIRED_TPCH_TABLES)
                         .add(LINE_ITEM)
-                        .build())
-                .build();
+                        .build());
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")
@@ -171,13 +178,13 @@ public abstract class BaseIcebergConnectorTest
                 return false;
 
             case SUPPORTS_COMMENT_ON_VIEW:
+            case SUPPORTS_COMMENT_ON_VIEW_COLUMN:
                 return true;
 
             case SUPPORTS_CREATE_VIEW:
                 return true;
 
             case SUPPORTS_CREATE_MATERIALIZED_VIEW:
-            case SUPPORTS_RENAME_MATERIALIZED_VIEW:
                 return true;
             case SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS:
                 return false;
@@ -197,7 +204,7 @@ public abstract class BaseIcebergConnectorTest
     {
         if (columnName.equals("a.dot")) {
             assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
-                    .hasMessageContaining("Cannot add column with ambiguous name");
+                    .hasMessage("Failed to add column: Cannot add column with ambiguous name: a.dot, use addColumn(parent, name, type)");
             return;
         }
         super.testAddAndDropColumnName(columnName);
@@ -224,6 +231,8 @@ public abstract class BaseIcebergConnectorTest
     protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
     {
         assertThat(e)
+                .hasMessageStartingWith("Failed to add column: Failed to replace table due to concurrent updates")
+                .getRootCause()
                 .hasMessageContaining("Cannot update Iceberg table: supplied previous location does not match current location");
     }
 
@@ -303,6 +312,30 @@ public abstract class BaseIcebergConnectorTest
         // TODO should probably return materialized view, as it's also a view -- to be double checked
         assertThatThrownBy(() -> super.checkInformationSchemaViewsForMaterializedView(schemaName, viewName))
                 .hasMessageFindingMatch("(?s)Expecting.*to contain:.*\\Q[(" + viewName + ")]");
+    }
+
+    @Test
+    public void testPartitionedByRealWithNaN()
+    {
+        String tableName = "test_partitioned_by_real" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH(partitioning = ARRAY['part']) AS SELECT 1 AS id, real 'NaN' AS part", 1);
+
+        assertQuery("SELECT part FROM " + tableName, "VALUES cast('NaN' as real)");
+        assertQuery("SELECT id FROM " + tableName + " WHERE is_nan(part)", "VALUES 1");
+
+        dropTable(tableName);
+    }
+
+    @Test
+    public void testPartitionedByDoubleWithNaN()
+    {
+        String tableName = "test_partitioned_by_double" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH(partitioning = ARRAY['part']) AS SELECT 1 AS id, double 'NaN' AS part", 1);
+
+        assertQuery("SELECT part FROM " + tableName, "VALUES cast('NaN' as double)");
+        assertQuery("SELECT id FROM " + tableName + " WHERE is_nan(part)", "VALUES 1");
+
+        dropTable(tableName);
     }
 
     @Test
@@ -838,8 +871,8 @@ public abstract class BaseIcebergConnectorTest
                                 "  ('a_double', NULL, NULL, 0.5e0, NULL, '1.0', '1.0'), " +
                                 "  ('a_short_decimal', NULL, NULL, 0.5e0, NULL, '1.0', '1.0'), " +
                                 "  ('a_long_decimal', NULL, NULL, 0.5e0, NULL, '11.0', '11.0'), " +
-                                "  ('a_varchar', 87e0, NULL, 0.5e0, NULL, NULL, NULL), " +
-                                "  ('a_varbinary', 82e0, NULL, 0.5e0, NULL, NULL, NULL), " +
+                                "  ('a_varchar', 234e0, NULL, 0.5e0, NULL, NULL, NULL), " +
+                                "  ('a_varbinary', 114e0, NULL, 0.5e0, NULL, NULL, NULL), " +
                                 "  ('a_date', NULL, NULL, 0.5e0, NULL, '2021-07-24', '2021-07-24'), " +
                                 "  ('a_time', NULL, NULL, 0.5e0, NULL, NULL, NULL), " +
                                 "  ('a_timestamp', NULL, NULL, 0.5e0, NULL, '2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'), " +
@@ -848,7 +881,7 @@ public abstract class BaseIcebergConnectorTest
                                 "  ('a_row', NULL, NULL, NULL, NULL, NULL, NULL), " +
                                 "  ('an_array', NULL, NULL, NULL, NULL, NULL, NULL), " +
                                 "  ('a_map', NULL, NULL, NULL, NULL, NULL, NULL), " +
-                                "  ('a quoted, field', 83e0, NULL, 0.5e0, NULL, NULL, NULL), " +
+                                "  ('a quoted, field', 224e0, NULL, 0.5e0, NULL, NULL, NULL), " +
                                 "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
             }
             case AVRO -> {
@@ -963,10 +996,24 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testCreatePartitionedTableWithNestedField()
+    {
+        assertQueryFails(
+                "CREATE TABLE test_partitioned_table_nested_field(parent ROW(child VARCHAR)) WITH (partitioning = ARRAY['\"parent.child\"'])",
+                "\\QPartitioning by nested field is unsupported: parent.child");
+        assertQueryFails(
+                "CREATE TABLE test_partitioned_table_nested_field(grandparent ROW(parent ROW(child VARCHAR))) WITH (partitioning = ARRAY['\"grandparent.parent.child\"'])",
+                "\\QPartitioning by nested field is unsupported: grandparent.parent.child");
+        assertQueryFails(
+                "CREATE TABLE test_partitioned_table_nested_field(grandparent ROW(parent ROW(child VARCHAR))) WITH (partitioning = ARRAY['\"grandparent.parent\"'])",
+                "\\QUnable to parse partitioning value: Cannot partition by non-primitive source field: struct<3: child: optional string>");
+    }
+
+    @Test
     public void testCreatePartitionedTableAs()
     {
         File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
-        String tempDirPath = tempDir.toURI().toASCIIString() + randomTableSuffix();
+        String tempDirPath = tempDir.toURI().toASCIIString() + randomNameSuffix();
         assertUpdate(
                 "CREATE TABLE test_create_partitioned_table_as " +
                         "WITH (" +
@@ -1030,7 +1077,7 @@ public abstract class BaseIcebergConnectorTest
     @Test(dataProvider = "partitionedTableWithQuotedIdentifierCasing")
     public void testCreatePartitionedTableWithQuotedIdentifierCasing(String columnName, String partitioningField, boolean success)
     {
-        String tableName = "partitioning_" + randomTableSuffix();
+        String tableName = "partitioning_" + randomNameSuffix();
         @Language("SQL") String sql = format("CREATE TABLE %s (%s bigint) WITH (partitioning = ARRAY['%s'])", tableName, columnName, partitioningField);
         if (success) {
             assertUpdate(sql);
@@ -1045,7 +1092,7 @@ public abstract class BaseIcebergConnectorTest
     public void testTableComments()
     {
         File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
-        String tempDirPath = tempDir.toURI().toASCIIString() + randomTableSuffix();
+        String tempDirPath = tempDir.toURI().toASCIIString() + randomNameSuffix();
         String createTableTemplate = "" +
                 "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
                 "   _x bigint\n" +
@@ -1090,6 +1137,11 @@ public abstract class BaseIcebergConnectorTest
 
         assertUpdate("INSERT INTO test_rollback (col0, col1) VALUES (123, CAST(987 AS BIGINT))", 1);
         long afterFirstInsertId = getCurrentSnapshotId("test_rollback");
+        assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT))");
+
+        // Check that rollback_to_snapshot can be executed also when it does not do any changes
+        assertUpdate(format("CALL system.rollback_to_snapshot('tpch', 'test_rollback', %s)", afterFirstInsertId));
+        assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT))");
 
         assertUpdate("INSERT INTO test_rollback (col0, col1) VALUES (456, CAST(654 AS BIGINT))", 1);
         assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT)), (456, CAST(654 AS BIGINT))");
@@ -1154,6 +1206,29 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO test_schema_evolution_drop_middle VALUES (3, 4, 5)", 1);
         assertQuery("SELECT * FROM test_schema_evolution_drop_middle", "VALUES(0, 2, NULL), (3, 4, 5)");
         dropTable("test_schema_evolution_drop_middle");
+    }
+
+    @Test
+    public void testDropPartitionColumn()
+    {
+        String tableName = "test_drop_partition_column_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR, age INTEGER) WITH (partitioning = ARRAY['id', 'truncate(name, 5)', 'void(age)'])");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN id", "Cannot drop partition field: id");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN name", "Cannot drop partition field: name");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN age", "Cannot drop partition field: age");
+        dropTable(tableName);
+    }
+
+    @Test
+    public void testDropColumnUsedInOlderPartitionSpecs()
+    {
+        String tableName = "test_drop_partition_column_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR, age INTEGER) WITH (partitioning = ARRAY['id', 'truncate(name, 5)', 'void(age)'])");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY[]");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN id", "Cannot drop column which is used by an old partition spec: id");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN name", "Cannot drop column which is used by an old partition spec: name");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN age", "Cannot drop column which is used by an old partition spec: age");
+        dropTable(tableName);
     }
 
     @Test
@@ -1230,8 +1305,8 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testTableNameCollision()
     {
-        String tableName = "test_rename_table_" + randomTableSuffix();
-        String tmpName = "test_rename_table_tmp_" + randomTableSuffix();
+        String tableName = "test_rename_table_" + randomNameSuffix();
+        String tmpName = "test_rename_table_tmp_" + randomNameSuffix();
         try {
             assertUpdate("CREATE TABLE " + tmpName + " AS SELECT 1 as a", 1);
             assertUpdate("ALTER TABLE " + tmpName + " RENAME TO " + tableName);
@@ -1249,7 +1324,7 @@ public abstract class BaseIcebergConnectorTest
     public void testCreateTableSucceedsOnEmptyDirectory()
     {
         File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
-        String tmpName = "test_rename_table_tmp_" + randomTableSuffix();
+        String tmpName = "test_rename_table_tmp_" + randomNameSuffix();
         Path newPath = tempDir.toPath().resolve(tmpName);
         File directory = newPath.toFile();
         verify(directory.mkdirs(), "Could not make directory on filesystem");
@@ -1271,7 +1346,7 @@ public abstract class BaseIcebergConnectorTest
     private void testCreateTableLikeForFormat(IcebergFileFormat otherFormat)
     {
         File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
-        String tempDirPath = tempDir.toURI().toASCIIString() + randomTableSuffix();
+        String tempDirPath = tempDir.toURI().toASCIIString() + randomNameSuffix();
 
         // LIKE source INCLUDING PROPERTIES copies all the properties of the source table, including the `location`.
         // For this reason the source and the copied table will share the same directory.
@@ -2598,7 +2673,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SHOW STATS FOR test_truncate_text_transform"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('d', " + (format == PARQUET ? "205e0" : "NULL") + ", NULL, " + (format == AVRO ? "NULL" : "0.125e0") + ", NULL, NULL, NULL), " +
+                        "  ('d', " + (format == PARQUET ? "553e0" : "NULL") + ", NULL, " + (format == AVRO ? "NULL" : "0.125e0") + ", NULL, NULL, NULL), " +
                         (format == AVRO ? "  ('b', NULL, NULL, NULL, NULL, NULL, NULL), " : "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), ") +
                         "  (NULL, NULL, NULL, NULL, 8e0, NULL, NULL)");
 
@@ -2890,7 +2965,7 @@ public abstract class BaseIcebergConnectorTest
         }
         if (format == PARQUET) {
             expected = "VALUES " +
-                    "  ('d', 136e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "  ('d', 367e0, NULL, 0e0, NULL, NULL, NULL), " +
                     "  ('b', NULL, NULL, 0e0, NULL, '1', '7'), " +
                     "  (NULL, NULL, NULL, NULL, 7e0, NULL, NULL)";
         }
@@ -2949,7 +3024,7 @@ public abstract class BaseIcebergConnectorTest
             assertThat(query("SHOW STATS FOR test_void_transform"))
                     .skippingTypesCheck()
                     .matches("VALUES " +
-                            "  ('d', " + (format == PARQUET ? "76e0" : "NULL") + ", NULL, 0.2857142857142857, NULL, NULL, NULL), " +
+                            "  ('d', " + (format == PARQUET ? "205e0" : "NULL") + ", NULL, 0.2857142857142857, NULL, NULL, NULL), " +
                             "  ('b', NULL, NULL, 0e0, NULL, '1', '7'), " +
                             "  (NULL, NULL, NULL, NULL, 7e0, NULL, NULL)");
         }
@@ -3099,8 +3174,8 @@ public abstract class BaseIcebergConnectorTest
     {
         Session defaultSession = getSession();
         String catalog = defaultSession.getCatalog().orElseThrow();
-        Session extendedStatisticsEnabled = Session.builder(defaultSession)
-                .setCatalogSessionProperty(catalog, EXTENDED_STATISTICS_ENABLED, "true")
+        Session extendedStatisticsDisabled = Session.builder(defaultSession)
+                .setCatalogSessionProperty(catalog, EXTENDED_STATISTICS_ENABLED, "false")
                 .build();
         String tableName = "test_basic_analyze";
 
@@ -3114,40 +3189,40 @@ public abstract class BaseIcebergConnectorTest
                 "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)")
                 : ("VALUES " +
                 "  ('regionkey', NULL, NULL, 0e0, NULL, '0', '4'), " +
-                "  ('name', " + (format == PARQUET ? "87e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
-                "  ('comment', " + (format == PARQUET ? "237e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
+                "  ('name', " + (format == PARQUET ? "234e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
+                "  ('comment', " + (format == PARQUET ? "639e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
                 "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)");
 
         String statsWithNdv = format == AVRO
                 ? ("VALUES " +
-                "  ('regionkey', NULL, 5e0, NULL, NULL, NULL, NULL), " +
-                "  ('name', NULL, 5e0, NULL, NULL, NULL, NULL), " +
-                "  ('comment', NULL, 5e0, NULL, NULL, NULL, NULL), " +
+                "  ('regionkey', NULL, 5e0, 0e0, NULL, NULL, NULL), " +
+                "  ('name', NULL, 5e0, 0e0, NULL, NULL, NULL), " +
+                "  ('comment', NULL, 5e0, 0e0, NULL, NULL, NULL), " +
                 "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)")
                 : ("VALUES " +
                 "  ('regionkey', NULL, 5e0, 0e0, NULL, '0', '4'), " +
-                "  ('name', " + (format == PARQUET ? "87e0" : "NULL") + ", 5e0, 0e0, NULL, NULL, NULL), " +
-                "  ('comment', " + (format == PARQUET ? "237e0" : "NULL") + ", 5e0, 0e0, NULL, NULL, NULL), " +
+                "  ('name', " + (format == PARQUET ? "234e0" : "NULL") + ", 5e0, 0e0, NULL, NULL, NULL), " +
+                "  ('comment', " + (format == PARQUET ? "639e0" : "NULL") + ", 5e0, 0e0, NULL, NULL, NULL), " +
                 "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)");
 
         // initially, no NDV information
         assertThat(query(defaultSession, "SHOW STATS FOR " + tableName)).skippingTypesCheck().matches(statsWithoutNdv);
-        assertThat(query(extendedStatisticsEnabled, "SHOW STATS FOR " + tableName)).skippingTypesCheck().matches(statsWithoutNdv);
+        assertThat(query(extendedStatisticsDisabled, "SHOW STATS FOR " + tableName)).skippingTypesCheck().matches(statsWithoutNdv);
 
-        // ANALYZE needs to be enabled. This is because it currently stores additional statistics in a Trino-specific format and the format will change.
+        // ANALYZE can be disabled.
         assertQueryFails(
-                defaultSession,
+                extendedStatisticsDisabled,
                 "ANALYZE " + tableName,
-                "\\QAnalyze is not enabled. You can enable analyze using iceberg.experimental.extended-statistics.enabled config or experimental_extended_statistics_enabled catalog session property");
+                "\\QAnalyze is not enabled. You can enable analyze using iceberg.extended-statistics.enabled config or extended_statistics_enabled catalog session property");
 
         // ANALYZE the table
-        assertUpdate(extendedStatisticsEnabled, "ANALYZE " + tableName);
+        assertUpdate(defaultSession, "ANALYZE " + tableName);
         // After ANALYZE, NDV information present
-        assertThat(query(extendedStatisticsEnabled, "SHOW STATS FOR " + tableName))
+        assertThat(query(defaultSession, "SHOW STATS FOR " + tableName))
                 .skippingTypesCheck()
                 .matches(statsWithNdv);
-        // NDV information is not present in a session with extended statistics not enabled
-        assertThat(query(defaultSession, "SHOW STATS FOR " + tableName))
+        // NDV information is not present in a session with extended statistics disabled
+        assertThat(query(extendedStatisticsDisabled, "SHOW STATS FOR " + tableName))
                 .skippingTypesCheck()
                 .matches(statsWithoutNdv);
 
@@ -3566,8 +3641,8 @@ public abstract class BaseIcebergConnectorTest
                             "  ('dbl', NULL, NULL, 0e0, NULL, '1.0', '1.0'), " +
                             "  ('mp', NULL, NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
                             "  ('dec', NULL, NULL, 0e0, NULL, '1.0', '1.0'), " +
-                            "  ('vc', " + (format == PARQUET ? "43e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
-                            "  ('vb', " + (format == PARQUET ? "55e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
+                            "  ('vc', " + (format == PARQUET ? "116e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
+                            "  ('vb', " + (format == PARQUET ? "77e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
                             "  ('ts', NULL, NULL, 0e0, NULL, '2021-07-24 02:43:57.348000', " + (format == ORC ? "'2021-07-24 02:43:57.348999'" : "'2021-07-24 02:43:57.348000'") + "), " +
                             "  ('tstz', NULL, NULL, 0e0, NULL, '2021-07-24 02:43:57.348 UTC', '2021-07-24 02:43:57.348 UTC'), " +
                             "  ('str', NULL, NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
@@ -3629,7 +3704,7 @@ public abstract class BaseIcebergConnectorTest
                             "  ('dbl', NULL, NULL, 0e0, NULL, '1.0', '1.0'), " +
                             "  ('mp', NULL, NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
                             "  ('dec', NULL, NULL, 0e0, NULL, '1.0', '1.0'), " +
-                            "  ('vc', " + (format == PARQUET ? "43e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
+                            "  ('vc', " + (format == PARQUET ? "116e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
                             "  ('str', NULL, NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
                             "  (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)");
         }
@@ -3941,8 +4016,8 @@ public abstract class BaseIcebergConnectorTest
                             "  ('a_double', NULL, NULL, 0.5e0, NULL, '1.0', '1.0'), " +
                             "  ('a_short_decimal', NULL, NULL, 0.5e0, NULL, '1.0', '1.0'), " +
                             "  ('a_long_decimal', NULL, NULL, 0.5e0, NULL, '11.0', '11.0'), " +
-                            "  ('a_varchar', " + (format == PARQUET ? "87e0" : "NULL") + ", NULL, 0.5e0, NULL, NULL, NULL), " +
-                            "  ('a_varbinary', " + (format == PARQUET ? "82e0" : "NULL") + ", NULL, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_varchar', " + (format == PARQUET ? "234e0" : "NULL") + ", NULL, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_varbinary', " + (format == PARQUET ? "114e0" : "NULL") + ", NULL, 0.5e0, NULL, NULL, NULL), " +
                             "  ('a_date', NULL, NULL, 0.5e0, NULL, '2021-07-24', '2021-07-24'), " +
                             "  ('a_time', NULL, NULL, 0.5e0, NULL, NULL, NULL), " +
                             "  ('a_timestamp', NULL, NULL, 0.5e0, NULL, " + (format == ORC ? "'2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'" : "'2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'") + "), " +
@@ -3995,8 +4070,8 @@ public abstract class BaseIcebergConnectorTest
                             "  ('a_double', NULL, 1e0, 0.5e0, NULL, '1.0', '1.0'), " +
                             "  ('a_short_decimal', NULL, 1e0, 0.5e0, NULL, '1.0', '1.0'), " +
                             "  ('a_long_decimal', NULL, 1e0, 0.5e0, NULL, '11.0', '11.0'), " +
-                            "  ('a_varchar', " + (format == PARQUET ? "87e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
-                            "  ('a_varbinary', " + (format == PARQUET ? "82e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_varchar', " + (format == PARQUET ? "234e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_varbinary', " + (format == PARQUET ? "114e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
                             "  ('a_date', NULL, 1e0, 0.5e0, NULL, '2021-07-24', '2021-07-24'), " +
                             "  ('a_time', NULL, 1e0, 0.5e0, NULL, NULL, NULL), " +
                             "  ('a_timestamp', NULL, 1e0, 0.5e0, NULL, " + (format == ORC ? "'2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'" : "'2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'") + "), " +
@@ -4011,20 +4086,20 @@ public abstract class BaseIcebergConnectorTest
             assertThat(query(extendedStatisticsEnabled, "SHOW STATS FOR test_all_types"))
                     .skippingTypesCheck()
                     .matches("VALUES " +
-                            "  ('a_boolean', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('an_integer', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_bigint', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_real', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_double', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_short_decimal', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_long_decimal', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_varchar', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_varbinary', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_date', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_time', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_timestamp', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_timestamptz', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_uuid', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  ('a_boolean', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('an_integer', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_bigint', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_real', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_double', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_short_decimal', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_long_decimal', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_varchar', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_varbinary', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_date', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_time', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_timestamp', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_timestamptz', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_uuid', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
                             "  ('a_row', NULL, NULL, NULL, NULL, NULL, NULL), " +
                             "  ('an_array', NULL, NULL, NULL, NULL, NULL, NULL), " +
                             "  ('a_map', NULL, NULL, NULL, NULL, NULL, NULL), " +
@@ -4211,7 +4286,7 @@ public abstract class BaseIcebergConnectorTest
                 "_" + sourceRelation.replaceAll("[^a-zA-Z0-9]", "") +
                 (ctas ? "ctas" : "insert") +
                 "_" + partitioning.replaceAll("[^a-zA-Z0-9]", "") +
-                "_" + randomTableSuffix();
+                "_" + randomNameSuffix();
 
         long rowCount = (long) computeScalar(session, "SELECT count(*) FROM " + sourceRelation);
 
@@ -4277,9 +4352,17 @@ public abstract class BaseIcebergConnectorTest
     public void testGetIcebergTableProperties()
     {
         assertUpdate("CREATE TABLE test_iceberg_get_table_props (x BIGINT)");
-        assertThat(query("SELECT * FROM \"test_iceberg_get_table_props$properties\""))
-                .matches(format("VALUES (VARCHAR 'write.format.default', VARCHAR '%s')", format.name()));
+        verifyIcebergTableProperties(computeActual("SELECT * FROM \"test_iceberg_get_table_props$properties\""));
         dropTable("test_iceberg_get_table_props");
+    }
+
+    protected void verifyIcebergTableProperties(MaterializedResult actual)
+    {
+        assertThat(actual).isNotNull();
+        MaterializedResult expected = resultBuilder(getSession())
+                .row("write.format.default", format.name())
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
     protected abstract boolean supportsIcebergFileStatistics(String typeName);
@@ -4421,12 +4504,12 @@ public abstract class BaseIcebergConnectorTest
 
         assertUpdate("CREATE TABLE ambiguous (\"a.cow\" BIGINT, b ROW(cow BIGINT))");
         assertThatThrownBy(() -> assertUpdate("ALTER TABLE ambiguous RENAME COLUMN b TO a"))
-                .hasMessage("Invalid schema: multiple fields for name a.cow: 1 and 3");
+                .hasMessage("Failed to rename column: Invalid schema: multiple fields for name a.cow: 1 and 3");
         assertUpdate("DROP TABLE ambiguous");
 
         assertUpdate("CREATE TABLE ambiguous (a ROW(cow BIGINT))");
         assertThatThrownBy(() -> assertUpdate("ALTER TABLE ambiguous ADD COLUMN \"a.cow\" BIGINT"))
-                .hasMessage("Cannot add column with ambiguous name: a.cow, use addColumn(parent, name, type)");
+                .hasMessage("Failed to add column: Cannot add column with ambiguous name: a.cow, use addColumn(parent, name, type)");
         assertUpdate("DROP TABLE ambiguous");
     }
 
@@ -4576,7 +4659,7 @@ public abstract class BaseIcebergConnectorTest
     public void testOptimize(int formatVersion)
             throws Exception
     {
-        String tableName = "test_optimize_" + randomTableSuffix();
+        String tableName = "test_optimize_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar) WITH (format_version = " + formatVersion + ")");
 
         // DistributedQueryRunner sets node-scheduler.include-coordinator by default, so include coordinator
@@ -4638,7 +4721,7 @@ public abstract class BaseIcebergConnectorTest
                 .setSystemProperty("use_preferred_write_partitioning", "true")
                 .setSystemProperty("preferred_write_partitioning_min_number_of_partitions", "100")
                 .build();
-        String tableName = "test_repartitiong_during_optimize_" + randomTableSuffix();
+        String tableName = "test_repartitiong_during_optimize_" + randomNameSuffix();
         assertUpdate(session, "CREATE TABLE " + tableName + " (key varchar, value integer) WITH (format_version = " + formatVersion + ", partitioning = ARRAY['key'])");
         // optimize an empty table
         assertQuerySucceeds(session, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
@@ -4764,7 +4847,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testOptimizeTableAfterDeleteWithFormatVersion2()
     {
-        String tableName = "test_optimize_" + randomTableSuffix();
+        String tableName = "test_optimize_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
 
         List<String> initialFiles = getActiveFiles(tableName);
@@ -4793,7 +4876,7 @@ public abstract class BaseIcebergConnectorTest
     public void testOptimizeCleansUpDeleteFiles()
             throws IOException
     {
-        String tableName = "test_optimize_" + randomTableSuffix();
+        String tableName = "test_optimize_" + randomNameSuffix();
         Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM nation", 25);
 
@@ -4820,8 +4903,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(allDataFilesAfterOptimizeWithWhere)
                 .hasSize(6)
                 .doesNotContain(allDataFilesInitially.stream().filter(file -> file.contains("regionkey=4"))
-                        .collect(toImmutableList())
-                        .toArray(new String[0]));
+                        .toArray(String[]::new));
 
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("SELECT * FROM nation WHERE nationkey != 7");
@@ -4847,7 +4929,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testOptimizeSnapshot()
     {
-        String tableName = "test_optimize_snapshot_" + randomTableSuffix();
+        String tableName = "test_optimize_snapshot_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (a) AS VALUES 11", 1);
         long snapshotId = getCurrentSnapshotId(tableName);
@@ -4918,7 +5000,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testTargetMaxFileSize()
     {
-        String tableName = "test_default_max_file_size" + randomTableSuffix();
+        String tableName = "test_default_max_file_size" + randomNameSuffix();
         @Language("SQL") String createTableSql = format("CREATE TABLE %s AS SELECT * FROM tpch.sf1.lineitem LIMIT 100000", tableName);
 
         Session session = Session.builder(getSession())
@@ -4966,7 +5048,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testPathHiddenColumn()
     {
-        String tableName = "test_path_" + randomTableSuffix();
+        String tableName = "test_path_" + randomNameSuffix();
         @Language("SQL") String createTable = "CREATE TABLE " + tableName + " " +
                 "WITH ( partitioning = ARRAY['zip'] ) AS " +
                 "SELECT * FROM (VALUES " +
@@ -5014,7 +5096,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testOptimizeWithPathColumn()
     {
-        String tableName = "test_optimize_with_path_" + randomTableSuffix();
+        String tableName = "test_optimize_with_path_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (id integer)");
 
         assertUpdate("INSERT INTO " + tableName + " VALUES (1)", 1);
@@ -5100,7 +5182,7 @@ public abstract class BaseIcebergConnectorTest
     public void testOptimizeWithFileModifiedTimeColumn()
             throws Exception
     {
-        String tableName = "test_optimize_with_file_modified_time_" + randomTableSuffix();
+        String tableName = "test_optimize_with_file_modified_time_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (id integer)");
 
         assertUpdate("INSERT INTO " + tableName + " VALUES (1)", 1);
@@ -5152,7 +5234,7 @@ public abstract class BaseIcebergConnectorTest
     public void testExpireSnapshots()
             throws Exception
     {
-        String tableName = "test_expiring_snapshots_" + randomTableSuffix();
+        String tableName = "test_expiring_snapshots_" + randomNameSuffix();
         Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
         assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer)");
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
@@ -5179,7 +5261,7 @@ public abstract class BaseIcebergConnectorTest
     public void testExpireSnapshotsPartitionedTable()
             throws Exception
     {
-        String tableName = "test_expiring_snapshots_partitioned_table" + randomTableSuffix();
+        String tableName = "test_expiring_snapshots_partitioned_table" + randomNameSuffix();
         Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
         assertUpdate("CREATE TABLE " + tableName + " (col1 BIGINT, col2 BIGINT) WITH (partitioning = ARRAY['col1'])");
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 100), (1, 101), (1, 102), (2, 200), (2, 201), (3, 300)", 6);
@@ -5201,7 +5283,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testExpireSnapshotsOnSnapshot()
     {
-        String tableName = "test_expire_snapshots_on_snapshot_" + randomTableSuffix();
+        String tableName = "test_expire_snapshots_on_snapshot_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (a) AS VALUES 11", 1);
         long snapshotId = getCurrentSnapshotId(tableName);
@@ -5226,7 +5308,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testExplainExpireSnapshotOutput()
     {
-        String tableName = "test_expiring_snapshots_output" + randomTableSuffix();
+        String tableName = "test_expiring_snapshots_output" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (partitioning = ARRAY['key'])");
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
@@ -5256,15 +5338,18 @@ public abstract class BaseIcebergConnectorTest
     public void testRemoveOrphanFiles()
             throws Exception
     {
-        String tableName = "test_deleting_orphan_files_unnecessary_files" + randomTableSuffix();
+        String tableName = "test_deleting_orphan_files_unnecessary_files" + randomNameSuffix();
         Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
         assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer)");
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2), ('three', 3)", 2);
+        assertUpdate("DELETE FROM " + tableName + " WHERE key = 'two'", 1);
         String location = getTableLocation(tableName);
         Path orphanFile = Files.createFile(Path.of(getIcebergTableDataPath(location).toString(), "invalidData." + format));
         List<String> initialDataFiles = getAllDataFilesFromTableDirectory(tableName);
 
         assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('one', 1), ('three', 3)");
 
         List<String> updatedDataFiles = getAllDataFilesFromTableDirectory(tableName);
         assertThat(updatedDataFiles.size()).isLessThan(initialDataFiles.size());
@@ -5275,7 +5360,7 @@ public abstract class BaseIcebergConnectorTest
     public void testIfRemoveOrphanFilesCleansUnnecessaryDataFilesInPartitionedTable()
             throws Exception
     {
-        String tableName = "test_deleting_orphan_files_unnecessary_files" + randomTableSuffix();
+        String tableName = "test_deleting_orphan_files_unnecessary_files" + randomNameSuffix();
         Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
         assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (partitioning = ARRAY['key'])");
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
@@ -5295,7 +5380,7 @@ public abstract class BaseIcebergConnectorTest
     public void testIfRemoveOrphanFilesCleansUnnecessaryMetadataFilesInPartitionedTable()
             throws Exception
     {
-        String tableName = "test_deleting_orphan_files_unnecessary_files" + randomTableSuffix();
+        String tableName = "test_deleting_orphan_files_unnecessary_files" + randomNameSuffix();
         Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
         assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (partitioning = ARRAY['key'])");
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
@@ -5325,8 +5410,8 @@ public abstract class BaseIcebergConnectorTest
             throws IOException
     {
         File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
-        String tempDirPath = tempDir.toURI().toASCIIString() + randomTableSuffix() + suffix;
-        String tableName = "test_table_cleaning_up_with_location" + randomTableSuffix();
+        String tempDirPath = tempDir.toURI().toASCIIString() + randomNameSuffix() + suffix;
+        String tableName = "test_table_cleaning_up_with_location" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (key varchar, value integer) WITH(location = '%s')", tableName, tempDirPath));
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
@@ -5349,7 +5434,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testExplainRemoveOrphanFilesOutput()
     {
-        String tableName = "test_remove_orphan_files_output" + randomTableSuffix();
+        String tableName = "test_remove_orphan_files_output" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (partitioning = ARRAY['key'])");
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
@@ -5378,7 +5463,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testRemoveOrphanFilesOnSnapshot()
     {
-        String tableName = "test_remove_orphan_files_on_snapshot_" + randomTableSuffix();
+        String tableName = "test_remove_orphan_files_on_snapshot_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (a) AS VALUES 11", 1);
         long snapshotId = getCurrentSnapshotId(tableName);
@@ -5403,7 +5488,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testIfDeletesReturnsNumberOfRemovedRows()
     {
-        String tableName = "test_delete_returns_number_of_rows_" + randomTableSuffix();
+        String tableName = "test_delete_returns_number_of_rows_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (partitioning = ARRAY['key'])");
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 2)", 1);
@@ -5419,7 +5504,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testUpdatingFileFormat()
     {
-        String tableName = "test_updating_file_format_" + randomTableSuffix();
+        String tableName = "test_updating_file_format_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " WITH (format = 'orc') AS SELECT * FROM nation WHERE nationkey < 10", "SELECT count(*) FROM nation WHERE nationkey < 10");
         assertQuery("SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'write.format.default'", "VALUES 'ORC'");
@@ -5438,7 +5523,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testUpdatingInvalidTableProperty()
     {
-        String tableName = "test_updating_invalid_table_property_" + randomTableSuffix();
+        String tableName = "test_updating_invalid_table_property_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a INT, b INT)");
         assertThatThrownBy(() -> query("ALTER TABLE " + tableName + " SET PROPERTIES not_a_valid_table_property = 'a value'"))
                 .hasMessage("Catalog 'iceberg' table property 'not_a_valid_table_property' does not exist");
@@ -5448,7 +5533,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testEmptyCreateTableAsSelect()
     {
-        String tableName = "test_empty_ctas_" + randomTableSuffix();
+        String tableName = "test_empty_ctas_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation WHERE false", 0);
         List<Long> initialTableSnapshots = getSnapshotIds(tableName);
@@ -5463,7 +5548,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testEmptyInsert()
     {
-        String tableName = "test_empty_insert_" + randomTableSuffix();
+        String tableName = "test_empty_insert_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", "SELECT count(*) FROM nation");
         List<Long> initialTableSnapshots = getSnapshotIds(tableName);
@@ -5482,7 +5567,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testEmptyUpdate()
     {
-        String tableName = "test_empty_update_" + randomTableSuffix();
+        String tableName = "test_empty_update_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", "SELECT count(*) FROM nation");
         List<Long> initialTableSnapshots = getSnapshotIds(tableName);
@@ -5501,7 +5586,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testEmptyDelete()
     {
-        String tableName = "test_empty_delete_" + randomTableSuffix();
+        String tableName = "test_empty_delete_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " WITH (format = '" + format.name() + "') AS SELECT * FROM nation", "SELECT count(*) FROM nation");
         List<Long> initialTableSnapshots = getSnapshotIds(tableName);
@@ -5520,7 +5605,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testModifyingOldSnapshotIsNotPossible()
     {
-        String tableName = "test_modifying_old_snapshot_" + randomTableSuffix();
+        String tableName = "test_modifying_old_snapshot_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (col int)", tableName));
         assertUpdate(format("INSERT INTO %s VALUES 1,2,3", tableName), 3);
         long oldSnapshotId = getCurrentSnapshotId(tableName);
@@ -5549,9 +5634,9 @@ public abstract class BaseIcebergConnectorTest
     public void testCreateTableAsSelectFromVersionedTable()
             throws Exception
     {
-        String sourceTableName = "test_ctas_versioned_source_" + randomTableSuffix();
-        String snapshotVersionedSinkTableName = "test_ctas_snapshot_versioned_sink_" + randomTableSuffix();
-        String timestampVersionedSinkTableName = "test_ctas_timestamp_versioned_sink_" + randomTableSuffix();
+        String sourceTableName = "test_ctas_versioned_source_" + randomNameSuffix();
+        String snapshotVersionedSinkTableName = "test_ctas_snapshot_versioned_sink_" + randomNameSuffix();
+        String timestampVersionedSinkTableName = "test_ctas_timestamp_versioned_sink_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + sourceTableName + "(an_integer integer)");
         // Enforce having exactly one snapshot of the table at the timestamp corresponding to `afterInsert123EpochMillis`
@@ -5577,9 +5662,25 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testSubqueryContainVersionedTable()
+    {
+        String tableName = "test_subquery_versioned" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 id", 1);
+        long snapshotId = getCurrentSnapshotId(tableName);
+        String timestamp = timestampLiteral(getCommittedAtInEpochMilliseconds(tableName, snapshotId), 9);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+
+        assertQuery("SELECT * FROM " + tableName + " WHERE id = (SELECT id FROM " + tableName + " FOR VERSION AS OF " + snapshotId + ")", "VALUES 1");
+        assertQuery("SELECT * FROM " + tableName + " WHERE id = (SELECT id FROM " + tableName + " FOR TIMESTAMP AS OF " + timestamp + ")", "VALUES 1");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testReadingFromSpecificSnapshot()
     {
-        String tableName = "test_reading_snapshot" + randomTableSuffix();
+        String tableName = "test_reading_snapshot" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", tableName));
         assertUpdate(format("INSERT INTO %s VALUES(1, 1)", tableName), 1);
         List<Long> ids = getSnapshotsIdsByCreationOrder(tableName);
@@ -5592,7 +5693,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testSelectWithMoreThanOneSnapshotOfTheSameTable()
     {
-        String tableName = "test_reading_snapshot" + randomTableSuffix();
+        String tableName = "test_reading_snapshot" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", tableName));
         assertUpdate(format("INSERT INTO %s VALUES(1, 1)", tableName), 1);
         assertUpdate(format("INSERT INTO %s VALUES(2, 2)", tableName), 1);
@@ -5609,7 +5710,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testInsertingIntoTablesWithColumnsWithQuotesInName()
     {
-        String tableName = "test_inserting_into_tables_with_quotes_" + randomTableSuffix();
+        String tableName = "test_inserting_into_tables_with_quotes_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (\"an identifier with \"\"quotes\"\" \" INTEGER, x row (\"another identifier\" INTEGER))", tableName));
         assertUpdate(format("INSERT INTO %s VALUES (1, row(11))", tableName), 1);
         assertThat(query(format("SELECT * FROM %s", tableName)))
@@ -5624,9 +5725,10 @@ public abstract class BaseIcebergConnectorTest
         assertThat(taskWriterCount).isGreaterThan(getQueryRunner().getNodeCount());
         Session session = Session.builder(getSession())
                 .setSystemProperty(TASK_WRITER_COUNT, String.valueOf(taskWriterCount))
+                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, String.valueOf(taskWriterCount))
                 .build();
 
-        String tableName = "test_inserting_into_bucketed_column_task_writer_count_" + randomTableSuffix();
+        String tableName = "test_inserting_into_bucketed_column_task_writer_count_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (x INT) WITH (partitioning = ARRAY['bucket(x, 7)'])");
 
         assertUpdate(session, "INSERT INTO " + tableName + " SELECT nationkey FROM nation", 25);
@@ -5638,7 +5740,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testReadFromVersionedTableWithSchemaEvolution()
     {
-        String tableName = "test_versioned_table_schema_evolution_" + randomTableSuffix();
+        String tableName = "test_versioned_table_schema_evolution_" + randomNameSuffix();
 
         assertQuerySucceeds("CREATE TABLE " + tableName + "(col1 varchar)");
         long v1SnapshotId = getCurrentSnapshotId(tableName);
@@ -5687,7 +5789,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testReadFromVersionedTableWithSchemaEvolutionDropColumn()
     {
-        String tableName = "test_versioned_table_schema_evolution_drop_column_" + randomTableSuffix();
+        String tableName = "test_versioned_table_schema_evolution_drop_column_" + randomNameSuffix();
 
         assertQuerySucceeds("CREATE TABLE " + tableName + "(col1 varchar, col2 integer, col3 boolean)");
         long v1SnapshotId = getCurrentSnapshotId(tableName);
@@ -5737,7 +5839,7 @@ public abstract class BaseIcebergConnectorTest
     public void testReadFromVersionedTableWithPartitionSpecEvolution()
             throws Exception
     {
-        String tableName = "test_version_table_with_partition_spec_evolution_" + randomTableSuffix();
+        String tableName = "test_version_table_with_partition_spec_evolution_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (day varchar, views bigint) WITH(partitioning = ARRAY['day'])");
         long v1SnapshotId = getCurrentSnapshotId(tableName);
         long v1EpochMillis = getCommittedAtInEpochMilliseconds(tableName, v1SnapshotId);
@@ -5779,7 +5881,7 @@ public abstract class BaseIcebergConnectorTest
     public void testReadFromVersionedTableWithExpiredHistory()
             throws Exception
     {
-        String tableName = "test_version_table_with_expired_snapshots_" + randomTableSuffix();
+        String tableName = "test_version_table_with_expired_snapshots_" + randomNameSuffix();
         Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
         assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer)");
         long v1SnapshotId = getCurrentSnapshotId(tableName);
@@ -5814,7 +5916,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testDeleteRetainsTableHistory()
     {
-        String tableName = "test_delete_retains_table_history_" + randomTableSuffix();
+        String tableName = "test_delete_retains_table_history_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(c1 INT, c2 INT)");
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1), (2, 2), (3, 3)", 3);
         assertUpdate("INSERT INTO " + tableName + " VALUES (3, 3), (4, 4), (5, 5)", 3);
@@ -5830,8 +5932,8 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testMergeSimpleSelectPartitioned()
     {
-        String targetTable = "merge_simple_target_" + randomTableSuffix();
-        String sourceTable = "merge_simple_source_" + randomTableSuffix();
+        String targetTable = "merge_simple_target_" + randomNameSuffix();
+        String sourceTable = "merge_simple_source_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (partitioning = ARRAY['address'])", targetTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
@@ -5860,8 +5962,8 @@ public abstract class BaseIcebergConnectorTest
                 .setSystemProperty(TASK_WRITER_COUNT, String.valueOf(writers))
                 .build();
 
-        String targetTable = "merge_formats_target_" + randomTableSuffix();
-        String sourceTable = "merge_formats_source_" + randomTableSuffix();
+        String targetTable = "merge_formats_target_" + randomNameSuffix();
+        String sourceTable = "merge_formats_source_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) %s", targetTable, partioning));
 
         assertUpdate(format("INSERT INTO %s (customer, purchase) VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')", targetTable), 3);
@@ -5909,10 +6011,11 @@ public abstract class BaseIcebergConnectorTest
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty(TASK_WRITER_COUNT, String.valueOf(writers))
+                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, String.valueOf(writers))
                 .build();
 
         int targetCustomerCount = 32;
-        String targetTable = "merge_multiple_" + randomTableSuffix();
+        String targetTable = "merge_multiple_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (purchase INT, zipcode INT, spouse VARCHAR, address VARCHAR, customer VARCHAR) %s", targetTable, partitioning));
         String originalInsertFirstHalf = range(1, targetCustomerCount / 2)
                 .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 1000, 91000, intValue, intValue))
@@ -5976,7 +6079,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testMergeSimpleQueryPartitioned()
     {
-        String targetTable = "merge_simple_" + randomTableSuffix();
+        String targetTable = "merge_simple_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (partitioning = ARRAY['address'])", targetTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
@@ -5998,8 +6101,8 @@ public abstract class BaseIcebergConnectorTest
     @Test(dataProvider = "partitionedBucketedFailure")
     public void testMergeMultipleRowsMatchFails(String createTableSql)
     {
-        String targetTable = "merge_multiple_target_" + randomTableSuffix();
-        String sourceTable = "merge_multiple_source_" + randomTableSuffix();
+        String targetTable = "merge_multiple_target_" + randomNameSuffix();
+        String sourceTable = "merge_multiple_source_" + randomNameSuffix();
         assertUpdate(format(createTableSql, targetTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Antioch')", targetTable), 2);
@@ -6035,8 +6138,8 @@ public abstract class BaseIcebergConnectorTest
     @Test(dataProvider = "targetAndSourceWithDifferentPartitioning")
     public void testMergeWithDifferentPartitioning(String testDescription, String createTargetTableSql, String createSourceTableSql)
     {
-        String targetTable = format("%s_target_%s", testDescription, randomTableSuffix());
-        String sourceTable = format("%s_source_%s", testDescription, randomTableSuffix());
+        String targetTable = format("%s_target_%s", testDescription, randomNameSuffix());
+        String sourceTable = format("%s_source_%s", testDescription, randomNameSuffix());
 
         assertUpdate(format(createTargetTableSql, targetTable));
 
@@ -6112,14 +6215,12 @@ public abstract class BaseIcebergConnectorTest
     public void testRenameTableToLongTableName()
     {
         // Override because the max name length is different from CREATE TABLE case
-        String sourceTableName = "test_rename_source_" + randomTableSuffix();
+        String sourceTableName = "test_rename_source_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
 
-        String baseTableName = "test_rename_target_" + randomTableSuffix();
+        String baseTableName = "test_rename_target_" + randomNameSuffix();
 
-        int maxLength = 255;
-
-        String validTargetTableName = baseTableName + "z".repeat(maxLength - baseTableName.length());
+        String validTargetTableName = baseTableName + "z".repeat(maxTableRenameLength() - baseTableName.length());
         assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + validTargetTableName);
         assertTrue(getQueryRunner().tableExists(getSession(), validTargetTableName));
         assertQuery("SELECT x FROM " + validTargetTableName, "VALUES 123");
@@ -6132,6 +6233,83 @@ public abstract class BaseIcebergConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), invalidTargetTableName));
     }
 
+    protected int maxTableRenameLength()
+    {
+        return 255;
+    }
+
+    @Test
+    public void testSnapshotSummariesHaveTrinoQueryIdFormatV1()
+    {
+        String tableName = "test_snapshot_query_ids_v1" + randomNameSuffix();
+
+        // Create empty table
+        assertQueryIdStored(tableName, executeWithQueryId(format("CREATE TABLE %s (a bigint, b bigint) WITH (format_version = 1, partitioning = ARRAY['a'])", tableName)));
+
+        // Insert some records, creating 3 partitions
+        assertQueryIdStored(tableName, executeWithQueryId(format("INSERT INTO %s VALUES (1, 100), (2, 300), (2, 350), (3, 250)", tableName)));
+
+        // Delete whole partition
+        assertQueryIdStored(tableName, executeWithQueryId(format("DELETE FROM %s WHERE a = 2", tableName)));
+
+        // Insert some more and then optimize
+        assertQueryIdStored(tableName, executeWithQueryId(format("INSERT INTO %s VALUES (1, 400)", tableName)));
+        assertQueryIdStored(tableName, executeWithQueryId(format("ALTER TABLE %s EXECUTE OPTIMIZE", tableName)));
+    }
+
+    @Test
+    public void testSnapshotSummariesHaveTrinoQueryIdFormatV2()
+    {
+        String tableName = "test_snapshot_query_ids_v2" + randomNameSuffix();
+        String sourceTableName = "test_source_table_for_ctas" + randomNameSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", sourceTableName));
+        assertUpdate(format("INSERT INTO %s VALUES (1, 1), (1, 4), (1, 20), (2, 2)", sourceTableName), 4);
+
+        // Create table with CTAS
+        assertQueryIdStored(tableName, executeWithQueryId(format("CREATE TABLE %s WITH (format_version = 2, partitioning = ARRAY['a']) " +
+                "AS SELECT * FROM %s", tableName, sourceTableName)));
+
+        // Insert records
+        assertQueryIdStored(tableName, executeWithQueryId(format("INSERT INTO %s VALUES (1, 100), (2, 300), (3, 250)", tableName)));
+
+        // Delete a whole partition
+        assertQueryIdStored(tableName, executeWithQueryId(format("DELETE FROM %s WHERE a = 2", tableName)));
+
+        // Delete an individual row
+        assertQueryIdStored(tableName, executeWithQueryId(format("DELETE FROM %s WHERE a = 1 AND b = 4", tableName)));
+
+        // Update an individual row
+        assertQueryIdStored(tableName, executeWithQueryId(format("UPDATE %s SET b = 900 WHERE a = 1 AND b = 1", tableName)));
+
+        // Merge
+        assertQueryIdStored(tableName, executeWithQueryId(format("MERGE INTO %s t USING %s s ON t.a = s.a AND t.b = s.b " +
+                "WHEN MATCHED THEN UPDATE SET b = t.b * 50", tableName, sourceTableName)));
+    }
+
+    @Test
+    public void testMaterializedViewSnapshotSummariesHaveTrinoQueryId()
+    {
+        String matViewName = "test_materialized_view_snapshot_query_ids" + randomNameSuffix();
+        String sourceTableName = "test_source_table_for_mat_view" + randomNameSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", sourceTableName));
+        assertUpdate(format("INSERT INTO %s VALUES (1, 1), (1, 4), (2, 2)", sourceTableName), 3);
+
+        // create a materialized view
+        QueryId matViewCreateQueryId = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), format("CREATE MATERIALIZED VIEW %s WITH (partitioning = ARRAY['a']) AS SELECT * FROM %s", matViewName, sourceTableName))
+                .getQueryId();
+
+        // fetch the underlying storage table name so we can inspect its snapshot summary after the REFRESH
+        // running queries against "materialized_view$snapshots" is not supported
+        String storageTable = (String) getDistributedQueryRunner()
+                .execute(getSession(), format("SELECT storage_table FROM system.metadata.materialized_views WHERE name = '%s'", matViewName))
+                .getOnlyValue();
+
+        assertQueryIdStored(storageTable, matViewCreateQueryId);
+
+        assertQueryIdStored(storageTable, executeWithQueryId(format("REFRESH MATERIALIZED VIEW %s", matViewName)));
+    }
+
     @Override
     protected OptionalInt maxTableNameLength()
     {
@@ -6141,10 +6319,66 @@ public abstract class BaseIcebergConnectorTest
         return OptionalInt.of(255 - 33);
     }
 
+    @Test
+    public void testSetPartitionedColumnType()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_partitioned_column_type_", "WITH (partitioning = ARRAY['part']) AS SELECT 1 AS id, CAST(123 AS integer) AS part")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN part SET DATA TYPE bigint");
+
+            assertThat(query("SELECT part FROM " + table.getName()))
+                    .matches("VALUES bigint '123'");
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE part = 123"))
+                    .isFullyPushedDown();
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("partitioning = ARRAY['part']");
+        }
+    }
+
+    @Test
+    public void testSetTransformPartitionedColumnType()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_partitioned_column_type_", "WITH (partitioning = ARRAY['bucket(part, 10)']) AS SELECT CAST(123 AS integer) AS part")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN part SET DATA TYPE bigint");
+
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES bigint '123'");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("partitioning = ARRAY['bucket(part, 10)']");
+        }
+    }
+
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching("Failed to create file.*|Could not create new table directory");
+    }
+
+    @Override
+    protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
+    {
+        switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            case "bigint -> integer":
+            case "decimal(5,3) -> decimal(5,2)":
+            case "varchar -> char(20)":
+            case "array(integer) -> array(bigint)":
+                // Iceberg allows updating column types if the update is safe. Safe updates are:
+                // - int to bigint
+                // - float to double
+                // - decimal(P,S) to decimal(P2,S) when P2 > P (scale cannot change)
+                // https://iceberg.apache.org/docs/latest/spark-ddl/#alter-table--alter-column
+                return Optional.of(setup.asUnsupported());
+
+            case "varchar(100) -> varchar(50)":
+                // Iceberg connector ignores the varchar length
+                return Optional.empty();
+        }
+        return Optional.of(setup);
+    }
+
+    @Override
+    protected void verifySetColumnTypeFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching(".*(Cannot change column type|not supported for Iceberg|Not a primitive type|Cannot change type ).*");
     }
 
     private Session prepareCleanUpSession()
@@ -6230,5 +6464,27 @@ public abstract class BaseIcebergConnectorTest
                 .getMaterializedRows().stream()
                 .map(row -> (Long) row.getField(idField))
                 .collect(toList());
+    }
+
+    private String getFieldFromLatestSnapshotSummary(String tableName, String summaryFieldName)
+    {
+        return getQueryRunner().execute(format("SELECT json_extract_scalar(CAST(SUMMARY AS JSON), '$.%s') FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", summaryFieldName, tableName))
+                .getOnlyColumn()
+                .map(String.class::cast)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(format("Table '%s' has zero snapshots or does not have the '%s' field in its snapshot summary.", tableName, summaryFieldName)));
+    }
+
+    private QueryId executeWithQueryId(String sql)
+    {
+        return getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), sql)
+                .getQueryId();
+    }
+
+    private void assertQueryIdStored(String tableName, QueryId queryId)
+    {
+        assertThat(getFieldFromLatestSnapshotSummary(tableName, TRINO_QUERY_ID_NAME))
+                .isEqualTo(queryId.toString());
     }
 }

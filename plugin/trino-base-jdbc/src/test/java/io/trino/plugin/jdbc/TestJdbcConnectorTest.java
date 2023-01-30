@@ -31,6 +31,7 @@ import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -135,7 +136,7 @@ public class TestJdbcConnectorTest
     public void testDeleteWithLike()
     {
         assertThatThrownBy(super::testDeleteWithLike)
-                .hasStackTraceContaining("TrinoException: Unsupported delete");
+                .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
     @Test
@@ -271,6 +272,23 @@ public class TestJdbcConnectorTest
     {
         // TODO: Difficult to determine whether the exception is concurrent issue or not from the error message
         throw new SkipException("TODO: Enable this test after finding the failure cause");
+    }
+
+    @Override
+    protected void verifySetColumnTypeFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("(?s).*(Data conversion error converting|value out of range).*");
+    }
+
+    @Override
+    protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
+    {
+        if (setup.sourceColumnType().equals("char(20)") && setup.newColumnType().equals("varchar")) {
+            // H2 trims trailing spaces
+            return Optional.of(setup.withNewValueLiteral("rtrim(%s)".formatted(setup.newValueLiteral())));
+        }
+
+        return Optional.of(setup);
     }
 
     @Override

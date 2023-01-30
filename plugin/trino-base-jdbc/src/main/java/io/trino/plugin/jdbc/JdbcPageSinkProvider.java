@@ -13,9 +13,11 @@
  */
 package io.trino.plugin.jdbc;
 
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -28,22 +30,24 @@ public class JdbcPageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final JdbcClient jdbcClient;
+    private RemoteQueryModifier queryModifier;
 
     @Inject
-    public JdbcPageSinkProvider(JdbcClient jdbcClient)
+    public JdbcPageSinkProvider(JdbcClient jdbcClient, RemoteQueryModifier remoteQueryModifier)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.queryModifier = requireNonNull(remoteQueryModifier, "remoteQueryModifier is null");
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle, ConnectorPageSinkId pageSinkId)
     {
-        return new JdbcPageSink(session, (JdbcOutputTableHandle) tableHandle, jdbcClient);
+        return new JdbcPageSink(session, (JdbcOutputTableHandle) tableHandle, jdbcClient, pageSinkId, queryModifier);
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle, ConnectorPageSinkId pageSinkId)
     {
-        return new JdbcPageSink(session, (JdbcOutputTableHandle) tableHandle, jdbcClient);
+        return new JdbcPageSink(session, (JdbcOutputTableHandle) tableHandle, jdbcClient, pageSinkId, queryModifier);
     }
 }

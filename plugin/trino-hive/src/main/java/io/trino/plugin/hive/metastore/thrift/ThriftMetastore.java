@@ -43,6 +43,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public interface ThriftMetastore
 {
@@ -113,7 +114,6 @@ public interface ThriftMetastore
     void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption);
 
     /**
-     * @param tableOwner
      * @param principal when empty, all table privileges are returned
      */
     Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal);
@@ -128,6 +128,11 @@ public interface ThriftMetastore
         }
 
         return Optional.of(table.getSd().getCols());
+    }
+
+    default void checkSupportsTransactions()
+    {
+        throw new TrinoException(NOT_SUPPORTED, getClass().getSimpleName() + " does not support ACID tables");
     }
 
     default long openTransaction(AcidTransactionOwner transactionOwner)

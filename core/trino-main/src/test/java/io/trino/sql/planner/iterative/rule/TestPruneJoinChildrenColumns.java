@@ -29,11 +29,11 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestPruneJoinChildrenColumns
         extends BaseRuleTest
@@ -44,16 +44,16 @@ public class TestPruneJoinChildrenColumns
         tester().assertThat(new PruneJoinChildrenColumns())
                 .on(p -> buildJoin(p, symbol -> symbol.getName().equals("leftValue")))
                 .matches(
-                        join(
-                                JoinNode.Type.INNER,
-                                ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
-                                Optional.of("leftValue > 5"),
-                                values("leftKey", "leftKeyHash", "leftValue"),
-                                strictProject(
-                                        ImmutableMap.of(
-                                                "rightKey", PlanMatchPattern.expression("rightKey"),
-                                                "rightKeyHash", PlanMatchPattern.expression("rightKeyHash")),
-                                        values("rightKey", "rightKeyHash", "rightValue"))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("leftKey", "rightKey")
+                                .filter("leftValue > 5")
+                                .left(values("leftKey", "leftKeyHash", "leftValue"))
+                                .right(
+                                        strictProject(
+                                                ImmutableMap.of(
+                                                        "rightKey", PlanMatchPattern.expression("rightKey"),
+                                                        "rightKeyHash", PlanMatchPattern.expression("rightKeyHash")),
+                                                values("rightKey", "rightKeyHash", "rightValue")))));
     }
 
     @Test
@@ -72,7 +72,7 @@ public class TestPruneJoinChildrenColumns
                     Symbol leftValue = p.symbol("leftValue");
                     Symbol rightValue = p.symbol("rightValue");
                     return p.join(
-                            JoinNode.Type.INNER,
+                            INNER,
                             p.values(leftValue),
                             p.values(rightValue),
                             ImmutableList.of(),
@@ -83,14 +83,12 @@ public class TestPruneJoinChildrenColumns
                             Optional.empty());
                 })
                 .matches(
-                        join(
-                                JoinNode.Type.INNER,
-                                ImmutableList.of(),
-                                Optional.empty(),
-                                values("leftValue"),
-                                strictProject(
-                                        ImmutableMap.of(),
-                                        values("rightValue"))));
+                        join(INNER, builder -> builder
+                                .left(values("leftValue"))
+                                .right(
+                                        strictProject(
+                                                ImmutableMap.of(),
+                                                values("rightValue")))));
     }
 
     private static PlanNode buildJoin(PlanBuilder p, Predicate<Symbol> joinOutputFilter)
@@ -104,7 +102,7 @@ public class TestPruneJoinChildrenColumns
         List<Symbol> leftOutputs = ImmutableList.of(leftValue);
         List<Symbol> rightOutputs = ImmutableList.of(rightValue);
         return p.join(
-                JoinNode.Type.INNER,
+                INNER,
                 p.values(leftKey, leftKeyHash, leftValue),
                 p.values(rightKey, rightKeyHash, rightValue),
                 ImmutableList.of(new JoinNode.EquiJoinClause(leftKey, rightKey)),

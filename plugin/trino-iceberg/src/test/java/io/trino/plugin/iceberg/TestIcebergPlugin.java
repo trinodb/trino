@@ -220,6 +220,36 @@ public class TestIcebergPlugin
                 .hasMessageContaining("Configuration property 'hive.hive-views.enabled' was not used");
     }
 
+    @Test
+    public void testRestCatalog()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "rest",
+                                "iceberg.rest-catalog.uri", "https://foo:1234"),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
+    public void testJdbcCatalog()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "jdbc",
+                                "iceberg.jdbc-catalog.connection-url", "jdbc:postgresql://localhost:5432/test",
+                                "iceberg.jdbc-catalog.catalog-name", "test",
+                                "iceberg.jdbc-catalog.default-warehouse-dir", "s3://bucket"),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
     private static ConnectorFactory getConnectorFactory()
     {
         return getOnlyElement(new IcebergPlugin().getConnectorFactories());

@@ -159,8 +159,7 @@ public final class IcebergAvroDataConversion
         if (type.equals(DOUBLE)) {
             return type.getDouble(block, position);
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             return Decimals.readBigDecimal(decimalType, block, position);
         }
         if (type instanceof VarcharType) {
@@ -265,8 +264,7 @@ public final class IcebergAvroDataConversion
             DOUBLE.writeDouble(builder, (double) object);
             return;
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             BigDecimal decimal = (BigDecimal) object;
             BigInteger unscaledValue = decimal.unscaledValue();
             if (decimalType.isShort()) {

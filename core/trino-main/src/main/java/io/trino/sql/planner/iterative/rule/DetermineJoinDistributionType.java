@@ -27,7 +27,6 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
@@ -145,12 +144,7 @@ public class DetermineJoinDistributionType
     static double getFirstKnownOutputSizeInBytes(PlanNode node, Lookup lookup, StatsProvider statsProvider, TypeProvider typeProvider)
     {
         return Stream.of(node)
-                .flatMap(planNode -> {
-                    if (planNode instanceof GroupReference) {
-                        return lookup.resolveGroup(node);
-                    }
-                    return Stream.of(planNode);
-                })
+                .map(lookup::resolve)
                 .mapToDouble(resolvedNode -> {
                     double outputSizeInBytes = statsProvider.getStats(resolvedNode).getOutputSizeInBytes(
                             resolvedNode.getOutputSymbols(),

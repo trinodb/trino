@@ -46,6 +46,7 @@ import javax.inject.Provider;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -54,8 +55,8 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getVacuumMinRetention;
-import static io.trino.plugin.deltalake.procedure.Procedures.checkProcedureArgument;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -68,6 +69,7 @@ public class VacuumProcedure
         implements Provider<Procedure>
 {
     private static final Logger log = Logger.get(VacuumProcedure.class);
+    private static final int DELETE_BATCH_SIZE = 1000;
 
     private static final MethodHandle VACUUM;
 
@@ -209,6 +211,7 @@ public class VacuumProcedure
         long retainedUnknownFiles = 0;
         long removedFiles = 0;
 
+        List<String> filesToDelete = new ArrayList<>();
         FileIterator listing = fileSystem.listFiles(tableLocation.toString());
         while (listing.hasNext()) {
             FileEntry entry = listing.next();
@@ -254,8 +257,17 @@ public class VacuumProcedure
                     path,
                     modificationTime,
                     modificationInstant);
-            fileSystem.deleteFile(path);
-            removedFiles++;
+            filesToDelete.add(path);
+            if (filesToDelete.size() == DELETE_BATCH_SIZE) {
+                fileSystem.deleteFiles(filesToDelete);
+                removedFiles += filesToDelete.size();
+                filesToDelete.clear();
+            }
+        }
+
+        if (!filesToDelete.isEmpty()) {
+            fileSystem.deleteFiles(filesToDelete);
+            removedFiles += filesToDelete.size();
         }
 
         log.info(

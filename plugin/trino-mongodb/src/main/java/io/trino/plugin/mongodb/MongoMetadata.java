@@ -15,12 +15,16 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Closer;
+import com.mongodb.client.MongoCollection;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.mongodb.MongoIndex.MongodbIndexKey;
+import io.trino.plugin.mongodb.ptf.Query.QueryFunctionHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
@@ -30,6 +34,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
@@ -39,28 +44,43 @@ import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortingProperty;
+import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
+import org.bson.Document;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.mongodb.client.model.Aggregates.lookup;
+import static com.mongodb.client.model.Aggregates.match;
+import static com.mongodb.client.model.Aggregates.merge;
+import static com.mongodb.client.model.Aggregates.project;
+import static com.mongodb.client.model.Filters.ne;
+import static com.mongodb.client.model.Projections.exclude;
 import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.connector.RetryMode.NO_RETRIES;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -72,6 +92,7 @@ public class MongoMetadata
         implements ConnectorMetadata
 {
     private static final Logger log = Logger.get(MongoMetadata.class);
+    private static final Type TRINO_PAGE_SINK_ID_COLUMN_TYPE = BigintType.BIGINT;
 
     private static final int MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH = 120;
 
@@ -121,7 +142,7 @@ public class MongoMetadata
     {
         requireNonNull(tableHandle, "tableHandle is null");
         SchemaTableName tableName = getTableName(tableHandle);
-        return getTableMetadata(session, tableName);
+        return getTableMetadata(tableName);
     }
 
     @Override
@@ -146,7 +167,7 @@ public class MongoMetadata
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (MongoColumnHandle columnHandle : columns) {
-            columnHandles.put(columnHandle.getName(), columnHandle);
+            columnHandles.put(columnHandle.getName().toLowerCase(ENGLISH), columnHandle);
         }
         return columnHandles.buildOrThrow();
     }
@@ -158,7 +179,7 @@ public class MongoMetadata
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(session, prefix)) {
             try {
-                columns.put(tableName, getTableMetadata(session, tableName).getColumns());
+                columns.put(tableName, getTableMetadata(tableName).getColumns());
             }
             catch (NotFoundException e) {
                 // table disappeared during listing operation
@@ -184,7 +205,8 @@ public class MongoMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
-        mongoSession.createTable(tableMetadata.getTable(), buildColumnHandles(tableMetadata), tableMetadata.getComment());
+        RemoteTableName remoteTableName = mongoSession.toRemoteSchemaTableName(tableMetadata.getTable());
+        mongoSession.createTable(remoteTableName, buildColumnHandles(tableMetadata), tableMetadata.getComment());
     }
 
     @Override
@@ -192,14 +214,14 @@ public class MongoMetadata
     {
         MongoTableHandle table = (MongoTableHandle) tableHandle;
 
-        mongoSession.dropTable(table.getSchemaTableName());
+        mongoSession.dropTable(table.getRemoteTableName());
     }
 
     @Override
     public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
     {
         MongoTableHandle table = (MongoTableHandle) tableHandle;
-        mongoSession.setTableComment(table.getSchemaTableName(), comment);
+        mongoSession.setTableComment(table, comment);
     }
 
     @Override
@@ -207,7 +229,7 @@ public class MongoMetadata
     {
         MongoTableHandle table = (MongoTableHandle) tableHandle;
         MongoColumnHandle column = (MongoColumnHandle) columnHandle;
-        mongoSession.setColumnComment(table.getSchemaTableName(), column.getName(), comment);
+        mongoSession.setColumnComment(table, column.getName(), comment);
     }
 
     @Override
@@ -217,42 +239,74 @@ public class MongoMetadata
             throw new TrinoException(NOT_SUPPORTED, format("Qualified identifier name must be shorter than or equal to '%s' bytes: '%s'", MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH, newTableName));
         }
         MongoTableHandle table = (MongoTableHandle) tableHandle;
-        mongoSession.renameTable(table.getSchemaTableName(), newTableName);
+        mongoSession.renameTable(table, newTableName);
     }
 
     @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
-        mongoSession.addColumn(((MongoTableHandle) tableHandle).getSchemaTableName(), column);
+        mongoSession.addColumn(((MongoTableHandle) tableHandle), column);
     }
 
     @Override
     public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
-        mongoSession.dropColumn(((MongoTableHandle) tableHandle).getSchemaTableName(), ((MongoColumnHandle) column).getName());
+        mongoSession.dropColumn(((MongoTableHandle) tableHandle), ((MongoColumnHandle) column).getName());
     }
 
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
-        if (retryMode != NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
+        RemoteTableName remoteTableName = mongoSession.toRemoteSchemaTableName(tableMetadata.getTable());
 
         List<MongoColumnHandle> columns = buildColumnHandles(tableMetadata);
 
-        mongoSession.createTable(tableMetadata.getTable(), columns, tableMetadata.getComment());
+        mongoSession.createTable(remoteTableName, columns, tableMetadata.getComment());
 
-        setRollback(() -> mongoSession.dropTable(tableMetadata.getTable()));
+        List<MongoColumnHandle> handleColumns = columns.stream().filter(column -> !column.isHidden()).collect(toImmutableList());
+
+        Closer closer = Closer.create();
+        closer.register(() -> mongoSession.dropTable(remoteTableName));
+        setRollback(() -> {
+            try {
+                closer.close();
+            }
+            catch (IOException e) {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
+            }
+        });
+
+        if (retryMode == RetryMode.NO_RETRIES) {
+            return new MongoOutputTableHandle(
+                    remoteTableName,
+                    handleColumns,
+                    Optional.empty(),
+                    Optional.empty());
+        }
+
+        MongoColumnHandle pageSinkIdColumn = buildPageSinkIdColumn(columns.stream().map(MongoColumnHandle::getName).collect(toImmutableSet()));
+        List<MongoColumnHandle> allTemporaryTableColumns = ImmutableList.<MongoColumnHandle>builderWithExpectedSize(columns.size() + 1)
+                .addAll(columns)
+                .add(pageSinkIdColumn)
+                .build();
+        RemoteTableName temporaryTable = new RemoteTableName(remoteTableName.getDatabaseName(), generateTemporaryTableName());
+        mongoSession.createTable(temporaryTable, allTemporaryTableColumns, Optional.empty());
+        closer.register(() -> mongoSession.dropTable(temporaryTable));
 
         return new MongoOutputTableHandle(
-                tableMetadata.getTable(),
-                columns.stream().filter(c -> !c.isHidden()).collect(toList()));
+                remoteTableName,
+                handleColumns,
+                Optional.of(temporaryTable.getCollectionName()),
+                Optional.of(pageSinkIdColumn.getName()));
     }
 
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
+        MongoOutputTableHandle handle = (MongoOutputTableHandle) tableHandle;
+        if (handle.getTemporaryTableName().isPresent()) {
+            finishInsert(handle.getRemoteTableName(), handle.getTemporaryRemoteTableName().get(), handle.getPageSinkIdColumnName().get(), fragments);
+        }
         clearRollback();
         return Optional.empty();
     }
@@ -260,25 +314,108 @@ public class MongoMetadata
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> insertedColumns, RetryMode retryMode)
     {
-        if (retryMode != NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
+        MongoTable table = mongoSession.getTable(((MongoTableHandle) tableHandle).getSchemaTableName());
+        MongoTableHandle handle = table.getTableHandle();
+        List<MongoColumnHandle> columns = table.getColumns();
+        List<MongoColumnHandle> handleColumns = columns.stream()
+                .filter(column -> !column.isHidden())
+                .peek(column -> validateColumnNameForInsert(column.getName()))
+                .collect(toImmutableList());
 
-        MongoTableHandle table = (MongoTableHandle) tableHandle;
-        List<MongoColumnHandle> columns = mongoSession.getTable(table.getSchemaTableName()).getColumns();
+        if (retryMode == RetryMode.NO_RETRIES) {
+            return new MongoInsertTableHandle(
+                    handle.getRemoteTableName(),
+                    handleColumns,
+                    Optional.empty(),
+                    Optional.empty());
+        }
+        MongoColumnHandle pageSinkIdColumn = buildPageSinkIdColumn(columns.stream().map(MongoColumnHandle::getName).collect(toImmutableSet()));
+        List<MongoColumnHandle> allColumns = ImmutableList.<MongoColumnHandle>builderWithExpectedSize(columns.size() + 1)
+                .addAll(columns)
+                .add(pageSinkIdColumn)
+                .build();
+
+        RemoteTableName temporaryTable = new RemoteTableName(handle.getSchemaTableName().getSchemaName(), generateTemporaryTableName());
+        mongoSession.createTable(temporaryTable, allColumns, Optional.empty());
+
+        setRollback(() -> mongoSession.dropTable(temporaryTable));
 
         return new MongoInsertTableHandle(
-                table.getSchemaTableName(),
-                columns.stream()
-                        .filter(column -> !column.isHidden())
-                        .peek(column -> validateColumnNameForInsert(column.getName()))
-                        .collect(toImmutableList()));
+                handle.getRemoteTableName(),
+                handleColumns,
+                Optional.of(temporaryTable.getCollectionName()),
+                Optional.of(pageSinkIdColumn.getName()));
     }
 
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
+        MongoInsertTableHandle handle = (MongoInsertTableHandle) insertHandle;
+        if (handle.getTemporaryTableName().isPresent()) {
+            finishInsert(handle.getRemoteTableName(), handle.getTemporaryRemoteTableName().get(), handle.getPageSinkIdColumnName().get(), fragments);
+        }
+        clearRollback();
         return Optional.empty();
+    }
+
+    private void finishInsert(
+            RemoteTableName targetTable,
+            RemoteTableName temporaryTable,
+            String pageSinkIdColumnName,
+            Collection<Slice> fragments)
+    {
+        Closer closer = Closer.create();
+        closer.register(() -> mongoSession.dropTable(temporaryTable));
+
+        try {
+            // Create the temporary page sink ID table
+            RemoteTableName pageSinkIdsTable = new RemoteTableName(temporaryTable.getDatabaseName(), generateTemporaryTableName());
+            MongoColumnHandle pageSinkIdColumn = new MongoColumnHandle(pageSinkIdColumnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE, false, Optional.empty());
+            mongoSession.createTable(pageSinkIdsTable, ImmutableList.of(pageSinkIdColumn), Optional.empty());
+            closer.register(() -> mongoSession.dropTable(pageSinkIdsTable));
+
+            // Insert all the page sink IDs into the page sink ID table
+            MongoCollection<Document> pageSinkIdsCollection = mongoSession.getCollection(pageSinkIdsTable);
+            List<Document> pageSinkIds = fragments.stream()
+                    .map(slice -> new Document(pageSinkIdColumnName, slice.getLong(0)))
+                    .collect(toImmutableList());
+            pageSinkIdsCollection.insertMany(pageSinkIds);
+
+            MongoCollection<Document> temporaryCollection = mongoSession.getCollection(temporaryTable);
+            temporaryCollection.aggregate(ImmutableList.of(
+                    lookup(pageSinkIdsTable.getCollectionName(), pageSinkIdColumnName, pageSinkIdColumnName, "page_sink_id"),
+                    match(ne("page_sink_id", ImmutableList.of())),
+                    project(exclude("page_sink_id")),
+                    merge(targetTable.getCollectionName())))
+                    .toCollection();
+        }
+        finally {
+            try {
+                closer.close();
+            }
+            catch (IOException e) {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
+            }
+        }
+    }
+
+    @Override
+    public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return new MongoColumnHandle("$merge_row_id", BIGINT, true, Optional.empty());
+    }
+
+    @Override
+    public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        return Optional.of(handle);
+    }
+
+    @Override
+    public OptionalLong executeDelete(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        MongoTableHandle table = (MongoTableHandle) handle;
+        return OptionalLong.of(mongoSession.deleteDocuments(table.getRemoteTableName(), table.getConstraint()));
     }
 
     @Override
@@ -331,7 +468,7 @@ public class MongoMetadata
         }
 
         return Optional.of(new LimitApplicationResult<>(
-                new MongoTableHandle(handle.getSchemaTableName(), handle.getConstraint(), OptionalInt.of(toIntExact(limit))),
+                new MongoTableHandle(handle.getSchemaTableName(), handle.getRemoteTableName(), handle.getFilter(), handle.getConstraint(), OptionalInt.of(toIntExact(limit))),
                 true,
                 false));
     }
@@ -343,18 +480,31 @@ public class MongoMetadata
 
         TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
-        Map<ColumnHandle, Domain> domains = newDomain.getDomains().orElseThrow();
-
-        Map<ColumnHandle, Domain> supported = new HashMap<>();
-
-        for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
-            Type columnType = ((MongoColumnHandle) entry.getKey()).getType();
-            // TODO: Support predicate pushdown on more types including JSON
-            if (isPushdownSupportedType(columnType)) {
-                supported.put(entry.getKey(), entry.getValue());
-            }
+        TupleDomain<ColumnHandle> remainingFilter;
+        if (newDomain.isNone()) {
+            remainingFilter = TupleDomain.all();
         }
-        newDomain = TupleDomain.withColumnDomains(supported);
+        else {
+            Map<ColumnHandle, Domain> domains = newDomain.getDomains().orElseThrow();
+
+            Map<ColumnHandle, Domain> supported = new HashMap<>();
+            Map<ColumnHandle, Domain> unsupported = new HashMap<>();
+
+            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+                MongoColumnHandle columnHandle = (MongoColumnHandle) entry.getKey();
+                Domain domain = entry.getValue();
+                Type columnType = columnHandle.getType();
+                // TODO: Support predicate pushdown on more types including JSON
+                if (isPushdownSupportedType(columnType)) {
+                    supported.put(entry.getKey(), entry.getValue());
+                }
+                else {
+                    unsupported.put(columnHandle, domain);
+                }
+            }
+            newDomain = TupleDomain.withColumnDomains(supported);
+            remainingFilter = TupleDomain.withColumnDomains(unsupported);
+        }
 
         if (oldDomain.equals(newDomain)) {
             return Optional.empty();
@@ -362,10 +512,31 @@ public class MongoMetadata
 
         handle = new MongoTableHandle(
                 handle.getSchemaTableName(),
+                handle.getRemoteTableName(),
+                handle.getFilter(),
                 newDomain,
                 handle.getLimit());
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), false));
+        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, false));
+    }
+
+    @Override
+    public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    {
+        if (!(handle instanceof QueryFunctionHandle)) {
+            return Optional.empty();
+        }
+
+        ConnectorTableHandle tableHandle = ((QueryFunctionHandle) handle).getTableHandle();
+        ConnectorTableSchema tableSchema = getTableSchema(session, tableHandle);
+        Map<String, ColumnHandle> columnHandlesByName = getColumnHandles(session, tableHandle);
+        List<ColumnHandle> columnHandles = tableSchema.getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .map(ColumnSchema::getName)
+                .map(columnHandlesByName::get)
+                .collect(toImmutableList());
+
+        return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }
 
     private void setRollback(Runnable action)
@@ -388,16 +559,13 @@ public class MongoMetadata
         return ((MongoTableHandle) tableHandle).getSchemaTableName();
     }
 
-    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
+    private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
     {
         MongoTable mongoTable = mongoSession.getTable(tableName);
-        MongoTableHandle tableHandle = mongoTable.getTableHandle();
 
-        List<ColumnMetadata> columns = ImmutableList.copyOf(
-                getColumnHandles(session, tableHandle).values().stream()
-                        .map(MongoColumnHandle.class::cast)
-                        .map(MongoColumnHandle::toColumnMetadata)
-                        .collect(toList()));
+        List<ColumnMetadata> columns = mongoTable.getColumns().stream()
+                .map(MongoColumnHandle::toColumnMetadata)
+                .collect(toImmutableList());
 
         return new ConnectorTableMetadata(tableName, columns, ImmutableMap.of(), mongoTable.getComment());
     }
@@ -414,5 +582,24 @@ public class MongoMetadata
         if (columnName.contains("$") || columnName.contains(".")) {
             throw new IllegalArgumentException("Column name must not contain '$' or '.' for INSERT: " + columnName);
         }
+    }
+
+    private static MongoColumnHandle buildPageSinkIdColumn(Set<String> otherColumnNames)
+    {
+        // While it's unlikely this column name will collide with client table columns,
+        // guarantee it will not by appending a deterministic suffix to it.
+        String baseColumnName = "trino_page_sink_id";
+        String columnName = baseColumnName;
+        int suffix = 1;
+        while (otherColumnNames.contains(columnName)) {
+            columnName = baseColumnName + "_" + suffix;
+            suffix++;
+        }
+        return new MongoColumnHandle(columnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE, false, Optional.empty());
+    }
+
+    private static String generateTemporaryTableName()
+    {
+        return "tmp_trino_" + UUID.randomUUID().toString().replace("-", "");
     }
 }

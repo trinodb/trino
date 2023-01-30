@@ -310,8 +310,8 @@ Deprecated function
 -------------------
 
 The ``@Deprecated`` annotation has to be used on any function that should no longer be
-used. The annotation causes Trino to generate a warning whenever a SQL statement
-uses a deprecated function. When a function is deprecated, the ``@Description``
+used. The annotation causes Trino to generate a warning whenever SQL statements
+use a deprecated function. When a function is deprecated, the ``@Description``
 needs to be replaced with a note about the deprecation and the replacement function:
 
 .. code-block:: java

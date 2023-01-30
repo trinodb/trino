@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -39,7 +39,7 @@ import static org.testng.Assert.assertTrue;
 public abstract class BaseDeltaLakeTableWithCustomLocation
         extends AbstractTestQueryFramework
 {
-    protected static final String SCHEMA = "test_tables_with_custom_location" + randomTableSuffix();
+    protected static final String SCHEMA = "test_tables_with_custom_location" + randomNameSuffix();
     protected static final String CATALOG_NAME = "delta_with_custom_location";
     protected File metastoreDir;
     protected HiveMetastore metastore;
@@ -48,7 +48,7 @@ public abstract class BaseDeltaLakeTableWithCustomLocation
     @Test
     public void testTableHasUuidSuffixInLocation()
     {
-        String tableName = "table_with_uuid" + randomTableSuffix();
+        String tableName = "table_with_uuid" + randomNameSuffix();
         assertQuerySucceeds(format("CREATE TABLE %s AS SELECT 1 as val", tableName));
         Optional<Table> table = metastore.getTable(SCHEMA, tableName);
         assertTrue(table.isPresent(), "Table should exists");
@@ -60,7 +60,7 @@ public abstract class BaseDeltaLakeTableWithCustomLocation
     public void testCreateAndDrop()
             throws IOException
     {
-        String tableName = "test_create_and_drop" + randomTableSuffix();
+        String tableName = "test_create_and_drop" + randomNameSuffix();
         assertQuerySucceeds(format("CREATE TABLE %s AS SELECT 1 as val", tableName));
         Table table = metastore.getTable(SCHEMA, tableName).orElseThrow();
         assertThat(table.getTableType()).isEqualTo(TableType.MANAGED_TABLE.name());

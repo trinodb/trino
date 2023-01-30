@@ -21,6 +21,7 @@ import io.trino.plugin.kafka.encoder.csv.CsvRowEncoder;
 import io.trino.plugin.kafka.encoder.csv.CsvRowEncoderFactory;
 import io.trino.plugin.kafka.encoder.json.JsonRowEncoder;
 import io.trino.plugin.kafka.encoder.json.JsonRowEncoderFactory;
+import io.trino.plugin.kafka.encoder.protobuf.ProtobufEncoderModule;
 import io.trino.plugin.kafka.encoder.raw.RawRowEncoder;
 import io.trino.plugin.kafka.encoder.raw.RawRowEncoderFactory;
 
@@ -39,6 +40,7 @@ public class EncoderModule
         encoderFactoriesByName.addBinding(RawRowEncoder.NAME).to(RawRowEncoderFactory.class).in(SINGLETON);
         encoderFactoriesByName.addBinding(JsonRowEncoder.NAME).to(JsonRowEncoderFactory.class).in(SINGLETON);
         binder.install(new AvroEncoderModule());
+        binder.install(new ProtobufEncoderModule());
 
         binder.bind(DispatchingRowEncoderFactory.class).in(SINGLETON);
     }

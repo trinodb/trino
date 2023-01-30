@@ -91,6 +91,10 @@ public final class HiveTypeTranslator
 {
     private HiveTypeTranslator() {}
 
+    public static final String UNION_FIELD_TAG_NAME = "tag";
+    public static final String UNION_FIELD_FIELD_PREFIX = "field";
+    public static final Type UNION_FIELD_TAG_TYPE = TINYINT;
+
     public static TypeInfo toTypeInfo(Type type)
     {
         requireNonNull(type, "type is null");
@@ -213,10 +217,10 @@ public final class HiveTypeTranslator
                 UnionTypeInfo unionTypeInfo = (UnionTypeInfo) typeInfo;
                 List<TypeInfo> unionObjectTypes = unionTypeInfo.getAllUnionObjectTypeInfos();
                 ImmutableList.Builder<TypeSignatureParameter> typeSignatures = ImmutableList.builder();
-                typeSignatures.add(namedField("tag", TINYINT.getTypeSignature()));
+                typeSignatures.add(namedField(UNION_FIELD_TAG_NAME, UNION_FIELD_TAG_TYPE.getTypeSignature()));
                 for (int i = 0; i < unionObjectTypes.size(); i++) {
                     TypeInfo unionObjectType = unionObjectTypes.get(i);
-                    typeSignatures.add(namedField("field" + i, toTypeSignature(unionObjectType, timestampPrecision)));
+                    typeSignatures.add(namedField(UNION_FIELD_FIELD_PREFIX + i, toTypeSignature(unionObjectType, timestampPrecision)));
                 }
                 return rowType(typeSignatures.build());
         }

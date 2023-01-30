@@ -64,9 +64,7 @@ public final class ExplainAnalyze
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.<Node>builder()
-                .add(statement)
-                .build();
+        return ImmutableList.of(statement);
     }
 
     @Override

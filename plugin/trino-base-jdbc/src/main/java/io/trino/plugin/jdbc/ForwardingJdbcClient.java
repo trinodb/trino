@@ -139,10 +139,10 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session, JdbcSplit split)
+    public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
             throws SQLException
     {
-        return delegate().getConnection(session, split);
+        return delegate().getConnection(session, split, tableHandle);
     }
 
     @Override
@@ -191,9 +191,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
-        delegate().commitCreateTable(session, handle);
+        delegate().commitCreateTable(session, handle, pageSinkIds);
     }
 
     @Override
@@ -203,9 +203,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
-        delegate().finishInsertTable(session, handle);
+        delegate().finishInsertTable(session, handle, pageSinkIds);
     }
 
     @Override
@@ -218,6 +218,12 @@ public abstract class ForwardingJdbcClient
     public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         delegate().rollbackCreateTable(session, handle);
+    }
+
+    @Override
+    public boolean supportsRetries()
+    {
+        return delegate().supportsRetries();
     }
 
     @Override
@@ -311,6 +317,12 @@ public abstract class ForwardingJdbcClient
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         delegate().renameColumn(session, handle, jdbcColumn, newColumnName);
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        delegate().setColumnType(session, handle, column, type);
     }
 
     @Override

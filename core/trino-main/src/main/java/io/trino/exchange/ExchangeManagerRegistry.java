@@ -14,13 +14,12 @@
 package io.trino.exchange;
 
 import io.airlift.log.Logger;
-import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeManagerFactory;
 
-import javax.inject.Inject;
+import javax.annotation.PreDestroy;
 
 import java.io.File;
 import java.io.IOException;
@@ -44,17 +43,9 @@ public class ExchangeManagerRegistry
     private static final File CONFIG_FILE = new File("etc/exchange-manager.properties");
     private static final String EXCHANGE_MANAGER_NAME_PROPERTY = "exchange-manager.name";
 
-    private final ExchangeHandleResolver handleResolver;
-
     private final Map<String, ExchangeManagerFactory> exchangeManagerFactories = new ConcurrentHashMap<>();
 
     private volatile ExchangeManager exchangeManager;
-
-    @Inject
-    public ExchangeManagerRegistry(ExchangeHandleResolver handleResolver)
-    {
-        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
-    }
 
     public void addExchangeManagerFactory(ExchangeManagerFactory factory)
     {
@@ -90,7 +81,6 @@ public class ExchangeManagerRegistry
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             exchangeManager = factory.create(properties);
         }
-        handleResolver.setExchangeManagerHandleResolver(factory.getHandleResolver());
 
         log.info("-- Loaded exchange manager %s --", name);
 
@@ -104,6 +94,19 @@ public class ExchangeManagerRegistry
             throw new TrinoException(EXCHANGE_MANAGER_NOT_CONFIGURED, "Exchange manager must be configured for the failure recovery capabilities to be fully functional");
         }
         return exchangeManager;
+    }
+
+    @PreDestroy
+    public void shutdown()
+    {
+        try {
+            if (this.exchangeManager != null) {
+                exchangeManager.shutdown();
+            }
+        }
+        catch (Throwable t) {
+            log.error(t, "Error shutting down exchange manager: %s", exchangeManager);
+        }
     }
 
     private static Map<String, String> loadProperties(File configFile)

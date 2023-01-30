@@ -13,21 +13,10 @@
  */
 package io.trino.plugin.hive.optimizer;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.hdfs.DynamicHdfsConfiguration;
-import io.trino.hdfs.HdfsConfig;
-import io.trino.hdfs.HdfsConfiguration;
-import io.trino.hdfs.HdfsConfigurationInitializer;
-import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.authentication.NoHdfsAuthentication;
-import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TestingHiveConnectorFactory;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.spi.security.PrincipalType;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
@@ -42,7 +31,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -50,7 +38,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -86,17 +74,7 @@ public class TestHivePlans
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        HdfsConfig config = new HdfsConfig();
-        HdfsConfiguration configuration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
-        HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
-
-        HiveMetastore metastore = new FileHiveMetastore(
-                new NodeVersion("test_version"),
-                environment,
-                new HiveMetastoreConfig().isHideDeltaLakeTables(),
-                new FileHiveMetastoreConfig()
-                        .setCatalogDirectory(baseDir.toURI().toString())
-                        .setMetastoreUser("test"));
+        HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
         Database database = Database.builder()
                 .setDatabaseName(SCHEMA_NAME)
                 .setOwnerName(Optional.of("public"))
@@ -151,7 +129,7 @@ public class TestHivePlans
         assertDistributedPlan(
                 "SELECT * FROM table_str_partitioned WHERE str_part LIKE 't%'",
                 output(
-                        filter("\"like\"(STR_PART, \"$like_pattern\"('t%'))",
+                        filter("\"$like\"(STR_PART, \"$literal$\"(from_base64('DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAHAAAAAAcAAAACAAAAdCUA')))",
                                 tableScan("table_str_partitioned", Map.of("INT_COL", "int_col", "STR_PART", "str_part")))));
     }
 
@@ -168,16 +146,18 @@ public class TestHivePlans
                         "WHERE l.str_part LIKE 't%'",
                 noJoinReordering(),
                 output(
-                        join(INNER, List.of(equiJoinClause("L_STR_PART", "R_STR_COL")),
-                                exchange(REMOTE, REPARTITION,
-                                        project(
-                                                filter("\"like\"(L_STR_PART, \"$like_pattern\"('t%'))",
-                                                        tableScan("table_str_partitioned", Map.of("L_INT_COL", "int_col", "L_STR_PART", "str_part"))))),
-                                exchange(LOCAL,
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_STR_PART", "R_STR_COL")
+                                .left(
                                         exchange(REMOTE, REPARTITION,
                                                 project(
-                                                        filter("R_STR_COL IN ('three', CAST('two' AS varchar(5))) AND \"like\"(R_STR_COL, \"$like_pattern\"('t%'))",
-                                                                tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
+                                                        filter("\"$like\"(L_STR_PART, \"$literal$\"(from_base64('DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAHAAAAAAcAAAACAAAAdCUA')))",
+                                                                tableScan("table_str_partitioned", Map.of("L_INT_COL", "int_col", "L_STR_PART", "str_part"))))))
+                                .right(exchange(LOCAL,
+                                        exchange(REMOTE, REPARTITION,
+                                                project(
+                                                        filter("R_STR_COL IN ('three', CAST('two' AS varchar(5))) AND \"$like\"(R_STR_COL, \"$literal$\"(from_base64('DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAHAAAAAAcAAAACAAAAdCUA')))",
+                                                                tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))))));
     }
 
     @Test
@@ -190,16 +170,19 @@ public class TestHivePlans
                         "WHERE l.int_part BETWEEN 2 AND 4",
                 noJoinReordering(),
                 output(
-                        join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
-                                exchange(REMOTE, REPARTITION,
-                                        project(
-                                                filter("true", // dynamic filter
-                                                        tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))),
-                                exchange(LOCAL,
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_INT_PART", "R_INT_COL")
+                                .left(
                                         exchange(REMOTE, REPARTITION,
                                                 project(
-                                                        filter("R_INT_COL IN (2, 3, 4)",
-                                                                tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
+                                                        filter("true", // dynamic filter
+                                                                tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))))
+                                .right(
+                                        exchange(LOCAL,
+                                                exchange(REMOTE, REPARTITION,
+                                                        project(
+                                                                filter("R_INT_COL IN (2, 3, 4)",
+                                                                        tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))))));
     }
 
     @Test
@@ -213,16 +196,19 @@ public class TestHivePlans
                         "WHERE l.int_part BETWEEN 2 AND 4 AND l.str_col != 'three'",
                 noJoinReordering(),
                 output(
-                        join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
-                                exchange(REMOTE, REPARTITION,
-                                        project(
-                                                filter("L_STR_COL != 'three'",
-                                                        tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))),
-                                exchange(LOCAL,
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_INT_PART", "R_INT_COL")
+                                .left(
                                         exchange(REMOTE, REPARTITION,
                                                 project(
-                                                        filter("R_INT_COL IN (2, 3, 4) AND R_INT_COL BETWEEN 2 AND 4", // TODO: R_INT_COL BETWEEN 2 AND 4 is redundant
-                                                                tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
+                                                        filter("L_STR_COL != 'three'",
+                                                                tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))))
+                                .right(
+                                        exchange(LOCAL,
+                                                exchange(REMOTE, REPARTITION,
+                                                        project(
+                                                                filter("R_INT_COL IN (2, 3, 4) AND R_INT_COL BETWEEN 2 AND 4", // TODO: R_INT_COL BETWEEN 2 AND 4 is redundant
+                                                                        tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))))));
     }
 
     @Test
@@ -236,16 +222,19 @@ public class TestHivePlans
                         "WHERE l.int_part BETWEEN 2 AND 4 AND substring(l.str_col, 2) != 'hree'",
                 noJoinReordering(),
                 output(
-                        join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
-                                exchange(REMOTE, REPARTITION,
-                                        project(
-                                                filter("substring(L_STR_COL, BIGINT '2') != CAST('hree' AS varchar(5))",
-                                                        tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))),
-                                exchange(LOCAL,
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_INT_PART", "R_INT_COL")
+                                .left(
                                         exchange(REMOTE, REPARTITION,
                                                 project(
-                                                        filter("R_INT_COL IN (2, 3, 4) AND R_INT_COL BETWEEN 2 AND 4", // TODO: R_INT_COL BETWEEN 2 AND 4 is redundant
-                                                                tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
+                                                        filter("substring(L_STR_COL, BIGINT '2') != CAST('hree' AS varchar(5))",
+                                                                tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))))
+                                .right(
+                                        exchange(LOCAL,
+                                                exchange(REMOTE, REPARTITION,
+                                                        project(
+                                                                filter("R_INT_COL IN (2, 3, 4) AND R_INT_COL BETWEEN 2 AND 4", // TODO: R_INT_COL BETWEEN 2 AND 4 is redundant
+                                                                        tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))))));
     }
 
     @Test
@@ -259,16 +248,19 @@ public class TestHivePlans
                         "WHERE l.int_part BETWEEN 2 AND 4 AND l.int_part % 2 = 0",
                 noJoinReordering(),
                 output(
-                        join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
-                                exchange(REMOTE, REPARTITION,
-                                        project(
-                                                filter("L_INT_PART % 2 = 0",
-                                                        tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))),
-                                exchange(LOCAL,
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_INT_PART", "R_INT_COL")
+                                .left(
                                         exchange(REMOTE, REPARTITION,
                                                 project(
-                                                        filter("R_INT_COL IN (2, 4) AND R_INT_COL % 2 = 0",
-                                                                tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
+                                                        filter("L_INT_PART % 2 = 0",
+                                                                tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))))
+                                .right(
+                                        exchange(LOCAL,
+                                                exchange(REMOTE, REPARTITION,
+                                                        project(
+                                                                filter("R_INT_COL IN (2, 4) AND R_INT_COL % 2 = 0",
+                                                                        tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))))));
     }
 
     @Test
@@ -279,16 +271,19 @@ public class TestHivePlans
                 "SELECT l.str_col, r.str_col FROM table_int_partitioned l JOIN table_unpartitioned r ON l.int_part = r.int_col",
                 noJoinReordering(),
                 output(
-                        join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
-                                exchange(REMOTE, REPARTITION,
-                                        project(
-                                                filter("true", //dynamic filter
-                                                        tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))),
-                                exchange(LOCAL,
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_INT_PART", "R_INT_COL")
+                                .left(
                                         exchange(REMOTE, REPARTITION,
                                                 project(
-                                                        filter("R_INT_COL IN (1, 2, 3, 4, 5)",
-                                                                tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
+                                                        filter("true", //dynamic filter
+                                                                tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))))
+                                .right(
+                                        exchange(LOCAL,
+                                                exchange(REMOTE, REPARTITION,
+                                                        project(
+                                                                filter("R_INT_COL IN (1, 2, 3, 4, 5)",
+                                                                        tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))))));
     }
 
     @Test
@@ -298,14 +293,17 @@ public class TestHivePlans
         assertDistributedPlan(
                 query,
                 output(
-                        join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
-                                project(
-                                        filter("true", //dynamic filter
-                                                tableScan("table_int_with_too_many_partitions", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col")))),
-                                exchange(LOCAL,
-                                        exchange(REMOTE, REPLICATE,
-                                                project(
-                                                        tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_INT_PART", "R_INT_COL")
+                                .left(
+                                        project(
+                                                filter("true", //dynamic filter
+                                                        tableScan("table_int_with_too_many_partitions", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col")))))
+                                .right(
+                                        exchange(LOCAL,
+                                                exchange(REMOTE, REPLICATE,
+                                                        project(
+                                                                tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
     // Disable join ordering so that expected plans are well defined.

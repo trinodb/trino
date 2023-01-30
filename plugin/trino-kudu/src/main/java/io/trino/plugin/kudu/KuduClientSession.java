@@ -167,7 +167,7 @@ public class KuduClientSession
         Optional<List<ColumnHandle>> desiredColumns = tableHandle.getDesiredColumns();
 
         List<Integer> columnIndexes;
-        if (tableHandle.isDeleteHandle()) {
+        if (tableHandle.isRequiresRowId()) {
             if (desiredColumns.isPresent()) {
                 columnIndexes = IntStream
                         .range(0, primaryKeyColumnCount)

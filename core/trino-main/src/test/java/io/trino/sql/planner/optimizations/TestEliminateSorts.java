@@ -26,7 +26,7 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.rule.DetermineTableScanNodePartitioning;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
-import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -47,7 +47,7 @@ public class TestEliminateSorts
 {
     private static final String QUANTITY_ALIAS = "QUANTITY";
 
-    private static final ExpectedValueProvider<WindowNode.Specification> windowSpec = specification(
+    private static final ExpectedValueProvider<DataOrganizationSpecification> windowSpec = specification(
             ImmutableList.of(),
             ImmutableList.of(QUANTITY_ALIAS),
             ImmutableMap.of(QUANTITY_ALIAS, SortOrder.ASC_NULLS_LAST));

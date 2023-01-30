@@ -21,14 +21,15 @@ import com.google.common.io.Closer;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.StaticConnectorFactory;
 import io.trino.connector.TestingTableFunctions.DescriptorArgumentFunction;
 import io.trino.connector.TestingTableFunctions.MonomorphicStaticReturnTypeFunction;
 import io.trino.connector.TestingTableFunctions.OnlyPassThroughFunction;
+import io.trino.connector.TestingTableFunctions.PassThroughFunction;
 import io.trino.connector.TestingTableFunctions.PolymorphicStaticReturnTypeFunction;
+import io.trino.connector.TestingTableFunctions.RequiredColumnsFunction;
 import io.trino.connector.TestingTableFunctions.TableArgumentFunction;
 import io.trino.connector.TestingTableFunctions.TableArgumentRowSemanticsFunction;
 import io.trino.connector.TestingTableFunctions.TwoScalarArgumentsFunction;
@@ -63,6 +64,7 @@ import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
@@ -119,6 +121,7 @@ import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_AGGREGATE;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_IN_DISTINCT;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
+import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_AGGREGATE;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
@@ -223,7 +226,7 @@ public class TestAnalyzer
 
     private static final SqlParser SQL_PARSER = new SqlParser();
 
-    private final Closer closer = Closer.create();
+    private Closer closer;
     private TransactionManager transactionManager;
     private AccessControl accessControl;
     private PlannerContext plannerContext;
@@ -6505,25 +6508,21 @@ public class TestAnalyzer
         analyze("SELECT * FROM TABLE(system.polymorphic_static_return_type_function(input => TABLE(t1)))");
         analyze("SELECT * FROM TABLE(system.polymorphic_static_return_type_function(input => TABLE(t1))) f(x, y)");
 
-        // TODO enable this test when ONLY PASS THROUGH functions are fully analyzed (currently they fail with NOT_SUPPORTED).
-        //  An ONLY PASS THROUGH function had to be used here, because it's the only kind which does not take an alias.
-//        // sampled
-//        assertFails("SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) TABLESAMPLE BERNOULLI (10)")
-//                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
-//                .hasMessage("line 1:21: Cannot apply sample to polymorphic table function invocation");
+        // sampled
+        assertFails("SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) TABLESAMPLE BERNOULLI (10)")
+                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+                .hasMessage("line 1:21: Cannot apply sample to polymorphic table function invocation");
 
-        // TODO enable this test when ONLY PASS THROUGH functions are fully analyzed (currently they fail with NOT_SUPPORTED)
-        //  An ONLY PASS THROUGH function had to be used here, because it's the only kind which does not take an alias.
-//        // row pattern matching
-//        assertFails("""
-//                SELECT *
-//                FROM TABLE(system.only_pass_through_function(TABLE(t1)))
-//                MATCH_RECOGNIZE(
-//                    PATTERN (a*)
-//                    DEFINE a AS true)
-//                """)
-//                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
-//                .hasMessage("line 2:12: Cannot apply row pattern matching to polymorphic table function invocation");
+        // row pattern matching
+        assertFails("""
+                SELECT *
+                FROM TABLE(system.only_pass_through_function(TABLE(t1)))
+                MATCH_RECOGNIZE(
+                    PATTERN (a*)
+                    DEFINE a AS true)
+                """)
+                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+                .hasMessage("line 2:12: Cannot apply row pattern matching to polymorphic table function invocation");
 
         // aliased + sampled
         assertFails("SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x) TABLESAMPLE BERNOULLI (10)")
@@ -6542,19 +6541,17 @@ public class TestAnalyzer
                 .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
                 .hasMessage("line 2:6: Cannot apply row pattern matching to polymorphic table function invocation");
 
-        // TODO enable this test when ONLY PASS THROUGH functions are fully analyzed (currently they fail with NOT_SUPPORTED)
-        //  An ONLY PASS THROUGH function had to be used here, because it's the only kind which does not take an alias.
-//        // row pattern matching + sampled
-//        assertFails("""
-//                SELECT *
-//                FROM TABLE(system.only_pass_through_function(TABLE(t1)))
-//                MATCH_RECOGNIZE(
-//                    PATTERN (a*)
-//                    DEFINE a AS true)
-//                TABLESAMPLE BERNOULLI (10)
-//                """)
-//                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
-//                .hasMessage("line 2:12: Cannot apply row pattern matching to polymorphic table function invocation");
+        // row pattern matching + sampled
+        assertFails("""
+                SELECT *
+                FROM TABLE(system.only_pass_through_function(TABLE(t1)))
+                MATCH_RECOGNIZE(
+                    PATTERN (a*)
+                    DEFINE a AS true)
+                TABLESAMPLE BERNOULLI (10)
+                """)
+                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+                .hasMessage("line 2:12: Cannot apply row pattern matching to polymorphic table function invocation");
 
         // aliased + row pattern matching + sampled
         assertFails("""
@@ -6611,12 +6608,56 @@ public class TestAnalyzer
                 .hasErrorCode(DUPLICATE_COLUMN_NAME)
                 .hasMessage("line 1:21: Duplicate name of table function proper column: col");
 
-        // TODO test pass-through columns wen we support them: they mustn't be aliased, and must be referenced by the original range variables of their corresponding table arguments
+        // pass-through columns of an input table must not be aliased, and must be referenced by the original range variables of their corresponding table arguments
+        // the function pass_through_function has one proper column ("x" : BOOLEAN), and one table argument with pass-through property
+        // tha alias applies only to the proper column
+        analyze("SELECT table_alias.x, t1.a, t1.b, t1.c, t1.d FROM TABLE(system.pass_through_function(TABLE(t1))) table_alias");
+
+        analyze("SELECT table_alias.x, arg_alias.a, arg_alias.b, arg_alias.c, arg_alias.d FROM TABLE(system.pass_through_function(TABLE(t1) arg_alias)) table_alias");
+
+        assertFails("SELECT table_alias.x, t1.a FROM TABLE(system.pass_through_function(TABLE(t1) arg_alias)) table_alias")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:23: Column 't1.a' cannot be resolved");
+
+        assertFails("SELECT table_alias.x, table_alias.a FROM TABLE(system.pass_through_function(TABLE(t1))) table_alias")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:23: Column 'table_alias.a' cannot be resolved");
+    }
+
+    @Test
+    public void testTableFunctionRequiredColumns()
+    {
+        // the function required_column_function specifies columns 0 and 1 from table argument "INPUT" as required.
+        analyze("""
+                SELECT * FROM TABLE(system.required_columns_function(
+                    input => TABLE(t1)))
+                """);
+
+        analyze("""
+                SELECT * FROM TABLE(system.required_columns_function(
+                    input => TABLE(SELECT 1, 2, 3)))
+                """);
+
+        assertFails("""
+                SELECT * FROM TABLE(system.required_columns_function(
+                    input => TABLE(SELECT 1)))
+                """)
+                .hasErrorCode(FUNCTION_IMPLEMENTATION_ERROR)
+                .hasMessage("Invalid index: 1 of required column from table argument INPUT");
+
+        // table s1.t5 has two columns. The second column is hidden. Table function cannot require a hidden column.
+        assertFails("""
+                SELECT * FROM TABLE(system.required_columns_function(
+                    input => TABLE(s1.t5)))
+                """)
+                .hasErrorCode(FUNCTION_IMPLEMENTATION_ERROR)
+                .hasMessage("Invalid index: 1 of required column from table argument INPUT");
     }
 
     @BeforeClass
     public void setup()
     {
+        closer = Closer.create();
         LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION);
         closer.register(queryRunner);
         transactionManager = queryRunner.getTransactionManager();
@@ -6707,7 +6748,7 @@ public class TestAnalyzer
                 "select a from t1",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
-                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Identity.ofUser("user"),
                 Optional.empty(),
@@ -6719,7 +6760,7 @@ public class TestAnalyzer
                 "select a from t1",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
-                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, false));
@@ -6729,7 +6770,7 @@ public class TestAnalyzer
                 "select a from t1",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
-                ImmutableList.of(new ViewColumn("a", VARCHAR.getTypeId())),
+                ImmutableList.of(new ViewColumn("a", VARCHAR.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, false));
@@ -6739,7 +6780,7 @@ public class TestAnalyzer
                 "select a from t4",
                 Optional.of(SECOND_CATALOG),
                 Optional.of("s2"),
-                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("owner")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(THIRD_CATALOG, "s3", "v3"), viewData3, false));
@@ -6749,7 +6790,7 @@ public class TestAnalyzer
                 "select A from t1",
                 Optional.of("tpch"),
                 Optional.of("s1"),
-                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, false));
@@ -6759,7 +6800,7 @@ public class TestAnalyzer
                 "select * from v5",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
-                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, false));
@@ -6835,7 +6876,7 @@ public class TestAnalyzer
                         "SELECT a FROM t1",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t1")),
@@ -6846,7 +6887,7 @@ public class TestAnalyzer
                 "SELECT a FROM t2",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
-                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.empty(),
                 Optional.empty());
         inSetupTransaction(session -> metadata.createView(
@@ -6884,7 +6925,7 @@ public class TestAnalyzer
                         "SELECT a, b FROM t1",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId()), new ViewColumn("b", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         // t3 has a, b column and hidden column x
@@ -6902,7 +6943,7 @@ public class TestAnalyzer
                         "SELECT a FROM t1",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
@@ -6919,7 +6960,7 @@ public class TestAnalyzer
                         "SELECT a, b as c FROM t1",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId()), new ViewColumn("c", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("c", BIGINT.getTypeId(), Optional.empty())),
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
@@ -6936,7 +6977,7 @@ public class TestAnalyzer
                         "SELECT a, null b FROM t1",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId()), new ViewColumn("b", RowType.anonymousRow(TINYINT).getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", RowType.anonymousRow(TINYINT).getTypeId(), Optional.empty())),
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
@@ -6951,6 +6992,12 @@ public class TestAnalyzer
             throws Exception
     {
         closer.close();
+        closer = null;
+        transactionManager = null;
+        accessControl = null;
+        plannerContext = null;
+        tablePropertyManager = null;
+        analyzePropertyManager = null;
     }
 
     private void inSetupTransaction(Consumer<Session> consumer)
@@ -6995,7 +7042,9 @@ public class TestAnalyzer
                         new TwoTableArgumentsFunction(),
                         new OnlyPassThroughFunction(),
                         new MonomorphicStaticReturnTypeFunction(),
-                        new PolymorphicStaticReturnTypeFunction()))),
+                        new PolymorphicStaticReturnTypeFunction(),
+                        new PassThroughFunction(),
+                        new RequiredColumnsFunction()))),
                 new SessionPropertyManager(),
                 tablePropertyManager,
                 analyzePropertyManager,

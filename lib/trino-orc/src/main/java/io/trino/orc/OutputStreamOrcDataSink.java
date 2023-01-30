@@ -14,6 +14,8 @@
 package io.trino.orc;
 
 import io.airlift.slice.OutputStreamSliceOutput;
+import io.trino.filesystem.TrinoOutputFile;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.stream.OrcDataOutput;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -21,6 +23,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
 
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -30,10 +33,30 @@ public class OutputStreamOrcDataSink
     private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(OutputStreamOrcDataSink.class).instanceSize());
 
     private final OutputStreamSliceOutput output;
+    private final AggregatedMemoryContext memoryContext;
 
-    public OutputStreamOrcDataSink(OutputStream outputStream)
+    public static OutputStreamOrcDataSink create(TrinoOutputFile outputFile)
+            throws IOException
+    {
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
+        return new OutputStreamOrcDataSink(outputFile.create(memoryContext), memoryContext);
+    }
+
+    // Do not use this method, it is here only for io.trino.plugin.raptor.legacy.storage.OrcFileWriter.createOrcDataSink
+    // and it should be removed in the future
+    @Deprecated
+    public static OutputStreamOrcDataSink create(OutputStream outputStream)
+            throws IOException
+    {
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
+        return new OutputStreamOrcDataSink(outputStream, memoryContext);
+    }
+
+    private OutputStreamOrcDataSink(OutputStream outputStream, AggregatedMemoryContext memoryContext)
+            throws IOException
     {
         this.output = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputStream is null"));
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
     @Override
@@ -45,7 +68,7 @@ public class OutputStreamOrcDataSink
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + output.getRetainedSize();
+        return INSTANCE_SIZE + output.getRetainedSize() + memoryContext.getBytes();
     }
 
     @Override

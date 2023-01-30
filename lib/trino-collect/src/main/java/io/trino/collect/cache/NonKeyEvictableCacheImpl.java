@@ -15,10 +15,14 @@ package io.trino.collect.cache;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.ForwardingCache;
+import com.google.common.collect.ForwardingConcurrentMap;
+
+import java.util.concurrent.ConcurrentMap;
 
 import static java.util.Objects.requireNonNull;
 
 // package-private. The interface provides deprecation and javadoc to help at call sites
+@ElementTypesAreNonnullByDefault
 class NonKeyEvictableCacheImpl<K, V>
         extends ForwardingCache<K, V>
         implements NonKeyEvictableCache<K, V>
@@ -48,5 +52,50 @@ class NonKeyEvictableCacheImpl<K, V>
     {
         throw new UnsupportedOperationException("invalidateAll(keys) does not invalidate ongoing loads, so a stale value may remain in the cache for ever. " +
                 "Use EvictableCache if you need invalidation");
+    }
+
+    @Override
+    public ConcurrentMap<K, V> asMap()
+    {
+        ConcurrentMap<K, V> map = delegate.asMap();
+        return new ForwardingConcurrentMap<K, V>()
+        {
+            @Override
+            protected ConcurrentMap<K, V> delegate()
+            {
+                return map;
+            }
+
+            @Override
+            public V remove(Object key)
+            {
+                throw new UnsupportedOperationException("remove(key) does not invalidate ongoing loads, so a stale value may remain in the cache for ever. " +
+                        "Use EvictableCacheBuilder if you need invalidation");
+            }
+
+            @Override
+            public boolean remove(Object key, Object value)
+            {
+                // defensive forbid, it is not sure if this method is safe to call or not
+                throw new UnsupportedOperationException("remove(key, value) does not invalidate ongoing loads, so a stale value may remain in the cache for ever. " +
+                        "Use EvictableCacheBuilder if you need invalidation");
+            }
+
+            @Override
+            public boolean replace(K key, V oldValue, V newValue)
+            {
+                // defensive forbid, it is not sure if this method is safe to call or not
+                throw new UnsupportedOperationException("replace(key, oldValue, newValue) does not invalidate ongoing loads, so a stale value may remain in the cache for ever. " +
+                        "Use EvictableCacheBuilder if you need invalidation");
+            }
+
+            @Override
+            public V replace(K key, V value)
+            {
+                // defensive forbid, it is not sure if this method is safe to call or not
+                throw new UnsupportedOperationException("replace(key, value) does not invalidate ongoing loads, so a stale value may remain in the cache for ever. " +
+                        "Use EvictableCacheBuilder if you need invalidation");
+            }
+        };
     }
 }

@@ -41,16 +41,17 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.metastore.util.Memoizers.memoizeLast;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 
 public final class GlueToTrinoConverter
 {
@@ -62,7 +63,10 @@ public final class GlueToTrinoConverter
     {
         return Database.builder()
                 .setDatabaseName(glueDb.getName())
-                .setLocation(Optional.ofNullable(glueDb.getLocationUri()))
+                // Currently it's not possible to create a Glue database with empty location string ""
+                // (validation error detected: Value '' at 'database.locationUri' failed to satisfy constraint: Member must have length greater than or equal to 1)
+                // However, it has been observed that Glue databases with empty location do exist in the wild.
+                .setLocation(Optional.ofNullable(emptyToNull(glueDb.getLocationUri())))
                 .setComment(Optional.ofNullable(glueDb.getDescription()))
                 .setParameters(firstNonNull(glueDb.getParameters(), ImmutableMap.of()))
                 .setOwnerName(Optional.of(PUBLIC_OWNER))

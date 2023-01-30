@@ -259,15 +259,41 @@ re-enable it by setting:
 
   http-server.authentication.allow-insecure-over-http=true
 
-Test configuration
-^^^^^^^^^^^^^^^^^^
+.. _verify_tls:
 
-To test your configuration settings, restart the server and try to connect to it
-with the Trino :doc:`CLI </client/cli>` or :doc:`Web UI
-</admin/web-interface>`, using a URL that begins with ``https://``.
+Verify configuration
+^^^^^^^^^^^^^^^^^^^^
 
-Now that TLS is configured, go back and :doc:`configure the authentication
-</security>` method for your server.
+To verify TLS/HTTPS configuration, log in to the :doc:`Web UI
+</admin/web-interface>`, and send a query with the Trino :doc:`CLI
+</client/cli>`.
+
+* Connect to the Web UI from your browser using a URL that uses HTTPS, such as
+  ``https://trino.example.com:8443``. Enter any username into the ``Username``
+  text box, and log in to the UI. The ``Password`` box is disabled while
+  :doc:`authentication <authentication-types>` is not configured.
+
+* Connect with the Trino CLI using a URL that uses HTTPS, such as
+  ``https://trino.example.com:8443``:
+
+.. code-block:: text
+
+    ./trino --server https://trino.example.com:8443
+
+Send a query to test the connection:
+
+.. code-block:: text
+
+  trino> SELECT 'rocks' AS trino;
+
+  trino
+  -------
+  rocks
+  (1 row)
+
+  Query 20220919_113804_00017_54qfi, FINISHED, 1 node
+  Splits: 1 total, 1 done (100.00%)
+  0.12 [0 rows, 0B] [0 rows/s, 0B/s]
 
 .. _self_signed_limits:
 

@@ -13,7 +13,7 @@
  */
 package io.trino.testing.sql;
 
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 
 public class TestView
@@ -25,7 +25,7 @@ public class TestView
     public TestView(SqlExecutor sqlExecutor, String namePrefix, String viewBody)
     {
         this.sqlExecutor = sqlExecutor;
-        this.name = namePrefix + "_" + randomTableSuffix();
+        this.name = namePrefix + "_" + randomNameSuffix();
         sqlExecutor.execute(format("CREATE VIEW %s AS %s", name, viewBody));
     }
 

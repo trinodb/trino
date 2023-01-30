@@ -151,10 +151,10 @@ public class TestingConnectorSession
     public static class Builder
     {
         private ConnectorIdentity identity = ConnectorIdentity.ofUser("user");
-        private final Optional<String> source = Optional.of("test");
+        private Optional<String> source = Optional.of("test");
         private TimeZoneKey timeZoneKey = UTC_KEY;
         private final Locale locale = ENGLISH;
-        private final Optional<String> traceToken = Optional.empty();
+        private Optional<String> traceToken = Optional.empty();
         private Optional<Instant> start = Optional.empty();
         private List<PropertyMetadata<?>> propertyMetadatas = ImmutableList.of();
         private Map<String, Object> propertyValues = ImmutableMap.of();
@@ -174,6 +174,18 @@ public class TestingConnectorSession
         public Builder setStart(Instant start)
         {
             this.start = Optional.of(start);
+            return this;
+        }
+
+        public Builder setSource(String source)
+        {
+            this.source = Optional.of(source);
+            return this;
+        }
+
+        public Builder setTraceToken(String token)
+        {
+            this.traceToken = Optional.of(token);
             return this;
         }
 
@@ -199,7 +211,7 @@ public class TestingConnectorSession
                     traceToken,
                     timeZoneKey,
                     locale,
-                    start.orElse(Instant.now()),
+                    start.orElseGet(Instant::now),
                     propertyMetadatas,
                     propertyValues);
         }

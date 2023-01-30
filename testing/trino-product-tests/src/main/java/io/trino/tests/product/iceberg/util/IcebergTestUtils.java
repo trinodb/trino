@@ -13,10 +13,8 @@
  */
 package io.trino.tests.product.iceberg.util;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.net.URI;
 
-import static com.google.common.base.Verify.verify;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 
 public final class IcebergTestUtils
@@ -25,13 +23,11 @@ public final class IcebergTestUtils
 
     public static String getTableLocation(String tableName)
     {
-        Pattern locationPattern = Pattern.compile(".*location = 'hdfs://hadoop-master:9000(.*?)'.*", Pattern.DOTALL);
-        Matcher m = locationPattern.matcher((String) onTrino().executeQuery("SHOW CREATE TABLE " + tableName).getOnlyValue());
-        if (m.find()) {
-            String location = m.group(1);
-            verify(!m.find(), "Unexpected second match");
-            return location;
-        }
-        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
+        return (String) onTrino().executeQuery("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*/[^/]*$', '') FROM " + tableName).getOnlyValue();
+    }
+
+    public static String stripNamenodeURI(String location)
+    {
+        return URI.create(location).getPath();
     }
 }

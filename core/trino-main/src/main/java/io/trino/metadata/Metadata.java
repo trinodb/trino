@@ -16,11 +16,11 @@ package io.trino.metadata;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
@@ -127,7 +127,7 @@ public interface Metadata
      * required by semantic analyzer to analyze the query.
      *
      * @throws RuntimeException if table handle is no longer valid
-     * @see {@link #getTableMetadata(Session, TableHandle)}
+     * @see #getTableMetadata(Session, TableHandle)
      */
     TableSchema getTableSchema(Session session, TableHandle tableHandle);
 
@@ -135,7 +135,7 @@ public interface Metadata
      * Return the metadata for the specified table handle.
      *
      * @throws RuntimeException if table handle is no longer valid
-     * @see {@link #getTableSchema(Session, TableHandle)} which is less expensive.
+     * @see #getTableSchema(Session, TableHandle) a different method which is less expensive.
      */
     TableMetadata getTableMetadata(Session session, TableHandle tableHandle);
 
@@ -202,7 +202,7 @@ public interface Metadata
     /**
      * Rename the specified table.
      */
-    void renameTable(Session session, TableHandle tableHandle, QualifiedObjectName newTableName);
+    void renameTable(Session session, TableHandle tableHandle, CatalogSchemaTableName currentTableName, QualifiedObjectName newTableName);
 
     /**
      * Set properties to the specified table.
@@ -220,6 +220,11 @@ public interface Metadata
     void setViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment);
 
     /**
+     * Comments to the specified view column.
+     */
+    void setViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment);
+
+    /**
      * Comments to the specified column.
      */
     void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment);
@@ -233,6 +238,11 @@ public interface Metadata
      * Add the specified column to the table.
      */
     void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column);
+
+    /**
+     * Set the specified type to the column.
+     */
+    void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type);
 
     /**
      * Set the authorization (owner) of specified table's user/role
@@ -249,7 +259,7 @@ public interface Metadata
      *
      * @throws RuntimeException if the table cannot be dropped or table handle is no longer valid
      */
-    void dropTable(Session session, TableHandle tableHandle);
+    void dropTable(Session session, TableHandle tableHandle, CatalogSchemaTableName tableName);
 
     /**
      * Truncates the specified table
@@ -338,16 +348,6 @@ public interface Metadata
             List<TableHandle> sourceTableHandles);
 
     /**
-     * Get the row ID column handle used with UpdatablePageSource#deleteRows.
-     */
-    ColumnHandle getDeleteRowIdColumnHandle(Session session, TableHandle tableHandle);
-
-    /**
-     * Get the row ID column handle used with UpdatablePageSource#updateRows.
-     */
-    ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
-
-    /**
      * Push delete into connector
      */
     Optional<TableHandle> applyDelete(Session session, TableHandle tableHandle);
@@ -356,26 +356,6 @@ public interface Metadata
      * Execute delete in connector
      */
     OptionalLong executeDelete(Session session, TableHandle tableHandle);
-
-    /**
-     * Begin delete query
-     */
-    TableHandle beginDelete(Session session, TableHandle tableHandle);
-
-    /**
-     * Finish delete query
-     */
-    void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments);
-
-    /**
-     * Begin update query
-     */
-    TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
-
-    /**
-     * Finish update query
-     */
-    void finishUpdate(Session session, TableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Return the row update paradigm supported by the connector on the table or throw

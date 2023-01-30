@@ -542,7 +542,7 @@ public class PredicatePushDown
             }
 
             Optional<Expression> newJoinFilter = Optional.of(combineConjuncts(metadata, joinFilter));
-            if (newJoinFilter.get() == TRUE_LITERAL) {
+            if (newJoinFilter.get().equals(TRUE_LITERAL)) {
                 newJoinFilter = Optional.empty();
             }
 

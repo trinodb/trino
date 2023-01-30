@@ -14,41 +14,68 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Get milestone from pom.xml
         run: |
           .github/bin/retry ./mvnw -v
           echo "MILESTONE_NUMBER=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout | cut -d- -f1)" >> $GITHUB_ENV
       - name: Set milestone to PR
-        uses: actions/github-script@v4
+        uses: actions/github-script@v6
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
             // Get pull request number from commit sha
             // 'listPullRequestsAssociatedWithCommit()' lists the merged pull request
             // https://docs.github.com/en/rest/reference/repos#list-pull-requests-associated-with-a-commit
-            const pr_response = await github.repos.listPullRequestsAssociatedWithCommit({ owner: context.repo.owner, repo:context.repo.repo, commit_sha: context.sha })
+            // and https://octokit.github.io/rest.js/v19#repos-list-pull-requests-associated-with-commit
+            const pr_response = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: context.sha
+            })
             if (pr_response.data.length === 0) {
-              console.log('Pull request not found')
-              return
+                console.log('Pull request not found for commit', context.sha)
+                return
             }
             if (pr_response.data.length > 1) {
-              console.log(pr_response.data)
-              throw 'Expect 1 pull request but found: ' + pr_response.data.length
+                console.log(pr_response.data)
+                throw 'Expected 1 pull request but found: ' + pr_response.data.length
             }
+            const pr_number = pr_response.data[0].number
+            console.log('Found pull request', pr_number, 'for commit', context.sha)
 
             // Get milestone
-            const { MILESTONE_NUMBER } = process.env
+            const {
+                MILESTONE_NUMBER
+            } = process.env
+            console.log('Milestone number to set', MILESTONE_NUMBER)
 
-            // Find milestone
-            const response = await github.issues.listMilestones(context.repo)
-            let milestone = response.data.find(milestoneResponse => milestoneResponse.title === MILESTONE_NUMBER)
+            // Find milestone with matching title
+            // See https://octokit.github.io/rest.js/v19#pagination
+            const milestones = await github.paginate(github.rest.issues.listMilestones, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'all'
+            })
+            let milestone = milestones.find(milestone => milestone.title === MILESTONE_NUMBER)
+            console.log('Found milestone with title', MILESTONE_NUMBER, milestone)
 
             // Create new milestone if it doesn't exist
             if (!milestone) {
-              const create_response = await github.issues.createMilestone({ owner: context.repo.owner, repo:context.repo.repo, title: MILESTONE_NUMBER })
-              milestone = create_response.data
+                const create_response = await github.rest.issues.createMilestone({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    title: MILESTONE_NUMBER
+                })
+                milestone = create_response.data
+                console.log('Created new milestone with title', MILESTONE_NUMBER, milestone)
             }
 
             // Set milestone to PR
-            await github.issues.update({ owner: context.repo.owner, repo: context.repo.repo, milestone: milestone.number, issue_number: pr_response.data[0].number })
+            await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                milestone: milestone.number,
+                issue_number: pr_number
+            })
+            console.log('Added PR', pr_number, 'to milestone', MILESTONE_NUMBER)

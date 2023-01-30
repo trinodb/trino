@@ -78,12 +78,12 @@ public class JdbcRecordCursor
         objectReadFunctions = new ObjectReadFunction[columnHandles.size()];
 
         try {
-            connection = jdbcClient.getConnection(session, split);
+            connection = jdbcClient.getConnection(session, split, table);
 
             for (int i = 0; i < this.columnHandles.length; i++) {
                 JdbcColumnHandle columnHandle = columnHandles.get(i);
                 ColumnMapping columnMapping = jdbcClient.toColumnMapping(session, connection, columnHandle.getJdbcTypeHandle())
-                        .orElseThrow(() -> new VerifyException("Unsupported column type"));
+                        .orElseThrow(() -> new VerifyException("Column %s has unsupported type %s".formatted(columnHandle.getColumnName(), columnHandle.getJdbcTypeHandle())));
                 verify(
                         columnHandle.getColumnType().equals(columnMapping.getType()),
                         "Type mismatch: column handle has type %s but %s is mapped to %s",

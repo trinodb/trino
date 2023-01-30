@@ -47,7 +47,7 @@ public class TrinoOperatorFactories
             Optional<List<Integer>> probeOutputChannelsOptional,
             BlockTypeOperators blockTypeOperators)
     {
-        List<Integer> probeOutputChannels = probeOutputChannelsOptional.orElse(rangeList(probeTypes.size()));
+        List<Integer> probeOutputChannels = probeOutputChannelsOptional.orElseGet(() -> rangeList(probeTypes.size()));
         List<Type> probeOutputChannelTypes = probeOutputChannels.stream()
                 .map(probeTypes::get)
                 .collect(toImmutableList());
@@ -81,7 +81,7 @@ public class TrinoOperatorFactories
             PartitioningSpillerFactory partitioningSpillerFactory,
             BlockTypeOperators blockTypeOperators)
     {
-        List<Integer> probeOutputChannels = probeOutputChannelsOptional.orElse(rangeList(probeTypes.size()));
+        List<Integer> probeOutputChannels = probeOutputChannelsOptional.orElseGet(() -> rangeList(probeTypes.size()));
         List<Type> probeOutputChannelTypes = probeOutputChannels.stream()
                 .map(probeTypes::get)
                 .collect(toImmutableList());

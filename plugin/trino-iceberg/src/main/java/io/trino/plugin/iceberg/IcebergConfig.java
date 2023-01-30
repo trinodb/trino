@@ -36,13 +36,16 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-@DefunctConfig("iceberg.allow-legacy-snapshot-syntax")
+@DefunctConfig({
+        "iceberg.allow-legacy-snapshot-syntax",
+        "iceberg.experimental.extended-statistics.enabled",
+})
 public class IcebergConfig
 {
     public static final int FORMAT_VERSION_SUPPORT_MIN = 1;
     public static final int FORMAT_VERSION_SUPPORT_MAX = 2;
-    public static final String EXTENDED_STATISTICS_CONFIG = "iceberg.experimental.extended-statistics.enabled";
-    public static final String EXTENDED_STATISTICS_DESCRIPTION = "Allow ANALYZE and use of extended statistics collected by it. Currently, the statistics are collected in Trino-specific format";
+    public static final String EXTENDED_STATISTICS_CONFIG = "iceberg.extended-statistics.enabled";
+    public static final String EXTENDED_STATISTICS_DESCRIPTION = "Enable collection (ANALYZE) and use of extended statistics.";
     public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "iceberg.expire_snapshots.min-retention";
     public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "iceberg.remove_orphan_files.min-retention";
 
@@ -54,8 +57,9 @@ public class IcebergConfig
     private CatalogType catalogType = HIVE_METASTORE;
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
     private boolean tableStatisticsEnabled = true;
-    private boolean extendedStatisticsEnabled;
+    private boolean extendedStatisticsEnabled = true;
     private boolean projectionPushdownEnabled = true;
+    private boolean registerTableProcedureEnabled;
     private Optional<String> hiveCatalogName = Optional.empty();
     private int formatVersion = FORMAT_VERSION_SUPPORT_MAX;
     private Duration expireSnapshotsMinRetention = new Duration(7, DAYS);
@@ -209,6 +213,19 @@ public class IcebergConfig
     public IcebergConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
     {
         this.projectionPushdownEnabled = projectionPushdownEnabled;
+        return this;
+    }
+
+    public boolean isRegisterTableProcedureEnabled()
+    {
+        return registerTableProcedureEnabled;
+    }
+
+    @Config("iceberg.register-table-procedure.enabled")
+    @ConfigDescription("Allow users to call the register_table procedure")
+    public IcebergConfig setRegisterTableProcedureEnabled(boolean registerTableProcedureEnabled)
+    {
+        this.registerTableProcedureEnabled = registerTableProcedureEnabled;
         return this;
     }
 

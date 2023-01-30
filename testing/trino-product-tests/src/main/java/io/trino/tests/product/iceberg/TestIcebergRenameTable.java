@@ -18,10 +18,10 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -31,8 +31,8 @@ public class TestIcebergRenameTable
     @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
     public void testRenameTable()
     {
-        String tableName = "iceberg.default.test_rename_table_" + randomTableSuffix();
-        String newName = "iceberg.default.test_rename_table_new_" + randomTableSuffix();
+        String tableName = "iceberg.default.test_rename_table_" + randomNameSuffix();
+        String newName = "iceberg.default.test_rename_table_new_" + randomNameSuffix();
         onTrino().executeQuery("CREATE TABLE " + tableName + "(a bigint, b varchar)");
         try {
             onTrino().executeQuery("INSERT INTO " + tableName + "(a, b) VALUES " +

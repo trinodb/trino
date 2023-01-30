@@ -30,7 +30,6 @@ import io.trino.plugin.accumulo.model.AccumuloColumnConstraint;
 import io.trino.spi.TrinoException;
 import org.apache.accumulo.core.client.BatchScanner;
 import org.apache.accumulo.core.client.Connector;
-import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.PartialKey;
 import org.apache.accumulo.core.data.Range;
@@ -122,8 +121,6 @@ public class ColumnCardinalityCache
      * @param earlyReturnThreshold Smallest acceptable cardinality to return early while other tasks complete
      * @param pollingDuration Duration for polling the cardinality completion service
      * @return An immutable multimap of cardinality to column constraint, sorted by cardinality from smallest to largest
-     * @throws TableNotFoundException If the metrics table does not exist
-     * @throws ExecutionException If another error occurs; I really don't even know anymore.
      */
     public Multimap<Long, AccumuloColumnConstraint> getCardinalities(String schema, String table, Authorizations auths, Multimap<AccumuloColumnConstraint, Range> idxConstraintRangePairs, long earlyReturnThreshold, Duration pollingDuration)
     {

@@ -41,7 +41,8 @@ public class TestKafkaConfig
                 .setHideInternalColumns(true)
                 .setMessagesPerSplit(100_000)
                 .setTimestampUpperBoundPushDownEnabled(false)
-                .setResourceConfigFiles(List.of()));
+                .setResourceConfigFiles(List.of())
+                .setInternalFieldPrefix("_"));
     }
 
     @Test
@@ -60,6 +61,7 @@ public class TestKafkaConfig
                 .put("kafka.messages-per-split", "1")
                 .put("kafka.timestamp-upper-bound-force-push-down-enabled", "true")
                 .put("kafka.config.resources", resource1.toString() + "," + resource2.toString())
+                .put("kafka.internal-column-prefix", "the_most_unexpected_prefix_")
                 .buildOrThrow();
 
         KafkaConfig expected = new KafkaConfig()
@@ -70,7 +72,8 @@ public class TestKafkaConfig
                 .setHideInternalColumns(false)
                 .setMessagesPerSplit(1)
                 .setTimestampUpperBoundPushDownEnabled(true)
-                .setResourceConfigFiles(ImmutableList.of(resource1.toString(), resource2.toString()));
+                .setResourceConfigFiles(ImmutableList.of(resource1.toString(), resource2.toString()))
+                .setInternalFieldPrefix("the_most_unexpected_prefix_");
 
         assertFullMapping(properties, expected);
     }

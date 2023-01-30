@@ -13,6 +13,7 @@
  */
 package io.trino.type;
 
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
@@ -22,6 +23,7 @@ import io.trino.spi.type.TypeParameter;
 import java.util.List;
 
 import static io.trino.spi.type.CharType.createCharType;
+import static java.lang.Math.toIntExact;
 
 public class CharParametricType
         implements ParametricType
@@ -50,6 +52,11 @@ public class CharParametricType
             throw new IllegalArgumentException("CHAR length must be a number");
         }
 
-        return createCharType(parameter.getLongLiteral());
+        long length = parameter.getLongLiteral();
+        if (length < 0 || length > CharType.MAX_LENGTH) {
+            throw new IllegalArgumentException("Invalid CHAR length " + length);
+        }
+
+        return createCharType(toIntExact(length));
     }
 }

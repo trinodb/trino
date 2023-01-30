@@ -92,6 +92,7 @@ public class TestingPinotCluster
     {
         httpClient = closer.register(new JettyHttpClient());
         zookeeper = new GenericContainer<>(parse("zookeeper:3.5.6"))
+                .withStartupAttempts(3)
                 .withNetwork(network)
                 .withNetworkAliases(ZOOKEEPER_INTERNAL_HOST)
                 .withEnv("ZOOKEEPER_CLIENT_PORT", String.valueOf(ZOOKEEPER_PORT))
@@ -100,6 +101,7 @@ public class TestingPinotCluster
 
         String controllerConfig = secured ? "/var/pinot/controller/config/pinot-controller-secured.conf" : "/var/pinot/controller/config/pinot-controller.conf";
         controller = new GenericContainer<>(parse(pinotImageName))
+                .withStartupAttempts(3)
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-controller", "/var/pinot/controller/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-controller-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
@@ -110,6 +112,7 @@ public class TestingPinotCluster
 
         String brokerConfig = secured ? "/var/pinot/broker/config/pinot-broker-secured.conf" : "/var/pinot/broker/config/pinot-broker.conf";
         broker = new GenericContainer<>(parse(pinotImageName))
+                .withStartupAttempts(3)
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-broker", "/var/pinot/broker/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-broker-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
@@ -119,6 +122,7 @@ public class TestingPinotCluster
         closer.register(broker::stop);
 
         server = new GenericContainer<>(parse(pinotImageName))
+                .withStartupAttempts(3)
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-server", "/var/pinot/server/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-server-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
@@ -247,12 +251,8 @@ public class TestingPinotCluster
             String fileName = segmentPath.toFile().getName();
             checkArgument(fileName.endsWith(Constants.TAR_GZ_FILE_EXT));
             String segmentName = fileName.substring(0, fileName.length() - Constants.TAR_GZ_FILE_EXT.length());
-            List<NameValuePair> parameters = ImmutableList.<NameValuePair>builder()
-                    .add(new BasicNameValuePair(FileUploadDownloadClient.QueryParameters.TABLE_NAME, rawTableName))
-                    .build();
-            List<Header> headers = ImmutableList.<Header>builder()
-                    .add(new BasicHeader(HttpHeaders.AUTHORIZATION, secured ? controllerAuthToken() : ""))
-                    .build();
+            List<NameValuePair> parameters = ImmutableList.of(new BasicNameValuePair(FileUploadDownloadClient.QueryParameters.TABLE_NAME, rawTableName));
+            List<Header> headers = ImmutableList.of(new BasicHeader(HttpHeaders.AUTHORIZATION, secured ? controllerAuthToken() : ""));
             RetryPolicies.exponentialBackoffRetryPolicy(3, 1000, 5).attempt(() -> {
                 try (InputStream inputStream = Files.newInputStream(segmentPath)) {
                     SimpleHttpResponse response = FILE_UPLOAD_DOWNLOAD_CLIENT.uploadSegment(

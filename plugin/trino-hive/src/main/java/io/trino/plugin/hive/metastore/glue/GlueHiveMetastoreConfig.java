@@ -18,10 +18,13 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 
+import javax.annotation.PostConstruct;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 
 import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkState;
 
 @DefunctConfig("hive.metastore.glue.use-instance-credentials")
 public class GlueHiveMetastoreConfig
@@ -30,6 +33,7 @@ public class GlueHiveMetastoreConfig
     private Optional<String> glueEndpointUrl = Optional.empty();
     private Optional<String> glueStsRegion = Optional.empty();
     private Optional<String> glueStsEndpointUrl = Optional.empty();
+    private Optional<String> glueProxyApiId = Optional.empty();
     private boolean pinGlueClientToCurrentRegion;
     private int maxGlueErrorRetries = 10;
     private int maxGlueConnections = 30;
@@ -43,7 +47,7 @@ public class GlueHiveMetastoreConfig
     private int partitionSegments = 5;
     private int getPartitionThreads = 20;
     private int readStatisticsThreads = 5;
-    private int writeStatisticsThreads = 5;
+    private int writeStatisticsThreads = 20;
     private boolean assumeCanonicalPartitionKeys;
 
     public Optional<String> getGlueRegion()
@@ -95,6 +99,19 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setGlueStsEndpointUrl(String glueStsEndpointUrl)
     {
         this.glueStsEndpointUrl = Optional.ofNullable(glueStsEndpointUrl);
+        return this;
+    }
+
+    public Optional<String> getGlueProxyApiId()
+    {
+        return glueProxyApiId;
+    }
+
+    @Config("hive.metastore.glue.proxy-api-id")
+    @ConfigDescription("ID of Glue Proxy API")
+    public GlueHiveMetastoreConfig setGlueProxyApiId(String glueProxyApiId)
+    {
+        this.glueProxyApiId = Optional.ofNullable(glueProxyApiId);
         return this;
     }
 
@@ -299,5 +316,14 @@ public class GlueHiveMetastoreConfig
     {
         this.writeStatisticsThreads = writeStatisticsThreads;
         return this;
+    }
+
+    @PostConstruct
+    public void validate()
+    {
+        if (getGlueProxyApiId().isPresent()) {
+            checkState(getGlueRegion().isPresent() && getGlueEndpointUrl().isPresent(),
+                    "Both Glue region and Glue endpoint URL must be provided when Glue proxy API ID is present");
+        }
     }
 }

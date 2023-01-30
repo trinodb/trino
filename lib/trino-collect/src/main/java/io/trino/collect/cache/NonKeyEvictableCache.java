@@ -18,6 +18,7 @@ import com.google.common.cache.Cache;
 /**
  * A {@link com.google.common.cache.Cache} that does not support key-based eviction.
  */
+@ElementTypesAreNonnullByDefault
 public interface NonKeyEvictableCache<K, V>
         extends Cache<K, V>
 {

@@ -19,6 +19,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
@@ -57,7 +58,7 @@ public class TestSwapAdjacentWindowsBySpecifications
     public void doesNotFireOnPlanWithSingleWindowNode()
     {
         tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
-                .on(p -> p.window(new WindowNode.Specification(
+                .on(p -> p.window(new DataOrganizationSpecification(
                                 ImmutableList.of(p.symbol("a")),
                                 Optional.empty()),
                         ImmutableMap.of(p.symbol("avg_1"),
@@ -72,17 +73,17 @@ public class TestSwapAdjacentWindowsBySpecifications
         String columnAAlias = "ALIAS_A";
         String columnBAlias = "ALIAS_B";
 
-        ExpectedValueProvider<WindowNode.Specification> specificationA = specification(ImmutableList.of(columnAAlias), ImmutableList.of(), ImmutableMap.of());
-        ExpectedValueProvider<WindowNode.Specification> specificationAB = specification(ImmutableList.of(columnAAlias, columnBAlias), ImmutableList.of(), ImmutableMap.of());
+        ExpectedValueProvider<DataOrganizationSpecification> specificationA = specification(ImmutableList.of(columnAAlias), ImmutableList.of(), ImmutableMap.of());
+        ExpectedValueProvider<DataOrganizationSpecification> specificationAB = specification(ImmutableList.of(columnAAlias, columnBAlias), ImmutableList.of(), ImmutableMap.of());
 
         tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p ->
-                        p.window(new WindowNode.Specification(
+                        p.window(new DataOrganizationSpecification(
                                         ImmutableList.of(p.symbol("a")),
                                         Optional.empty()),
                                 ImmutableMap.of(p.symbol("avg_1", DOUBLE),
                                         new WindowNode.Function(resolvedFunction, ImmutableList.of(new SymbolReference("a")), DEFAULT_FRAME, false)),
-                                p.window(new WindowNode.Specification(
+                                p.window(new DataOrganizationSpecification(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                                 Optional.empty()),
                                         ImmutableMap.of(p.symbol("avg_2", DOUBLE),
@@ -103,12 +104,12 @@ public class TestSwapAdjacentWindowsBySpecifications
     {
         tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p ->
-                        p.window(new WindowNode.Specification(
+                        p.window(new DataOrganizationSpecification(
                                         ImmutableList.of(p.symbol("a")),
                                         Optional.empty()),
                                 ImmutableMap.of(p.symbol("avg_1"),
                                         new WindowNode.Function(resolvedFunction, ImmutableList.of(new SymbolReference("avg_2")), DEFAULT_FRAME, false)),
-                                p.window(new WindowNode.Specification(
+                                p.window(new DataOrganizationSpecification(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                                 Optional.empty()),
                                         ImmutableMap.of(p.symbol("avg_2"),

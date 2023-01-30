@@ -37,8 +37,10 @@ import org.apache.iceberg.io.FileIO;
 
 import javax.annotation.Nullable;
 
+import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
@@ -46,12 +48,9 @@ import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_LOCATION_PROP;
-import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 
 public class GlueIcebergTableOperations
         extends AbstractIcebergTableOperations
@@ -83,15 +82,16 @@ public class GlueIcebergTableOperations
         Table table = getTable();
         glueVersionId = table.getVersionId();
 
-        if (isPrestoView(table.getParameters()) && isHiveOrPrestoView(table.getTableType())) {
+        Map<String, String> parameters = firstNonNull(table.getParameters(), ImmutableMap.of());
+        if (isPrestoView(parameters) && isHiveOrPrestoView(table.getTableType())) {
             // this is a Presto Hive view, hence not a table
             throw new TableNotFoundException(getSchemaTableName());
         }
-        if (!isIcebergTable(table.getParameters())) {
+        if (!isIcebergTable(parameters)) {
             throw new UnknownTableTypeException(getSchemaTableName());
         }
 
-        String metadataLocation = table.getParameters().get(METADATA_LOCATION_PROP);
+        String metadataLocation = parameters.get(METADATA_LOCATION_PROP);
         if (metadataLocation == null) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, format("Table is missing [%s] property: %s", METADATA_LOCATION_PROP, getSchemaTableName()));
         }
@@ -101,12 +101,9 @@ public class GlueIcebergTableOperations
     @Override
     protected void commitNewTable(TableMetadata metadata)
     {
-        verify(version == -1, "commitNewTable called on a table which already exists");
+        verify(version.isEmpty(), "commitNewTable called on a table which already exists");
         String newMetadataLocation = writeNewMetadata(metadata, 0);
-        TableInput tableInput = getTableInput(tableName, owner, ImmutableMap.<String, String>builder()
-                        .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
-                        .put(METADATA_LOCATION_PROP, newMetadataLocation)
-                        .buildOrThrow());
+        TableInput tableInput = getTableInput(tableName, owner, ImmutableMap.of(METADATA_LOCATION_PROP, newMetadataLocation));
 
         CreateTableRequest createTableRequest = new CreateTableRequest()
                 .withDatabaseName(database)
@@ -118,12 +115,13 @@ public class GlueIcebergTableOperations
     @Override
     protected void commitToExistingTable(TableMetadata base, TableMetadata metadata)
     {
-        String newMetadataLocation = writeNewMetadata(metadata, version + 1);
-        TableInput tableInput = getTableInput(tableName, owner, ImmutableMap.<String, String>builder()
-                .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
-                .put(METADATA_LOCATION_PROP, newMetadataLocation)
-                .put(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
-                .buildOrThrow());
+        String newMetadataLocation = writeNewMetadata(metadata, version.orElseThrow() + 1);
+        TableInput tableInput = getTableInput(
+                tableName,
+                owner,
+                ImmutableMap.of(
+                        METADATA_LOCATION_PROP, newMetadataLocation,
+                        PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation));
 
         UpdateTableRequest updateTableRequest = new UpdateTableRequest()
                 .withDatabaseName(database)

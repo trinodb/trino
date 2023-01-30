@@ -51,9 +51,9 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
     public void testMemoryPoolHasNoReservation()
     {
         int memoryPool = 12;
-        Map<String, Map<String, Long>> queries = ImmutableMap.<String, Map<String, Long>>builder()
-                .put("q_1", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L))
-                .buildOrThrow();
+        Map<String, Map<String, Long>> queries = ImmutableMap.of(
+                "q_1",
+                ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L));
 
         assertEquals(
                 lowMemoryKiller.chooseTargetToKill(
@@ -231,7 +231,9 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         0,
                         0,
                         OutputBufferStatus.initial(),
+                        DataSize.of(0, DataSize.Unit.MEGABYTE),
                         DataSize.of(1, DataSize.Unit.MEGABYTE),
+                        Optional.of(1),
                         DataSize.of(1, DataSize.Unit.MEGABYTE),
                         DataSize.of(1, DataSize.Unit.MEGABYTE),
                         DataSize.of(0, DataSize.Unit.MEGABYTE),
@@ -293,6 +295,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         0,
                         new Duration(0, MILLISECONDS),
                         DataSize.ofBytes(0),
+                        Optional.empty(),
                         0,
                         new Duration(0, MILLISECONDS),
                         ImmutableList.of()),

@@ -56,7 +56,7 @@ public class ParameterRewriter
     @Override
     public Expression rewriteParameter(Parameter node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
     {
-        checkState(parameters.size() > node.getPosition(), "Too few parameter values");
+        checkState(parameters.size() > node.getId(), "Too few parameter values");
         return coerceIfNecessary(node, parameters.get(NodeRef.of(node)));
     }
 

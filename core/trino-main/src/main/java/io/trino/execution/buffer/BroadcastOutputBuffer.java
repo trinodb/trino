@@ -49,7 +49,7 @@ import static io.trino.execution.buffer.BufferState.FAILED;
 import static io.trino.execution.buffer.BufferState.FINISHED;
 import static io.trino.execution.buffer.BufferState.FLUSHING;
 import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
-import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
+import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.BROADCAST;
 import static io.trino.execution.buffer.SerializedPageReference.dereferencePages;
 import static java.util.Objects.requireNonNull;
@@ -370,7 +370,8 @@ public class BroadcastOutputBuffer
         // without a clean "no-more-buffers" message from the scheduler.  This happens with limit queries and is ok because
         // the buffer will be immediately destroyed.
         BufferState state = stateMachine.getState();
-        checkState(state.canAddBuffers() || !outputBuffers.isNoMoreBufferIds(), "No more buffers already set");
+        // buffer may become aborted while the final output buffers are being set
+        checkState(state == ABORTED || state.canAddBuffers() || !outputBuffers.isNoMoreBufferIds(), "No more buffers already set");
 
         // NOTE: buffers are allowed to be created before they are explicitly declared by setOutputBuffers
         // When no-more-buffers is set, we verify that all created buffers have been declared

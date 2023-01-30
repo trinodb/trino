@@ -150,7 +150,7 @@ with some modifications.
 
 Enable the following inspections:
 
-- ``Java | Internationalization | Implicit usage of platform's default charset``,
+- ``Java | Internationalization | Implicit platform default charset``,
 - ``Java | Control flow issues | Redundant 'else'`` (including ``Report when there are no more statements after the 'if' statement`` option),
 - ``Java | Class structure | Utility class is not 'final'``,
 - ``Java | Class structure | Utility class with 'public' constructor``,
@@ -190,7 +190,7 @@ In order to enable language injection inside Intellij IDEA, some code elements c
 
 Even if the IDE does not support language injection this annotation is useful for documenting the API's intent. Considering the above, we recommend annotating with `@Language`:
 
-- All API parameters which are expecting to take a `String` containing an SQL statement (or any other language, like regular expressions),
+- All API parameters which are expecting to take a `String` containing a statement written in SQL (or any other language, like regular expressions),
 - Local variables which otherwise would not be properly recognized by IDE for language injection.
 
 ## Building the Web UI

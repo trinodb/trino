@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.QueryId;
 import io.trino.spi.security.BasicPrincipal;
@@ -309,10 +310,10 @@ public final class SessionRepresentation
 
     public Session toSession(SessionPropertyManager sessionPropertyManager)
     {
-        return toSession(sessionPropertyManager, emptyMap());
+        return toSession(sessionPropertyManager, emptyMap(), Optional.empty());
     }
 
-    public Session toSession(SessionPropertyManager sessionPropertyManager, Map<String, String> extraCredentials)
+    public Session toSession(SessionPropertyManager sessionPropertyManager, Map<String, String> extraCredentials, Optional<Slice> exchangeEncryptionKey)
     {
         return new Session(
                 new QueryId(queryId),
@@ -337,6 +338,7 @@ public final class SessionRepresentation
                 catalogProperties,
                 sessionPropertyManager,
                 preparedStatements,
-                createProtocolHeaders(protocolName));
+                createProtocolHeaders(protocolName),
+                exchangeEncryptionKey);
     }
 }

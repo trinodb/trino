@@ -34,7 +34,6 @@ public class TrinoHadoopCatalogFactory
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final IcebergTableOperationsProvider tableOperationsProvider;
-    private final String trinoVersion;
     private final boolean isUniqueTableLocation;
 
     @Inject
@@ -50,7 +49,6 @@ public class TrinoHadoopCatalogFactory
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationProvider is null");
-        this.trinoVersion = requireNonNull(nodeVersion, "trinoVersion is null").toString();
         requireNonNull(config, "config is null");
         this.config = config;
         this.isUniqueTableLocation = config.isUniqueTableLocation();
@@ -64,7 +62,6 @@ public class TrinoHadoopCatalogFactory
                 hdfsEnvironment,
                 typeManager,
                 tableOperationsProvider,
-                trinoVersion,
                 isUniqueTableLocation,
                 config);
     }

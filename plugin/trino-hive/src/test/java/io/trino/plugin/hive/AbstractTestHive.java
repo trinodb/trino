@@ -24,6 +24,7 @@ import io.airlift.slice.Slice;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
@@ -50,6 +51,7 @@ import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
@@ -262,7 +264,6 @@ import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
-import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.cachingHiveMetastore;
 import static io.trino.plugin.hive.orc.OrcPageSource.ORC_CODEC_METRIC_PREFIX;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
@@ -300,6 +301,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.floatToRawIntBits;
@@ -785,19 +787,20 @@ public abstract class AbstractTestHive
                 .setRcfileTimeZone("UTC");
 
         hdfsEnvironment = HDFS_ENVIRONMENT;
-        HiveMetastore metastore = cachingHiveMetastore(
-                new BridgingHiveMetastore(testingThriftHiveMetastoreBuilder()
+        HiveMetastore metastore = CachingHiveMetastore.builder()
+                .delegate(new BridgingHiveMetastore(testingThriftHiveMetastoreBuilder()
                         .metastoreClient(metastoreAddress)
                         .hiveConfig(hiveConfig)
                         .thriftMetastoreConfig(new ThriftMetastoreConfig()
                                 .setAssumeCanonicalPartitionKeys(true))
                         .hdfsEnvironment(hdfsEnvironment)
-                        .build()),
-                executor,
-                new Duration(1, MINUTES),
-                Optional.of(new Duration(15, SECONDS)),
-                10000,
-                new CachingHiveMetastoreConfig().isPartitionCacheEnabled());
+                        .build()))
+                .executor(executor)
+                .cacheTtl(new Duration(1, MINUTES))
+                .refreshInterval(new Duration(15, SECONDS))
+                .maximumSize(10000)
+                .partitionCacheEnabled(new CachingHiveMetastoreConfig().isPartitionCacheEnabled())
+                .build();
 
         setup(databaseName, hiveConfig, metastore, hdfsEnvironment);
     }
@@ -894,6 +897,7 @@ public abstract class AbstractTestHive
                 hiveConfig.getMaxPartitionsPerScan());
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(hiveConfig, hdfsEnvironment),
+                new HdfsFileSystemFactory(hdfsEnvironment),
                 hdfsEnvironment,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastoreClient),
@@ -912,8 +916,7 @@ public abstract class AbstractTestHive
                 hiveConfig,
                 getDefaultHivePageSourceFactories(hdfsEnvironment, hiveConfig),
                 getDefaultHiveRecordCursorProviders(hiveConfig, hdfsEnvironment),
-                new GenericHiveRecordCursorProvider(hdfsEnvironment, hiveConfig),
-                Optional.empty());
+                new GenericHiveRecordCursorProvider(hdfsEnvironment, hiveConfig));
         nodePartitioningProvider = new HiveNodePartitioningProvider(
                 new TestingNodeManager("fake-environment"),
                 TESTING_TYPE_MANAGER);
@@ -1245,7 +1248,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle tableHandle = getTableHandle(metadata, schemaTableName);
 
             ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, TESTING_PAGE_SINK_ID);
             sink.appendPage(dataBefore.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
 
@@ -1310,7 +1313,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle tableHandle = getTableHandle(metadata, schemaTableName);
 
             ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, TESTING_PAGE_SINK_ID);
             sink.appendPage(dataAfter.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
 
@@ -1796,9 +1799,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
 
             // read entire table
-            List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>builder()
-                    .addAll(metadata.getColumnHandles(session, tableHandle).values())
-                    .build();
+            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
 
             List<ConnectorSplit> splits = getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
             assertEquals(splits.size(), 16);
@@ -1880,9 +1881,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
 
             // read entire table
-            List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>builder()
-                    .addAll(metadata.getColumnHandles(session, tableHandle).values())
-                    .build();
+            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
             MaterializedResult result = readTable(
                     transaction,
                     tableHandle,
@@ -1905,11 +1904,9 @@ public abstract class AbstractTestHive
             assertBucketTableEvolutionResult(result, columnHandles, ImmutableSet.of(6), rowCount);
 
             // read single bucket, without selecting the bucketing column (i.e. id column)
-            columnHandles = ImmutableList.<ColumnHandle>builder()
-                    .addAll(metadata.getColumnHandles(session, tableHandle).values().stream()
-                            .filter(columnHandle -> !"id".equals(((HiveColumnHandle) columnHandle).getName()))
-                            .collect(toImmutableList()))
-                    .build();
+            columnHandles = metadata.getColumnHandles(session, tableHandle).values().stream()
+                    .filter(columnHandle -> !"id".equals(((HiveColumnHandle) columnHandle).getName()))
+                    .collect(toImmutableList());
             result = readTable(
                     transaction,
                     tableHandle,
@@ -2018,8 +2015,7 @@ public abstract class AbstractTestHive
             tableHandle = getTableHandle(metadata, tableName);
 
             // read entire table
-            List<ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle).values().stream()
-                    .collect(toImmutableList());
+            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
             MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.empty());
             assertEquals(result.getRowCount(), 300);
         }
@@ -2587,7 +2583,7 @@ public abstract class AbstractTestHive
                 ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty(), NO_RETRIES);
 
                 // write the data
-                ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle);
+                ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle, TESTING_PAGE_SINK_ID);
                 sink.appendPage(CREATE_TABLE_DATA.toPage());
                 getFutureValue(sink.finish());
 
@@ -2629,8 +2625,7 @@ public abstract class AbstractTestHive
         try {
             try (Transaction transaction = newTransaction()) {
                 LocationService locationService = getLocationService();
-                LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty());
-                targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
+                targetPath = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath, "q1");
                 transaction.getMetastore()
                         .createTable(session, table, privileges, Optional.empty(), Optional.empty(), false, EMPTY_TABLE_STATISTICS, false);
@@ -2745,7 +2740,7 @@ public abstract class AbstractTestHive
             ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty(), NO_RETRIES);
 
             // write the data
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle);
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle, TESTING_PAGE_SINK_ID);
             List<Type> types = tableMetadata.getColumns().stream()
                     .map(ColumnMetadata::getType)
                     .collect(toList());
@@ -2966,6 +2961,57 @@ public abstract class AbstractTestHive
             SchemaTableName temporaryCreateEmptyTable = temporaryTable("create_empty");
             try {
                 doCreateEmptyTable(temporaryCreateEmptyTable, storageFormat, CREATE_TABLE_COLUMNS);
+            }
+            finally {
+                dropTable(temporaryCreateEmptyTable);
+            }
+        }
+    }
+
+    @Test
+    public void testCreateEmptyTableShouldNotCreateStagingDirectory()
+            throws IOException
+    {
+        for (HiveStorageFormat storageFormat : createTableFormats) {
+            SchemaTableName temporaryCreateEmptyTable = temporaryTable("create_empty");
+            try {
+                List<Column> columns = ImmutableList.of(new Column("test", HIVE_STRING, Optional.empty()));
+                try (Transaction transaction = newTransaction()) {
+                    final String temporaryStagingPrefix = "hive-temporary-staging-prefix-" + UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
+                    ConnectorSession session = newSession(ImmutableMap.of("hive.temporary_staging_directory_path", temporaryStagingPrefix));
+                    String tableOwner = session.getUser();
+                    String schemaName = temporaryCreateEmptyTable.getSchemaName();
+                    String tableName = temporaryCreateEmptyTable.getTableName();
+                    LocationService locationService = getLocationService();
+                    Path targetPath = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
+                    Table.Builder tableBuilder = Table.builder()
+                            .setDatabaseName(schemaName)
+                            .setTableName(tableName)
+                            .setOwner(Optional.of(tableOwner))
+                            .setTableType(MANAGED_TABLE.name())
+                            .setParameters(ImmutableMap.of(
+                                    PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
+                                    PRESTO_QUERY_ID_NAME, session.getQueryId()))
+                            .setDataColumns(columns);
+                    tableBuilder.getStorageBuilder()
+                            .setLocation(targetPath.toString())
+                            .setStorageFormat(StorageFormat.create(storageFormat.getSerde(), storageFormat.getInputFormat(), storageFormat.getOutputFormat()));
+                    transaction.getMetastore().createTable(
+                            session,
+                            tableBuilder.build(),
+                            testingPrincipalPrivilege(tableOwner, session.getUser()),
+                            Optional.empty(),
+                            Optional.empty(),
+                            true,
+                            EMPTY_TABLE_STATISTICS,
+                            false);
+                    transaction.commit();
+
+                    HdfsContext context = new HdfsContext(session);
+                    Path temporaryRoot = new Path(targetPath, temporaryStagingPrefix);
+                    FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, temporaryRoot);
+                    assertFalse(fileSystem.exists(temporaryRoot), format("Temporary staging directory %s is created.", temporaryRoot));
+                }
             }
             finally {
                 dropTable(temporaryCreateEmptyTable);
@@ -3324,8 +3370,7 @@ public abstract class AbstractTestHive
             String tableOwner = session.getUser();
             String schemaName = schemaTableName.getSchemaName();
             String tableName = schemaTableName.getTableName();
-            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty());
-            Path targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
+            Path targetPath = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
             //create table whose storage format is null
             Table.Builder tableBuilder = Table.builder()
                     .setDatabaseName(schemaName)
@@ -3849,9 +3894,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
 
             // read entire table
-            List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>builder()
-                    .addAll(metadata.getColumnHandles(session, tableHandle).values())
-                    .build();
+            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
 
             List<ConnectorSplit> splits = getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
             for (ConnectorSplit split : splits) {
@@ -3924,7 +3967,7 @@ public abstract class AbstractTestHive
                 viewData,
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId())),
+                ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId(), Optional.empty())),
                 Optional.empty(),
                 Optional.empty(),
                 true);
@@ -3964,7 +4007,7 @@ public abstract class AbstractTestHive
             ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty(), NO_RETRIES);
 
             // write the data
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle);
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle, TESTING_PAGE_SINK_ID);
             sink.appendPage(CREATE_TABLE_DATA.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
 
@@ -4134,7 +4177,7 @@ public abstract class AbstractTestHive
 
             // "stage" insert data
             ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, TESTING_PAGE_SINK_ID);
             sink.appendPage(CREATE_TABLE_DATA.toPage());
             sink.appendPage(CREATE_TABLE_DATA.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
@@ -4255,7 +4298,7 @@ public abstract class AbstractTestHive
 
             // "stage" insert data
             ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, TESTING_PAGE_SINK_ID);
             for (int i = 0; i < 4; i++) {
                 sink.appendPage(overwriteData.toPage());
             }
@@ -4461,7 +4504,7 @@ public abstract class AbstractTestHive
             // "stage" insert data
             ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
             stagingPathRoot = getStagingPathRoot(insertTableHandle);
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, TESTING_PAGE_SINK_ID);
             sink.appendPage(CREATE_TABLE_PARTITIONED_DATA_2ND.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
             metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
@@ -4577,7 +4620,7 @@ public abstract class AbstractTestHive
             // "stage" insert data
             ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
             stagingPathRoot = getStagingPathRoot(insertTableHandle);
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, TESTING_PAGE_SINK_ID);
             sink.appendPage(CREATE_TABLE_PARTITIONED_DATA.toPage());
             sink.appendPage(CREATE_TABLE_PARTITIONED_DATA.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
@@ -4724,7 +4767,7 @@ public abstract class AbstractTestHive
             writePath = getStagingPathRoot(insertTableHandle);
             targetPath = getTargetPathRoot(insertTableHandle);
 
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, TESTING_PAGE_SINK_ID);
 
             // write data
             sink.appendPage(data.toPage());
@@ -5418,8 +5461,7 @@ public abstract class AbstractTestHive
             String tableName = schemaTableName.getTableName();
 
             LocationService locationService = getLocationService();
-            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty());
-            targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
+            targetPath = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
 
             ImmutableMap.Builder<String, String> tableParamBuilder = ImmutableMap.<String, String>builder()
                     .put(PRESTO_VERSION_NAME, TEST_SERVER_VERSION)
@@ -5899,7 +5941,7 @@ public abstract class AbstractTestHive
                 rollbackIfEquals(tag, ROLLBACK_AFTER_BEGIN_INSERT);
                 writePath = getStagingPathRoot(insertTableHandle);
                 targetPath = getTargetPathRoot(insertTableHandle);
-                ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
+                ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, TESTING_PAGE_SINK_ID);
                 sink.appendPage(insertData.toPage());
                 rollbackIfEquals(tag, ROLLBACK_AFTER_APPEND_PAGE);
                 Collection<Slice> fragments = getFutureValue(sink.finish());

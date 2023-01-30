@@ -14,22 +14,32 @@
 package io.trino.tests.product.deltalake.util;
 
 import io.trino.tempto.query.QueryResult;
+import org.intellij.lang.annotations.Language;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import java.util.Optional;
+
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public final class DeltaLakeTestUtils
 {
-    public static final String DATABRICKS_104_RUNTIME_VERSION = "10.4";
-    public static final String DATABRICKS_91_RUNTIME_VERSION = "9.1";
+    public static final String DATABRICKS_COMMUNICATION_FAILURE_ISSUE = "https://github.com/trinodb/trino/issues/14391";
+    @Language("RegExp")
+    public static final String DATABRICKS_COMMUNICATION_FAILURE_MATCH =
+            "\\Q[Databricks][DatabricksJDBCDriver](500593) Communication link failure. Failed to connect to server. Reason: HTTP retry after response received with no Retry-After header, error: HTTP Response code: 503, Error message: Unknown.";
 
     private DeltaLakeTestUtils() {}
 
-    public static String getDatabricksRuntimeVersion()
+    public static Optional<DatabricksVersion> getDatabricksRuntimeVersion()
     {
-        return firstNonNull((String) onDelta().executeQuery("SELECT java_method('java.lang.System', 'getenv', 'DATABRICKS_RUNTIME_VERSION')").getOnlyValue(), "unknown");
+        String version = (String) onDelta().executeQuery("SELECT java_method('java.lang.System', 'getenv', 'DATABRICKS_RUNTIME_VERSION')").getOnlyValue();
+        // OSS Spark returns null
+        if (version.equals("null")) {
+            return Optional.empty();
+        }
+        return Optional.of(DatabricksVersion.parse(version));
     }
 
     public static String getColumnCommentOnTrino(String schemaName, String tableName, String columnName)
@@ -51,6 +61,6 @@ public final class DeltaLakeTestUtils
         return (String) result.rows().stream()
                 .filter(row -> row.get(0).equals("Comment"))
                 .map(row -> row.get(1))
-                .findFirst().orElseThrow();
+                .collect(onlyElement());
     }
 }

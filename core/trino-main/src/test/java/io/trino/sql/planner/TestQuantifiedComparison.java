@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -22,7 +21,6 @@ import io.trino.sql.planner.plan.ValuesNode;
 import org.testng.annotations.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -40,11 +38,10 @@ public class TestQuantifiedComparison
     {
         String query = "SELECT orderkey, custkey FROM orders WHERE orderkey = ANY (VALUES ROW(CAST(5 as BIGINT)), ROW(CAST(3 as BIGINT)))";
         assertPlan(query, anyTree(
-                join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("Y", "X")),
-                        anyTree(values(ImmutableMap.of("Y", 0))),
-                        anyTree(tableScan("orders", ImmutableMap.of("X", "orderkey"))))));
+                join(INNER, builder -> builder
+                        .equiCriteria("Y", "X")
+                        .left(anyTree(values(ImmutableMap.of("Y", 0))))
+                        .right(anyTree(tableScan("orders", ImmutableMap.of("X", "orderkey")))))));
     }
 
     @Test

@@ -28,6 +28,7 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.QualifiedName;
@@ -207,7 +208,7 @@ public class TestPruneWindowColumns
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),
                 p.window(
-                        new WindowNode.Specification(
+                        new DataOrganizationSpecification(
                                 ImmutableList.of(partitionKey),
                                 Optional.of(new OrderingScheme(
                                         ImmutableList.of(orderKey),

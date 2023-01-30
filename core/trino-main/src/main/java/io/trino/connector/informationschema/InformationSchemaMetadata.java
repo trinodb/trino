@@ -305,6 +305,13 @@ public class InformationSchemaMetadata
                     })
                     .filter(objectName -> predicate.isEmpty() || predicate.get().test(asFixedValues(objectName)))
                     .map(QualifiedObjectName::asQualifiedTablePrefix)
+                    // In method #getPrefixes, if the prefix set returned by this method has size larger than MAX_PREFIXES_COUNT,
+                    // we will overwrite it with #defaultPrefixes. Limiting the stream at MAX_PREFIXES_COUNT + 1 elements helps
+                    // skip unnecessary computation because we know the resulting set will be discarded when more than MAX_PREFIXES_COUNT
+                    // elements are present. Since there may be duplicate prefixes, a distinct operator is applied to the stream,
+                    // otherwise the stream may be truncated incorrectly.
+                    .distinct()
+                    .limit(MAX_PREFIXES_COUNT + 1)
                     .collect(toImmutableSet());
         }
 
@@ -318,6 +325,10 @@ public class InformationSchemaMetadata
                         metadata.listViews(session, prefix).stream()))
                 .filter(objectName -> predicate.get().test(asFixedValues(objectName)))
                 .map(QualifiedObjectName::asQualifiedTablePrefix)
+                // Same as the prefixes computed above; we use the distinct operator and limit the stream to MAX_PREFIXES_COUNT + 1
+                // elements to skip unnecessary computation.
+                .distinct()
+                .limit(MAX_PREFIXES_COUNT + 1)
                 .collect(toImmutableSet());
     }
 

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.client.NodeVersion;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryStats;
 import io.trino.operator.BlockedReason;
@@ -156,7 +157,9 @@ public class TestBasicQueryInfo
                         false,
                         Optional.empty(),
                         Optional.of(QueryType.SELECT),
-                        RetryPolicy.NONE));
+                        RetryPolicy.NONE,
+                        false,
+                        new NodeVersion("test")));
 
         assertEquals(basicInfo.getQueryId().getId(), "0");
         assertEquals(basicInfo.getState(), RUNNING);

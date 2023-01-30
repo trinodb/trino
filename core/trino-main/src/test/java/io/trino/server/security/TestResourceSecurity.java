@@ -195,9 +195,7 @@ public class TestResourceSecurity
             throws Exception
     {
         try (TestingTrinoServer server = TestingTrinoServer.builder()
-                .setProperties(ImmutableMap.<String, String>builder()
-                        .put("http-server.authentication.insecure.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
-                        .buildOrThrow())
+                .setProperties(ImmutableMap.of("http-server.authentication.insecure.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN))
                 .build()) {
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
@@ -296,7 +294,8 @@ public class TestResourceSecurity
                     .headers(Headers.of("Authorization", Credentials.basic(TEST_USER_LOGIN, "wrong_password")))
                     .build();
             try (Response response = client.newCall(request).execute()) {
-                assertThat(response.message()).isEqualTo("Access Denied: Invalid credentials | Access Denied: Invalid credentials2");
+                assertThat(requireNonNull(response.body()).string())
+                        .isEqualTo("Access Denied: Invalid credentials | Access Denied: Invalid credentials2");
             }
         }
     }

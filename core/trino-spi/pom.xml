@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>400</version>
+        <version>406</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -90,6 +90,18 @@
         </dependency>
 
         <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-core</artifactId>
             <scope>test</scope>
@@ -128,6 +140,23 @@
         </resources>
 
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <dependencies>
+                    <!-- allow both JUnit and TestNG -->
+                    <dependency>
+                        <groupId>org.apache.maven.surefire</groupId>
+                        <artifactId>surefire-junit-platform</artifactId>
+                        <version>${dep.plugin.surefire.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.apache.maven.surefire</groupId>
+                        <artifactId>surefire-testng</artifactId>
+                        <version>${dep.plugin.surefire.version}</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
             <plugin>
                 <groupId>org.revapi</groupId>
                 <artifactId>revapi-maven-plugin</artifactId>
@@ -170,6 +199,15 @@
                                 <item>
                                     <code>java.field.enumConstantOrderChanged</code>
                                 </item>
+                                <!-- Allow arbitrary changes to unstable APIs -->
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>
+                                        <matcher>java</matcher>
+                                        <match>@io.trino.spi.Unstable *;</match>
+                                    </old>
+                                </item>
                                 <!-- Allow removing things that were previously deprecated -->
                                 <item>
                                     <regex>true</regex>
@@ -182,14 +220,60 @@
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;java.util.Optional&lt;io.trino.spi.metrics.Distribution&lt;?&gt;&gt;&gt;, java.util.List&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;)</old>
-                                    <new>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;)</new>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.connector.MaterializedViewFreshness::isMaterializedViewFresh()</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method java.lang.invoke.MethodHandle io.trino.spi.predicate.Range::getComparisonOperator(io.trino.spi.type.Type)</old>
+                                    <new>method java.lang.invoke.MethodHandle io.trino.spi.predicate.Range::getComparisonOperator(io.trino.spi.type.Type)</new>
+                                    <oldVisibility>protected</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                    <justification>It was not accessible outside of SPI anyway</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.eventlistener.ColumnInfo::&lt;init&gt;(java.lang.String, ===java.util.List&lt;java.lang.String&gt;===)</old>
+                                    <new>parameter void io.trino.spi.eventlistener.ColumnInfo::&lt;init&gt;(java.lang.String, ===java.util.Optional&lt;java.lang.String&gt;===)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                    <justification>Removing support for multiple masks on a given column, as they are error prone</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
                                     <code>java.method.removed</code>
-                                    <old>method java.util.List&lt;java.util.Optional&lt;io.trino.spi.metrics.Distribution&lt;?&gt;&gt;&gt; io.trino.spi.eventlistener.QueryStatistics::getStageOutputBufferUtilizationDistribution()</old>
+                                    <old>method java.util.List&lt;java.lang.String&gt; io.trino.spi.eventlistener.ColumnInfo::getMasks()</old>
+                                    <justification>Removing support for multiple masks on a given column, as they are error prone</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.connector.ConnectorTableHandle io.trino.spi.connector.ConnectorMetadata::beginDelete(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.RetryMode)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.connector.ConnectorTableHandle io.trino.spi.connector.ConnectorMetadata::beginUpdate(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.List&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.connector.RetryMode)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.connector.ConnectorMetadata::finishDelete(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.connector.ConnectorMetadata::finishUpdate(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.connector.ColumnHandle io.trino.spi.connector.ConnectorMetadata::getDeleteRowIdColumnHandle(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.connector.ColumnHandle io.trino.spi.connector.ConnectorMetadata::getUpdateRowIdColumnHandle(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.List&lt;io.trino.spi.connector.ColumnHandle&gt;)</old>
+                                </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>interface io.trino.spi.connector.UpdatablePageSource</old>
                                 </item>
                             </differences>
                         </revapi.differences>

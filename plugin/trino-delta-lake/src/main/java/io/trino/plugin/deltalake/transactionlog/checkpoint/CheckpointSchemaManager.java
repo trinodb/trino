@@ -156,16 +156,14 @@ public class CheckpointSchemaManager
 
     private static RowType.Field buildNullCountType(Optional<String> columnName, Type columnType)
     {
-        if (columnType instanceof RowType) {
-            RowType rowType = (RowType) columnType;
-            if (columnName.isPresent()) {
-                return RowType.field(
-                        columnName.get(),
-                        RowType.from(rowType.getFields().stream().map(field -> buildNullCountType(field.getName(), field.getType())).collect(toImmutableList())));
-            }
-            return RowType.field(RowType.from(rowType.getFields().stream().map(field -> buildNullCountType(field.getName(), field.getType())).collect(toImmutableList())));
+        if (columnType instanceof RowType rowType) {
+            RowType rowTypeFromFields = RowType.from(
+                    rowType.getFields().stream()
+                            .map(field -> buildNullCountType(field.getName(), field.getType()))
+                            .collect(toImmutableList()));
+            return new RowType.Field(columnName, rowTypeFromFields);
         }
-        return columnName.map(name -> RowType.field(name, BigintType.BIGINT)).orElse(RowType.field(BigintType.BIGINT));
+        return new RowType.Field(columnName, BigintType.BIGINT);
     }
 
     public RowType getRemoveEntryType()

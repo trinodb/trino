@@ -33,7 +33,6 @@ import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.metrics.Metrics;
-import io.trino.spi.session.PropertyMetadata;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -84,7 +83,7 @@ public class TestMockConnector
                                                 "SELECT nationkey FROM mock.default.test_table",
                                                 Optional.of("mock"),
                                                 Optional.of("default"),
-                                                ImmutableList.of(new ViewColumn("nationkey", BIGINT.getTypeId())),
+                                                ImmutableList.of(new ViewColumn("nationkey", BIGINT.getTypeId(), Optional.empty())),
                                                 Optional.empty(),
                                                 Optional.of("alice"),
                                                 false)))
@@ -115,12 +114,10 @@ public class TestMockConnector
                                 .withProcedures(ImmutableSet.of(new TestProcedure().get()))
                                 .withTableProcedures(ImmutableSet.of(new TableProcedureMetadata("TESTING_TABLE_PROCEDURE", coordinatorOnly(), ImmutableList.of())))
                                 .withTableFunctions(ImmutableSet.of(new SimpleTableFunction()))
-                                .withSchemaProperties(() -> ImmutableList.<PropertyMetadata<?>>builder()
-                                        .add(booleanProperty("boolean_schema_property", "description", false, false))
-                                        .build())
-                                .withTableProperties(() -> ImmutableList.<PropertyMetadata<?>>builder()
-                                        .add(integerProperty("integer_table_property", "description", 0, false))
-                                        .build())
+                                .withSchemaProperties(() -> ImmutableList.of(
+                                        booleanProperty("boolean_schema_property", "description", false, false)))
+                                .withTableProperties(() -> ImmutableList.of(
+                                        integerProperty("integer_table_property", "description", 0, false)))
                                 .build()));
         queryRunner.createCatalog("mock", "mock");
         return queryRunner;

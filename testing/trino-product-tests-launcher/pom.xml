@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>400</version>
+        <version>406</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -21,6 +21,14 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-plugin-reader</artifactId>
+            <exclusions>
+                <exclusion>
+                    <!-- trino-main pulls a lot of dependencies pumping jar size, and we only need categories definitions defined in PluginReader class.
+                         Also, we want product-test-launcher to treat Trino as "blackbox" as possible, and having trino-main on classpath is not in line with that.-->
+                    <groupId>io.trino</groupId>
+                    <artifactId>trino-main</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -175,6 +183,31 @@
                                     </manifestEntries>
                                 </transformer>
                             </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <configuration>
+                            <skip>false</skip>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>io.confluent</groupId>
+                                    <artifactId>kafka-protobuf-provider</artifactId>
+                                    <type>jar</type>
+                                    <outputDirectory>${project.build.directory}</outputDirectory>
+                                </artifactItem>
+                            </artifactItems>
                         </configuration>
                     </execution>
                 </executions>

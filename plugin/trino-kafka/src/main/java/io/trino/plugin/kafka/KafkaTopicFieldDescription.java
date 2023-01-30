@@ -101,7 +101,7 @@ public final class KafkaTopicFieldDescription
         return hidden;
     }
 
-    KafkaColumnHandle getColumnHandle(boolean keyCodec, int index)
+    KafkaColumnHandle getColumnHandle(boolean keyCodec)
     {
         return new KafkaColumnHandle(
                 getName(),

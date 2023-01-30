@@ -27,22 +27,19 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
-import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
-import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
-import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
@@ -52,6 +49,9 @@ import static io.trino.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isRcfileOptimizedWriterValidate;
 import static io.trino.plugin.hive.rcfile.RcFilePageSourceFactory.createTextVectorEncoding;
+import static io.trino.plugin.hive.util.HiveClassNames.COLUMNAR_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.LAZY_BINARY_COLUMNAR_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.RCFILE_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static java.util.Objects.requireNonNull;
@@ -104,15 +104,15 @@ public class RcFileFileWriterFactory
             boolean useAcidSchema,
             WriterKind writerKind)
     {
-        if (!RCFileOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
+        if (!RCFILE_OUTPUT_FORMAT_CLASS.equals(storageFormat.getOutputFormat())) {
             return Optional.empty();
         }
 
         RcFileEncoding rcFileEncoding;
-        if (LazyBinaryColumnarSerDe.class.getName().equals(storageFormat.getSerde())) {
+        if (LAZY_BINARY_COLUMNAR_SERDE_CLASS.equals(storageFormat.getSerde())) {
             rcFileEncoding = new BinaryRcFileEncoding(timeZone);
         }
-        else if (ColumnarSerDe.class.getName().equals(storageFormat.getSerde())) {
+        else if (COLUMNAR_SERDE_CLASS.equals(storageFormat.getSerde())) {
             rcFileEncoding = createTextVectorEncoding(schema);
         }
         else {
@@ -152,10 +152,7 @@ public class RcFileFileWriterFactory
                 });
             }
 
-            Callable<Void> rollbackAction = () -> {
-                fileSystem.delete(path, false);
-                return null;
-            };
+            Closeable rollbackAction = () -> fileSystem.delete(path, false);
 
             return Optional.of(new RcFileFileWriter(
                     outputStream,

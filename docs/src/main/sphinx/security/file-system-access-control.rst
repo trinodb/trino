@@ -25,10 +25,17 @@ cluster in a single JSON file.
 Configuration
 -------------
 
+.. warning::
+
+    Access to all functions including :doc:`table functions </functions/table>` is allowed by default.
+    To mitigate unwanted access, you must add a ``function``
+    :ref:`rule <system-file-function-rules>` to deny the ``TABLE`` function type.
+
 To use the access control plugin, add an ``etc/access-control.properties`` file
 containing two required properties: ``access-control.name``, which must be set
 to ``file``, and ``security.config-file``, which must be set to the location
-of the config file. For example, if a config file named ``rules.json`` resides
+of the config file. The configuration file location can either point to the local
+disc or to a http endpoint. For example, if a config file named ``rules.json`` resides
 in ``etc``, add an ``etc/access-control.properties`` with the following
 contents:
 
@@ -37,9 +44,23 @@ contents:
    access-control.name=file
    security.config-file=etc/rules.json
 
+If the config should be loaded via the http endpoint ``http://trino-test/config`` and
+is wrapped into a JSON object and available via the ``data`` key ``etc/access-control.properties``
+should look like this:
+
+.. code-block:: text
+
+   access-control.name=file
+   security.config-file=http://trino-test/config
+   security.json-pointer=/data
+
 The config file is specified in JSON format. It contains rules that define which
 users have access to which resources. The rules are read from top to bottom and
-the first matching rule is applied. If no rule matches, access is denied.
+the first matching rule is applied. If no rule matches, access is denied. A JSON
+pointer (RFC 6901) can be specified using the ``security.json-pointer`` property
+to specify a nested object inside the JSON content containing the rules. Per default,
+the file is assumed to contain a single object defining the rules rendering
+the specification of ``security.json-pointer`` unnecessary in that case.
 
 Refresh
 --------
@@ -106,6 +127,28 @@ DELETE FROM                          all                delete
 UPDATE                               all                update
 ==================================== ========== ======= ==================== ===================================================
 
+Permissions required for executing functions:
+
+.. list-table::
+   :widths: 30, 10, 15, 15, 30
+   :header-rows: 1
+
+   * - SQL command
+     - Catalog
+     - Function permission
+     - Function kind
+     - Note
+   * - ``SELECT function()``
+     -
+     - ``execute``, ``grant_execute*``
+     - ``aggregate``, ``scalar``, ``window``
+     - ``grant_execute`` is required when function is executed with view owner privileges.
+   * - ``SELECT FROM TABLE(table_function())``
+     - ``all``
+     - ``execute``, ``grant_execute*``
+     - ``table``
+     - ``grant_execute`` is required when :doc:`table function </functions/table>` is executed with view owner privileges.
+
 .. _system-file-auth-visibility:
 
 Visibility
@@ -117,10 +160,10 @@ items do not need to already exist as any potential permission makes the item
 visible. Specifically:
 
 * ``catalog``: Visible if user is the owner of any nested schema, has
-  permissions on any nested table, or has permissions to set session properties
-  in the catalog.
+  permissions on any nested table or :doc:`table function </functions/table>`, or has permissions to
+  set session properties in the catalog.
 * ``schema``: Visible if the user is the owner of the schema, or has permissions
-  on any nested table.
+  on any nested table or :doc:`table function </functions/table>`.
 * ``table``: Visible if the user has any permissions on the table.
 
 Catalog rules
@@ -331,6 +374,124 @@ The example below defines the following table access policy:
       ]
     }
 
+.. _system-file-function-rules:
+
+Function rules
+^^^^^^^^^^^^^^
+
+These rules control the user's ability to execute SQL all function kinds,
+such as :doc:`aggregate functions </functions/aggregate>`, scalar functions,
+:doc:`table functions </functions/table>` and :doc:`window functions </functions/window>`.
+
+Each function rule is composed of the following fields:
+
+* ``user`` (optional): regular expression to match against user name.
+  Defaults to ``.*``.
+* ``role`` (optional): regular expression to match against role names.
+  Defaults to ``.*``.
+* ``group`` (optional): regular expression to match against group names.
+  Defaults to ``.*``.
+* ``catalog`` (optional): regular expression to match against catalog name.
+  Defaults to ``.*``.
+* ``schema`` (optional): regular expression to match against schema name.
+  Defaults to ``.*``.
+* ``function`` (optional): regular expression to match against function names.
+  Defaults to ``.*``.
+* ``privileges`` (required): zero or more of ``EXECUTE``, ``GRANT_EXECUTE``.
+* ``function_kinds`` (required): one or more of ``AGGREGATE``, ``SCALAR``,
+  ``TABLES``, ``WINDOW``. When a user defines a rule for ``AGGREGATE``, ``SCALAR``
+  or ``WINDOW`` functions, the ``catalog`` and ``schema`` fields are disallowed
+  because those functions are available globally without any catalogs involvement.
+
+To deny all :doc:`table functions </functions/table>` from any catalog,
+use the following rules:
+
+.. code-block:: json
+
+    {
+      "functions": [
+        {
+          "privileges": [
+            "EXECUTE",
+            "GRANT_EXECUTE"
+          ],
+          "function_kinds": [
+            "SCALAR",
+            "AGGREGATE",
+            "WINDOW"
+          ]
+        },
+        {
+          "privileges": [],
+          "function_kinds": [
+            "TABLE"
+          ]
+        }
+      ]
+    }
+
+It's a good practice to limit access to ``query`` table function because this
+table function works like a query passthrough and ignores  ``tables`` rules.
+The following example allows the ``admin`` user to execute ``query`` table
+function from any catalog:
+
+.. code-block:: json
+
+    {
+      "functions": [
+        {
+          "privileges": [
+            "EXECUTE",
+            "GRANT_EXECUTE"
+          ],
+          "function_kinds": [
+            "SCALAR",
+            "AGGREGATE",
+            "WINDOW"
+          ]
+        },
+        {
+          "user": "admin",
+          "function": "query",
+          "privileges": [
+            "EXECUTE"
+          ],
+          "function_kinds": [
+            "TABLE"
+          ]
+        }
+      ]
+    }
+
+.. _verify_rules:
+
+Verify configuration
+^^^^^^^^^^^^^^^^^^^^
+
+To verify the system-access control file is configured properly, set the
+rules to completely block access to all users of the system:
+
+.. code-block:: json
+
+    {
+      "catalogs": [
+        {
+          "catalog": "system",
+          "allow": "none"
+        }
+      ]
+    }
+
+Restart your cluster to activate the rules for your cluster. With the
+Trino :doc:`CLI </client/cli>` run a query to test authorization:
+
+.. code-block:: text
+
+  trino> SELECT * FROM system.runtime.nodes;
+  Query 20200824_183358_00000_c62aw failed: Access Denied: Cannot access catalog system
+
+Remove these rules and restart the Trino cluster.
+
 .. _system-file-auth-session-property:
 
 Session property rules
@@ -426,7 +587,9 @@ Each impersonation rule is composed of the following fields:
 * ``original_role`` (optional): regex to match against role names of the
   requesting impersonation. Defaults to ``.*``.
 * ``new_user`` (required): regex to match against the user that will be
-  impersonated.
+  impersonated. May contain references to subsequences captured during the match
+  against *original_user*, and each reference will be replaced by the result of
+  evaluating the corresponding group respectively.
 * ``allow`` (optional): boolean indicating if the authentication should be
   allowed. Defaults to ``true``.
 
@@ -435,7 +598,9 @@ The impersonation rules are a bit different than the other rules: The attribute
 Doing so it was possible to make the attribute ``allow`` optional.
 
 The following example allows the ``admin`` role, to impersonate any user, except
-for ``bob``. It also allows any user to impersonate the ``test`` user:
+for ``bob``. It also allows any user to impersonate the ``test`` user. It also
+allows a user in the form ``team_backend`` to impersonate the
+``team_backend_sandbox`` user, but not arbitrary users:
 
 .. literalinclude:: user-impersonation.json
     :language: json
@@ -575,7 +740,7 @@ Configure a catalog rules file
 ------------------------------
 
 The configuration file is specified in JSON format. This file is composed of
-the folowing sections, each of which is a list of rules that are processed in
+the following sections, each of which is a list of rules that are processed in
 order from top to bottom:
 
 1. ``schemas``
@@ -632,6 +797,24 @@ These rules apply to ``filter_environment`` and ``mask_environment``.
 .. note::
 
     ``mask`` can contain conditional expressions such as ``IF`` or ``CASE``, which achieves conditional masking.
+
+Function rules
+^^^^^^^^^^^^^^
+
+Each function rule is composed of the following fields:
+
+* ``user`` (optional): regular expression to match against user name.
+  Defaults to ``.*``.
+* ``group`` (optional): regular expression to match against group names.
+  Defaults to ``.*``.
+* ``schema`` (optional): regular expression to match against schema name.
+  Defaults to ``.*``.
+* ``function`` (optional): regular expression to match against function names.
+  Defaults to ``.*``.
+* ``privileges`` (required): zero or more of ``EXECUTE``, ``GRANT_EXECUTE``.
+* ``function_kinds`` (required): one or more of ``AGGREGATE``, ``SCALAR``,
+  ``TABLES``, ``WINDOW``. When a user defines a rule for ``AGGREGATE``, ``SCALAR``
+  or ``WINDOW`` functions, the ``catalog`` and ``schema`` fields are disallowed.
 
 Session property rules
 ^^^^^^^^^^^^^^^^^^^^^^

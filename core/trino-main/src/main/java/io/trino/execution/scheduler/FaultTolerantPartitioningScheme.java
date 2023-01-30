@@ -65,20 +65,33 @@ public class FaultTolerantPartitioningScheme
 
     public int getPartition(Split split)
     {
-        checkState(bucketToPartitionMap.isPresent(), "bucketToPartitionMap is expected to be present");
-        checkState(splitToBucketFunction.isPresent(), "splitToBucketFunction is expected to be present");
-        int bucket = splitToBucketFunction.get().applyAsInt(split);
-        checkState(
-                bucketToPartitionMap.get().length > bucket,
-                "invalid bucketToPartitionMap size (%s), bucket to partition mapping not found for bucket %s",
-                bucketToPartitionMap.get().length,
-                bucket);
-        return bucketToPartitionMap.get()[bucket];
+        if (splitToBucketFunction.isPresent()) {
+            checkState(bucketToPartitionMap.isPresent(), "bucketToPartitionMap is expected to be present");
+            int bucket = splitToBucketFunction.get().applyAsInt(split);
+            checkState(
+                    bucketToPartitionMap.get().length > bucket,
+                    "invalid bucketToPartitionMap size (%s), bucket to partition mapping not found for bucket %s",
+                    bucketToPartitionMap.get().length,
+                    bucket);
+            return bucketToPartitionMap.get()[bucket];
+        }
+        checkState(partitionCount == 1, "partitionCount is expected to be set to 1: %s", partitionCount);
+        return 0;
+    }
+
+    public boolean isExplicitPartitionToNodeMappingPresent()
+    {
+        return partitionToNodeMap.isPresent();
     }
 
     public Optional<InternalNode> getNodeRequirement(int partition)
     {
         checkArgument(partition < partitionCount, "partition is expected to be less than %s", partitionCount);
         return partitionToNodeMap.map(map -> map.get(partition));
+    }
+
+    public Optional<List<InternalNode>> getPartitionToNodeMap()
+    {
+        return partitionToNodeMap;
     }
 }

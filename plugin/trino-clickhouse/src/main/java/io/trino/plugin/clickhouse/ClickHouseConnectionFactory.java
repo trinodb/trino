@@ -43,7 +43,7 @@ public class ClickHouseConnectionFactory
             private final Connection delegate = ClickHouseConnectionFactory.this.delegate.openConnection(session);
 
             @Override
-            protected Connection getDelegate()
+            protected Connection delegate()
             {
                 return delegate;
             }

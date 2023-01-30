@@ -33,7 +33,7 @@ import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -66,7 +66,7 @@ public class TestDeltaLakeAnalyze
 
     private void testAnalyze(Optional<Integer> checkpointInterval)
     {
-        String tableName = "test_analyze_" + randomTableSuffix();
+        String tableName = "test_analyze_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName
                 + (checkpointInterval.isPresent() ? format(" WITH (checkpoint_interval = %s)", checkpointInterval.get()) : "")
                 + " AS SELECT * FROM tpch.sf1.nation", 25);
@@ -146,7 +146,7 @@ public class TestDeltaLakeAnalyze
     @Test
     public void testAnalyzePartitioned()
     {
-        String tableName = "test_analyze_" + randomTableSuffix();
+        String tableName = "test_analyze_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName
                 + " WITH ("
                 + "   partitioned_by = ARRAY['regionkey']"
@@ -215,7 +215,7 @@ public class TestDeltaLakeAnalyze
     @Test
     public void testAnalyzeEmpty()
     {
-        String tableName = "test_analyze_empty_" + randomTableSuffix();
+        String tableName = "test_analyze_empty_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation WHERE false", 0);
 
         assertQuery(
@@ -256,7 +256,7 @@ public class TestDeltaLakeAnalyze
     @Test
     public void testAnalyzeExtendedStatisticsDisabled()
     {
-        String tableName = "test_analyze_extended_stats_disabled" + randomTableSuffix();
+        String tableName = "test_analyze_extended_stats_disabled" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
 
@@ -274,7 +274,7 @@ public class TestDeltaLakeAnalyze
     public void testAnalyzeWithFilesModifiedAfter()
             throws InterruptedException
     {
-        String tableName = "test_analyze_" + randomTableSuffix();
+        String tableName = "test_analyze_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
 
@@ -305,7 +305,7 @@ public class TestDeltaLakeAnalyze
     @Test
     public void testAnalyzeSomeColumns()
     {
-        String tableName = "test_analyze_some_columns" + randomTableSuffix();
+        String tableName = "test_analyze_some_columns" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
 
@@ -455,6 +455,27 @@ public class TestDeltaLakeAnalyze
                     format("CALL %s.system.drop_extended_stats('%s', '%s')", DELTA_CATALOG, TPCH_SCHEMA, table.getName()),
                     "Cannot insert into table .*",
                     privilege(table.getName(), INSERT_TABLE));
+        }
+    }
+
+    /**
+     * Verify Delta has good stats for TPC-DS data sets. Note that TPC-DS date_dim contains
+     * dates as old as 1900-01-02, which may be problematic.
+     */
+    @Test
+    public void testStatsOnTpcDsData()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_old_date_stats",
+                "AS SELECT d_date FROM tpcds.tiny.date_dim")) {
+            runAnalyzeVerifySplitCount(table.getName(), 1);
+            // Accurate column stats on d_date are important for producing efficient query plans, e.g. on q72
+            assertQuery(
+                    "SHOW STATS FOR " + table.getName(),
+                    "VALUES"
+                            + "('d_date', null, 72713.0, 0.0,  null,    '1900-01-02', '2100-01-01'),"
+                            + "(null,     null, null,    null, 73049.0, null,         null)");
         }
     }
 

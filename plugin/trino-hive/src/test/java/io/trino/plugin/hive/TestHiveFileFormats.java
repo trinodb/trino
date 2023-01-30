@@ -83,6 +83,7 @@ import static io.trino.plugin.hive.HiveStorageFormat.RCTEXT;
 import static io.trino.plugin.hive.HiveStorageFormat.SEQUENCEFILE;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.createGenericHiveRecordCursorProvider;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
@@ -302,7 +303,7 @@ public class TestHiveFileFormats
                 .withColumns(TEST_COLUMNS)
                 .withRowsCount(rowCount)
                 .withFileSizePadding(fileSizePadding)
-                .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, STATS, UTC));
+                .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, STATS, UTC));
     }
 
     @Test(dataProvider = "validRowAndFileSizePadding")
@@ -330,9 +331,9 @@ public class TestHiveFileFormats
                 .withRowsCount(rowCount)
                 .withSession(session)
                 .withFileSizePadding(fileSizePadding)
-                .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, TESTING_TYPE_MANAGER, new NodeVersion("test"), STATS, new OrcWriterOptions()))
+                .withFileWriterFactory(new OrcFileWriterFactory(TESTING_TYPE_MANAGER, new NodeVersion("test"), STATS, new OrcWriterOptions(), HDFS_FILE_SYSTEM_FACTORY))
                 .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
-                .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, STATS, UTC));
+                .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, STATS, UTC));
     }
 
     @Test(dataProvider = "rowCount")
@@ -351,7 +352,7 @@ public class TestHiveFileFormats
                 .withRowsCount(rowCount)
                 .withReadColumns(Lists.reverse(testColumns))
                 .withSession(session)
-                .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, STATS, UTC));
+                .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, STATS, UTC));
     }
 
     @Test(dataProvider = "rowCount")
@@ -368,7 +369,7 @@ public class TestHiveFileFormats
                 .withRowsCount(rowCount)
                 .withReadColumns(TEST_COLUMNS)
                 .withSession(session)
-                .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, STATS, UTC));
+                .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, STATS, UTC));
     }
 
     @Test(dataProvider = "validRowAndFileSizePadding")
@@ -455,7 +456,7 @@ public class TestHiveFileFormats
                 .withSession(session)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
-                .withFileWriterFactory(new ParquetFileWriterFactory(HDFS_ENVIRONMENT, new NodeVersion("test-version"), TESTING_TYPE_MANAGER, new HiveConfig(), STATS))
+                .withFileWriterFactory(new ParquetFileWriterFactory(HDFS_FILE_SYSTEM_FACTORY, new NodeVersion("test-version"), TESTING_TYPE_MANAGER, new HiveConfig(), STATS))
                 .isReadableByPageSource(PARQUET_PAGE_SOURCE_FACTORY);
     }
 
@@ -530,7 +531,7 @@ public class TestHiveFileFormats
         assertThatFileFormat(ORC)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
-                .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, STATS, UTC));
+                .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, STATS, UTC));
 
         assertThatFileFormat(PARQUET)
                 .withWriteColumns(ImmutableList.of(writeColumn))
@@ -630,13 +631,13 @@ public class TestHiveFileFormats
                 .withReadColumns(readColumns)
                 .withRowsCount(rowCount)
                 .withSession(session)
-                .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, STATS, UTC));
+                .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, STATS, UTC));
 
         assertThatFileFormat(ORC)
                 .withWriteColumns(writeColumns)
                 .withReadColumns(readColumns)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, STATS, UTC));
+                .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, STATS, UTC));
     }
 
     @Test(dataProvider = "rowCount")
@@ -828,7 +829,7 @@ public class TestHiveFileFormats
 
         assertThatFileFormat(ORC)
                 .withColumns(columns)
-                .isFailingForPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, STATS, UTC), expectedErrorCode, expectedMessage);
+                .isFailingForPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, STATS, UTC), expectedErrorCode, expectedMessage);
 
         assertThatFileFormat(PARQUET)
                 .withColumns(columns)

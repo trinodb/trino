@@ -23,7 +23,7 @@ Configuration
 -------------
 
 To configure the Phoenix connector, create a catalog properties file
-``etc/catalog/phoenix.properties`` with the following contents,
+``etc/catalog/example.properties`` with the following contents,
 replacing ``host1,host2,host3`` with a comma-separated list of the ZooKeeper
 nodes used for discovery of the HBase cluster:
 
@@ -72,25 +72,25 @@ Querying Phoenix tables
 The default empty schema in Phoenix maps to a schema named ``default`` in Trino.
 You can see the available Phoenix schemas by running ``SHOW SCHEMAS``::
 
-    SHOW SCHEMAS FROM phoenix;
+    SHOW SCHEMAS FROM example;
 
 If you have a Phoenix schema named ``web``, you can view the tables
 in this schema by running ``SHOW TABLES``::
 
-    SHOW TABLES FROM phoenix.web;
+    SHOW TABLES FROM example.web;
 
 You can see a list of the columns in the ``clicks`` table in the ``web`` schema
 using either of the following::
 
-    DESCRIBE phoenix.web.clicks;
-    SHOW COLUMNS FROM phoenix.web.clicks;
+    DESCRIBE example.web.clicks;
+    SHOW COLUMNS FROM example.web.clicks;
 
 Finally, you can access the ``clicks`` table in the ``web`` schema::
 
-    SELECT * FROM phoenix.web.clicks;
+    SELECT * FROM example.web.clicks;
 
 If you used a different name for your catalog properties file, use
-that catalog name instead of ``phoenix`` in the above examples.
+that catalog name instead of ``example`` in the above examples.
 
 .. _phoenix-type-mapping:
 
@@ -207,19 +207,7 @@ table:
 
 No other types are supported.
 
-Decimal type handling
-^^^^^^^^^^^^^^^^^^^^^
-
-``DECIMAL`` types with unspecified precision or scale are mapped to a Trino ``DECIMAL`` with a default precision of 38 and default scale of 0. The scale can
-be changed by setting the ``decimal-mapping`` configuration property or the ``decimal_mapping`` session property to
-``allow_overflow``. The scale of the resulting type is controlled via the ``decimal-default-scale``
-configuration property or the ``decimal-rounding-mode`` session property. The precision is always 38.
-
-By default, values that require rounding or truncation to fit will cause a failure at runtime. This behavior
-is controlled via the ``decimal-rounding-mode`` configuration property or the ``decimal_rounding_mode`` session
-property, which can be set to ``UNNECESSARY`` (the default),
-``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
-(see `RoundingMode <https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
+.. include:: decimal-type-handling.fragment
 
 .. include:: jdbc-type-mapping.fragment
 
@@ -228,7 +216,7 @@ Table properties - Phoenix
 
 Table property usage example::
 
-    CREATE TABLE myschema.scientists (
+    CREATE TABLE example_schema.scientists (
       recordkey VARCHAR,
       birthday DATE,
       name VARCHAR,

@@ -28,7 +28,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.QueryExecution;
-import io.trino.execution.QueryIdGenerator;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.StageInfo;
 import io.trino.execution.TaskId;
@@ -135,7 +134,6 @@ public class ClusterMemoryManager
             LocationFactory locationFactory,
             MBeanExporter exporter,
             JsonCodec<MemoryInfo> memoryInfoCodec,
-            QueryIdGenerator queryIdGenerator,
             @ForTaskLowMemoryKiller LowMemoryKiller taskLowMemoryKiller,
             @ForQueryLowMemoryKiller LowMemoryKiller queryLowMemoryKiller,
             ServerConfig serverConfig,

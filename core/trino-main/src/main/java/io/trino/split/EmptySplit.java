@@ -16,8 +16,8 @@ package io.trino.split;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.trino.connector.CatalogHandle;
 import io.trino.spi.HostAddress;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import org.openjdk.jol.info.ClassLayout;
 

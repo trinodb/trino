@@ -67,7 +67,7 @@ public class AllowAllAccessControlManager
     }
 
     @Override
-    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName) {}
+    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName, Map<String, Object> properties) {}
 
     @Override
     public void checkCanDropSchema(SecurityContext context, CatalogSchemaName schemaName) {}
@@ -137,6 +137,9 @@ public class AllowAllAccessControlManager
 
     @Override
     public void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName) {}
+
+    @Override
+    public void checkCanAlterColumn(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
     public void checkCanSetTableAuthorization(SecurityContext context, QualifiedObjectName tableName, TrinoPrincipal principal) {}

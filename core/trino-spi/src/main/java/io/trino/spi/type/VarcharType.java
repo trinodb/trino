@@ -48,6 +48,14 @@ public final class VarcharType
     public static final int MAX_LENGTH = Integer.MAX_VALUE - 1;
     public static final VarcharType VARCHAR = new VarcharType(UNBOUNDED_LENGTH);
 
+    private static final VarcharType[] CACHED_INSTANCES = new VarcharType[128];
+
+    static {
+        for (int i = 0; i < CACHED_INSTANCES.length; i++) {
+            CACHED_INSTANCES[i] = new VarcharType(i);
+        }
+    }
+
     public static VarcharType createUnboundedVarcharType()
     {
         return VARCHAR;
@@ -59,10 +67,14 @@ public final class VarcharType
             // Use createUnboundedVarcharType for unbounded VARCHAR.
             throw new IllegalArgumentException("Invalid VARCHAR length " + length);
         }
+        if (length < CACHED_INSTANCES.length) {
+            return CACHED_INSTANCES[length];
+        }
         return new VarcharType(length);
     }
 
     private final int length;
+    private volatile Optional<Range> range;
 
     private VarcharType(int length)
     {
@@ -147,22 +159,30 @@ public final class VarcharType
     @Override
     public Optional<Range> getRange()
     {
-        if (length > 100) {
-            // The max/min values may be materialized in the plan, so we don't want them to be too large.
-            // Range comparison against large values are usually nonsensical, too, so no need to support them
-            // beyond a certain size. They specific choice above is arbitrary and can be adjusted if needed.
-            return Optional.empty();
+        Optional<Range> range = this.range;
+        @SuppressWarnings("OptionalAssignedToNull")
+        boolean cachedRangePresent = range != null;
+        if (!cachedRangePresent) {
+            if (length > 100) {
+                // The max/min values may be materialized in the plan, so we don't want them to be too large.
+                // Range comparison against large values are usually nonsensical, too, so no need to support them
+                // beyond a certain size. They specific choice above is arbitrary and can be adjusted if needed.
+                range = Optional.empty();
+            }
+            else {
+                int codePointSize = SliceUtf8.lengthOfCodePoint(MAX_CODE_POINT);
+
+                Slice max = Slices.allocate(codePointSize * length);
+                int position = 0;
+                for (int i = 0; i < length; i++) {
+                    position += SliceUtf8.setCodePointAt(MAX_CODE_POINT, max, position);
+                }
+
+                range = Optional.of(new Range(Slices.EMPTY_SLICE, max));
+            }
+            this.range = range;
         }
-
-        int codePointSize = SliceUtf8.lengthOfCodePoint(MAX_CODE_POINT);
-
-        Slice max = Slices.allocate(codePointSize * length);
-        int position = 0;
-        for (int i = 0; i < length; i++) {
-            position += SliceUtf8.setCodePointAt(MAX_CODE_POINT, max, position);
-        }
-
-        return Optional.of(new Range(Slices.EMPTY_SLICE, max));
+        return range;
     }
 
     @Override

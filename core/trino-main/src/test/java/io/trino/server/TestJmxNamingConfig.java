@@ -34,9 +34,7 @@ public class TestJmxNamingConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("jmx.base-name", "my.stuff")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("jmx.base-name", "my.stuff");
 
         JmxNamingConfig expected = new JmxNamingConfig()
                 .setDomainBase("my.stuff");

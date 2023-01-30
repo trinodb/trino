@@ -13,24 +13,18 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.glue.DefaultGlueColumnStatisticsProviderFactory;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 
 import java.nio.file.Path;
-import java.util.Optional;
 
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
@@ -72,14 +66,7 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                         .put("delta.hive-catalog-name", "hive_with_redirections")
                         .buildOrThrow());
 
-        this.glueMetastore = new GlueHiveMetastore(
-                HDFS_ENVIRONMENT,
-                new GlueHiveMetastoreConfig(),
-                DefaultAWSCredentialsProviderChain.getInstance(),
-                directExecutor(),
-                new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
-                Optional.empty(),
-                table -> true);
+        this.glueMetastore = createTestingGlueHiveMetastore(dataDirectory.toString());
         queryRunner.installPlugin(new TestingHivePlugin(glueMetastore));
         queryRunner.createCatalog(
                 "hive_with_redirections",
@@ -111,7 +98,6 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
     protected String getExpectedHiveCreateSchema(String catalogName)
     {
         String expectedHiveCreateSchema = "CREATE SCHEMA %s.%s\n" +
-                "AUTHORIZATION ROLE public\n" +
                 "WITH (\n" +
                 "   location = '%s'\n" +
                 ")";

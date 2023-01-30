@@ -14,6 +14,9 @@
 package io.trino.collect.cache;
 
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ForwardingConcurrentMap;
+
+import java.util.concurrent.ConcurrentMap;
 
 // package-private. The interface provides deprecation and javadoc to help at call sites
 final class NonEvictableLoadingCacheImpl<K, V>
@@ -29,7 +32,28 @@ final class NonEvictableLoadingCacheImpl<K, V>
     public void invalidateAll()
     {
         throw new UnsupportedOperationException("invalidateAll does not invalidate ongoing loads, so a stale value may remain in the cache for ever. " +
-                "Use EvictableCacheBuilder if you need invalidation, or use SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll() " +
+                "Use EvictableCache if you need invalidation, or use SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll() " +
                 "if invalidateAll is not required for correctness");
+    }
+
+    @Override
+    public ConcurrentMap<K, V> asMap()
+    {
+        ConcurrentMap<K, V> map = super.asMap();
+        return new ForwardingConcurrentMap<K, V>()
+        {
+            @Override
+            protected ConcurrentMap<K, V> delegate()
+            {
+                return map;
+            }
+
+            @Override
+            public void clear()
+            {
+                throw new UnsupportedOperationException("clear() does not invalidate ongoing loads, so a stale value may remain in the cache for ever. " +
+                        "Use EvictableCacheBuilder if you need invalidation");
+            }
+        };
     }
 }

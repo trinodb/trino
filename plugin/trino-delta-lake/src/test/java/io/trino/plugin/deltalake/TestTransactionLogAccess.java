@@ -56,6 +56,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.union;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
@@ -198,8 +199,7 @@ public class TestTransactionLogAccess
         AddFileEntry addFileEntry = addFileEntries
                 .stream()
                 .filter(entry -> entry.getPath().equals("age=42/part-00000-b26c891a-7288-4d96-9d3b-bef648f12a34.c000.snappy.parquet"))
-                .findFirst()
-                .get();
+                .collect(onlyElement());
 
         assertThat(addFileEntry.getPartitionValues())
                 .hasSize(1)
@@ -223,8 +223,7 @@ public class TestTransactionLogAccess
         AddFileEntry addFileEntry = addFileEntries
                 .stream()
                 .filter(entry -> entry.getPath().equals("ALA=1/part-00000-20a863e0-890d-4776-8825-f9dccc8973ba.c000.snappy.parquet"))
-                .findFirst()
-                .get();
+                .collect(onlyElement());
 
         assertThat(addFileEntry.getPartitionValues())
                 .hasSize(1)
@@ -666,8 +665,7 @@ public class TestTransactionLogAccess
 
         AddFileEntry addFileEntry = addFileEntries.stream()
                 .filter(entry -> entry.getPath().equalsIgnoreCase("part-00000-0e22455f-5650-442f-a094-e1a8b7ed2271-c000.snappy.parquet"))
-                .findFirst()
-                .get();
+                .collect(onlyElement());
 
         assertThat(addFileEntry.getStats()).isPresent();
         DeltaLakeFileStatistics fileStats = addFileEntry.getStats().get();

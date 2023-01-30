@@ -46,8 +46,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -87,6 +87,16 @@ public abstract class BaseElasticsearchConnectorTest
                 catalogName);
     }
 
+    @AfterClass(alwaysRun = true)
+    public final void destroy()
+            throws IOException
+    {
+        elasticsearch.stop();
+        elasticsearch = null;
+        client.close();
+        client = null;
+    }
+
     @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
@@ -105,6 +115,7 @@ public abstract class BaseElasticsearchConnectorTest
 
             case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
+            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:
@@ -138,14 +149,6 @@ public abstract class BaseElasticsearchConnectorTest
                 {500},
                 {1000}
         };
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-            throws IOException
-    {
-        elasticsearch.stop();
-        client.close();
     }
 
     @Test
@@ -290,9 +293,7 @@ public abstract class BaseElasticsearchConnectorTest
                 "  }" +
                 "}";
         createIndex(indexName, properties);
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("custkey", 1301)
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("custkey", 1301));
 
         // not null filter
         assertQueryReturnsEmptyResult("SELECT * FROM null_predicate2 WHERE null_keyword IS NOT NULL");
@@ -478,7 +479,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testAsRawJson()
             throws IOException
     {
-        String indexName = "raw_json_" + randomTableSuffix();
+        String indexName = "raw_json_" + randomNameSuffix();
 
         @Language("JSON")
         String mapping = "" +
@@ -728,7 +729,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testAsRawJsonForAllPrimitiveTypes()
             throws IOException
     {
-        String indexName = "raw_json_primitive_" + randomTableSuffix();
+        String indexName = "raw_json_primitive_" + randomNameSuffix();
 
         @Language("JSON")
         String mapping = "" +
@@ -834,7 +835,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testAsRawJsonCases()
             throws IOException
     {
-        String indexName = "raw_json_cases_" + randomTableSuffix();
+        String indexName = "raw_json_cases_" + randomNameSuffix();
 
         @Language("JSON")
         String mapping = "" +
@@ -895,7 +896,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testAsRawJsonAndIsArraySameFieldException()
             throws IOException
     {
-        String indexName = "raw_json_array_exception" + randomTableSuffix();
+        String indexName = "raw_json_array_exception" + randomNameSuffix();
 
         @Language("JSON")
         String mapping = "" +
@@ -917,9 +918,7 @@ public abstract class BaseElasticsearchConnectorTest
 
         createIndex(indexName, mapping);
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("array_raw_field", "test")
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("array_raw_field", "test"));
 
         assertThatThrownBy(() -> computeActual("SELECT array_raw_field FROM " + indexName))
                 .hasMessage("A column, (array_raw_field) cannot be declared as a Trino array and also be rendered as json.");
@@ -954,13 +953,9 @@ public abstract class BaseElasticsearchConnectorTest
 
         index(indexName, ImmutableMap.of());
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("a", "hello")
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("a", "hello"));
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("a", ImmutableList.of("foo", "bar"))
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("a", ImmutableList.of("foo", "bar")));
 
         assertQuery(
                 "SELECT a FROM test_mixed_arrays",
@@ -1233,25 +1228,15 @@ public abstract class BaseElasticsearchConnectorTest
 
         createIndex(indexName, mappings);
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("boolean_column", true)
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("boolean_column", true));
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("boolean_column", "true")
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("boolean_column", "true"));
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("boolean_column", false)
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("boolean_column", false));
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("boolean_column", "false")
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("boolean_column", "false"));
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("boolean_column", "")
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("boolean_column", ""));
 
         MaterializedResult rows = computeActual("SELECT boolean_column FROM booleans");
 
@@ -1282,21 +1267,13 @@ public abstract class BaseElasticsearchConnectorTest
 
         createIndex(indexName, mappings);
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("timestamp_column", "2015-01-01")
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("timestamp_column", "2015-01-01"));
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("timestamp_column", "2015-01-01T12:10:30Z")
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("timestamp_column", "2015-01-01T12:10:30Z"));
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("timestamp_column", 1420070400001L)
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("timestamp_column", 1420070400001L));
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("timestamp_column", "1420070400001")
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("timestamp_column", "1420070400001"));
 
         MaterializedResult rows = computeActual("SELECT timestamp_column FROM timestamps");
 
@@ -1736,9 +1713,7 @@ public abstract class BaseElasticsearchConnectorTest
                 "  }" +
                 "}";
         createIndex(indexName, properties);
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("numeric_keyword", 20)
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("numeric_keyword", 20));
 
         assertQuery(
                 "SELECT numeric_keyword FROM numeric_keyword",
@@ -1759,7 +1734,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testAlias()
             throws IOException
     {
-        String aliasName = format("alias_%s", randomTableSuffix());
+        String aliasName = format("alias_%s", randomNameSuffix());
         addAlias("orders", aliasName);
 
         assertQuery(

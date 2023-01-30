@@ -14,6 +14,7 @@
 package io.trino.plugin.bigquery;
 
 import com.google.cloud.bigquery.Field;
+import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
@@ -23,16 +24,16 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 
 public enum BigQueryPseudoColumn
 {
-    PARTITION_DATE("$partition_date", "_PARTITIONDATE", DATE, BigQueryType.DATE),
-    PARTITION_TIME("$partition_time", "_PARTITIONTIME", TIMESTAMP_TZ_MICROS, BigQueryType.TIMESTAMP),
+    PARTITION_DATE("$partition_date", "_PARTITIONDATE", DATE, StandardSQLTypeName.DATE),
+    PARTITION_TIME("$partition_time", "_PARTITIONTIME", TIMESTAMP_TZ_MICROS, StandardSQLTypeName.TIMESTAMP),
     /**/;
 
     private final String trinoColumnName;
     private final String bigqueryColumnName;
     private final Type trinoType;
-    private final BigQueryType bigqueryType;
+    private final StandardSQLTypeName bigqueryType;
 
-    BigQueryPseudoColumn(String trinoColumnName, String bigqueryColumnName, Type type, BigQueryType bigqueryType)
+    BigQueryPseudoColumn(String trinoColumnName, String bigqueryColumnName, Type type, StandardSQLTypeName bigqueryType)
     {
         this.trinoColumnName = trinoColumnName;
         this.bigqueryColumnName = bigqueryColumnName;
@@ -54,6 +55,7 @@ public enum BigQueryPseudoColumn
     {
         return new BigQueryColumnHandle(
                 trinoColumnName,
+                trinoType,
                 bigqueryType,
                 Field.Mode.REQUIRED,
                 null,

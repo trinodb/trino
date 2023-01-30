@@ -23,6 +23,7 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.stats.CounterStat;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfiguration;
 import io.trino.hdfs.HdfsContext;
@@ -91,6 +92,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.filesystem.FileSystemUtils.getRawFileSystem;
 import static io.trino.plugin.hive.AbstractTestHive.createTableProperties;
 import static io.trino.plugin.hive.AbstractTestHive.filterNonHiddenColumnHandles;
 import static io.trino.plugin.hive.AbstractTestHive.filterNonHiddenColumnMetadata;
@@ -105,12 +107,12 @@ import static io.trino.plugin.hive.HiveTestUtils.getTypes;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
-import static io.trino.plugin.hive.util.HiveWriteUtils.getRawFileSystem;
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
@@ -238,6 +240,7 @@ public abstract class AbstractTestHiveFileSystem
         BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, hdfsEnvironment),
+                new HdfsFileSystemFactory(hdfsEnvironment),
                 hdfsEnvironment,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastoreClient),
@@ -256,8 +259,7 @@ public abstract class AbstractTestHiveFileSystem
                 config,
                 getDefaultHivePageSourceFactories(hdfsEnvironment, config),
                 getDefaultHiveRecordCursorProviders(config, hdfsEnvironment),
-                new GenericHiveRecordCursorProvider(hdfsEnvironment, config),
-                Optional.empty());
+                new GenericHiveRecordCursorProvider(hdfsEnvironment, config));
 
         onSetupComplete();
     }
@@ -500,9 +502,7 @@ public abstract class AbstractTestHiveFileSystem
     private void createTable(SchemaTableName tableName, HiveStorageFormat storageFormat)
             throws Exception
     {
-        List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
-                .add(new ColumnMetadata("id", BIGINT))
-                .build();
+        List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("id", BIGINT));
 
         MaterializedResult data = MaterializedResult.resultBuilder(newSession(), BIGINT)
                 .row(1L)
@@ -519,7 +519,7 @@ public abstract class AbstractTestHiveFileSystem
             ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty(), NO_RETRIES);
 
             // write the records
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle);
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle, TESTING_PAGE_SINK_ID);
             sink.appendPage(data.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
 

@@ -147,9 +147,7 @@ public class PushAggregationIntoTableScan
                 .entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().getName(), Entry::getValue));
 
-        List<Entry<Symbol, AggregationNode.Aggregation>> aggregationsList = aggregations
-                .entrySet().stream()
-                .collect(toImmutableList());
+        List<Entry<Symbol, AggregationNode.Aggregation>> aggregationsList = ImmutableList.copyOf(aggregations.entrySet());
 
         List<AggregateFunction> aggregateFunctions = aggregationsList.stream()
                 .map(Entry::getValue)

@@ -1,0 +1,17 @@
+{
+    "functions": [
+        {
+            "catalog": "sample_catalog",
+            "function_kinds": [
+                "SCALAR",
+                "AGGREGATE",
+                "TABLE",
+                "WINDOW"
+            ],
+            "privileges": [
+                "EXECUTE",
+                "GRANT_EXECUTE"
+            ]
+        }
+    ]
+}

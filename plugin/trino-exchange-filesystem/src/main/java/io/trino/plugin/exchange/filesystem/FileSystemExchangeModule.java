@@ -49,7 +49,8 @@ public class FileSystemExchangeModule
 
         List<URI> baseDirectories = buildConfigObject(FileSystemExchangeConfig.class).getBaseDirectories();
         if (baseDirectories.stream().map(URI::getScheme).distinct().count() != 1) {
-            throw new TrinoException(CONFIGURATION_INVALID, "Multiple schemes in exchange base directories");
+            binder.addError(new TrinoException(CONFIGURATION_INVALID, "Multiple schemes in exchange base directories"));
+            return;
         }
         String scheme = baseDirectories.get(0).getScheme();
         if (scheme == null || scheme.equals("file")) {
@@ -68,7 +69,8 @@ public class FileSystemExchangeModule
             configBinder(binder).bindConfig(ExchangeAzureConfig.class);
         }
         else {
-            throw new TrinoException(NOT_SUPPORTED, format("Scheme %s is not supported as exchange spooling storage", scheme));
+            binder.addError(new TrinoException(NOT_SUPPORTED,
+                    format("Scheme %s is not supported as exchange spooling storage in exchange manager type %s", scheme, FileSystemExchangeManagerFactory.FILESYSTEM)));
         }
     }
 }

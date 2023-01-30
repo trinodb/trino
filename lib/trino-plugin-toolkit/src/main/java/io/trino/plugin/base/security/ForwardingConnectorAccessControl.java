@@ -50,9 +50,9 @@ public abstract class ForwardingConnectorAccessControl
     protected abstract ConnectorAccessControl delegate();
 
     @Override
-    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
+    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName, Map<String, Object> properties)
     {
-        delegate().checkCanCreateSchema(context, schemaName);
+        delegate().checkCanCreateSchema(context, schemaName, properties);
     }
 
     @Override
@@ -179,6 +179,12 @@ public abstract class ForwardingConnectorAccessControl
     public void checkCanRenameColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         delegate().checkCanRenameColumn(context, tableName);
+    }
+
+    @Override
+    public void checkCanAlterColumn(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        delegate().checkCanAlterColumn(context, tableName);
     }
 
     @Override
@@ -409,6 +415,12 @@ public abstract class ForwardingConnectorAccessControl
     public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         return delegate().getRowFilters(context, tableName);
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    {
+        return delegate().getColumnMask(context, tableName, columnName, type);
     }
 
     @Override

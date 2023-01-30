@@ -31,7 +31,8 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.sql.planner.PartitioningHandle.isScaledWriterHashDistribution;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -75,10 +76,20 @@ public class ValidateScaledWritersUsage
         public List<PartitioningHandle> visitTableWriter(TableWriterNode node, Void context)
         {
             List<PartitioningHandle> children = collectPartitioningHandles(node.getSources());
-            boolean anyScaledWriterDistribution = children.stream().anyMatch(partitioningHandle -> partitioningHandle == SCALED_WRITER_DISTRIBUTION);
+            List<PartitioningHandle> scaleWriterPartitioningHandle = children.stream()
+                    .filter(PartitioningHandle::isScaleWriters)
+                    .collect(toImmutableList());
             TableWriterNode.WriterTarget target = node.getTarget();
-            checkState(!anyScaledWriterDistribution || target.supportsReportingWrittenBytes(plannerContext.getMetadata(), session),
-                    "The partitioning scheme is set to SCALED_WRITER_DISTRIBUTION but writer target %s does support for it", target);
+
+            scaleWriterPartitioningHandle.forEach(partitioningHandle -> {
+                checkState(target.supportsReportingWrittenBytes(plannerContext.getMetadata(), session),
+                        "The scaled writer partitioning scheme is set but writer target %s doesn't support reporting physical written bytes", target);
+
+                if (isScaledWriterHashDistribution(partitioningHandle)) {
+                    checkState(target.supportsMultipleWritersPerPartition(plannerContext.getMetadata(), session),
+                            "The scaled writer partitioning scheme is set for the partitioned write but writer target %s doesn't support multiple writers per partition", target);
+                }
+            });
             return children;
         }
 

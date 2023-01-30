@@ -88,6 +88,7 @@ import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.OperatorFactories;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
+import io.trino.operator.RetryPolicy;
 import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.scalar.json.JsonExistsFunction;
@@ -173,6 +174,7 @@ import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.TOPOLOGY;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.UNIFORM;
+import static io.trino.operator.RetryPolicy.TASK;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -211,15 +213,23 @@ public class ServerMainModule
         binder.bind(HttpRequestSessionContextFactory.class).in(Scopes.SINGLETON);
         install(new InternalCommunicationModule());
 
+        QueryManagerConfig queryManagerConfig = buildConfigObject(QueryManagerConfig.class);
+        RetryPolicy retryPolicy = queryManagerConfig.getRetryPolicy();
+        if (retryPolicy == TASK) {
+            configBinder(binder).bindConfigDefaults(QueryManagerConfig.class, QueryManagerConfig::applyFaultTolerantExecutionDefaults);
+        }
+
         configBinder(binder).bindConfig(FeaturesConfig.class);
+        if (retryPolicy == TASK) {
+            configBinder(binder).bindConfigDefaults(FeaturesConfig.class, FeaturesConfig::applyFaultTolerantExecutionDefaults);
+        }
+
         configBinder(binder).bindConfig(OptimizerConfig.class);
         configBinder(binder).bindConfig(ProtocolConfig.class);
 
         binder.bind(SqlParser.class).in(Scopes.SINGLETON);
 
         jaxrsBinder(binder).bind(ThrowableMapper.class);
-
-        configBinder(binder).bindConfig(QueryManagerConfig.class);
 
         configBinder(binder).bindConfig(SqlEnvironmentConfig.class);
 
@@ -284,6 +294,10 @@ public class ServerMainModule
         newExporter(binder).export(PauseMeter.class).withGeneratedName();
 
         configBinder(binder).bindConfig(MemoryManagerConfig.class);
+        if (retryPolicy == TASK) {
+            configBinder(binder).bindConfigDefaults(MemoryManagerConfig.class, MemoryManagerConfig::applyFaultTolerantExecutionDefaults);
+        }
+
         configBinder(binder).bindConfig(NodeMemoryConfig.class);
         binder.bind(LocalMemoryManager.class).in(Scopes.SINGLETON);
         binder.bind(LocalMemoryManagerExporter.class).in(Scopes.SINGLETON);
@@ -300,6 +314,9 @@ public class ServerMainModule
         binder.bind(PageFunctionCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(PageFunctionCompiler.class).withGeneratedName();
         configBinder(binder).bindConfig(TaskManagerConfig.class);
+        if (retryPolicy == TASK) {
+            configBinder(binder).bindConfigDefaults(TaskManagerConfig.class, TaskManagerConfig::applyFaultTolerantExecutionDefaults);
+        }
         binder.bind(IndexJoinLookupStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(IndexJoinLookupStats.class).withGeneratedName();
         binder.bind(AsyncHttpExecutionMBean.class).in(Scopes.SINGLETON);

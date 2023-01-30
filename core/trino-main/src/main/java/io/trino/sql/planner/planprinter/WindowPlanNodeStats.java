@@ -44,6 +44,7 @@ public class WindowPlanNodeStats
                 planNodeBlockedTime,
                 planNodeInputPositions,
                 planNodeInputDataSize,
+                DataSize.ofBytes(0L),
                 planNodeOutputPositions,
                 planNodeOutputDataSize,
                 planNodeSpilledDataSize,

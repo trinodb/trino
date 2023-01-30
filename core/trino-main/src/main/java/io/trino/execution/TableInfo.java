@@ -15,14 +15,26 @@ package io.trino.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.Session;
+import io.trino.metadata.CatalogInfo;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.TableProperties;
+import io.trino.metadata.TableSchema;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.plan.TableScanNode;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -59,5 +71,26 @@ public class TableInfo
     public TupleDomain<ColumnHandle> getPredicate()
     {
         return predicate;
+    }
+
+    public static Map<PlanNodeId, TableInfo> extract(Session session, Metadata metadata, PlanFragment fragment)
+    {
+        return searchFrom(fragment.getRoot())
+                .where(TableScanNode.class::isInstance)
+                .findAll()
+                .stream()
+                .map(TableScanNode.class::cast)
+                .collect(toImmutableMap(PlanNode::getId, node -> extract(session, metadata, node)));
+    }
+
+    private static TableInfo extract(Session session, Metadata metadata, TableScanNode node)
+    {
+        TableSchema tableSchema = metadata.getTableSchema(session, node.getTable());
+        TableProperties tableProperties = metadata.getTableProperties(session, node.getTable());
+        Optional<String> connectorName = metadata.listCatalogs(session).stream()
+                .filter(catalogInfo -> catalogInfo.getCatalogName().equals(tableSchema.getCatalogName()))
+                .map(CatalogInfo::getConnectorName)
+                .findFirst();
+        return new TableInfo(connectorName, tableSchema.getQualifiedName(), tableProperties.getPredicate());
     }
 }

@@ -14,15 +14,17 @@
 
 package io.trino.filesystem;
 
+import io.trino.memory.context.AggregatedMemoryContext;
+
 import java.io.IOException;
 import java.io.OutputStream;
 
 public interface TrinoOutputFile
 {
-    OutputStream create()
+    OutputStream create(AggregatedMemoryContext memoryContext)
             throws IOException;
 
-    OutputStream createOrOverwrite()
+    OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
             throws IOException;
 
     String location();

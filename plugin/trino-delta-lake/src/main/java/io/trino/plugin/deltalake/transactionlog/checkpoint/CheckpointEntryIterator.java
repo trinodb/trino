@@ -142,7 +142,8 @@ public class CheckpointEntryIterator
             Optional<MetadataEntry> metadataEntry,
             FileFormatDataSourceStats stats,
             ParquetReaderOptions parquetReaderOptions,
-            boolean checkpointRowStatisticsWritingEnabled)
+            boolean checkpointRowStatisticsWritingEnabled,
+            int domainCompactionThreshold)
     {
         this.checkpointPath = checkpoint.location();
         this.session = requireNonNull(session, "session is null");
@@ -183,7 +184,8 @@ public class CheckpointEntryIterator
                 DateTimeZone.UTC,
                 stats,
                 parquetReaderOptions,
-                Optional.empty());
+                Optional.empty(),
+                domainCompactionThreshold);
 
         verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
 

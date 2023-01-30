@@ -1,0 +1,36 @@
+# If someone with write access comments "/test-with-secrets" on a pull request, emit a repository_dispatch event
+name: Ok To Test
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  test-with-secrets:
+    runs-on: ubuntu-latest
+    # Only run for PRs, not issue comments
+    if: ${{ github.event.issue.pull_request }}
+    steps:
+    # Generate a GitHub App installation access token from an App ID and private key
+    # To create a new GitHub App:
+    #   https://developer.github.com/apps/building-github-apps/creating-a-github-app/
+    # See app.yml for an example app manifest
+    - name: Generate token
+      id: generate_token
+      # fork of tibdex/github-app-token
+      uses: trinodb/github-actions/github-app-token@2c3f458fcad343199d0e92badaaa6e9dd7993b2e
+      with:
+        app_id: ${{ secrets.SERVICE_ACCOUNT_APP_ID }}
+        private_key: ${{ secrets.SERVICE_ACCOUNT_PRIVATE_KEY }}
+
+    - name: Slash Command Dispatch
+      # fork of peter-evans/slash-command-dispatch
+      uses: trinodb/github-actions/slash-command-dispatch@2c3f458fcad343199d0e92badaaa6e9dd7993b2e
+      env:
+        TOKEN: ${{ steps.generate_token.outputs.token }}
+      with:
+        token: ${{ env.TOKEN }} # GitHub App installation access token
+        reaction-token: ${{ secrets.GITHUB_TOKEN }}
+        issue-type: pull-request
+        commands: test-with-secrets
+        permission: write

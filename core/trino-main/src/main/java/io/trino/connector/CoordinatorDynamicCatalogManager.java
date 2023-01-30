@@ -15,12 +15,18 @@ package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
+import io.trino.server.ForStartup;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -31,17 +37,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_AVAILABLE;
+import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
+import static io.trino.util.Executors.executeUntilFailure;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -55,6 +64,7 @@ public class CoordinatorDynamicCatalogManager
 
     private final CatalogStore catalogStore;
     private final CatalogFactory catalogFactory;
+    private final Executor executor;
 
     private final Lock catalogsUpdateLock = new ReentrantLock();
     private final ConcurrentMap<String, CatalogConnector> catalogs = new ConcurrentHashMap<>();
@@ -63,10 +73,11 @@ public class CoordinatorDynamicCatalogManager
     private State state = State.CREATED;
 
     @Inject
-    public CoordinatorDynamicCatalogManager(CatalogStore catalogStore, CatalogFactory catalogFactory)
+    public CoordinatorDynamicCatalogManager(CatalogStore catalogStore, CatalogFactory catalogFactory, @ForStartup Executor executor)
     {
         this.catalogStore = requireNonNull(catalogStore, "catalogStore is null");
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
     @PreDestroy
@@ -104,12 +115,17 @@ public class CoordinatorDynamicCatalogManager
             checkState(state != State.STOPPED, "ConnectorManager is stopped");
             state = State.INITIALIZED;
 
-            for (CatalogProperties catalog : catalogStore.getCatalogs()) {
-                log.info("-- Loading catalog %s --", catalog.getCatalogHandle().getCatalogName());
-                CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
-                catalogs.put(catalog.getCatalogHandle().getCatalogName(), newCatalog);
-                log.info("-- Added catalog %s using connector %s --", catalog.getCatalogHandle().getCatalogName(), catalog.getConnectorName());
-            }
+            executeUntilFailure(
+                    executor,
+                    catalogStore.getCatalogs().stream()
+                            .map(catalog -> (Callable<?>) () -> {
+                                log.info("-- Loading catalog %s --", catalog.getCatalogHandle().getCatalogName());
+                                CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
+                                catalogs.put(catalog.getCatalogHandle().getCatalogName(), newCatalog);
+                                log.info("-- Added catalog %s using connector %s --", catalog.getCatalogHandle().getCatalogName(), catalog.getConnectorName());
+                                return null;
+                            })
+                            .collect(toImmutableList()));
         }
         finally {
             catalogsUpdateLock.unlock();
@@ -171,7 +187,8 @@ public class CoordinatorDynamicCatalogManager
                 throw new TrinoException(ALREADY_EXISTS, format("Catalog '%s' already exists", catalogName));
             }
 
-            CatalogProperties catalogProperties = new CatalogProperties(createRootCatalogHandle(catalogName), connectorName, properties);
+            CatalogHandle catalogHandle = createRootCatalogHandle(catalogName, computeCatalogVersion(catalogName, connectorName, properties));
+            CatalogProperties catalogProperties = new CatalogProperties(catalogHandle, connectorName, properties);
             CatalogConnector catalog = catalogFactory.createCatalog(catalogProperties);
             catalogs.put(catalogName, catalog);
         }
@@ -198,5 +215,25 @@ public class CoordinatorDynamicCatalogManager
         finally {
             catalogsUpdateLock.unlock();
         }
+    }
+
+    static CatalogVersion computeCatalogVersion(String catalogName, String connectorName, Map<String, String> properties)
+    {
+        Hasher hasher = Hashing.sha256().newHasher();
+        hasher.putUnencodedChars("catalog-hash");
+        hashLengthPrefixedString(hasher, catalogName);
+        hashLengthPrefixedString(hasher, connectorName);
+        hasher.putInt(properties.size());
+        ImmutableSortedMap.copyOf(properties).forEach((key, value) -> {
+            hashLengthPrefixedString(hasher, key);
+            hashLengthPrefixedString(hasher, value);
+        });
+        return new CatalogVersion(hasher.hash().toString());
+    }
+
+    private static void hashLengthPrefixedString(Hasher hasher, String value)
+    {
+        hasher.putInt(value.length());
+        hasher.putUnencodedChars(value);
     }
 }

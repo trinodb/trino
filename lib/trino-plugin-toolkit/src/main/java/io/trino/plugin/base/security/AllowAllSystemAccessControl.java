@@ -137,7 +137,7 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema)
+    public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema, Map<String, Object> properties)
     {
     }
 
@@ -246,6 +246,11 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanRenameColumn(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
+    public void checkCanAlterColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
     }
 
@@ -454,6 +459,12 @@ public class AllowAllSystemAccessControl
     public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
     {
         return emptyList();
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    {
+        return Optional.empty();
     }
 
     @Override

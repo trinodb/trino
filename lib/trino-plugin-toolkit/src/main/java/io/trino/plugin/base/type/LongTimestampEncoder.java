@@ -41,12 +41,12 @@ class LongTimestampEncoder
     @Override
     public LongTimestamp getTimestamp(DecodedTimestamp decodedTimestamp)
     {
-        long adjustedSeconds = decodedTimestamp.getEpochSeconds();
+        long adjustedSeconds = decodedTimestamp.epochSeconds();
         if (timeZone != DateTimeZone.UTC) {
             adjustedSeconds = timeZone.convertUTCToLocal(adjustedSeconds * MILLISECONDS_PER_SECOND) / MILLISECONDS_PER_SECOND;
         }
         int precision = type.getPrecision();
-        int nanosOfSecond = decodedTimestamp.getNanosOfSecond();
+        int nanosOfSecond = decodedTimestamp.nanosOfSecond();
         if (precision < 9) {
             //noinspection NumericCastThatLosesPrecision
             nanosOfSecond = (int) round(nanosOfSecond, 9 - precision);

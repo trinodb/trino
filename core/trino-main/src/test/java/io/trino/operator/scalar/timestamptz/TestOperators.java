@@ -484,6 +484,20 @@ public class TestOperators
         assertThat(assertions.expression("INTERVAL '1' MONTH + TIMESTAMP '2020-05-01 12:34:56.1234567890 Asia/Kathmandu'")).matches("TIMESTAMP '2020-06-01 12:34:56.1234567890 Asia/Kathmandu'");
         assertThat(assertions.expression("INTERVAL '1' MONTH + TIMESTAMP '2020-05-01 12:34:56.12345678901 Asia/Kathmandu'")).matches("TIMESTAMP '2020-06-01 12:34:56.12345678901 Asia/Kathmandu'");
         assertThat(assertions.expression("INTERVAL '1' MONTH + TIMESTAMP '2020-05-01 12:34:56.123456789012 Asia/Kathmandu'")).matches("TIMESTAMP '2020-06-01 12:34:56.123456789012 Asia/Kathmandu'");
+
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.1 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.1 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.12 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.12 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.123 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.123 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.1234 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.1234 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.12345 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.12345 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.123456 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.123456 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.1234567 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.1234567 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.12345678 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.12345678 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.123456789 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.123456789 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.1234567890 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.1234567890 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.12345678901 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.12345678901 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.123456789012 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.123456789012 Asia/Kathmandu'");
     }
 
     @Test
@@ -502,6 +516,20 @@ public class TestOperators
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567890 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-04-01 12:34:56.1234567890 Asia/Kathmandu'");
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.12345678901 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-04-01 12:34:56.12345678901 Asia/Kathmandu'");
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123456789012 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-04-01 12:34:56.123456789012 Asia/Kathmandu'");
+
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.1 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.1 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.12 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.12 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.123 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.123 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.1234 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.1234 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.12345 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.12345 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.123456 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.123456 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.1234567 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.1234567 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.12345678 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.12345678 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.123456789 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.123456789 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.1234567890 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.1234567890 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.12345678901 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.12345678901 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.123456789012 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.123456789012 Asia/Kathmandu'");
     }
 
     @Test

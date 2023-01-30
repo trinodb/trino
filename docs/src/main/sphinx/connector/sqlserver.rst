@@ -23,12 +23,12 @@ To connect to SQL Server, you need:
 Configuration
 -------------
 
-The connector can query a single database on an SQL server instance. Create a
-catalog properties file that specifies the SQL server connector by setting the
+The connector can query a single database on a given SQL Server instance. Create
+a catalog properties file that specifies the SQL server connector by setting the
 ``connector.name`` to ``sqlserver``.
 
-For example, to access a database as ``sqlserver``, create the file
-``etc/catalog/sqlserver.properties``. Replace the connection properties as
+For example, to access a database as ``example``, create the file
+``etc/catalog/example.properties``. Replace the connection properties as
 appropriate for your setup:
 
 .. code-block:: properties
@@ -68,6 +68,8 @@ Further parameters like ``trustServerCertificate``, ``hostNameInCertificate``,
 ``trustStore``, and ``trustStorePassword`` are details in the `TLS section of
 SQL Server JDBC driver documentation
 <https://docs.microsoft.com/en-us/sql/connect/jdbc/using-ssl-encryption>`_.
+
+.. include:: jdbc-authentication.fragment
 
 Multiple SQL Server databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -113,30 +115,31 @@ behavior of the connector and the issues queries to the database.
 Querying SQL Server
 -------------------
 
-The SQL Server connector provides access to all schemas visible to the specified user in the configured database.
-For the following examples, assume the SQL Server catalog is ``sqlserver``.
+The SQL Server connector provides access to all schemas visible to the specified
+user in the configured database. For the following examples, assume the SQL
+Server catalog is ``example``.
 
 You can see the available schemas by running ``SHOW SCHEMAS``::
 
-    SHOW SCHEMAS FROM sqlserver;
+    SHOW SCHEMAS FROM example;
 
 If you have a schema named ``web``, you can view the tables
 in this schema by running ``SHOW TABLES``::
 
-    SHOW TABLES FROM sqlserver.web;
+    SHOW TABLES FROM example.web;
 
 You can see a list of the columns in the ``clicks`` table in the ``web`` database
 using either of the following::
 
-    DESCRIBE sqlserver.web.clicks;
-    SHOW COLUMNS FROM sqlserver.web.clicks;
+    DESCRIBE example.web.clicks;
+    SHOW COLUMNS FROM example.web.clicks;
 
 Finally, you can query the ``clicks`` table in the ``web`` schema::
 
-    SELECT * FROM sqlserver.web.clicks;
+    SELECT * FROM example.web.clicks;
 
 If you used a different name for your catalog properties file, use
-that catalog name instead of ``sqlserver`` in the above examples.
+that catalog name instead of ``example`` in the above examples.
 
 .. _sqlserver-type-mapping:
 
@@ -152,7 +155,7 @@ each direction.
 SQL Server type to Trino type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The connector maps SQL server types to the corresponding Trino types following this table:
+The connector maps SQL Server types to the corresponding Trino types following this table:
 
 .. list-table:: SQL Server type to Trino type mapping
   :widths: 30, 20, 50
@@ -345,15 +348,17 @@ processed in SQL Server. This can be useful for accessing native features which
 are not implemented in Trino or for improving query performance in situations
 where running a query natively may be faster.
 
+.. include:: polymorphic-table-function-ordering.fragment
+
 For example, select the top 10 percent of nations by population::
 
     SELECT
       *
     FROM
       TABLE(
-        sqlserver.system.query(
+        example.system.query(
           query => 'SELECT
-            TOP(10) PERCENT
+            TOP(10) PERCENT *
           FROM
             tpch.nation
           ORDER BY
@@ -387,7 +392,7 @@ create them by executing the following statement in SQL Server Database.
 
 .. code-block:: sql
 
-    CREATE STATISTICS my_statistics_name ON table_schema.table_name (column_name);
+    CREATE STATISTICS example_statistics_name ON table_schema.table_name (column_name);
 
 SQL Server Database routinely updates the statistics. In some cases, you may
 want to force statistics update (e.g. after defining new column statistics or
@@ -425,6 +430,8 @@ The connector supports pushdown for a number of operations:
 * :func:`variance`
 * :func:`var_pop`
 * :func:`var_samp`
+
+.. include:: pushdown-correctness-behavior.fragment
 
 .. include:: join-pushdown-enabled-true.fragment
 
@@ -478,7 +485,7 @@ with the ``data_compression`` table property. Valid policies are ``NONE``, ``ROW
 
 Example::
 
-    CREATE TABLE myschema.scientists (
+    CREATE TABLE example_schema.scientists (
       recordkey VARCHAR,
       name VARCHAR,
       age BIGINT,

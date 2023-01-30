@@ -32,13 +32,13 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.ComputedStatistics;
@@ -46,15 +46,18 @@ import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
+import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.blackhole.BlackHoleConnector.DISTRIBUTED_ON;
 import static io.trino.plugin.blackhole.BlackHoleConnector.FIELD_LENGTH_PROPERTY;
@@ -168,6 +171,25 @@ public class BlackHoleMetadata
     }
 
     @Override
+    public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Type type)
+    {
+        BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
+        BlackHoleColumnHandle column = (BlackHoleColumnHandle) columnHandle;
+        List<BlackHoleColumnHandle> columns = new ArrayList<>(table.getColumnHandles());
+        columns.set(columns.indexOf(column), new BlackHoleColumnHandle(column.getName(), type));
+
+        tables.put(table.toSchemaTableName(), new BlackHoleTableHandle(
+                table.getSchemaName(),
+                table.getTableName(),
+                ImmutableList.copyOf(columns),
+                table.getSplitCount(),
+                table.getPagesPerSplit(),
+                table.getRowsPerPage(),
+                table.getFieldsLength(),
+                table.getPageProcessingDelay()));
+    }
+
+    @Override
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
@@ -238,7 +260,7 @@ public class BlackHoleMetadata
             throw new TrinoException(INVALID_TABLE_PROPERTY, "Distribute columns not defined on table: " + undefinedColumns);
         }
 
-        return Optional.of(new ConnectorTableLayout(BlackHolePartitioningHandle.INSTANCE, distributeColumns));
+        return Optional.of(new ConnectorTableLayout(BlackHolePartitioningHandle.INSTANCE, distributeColumns, true));
     }
 
     @Override
@@ -301,36 +323,6 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return new BlackHoleColumnHandle("row_id", BIGINT);
-    }
-
-    @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
-    {
-        return tableHandle;
-    }
-
-    @Override
-    public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments) {}
-
-    @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
-    {
-        return new BlackHoleColumnHandle("row_id", BIGINT);
-    }
-
-    @Override
-    public ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns, RetryMode retryMode)
-    {
-        return tableHandle;
-    }
-
-    @Override
-    public void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments) {}
-
-    @Override
     public RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return DELETE_ROW_AND_INSERT_ROW;
@@ -384,16 +376,26 @@ public class BlackHoleMetadata
         return Optional.ofNullable(views.get(viewName));
     }
 
-    @Override
-    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
-    {
-        return new ConnectorTableProperties();
-    }
-
     private void checkSchemaExists(String schemaName)
     {
         if (!schemas.contains(schemaName)) {
             throw new SchemaNotFoundException(schemaName);
         }
+    }
+
+    @Override
+    public void setViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
+    {
+        ConnectorViewDefinition view = getView(session, viewName).orElseThrow(() -> new ViewNotFoundException(viewName));
+        views.put(viewName, new ConnectorViewDefinition(
+                view.getOriginalSql(),
+                view.getCatalog(),
+                view.getSchema(),
+                view.getColumns().stream()
+                        .map(currentViewColumn -> Objects.equals(columnName, currentViewColumn.getName()) ? new ConnectorViewDefinition.ViewColumn(currentViewColumn.getName(), currentViewColumn.getType(), comment) : currentViewColumn)
+                        .collect(toImmutableList()),
+                view.getComment(),
+                view.getOwner(),
+                view.isRunAsInvoker()));
     }
 }

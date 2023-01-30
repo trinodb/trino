@@ -134,7 +134,6 @@ public final class AccumuloTableProperties
     {
         requireNonNull(tableProperties);
 
-        @SuppressWarnings("unchecked")
         String strMapping = (String) tableProperties.get(COLUMN_MAPPING);
         if (strMapping == null) {
             return Optional.empty();
@@ -156,7 +155,6 @@ public final class AccumuloTableProperties
     {
         requireNonNull(tableProperties);
 
-        @SuppressWarnings("unchecked")
         String indexColumns = (String) tableProperties.get(INDEX_COLUMNS);
         if (indexColumns == null) {
             return Optional.empty();
@@ -177,7 +175,6 @@ public final class AccumuloTableProperties
     {
         requireNonNull(tableProperties);
 
-        @SuppressWarnings("unchecked")
         String groupStr = (String) tableProperties.get(LOCALITY_GROUPS);
         if (groupStr == null) {
             return Optional.empty();
@@ -210,7 +207,6 @@ public final class AccumuloTableProperties
     {
         requireNonNull(tableProperties);
 
-        @SuppressWarnings("unchecked")
         String rowId = (String) tableProperties.get(ROW_ID);
         return Optional.ofNullable(rowId);
     }
@@ -219,7 +215,6 @@ public final class AccumuloTableProperties
     {
         requireNonNull(tableProperties);
 
-        @SuppressWarnings("unchecked")
         String scanAuths = (String) tableProperties.get(SCAN_AUTHS);
         return Optional.ofNullable(scanAuths);
     }
@@ -234,17 +229,13 @@ public final class AccumuloTableProperties
     {
         requireNonNull(tableProperties);
 
-        @SuppressWarnings("unchecked")
-        String serializerClass = (String) tableProperties.get(SERIALIZER);
-        return serializerClass;
+        return (String) tableProperties.get(SERIALIZER);
     }
 
     public static boolean isExternal(Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties);
 
-        @SuppressWarnings("unchecked")
-        Boolean serializerClass = (Boolean) tableProperties.get(EXTERNAL);
-        return serializerClass;
+        return (Boolean) tableProperties.get(EXTERNAL);
     }
 }

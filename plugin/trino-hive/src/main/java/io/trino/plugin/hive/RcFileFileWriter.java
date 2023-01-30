@@ -29,6 +29,7 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
@@ -37,7 +38,6 @@ import java.lang.management.ThreadMXBean;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -55,7 +55,7 @@ public class RcFileFileWriter
 
     private final CountingOutputStream outputStream;
     private final RcFileWriter rcFileWriter;
-    private final Callable<Void> rollbackAction;
+    private final Closeable rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
     private final Optional<Supplier<RcFileDataSource>> validationInputFactory;
@@ -64,7 +64,7 @@ public class RcFileFileWriter
 
     public RcFileFileWriter(
             OutputStream outputStream,
-            Callable<Void> rollbackAction,
+            Closeable rollbackAction,
             RcFileEncoding rcFileEncoding,
             List<Type> fileColumnTypes,
             Optional<String> codecName,
@@ -131,14 +131,14 @@ public class RcFileFileWriter
     }
 
     @Override
-    public void commit()
+    public Closeable commit()
     {
         try {
             rcFileWriter.close();
         }
         catch (IOException | UncheckedIOException e) {
             try {
-                rollbackAction.call();
+                rollbackAction.close();
             }
             catch (Exception ignored) {
                 // ignore
@@ -158,18 +158,15 @@ public class RcFileFileWriter
                 throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);
             }
         }
+
+        return rollbackAction;
     }
 
     @Override
     public void rollback()
     {
-        try {
-            try {
-                rcFileWriter.close();
-            }
-            finally {
-                rollbackAction.call();
-            }
+        try (rollbackAction) {
+            rcFileWriter.close();
         }
         catch (Exception e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);

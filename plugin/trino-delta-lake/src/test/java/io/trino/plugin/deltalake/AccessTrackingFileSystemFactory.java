@@ -26,6 +26,7 @@ import io.trino.spi.security.ConnectorIdentity;
 import org.apache.iceberg.io.FileIO;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -94,6 +95,12 @@ public final class AccessTrackingFileSystemFactory
 
         @Override
         public void deleteFile(String path)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void deleteFiles(Collection<String> paths)
         {
             throw new UnsupportedOperationException();
         }

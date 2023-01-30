@@ -71,6 +71,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_Q
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static io.trino.plugin.hive.HivePartition.UNPARTITIONED_ID;
 import static io.trino.plugin.hive.HiveSessionProperties.getDynamicFilteringWaitTimeout;
+import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isIgnoreAbsentPartitions;
 import static io.trino.plugin.hive.HiveSessionProperties.isOptimizeSymlinkListing;
 import static io.trino.plugin.hive.HiveSessionProperties.isPropagateTableScanSortingProperties;
@@ -403,15 +404,16 @@ public class HiveSplitManager
 
     private TableToPartitionMapping getTableToPartitionMapping(ConnectorSession session, Optional<HiveStorageFormat> storageFormat, SchemaTableName tableName, String partName, List<Column> tableColumns, List<Column> partitionColumns)
     {
+        HiveTimestampPrecision hiveTimestampPrecision = getTimestampPrecision(session);
         if (storageFormat.isPresent() && isPartitionUsesColumnNames(session, storageFormat.get())) {
-            return getTableToPartitionMappingByColumnNames(tableName, partName, tableColumns, partitionColumns);
+            return getTableToPartitionMappingByColumnNames(tableName, partName, tableColumns, partitionColumns, hiveTimestampPrecision);
         }
         ImmutableMap.Builder<Integer, HiveTypeName> columnCoercions = ImmutableMap.builder();
         for (int i = 0; i < min(partitionColumns.size(), tableColumns.size()); i++) {
             HiveType tableType = tableColumns.get(i).getType();
             HiveType partitionType = partitionColumns.get(i).getType();
             if (!tableType.equals(partitionType)) {
-                if (!canCoerce(typeManager, partitionType, tableType)) {
+                if (!canCoerce(typeManager, partitionType, tableType, hiveTimestampPrecision)) {
                     throw tablePartitionColumnMismatchException(tableName, partName, tableColumns.get(i).getName(), tableType, partitionColumns.get(i).getName(), partitionType);
                 }
                 columnCoercions.put(i, partitionType.getHiveTypeName());
@@ -436,7 +438,7 @@ public class HiveSplitManager
         }
     }
 
-    private TableToPartitionMapping getTableToPartitionMappingByColumnNames(SchemaTableName tableName, String partName, List<Column> tableColumns, List<Column> partitionColumns)
+    private TableToPartitionMapping getTableToPartitionMappingByColumnNames(SchemaTableName tableName, String partName, List<Column> tableColumns, List<Column> partitionColumns, HiveTimestampPrecision hiveTimestampPrecision)
     {
         ImmutableMap.Builder<String, Integer> partitionColumnIndexesBuilder = ImmutableMap.builder();
         for (int i = 0; i < partitionColumns.size(); i++) {
@@ -457,7 +459,7 @@ public class HiveSplitManager
             Column partitionColumn = partitionColumns.get(partitionColumnIndex);
             HiveType partitionType = partitionColumn.getType();
             if (!tableType.equals(partitionType)) {
-                if (!canCoerce(typeManager, partitionType, tableType)) {
+                if (!canCoerce(typeManager, partitionType, tableType, hiveTimestampPrecision)) {
                     throw tablePartitionColumnMismatchException(tableName, partName, tableColumn.getName(), tableType, partitionColumn.getName(), partitionType);
                 }
                 columnCoercions.put(partitionColumnIndex, partitionType.getHiveTypeName());

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.log.Logger;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.TableExecuteContext;
 import io.trino.execution.TableExecuteContextManager;
@@ -54,6 +55,8 @@ import static java.util.Objects.requireNonNull;
 public class SourcePartitionedScheduler
         implements SourceScheduler
 {
+    private static final Logger log = Logger.get(SourcePartitionedScheduler.class);
+
     private enum State
     {
         /**
@@ -263,16 +266,19 @@ public class SourcePartitionedScheduler
                                 splitSource.getCatalogHandle(),
                                 new EmptySplit(splitSource.getCatalogHandle())));
                     }
+                    log.debug("stage id: %s, node: %s; transitioning to SPLITS_SCHEDULED", stageExecution.getStageId(), partitionedNode);
                     state = State.SPLITS_SCHEDULED;
                 }
             }
             else {
                 blockedFuture = Optional.of(asVoid(nextSplitBatchFuture));
                 blockedOnNextSplitBatch = true;
+                log.debug("stage id: %s, node: %s; blocked on next split batch", stageExecution.getStageId(), partitionedNode);
             }
         }
 
         if (!pendingSplits.isEmpty() && state == State.INITIALIZED) {
+            log.debug("stage id: %s, node: %s; transitioning to SPLITS_ADDED", stageExecution.getStageId(), partitionedNode);
             state = State.SPLITS_ADDED;
         }
 
@@ -295,11 +301,16 @@ public class SourcePartitionedScheduler
             }
         }
 
+        if (blockedOnPlacements) {
+            log.debug("stage id: %s, node: %s; blocked on placements", stageExecution.getStageId(), partitionedNode);
+        }
+
         // assign the splits with successful placements
         overallNewTasks.addAll(assignSplits(splitAssignment));
 
         // if no new splits will be assigned, update state and attach completion event
         if (pendingSplits.isEmpty() && state == State.SPLITS_SCHEDULED) {
+            log.debug("stage id: %s, node: %s; transitioning to FINISHED", stageExecution.getStageId(), partitionedNode);
             state = State.FINISHED;
 
             Optional<List<Object>> tableExecuteSplitsInfo = splitSource.getTableExecuteSplitsInfo();
@@ -317,12 +328,14 @@ public class SourcePartitionedScheduler
         }
 
         if (blockedFuture.isEmpty()) {
+            log.debug("stage id: %s, node: %s; assigned %s splits (not blocked)", stageExecution.getStageId(), partitionedNode, overallSplitAssignmentCount);
             return new ScheduleResult(false, overallNewTasks.build(), overallSplitAssignmentCount);
         }
 
         if (anySourceTaskBlocked.getAsBoolean()) {
             // Dynamic filters might not be collected due to build side source tasks being blocked on full buffer.
             // In such case probe split generation that is waiting for dynamic filters should be unblocked to prevent deadlock.
+            log.debug("stage id: %s, node: %s; unblocking dynamic filters", stageExecution.getStageId(), partitionedNode);
             dynamicFilterService.unblockStageDynamicFilters(stageExecution.getStageId().getQueryId(), stageExecution.getAttemptId(), stageExecution.getFragment());
 
             if (blockedOnPlacements) {
@@ -336,15 +349,18 @@ public class SourcePartitionedScheduler
                 // The build side blocks due to a full output buffer.
                 // In the meantime the probe side split cannot be consumed since
                 // builder side hash table construction has not finished.
+                log.debug("stage id: %s, node: %s; finalize task creation if necessary", stageExecution.getStageId(), partitionedNode);
                 overallNewTasks.addAll(finalizeTaskCreationIfNecessary());
             }
         }
 
+        ScheduleResult.BlockedReason blockedReason = blockedOnNextSplitBatch ? WAITING_FOR_SOURCE : SPLIT_QUEUES_FULL;
+        log.debug("stage id: %s, node: %s; assigned %s splits (blocked reason %s)", stageExecution.getStageId(), partitionedNode, overallSplitAssignmentCount, blockedReason);
         return new ScheduleResult(
                 false,
                 overallNewTasks.build(),
                 nonCancellationPropagating(blockedFuture.get()),
-                blockedOnNextSplitBatch ? WAITING_FOR_SOURCE : SPLIT_QUEUES_FULL,
+                blockedReason,
                 overallSplitAssignmentCount);
     }
 
@@ -363,9 +379,7 @@ public class SourcePartitionedScheduler
     {
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
 
-        ImmutableSet<InternalNode> nodes = ImmutableSet.<InternalNode>builder()
-                .addAll(splitAssignment.keySet())
-                .build();
+        ImmutableSet<InternalNode> nodes = ImmutableSet.copyOf(splitAssignment.keySet());
         for (InternalNode node : nodes) {
             // source partitioned tasks can only receive broadcast data; otherwise it would have a different distribution
             ImmutableMultimap<PlanNodeId, Split> splits = ImmutableMultimap.<PlanNodeId, Split>builder()

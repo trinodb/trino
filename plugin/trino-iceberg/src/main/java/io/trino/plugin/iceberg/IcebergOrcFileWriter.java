@@ -47,6 +47,7 @@ import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.BinaryUtil;
 import org.apache.iceberg.util.UnicodeUtil;
 
+import java.io.Closeable;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -54,7 +55,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Verify.verify;
@@ -77,7 +77,7 @@ public class IcebergOrcFileWriter
             MetricsConfig metricsConfig,
             Schema icebergSchema,
             OrcDataSink orcDataSink,
-            Callable<Void> rollbackAction,
+            Closeable rollbackAction,
             List<String> columnNames,
             List<Type> fileColumnTypes,
             ColumnMetadata<OrcType> fileColumnOrcTypes,
@@ -289,8 +289,7 @@ public class IcebergOrcFileWriter
                 this.min = Conversions.toByteBuffer(type, min);
                 this.max = Conversions.toByteBuffer(type, max);
             }
-            else if (metricsMode instanceof MetricsModes.Truncate) {
-                MetricsModes.Truncate truncateMode = (MetricsModes.Truncate) metricsMode;
+            else if (metricsMode instanceof MetricsModes.Truncate truncateMode) {
                 int truncateLength = truncateMode.length();
                 switch (type.typeId()) {
                     case STRING:

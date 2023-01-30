@@ -84,14 +84,18 @@ public abstract class AbstractIntType
     @Override
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
+        checkValueValid(value);
+        blockBuilder.writeInt((int) value).closeEntry();
+    }
+
+    protected void checkValueValid(long value)
+    {
         if (value > Integer.MAX_VALUE) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_INT", value));
         }
         if (value < Integer.MIN_VALUE) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_INT", value));
         }
-
-        blockBuilder.writeInt((int) value).closeEntry();
     }
 
     @Override

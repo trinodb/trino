@@ -51,6 +51,9 @@ import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
 import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
+import io.trino.plugin.jdbc.expression.RewriteComparison;
+import io.trino.plugin.jdbc.expression.RewriteIn;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -60,6 +63,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
@@ -76,6 +80,7 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
+import net.jodah.failsafe.function.CheckedSupplier;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
@@ -187,6 +192,8 @@ public class SqlServerClient
     // SqlServer supports 2100 parameters in prepared statement, let's create a space for about 4 big IN predicates
     public static final int SQL_SERVER_MAX_LIST_EXPRESSIONS = 500;
 
+    public static final int SQL_SERVER_DEADLOCK_ERROR_CODE = 1205;
+
     public static final JdbcTypeHandle BIGINT_TYPE = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
@@ -206,14 +213,33 @@ public class SqlServerClient
             JdbcStatisticsConfig statisticsConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
-            IdentifierMapping identifierMapping)
+            IdentifierMapping identifierMapping,
+            RemoteQueryModifier queryModifier)
     {
-        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
+        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
 
         this.statisticsEnabled = statisticsConfig.isEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+                // Only SqlServer requires N prefix for unicode characters (SQL-92 standard),
+                // so we add this rule to support such cases for pushdowns
+                .add(new RewriteUnicodeVarcharConstant())
                 .addStandardRules(this::quoted)
+                .add(new RewriteComparison(ImmutableSet.of(RewriteComparison.ComparisonOperator.EQUAL, RewriteComparison.ComparisonOperator.NOT_EQUAL)))
+                .add(new RewriteIn())
+                .withTypeClass("integer_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint"))
+                .map("$add(left: integer_type, right: integer_type)").to("left + right")
+                .map("$subtract(left: integer_type, right: integer_type)").to("left - right")
+                .map("$multiply(left: integer_type, right: integer_type)").to("left * right")
+                .map("$divide(left: integer_type, right: integer_type)").to("left / right")
+                .map("$modulus(left: integer_type, right: integer_type)").to("left % right")
+                .map("$negate(value: integer_type)").to("-value")
+                .map("$like(value: varchar, pattern: varchar): boolean").to("value LIKE pattern")
+                .map("$like(value: varchar, pattern: varchar, escape: varchar(1)): boolean").to("value LIKE pattern ESCAPE escape")
+                .map("$not($is_null(value))").to("value IS NOT NULL")
+                .map("$not(value: boolean)").to("NOT value")
+                .map("$is_null(value)").to("value IS NULL")
+                .map("$nullif(first, second)").to("NULLIF(first, second)")
                 .build();
 
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
@@ -260,7 +286,7 @@ public class SqlServerClient
             // note: this is not a request to lock a table immediately
             String sql = format("EXEC sp_tableoption '%s', 'table lock on bulk load', '1'",
                     quoted(table.getCatalogName(), table.getSchemaName(), table.getTemporaryTableName().orElseGet(table::getTableName)));
-            execute(connection, sql);
+            execute(session, connection, sql);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -339,13 +365,25 @@ public class SqlServerClient
     }
 
     @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
+    }
+
+    @Override
+    public Optional<String> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return connectorExpressionRewriter.rewrite(session, expression, assignments);
+    }
+
+    @Override
     public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
     }
 
     @Override
-    protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+    protected void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
     {
         String sql = format(
                 "SELECT %s INTO %s FROM %s WHERE 0 = 1",
@@ -355,7 +393,7 @@ public class SqlServerClient
                 quoted(catalogName, schemaName, newTableName),
                 quoted(catalogName, schemaName, tableName));
         try {
-            execute(connection, sql);
+            execute(session, connection, sql);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -928,17 +966,9 @@ public class SqlServerClient
     }
 
     @Override
-    protected String buildInsertSql(ConnectorSession session, RemoteTableName targetTable, RemoteTableName sourceTable, List<String> columnNames)
+    protected String postProcessInsertTableNameClause(ConnectorSession session, String tableName)
     {
-        String columns = columnNames.stream()
-                .map(this::quoted)
-                .collect(joining(", "));
-        return format("INSERT INTO %s %s (%s) SELECT %s FROM %s",
-                targetTable,
-                isTableLockNeeded(session) ? "WITH (TABLOCK)" : "", // TABLOCK is a prerequisite for minimal logging in SQL Server
-                columns,
-                columns,
-                sourceTable);
+        return tableName + (isTableLockNeeded(session) ? " WITH (TABLOCK)" : "");
     }
 
     @Override
@@ -1049,22 +1079,26 @@ public class SqlServerClient
 
     private static Optional<DataCompression> getTableDataCompressionWithRetries(Handle handle, JdbcTableHandle table)
     {
-        // DDL operations can take out locks against system tables causing the `getTableDataCompression` query to deadlock
-        final int maxAttemptCount = 3;
-        RetryPolicy<Optional<DataCompression>> retryPolicy = new RetryPolicy<Optional<DataCompression>>()
+        return retryOnDeadlock(() -> getTableDataCompression(handle, table), "error when getting table compression info for '%s'".formatted(table));
+    }
+
+    public static <T> T retryOnDeadlock(CheckedSupplier<T> supplier, String attemptLogMessage)
+    {
+        // DDL operations can take out locks against system tables causing queries against them to deadlock
+        int maxAttemptCount = 3;
+        RetryPolicy<T> retryPolicy = new RetryPolicy<T>()
                 .withMaxAttempts(maxAttemptCount)
                 .handleIf(throwable ->
                 {
-                    final int deadlockErrorCode = 1205;
                     Throwable rootCause = Throwables.getRootCause(throwable);
                     return rootCause instanceof SQLServerException &&
-                            ((SQLServerException) (rootCause)).getSQLServerError().getErrorNumber() == deadlockErrorCode;
+                            ((SQLServerException) (rootCause)).getSQLServerError().getErrorNumber() == SQL_SERVER_DEADLOCK_ERROR_CODE;
                 })
-                .onFailedAttempt(event -> log.warn(event.getLastFailure(), "Attempt %d of %d: error when getting table compression info for '%s'", event.getAttemptCount(), maxAttemptCount, table));
+                .onFailedAttempt(event -> log.warn(event.getLastFailure(), "Attempt %d of %d: %s", event.getAttemptCount(), maxAttemptCount, attemptLogMessage));
 
         return Failsafe
                 .with(retryPolicy)
-                .get(() -> getTableDataCompression(handle, table));
+                .get(supplier);
     }
 
     private static class StatisticsDao

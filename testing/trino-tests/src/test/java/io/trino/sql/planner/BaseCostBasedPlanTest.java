@@ -42,6 +42,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -84,12 +85,23 @@ public abstract class BaseCostBasedPlanTest
 
     private static final String CATALOG_NAME = "local";
 
+    private final String schemaName;
+    private final Optional<String> fileFormatName;
+    private final boolean partitioned;
+
+    public BaseCostBasedPlanTest(String schemaName, Optional<String> fileFormatName, boolean partitioned)
+    {
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.fileFormatName = requireNonNull(fileFormatName, "fileFormatName is null");
+        this.partitioned = partitioned;
+    }
+
     @Override
     protected LocalQueryRunner createLocalQueryRunner()
     {
         SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(CATALOG_NAME)
-                .setSchema(getSchema())
+                .setSchema(schemaName)
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name());
@@ -104,8 +116,6 @@ public abstract class BaseCostBasedPlanTest
     }
 
     protected abstract ConnectorFactory createConnectorFactory();
-
-    protected abstract String getSchema();
 
     @BeforeClass
     public abstract void prepareTables()
@@ -128,13 +138,17 @@ public abstract class BaseCostBasedPlanTest
 
     private String getQueryPlanResourcePath(String queryResourcePath)
     {
+        Path queryPath = Paths.get(queryResourcePath);
         String connectorName = getQueryRunner().getCatalogManager().getCatalog(CATALOG_NAME).orElseThrow().getConnectorName();
-        String subDir = isPartitioned() ? "partitioned" : "unpartitioned";
-        Path tempPath = Paths.get(queryResourcePath.replaceAll("\\.sql$", ".plan.txt"));
-        return Paths.get(tempPath.getParent().toString(), connectorName, subDir, tempPath.getFileName().toString()).toString();
+        Path directory = queryPath.getParent();
+        directory = directory.resolve(connectorName);
+        if (fileFormatName.isPresent()) {
+            directory = directory.resolve(fileFormatName.get());
+        }
+        directory = directory.resolve(partitioned ? "partitioned" : "unpartitioned");
+        String planResourceName = queryPath.getFileName().toString().replaceAll("\\.sql$", ".plan.txt");
+        return directory.resolve(planResourceName).toString();
     }
-
-    protected abstract boolean isPartitioned();
 
     protected void generate()
     {

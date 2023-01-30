@@ -85,7 +85,10 @@ public final class HiveSessionProperties
     private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
     private static final String PARQUET_IGNORE_STATISTICS = "parquet_ignore_statistics";
     private static final String PARQUET_USE_COLUMN_INDEX = "parquet_use_column_index";
+    private static final String PARQUET_USE_BLOOM_FILTER = "parquet_use_bloom_filter";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
+    private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet_max_read_block_row_count";
+    private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String PARQUET_WRITER_BATCH_SIZE = "parquet_writer_batch_size";
@@ -115,6 +118,7 @@ public final class HiveSessionProperties
     private static final String HIVE_VIEWS_LEGACY_TRANSLATION = "hive_views_legacy_translation";
     private static final String ICEBERG_CATALOG_NAME = "iceberg_catalog_name";
     public static final String DELTA_LAKE_CATALOG_NAME = "delta_lake_catalog_name";
+    public static final String HUDI_CATALOG_NAME = "hudi_catalog_name";
     public static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
     public static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     public static final String NON_TRANSACTIONAL_OPTIMIZE_ENABLED = "non_transactional_optimize_enabled";
@@ -319,10 +323,32 @@ public final class HiveSessionProperties
                         "Use Parquet column index",
                         parquetReaderConfig.isUseColumnIndex(),
                         false),
+                booleanProperty(
+                        PARQUET_USE_BLOOM_FILTER,
+                        "Use Parquet bloomfilter",
+                        parquetReaderConfig.isUseBloomFilter(),
+                        false),
                 dataSizeProperty(
                         PARQUET_MAX_READ_BLOCK_SIZE,
                         "Parquet: Maximum size of a block to read",
                         parquetReaderConfig.getMaxReadBlockSize(),
+                        false),
+                integerProperty(
+                        PARQUET_MAX_READ_BLOCK_ROW_COUNT,
+                        "Parquet: Maximum number of rows read in a batch",
+                        parquetReaderConfig.getMaxReadBlockRowCount(),
+                        value -> {
+                            if (value < 128 || value > 65536) {
+                                throw new TrinoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s must be between 128 and 65536: %s", PARQUET_MAX_READ_BLOCK_ROW_COUNT, value));
+                            }
+                        },
+                        false),
+                booleanProperty(
+                        PARQUET_OPTIMIZED_READER_ENABLED,
+                        "Use optimized Parquet reader",
+                        parquetReaderConfig.isOptimizedReaderEnabled(),
                         false),
                 dataSizeProperty(
                         PARQUET_WRITER_BLOCK_SIZE,
@@ -517,6 +543,13 @@ public final class HiveSessionProperties
                         hiveConfig.getDeltaLakeCatalogName().orElse(null),
                         // Session-level redirections configuration does not work well with views, as view body is analyzed in context
                         // of a session with properties stripped off. Thus, this property is more of a test-only, or at most POC usefulness.
+                        true),
+                stringProperty(
+                        HUDI_CATALOG_NAME,
+                        "Catalog to redirect to when a Hudi table is referenced",
+                        hiveConfig.getHudiCatalogName().orElse(null),
+                        // Session-level redirections configuration does not work well with views, as view body is analyzed in context
+                        // of a session with properties stripped off. Thus, this property is more of a test-only, or at most POC usefulness.
                         true));
     }
 
@@ -683,9 +716,24 @@ public final class HiveSessionProperties
         return session.getProperty(PARQUET_USE_COLUMN_INDEX, Boolean.class);
     }
 
+    public static boolean useParquetBloomFilter(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_USE_BLOOM_FILTER, Boolean.class);
+    }
+
     public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_MAX_READ_BLOCK_SIZE, DataSize.class);
+    }
+
+    public static int getParquetMaxReadBlockRowCount(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_MAX_READ_BLOCK_ROW_COUNT, Integer.class);
+    }
+
+    public static boolean isParquetOptimizedReaderEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_OPTIMIZED_READER_ENABLED, Boolean.class);
     }
 
     public static DataSize getParquetWriterBlockSize(ConnectorSession session)
@@ -855,5 +903,10 @@ public final class HiveSessionProperties
     public static Optional<String> getDeltaLakeCatalogName(ConnectorSession session)
     {
         return Optional.ofNullable(session.getProperty(DELTA_LAKE_CATALOG_NAME, String.class));
+    }
+
+    public static Optional<String> getHudiCatalogName(ConnectorSession session)
+    {
+        return Optional.ofNullable(session.getProperty(HUDI_CATALOG_NAME, String.class));
     }
 }
