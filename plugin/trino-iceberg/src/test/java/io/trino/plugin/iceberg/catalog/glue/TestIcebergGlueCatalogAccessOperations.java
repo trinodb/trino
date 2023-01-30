@@ -144,6 +144,7 @@ public class TestIcebergGlueCatalogAccessOperations
                     ImmutableMultiset.builder()
                             .add(CREATE_TABLE)
                             .add(GET_DATABASE)
+                            .add(GET_DATABASE)
                             .add(GET_TABLE)
                             .build());
         }
@@ -158,6 +159,7 @@ public class TestIcebergGlueCatalogAccessOperations
         try {
             assertGlueMetastoreApiInvocations("CREATE TABLE test_ctas AS SELECT 1 AS age",
                     ImmutableMultiset.builder()
+                            .add(GET_DATABASE)
                             .add(GET_DATABASE)
                             .add(CREATE_TABLE)
                             .add(GET_TABLE)
