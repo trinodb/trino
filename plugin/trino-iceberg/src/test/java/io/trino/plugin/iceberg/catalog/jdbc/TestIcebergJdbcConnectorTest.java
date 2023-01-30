@@ -175,6 +175,13 @@ public class TestIcebergJdbcConnectorTest
                 .hasMessage("createMaterializedView is not supported for Iceberg JDBC catalogs");
     }
 
+    @Override
+    public void testMaterializedViewBaseTableGone(boolean initialized)
+    {
+        assertThatThrownBy(() -> super.testMaterializedViewBaseTableGone(initialized))
+                .hasMessage("createMaterializedView is not supported for Iceberg JDBC catalogs");
+    }
+
     @Test(dataProvider = "testColumnNameDataProvider")
     @Override
     public void testMaterializedViewColumnName(String columnName)
