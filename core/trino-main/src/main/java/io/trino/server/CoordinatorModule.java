@@ -69,10 +69,8 @@ import io.trino.execution.scheduler.NodeAllocatorService;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.PartitionMemoryEstimatorFactory;
 import io.trino.execution.scheduler.SplitSchedulerStats;
-import io.trino.execution.scheduler.StageTaskSourceFactory;
 import io.trino.execution.scheduler.TaskDescriptorStorage;
 import io.trino.execution.scheduler.TaskExecutionStats;
-import io.trino.execution.scheduler.TaskSourceFactory;
 import io.trino.execution.scheduler.policy.AllAtOnceExecutionPolicy;
 import io.trino.execution.scheduler.policy.ExecutionPolicy;
 import io.trino.execution.scheduler.policy.PhasedExecutionPolicy;
@@ -325,7 +323,6 @@ public class CoordinatorModule
         binder.bind(SplitSchedulerStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SplitSchedulerStats.class).withGeneratedName();
 
-        binder.bind(TaskSourceFactory.class).to(StageTaskSourceFactory.class).in(Scopes.SINGLETON);
         binder.bind(EventDrivenTaskSourceFactory.class).in(Scopes.SINGLETON);
         binder.bind(TaskDescriptorStorage.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskDescriptorStorage.class).withGeneratedName();
