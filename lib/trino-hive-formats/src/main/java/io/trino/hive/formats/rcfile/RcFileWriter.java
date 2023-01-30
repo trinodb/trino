@@ -20,6 +20,7 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.DataOutputStream;
+import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.compression.Codec;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.compression.MemoryCompressedSliceOutput;
@@ -212,7 +213,7 @@ public class RcFileWriter
     }
 
     public void validate(TrinoInputFile inputFile)
-            throws RcFileCorruptionException
+            throws FileCorruptionException
     {
         checkState(validationBuilder != null, "validation is not enabled");
         validateFile(
