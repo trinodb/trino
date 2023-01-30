@@ -7022,6 +7022,7 @@ public class TestAnalyzer
         StatementAnalyzerFactory statementAnalyzerFactory = new StatementAnalyzerFactory(
                 plannerContext,
                 new SqlParser(),
+                SessionTimeProvider.DEFAULT,
                 accessControl,
                 new NoOpTransactionManager()
                 {
