@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.SystemSessionProperties;
+import io.trino.cost.TaskCountEstimator;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
@@ -33,8 +34,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct.UseMarkDistinct.FORCE;
+import static io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct.UseMarkDistinct.NO;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
+import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
 /**
@@ -62,6 +68,24 @@ import static java.util.stream.Collectors.toSet;
 public class MultipleDistinctAggregationToMarkDistinct
         implements Rule<AggregationNode>
 {
+    public enum UseMarkDistinct
+    {
+        AUTO, FORCE, NO;
+
+        public static UseMarkDistinct fromPropertyValue(String value)
+        {
+            value = value.toLowerCase(ENGLISH).trim();
+            return switch (value) {
+                case "true", "auto" -> AUTO;
+                case "force" -> FORCE;
+                case "false", "no" -> NO;
+                default -> throw new IllegalArgumentException("Unsupported value: " + value);
+            };
+        }
+    }
+
+    public static final int MARK_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER = 8;
+
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .matching(
                     Predicates.and(
@@ -98,6 +122,13 @@ public class MultipleDistinctAggregationToMarkDistinct
         return distincts > 0 && distincts < aggregationNode.getAggregations().size();
     }
 
+    private final TaskCountEstimator taskCountEstimator;
+
+    public MultipleDistinctAggregationToMarkDistinct(TaskCountEstimator taskCountEstimator)
+    {
+        this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
+    }
+
     @Override
     public Pattern<AggregationNode> getPattern()
     {
@@ -107,7 +138,12 @@ public class MultipleDistinctAggregationToMarkDistinct
     @Override
     public Result apply(AggregationNode parent, Captures captures, Context context)
     {
-        if (!SystemSessionProperties.useMarkDistinct(context.getSession())) {
+        UseMarkDistinct useMarkDistinct = SystemSessionProperties.useMarkDistinct(context.getSession());
+        if (useMarkDistinct.equals(NO)) {
+            return Result.empty();
+        }
+
+        if (!(useMarkDistinct.equals(FORCE) || isGlobalAggregation(parent) || hasSmallOutputRowCount(parent, context))) {
             return Result.empty();
         }
 
@@ -164,5 +200,18 @@ public class MultipleDistinctAggregationToMarkDistinct
                         .setAggregations(newAggregations)
                         .setPreGroupedSymbols(ImmutableList.of())
                         .build());
+    }
+
+    private boolean hasSmallOutputRowCount(AggregationNode node, Context context)
+    {
+        double numberOfDistinctValues = context.getStatsProvider().getStats(node).getOutputRowCount();
+        int numberOfThreadsInACluster = taskCountEstimator.estimateSourceDistributedTaskCount(context.getSession()) * getTaskConcurrency(context.getSession());
+        // if the estimate is unknown, use MarkDistinct to avoid query failure
+        return Double.isNaN(numberOfDistinctValues) || numberOfDistinctValues <= MARK_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER * numberOfThreadsInACluster;
+    }
+
+    private static boolean isGlobalAggregation(AggregationNode aggregationNode)
+    {
+        return aggregationNode.getGroupingKeys().isEmpty();
     }
 }

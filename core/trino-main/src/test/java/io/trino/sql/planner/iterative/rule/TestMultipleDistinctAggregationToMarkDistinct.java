@@ -14,6 +14,7 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.cost.TaskCountEstimator;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import org.testng.annotations.Test;
@@ -24,6 +25,9 @@ import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 public class TestMultipleDistinctAggregationToMarkDistinct
         extends BaseRuleTest
 {
+    private static final int NODES_COUNT = 4;
+    private static final TaskCountEstimator TASK_COUNT_ESTIMATOR = new TaskCountEstimator(() -> NODES_COUNT);
+
     @Test
     public void testNoDistinct()
     {
@@ -42,7 +46,7 @@ public class TestMultipleDistinctAggregationToMarkDistinct
     @Test
     public void testSingleDistinct()
     {
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct())
+        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("output1"), expression("count(DISTINCT input1)"), ImmutableList.of(BIGINT))
@@ -56,7 +60,7 @@ public class TestMultipleDistinctAggregationToMarkDistinct
     @Test
     public void testMultipleAggregations()
     {
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct())
+        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("output1"), expression("count(DISTINCT input)"), ImmutableList.of(BIGINT))
@@ -69,7 +73,7 @@ public class TestMultipleDistinctAggregationToMarkDistinct
     @Test
     public void testDistinctWithFilter()
     {
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct())
+        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("output1"), expression("count(DISTINCT input1) filter (where filter1)"), ImmutableList.of(BIGINT))
@@ -87,7 +91,7 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                                                 p.symbol("input2"))))))
                 .doesNotFire();
 
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct())
+        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("output1"), expression("count(DISTINCT input1) filter (where filter1)"), ImmutableList.of(BIGINT))

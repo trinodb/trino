@@ -18,12 +18,14 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct.UseMarkDistinct;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct.UseMarkDistinct.AUTO;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -62,7 +64,7 @@ public class OptimizerConfig
     private boolean optimizeHashGeneration = true;
     private boolean pushTableWriteThroughUnion = true;
     private boolean dictionaryAggregation;
-    private boolean useMarkDistinct = true;
+    private UseMarkDistinct useMarkDistinct = AUTO;
     private boolean preferPartialAggregation = true;
     private boolean pushAggregationThroughOuterJoin = true;
     private boolean enableIntermediateAggregations;
@@ -471,15 +473,15 @@ public class OptimizerConfig
         return this;
     }
 
-    public boolean isUseMarkDistinct()
+    public UseMarkDistinct getUseMarkDistinct()
     {
         return useMarkDistinct;
     }
 
     @Config("optimizer.use-mark-distinct")
-    public OptimizerConfig setUseMarkDistinct(boolean value)
+    public OptimizerConfig setUseMarkDistinct(String value)
     {
-        this.useMarkDistinct = value;
+        this.useMarkDistinct = UseMarkDistinct.fromPropertyValue(value);
         return this;
     }
 

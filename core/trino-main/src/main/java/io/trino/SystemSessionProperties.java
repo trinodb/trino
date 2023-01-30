@@ -28,6 +28,7 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
+import io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct.UseMarkDistinct;
 
 import javax.inject.Inject;
 
@@ -49,8 +50,10 @@ import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public final class SystemSessionProperties
         implements SystemSessionPropertiesProvider
@@ -531,11 +534,15 @@ public final class SystemSessionProperties
                         false,
                         value -> validateIntegerValue(value, MAX_RECURSION_DEPTH, 1, false),
                         object -> object),
-                booleanProperty(
+                new PropertyMetadata<>(
                         USE_MARK_DISTINCT,
                         "Implement DISTINCT aggregations using MarkDistinct",
-                        optimizerConfig.isUseMarkDistinct(),
-                        false),
+                        createUnboundedVarcharType(),
+                        UseMarkDistinct.class,
+                        optimizerConfig.getUseMarkDistinct(),
+                        false,
+                        value -> UseMarkDistinct.fromPropertyValue((String) value),
+                        value -> value.name().toLowerCase(ENGLISH)),
                 booleanProperty(
                         PREFER_PARTIAL_AGGREGATION,
                         "Prefer splitting aggregations into partial and final stages",
@@ -1178,9 +1185,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT, Integer.class);
     }
 
-    public static boolean useMarkDistinct(Session session)
+    public static UseMarkDistinct useMarkDistinct(Session session)
     {
-        return session.getSystemProperty(USE_MARK_DISTINCT, Boolean.class);
+        return session.getSystemProperty(USE_MARK_DISTINCT, UseMarkDistinct.class);
     }
 
     public static boolean preferPartialAggregation(Session session)
