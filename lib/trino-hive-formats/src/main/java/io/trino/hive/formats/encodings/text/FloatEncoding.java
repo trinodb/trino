@@ -90,7 +90,13 @@ public class FloatEncoding
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
             throws FileCorruptionException
     {
-        type.writeLong(builder, Float.floatToIntBits(parseFloat(slice, offset, length)));
+        try {
+            float value = Float.parseFloat(slice.toStringAscii(offset, length));
+            type.writeLong(builder, Float.floatToIntBits(value));
+        }
+        catch (NumberFormatException e) {
+            builder.appendNull();
+        }
     }
 
     private static float parseFloat(Slice slice, int start, int length)

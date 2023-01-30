@@ -15,17 +15,18 @@ package io.trino.hive.formats.encodings.text;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 import io.trino.hive.formats.encodings.ColumnData;
 import io.trino.hive.formats.encodings.EncodeOutput;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+
 public class LongEncoding
         implements TextColumnEncoding
 {
-    private static final Slice MIN_LONG = Slices.utf8Slice("-9223372036854775808");
     private final Type type;
     private final Slice nullSequence;
     private final StringBuilder buffer = new StringBuilder();
@@ -80,7 +81,7 @@ public class LongEncoding
                 builder.appendNull();
             }
             else {
-                type.writeLong(builder, parseLong(slice, offset, length));
+                decodeValue(builder, slice, offset, length);
             }
         }
         return builder.build();
@@ -89,33 +90,110 @@ public class LongEncoding
     @Override
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
-        type.writeLong(builder, parseLong(slice, offset, length));
+        decodeValue(builder, slice, offset, length);
+    }
+
+    private void decodeValue(BlockBuilder builder, Slice slice, int offset, int length)
+    {
+        if (length == 0) {
+            builder.appendNull();
+            return;
+        }
+
+        try {
+            type.writeLong(builder, parseLong(slice, offset, length));
+        }
+        catch (TrinoException e) {
+            // writeLong for INTEGER, SMALLINT, and TINYINT will throw
+            // GENERIC_INTERNAL_ERROR when the value is out of range, and
+            // in that text format writes null
+            if (e.getErrorCode() != GENERIC_INTERNAL_ERROR.toErrorCode()) {
+                throw e;
+            }
+            builder.appendNull();
+        }
+        catch (NumberFormatException ignored) {
+            builder.appendNull();
+        }
     }
 
     private static long parseLong(Slice slice, int start, int length)
     {
-        if (slice.equals(start, length, MIN_LONG, 0, MIN_LONG.length())) {
-            return Long.MIN_VALUE;
-        }
-
         int limit = start + length;
 
-        int sign;
+        // process optional sign
+        boolean negative = false;
         if (slice.getByte(start) == '-') {
-            sign = -1;
+            negative = true;
             start++;
         }
-        else {
-            sign = 1;
+        else if (slice.getByte(start) == '+') {
+            start++;
         }
 
-        long value = slice.getByte(start) - ((int) '0');
-        start++;
+        // an empty string or a sign just by itself is not allowed
+        if (start == limit) {
+            throw new NumberFormatException();
+        }
+
+        // skip leading zeros
+        while (start < limit && slice.getByte(start) == '0') {
+            start++;
+        }
+
+        // decimal parts of number must be valid, but is otherwise ignored
+        limit = truncateDecimal(slice, start, limit);
+
+        // if the number is longer than 19 characters is it out of range for a long
+        // we check length here as it avoids many special cases in the code below
+        if (limit - start > 19) {
+            throw new NumberFormatException();
+        }
+
+        long value = 0;
         while (start < limit) {
-            value = value * 10 + (slice.getByte(start) - ((int) '0'));
+            byte b = slice.getByte(start);
             start++;
+
+            value = value * 10 + toDigit(b);
+            if (value < 0 && value != Long.MIN_VALUE) {
+                throw new NumberFormatException();
+            }
         }
 
-        return value * sign;
+        if (negative) {
+            value = -value;
+            if (value > 0) {
+                throw new NumberFormatException();
+            }
+        }
+        else if (value < 0) {
+            throw new NumberFormatException();
+        }
+        return value;
+    }
+
+    private static int truncateDecimal(Slice slice, int start, int limit)
+    {
+        for (int position = start; position < limit; position++) {
+            byte b = slice.getByte(position);
+            if (b == '.') {
+                // verify the decimal part only contains valid digits
+                for (int decimalPosition = position + 1; decimalPosition < limit; decimalPosition++) {
+                    toDigit(slice.getByte(decimalPosition));
+                }
+                // ignore the decimal part
+                return position;
+            }
+        }
+        return limit;
+    }
+
+    private static int toDigit(byte b)
+    {
+        if (b > '9' || b < '0') {
+            throw new NumberFormatException();
+        }
+        return b - ((int) '0');
     }
 }

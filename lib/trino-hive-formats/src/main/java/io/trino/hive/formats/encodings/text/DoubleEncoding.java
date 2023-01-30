@@ -90,7 +90,12 @@ public class DoubleEncoding
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
             throws FileCorruptionException
     {
-        type.writeDouble(builder, parseDouble(slice, offset, length));
+        try {
+            type.writeDouble(builder, Double.parseDouble(slice.toStringAscii(offset, length)));
+        }
+        catch (NumberFormatException e) {
+            builder.appendNull();
+        }
     }
 
     private static double parseDouble(Slice slice, int start, int length)

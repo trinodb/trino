@@ -24,19 +24,14 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 
-import java.math.BigDecimal;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
-import static java.math.RoundingMode.HALF_UP;
+import static io.trino.hive.formats.HiveFormatUtils.writeDecimal;
 
 public class DecimalEncoding
         implements TextColumnEncoding
 {
     private final DecimalType type;
     private final Slice nullSequence;
-    private final char[] buffer = new char[100];
 
     public DecimalEncoding(Type type, Slice nullSequence)
     {
@@ -87,11 +82,8 @@ public class DecimalEncoding
             if (length == 0 || nullSequence.equals(0, nullSequence.length(), slice, offset, length)) {
                 builder.appendNull();
             }
-            else if (type.isShort()) {
-                type.writeLong(builder, parseLong(slice, offset, length));
-            }
             else {
-                type.writeObject(builder, parseSlice(slice, offset, length));
+                decodeValue(builder, slice, offset, length);
             }
         }
         return builder.build();
@@ -100,38 +92,16 @@ public class DecimalEncoding
     @Override
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
-        if (type.isShort()) {
-            type.writeLong(builder, parseLong(slice, offset, length));
-        }
-        else {
-            type.writeObject(builder, parseSlice(slice, offset, length));
-        }
+        decodeValue(builder, slice, offset, length);
     }
 
-    private long parseLong(Slice slice, int offset, int length)
+    private void decodeValue(BlockBuilder builder, Slice slice, int offset, int length)
     {
-        BigDecimal decimal = parseBigDecimal(slice, offset, length);
-        return decimal.unscaledValue().longValue();
-    }
-
-    private Int128 parseSlice(Slice slice, int offset, int length)
-    {
-        BigDecimal decimal = parseBigDecimal(slice, offset, length);
-        return Int128.valueOf(decimal.unscaledValue());
-    }
-
-    private BigDecimal parseBigDecimal(Slice slice, int offset, int length)
-    {
-        checkArgument(length < buffer.length);
-        for (int i = 0; i < length; i++) {
-            buffer[i] = (char) slice.getByte(offset + i);
+        try {
+            writeDecimal(slice.toStringAscii(offset, length), type, builder);
         }
-
-        BigDecimal decimal = new BigDecimal(buffer, 0, length);
-
-        checkState(decimal.scale() <= type.getScale(), "Read decimal value scale larger than column scale");
-        decimal = decimal.setScale(type.getScale(), HALF_UP);
-        checkState(decimal.precision() <= type.getPrecision(), "Read decimal precision larger than column precision");
-        return decimal;
+        catch (NumberFormatException e) {
+            builder.appendNull();
+        }
     }
 }

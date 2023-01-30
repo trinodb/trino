@@ -25,8 +25,8 @@ import io.trino.spi.type.Type;
 public class BooleanEncoding
         implements TextColumnEncoding
 {
-    private static final Slice TRUE = Slices.utf8Slice("TRUE");
-    private static final Slice FALSE = Slices.utf8Slice("FALSE");
+    private static final Slice TRUE = Slices.utf8Slice("true");
+    private static final Slice FALSE = Slices.utf8Slice("false");
 
     private final Type type;
     private final Slice nullSequence;
@@ -77,15 +77,7 @@ public class BooleanEncoding
         for (int i = 0; i < size; i++) {
             int offset = columnData.getOffset(i);
             int length = columnData.getLength(i);
-            if (isTrue(slice, offset, length)) {
-                type.writeBoolean(builder, true);
-            }
-            else if (isFalse(slice, offset, length)) {
-                type.writeBoolean(builder, false);
-            }
-            else {
-                builder.appendNull();
-            }
+            decodeValue(builder, slice, offset, length);
         }
         return builder.build();
     }
@@ -93,7 +85,20 @@ public class BooleanEncoding
     @Override
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
-        type.writeBoolean(builder, isTrue(slice, offset, length));
+        decodeValue(builder, slice, offset, length);
+    }
+
+    private void decodeValue(BlockBuilder builder, Slice slice, int offset, int length)
+    {
+        if (isTrue(slice, offset, length)) {
+            type.writeBoolean(builder, true);
+        }
+        else if (isFalse(slice, offset, length)) {
+            type.writeBoolean(builder, false);
+        }
+        else {
+            builder.appendNull();
+        }
     }
 
     @SuppressWarnings("PointlessArithmeticExpression")

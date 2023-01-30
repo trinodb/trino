@@ -14,13 +14,18 @@
 package io.trino.hive.formats.encodings.text;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.hive.formats.HiveFormatUtils;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
+import static io.trino.hive.formats.HiveFormatUtils.TIMESTAMP_FORMATS_KEY;
 import static io.trino.hive.formats.encodings.text.TextEncodingOptions.NestingLevels.EXTENDED;
 import static io.trino.hive.formats.encodings.text.TextEncodingOptions.NestingLevels.EXTENDED_ADDITIONAL;
 
@@ -121,19 +126,22 @@ public class TextEncodingOptions
     private final Slice separators;
     private final Byte escapeByte;
     private final boolean lastColumnTakesRest;
+    private final List<String> timestampFormats;
 
     private TextEncodingOptions(
             Slice nullSequence,
             NestingLevels nestingLevels,
             Slice separators,
             Byte escapeByte,
-            boolean lastColumnTakesRest)
+            boolean lastColumnTakesRest,
+            List<String> timestampFormats)
     {
         this.nullSequence = nullSequence;
         this.nestingLevels = nestingLevels;
         this.separators = separators;
         this.escapeByte = escapeByte;
         this.lastColumnTakesRest = lastColumnTakesRest;
+        this.timestampFormats = timestampFormats;
     }
 
     public Slice getNullSequence()
@@ -161,6 +169,11 @@ public class TextEncodingOptions
         return lastColumnTakesRest;
     }
 
+    public List<String> getTimestampFormats()
+    {
+        return timestampFormats;
+    }
+
     public Map<String, String> toSchema()
     {
         ImmutableMap.Builder<String, String> schema = ImmutableMap.builder();
@@ -182,6 +195,12 @@ public class TextEncodingOptions
         }
         if (escapeByte != null) {
             schema.put(ESCAPE_CHAR_KEY, String.valueOf(escapeByte));
+        }
+        if (!timestampFormats.isEmpty()) {
+            schema.put(TIMESTAMP_FORMATS_KEY, timestampFormats.stream()
+                    .map(format -> format.replace("\\", "\\\\"))
+                    .map(format -> format.replace(",", "\\,"))
+                    .collect(Collectors.joining(",")));
         }
         return schema.buildOrThrow();
     }
@@ -229,6 +248,9 @@ public class TextEncodingOptions
             builder.escapeByte(getByte(escapeProperty, (byte) '\\'));
         }
 
+        // timestamp formats
+        builder.timestampFormats(HiveFormatUtils.getTimestampFormatsSchemaProperty(schema));
+
         return builder.build();
     }
 
@@ -265,6 +287,7 @@ public class TextEncodingOptions
         private byte mapKeyDelimiter = DEFAULT_SEPARATORS[2];
         private Byte escapeByte;
         private boolean lastColumnTakesRest;
+        private List<String> timestampFormats = ImmutableList.of();
 
         public Builder() {}
 
@@ -277,6 +300,7 @@ public class TextEncodingOptions
             mapKeyDelimiter = textEncodingOptions.getSeparators().getByte(2);
             escapeByte = textEncodingOptions.getEscapeByte();
             lastColumnTakesRest = textEncodingOptions.isLastColumnTakesRest();
+            timestampFormats = textEncodingOptions.getTimestampFormats();
         }
 
         public Builder nullSequence(Slice nullSequence)
@@ -331,10 +355,21 @@ public class TextEncodingOptions
             return this;
         }
 
+        public Builder timestampFormats(String... timestampFormats)
+        {
+            return timestampFormats(ImmutableList.copyOf(timestampFormats));
+        }
+
+        public Builder timestampFormats(List<String> timestampFormats)
+        {
+            this.timestampFormats = timestampFormats;
+            return this;
+        }
+
         public TextEncodingOptions build()
         {
             Slice separators = nestingLevels.getSeparators(fieldDelimiter, collectionDelimiter, mapKeyDelimiter);
-            return new TextEncodingOptions(nullSequence, nestingLevels, separators, escapeByte, lastColumnTakesRest);
+            return new TextEncodingOptions(nullSequence, nestingLevels, separators, escapeByte, lastColumnTakesRest, timestampFormats);
         }
     }
 }
