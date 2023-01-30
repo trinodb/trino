@@ -5250,10 +5250,10 @@ public abstract class BaseConnectorTest
         String targetTable = "merge_update_columns_reversed_" + randomNameSuffix();
         assertUpdate(createTableForWrites("CREATE TABLE " + targetTable + " (a, b, c) AS VALUES (1, 2, 3)"), 1);
         assertUpdate("""
-                MERGE INTO %s t USING (VALUES(1)) AS s(a) ON (t.a = s.a)
-                    WHEN MATCHED THEN UPDATE
-                        SET c = 100, b = 42, a = 0
-                """.formatted(targetTable),
+                        MERGE INTO %s t USING (VALUES(1)) AS s(a) ON (t.a = s.a)
+                            WHEN MATCHED THEN UPDATE
+                                SET c = 100, b = 42, a = 0
+                        """.formatted(targetTable),
                 1);
         assertQuery("SELECT * FROM " + targetTable, "VALUES (0, 42, 100)");
 
