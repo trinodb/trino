@@ -122,13 +122,13 @@ public class TestHiveCoercion
                         "    int_to_bigint              INT," +
                         "    bigint_to_varchar          BIGINT," +
                         "    float_to_double            " + floatType + "," +
-                        //"    double_to_float            DOUBLE," + // this coercion is not permitted in Hive 3. TODO test this on Hive < 3.
+                        "    double_to_float            DOUBLE," +
                         "    shortdecimal_to_shortdecimal          DECIMAL(10,2)," +
                         "    shortdecimal_to_longdecimal           DECIMAL(10,2)," +
                         "    longdecimal_to_shortdecimal           DECIMAL(20,12)," +
                         "    longdecimal_to_longdecimal            DECIMAL(20,12)," +
-                        //"    float_to_decimal           " + floatType + "," + // this coercion is not permitted in Hive 3. TODO test this on Hive < 3.
-                        //"    double_to_decimal          DOUBLE," + // this coercion is not permitted in Hive 3. TODO test this on Hive < 3.
+                        "    float_to_decimal           " + floatType + "," +
+                        "    double_to_decimal          DOUBLE," +
                         "    decimal_to_float                   DECIMAL(10,5)," +
                         "    decimal_to_double                  DECIMAL(10,5)," +
                         "    short_decimal_to_varchar           DECIMAL(10,5)," +
@@ -284,6 +284,7 @@ public class TestHiveCoercion
         String tableName = mutableTableInstanceOf(tableDefinition).getNameInDatabase();
 
         String floatToDoubleType = tableName.toLowerCase(ENGLISH).contains("parquet") ? "DOUBLE" : "REAL";
+        String floatToDecimalVal = tableName.toLowerCase(ENGLISH).contains("parquet") ? "12345.12345" : "12345.12300";
         String decimalToFloatVal = tableName.toLowerCase(ENGLISH).contains("parquet") ? "12345.12345" : "12345.124";
 
         insertTableRows(tableName, floatToDoubleType);
@@ -303,13 +304,13 @@ public class TestHiveCoercion
                 "int_to_bigint",
                 "bigint_to_varchar",
                 "float_to_double",
-                // "double_to_float",
+                "double_to_float",
                 "shortdecimal_to_shortdecimal",
                 "shortdecimal_to_longdecimal",
                 "longdecimal_to_shortdecimal",
                 "longdecimal_to_longdecimal",
-                // "float_to_decimal",
-                // "double_to_decimal",
+                "float_to_decimal",
+                "double_to_decimal",
                 "decimal_to_float",
                 "decimal_to_double",
                 "short_decimal_to_varchar",
@@ -320,7 +321,7 @@ public class TestHiveCoercion
                 "varchar_to_smaller_varchar",
                 "id");
 
-        Function<Engine, Map<String, List<Object>>> expected = engine -> expectedValuesForEngineProvider(engine, tableName, decimalToFloatVal);
+        Function<Engine, Map<String, List<Object>>> expected = engine -> expectedValuesForEngineProvider(engine, tableName, decimalToFloatVal, floatToDecimalVal);
 
         Map<String, List<Object>> expectedPrestoResults = expected.apply(Engine.TRINO);
         assertEquals(ImmutableSet.copyOf(prestoReadColumns), expectedPrestoResults.keySet());
@@ -352,13 +353,13 @@ public class TestHiveCoercion
                         "  INTEGER '2323', " +
                         "  12345, " +
                         "  REAL '0.5', " +
-                        //"  DOUBLE '0.5', " +
+                        "  DOUBLE '0.5', " +
                         "  DECIMAL '12345678.12', " +
                         "  DECIMAL '12345678.12', " +
                         "  DECIMAL '12345678.123456123456', " +
                         "  DECIMAL '12345678.123456123456', " +
-                        //"  %2$s '12345.12345', " +
-                        //"  DOUBLE '12345.12345', " +
+                        "  %2$s '12345.12345', " +
+                        "  DOUBLE '12345.12345', " +
                         "  DECIMAL '12345.12345', " +
                         "  DECIMAL '12345.12345', " +
                         "  DECIMAL '12345.12345', " +
@@ -380,13 +381,13 @@ public class TestHiveCoercion
                         "  INTEGER '-2323', " +
                         "  -12345, " +
                         "  REAL '-1.5', " +
-                        //"  DOUBLE '-1.5', " +
+                        "  DOUBLE '-1.5', " +
                         "  DECIMAL '-12345678.12', " +
                         "  DECIMAL '-12345678.12', " +
                         "  DECIMAL '-12345678.123456123456', " +
                         "  DECIMAL '-12345678.123456123456', " +
-                        //"  %2$s '-12345.12345', " +
-                        //"  DOUBLE '-12345.12345', " +
+                        "  %2$s '-12345.12345', " +
+                        "  DOUBLE '-12345.12345', " +
                         "  DECIMAL '-12345.12345', " +
                         "  DECIMAL '-12345.12345', " +
                         "  DECIMAL '-12345.12345', " +
@@ -400,7 +401,7 @@ public class TestHiveCoercion
                 floatToDoubleType));
     }
 
-    protected Map<String, List<Object>> expectedValuesForEngineProvider(Engine engine, String tableName, String decimalToFloatVal)
+    protected Map<String, List<Object>> expectedValuesForEngineProvider(Engine engine, String tableName, String decimalToFloatVal, String floatToDecimalVal)
     {
         String hiveValueForCaseChangeField;
         Predicate<String> isFormat = formatName -> tableName.toLowerCase(ENGLISH).contains(formatName);
@@ -493,7 +494,7 @@ public class TestHiveCoercion
                 .put("float_to_double", Arrays.asList(
                         0.5,
                         -1.5))
-                // .put("double_to_float", Arrays.asList(0.5, -1.5))
+                .put("double_to_float", Arrays.asList(0.5, -1.5))
                 .put("shortdecimal_to_shortdecimal", Arrays.asList(
                         new BigDecimal("12345678.1200"),
                         new BigDecimal("-12345678.1200")))
@@ -506,8 +507,8 @@ public class TestHiveCoercion
                 .put("longdecimal_to_longdecimal", Arrays.asList(
                         new BigDecimal("12345678.12345612345600"),
                         new BigDecimal("-12345678.12345612345600")))
-                // .put("float_to_decimal", Arrays.asList(new BigDecimal(floatToDecimalVal), new BigDecimal("-" + floatToDecimalVal)))
-                // .put("double_to_decimal", Arrays.asList(new BigDecimal("12345.12345"), new BigDecimal("-12345.12345")))
+                .put("float_to_decimal", Arrays.asList(new BigDecimal(floatToDecimalVal), new BigDecimal("-" + floatToDecimalVal)))
+                .put("double_to_decimal", Arrays.asList(new BigDecimal("12345.12345"), new BigDecimal("-12345.12345")))
                 .put("decimal_to_float", Arrays.asList(
                         Float.parseFloat(decimalToFloatVal),
                         -Float.parseFloat(decimalToFloatVal)))
@@ -719,13 +720,13 @@ public class TestHiveCoercion
                 row("int_to_bigint", "bigint"),
                 row("bigint_to_varchar", "varchar"),
                 row("float_to_double", "double"),
-                //row("double_to_float", floatType),
+                row("double_to_float", floatType),
                 row("shortdecimal_to_shortdecimal", "decimal(18,4)"),
                 row("shortdecimal_to_longdecimal", "decimal(20,4)"),
                 row("longdecimal_to_shortdecimal", "decimal(12,2)"),
                 row("longdecimal_to_longdecimal", "decimal(38,14)"),
-                //row("float_to_decimal", "decimal(10,5)"),
-                //row("double_to_decimal", "decimal(10,5)"),
+                row("float_to_decimal", "decimal(10,5)"),
+                row("double_to_decimal", "decimal(10,5)"),
                 row("decimal_to_float", floatType),
                 row("decimal_to_double", "double"),
                 row("short_decimal_to_varchar", "varchar"),
@@ -763,13 +764,13 @@ public class TestHiveCoercion
                 .put("int_to_bigint", BIGINT)
                 .put("bigint_to_varchar", VARCHAR)
                 .put("float_to_double", DOUBLE)
-                //.put( "double_to_float", floatType)
+                .put("double_to_float", floatType)
                 .put("shortdecimal_to_shortdecimal", DECIMAL)
                 .put("shortdecimal_to_longdecimal", DECIMAL)
                 .put("longdecimal_to_shortdecimal", DECIMAL)
                 .put("longdecimal_to_longdecimal", DECIMAL)
-                //.put("float_to_decimal", DECIMAL)
-                //.put("double_to_decimal", DECIMAL)
+                .put("float_to_decimal", DECIMAL)
+                .put("double_to_decimal", DECIMAL)
                 .put("decimal_to_float", floatType)
                 .put("decimal_to_double", DOUBLE)
                 .put("short_decimal_to_varchar", VARCHAR)
@@ -801,13 +802,13 @@ public class TestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN int_to_bigint int_to_bigint bigint", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN bigint_to_varchar bigint_to_varchar string", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_double float_to_double double", tableName));
-        //onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_float double_to_float %s", tableName, floatType));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_float double_to_float %s", tableName, floatType));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_shortdecimal shortdecimal_to_shortdecimal DECIMAL(18,4)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_longdecimal shortdecimal_to_longdecimal DECIMAL(20,4)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN longdecimal_to_shortdecimal longdecimal_to_shortdecimal DECIMAL(12,2)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN longdecimal_to_longdecimal longdecimal_to_longdecimal DECIMAL(38,14)", tableName));
-        //onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_decimal float_to_decimal DECIMAL(10,5)", tableName));
-        //onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_decimal double_to_decimal DECIMAL(10,5)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_decimal float_to_decimal DECIMAL(10,5)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_decimal double_to_decimal DECIMAL(10,5)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN decimal_to_float decimal_to_float %s", tableName, floatType));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN decimal_to_double decimal_to_double double", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN short_decimal_to_varchar short_decimal_to_varchar string", tableName));
