@@ -84,7 +84,6 @@ public class QueryManagerConfig
     private RetryPolicy retryPolicy = RetryPolicy.NONE;
     private int queryRetryAttempts = 4;
     private int taskRetryAttemptsPerTask = 4;
-    private int taskRetryAttemptsOverall = Integer.MAX_VALUE;
     private Duration retryInitialDelay = new Duration(10, SECONDS);
     private Duration retryMaxDelay = new Duration(1, MINUTES);
     private double retryDelayScaleFactor = 2.0;
@@ -99,12 +98,10 @@ public class QueryManagerConfig
 
     private DataSize faultTolerantExecutionTargetTaskInputSize = DataSize.of(4, GIGABYTE);
 
-    private int faultTolerantExecutionMinTaskSplitCount = 16;
     private int faultTolerantExecutionTargetTaskSplitCount = 64;
     private int faultTolerantExecutionMaxTaskSplitCount = 256;
     private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15));
     private int faultTolerantExecutionPartitionCount = 50;
-    private boolean faultTolerantExecutionEventDrivenSchedulerEnabled = true;
     private boolean faultTolerantExecutionForcePreferredWritePartitioningEnabled = true;
 
     @Min(1)
@@ -461,19 +458,6 @@ public class QueryManagerConfig
     }
 
     @Min(0)
-    public int getTaskRetryAttemptsOverall()
-    {
-        return taskRetryAttemptsOverall;
-    }
-
-    @Config("task-retry-attempts-overall")
-    public QueryManagerConfig setTaskRetryAttemptsOverall(int taskRetryAttemptsOverall)
-    {
-        this.taskRetryAttemptsOverall = taskRetryAttemptsOverall;
-        return this;
-    }
-
-    @Min(0)
     @Max(MAX_TASK_RETRY_ATTEMPTS)
     public int getTaskRetryAttemptsPerTask()
     {
@@ -624,20 +608,6 @@ public class QueryManagerConfig
     }
 
     @Min(1)
-    public int getFaultTolerantExecutionMinTaskSplitCount()
-    {
-        return faultTolerantExecutionMinTaskSplitCount;
-    }
-
-    @Config("fault-tolerant-execution-min-task-split-count")
-    @ConfigDescription("Minimal number of splits for a single fault tolerant task (count based)")
-    public QueryManagerConfig setFaultTolerantExecutionMinTaskSplitCount(int faultTolerantExecutionMinTaskSplitCount)
-    {
-        this.faultTolerantExecutionMinTaskSplitCount = faultTolerantExecutionMinTaskSplitCount;
-        return this;
-    }
-
-    @Min(1)
     public int getFaultTolerantExecutionTargetTaskSplitCount()
     {
         return faultTolerantExecutionTargetTaskSplitCount;
@@ -690,18 +660,6 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionPartitionCount(int faultTolerantExecutionPartitionCount)
     {
         this.faultTolerantExecutionPartitionCount = faultTolerantExecutionPartitionCount;
-        return this;
-    }
-
-    public boolean isFaultTolerantExecutionEventDrivenSchedulerEnabled()
-    {
-        return faultTolerantExecutionEventDrivenSchedulerEnabled;
-    }
-
-    @Config("experimental.fault-tolerant-execution-event-driven-scheduler-enabled")
-    public QueryManagerConfig setFaultTolerantExecutionEventDrivenSchedulerEnabled(boolean faultTolerantExecutionEventDrivenSchedulerEnabled)
-    {
-        this.faultTolerantExecutionEventDrivenSchedulerEnabled = faultTolerantExecutionEventDrivenSchedulerEnabled;
         return this;
     }
 
