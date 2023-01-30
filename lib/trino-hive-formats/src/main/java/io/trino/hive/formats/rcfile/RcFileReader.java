@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.DataSeekableInputStream;
+import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.ReadWriteUtils;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.compression.ValueDecompressor;
@@ -459,21 +460,21 @@ public class RcFileReader
     }
 
     private void verify(boolean expression, String messageFormat, Object... args)
-            throws RcFileCorruptionException
+            throws FileCorruptionException
     {
         if (!expression) {
             throw corrupt(messageFormat, args);
         }
     }
 
-    private RcFileCorruptionException corrupt(String messageFormat, Object... args)
+    private FileCorruptionException corrupt(String messageFormat, Object... args)
     {
         closeQuietly();
-        return new RcFileCorruptionException(messageFormat, args);
+        return new FileCorruptionException(messageFormat, args);
     }
 
     private void validateWrite(Predicate<RcFileWriteValidation> test, String messageFormat, Object... args)
-            throws RcFileCorruptionException
+            throws FileCorruptionException
     {
         if (writeValidation.isPresent() && !test.test(writeValidation.get())) {
             throw corrupt("Write validation failed: " + messageFormat, args);
@@ -502,7 +503,7 @@ public class RcFileReader
             TrinoInputFile inputFile,
             RcFileEncoding encoding,
             List<Type> types)
-            throws RcFileCorruptionException
+            throws FileCorruptionException
     {
         ImmutableMap.Builder<Integer, Type> readTypes = ImmutableMap.builder();
         for (int columnIndex = 0; columnIndex < types.size(); columnIndex++) {
@@ -519,11 +520,11 @@ public class RcFileReader
                 // ignored
             }
         }
-        catch (RcFileCorruptionException e) {
+        catch (FileCorruptionException e) {
             throw e;
         }
         catch (IOException e) {
-            throw new RcFileCorruptionException(e, "Validation failed");
+            throw new FileCorruptionException(e, "Validation failed");
         }
     }
 
@@ -621,7 +622,7 @@ public class RcFileReader
             // negative length is used to encode a run or the last value
             if (valueLength < 0) {
                 if (lastValueLength == -1) {
-                    throw new RcFileCorruptionException("First column value length is negative");
+                    throw new FileCorruptionException("First column value length is negative");
                 }
                 runLength = (~valueLength) - 1;
                 return lastValueLength;

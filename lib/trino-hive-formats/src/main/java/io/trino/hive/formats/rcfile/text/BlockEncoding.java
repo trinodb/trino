@@ -15,9 +15,9 @@ package io.trino.hive.formats.rcfile.text;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.rcfile.ColumnData;
 import io.trino.hive.formats.rcfile.EncodeOutput;
-import io.trino.hive.formats.rcfile.RcFileCorruptionException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
@@ -40,7 +40,7 @@ public abstract class BlockEncoding
 
     @Override
     public final void encodeColumn(Block block, SliceOutput output, EncodeOutput encodeOutput)
-            throws RcFileCorruptionException
+            throws FileCorruptionException
     {
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (block.isNull(position)) {
@@ -55,7 +55,7 @@ public abstract class BlockEncoding
 
     @Override
     public final Block decodeColumn(ColumnData columnData)
-            throws RcFileCorruptionException
+            throws FileCorruptionException
     {
         int size = columnData.rowCount();
 

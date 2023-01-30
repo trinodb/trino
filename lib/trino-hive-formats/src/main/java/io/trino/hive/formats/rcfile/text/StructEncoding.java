@@ -15,7 +15,7 @@ package io.trino.hive.formats.rcfile.text;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.trino.hive.formats.rcfile.RcFileCorruptionException;
+import io.trino.hive.formats.FileCorruptionException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
@@ -41,7 +41,7 @@ public class StructEncoding
 
     @Override
     public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
-            throws RcFileCorruptionException
+            throws FileCorruptionException
     {
         byte separator = getSeparator(depth);
 
@@ -62,7 +62,7 @@ public class StructEncoding
 
     @Override
     public void decodeValueInto(int depth, BlockBuilder builder, Slice slice, int offset, int length)
-            throws RcFileCorruptionException
+            throws FileCorruptionException
     {
         byte separator = getSeparator(depth);
         int end = offset + length;
@@ -96,7 +96,7 @@ public class StructEncoding
     }
 
     private void decodeElementValueInto(int depth, int fieldIndex, BlockBuilder builder, Slice slice, int offset, int length)
-            throws RcFileCorruptionException
+            throws FileCorruptionException
     {
         // ignore extra fields
         if (fieldIndex > structFields.size()) {

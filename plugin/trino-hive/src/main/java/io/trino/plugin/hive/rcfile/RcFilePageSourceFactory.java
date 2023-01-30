@@ -24,7 +24,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.memory.MemoryInputFile;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hive.formats.rcfile.RcFileCorruptionException;
+import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.rcfile.RcFileEncoding;
 import io.trino.hive.formats.rcfile.RcFileReader;
 import io.trino.hive.formats.rcfile.binary.BinaryRcFileEncoding;
@@ -209,7 +209,7 @@ public class RcFilePageSourceFactory
                 throw (TrinoException) e;
             }
             String message = splitError(e, path, start, length);
-            if (e instanceof RcFileCorruptionException) {
+            if (e instanceof FileCorruptionException) {
                 throw new TrinoException(HIVE_BAD_DATA, message, e);
             }
             if (e instanceof BlockMissingException) {

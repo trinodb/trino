@@ -15,8 +15,8 @@ package io.trino.hive.formats.rcfile.text;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.rcfile.ColumnEncoding;
-import io.trino.hive.formats.rcfile.RcFileCorruptionException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 
@@ -24,8 +24,8 @@ public interface TextColumnEncoding
         extends ColumnEncoding
 {
     void encodeValueInto(int depth, Block block, int position, SliceOutput output)
-            throws RcFileCorruptionException;
+            throws FileCorruptionException;
 
     void decodeValueInto(int depth, BlockBuilder builder, Slice slice, int offset, int length)
-            throws RcFileCorruptionException;
+            throws FileCorruptionException;
 }

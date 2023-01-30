@@ -15,7 +15,7 @@ package io.trino.hive.formats.rcfile.text;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.trino.hive.formats.rcfile.RcFileCorruptionException;
+import io.trino.hive.formats.FileCorruptionException;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -41,7 +41,7 @@ public class MapEncoding
 
     @Override
     public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
-            throws RcFileCorruptionException
+            throws FileCorruptionException
     {
         byte elementSeparator = getSeparator(depth);
         byte keyValueSeparator = getSeparator(depth + 1);
@@ -70,7 +70,7 @@ public class MapEncoding
 
     @Override
     public void decodeValueInto(int depth, BlockBuilder builder, Slice slice, int offset, int length)
-            throws RcFileCorruptionException
+            throws FileCorruptionException
     {
         byte elementSeparator = getSeparator(depth);
         byte keyValueSeparator = getSeparator(depth + 1);
@@ -102,7 +102,7 @@ public class MapEncoding
     }
 
     private void decodeEntryInto(int depth, BlockBuilder builder, Slice slice, int offset, int length, int keyValueSeparatorPosition)
-            throws RcFileCorruptionException
+            throws FileCorruptionException
     {
         // if there is no key value separator, the key is all the data and the value is null
         int keyLength;

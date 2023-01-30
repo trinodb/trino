@@ -15,9 +15,9 @@ package io.trino.hive.formats.rcfile.text;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.rcfile.ColumnData;
 import io.trino.hive.formats.rcfile.EncodeOutput;
-import io.trino.hive.formats.rcfile.RcFileCorruptionException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
@@ -67,7 +67,7 @@ public class FloatEncoding
 
     @Override
     public Block decodeColumn(ColumnData columnData)
-            throws RcFileCorruptionException
+            throws FileCorruptionException
     {
         int size = columnData.rowCount();
         BlockBuilder builder = type.createBlockBuilder(null, size);
@@ -88,19 +88,19 @@ public class FloatEncoding
 
     @Override
     public void decodeValueInto(int depth, BlockBuilder builder, Slice slice, int offset, int length)
-            throws RcFileCorruptionException
+            throws FileCorruptionException
     {
         type.writeLong(builder, Float.floatToIntBits(parseFloat(slice, offset, length)));
     }
 
     private static float parseFloat(Slice slice, int start, int length)
-            throws RcFileCorruptionException
+            throws FileCorruptionException
     {
         try {
             return Float.parseFloat(slice.toStringAscii(start, length));
         }
         catch (NumberFormatException e) {
-            throw new RcFileCorruptionException(e, "Invalid float value");
+            throw new FileCorruptionException(e, "Invalid float value");
         }
     }
 }
