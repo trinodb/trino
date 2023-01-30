@@ -313,6 +313,9 @@ public class UniformPartitionRebalancer
 
         private long estimatePartitionWrittenBytesSinceLastRebalance(WriterId writer, long partitionRowCount)
         {
+            if (writerRowCountSinceLastRebalance[writer.id] == 0) {
+                return 0L;
+            }
             return (writerPhysicalWrittenBytesSinceLastRebalance[writer.id] * partitionRowCount) / writerRowCountSinceLastRebalance[writer.id];
         }
     }
