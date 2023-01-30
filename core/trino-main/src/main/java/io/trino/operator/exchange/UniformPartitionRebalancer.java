@@ -47,14 +47,14 @@ import static java.util.Objects.requireNonNull;
  * Example:
  * <p>
  * Before: For three writers with skewed partitions
- *      Writer 1 -> No partition assigned -> 0 bytes
- *      Writer 2 -> No partition assigned -> 0 bytes
- *      Writer 3 -> Partition 1 (100MB) + Partition 2 (100MB) + Partition 3 (100MB) ->  300 MB
+ * Writer 1 -> No partition assigned -> 0 bytes
+ * Writer 2 -> No partition assigned -> 0 bytes
+ * Writer 3 -> Partition 1 (100MB) + Partition 2 (100MB) + Partition 3 (100MB) ->  300 MB
  * <p>
  * After scaling:
- *      Writer 1 -> Partition 1 (50MB) + Partition 3 (50MB) -> 100 MB
- *      Writer 2 -> Partition 2 (50MB) -> 50 MB
- *      Writer 3 -> Partition 1 (150MB) + Partition 2 (150MB) + Partition 3 (150MB) ->  450 MB
+ * Writer 1 -> Partition 1 (50MB) + Partition 3 (50MB) -> 100 MB
+ * Writer 2 -> Partition 2 (50MB) -> 50 MB
+ * Writer 3 -> Partition 1 (150MB) + Partition 2 (150MB) + Partition 3 (150MB) ->  450 MB
  */
 @ThreadSafe
 public class UniformPartitionRebalancer
