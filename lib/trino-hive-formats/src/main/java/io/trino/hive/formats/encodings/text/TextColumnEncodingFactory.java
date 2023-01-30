@@ -103,7 +103,7 @@ public class TextColumnEncodingFactory
             return new DoubleEncoding(type, textEncodingOptions.getNullSequence());
         }
         if (type instanceof VarcharType || type instanceof CharType) {
-            return new StringEncoding(type, textEncodingOptions.getNullSequence(), textEncodingOptions.getEscapeByte());
+            return new StringEncoding(type, textEncodingOptions.getNullSequence(), textEncodingOptions.getEscapeByte(), textEncodingOptions.getSeparators());
         }
         if (VARBINARY.equals(type)) {
             // binary text encoding is not escaped
@@ -113,7 +113,7 @@ public class TextColumnEncodingFactory
             return new DateEncoding(type, textEncodingOptions.getNullSequence());
         }
         if (type instanceof TimestampType) {
-            return new TimestampEncoding((TimestampType) type, textEncodingOptions.getNullSequence());
+            return new TimestampEncoding((TimestampType) type, textEncodingOptions.getNullSequence(), textEncodingOptions.getTimestampFormats());
         }
         if (type instanceof ArrayType) {
             TextColumnEncoding elementEncoding = getEncoding(type.getTypeParameters().get(0), depth + 1);

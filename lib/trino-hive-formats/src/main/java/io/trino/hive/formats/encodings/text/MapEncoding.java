@@ -15,11 +15,13 @@ package io.trino.hive.formats.encodings.text;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.hive.formats.DistinctMapKeys;
 import io.trino.hive.formats.FileCorruptionException;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 
 public class MapEncoding
@@ -27,8 +29,12 @@ public class MapEncoding
 {
     private final TextColumnEncoding keyEncoding;
     private final TextColumnEncoding valueEncoding;
+    private final MapType mapType;
     private final byte elementSeparator;
     private final byte keyValueSeparator;
+
+    private final DistinctMapKeys distinctMapKeys;
+    private BlockBuilder keyBlockBuilder;
 
     public MapEncoding(
             Type type,
@@ -40,10 +46,13 @@ public class MapEncoding
             TextColumnEncoding valueEncoding)
     {
         super(type, nullSequence, escapeByte);
+        this.mapType = (MapType) type;
         this.elementSeparator = elementSeparator;
         this.keyValueSeparator = keyValueSeparator;
         this.keyEncoding = keyEncoding;
         this.valueEncoding = valueEncoding;
+        this.distinctMapKeys = new DistinctMapKeys(mapType, false);
+        this.keyBlockBuilder = mapType.getKeyType().createBlockBuilder(null, 128);
     }
 
     @Override
@@ -76,16 +85,32 @@ public class MapEncoding
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
             throws FileCorruptionException
     {
+        // read all the keys
+        KeyOnlyEntryDecoder keyDecoder = new KeyOnlyEntryDecoder();
+        processEntries(slice, offset, length, keyDecoder);
+        Block keyBlock = keyDecoder.getKeyBlock();
+
+        // determine which keys are distinct
+        boolean[] distinctKeys = distinctMapKeys.selectDistinctKeys(keyBlock);
+
+        // add the distinct entries to the map
+        BlockBuilder mapBuilder = builder.beginBlockEntry();
+        processEntries(slice, offset, length, new DistinctEntryDecoder(distinctKeys, keyBlock, mapBuilder));
+        builder.closeEntry();
+    }
+
+    private void processEntries(Slice slice, int offset, int length, EntryDecoder entryDecoder)
+            throws FileCorruptionException
+    {
         int end = offset + length;
 
-        BlockBuilder mapBuilder = builder.beginBlockEntry();
         if (length > 0) {
             int elementOffset = offset;
             int keyValueSeparatorPosition = -1;
             while (offset < end) {
                 byte currentByte = slice.getByte(offset);
                 if (currentByte == elementSeparator) {
-                    decodeEntryInto(mapBuilder, slice, elementOffset, offset - elementOffset, keyValueSeparatorPosition);
+                    entryDecoder.decodeEntry(slice, elementOffset, offset, keyValueSeparatorPosition);
                     elementOffset = offset + 1;
                     keyValueSeparatorPosition = -1;
                 }
@@ -98,44 +123,90 @@ public class MapEncoding
                 }
                 offset++;
             }
-            decodeEntryInto(mapBuilder, slice, elementOffset, offset - elementOffset, keyValueSeparatorPosition);
+            entryDecoder.decodeEntry(slice, elementOffset, offset, keyValueSeparatorPosition);
         }
-        builder.closeEntry();
     }
 
-    private void decodeEntryInto(BlockBuilder builder, Slice slice, int offset, int length, int keyValueSeparatorPosition)
-            throws FileCorruptionException
+    private interface EntryDecoder
     {
-        // if there is no key value separator, the key is all the data and the value is null
-        int keyLength;
-        if (keyValueSeparatorPosition == -1) {
-            keyLength = length;
-        }
-        else {
-            keyLength = keyValueSeparatorPosition - offset;
-        }
-
-        // ignore null keys
-        if (isNullSequence(slice, offset, keyLength)) {
-            return;
-        }
-
-        // output the key
-        keyEncoding.decodeValueInto(builder, slice, offset, keyLength);
-
-        // output value
-        if (keyValueSeparatorPosition == -1) {
-            builder.appendNull();
-        }
-        else {
-            int valueOffset = keyValueSeparatorPosition + 1;
-            int valueLength = length - keyLength - 1;
-            if (isNullSequence(slice, valueOffset, valueLength)) {
-                builder.appendNull();
+        default void decodeEntry(Slice slice, int entryOffset, int entryEnd, int keyValueSeparatorPosition)
+                throws FileCorruptionException
+        {
+            boolean hasValue = keyValueSeparatorPosition >= 0;
+            int keyLength;
+            int valueOffset;
+            int valueLength;
+            if (hasValue) {
+                keyLength = keyValueSeparatorPosition - entryOffset;
+                valueOffset = keyValueSeparatorPosition + 1;
+                valueLength = entryEnd - valueOffset;
             }
             else {
-                valueEncoding.decodeValueInto(builder, slice, valueOffset, valueLength);
+                keyLength = entryEnd - entryOffset;
+                // there is no value
+                valueOffset = entryOffset;
+                valueLength = 0;
             }
+            decodeKeyValue(0, slice, entryOffset, keyLength, hasValue, valueOffset, valueLength);
+        }
+
+        void decodeKeyValue(int depth, Slice slice, int keyOffset, int keyLength, boolean hasValue, int valueOffset, int valueLength)
+                throws FileCorruptionException;
+    }
+
+    private class KeyOnlyEntryDecoder
+            implements EntryDecoder
+    {
+        public Block getKeyBlock()
+        {
+            Block keyBlock = keyBlockBuilder.build();
+            keyBlockBuilder = mapType.getKeyType().createBlockBuilder(null, keyBlock.getPositionCount());
+            return keyBlock;
+        }
+
+        @Override
+        public void decodeKeyValue(int depth, Slice slice, int keyOffset, int keyLength, boolean hasValue, int valueOffset, int valueLength)
+                throws FileCorruptionException
+        {
+            if (isNullSequence(slice, keyOffset, keyLength)) {
+                keyBlockBuilder.appendNull();
+            }
+            else {
+                keyEncoding.decodeValueInto(keyBlockBuilder, slice, keyOffset, keyLength);
+            }
+        }
+    }
+
+    private class DistinctEntryDecoder
+            implements EntryDecoder
+    {
+        private final boolean[] distinctKeys;
+        private final Block keyBlock;
+        private final BlockBuilder mapBuilder;
+        private int entryPosition;
+
+        public DistinctEntryDecoder(boolean[] distinctKeys, Block keyBlock, BlockBuilder mapBuilder)
+        {
+            this.distinctKeys = distinctKeys;
+            this.keyBlock = keyBlock;
+            this.mapBuilder = mapBuilder;
+        }
+
+        @Override
+        public void decodeKeyValue(int depth, Slice slice, int keyOffset, int keyLength, boolean hasValue, int valueOffset, int valueLength)
+                throws FileCorruptionException
+        {
+            if (distinctKeys[entryPosition]) {
+                mapType.getKeyType().appendTo(keyBlock, entryPosition, mapBuilder);
+
+                if (hasValue && !isNullSequence(slice, valueOffset, valueLength)) {
+                    valueEncoding.decodeValueInto(mapBuilder, slice, valueOffset, valueLength);
+                }
+                else {
+                    mapBuilder.appendNull();
+                }
+            }
+            entryPosition++;
         }
     }
 }

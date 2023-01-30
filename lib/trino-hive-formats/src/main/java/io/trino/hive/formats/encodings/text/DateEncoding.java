@@ -15,24 +15,21 @@ package io.trino.hive.formats.encodings.text;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.hive.formats.HiveFormatUtils;
 import io.trino.hive.formats.encodings.ColumnData;
 import io.trino.hive.formats.encodings.EncodeOutput;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
-import java.util.concurrent.TimeUnit;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 
-import static java.lang.Math.toIntExact;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static io.trino.hive.formats.HiveFormatUtils.formatHiveDate;
 
 public class DateEncoding
         implements TextColumnEncoding
 {
-    private static final DateTimeFormatter HIVE_DATE_PARSER = ISODateTimeFormat.date().withZoneUTC();
-
     private final Type type;
     private final Slice nullSequence;
     private final StringBuilder buffer = new StringBuilder();
@@ -65,10 +62,8 @@ public class DateEncoding
 
     private void encodeValue(Block block, int position, SliceOutput output)
     {
-        long days = type.getLong(block, position);
-        long millis = TimeUnit.DAYS.toMillis(days);
         buffer.setLength(0);
-        HIVE_DATE_PARSER.printTo(buffer, millis);
+        formatHiveDate(block, position, buffer);
         for (int index = 0; index < buffer.length(); index++) {
             output.writeByte(buffer.charAt(index));
         }
@@ -88,7 +83,7 @@ public class DateEncoding
                 builder.appendNull();
             }
             else {
-                type.writeLong(builder, parseDate(slice, offset, length));
+                decodeValue(builder, slice, offset, length);
             }
         }
         return builder.build();
@@ -97,12 +92,17 @@ public class DateEncoding
     @Override
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
-        type.writeLong(builder, parseDate(slice, offset, length));
+        decodeValue(builder, slice, offset, length);
     }
 
-    private static int parseDate(Slice slice, int offset, int length)
+    private void decodeValue(BlockBuilder builder, Slice slice, int offset, int length)
     {
-        long millis = HIVE_DATE_PARSER.parseMillis(slice.toStringAscii(offset, length));
-        return toIntExact(MILLISECONDS.toDays(millis));
+        try {
+            LocalDate localDate = HiveFormatUtils.parseHiveDate(slice.toStringAscii(offset, length));
+            type.writeLong(builder, localDate.toEpochDay());
+        }
+        catch (DateTimeParseException e) {
+            builder.appendNull();
+        }
     }
 }

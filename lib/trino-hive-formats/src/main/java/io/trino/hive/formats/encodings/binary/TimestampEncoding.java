@@ -18,7 +18,6 @@ import io.airlift.slice.SliceOutput;
 import io.trino.hive.formats.ReadWriteUtils;
 import io.trino.hive.formats.encodings.ColumnData;
 import io.trino.hive.formats.encodings.EncodeOutput;
-import io.trino.hive.formats.encodings.TimestampHolder;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.spi.block.Block;

@@ -13,6 +13,8 @@
  */
 package io.trino.hive.formats.encodings.text;
 
+import com.google.common.primitives.UnsignedBytes;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -20,6 +22,8 @@ import io.trino.hive.formats.encodings.ColumnData;
 import io.trino.hive.formats.encodings.EncodeOutput;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.Chars;
 import io.trino.spi.type.Type;
 
 import static io.trino.hive.formats.ReadWriteUtils.calculateTruncationLength;
@@ -29,13 +33,28 @@ public class StringEncoding
 {
     private final Type type;
     private final Slice nullSequence;
-    private final Byte escapeByte;
+    private final byte escapeByte;
+    private final boolean[] needsEscape;
+    private final DynamicSliceOutput escapeBuffer;
 
-    public StringEncoding(Type type, Slice nullSequence, Byte escapeChar)
+    public StringEncoding(Type type, Slice nullSequence, Byte escapeChar, Slice separators)
     {
         this.type = type;
         this.nullSequence = nullSequence;
-        this.escapeByte = escapeChar;
+        if (escapeChar == null) {
+            escapeByte = 0;
+            escapeBuffer = null;
+            needsEscape = null;
+        }
+        else {
+            escapeByte = escapeChar;
+            escapeBuffer = new DynamicSliceOutput(1024);
+            needsEscape = new boolean[256];
+            needsEscape[UnsignedBytes.toInt(escapeByte)] = true;
+            for (int i = 0; i < separators.length(); i++) {
+                needsEscape[UnsignedBytes.toInt(separators.getByte(i))] = true;
+            }
+        }
     }
 
     @Override
@@ -46,11 +65,7 @@ public class StringEncoding
                 output.writeBytes(nullSequence);
             }
             else {
-                Slice slice = type.getSlice(block, position);
-                if (escapeByte != null && slice.indexOfByte(escapeByte) < 0) {
-                    throw new IllegalArgumentException("escape not implemented");
-                }
-                output.writeBytes(slice);
+                encodeValue(block, output, position);
             }
             encodeOutput.closeEntry();
         }
@@ -59,17 +74,34 @@ public class StringEncoding
     @Override
     public void encodeValueInto(Block block, int position, SliceOutput output)
     {
+        encodeValue(block, output, position);
+    }
+
+    private void encodeValue(Block block, SliceOutput output, int position)
+    {
         Slice slice = type.getSlice(block, position);
-        if (escapeByte != null && slice.indexOfByte(escapeByte) < 0) {
-            throw new IllegalArgumentException("escape not implemented");
+        if (type instanceof CharType charType) {
+            slice = Chars.padSpaces(charType.getSlice(block, position), charType);
         }
-        output.writeBytes(slice);
+        if (needsEscape == null) {
+            output.writeBytes(slice);
+            return;
+        }
+
+        escapeBuffer.reset();
+        for (int i = 0; i < slice.length(); i++) {
+            int b = slice.getUnsignedByte(i);
+            if (needsEscape[b]) {
+                output.appendByte(escapeByte);
+            }
+            output.appendByte(b);
+        }
     }
 
     @Override
     public Block decodeColumn(ColumnData columnData)
     {
-        if (escapeByte != null) {
+        if (needsEscape != null) {
             columnData = unescape(columnData, escapeByte);
         }
 
@@ -91,7 +123,22 @@ public class StringEncoding
         return builder.build();
     }
 
-    @SuppressWarnings("AssignmentToForLoopParameter")
+    @Override
+    public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
+    {
+        if (needsEscape != null) {
+            Slice newSlice = Slices.allocate(slice.length());
+            SliceOutput output = newSlice.getOutput();
+            unescape(escapeByte, output, slice, offset, length);
+            slice = newSlice;
+            offset = 0;
+            length = output.size();
+        }
+
+        length = calculateTruncationLength(type, slice, offset, length);
+        type.writeSlice(builder, slice, offset, length);
+    }
+
     private static ColumnData unescape(ColumnData columnData, byte escapeByte)
     {
         Slice slice = columnData.getSlice();
@@ -107,24 +154,21 @@ public class StringEncoding
             int offset = columnData.getOffset(row);
             int length = columnData.getLength(row);
 
-            for (int i = 0; i < length; i++) {
-                byte value = slice.getByte(offset + i);
-                if (value == escapeByte && i + 1 < length) {
-                    // read byte after escape
-                    i++;
-                    value = slice.getByte(offset + i);
-                }
-                output.write(value);
-            }
+            unescape(escapeByte, output, slice, offset, length);
             newOffsets[row + 1] = output.size();
         }
         return new ColumnData(newOffsets, output.slice());
     }
 
-    @Override
-    public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
+    private static void unescape(byte escapeByte, SliceOutput output, Slice slice, int offset, int length)
     {
-        length = calculateTruncationLength(type, slice, offset, length);
-        type.writeSlice(builder, slice, offset, length);
+        for (int i = 0; i < length; i++) {
+            byte value = slice.getByte(offset + i);
+            if (value == escapeByte && i + 1 < length) {
+                // skip the escape byte
+                continue;
+            }
+            output.write(value);
+        }
     }
 }
