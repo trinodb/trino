@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
@@ -21,6 +22,8 @@ import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.encodings.ColumnEncodingFactory;
 import io.trino.hive.formats.encodings.binary.BinaryColumnEncodingFactory;
+import io.trino.hive.formats.encodings.text.TextColumnEncodingFactory;
+import io.trino.hive.formats.encodings.text.TextEncodingOptions;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.StorageFormat;
@@ -49,7 +52,6 @@ import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isRcfileOptimizedWriterValidate;
-import static io.trino.plugin.hive.rcfile.RcFilePageSourceFactory.createTextVectorEncoding;
 import static io.trino.plugin.hive.util.HiveClassNames.COLUMNAR_SERDE_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.LAZY_BINARY_COLUMNAR_SERDE_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.RCFILE_OUTPUT_FORMAT_CLASS;
@@ -110,7 +112,7 @@ public class RcFileFileWriterFactory
             columnEncodingFactory = new BinaryColumnEncodingFactory(timeZone);
         }
         else if (COLUMNAR_SERDE_CLASS.equals(storageFormat.getSerde())) {
-            columnEncodingFactory = createTextVectorEncoding(schema);
+            columnEncodingFactory = new TextColumnEncodingFactory(TextEncodingOptions.fromSchema(Maps.fromProperties(schema)));
         }
         else {
             return Optional.empty();
