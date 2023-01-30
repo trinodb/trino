@@ -236,6 +236,19 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     }
 
     @Override
+    protected String schemaPath()
+    {
+        return format("s3://%s/%s", bucketName, schemaName);
+    }
+
+    @Override
+    protected boolean locationExists(String location)
+    {
+        String prefix = "s3://" + bucketName + "/";
+        return !hiveMinioDataLake.listFiles(location.substring(prefix.length())).isEmpty();
+    }
+
+    @Override
     protected void deleteDirectory(String location)
     {
         String prefix = "s3://" + bucketName + "/";
