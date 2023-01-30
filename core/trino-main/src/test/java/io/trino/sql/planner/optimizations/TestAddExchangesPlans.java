@@ -42,6 +42,7 @@ import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
 import static io.trino.SystemSessionProperties.SPILL_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.SystemSessionProperties.USE_EXACT_PARTITIONING;
@@ -224,6 +225,7 @@ public class TestAddExchangesPlans
                 query,
                 Session.builder(getQueryRunner().getDefaultSession())
                         .setSystemProperty(IGNORE_DOWNSTREAM_PREFERENCES, "true")
+                        .setSystemProperty(MARK_DISTINCT_STRATEGY, "always")
                         .build(),
                 anyTree(
                         node(MarkDistinctNode.class,
@@ -243,6 +245,7 @@ public class TestAddExchangesPlans
                 query,
                 Session.builder(getQueryRunner().getDefaultSession())
                         .setSystemProperty(IGNORE_DOWNSTREAM_PREFERENCES, "false")
+                        .setSystemProperty(MARK_DISTINCT_STRATEGY, "always")
                         .build(),
                 anyTree(
                         node(MarkDistinctNode.class,
