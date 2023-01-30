@@ -80,12 +80,10 @@ public class FlakyAnnotationVerifier
                             .collect(joining("\n\t\t", "\n\t\t", "")));
         }
 
-        verifyFlakyAnnotations(realClass).ifPresent(error -> {
-            reportListenerFailure(
-                    FlakyAnnotationVerifier.class,
-                    "%s",
-                    error);
-        });
+        verifyFlakyAnnotations(realClass).ifPresent(error -> reportListenerFailure(
+                FlakyAnnotationVerifier.class,
+                "%s",
+                error));
     }
 
     @VisibleForTesting

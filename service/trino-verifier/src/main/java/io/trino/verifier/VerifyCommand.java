@@ -226,9 +226,7 @@ public class VerifyCommand
             urlList.add(Paths.get(path).toUri().toURL());
             return urlList.build();
         }
-        File[] files = driverPath.listFiles((dir, name) -> {
-            return name.endsWith(".jar");
-        });
+        File[] files = driverPath.listFiles((dir, name) -> name.endsWith(".jar"));
         if (files == null) {
             return urlList.build();
         }

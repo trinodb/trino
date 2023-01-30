@@ -46,16 +46,12 @@ public final class EnvSinglenodeKerberosHdfsImpersonationWithDataProtection
     @SuppressWarnings("resource")
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer(HADOOP, container -> {
-            container
-                    .withCopyFileToContainer(forHostPath(configDir.getPath("core-site.xml")), "/etc/hadoop/conf/core-site.xml")
-                    .withCopyFileToContainer(forHostPath(configDir.getPath("hdfs-site.xml")), "/etc/hadoop/conf/hdfs-site.xml");
-        });
+        builder.configureContainer(HADOOP, container -> container
+                .withCopyFileToContainer(forHostPath(configDir.getPath("core-site.xml")), "/etc/hadoop/conf/core-site.xml")
+                .withCopyFileToContainer(forHostPath(configDir.getPath("hdfs-site.xml")), "/etc/hadoop/conf/hdfs-site.xml"));
 
-        builder.configureContainer(COORDINATOR, container -> {
-            container
-                    .withCopyFileToContainer(forHostPath(configDir.getPath("hive-data-protection-site.xml")), CONTAINER_TRINO_ETC + "/hive-data-protection-site.xml");
-        });
+        builder.configureContainer(COORDINATOR, container -> container
+                .withCopyFileToContainer(forHostPath(configDir.getPath("hive-data-protection-site.xml")), CONTAINER_TRINO_ETC + "/hive-data-protection-site.xml"));
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
     }
 }

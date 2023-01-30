@@ -607,9 +607,7 @@ public class TestJdbcCompatibility
     public void testSelectMongoObjectId()
     {
         String query = "SELECT ObjectId('55b151633864d6438c61a9ce') AS objectId";
-        checkRepresentation(query, JAVA_OBJECT, (resultSet, columnIndex) -> {
-            assertThat(resultSet.getObject(columnIndex)).isEqualTo(new byte[] {85, -79, 81, 99, 56, 100, -42, 67, -116, 97, -87, -50});
-        });
+        checkRepresentation(query, JAVA_OBJECT, (resultSet, columnIndex) -> assertThat(resultSet.getObject(columnIndex)).isEqualTo(new byte[] {85, -79, 81, 99, 56, 100, -42, 67, -116, 97, -87, -50}));
     }
 
     @Test
@@ -653,9 +651,7 @@ public class TestJdbcCompatibility
     public void testSelectJson()
     {
         String query = "SELECT json_parse('[{\"1\":\"value\"}, 2, 3]')";
-        checkRepresentation(query, JAVA_OBJECT, (rs, column) -> {
-            assertThat(rs.getObject(column)).isEqualTo("[{\"1\":\"value\"},2,3]");
-        });
+        checkRepresentation(query, JAVA_OBJECT, (rs, column) -> assertThat(rs.getObject(column)).isEqualTo("[{\"1\":\"value\"},2,3]"));
     }
 
     private <T> void checkRepresentation(String query, T expectedValue, int expectedType, ResultSetMapper<T> extractValue)

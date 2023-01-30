@@ -33,12 +33,10 @@ public class TestIcebergOrcTpchCostBasedPlan
     @Override
     protected void doPrepareTables()
     {
-        TpchTable.getTables().forEach(table -> {
-            populateTableFromResource(
-                    table.getTableName(),
-                    "iceberg/tpch/sf1000/orc/unpartitioned/" + table.getTableName(),
-                    "iceberg-tpch-sf1000-ORC/" + table.getTableName());
-        });
+        TpchTable.getTables().forEach(table -> populateTableFromResource(
+                table.getTableName(),
+                "iceberg/tpch/sf1000/orc/unpartitioned/" + table.getTableName(),
+                "iceberg-tpch-sf1000-ORC/" + table.getTableName()));
     }
 
     @Override

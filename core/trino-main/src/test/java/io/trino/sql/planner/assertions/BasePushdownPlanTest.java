@@ -29,7 +29,7 @@ public abstract class BasePushdownPlanTest
 {
     protected Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName objectName)
     {
-        return getQueryRunner().inTransaction(session, transactionSession -> { return getQueryRunner().getMetadata().getTableHandle(transactionSession, objectName); });
+        return getQueryRunner().inTransaction(session, transactionSession -> getQueryRunner().getMetadata().getTableHandle(transactionSession, objectName));
     }
 
     protected Map<String, ColumnHandle> getColumnHandles(Session session, QualifiedObjectName tableName)

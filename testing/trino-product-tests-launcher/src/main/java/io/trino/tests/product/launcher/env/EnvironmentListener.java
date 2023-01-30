@@ -230,9 +230,7 @@ public interface EnvironmentListener
             {
                 // Print stats for all containers every 30s after environment is started
                 executorService.scheduleWithFixedDelay(() ->
-                {
-                    printContainerStats();
-                }, 5 * 1000L, 30 * 1000L, MILLISECONDS);
+                        printContainerStats(), 5 * 1000L, 30 * 1000L, MILLISECONDS);
             }
 
             @Override

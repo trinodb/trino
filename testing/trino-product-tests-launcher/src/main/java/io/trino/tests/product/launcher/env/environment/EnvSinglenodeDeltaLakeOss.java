@@ -90,9 +90,7 @@ public class EnvSinglenodeDeltaLakeOss
         String s3Bucket = getS3Bucket();
 
         // Using hdp3.1 so we are using Hive metastore with version close to versions of  hive-*.jars Spark uses
-        builder.configureContainer(HADOOP, container -> {
-            container.setDockerImageName("ghcr.io/trinodb/testing/hdp3.1-hive:" + hadoopImagesVersion);
-        });
+        builder.configureContainer(HADOOP, container -> container.setDockerImageName("ghcr.io/trinodb/testing/hdp3.1-hive:" + hadoopImagesVersion));
 
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
         builder.addConnector(
@@ -100,12 +98,10 @@ public class EnvSinglenodeDeltaLakeOss
                 forHostPath(configDir.getPath("delta.properties")),
                 CONTAINER_TRINO_ETC + "/catalog/delta.properties");
 
-        builder.configureContainer(TESTS, dockerContainer -> {
-            dockerContainer.withEnv("S3_BUCKET", s3Bucket)
-                    .withCopyFileToContainer(
-                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hive3.yaml")),
-                            CONTAINER_TEMPTO_PROFILE_CONFIG);
-        });
+        builder.configureContainer(TESTS, dockerContainer -> dockerContainer.withEnv("S3_BUCKET", s3Bucket)
+                .withCopyFileToContainer(
+                        forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hive3.yaml")),
+                        CONTAINER_TEMPTO_PROFILE_CONFIG));
 
         builder.addContainer(createSparkContainer())
                 // Ensure Hive metastore is up; Spark needs to access it during startup

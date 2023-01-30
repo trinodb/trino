@@ -543,40 +543,38 @@ public class TestPushJoinIntoTableScan
                 ImmutableMap.of(),
                 false)));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
-            assertThatThrownBy(() -> {
-                ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext(), ruleTester.getTypeAnalyzer()))
-                        .on(p -> {
-                            Symbol columnA1Symbol = p.symbol(COLUMN_A1);
-                            Symbol columnA2Symbol = p.symbol(COLUMN_A2);
-                            Symbol columnB1Symbol = p.symbol(COLUMN_B1);
+            assertThatThrownBy(() -> ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext(), ruleTester.getTypeAnalyzer()))
+                    .on(p -> {
+                        Symbol columnA1Symbol = p.symbol(COLUMN_A1);
+                        Symbol columnA2Symbol = p.symbol(COLUMN_A2);
+                        Symbol columnB1Symbol = p.symbol(COLUMN_B1);
 
-                            TupleDomain<ColumnHandle> leftContraint =
-                                    TupleDomain.fromFixedValues(ImmutableMap.of(COLUMN_A2_HANDLE, NullableValue.of(BIGINT, 44L)));
-                            TupleDomain<ColumnHandle> rightConstraint =
-                                    TupleDomain.fromFixedValues(ImmutableMap.of(COLUMN_B1_HANDLE, NullableValue.of(BIGINT, 45L)));
+                        TupleDomain<ColumnHandle> leftContraint =
+                                TupleDomain.fromFixedValues(ImmutableMap.of(COLUMN_A2_HANDLE, NullableValue.of(BIGINT, 44L)));
+                        TupleDomain<ColumnHandle> rightConstraint =
+                                TupleDomain.fromFixedValues(ImmutableMap.of(COLUMN_B1_HANDLE, NullableValue.of(BIGINT, 45L)));
 
-                            TableScanNode left = p.tableScan(
-                                    ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_A),
-                                    ImmutableList.of(columnA1Symbol, columnA2Symbol),
-                                    ImmutableMap.of(
-                                            columnA1Symbol, COLUMN_A1_HANDLE,
-                                            columnA2Symbol, COLUMN_A2_HANDLE),
-                                    leftContraint);
-                            TableScanNode right = p.tableScan(
-                                    ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_B),
-                                    ImmutableList.of(columnB1Symbol),
-                                    ImmutableMap.of(columnB1Symbol, COLUMN_B1_HANDLE),
-                                    rightConstraint);
+                        TableScanNode left = p.tableScan(
+                                ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_A),
+                                ImmutableList.of(columnA1Symbol, columnA2Symbol),
+                                ImmutableMap.of(
+                                        columnA1Symbol, COLUMN_A1_HANDLE,
+                                        columnA2Symbol, COLUMN_A2_HANDLE),
+                                leftContraint);
+                        TableScanNode right = p.tableScan(
+                                ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_B),
+                                ImmutableList.of(columnB1Symbol),
+                                ImmutableMap.of(columnB1Symbol, COLUMN_B1_HANDLE),
+                                rightConstraint);
 
-                            return p.join(
-                                    INNER,
-                                    left,
-                                    right,
-                                    new JoinNode.EquiJoinClause(columnA1Symbol, columnB1Symbol));
-                        })
-                        .withSession(MOCK_SESSION)
-                        .matches(anyTree());
-            })
+                        return p.join(
+                                INNER,
+                                left,
+                                right,
+                                new JoinNode.EquiJoinClause(columnA1Symbol, columnB1Symbol));
+                    })
+                    .withSession(MOCK_SESSION)
+                    .matches(anyTree()))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("Column handle mappings do not match old column handles");
         }

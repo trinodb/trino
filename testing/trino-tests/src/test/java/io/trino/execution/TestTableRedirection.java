@@ -192,10 +192,8 @@ public class TestTableRedirection
 
                     throw new RuntimeException("Columns do not exist for: " + schemaTableName);
                 })
-                .withRedirectTable(((connectorSession, schemaTableName) -> {
-                    return Optional.ofNullable(REDIRECTIONS.get(schemaTableName))
-                            .map(target -> new CatalogSchemaTableName(CATALOG_NAME, target));
-                }))
+                .withRedirectTable(((connectorSession, schemaTableName) -> Optional.ofNullable(REDIRECTIONS.get(schemaTableName))
+                        .map(target -> new CatalogSchemaTableName(CATALOG_NAME, target))))
                 .build();
     }
 

@@ -47,11 +47,9 @@ public class TestSystemSecurityMetadata
                 .setSchema("default")
                 .build();
         return DistributedQueryRunner.builder(session)
-                .setAdditionalModule(binder -> {
-                    newOptionalBinder(binder, SystemSecurityMetadata.class)
-                            .setBinding()
-                            .toInstance(securityMetadata);
-                })
+                .setAdditionalModule(binder -> newOptionalBinder(binder, SystemSecurityMetadata.class)
+                        .setBinding()
+                        .toInstance(securityMetadata))
                 .setNodeCount(1)
                 .build();
     }

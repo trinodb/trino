@@ -133,11 +133,9 @@ public class TestPruneCountAggregationOverScalar
                                 .step(AggregationNode.Step.SINGLE)
                                 .globalGrouping()
                                 .source(
-                                        p.aggregation(aggregationBuilder -> {
-                                            aggregationBuilder
-                                                    .source(p.tableScan(ImmutableList.of(), ImmutableMap.of()))
-                                                    .groupingSets(singleGroupingSet(ImmutableList.of(p.symbol("orderkey"))));
-                                        }))))
+                                        p.aggregation(aggregationBuilder -> aggregationBuilder
+                                                .source(p.tableScan(ImmutableList.of(), ImmutableMap.of()))
+                                                .groupingSets(singleGroupingSet(ImmutableList.of(p.symbol("orderkey"))))))))
                 .doesNotFire();
     }
 

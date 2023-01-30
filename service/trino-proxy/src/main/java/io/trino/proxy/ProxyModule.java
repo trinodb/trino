@@ -28,9 +28,7 @@ public class ProxyModule
     @Override
     public void configure(Binder binder)
     {
-        configBinder(binder).bindConfigDefaults(HttpServerConfig.class, httpServerConfig -> {
-            httpServerConfig.setAdminEnabled(false);
-        });
+        configBinder(binder).bindConfigDefaults(HttpServerConfig.class, httpServerConfig -> httpServerConfig.setAdminEnabled(false));
 
         httpClientBinder(binder).bindHttpClient("proxy", ForProxy.class);
 

@@ -72,9 +72,7 @@ public class IonSqlQueryBuilder
     public String buildSql(List<HiveColumnHandle> columns, TupleDomain<HiveColumnHandle> tupleDomain)
     {
         columns.forEach(column -> checkArgument(column.isBaseColumn(), "%s is not a base column", column));
-        tupleDomain.getDomains().ifPresent(domains -> {
-            domains.keySet().forEach(column -> checkArgument(column.isBaseColumn(), "%s is not a base column", column));
-        });
+        tupleDomain.getDomains().ifPresent(domains -> domains.keySet().forEach(column -> checkArgument(column.isBaseColumn(), "%s is not a base column", column)));
 
         // SELECT clause
         StringBuilder sql = new StringBuilder("SELECT ");

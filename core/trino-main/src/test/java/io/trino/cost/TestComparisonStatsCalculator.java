@@ -190,13 +190,11 @@ public class TestComparisonStatsCalculator
 
     private Consumer<SymbolStatsAssertion> equalTo(SymbolStatsEstimate estimate)
     {
-        return symbolAssert -> {
-            symbolAssert
-                    .lowValue(estimate.getLowValue())
-                    .highValue(estimate.getHighValue())
-                    .distinctValuesCount(estimate.getDistinctValuesCount())
-                    .nullsFraction(estimate.getNullsFraction());
-        };
+        return symbolAssert -> symbolAssert
+                .lowValue(estimate.getLowValue())
+                .highValue(estimate.getHighValue())
+                .distinctValuesCount(estimate.getDistinctValuesCount())
+                .nullsFraction(estimate.getNullsFraction());
     }
 
     private SymbolStatsEstimate updateNDV(SymbolStatsEstimate symbolStats, double delta)
@@ -247,67 +245,55 @@ public class TestComparisonStatsCalculator
         // Simple case
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("y"), new DoubleLiteral("2.5")))
                 .outputRowsCount(25.0) // all rows minus nulls divided by distinct values count
-                .symbolStats("y", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(1.0)
-                            .lowValue(2.5)
-                            .highValue(2.5)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("y", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(1.0)
+                        .lowValue(2.5)
+                        .highValue(2.5)
+                        .nullsFraction(0.0));
 
         // Literal on the edge of symbol range
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral("10.0")))
                 .outputRowsCount(18.75) // all rows minus nulls divided by distinct values count
-                .symbolStats("x", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(1.0)
-                            .lowValue(10.0)
-                            .highValue(10.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(1.0)
+                        .lowValue(10.0)
+                        .highValue(10.0)
+                        .nullsFraction(0.0));
 
         // Literal out of symbol range
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("y"), new DoubleLiteral("10.0")))
                 .outputRowsCount(0.0) // all rows minus nulls divided by distinct values count
-                .symbolStats("y", symbolAssert -> {
-                    symbolAssert.averageRowSize(0.0)
-                            .distinctValuesCount(0.0)
-                            .emptyRange()
-                            .nullsFraction(1.0);
-                });
+                .symbolStats("y", symbolAssert -> symbolAssert.averageRowSize(0.0)
+                        .distinctValuesCount(0.0)
+                        .emptyRange()
+                        .nullsFraction(1.0));
 
         // Literal in left open range
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("leftOpen"), new DoubleLiteral("2.5")))
                 .outputRowsCount(18.0) // all rows minus nulls divided by distinct values count
-                .symbolStats("leftOpen", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(1.0)
-                            .lowValue(2.5)
-                            .highValue(2.5)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("leftOpen", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(1.0)
+                        .lowValue(2.5)
+                        .highValue(2.5)
+                        .nullsFraction(0.0));
 
         // Literal in right open range
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("rightOpen"), new DoubleLiteral("-2.5")))
                 .outputRowsCount(18.0) // all rows minus nulls divided by distinct values count
-                .symbolStats("rightOpen", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(1.0)
-                            .lowValue(-2.5)
-                            .highValue(-2.5)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("rightOpen", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(1.0)
+                        .lowValue(-2.5)
+                        .highValue(-2.5)
+                        .nullsFraction(0.0));
 
         // Literal in unknown range
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("unknownRange"), new DoubleLiteral("0.0")))
                 .outputRowsCount(18.0) // all rows minus nulls divided by distinct values count
-                .symbolStats("unknownRange", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(1.0)
-                            .lowValue(0.0)
-                            .highValue(0.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("unknownRange", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(1.0)
+                        .lowValue(0.0)
+                        .highValue(0.0)
+                        .nullsFraction(0.0));
 
         // Literal in empty range
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("emptyRange"), new DoubleLiteral("0.0")))
@@ -317,13 +303,11 @@ public class TestComparisonStatsCalculator
         // Column with values not representable as double (unknown range)
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("varchar"), new StringLiteral("blah")))
                 .outputRowsCount(18.0) // all rows minus nulls divided by distinct values count
-                .symbolStats("varchar", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(1.0)
-                            .lowValue(NEGATIVE_INFINITY)
-                            .highValue(POSITIVE_INFINITY)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("varchar", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(1.0)
+                        .lowValue(NEGATIVE_INFINITY)
+                        .highValue(POSITIVE_INFINITY)
+                        .nullsFraction(0.0));
     }
 
     @Test
@@ -332,68 +316,56 @@ public class TestComparisonStatsCalculator
         // Simple case
         assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("y"), new DoubleLiteral("2.5")))
                 .outputRowsCount(475.0) // all rows minus nulls multiplied by ((distinct values - 1) / distinct values)
-                .symbolStats("y", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(19.0)
-                            .lowValue(0.0)
-                            .highValue(5.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("y", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(19.0)
+                        .lowValue(0.0)
+                        .highValue(5.0)
+                        .nullsFraction(0.0));
 
         // Literal on the edge of symbol range
         assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("x"), new DoubleLiteral("10.0")))
                 .outputRowsCount(731.25) // all rows minus nulls multiplied by ((distinct values - 1) / distinct values)
-                .symbolStats("x", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(39.0)
-                            .lowValue(-10.0)
-                            .highValue(10.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(39.0)
+                        .lowValue(-10.0)
+                        .highValue(10.0)
+                        .nullsFraction(0.0));
 
         // Literal out of symbol range
         assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("y"), new DoubleLiteral("10.0")))
                 .outputRowsCount(500.0) // all rows minus nulls
-                .symbolStats("y", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(19.0)
-                            .lowValue(0.0)
-                            .highValue(5.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("y", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(19.0)
+                        .lowValue(0.0)
+                        .highValue(5.0)
+                        .nullsFraction(0.0));
 
         // Literal in left open range
         assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("leftOpen"), new DoubleLiteral("2.5")))
                 .outputRowsCount(882.0) // all rows minus nulls multiplied by ((distinct values - 1) / distinct values)
-                .symbolStats("leftOpen", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(49.0)
-                            .lowValueUnknown()
-                            .highValue(15.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("leftOpen", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(49.0)
+                        .lowValueUnknown()
+                        .highValue(15.0)
+                        .nullsFraction(0.0));
 
         // Literal in right open range
         assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("rightOpen"), new DoubleLiteral("-2.5")))
                 .outputRowsCount(882.0) // all rows minus nulls divided by distinct values count
-                .symbolStats("rightOpen", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(49.0)
-                            .lowValue(-15.0)
-                            .highValueUnknown()
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("rightOpen", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(49.0)
+                        .lowValue(-15.0)
+                        .highValueUnknown()
+                        .nullsFraction(0.0));
 
         // Literal in unknown range
         assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("unknownRange"), new DoubleLiteral("0.0")))
                 .outputRowsCount(882.0) // all rows minus nulls divided by distinct values count
-                .symbolStats("unknownRange", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(49.0)
-                            .lowValueUnknown()
-                            .highValueUnknown()
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("unknownRange", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(49.0)
+                        .lowValueUnknown()
+                        .highValueUnknown()
+                        .nullsFraction(0.0));
 
         // Literal in empty range
         assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("emptyRange"), new DoubleLiteral("0.0")))
@@ -403,13 +375,11 @@ public class TestComparisonStatsCalculator
         // Column with values not representable as double (unknown range)
         assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("varchar"), new StringLiteral("blah")))
                 .outputRowsCount(882.0) // all rows minus nulls divided by distinct values count
-                .symbolStats("varchar", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(49.0)
-                            .lowValueUnknown()
-                            .highValueUnknown()
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("varchar", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(49.0)
+                        .lowValueUnknown()
+                        .highValueUnknown()
+                        .nullsFraction(0.0));
     }
 
     @Test
@@ -418,78 +388,64 @@ public class TestComparisonStatsCalculator
         // Simple case
         assertCalculate(new ComparisonExpression(LESS_THAN, new SymbolReference("y"), new DoubleLiteral("2.5")))
                 .outputRowsCount(250.0) // all rows minus nulls times range coverage (50%)
-                .symbolStats("y", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(10.0)
-                            .lowValue(0.0)
-                            .highValue(2.5)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("y", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(10.0)
+                        .lowValue(0.0)
+                        .highValue(2.5)
+                        .nullsFraction(0.0));
 
         // Literal on the edge of symbol range (whole range included)
         assertCalculate(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral("10.0")))
                 .outputRowsCount(750.0) // all rows minus nulls times range coverage (100%)
-                .symbolStats("x", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(40.0)
-                            .lowValue(-10.0)
-                            .highValue(10.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(40.0)
+                        .lowValue(-10.0)
+                        .highValue(10.0)
+                        .nullsFraction(0.0));
 
         // Literal on the edge of symbol range (whole range excluded)
         assertCalculate(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral("-10.0")))
                 .outputRowsCount(18.75) // all rows minus nulls divided by NDV (one value from edge is included as approximation)
-                .symbolStats("x", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(1.0)
-                            .lowValue(-10.0)
-                            .highValue(-10.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(1.0)
+                        .lowValue(-10.0)
+                        .highValue(-10.0)
+                        .nullsFraction(0.0));
 
         // Literal range out of symbol range
         assertCalculate(new ComparisonExpression(LESS_THAN, new SymbolReference("y"), new DoubleLiteral("-10.0")))
                 .outputRowsCount(0.0) // all rows minus nulls times range coverage (0%)
-                .symbolStats("y", symbolAssert -> {
-                    symbolAssert.averageRowSize(0.0)
-                            .distinctValuesCount(0.0)
-                            .emptyRange()
-                            .nullsFraction(1.0);
-                });
+                .symbolStats("y", symbolAssert -> symbolAssert.averageRowSize(0.0)
+                        .distinctValuesCount(0.0)
+                        .emptyRange()
+                        .nullsFraction(1.0));
 
         // Literal in left open range
         assertCalculate(new ComparisonExpression(LESS_THAN, new SymbolReference("leftOpen"), new DoubleLiteral("0.0")))
                 .outputRowsCount(450.0) // all rows minus nulls times range coverage (50% - heuristic)
-                .symbolStats("leftOpen", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(25.0) //(50% heuristic)
-                            .lowValueUnknown()
-                            .highValue(0.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("leftOpen", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(25.0) //(50% heuristic)
+                        .lowValueUnknown()
+                        .highValue(0.0)
+                        .nullsFraction(0.0));
 
         // Literal in right open range
         assertCalculate(new ComparisonExpression(LESS_THAN, new SymbolReference("rightOpen"), new DoubleLiteral("0.0")))
                 .outputRowsCount(225.0) // all rows minus nulls times range coverage (25% - heuristic)
-                .symbolStats("rightOpen", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(12.5) //(25% heuristic)
-                            .lowValue(-15.0)
-                            .highValue(0.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("rightOpen", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(12.5) //(25% heuristic)
+                        .lowValue(-15.0)
+                        .highValue(0.0)
+                        .nullsFraction(0.0));
 
         // Literal in unknown range
         assertCalculate(new ComparisonExpression(LESS_THAN, new SymbolReference("unknownRange"), new DoubleLiteral("0.0")))
                 .outputRowsCount(450.0) // all rows minus nulls times range coverage (50% - heuristic)
-                .symbolStats("unknownRange", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(25.0) // (50% heuristic)
-                            .lowValueUnknown()
-                            .highValue(0.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("unknownRange", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(25.0) // (50% heuristic)
+                        .lowValueUnknown()
+                        .highValue(0.0)
+                        .nullsFraction(0.0));
 
         // Literal in empty range
         assertCalculate(new ComparisonExpression(LESS_THAN, new SymbolReference("emptyRange"), new DoubleLiteral("0.0")))
@@ -503,78 +459,64 @@ public class TestComparisonStatsCalculator
         // Simple case
         assertCalculate(new ComparisonExpression(GREATER_THAN, new SymbolReference("y"), new DoubleLiteral("2.5")))
                 .outputRowsCount(250.0) // all rows minus nulls times range coverage (50%)
-                .symbolStats("y", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(10.0)
-                            .lowValue(2.5)
-                            .highValue(5.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("y", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(10.0)
+                        .lowValue(2.5)
+                        .highValue(5.0)
+                        .nullsFraction(0.0));
 
         // Literal on the edge of symbol range (whole range included)
         assertCalculate(new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new DoubleLiteral("-10.0")))
                 .outputRowsCount(750.0) // all rows minus nulls times range coverage (100%)
-                .symbolStats("x", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(40.0)
-                            .lowValue(-10.0)
-                            .highValue(10.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(40.0)
+                        .lowValue(-10.0)
+                        .highValue(10.0)
+                        .nullsFraction(0.0));
 
         // Literal on the edge of symbol range (whole range excluded)
         assertCalculate(new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new DoubleLiteral("10.0")))
                 .outputRowsCount(18.75) // all rows minus nulls divided by NDV (one value from edge is included as approximation)
-                .symbolStats("x", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(1.0)
-                            .lowValue(10.0)
-                            .highValue(10.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(1.0)
+                        .lowValue(10.0)
+                        .highValue(10.0)
+                        .nullsFraction(0.0));
 
         // Literal range out of symbol range
         assertCalculate(new ComparisonExpression(GREATER_THAN, new SymbolReference("y"), new DoubleLiteral("10.0")))
                 .outputRowsCount(0.0) // all rows minus nulls times range coverage (0%)
-                .symbolStats("y", symbolAssert -> {
-                    symbolAssert.averageRowSize(0.0)
-                            .distinctValuesCount(0.0)
-                            .emptyRange()
-                            .nullsFraction(1.0);
-                });
+                .symbolStats("y", symbolAssert -> symbolAssert.averageRowSize(0.0)
+                        .distinctValuesCount(0.0)
+                        .emptyRange()
+                        .nullsFraction(1.0));
 
         // Literal in left open range
         assertCalculate(new ComparisonExpression(GREATER_THAN, new SymbolReference("leftOpen"), new DoubleLiteral("0.0")))
                 .outputRowsCount(225.0) // all rows minus nulls times range coverage (25% - heuristic)
-                .symbolStats("leftOpen", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(12.5) //(25% heuristic)
-                            .lowValue(0.0)
-                            .highValue(15.0)
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("leftOpen", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(12.5) //(25% heuristic)
+                        .lowValue(0.0)
+                        .highValue(15.0)
+                        .nullsFraction(0.0));
 
         // Literal in right open range
         assertCalculate(new ComparisonExpression(GREATER_THAN, new SymbolReference("rightOpen"), new DoubleLiteral("0.0")))
                 .outputRowsCount(450.0) // all rows minus nulls times range coverage (50% - heuristic)
-                .symbolStats("rightOpen", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(25.0) //(50% heuristic)
-                            .lowValue(0.0)
-                            .highValueUnknown()
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("rightOpen", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(25.0) //(50% heuristic)
+                        .lowValue(0.0)
+                        .highValueUnknown()
+                        .nullsFraction(0.0));
 
         // Literal in unknown range
         assertCalculate(new ComparisonExpression(GREATER_THAN, new SymbolReference("unknownRange"), new DoubleLiteral("0.0")))
                 .outputRowsCount(450.0) // all rows minus nulls times range coverage (50% - heuristic)
-                .symbolStats("unknownRange", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(25.0) // (50% heuristic)
-                            .lowValue(0.0)
-                            .highValueUnknown()
-                            .nullsFraction(0.0);
-                });
+                .symbolStats("unknownRange", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .distinctValuesCount(25.0) // (50% heuristic)
+                        .lowValue(0.0)
+                        .highValueUnknown()
+                        .nullsFraction(0.0));
 
         // Literal in empty range
         assertCalculate(new ComparisonExpression(GREATER_THAN, new SymbolReference("emptyRange"), new DoubleLiteral("0.0")))
@@ -598,60 +540,48 @@ public class TestComparisonStatsCalculator
         rowCount = 9.375;
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("x"), new SymbolReference("y")))
                 .outputRowsCount(rowCount)
-                .symbolStats("x", symbolAssert -> {
-                    symbolAssert.averageRowSize(4)
-                            .lowValue(0)
-                            .highValue(5)
-                            .distinctValuesCount(9.375 /* min(rowCount, ndv in intersection */)
-                            .nullsFraction(0);
-                })
-                .symbolStats("y", symbolAssert -> {
-                    symbolAssert.averageRowSize(4)
-                            .lowValue(0)
-                            .highValue(5)
-                            .distinctValuesCount(9.375 /* min(rowCount, ndv in intersection */)
-                            .nullsFraction(0);
-                })
+                .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4)
+                        .lowValue(0)
+                        .highValue(5)
+                        .distinctValuesCount(9.375 /* min(rowCount, ndv in intersection */)
+                        .nullsFraction(0))
+                .symbolStats("y", symbolAssert -> symbolAssert.averageRowSize(4)
+                        .lowValue(0)
+                        .highValue(5)
+                        .distinctValuesCount(9.375 /* min(rowCount, ndv in intersection */)
+                        .nullsFraction(0))
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
 
         // Partially overlapping ranges
         rowCount = 16.875;
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("x"), new SymbolReference("w")))
                 .outputRowsCount(rowCount)
-                .symbolStats("x", symbolAssert -> {
-                    symbolAssert.averageRowSize(6)
-                            .lowValue(0)
-                            .highValue(10)
-                            .distinctValuesCount(16.875 /* min(rowCount, ndv in intersection */)
-                            .nullsFraction(0);
-                })
-                .symbolStats("w", symbolAssert -> {
-                    symbolAssert.averageRowSize(6)
-                            .lowValue(0)
-                            .highValue(10)
-                            .distinctValuesCount(16.875 /* min(rowCount, ndv in intersection */)
-                            .nullsFraction(0);
-                })
+                .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(6)
+                        .lowValue(0)
+                        .highValue(10)
+                        .distinctValuesCount(16.875 /* min(rowCount, ndv in intersection */)
+                        .nullsFraction(0))
+                .symbolStats("w", symbolAssert -> symbolAssert.averageRowSize(6)
+                        .lowValue(0)
+                        .highValue(10)
+                        .distinctValuesCount(16.875 /* min(rowCount, ndv in intersection */)
+                        .nullsFraction(0))
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
 
         // None of the ranges is included in the other, and one symbol has much higher cardinality, so that it has bigger NDV in intersect than the other in total
         rowCount = 2.25;
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("x"), new SymbolReference("u")))
                 .outputRowsCount(rowCount)
-                .symbolStats("x", symbolAssert -> {
-                    symbolAssert.averageRowSize(6)
-                            .lowValue(0)
-                            .highValue(10)
-                            .distinctValuesCount(2.25 /* min(rowCount, ndv in intersection */)
-                            .nullsFraction(0);
-                })
-                .symbolStats("u", symbolAssert -> {
-                    symbolAssert.averageRowSize(6)
-                            .lowValue(0)
-                            .highValue(10)
-                            .distinctValuesCount(2.25 /* min(rowCount, ndv in intersection */)
-                            .nullsFraction(0);
-                })
+                .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(6)
+                        .lowValue(0)
+                        .highValue(10)
+                        .distinctValuesCount(2.25 /* min(rowCount, ndv in intersection */)
+                        .nullsFraction(0))
+                .symbolStats("u", symbolAssert -> symbolAssert.averageRowSize(6)
+                        .lowValue(0)
+                        .highValue(10)
+                        .distinctValuesCount(2.25 /* min(rowCount, ndv in intersection */)
+                        .nullsFraction(0))
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
     }
 

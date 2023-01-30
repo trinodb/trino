@@ -646,29 +646,27 @@ public class TestHashDistributionSplitAssigner
             }
 
             // validate partitioned splits
-            partitionedSplitIds.forEach((partitionId, sourceSplits) -> {
-                sourceSplits.forEach((source, splitId) -> {
-                    List<TaskDescriptor> descriptors = outputPartitionToTaskPartition.get(partitionId).getSubPartitions().stream()
-                            .filter(HashDistributionSplitAssigner.SubPartition::isIdAssigned)
-                            .map(HashDistributionSplitAssigner.SubPartition::getId)
-                            .map(taskDescriptors::get)
-                            .collect(toImmutableList());
-                    for (TaskDescriptor descriptor : descriptors) {
-                        Set<Integer> taskDescriptorSplitIds = descriptor.getSplits().values().stream()
-                                .map(TestingConnectorSplit::getSplitId)
-                                .collect(toImmutableSet());
-                        if (taskDescriptorSplitIds.contains(splitId) && splittableSources.contains(source)) {
-                            return;
-                        }
-                        if (!taskDescriptorSplitIds.contains(splitId) && !splittableSources.contains(source)) {
-                            fail("expected split not found: ." + splitId);
-                        }
+            partitionedSplitIds.forEach((partitionId, sourceSplits) -> sourceSplits.forEach((source, splitId) -> {
+                List<TaskDescriptor> descriptors = outputPartitionToTaskPartition.get(partitionId).getSubPartitions().stream()
+                        .filter(HashDistributionSplitAssigner.SubPartition::isIdAssigned)
+                        .map(HashDistributionSplitAssigner.SubPartition::getId)
+                        .map(taskDescriptors::get)
+                        .collect(toImmutableList());
+                for (TaskDescriptor descriptor : descriptors) {
+                    Set<Integer> taskDescriptorSplitIds = descriptor.getSplits().values().stream()
+                            .map(TestingConnectorSplit::getSplitId)
+                            .collect(toImmutableSet());
+                    if (taskDescriptorSplitIds.contains(splitId) && splittableSources.contains(source)) {
+                        return;
                     }
-                    if (splittableSources.contains(source)) {
+                    if (!taskDescriptorSplitIds.contains(splitId) && !splittableSources.contains(source)) {
                         fail("expected split not found: ." + splitId);
                     }
-                });
-            });
+                }
+                if (splittableSources.contains(source)) {
+                    fail("expected split not found: ." + splitId);
+                }
+            }));
         }
     }
 

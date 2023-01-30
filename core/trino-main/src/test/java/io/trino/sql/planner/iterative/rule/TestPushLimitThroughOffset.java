@@ -62,11 +62,9 @@ public class TestPushLimitThroughOffset
     public void doNotPushdownWhenRowCountOverflowsLong()
     {
         tester().assertThat(new PushLimitThroughOffset())
-                .on(p -> {
-                    return p.limit(
-                            Long.MAX_VALUE,
-                            p.offset(Long.MAX_VALUE, p.values()));
-                })
+                .on(p -> p.limit(
+                        Long.MAX_VALUE,
+                        p.offset(Long.MAX_VALUE, p.values())))
                 .doesNotFire();
     }
 

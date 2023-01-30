@@ -206,9 +206,7 @@ public class ServerMainModule
 
         binder.bind(StartupStatus.class).in(Scopes.SINGLETON);
 
-        configBinder(binder).bindConfigDefaults(HttpServerConfig.class, httpServerConfig -> {
-            httpServerConfig.setAdminEnabled(false);
-        });
+        configBinder(binder).bindConfigDefaults(HttpServerConfig.class, httpServerConfig -> httpServerConfig.setAdminEnabled(false));
 
         binder.bind(PreparedStatementEncoder.class).in(Scopes.SINGLETON);
         binder.bind(HttpRequestSessionContextFactory.class).in(Scopes.SINGLETON);

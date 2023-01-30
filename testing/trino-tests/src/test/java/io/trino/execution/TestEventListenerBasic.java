@@ -122,12 +122,10 @@ public class TestEventListenerBasic
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
                 MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                        .withListTables((session, schemaName) -> {
-                            return switch (schemaName) {
-                                case "default" -> List.of("tests_table");
-                                case "tiny" -> List.of("nation");
-                                default -> List.of();
-                            };
+                        .withListTables((session, schemaName) -> switch (schemaName) {
+                            case "default" -> List.of("tests_table");
+                            case "tiny" -> List.of("nation");
+                            default -> List.of();
                         })
                         .withGetColumns(schemaTableName -> {
                             if (schemaTableName.equals(new SchemaTableName("tiny", "nation"))) {

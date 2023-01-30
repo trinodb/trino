@@ -698,23 +698,21 @@ public class TestHiveTransactionalTable
         // statement id, when filtering out deleted rows.
         //
         // For more context see https://issues.apache.org/jira/browse/HIVE-16832
-        withTemporaryTable("partitioned_multi_insert", true, true, BucketingType.BUCKETED_V1, tableName -> {
-            withTemporaryTable("tmp_data_table", false, false, NONE, dataTableName -> {
-                onTrino().executeQuery(format("CREATE TABLE %s (a int, b int, c varchar(5)) WITH " +
-                        "(transactional = true, partitioned_by = ARRAY['c'], bucketed_by = ARRAY['a'], bucket_count = 2)", tableName));
-                onTrino().executeQuery(format("CREATE TABLE %s (x int)", dataTableName));
-                onTrino().executeQuery(format("INSERT INTO %s VALUES 1", dataTableName));
+        withTemporaryTable("partitioned_multi_insert", true, true, BucketingType.BUCKETED_V1, tableName -> withTemporaryTable("tmp_data_table", false, false, NONE, dataTableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s (a int, b int, c varchar(5)) WITH " +
+                    "(transactional = true, partitioned_by = ARRAY['c'], bucketed_by = ARRAY['a'], bucket_count = 2)", tableName));
+            onTrino().executeQuery(format("CREATE TABLE %s (x int)", dataTableName));
+            onTrino().executeQuery(format("INSERT INTO %s VALUES 1", dataTableName));
 
-                // Perform a multi-insert
-                onHive().executeQuery("SET hive.exec.dynamic.partition.mode = nonstrict");
-                // Combine dynamic and static partitioning to trick Hive to insert two rows with same rowId but different statementId to a single partition.
-                onHive().executeQuery(format("FROM %s INSERT INTO %s partition(c) SELECT 0, 0, 'c' || x INSERT INTO %2$s partition(c='c1') SELECT 0, 1",
-                        dataTableName,
-                        tableName));
-                onHive().executeQuery(format("DELETE FROM %s WHERE b = 1", tableName));
-                verifySelectForTrinoAndHive("SELECT * FROM " + tableName, row(0, 0, "c1"));
-            });
-        });
+            // Perform a multi-insert
+            onHive().executeQuery("SET hive.exec.dynamic.partition.mode = nonstrict");
+            // Combine dynamic and static partitioning to trick Hive to insert two rows with same rowId but different statementId to a single partition.
+            onHive().executeQuery(format("FROM %s INSERT INTO %s partition(c) SELECT 0, 0, 'c' || x INSERT INTO %2$s partition(c='c1') SELECT 0, 1",
+                    dataTableName,
+                    tableName));
+            onHive().executeQuery(format("DELETE FROM %s WHERE b = 1", tableName));
+            verifySelectForTrinoAndHive("SELECT * FROM " + tableName, row(0, 0, "c1"));
+        }));
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)

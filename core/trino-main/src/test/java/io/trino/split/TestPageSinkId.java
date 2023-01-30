@@ -39,20 +39,12 @@ public class TestPageSinkId
     @Test
     public void testFromTaskIdChecks()
     {
-        assertThatThrownBy(() -> {
-            fromTaskId(1, 1 << 24, 3);
-        }).hasMessageContaining("partitionId is out of allowable range");
+        assertThatThrownBy(() -> fromTaskId(1, 1 << 24, 3)).hasMessageContaining("partitionId is out of allowable range");
 
-        assertThatThrownBy(() -> {
-            fromTaskId(1, -1, 3);
-        }).hasMessageContaining("partitionId is negative");
+        assertThatThrownBy(() -> fromTaskId(1, -1, 3)).hasMessageContaining("partitionId is negative");
 
-        assertThatThrownBy(() -> {
-            fromTaskId(1, 2, 256);
-        }).hasMessageContaining("attemptId is out of allowable range");
+        assertThatThrownBy(() -> fromTaskId(1, 2, 256)).hasMessageContaining("attemptId is out of allowable range");
 
-        assertThatThrownBy(() -> {
-            fromTaskId(1, 2, -1);
-        }).hasMessageContaining("attemptId is negative");
+        assertThatThrownBy(() -> fromTaskId(1, 2, -1)).hasMessageContaining("attemptId is negative");
     }
 }

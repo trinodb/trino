@@ -70,11 +70,9 @@ public class EnvSinglenodeSparkIcebergJdbcCatalog
                     CONTAINER_HADOOP_INIT_D + "/apply-hive-config-for-iceberg.sh");
         });
 
-        builder.configureContainer(TESTS, dockerContainer -> {
-            dockerContainer.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hive3.yaml")),
-                    CONTAINER_TEMPTO_PROFILE_CONFIG);
-        });
+        builder.configureContainer(TESTS, dockerContainer -> dockerContainer.withCopyFileToContainer(
+                forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hive3.yaml")),
+                CONTAINER_TEMPTO_PROFILE_CONFIG));
 
         builder.addConnector("iceberg", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-iceberg-jdbc-catalog/iceberg.properties")));
 

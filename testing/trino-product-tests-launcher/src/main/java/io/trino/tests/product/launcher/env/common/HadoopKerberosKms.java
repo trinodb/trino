@@ -63,9 +63,7 @@ public class HadoopKerberosKms
                         .withCopyFileToContainer(forHostPath(configDir.getPath("hive-disable-key-provider-cache-site.xml")), "/etc/hadoop-kms/conf/hive-disable-key-provider-cache-site.xml")
                         .setDockerImageName(dockerImageName));
 
-        builder.configureContainer(TESTS, container -> {
-            container.setDockerImageName(dockerImageName);
-        });
+        builder.configureContainer(TESTS, container -> container.setDockerImageName(dockerImageName));
         configureTempto(builder, configDir);
     }
 

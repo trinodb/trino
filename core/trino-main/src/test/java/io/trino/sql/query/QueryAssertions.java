@@ -483,19 +483,15 @@ public class QueryAssertions
         @CanIgnoreReturnValue
         public QueryAssert hasOutputTypes(List<Type> expectedTypes)
         {
-            return satisfies(actual -> {
-                assertTypes(query, actual, expectedTypes);
-            });
+            return satisfies(actual -> assertTypes(query, actual, expectedTypes));
         }
 
         @CanIgnoreReturnValue
         public QueryAssert outputHasType(int index, Type expectedType)
         {
-            return satisfies(actual -> {
-                assertThat(actual.getTypes())
-                        .as("Output types for query [%s]", query)
-                        .element(index).isEqualTo(expectedType);
-            });
+            return satisfies(actual -> assertThat(actual.getTypes())
+                    .as("Output types for query [%s]", query)
+                    .element(index).isEqualTo(expectedType));
         }
 
         private static void assertTypes(String query, MaterializedResult actual, List<Type> expectedTypes)
@@ -508,9 +504,7 @@ public class QueryAssertions
         @CanIgnoreReturnValue
         public QueryAssert returnsEmptyResult()
         {
-            return satisfies(actual -> {
-                assertThat(actual.getMaterializedRows()).as("Rows for query [%s]", query).isEmpty();
-            });
+            return satisfies(actual -> assertThat(actual.getMaterializedRows()).as("Rows for query [%s]", query).isEmpty());
         }
 
         /**

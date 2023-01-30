@@ -5178,9 +5178,7 @@ public abstract class BaseHiveConnectorTest
         assertQueryStats(
                 session,
                 format("SELECT * FROM %s WHERE t = %s", tableName, formatTimestamp(value)),
-                queryStats -> {
-                    assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0);
-                },
+                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> {});
     }
 
@@ -5211,9 +5209,7 @@ public abstract class BaseHiveConnectorTest
         assertQueryStats(
                 session,
                 format("SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t = %s", formatTimestamp(value)),
-                queryStats -> {
-                    assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0);
-                },
+                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> {});
     }
 

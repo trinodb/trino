@@ -181,17 +181,13 @@ public abstract class BaseTestJdbcResultSet
                         assertEquals(rs.getString(column), "9223372036854775774");
                     });
 
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR ''", Types.VARCHAR, (rs, column) -> {
-                assertThatThrownBy(() -> rs.getBigDecimal(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Value is not a number: ");
-            });
+            checkRepresentation(connectedStatement.getStatement(), "VARCHAR ''", Types.VARCHAR, (rs, column) -> assertThatThrownBy(() -> rs.getBigDecimal(column))
+                    .isInstanceOf(SQLException.class)
+                    .hasMessage("Value is not a number: "));
 
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123a'", Types.VARCHAR, (rs, column) -> {
-                assertThatThrownBy(() -> rs.getBigDecimal(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Value is not a number: 123a");
-            });
+            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123a'", Types.VARCHAR, (rs, column) -> assertThatThrownBy(() -> rs.getBigDecimal(column))
+                    .isInstanceOf(SQLException.class)
+                    .hasMessage("Value is not a number: 123a"));
 
             checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123e-1'", Types.VARCHAR,
                     (rs, column) -> assertEquals(rs.getBigDecimal(column), new BigDecimal("12.3")));
@@ -988,24 +984,20 @@ public abstract class BaseTestJdbcResultSet
             });
 
             // row of row or row
-            checkRepresentation(connectedStatement.getStatement(), "ROW(ROW(ROW(42)))", Types.JAVA_OBJECT, (rs, column) -> {
-                assertEquals(
-                        rs.getObject(column),
-                        Row.builder()
-                                .addUnnamedField(Row.builder()
-                                        .addUnnamedField(Row.builder().addUnnamedField(42).build())
-                                        .build())
-                                .build());
-            });
-            checkRepresentation(connectedStatement.getStatement(), "CAST(ROW(ROW(ROW(42))) AS row(a row(b row(c integer))))", Types.JAVA_OBJECT, (rs, column) -> {
-                assertEquals(
-                        rs.getObject(column),
-                        Row.builder()
-                                .addField("a", Row.builder()
-                                        .addField("b", Row.builder().addField("c", 42).build())
-                                        .build())
-                                .build());
-            });
+            checkRepresentation(connectedStatement.getStatement(), "ROW(ROW(ROW(42)))", Types.JAVA_OBJECT, (rs, column) -> assertEquals(
+                    rs.getObject(column),
+                    Row.builder()
+                            .addUnnamedField(Row.builder()
+                                    .addUnnamedField(Row.builder().addUnnamedField(42).build())
+                                    .build())
+                            .build()));
+            checkRepresentation(connectedStatement.getStatement(), "CAST(ROW(ROW(ROW(42))) AS row(a row(b row(c integer))))", Types.JAVA_OBJECT, (rs, column) -> assertEquals(
+                    rs.getObject(column),
+                    Row.builder()
+                            .addField("a", Row.builder()
+                                    .addField("b", Row.builder().addField("c", 42).build())
+                                    .build())
+                            .build()));
 
             // row of array of map of row
             checkRepresentation(

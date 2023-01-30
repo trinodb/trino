@@ -1879,11 +1879,9 @@ public class PlanPrinter
                         .append("partition by: [")
                         .append(Joiner.on(", ").join(anonymize(specification.getPartitionBy())))
                         .append("]");
-                specification.getOrderingScheme().ifPresent(orderingScheme -> {
-                    properties
-                            .append(", order by: ")
-                            .append(formatOrderingScheme(orderingScheme));
-                });
+                specification.getOrderingScheme().ifPresent(orderingScheme -> properties
+                        .append(", order by: ")
+                        .append(formatOrderingScheme(orderingScheme)));
             });
             properties.append("required columns: [")
                     .append(Joiner.on(", ").join(anonymize(argumentProperties.getRequiredColumns())))

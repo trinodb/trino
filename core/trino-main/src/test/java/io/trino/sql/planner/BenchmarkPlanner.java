@@ -122,11 +122,9 @@ public class BenchmarkPlanner
     @Benchmark
     public List<Plan> plan(BenchmarkData benchmarkData)
     {
-        return benchmarkData.queryRunner.inTransaction(transactionSession -> {
-            return benchmarkData.queries.getQueries().stream()
-                    .map(query -> benchmarkData.queryRunner.createPlan(transactionSession, query, benchmarkData.stage, false, WarningCollector.NOOP))
-                    .collect(toImmutableList());
-        });
+        return benchmarkData.queryRunner.inTransaction(transactionSession -> benchmarkData.queries.getQueries().stream()
+                .map(query -> benchmarkData.queryRunner.createPlan(transactionSession, query, benchmarkData.stage, false, WarningCollector.NOOP))
+                .collect(toImmutableList()));
     }
 
     @Test

@@ -164,9 +164,7 @@ public class AzureBlobFileSystemExchangeStorage
                         ImmutableList.Builder<String> blobUrls = ImmutableList.builder();
                         for (List<PagedResponse<BlobItem>> pagedResponseList : nestedPagedResponseList) {
                             for (PagedResponse<BlobItem> pagedResponse : pagedResponseList) {
-                                pagedResponse.getValue().forEach(blobItem -> {
-                                    blobUrls.add(blobContainerAsyncClient.getBlobAsyncClient(blobItem.getName()).getBlobUrl());
-                                });
+                                pagedResponse.getValue().forEach(blobItem -> blobUrls.add(blobContainerAsyncClient.getBlobAsyncClient(blobItem.getName()).getBlobUrl()));
                             }
                         }
                         return deleteObjects(blobUrls.build());

@@ -324,9 +324,7 @@ public class ShardCleaner
     @Managed
     public void startLocalCleanupImmediately()
     {
-        scheduler.submit(() -> {
-            runLocalCleanupImmediately(getLocalShards());
-        });
+        scheduler.submit(() -> runLocalCleanupImmediately(getLocalShards()));
     }
 
     @VisibleForTesting

@@ -50,15 +50,13 @@ public class EnvSinglenodeLdapAndFile
                 "file",
                 forHostPath(configDir.getPath("file-authenticator.properties")),
                 CONTAINER_TRINO_ETC + "/file-authenticator.properties");
-        builder.configureContainer(COORDINATOR, dockerContainer -> {
-            dockerContainer
-                    .withCopyFileToContainer(
-                            forHostPath(configDir.getPath("config.properties")),
-                            CONTAINER_TRINO_CONFIG_PROPERTIES)
-                    .withCopyFileToContainer(
-                            forHostPath(configDir.getPath("password.db")),
-                            CONTAINER_TRINO_ETC + "/password.db");
-        });
+        builder.configureContainer(COORDINATOR, dockerContainer -> dockerContainer
+                .withCopyFileToContainer(
+                        forHostPath(configDir.getPath("config.properties")),
+                        CONTAINER_TRINO_CONFIG_PROPERTIES)
+                .withCopyFileToContainer(
+                        forHostPath(configDir.getPath("password.db")),
+                        CONTAINER_TRINO_ETC + "/password.db"));
 
         configureTempto(builder, configDir);
     }

@@ -462,9 +462,7 @@ public class TestDeltaLakeMetadata
     {
         ImmutableMap.Builder<DeltaLakeColumnHandle, Domain> tupleBuilder = ImmutableMap.builder();
 
-        constrainedColumns.forEach(column -> {
-            tupleBuilder.put(column, Domain.notNull(column.getType()));
-        });
+        constrainedColumns.forEach(column -> tupleBuilder.put(column, Domain.notNull(column.getType())));
 
         return TupleDomain.withColumnDomains(tupleBuilder.buildOrThrow());
     }

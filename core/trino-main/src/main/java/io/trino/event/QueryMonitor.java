@@ -727,24 +727,22 @@ public class QueryMonitor
     private static void populateStageOutputBufferUtilization(StageInfo stageInfo, ImmutableList.Builder<StageOutputBufferUtilization> utilizations)
     {
         stageInfo.getStageStats().getOutputBufferUtilization()
-                .ifPresent(utilization -> {
-                    utilizations.add(new StageOutputBufferUtilization(
-                            stageInfo.getStageId().getId(),
-                            stageInfo.getTasks().size(),
-                            // scale ratio to percentages
-                            utilization.getP01() * 100,
-                            utilization.getP05() * 100,
-                            utilization.getP10() * 100,
-                            utilization.getP25() * 100,
-                            utilization.getP50() * 100,
-                            utilization.getP75() * 100,
-                            utilization.getP90() * 100,
-                            utilization.getP95() * 100,
-                            utilization.getP99() * 100,
-                            utilization.getMin() * 100,
-                            utilization.getMax() * 100,
-                            Duration.ofNanos(utilization.getTotal())));
-                });
+                .ifPresent(utilization -> utilizations.add(new StageOutputBufferUtilization(
+                        stageInfo.getStageId().getId(),
+                        stageInfo.getTasks().size(),
+                        // scale ratio to percentages
+                        utilization.getP01() * 100,
+                        utilization.getP05() * 100,
+                        utilization.getP10() * 100,
+                        utilization.getP25() * 100,
+                        utilization.getP50() * 100,
+                        utilization.getP75() * 100,
+                        utilization.getP90() * 100,
+                        utilization.getP95() * 100,
+                        utilization.getP99() * 100,
+                        utilization.getMin() * 100,
+                        utilization.getMax() * 100,
+                        Duration.ofNanos(utilization.getTotal()))));
         for (StageInfo subStage : stageInfo.getSubStages()) {
             populateStageOutputBufferUtilization(subStage, utilizations);
         }

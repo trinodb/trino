@@ -1433,13 +1433,11 @@ public class TrinoDatabaseMetaData
 
         Stream.of(ClientInfoProperty.values())
                 .sorted(Comparator.comparing(ClientInfoProperty::getPropertyName))
-                .forEach(clientInfoProperty -> {
-                    results.add(newArrayList(
-                            clientInfoProperty.getPropertyName(),
-                            VARCHAR_UNBOUNDED_LENGTH,
-                            null,
-                            null));
-                });
+                .forEach(clientInfoProperty -> results.add(newArrayList(
+                        clientInfoProperty.getPropertyName(),
+                        VARCHAR_UNBOUNDED_LENGTH,
+                        null,
+                        null)));
 
         return new InMemoryTrinoResultSet(columns.build(), results.build());
     }

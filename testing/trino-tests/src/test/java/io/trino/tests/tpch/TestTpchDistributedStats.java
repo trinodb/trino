@@ -199,9 +199,7 @@ public class TestTpchDistributedStats
                 checks -> checks.noEstimate(OUTPUT_ROW_COUNT)); // BERNOULLI sample gets converted to a `rand() < 0.42` filter and does not get estimated currently
 
         // Using eventual assertion because TABLESAMPLE SYSTEM has high variance of number of result rows being returned, when calculating the actual value.
-        assertEventually(() -> {
-            statisticsAssertion.check("SELECT * FROM orders TABLESAMPLE SYSTEM (42)",
-                    checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(.3)));
-        });
+        assertEventually(() -> statisticsAssertion.check("SELECT * FROM orders TABLESAMPLE SYSTEM (42)",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(.3))));
     }
 }

@@ -33,12 +33,10 @@ public class TestIcebergParquetTpchCostBasedPlan
     @Override
     protected void doPrepareTables()
     {
-        TpchTable.getTables().forEach(table -> {
-            populateTableFromResource(
-                    table.getTableName(),
-                    "iceberg/tpch/sf1000/parquet/unpartitioned/" + table.getTableName(),
-                    "iceberg-tpch-sf1000-parquet/" + table.getTableName());
-        });
+        TpchTable.getTables().forEach(table -> populateTableFromResource(
+                table.getTableName(),
+                "iceberg/tpch/sf1000/parquet/unpartitioned/" + table.getTableName(),
+                "iceberg-tpch-sf1000-parquet/" + table.getTableName()));
     }
 
     @Override

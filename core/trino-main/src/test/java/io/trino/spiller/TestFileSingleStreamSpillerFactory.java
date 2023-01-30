@@ -216,7 +216,7 @@ public class TestFileSingleStreamSpillerFactory
         // Set second spiller path to read-only after initialization to emulate a disk failing during runtime
         setPosixFilePermissions(spillPath2.toPath(), ImmutableSet.of(PosixFilePermission.OWNER_READ));
 
-        assertThatThrownBy(() -> { getUnchecked(singleStreamSpiller2.spill(page)); })
+        assertThatThrownBy(() -> getUnchecked(singleStreamSpiller2.spill(page)))
                 .isInstanceOf(com.google.common.util.concurrent.UncheckedExecutionException.class)
                 .hasMessageContaining("Failed to spill pages");
         spillers.add(singleStreamSpiller2);

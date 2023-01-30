@@ -174,9 +174,7 @@ public class PushProjectionIntoTableScan
 
         // Stitch partial translations to form new complete projections
         Assignments.Builder newProjectionAssignments = Assignments.builder();
-        project.getAssignments().entrySet().forEach(entry -> {
-            newProjectionAssignments.put(entry.getKey(), replaceExpression(entry.getValue(), nodesToNewPartialProjections));
-        });
+        project.getAssignments().entrySet().forEach(entry -> newProjectionAssignments.put(entry.getKey(), replaceExpression(entry.getValue(), nodesToNewPartialProjections)));
 
         Optional<PlanNodeStatsEstimate> newStatistics = tableScan.getStatistics().map(statistics -> {
             PlanNodeStatsEstimate.Builder builder = PlanNodeStatsEstimate.builder();

@@ -60,10 +60,8 @@ public class EnvSinglenodeHdp3
                     CONTAINER_HADOOP_INIT_D + "apply-hdp3-config.sh");
         });
 
-        builder.configureContainer(TESTS, dockerContainer -> {
-            dockerContainer.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hive3.yaml")),
-                    CONTAINER_TEMPTO_PROFILE_CONFIG);
-        });
+        builder.configureContainer(TESTS, dockerContainer -> dockerContainer.withCopyFileToContainer(
+                forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hive3.yaml")),
+                CONTAINER_TEMPTO_PROFILE_CONFIG));
     }
 }

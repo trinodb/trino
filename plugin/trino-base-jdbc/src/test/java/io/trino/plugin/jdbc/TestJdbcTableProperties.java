@@ -62,7 +62,7 @@ public class TestJdbcTableProperties
     @Test
     public void testGetTablePropertiesIsNotCalledForSelect()
     {
-        onGetTableProperties = () -> { fail("Unexpected call of: getTableProperties"); };
+        onGetTableProperties = () -> fail("Unexpected call of: getTableProperties");
         assertUpdate("CREATE TABLE copy_of_nation AS SELECT * FROM nation", 25);
         assertQuerySucceeds("SELECT * FROM copy_of_nation");
         assertQuerySucceeds("SELECT nationkey FROM copy_of_nation");
@@ -72,7 +72,7 @@ public class TestJdbcTableProperties
     public void testGetTablePropertiesIsCalled()
     {
         AtomicInteger counter = new AtomicInteger();
-        onGetTableProperties = () -> { counter.incrementAndGet(); };
+        onGetTableProperties = () -> counter.incrementAndGet();
         assertQuerySucceeds("SHOW CREATE TABLE nation");
         assertThat(counter.get()).isOne();
     }

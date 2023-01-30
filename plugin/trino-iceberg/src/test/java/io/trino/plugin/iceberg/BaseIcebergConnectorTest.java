@@ -4568,14 +4568,12 @@ public abstract class BaseIcebergConnectorTest
                 3);
         // Test uses relatively small table (60K rows). When engine doesn't redistribute data for writes,
         // occasionally a worker node doesn't get any data and fewer files get created.
-        assertEventually(new Duration(3, MINUTES), () -> {
-            testRepartitionData(
-                    sessionRepartitionMany,
-                    sourceRelation,
-                    ctas,
-                    "'orderstatus'",
-                    9);
-        });
+        assertEventually(new Duration(3, MINUTES), () -> testRepartitionData(
+                sessionRepartitionMany,
+                sourceRelation,
+                ctas,
+                "'orderstatus'",
+                9));
     }
 
     private void testRepartitionData(Session session, String sourceRelation, boolean ctas, String partitioning, int expectedFiles)

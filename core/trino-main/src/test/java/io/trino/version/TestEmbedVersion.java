@@ -61,9 +61,7 @@ public class TestEmbedVersion
             throws Exception
     {
         AtomicInteger counter = new AtomicInteger();
-        String value = embedVersion.embedVersion(() -> {
-            return "abc" + counter.incrementAndGet();
-        }).call();
+        String value = embedVersion.embedVersion(() -> "abc" + counter.incrementAndGet()).call();
         assertEquals(value, "abc1");
         assertEquals(counter.get(), 1);
 

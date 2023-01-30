@@ -171,9 +171,7 @@ public class TaskStateMachine
             sourceTaskFailureListeners.add(listener);
             failures = ImmutableMap.copyOf(sourceTaskFailures);
         }
-        executor.execute(() -> {
-            failures.forEach(listener::onTaskFailed);
-        });
+        executor.execute(() -> failures.forEach(listener::onTaskFailed));
     }
 
     public void sourceTaskFailed(TaskId taskId, Throwable failure)

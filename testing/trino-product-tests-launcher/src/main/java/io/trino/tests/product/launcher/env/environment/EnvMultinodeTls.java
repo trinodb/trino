@@ -87,9 +87,7 @@ public final class EnvMultinodeTls
         });
 
         builder.addContainers(createTrinoWorker(worker(1)), createTrinoWorker(worker(2)));
-        builder.configureContainer(TESTS, container -> {
-            container.withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-tls.yaml")), CONTAINER_TEMPTO_PROFILE_CONFIG);
-        });
+        builder.configureContainer(TESTS, container -> container.withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-tls.yaml")), CONTAINER_TEMPTO_PROFILE_CONFIG));
     }
 
     private DockerContainer createTrinoWorker(String workerName)

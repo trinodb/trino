@@ -96,13 +96,11 @@ public class PageTestUtils
     {
         ImmutableList.Builder<Block> finalBlocks = ImmutableList.<Block>builder().addAll(blocks);
 
-        hashChannels.ifPresent(channels -> {
-            finalBlocks.add(getHashBlock(
-                    channels.stream()
-                            .map(types::get)
-                            .collect(toImmutableList()),
-                    channels.stream().map(blocks::get).toArray(Block[]::new)));
-        });
+        hashChannels.ifPresent(channels -> finalBlocks.add(getHashBlock(
+                channels.stream()
+                        .map(types::get)
+                        .collect(toImmutableList()),
+                channels.stream().map(blocks::get).toArray(Block[]::new))));
 
         return new Page(positionCount, finalBlocks.build().toArray(Block[]::new));
     }

@@ -591,18 +591,16 @@ public final class Environment
                 }
             }
 
-            containers.forEach((name, container) -> {
-                container
-                        .addContainerListener(listener)
-                        .withCreateContainerCmdModifier(createContainerCmd -> {
-                            Map<String, Bind> binds = new HashMap<>();
-                            HostConfig hostConfig = createContainerCmd.getHostConfig();
-                            for (Bind bind : firstNonNull(hostConfig.getBinds(), new Bind[0])) {
-                                binds.put(bind.getVolume().getPath(), bind); // last bind wins
-                            }
-                            hostConfig.setBinds(binds.values().toArray(new Bind[0]));
-                        });
-            });
+            containers.forEach((name, container) -> container
+                    .addContainerListener(listener)
+                    .withCreateContainerCmdModifier(createContainerCmd -> {
+                        Map<String, Bind> binds = new HashMap<>();
+                        HostConfig hostConfig = createContainerCmd.getHostConfig();
+                        for (Bind bind : firstNonNull(hostConfig.getBinds(), new Bind[0])) {
+                            binds.put(bind.getVolume().getPath(), bind); // last bind wins
+                        }
+                        hostConfig.setBinds(binds.values().toArray(new Bind[0]));
+                    }));
 
             addConfiguredFeaturesConfig();
 

@@ -89,38 +89,36 @@ public class TestAccessControlTableRedirection
                 .setSchema(SCHEMA_NAME)
                 .build();
         QueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setAdditionalModule(binder -> {
-                    newOptionalBinder(binder, SystemSecurityMetadata.class)
-                            .setBinding()
-                            .toInstance(new DisabledSystemSecurityMetadata()
+                .setAdditionalModule(binder -> newOptionalBinder(binder, SystemSecurityMetadata.class)
+                        .setBinding()
+                        .toInstance(new DisabledSystemSecurityMetadata()
+                        {
+                            @Override
+                            public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
                             {
-                                @Override
-                                public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
-                                {
-                                }
+                            }
 
-                                @Override
-                                public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
-                                {
-                                }
+                            @Override
+                            public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+                            {
+                            }
 
-                                @Override
-                                public boolean roleExists(Session session, String role)
-                                {
-                                    return true;
-                                }
+                            @Override
+                            public boolean roleExists(Session session, String role)
+                            {
+                                return true;
+                            }
 
-                                @Override
-                                public void setTableOwner(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
-                                {
-                                }
+                            @Override
+                            public void setTableOwner(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
+                            {
+                            }
 
-                                @Override
-                                public void denyTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee)
-                                {
-                                }
-                            });
-                })
+                            @Override
+                            public void denyTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee)
+                            {
+                            }
+                        }))
                 .build();
         queryRunner.installPlugin(new MockConnectorPlugin(createMockConnectorFactory()));
         queryRunner.createCatalog(CATALOG_NAME, "mock", ImmutableMap.of());

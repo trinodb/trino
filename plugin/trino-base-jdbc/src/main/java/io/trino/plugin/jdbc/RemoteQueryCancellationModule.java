@@ -46,12 +46,10 @@ public class RemoteQueryCancellationModule
 
     private static Module bindForRecordCursor()
     {
-        return binder -> {
-            newOptionalBinder(binder, Key.get(ExecutorService.class, ForRecordCursor.class))
-                    .setBinding()
-                    .toProvider(RecordCursorExecutorServiceProvider.class)
-                    .in(Scopes.SINGLETON);
-        };
+        return binder -> newOptionalBinder(binder, Key.get(ExecutorService.class, ForRecordCursor.class))
+                .setBinding()
+                .toProvider(RecordCursorExecutorServiceProvider.class)
+                .in(Scopes.SINGLETON);
     }
 
     private static class RecordCursorExecutorServiceProvider

@@ -133,11 +133,9 @@ public class TestThrottledAsyncQueue
         ListenableFuture<Void> future1 = queue.offer(6);
         assertFalse(future1.isDone());
 
-        Runnable runnable = () -> {
-            getFutureValue(queue.borrowBatchAsync(1, elements -> {
-                throw new RuntimeException("test fail");
-            }));
-        };
+        Runnable runnable = () -> getFutureValue(queue.borrowBatchAsync(1, elements -> {
+            throw new RuntimeException("test fail");
+        }));
 
         assertThatThrownBy(() -> executor.submit(runnable).get())
                 .isInstanceOf(ExecutionException.class)

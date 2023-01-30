@@ -127,12 +127,10 @@ public class TestAccessControl
                 .setSchema("default")
                 .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setAdditionalModule(binder -> {
-                    newOptionalBinder(binder, SystemSecurityMetadata.class)
-                            .setBinding()
-                            .to(TestingSystemSecurityMetadata.class)
-                            .in(Scopes.SINGLETON);
-                })
+                .setAdditionalModule(binder -> newOptionalBinder(binder, SystemSecurityMetadata.class)
+                        .setBinding()
+                        .to(TestingSystemSecurityMetadata.class)
+                        .in(Scopes.SINGLETON))
                 .setNodeCount(1)
                 .setSystemAccessControl(new ForwardingSystemAccessControl() {
                     @Override

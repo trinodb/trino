@@ -164,11 +164,9 @@ public abstract class BaseHiveFailureRecoveryTest
 
     protected void testDeletePartitionWithSubquery()
     {
-        assertThatThrownBy(() -> {
-            testTableModification(
-                    Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p']) AS SELECT *, 0 p FROM orders"),
-                    "DELETE FROM <table> WHERE p = (SELECT min(nationkey) FROM nation)",
-                    Optional.of("DROP TABLE <table>"));
-        }).hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
+        assertThatThrownBy(() -> testTableModification(
+                Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p']) AS SELECT *, 0 p FROM orders"),
+                "DELETE FROM <table> WHERE p = (SELECT min(nationkey) FROM nation)",
+                Optional.of("DROP TABLE <table>"))).hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 }

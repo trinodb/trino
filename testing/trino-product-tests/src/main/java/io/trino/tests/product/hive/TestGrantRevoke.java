@@ -269,11 +269,9 @@ public class TestGrantRevoke
     public void testViewOwnerPrivileges()
     {
         onHive().executeQuery("set role admin;");
-        executeWith(createViewAs(viewName, format("SELECT * FROM %s", tableName), aliceExecutor), view -> {
-            assertThat(onHive().executeQuery(format("SHOW GRANT USER alice ON %s", viewName))
-                    .project(7, 8)) // Project only two relevant columns of SHOW GRANT: Privilege and Grant Option
-                    .containsOnly(ownerGrants());
-        });
+        executeWith(createViewAs(viewName, format("SELECT * FROM %s", tableName), aliceExecutor), view -> assertThat(onHive().executeQuery(format("SHOW GRANT USER alice ON %s", viewName))
+                .project(7, 8)) // Project only two relevant columns of SHOW GRANT: Privilege and Grant Option
+                .containsOnly(ownerGrants()));
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})

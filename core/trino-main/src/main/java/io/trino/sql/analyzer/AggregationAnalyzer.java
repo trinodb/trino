@@ -189,10 +189,8 @@ class AggregationAnalyzer
                 .map(ResolvedField::getFieldId)
                 .collect(toImmutableSet());
 
-        this.groupingFields.forEach(fieldId -> {
-            checkState(isFieldFromScope(fieldId, sourceScope),
-                    "Grouping field %s should originate from %s", fieldId, sourceScope.getRelationType());
-        });
+        this.groupingFields.forEach(fieldId -> checkState(isFieldFromScope(fieldId, sourceScope),
+                "Grouping field %s should originate from %s", fieldId, sourceScope.getRelationType()));
     }
 
     private void analyze(Expression expression)

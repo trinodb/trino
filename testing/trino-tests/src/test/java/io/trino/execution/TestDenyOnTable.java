@@ -66,22 +66,20 @@ public class TestDenyOnTable
             throws Exception
     {
         queryRunner = DistributedQueryRunner.builder(admin)
-                .setAdditionalModule(binder -> {
-                    newOptionalBinder(binder, SystemSecurityMetadata.class)
-                            .setBinding()
-                            .toInstance(new DisabledSystemSecurityMetadata()
+                .setAdditionalModule(binder -> newOptionalBinder(binder, SystemSecurityMetadata.class)
+                        .setBinding()
+                        .toInstance(new DisabledSystemSecurityMetadata()
+                        {
+                            @Override
+                            public void denyTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee)
                             {
-                                @Override
-                                public void denyTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee)
-                                {
-                                    assertThat(expectedTableName).isEqualTo(tableName);
-                                    assertThat(expectedPrivileges).isEqualTo(privileges);
-                                    assertThat(expectedGrantee).isEqualTo(grantee);
-                                    assertThat(denyCalled).isFalse();
-                                    denyCalled = true;
-                                }
-                            });
-                })
+                                assertThat(expectedTableName).isEqualTo(tableName);
+                                assertThat(expectedPrivileges).isEqualTo(privileges);
+                                assertThat(expectedGrantee).isEqualTo(grantee);
+                                assertThat(denyCalled).isFalse();
+                                denyCalled = true;
+                            }
+                        }))
                 .build();
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                 .withListSchemaNames(session -> ImmutableList.of("default"))

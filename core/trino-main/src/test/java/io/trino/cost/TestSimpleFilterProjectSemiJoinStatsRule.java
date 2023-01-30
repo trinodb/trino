@@ -101,13 +101,11 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                         .setOutputRowCount(2000)
                         .addSymbolStatistics(new Symbol("c"), cStats)
                         .build())
-                .check(check -> {
-                    check.outputRowsCount(180)
-                            .symbolStats("a", assertion -> assertion.isEqualTo(expectedAInC))
-                            .symbolStats("b", assertion -> assertion.isEqualTo(bStats))
-                            .symbolStatsUnknown("c")
-                            .symbolStatsUnknown("sjo");
-                });
+                .check(check -> check.outputRowsCount(180)
+                        .symbolStats("a", assertion -> assertion.isEqualTo(expectedAInC))
+                        .symbolStats("b", assertion -> assertion.isEqualTo(bStats))
+                        .symbolStatsUnknown("c")
+                        .symbolStatsUnknown("sjo"));
     }
 
     @Test
@@ -140,13 +138,11 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                         .setOutputRowCount(2000)
                         .addSymbolStatistics(new Symbol("c"), cStats)
                         .build())
-                .check(check -> {
-                    check.outputRowsCount(180)
-                            .symbolStats("a", assertion -> assertion.isEqualTo(expectedAInC))
-                            .symbolStatsUnknown("b")
-                            .symbolStatsUnknown("c")
-                            .symbolStatsUnknown("sjo");
-                });
+                .check(check -> check.outputRowsCount(180)
+                        .symbolStats("a", assertion -> assertion.isEqualTo(expectedAInC))
+                        .symbolStatsUnknown("b")
+                        .symbolStatsUnknown("c")
+                        .symbolStatsUnknown("sjo"));
     }
 
     @Test
@@ -178,13 +174,11 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                         .setOutputRowCount(2000)
                         .addSymbolStatistics(new Symbol("c"), cStats)
                         .build())
-                .check(check -> {
-                    check.outputRowsCount(144)
-                            .symbolStats("a", assertion -> assertion.isEqualTo(expectedANotInC))
-                            .symbolStats("b", assertion -> assertion.isEqualTo(bStats))
-                            .symbolStatsUnknown("c")
-                            .symbolStatsUnknown("sjo");
-                });
+                .check(check -> check.outputRowsCount(144)
+                        .symbolStats("a", assertion -> assertion.isEqualTo(expectedANotInC))
+                        .symbolStats("b", assertion -> assertion.isEqualTo(bStats))
+                        .symbolStatsUnknown("c")
+                        .symbolStatsUnknown("sjo"));
     }
 
     @Test
@@ -216,12 +210,10 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                         .setOutputRowCount(2000)
                         .addSymbolStatistics(new Symbol("c"), cStats)
                         .build())
-                .check(check -> {
-                    check.outputRowsCount(720)
-                            .symbolStats("a", assertion -> assertion.isEqualTo(expectedANotInCWithExtraFilter))
-                            .symbolStats("b", assertion -> assertion.isEqualTo(bStats))
-                            .symbolStatsUnknown("c")
-                            .symbolStatsUnknown("sjo");
-                });
+                .check(check -> check.outputRowsCount(720)
+                        .symbolStats("a", assertion -> assertion.isEqualTo(expectedANotInCWithExtraFilter))
+                        .symbolStats("b", assertion -> assertion.isEqualTo(bStats))
+                        .symbolStatsUnknown("c")
+                        .symbolStatsUnknown("sjo"));
     }
 }
