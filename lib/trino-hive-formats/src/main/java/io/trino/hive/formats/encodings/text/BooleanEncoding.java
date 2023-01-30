@@ -52,7 +52,7 @@ public class BooleanEncoding
     }
 
     @Override
-    public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
+    public void encodeValueInto(Block block, int position, SliceOutput output)
     {
         encodeValue(block, position, output);
     }
@@ -91,7 +91,7 @@ public class BooleanEncoding
     }
 
     @Override
-    public void decodeValueInto(int depth, BlockBuilder builder, Slice slice, int offset, int length)
+    public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
         type.writeBoolean(builder, isTrue(slice, offset, length));
     }

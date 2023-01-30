@@ -57,7 +57,7 @@ public class StringEncoding
     }
 
     @Override
-    public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
+    public void encodeValueInto(Block block, int position, SliceOutput output)
     {
         Slice slice = type.getSlice(block, position);
         if (escapeByte != null && slice.indexOfByte(escapeByte) < 0) {
@@ -122,7 +122,7 @@ public class StringEncoding
     }
 
     @Override
-    public void decodeValueInto(int depth, BlockBuilder builder, Slice slice, int offset, int length)
+    public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
         length = calculateTruncationLength(type, slice, offset, length);
         type.writeSlice(builder, slice, offset, length);

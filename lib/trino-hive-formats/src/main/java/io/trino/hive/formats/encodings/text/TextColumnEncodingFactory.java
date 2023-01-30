@@ -15,14 +15,32 @@ package io.trino.hive.formats.encodings.text;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.hive.formats.encodings.ColumnEncoding;
 import io.trino.hive.formats.encodings.ColumnEncodingFactory;
+import io.trino.spi.TrinoException;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static java.lang.String.format;
 
 public class TextColumnEncodingFactory
         implements ColumnEncodingFactory
@@ -90,112 +108,103 @@ public class TextColumnEncodingFactory
     }
 
     @Override
-    public ColumnEncoding booleanEncoding(Type type)
+    public TextColumnEncoding getEncoding(Type type)
     {
-        return new BooleanEncoding(type, nullSequence);
+        try {
+            return getEncoding(type, 0);
+        }
+        catch (NotEnoughSeparatorsException e) {
+            throw new IllegalArgumentException(format("Type %s requires %s nesting levels", type, e.getDepth()));
+        }
     }
 
-    @Override
-    public ColumnEncoding byteEncoding(Type type)
+    private TextColumnEncoding getEncoding(Type type, int depth)
     {
-        return longEncoding(type);
+        if (BOOLEAN.equals(type)) {
+            return new BooleanEncoding(type, nullSequence);
+        }
+        if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type) || BIGINT.equals(type)) {
+            return new LongEncoding(type, nullSequence);
+        }
+        if (type instanceof DecimalType) {
+            return new DecimalEncoding(type, nullSequence);
+        }
+        if (REAL.equals(type)) {
+            return new FloatEncoding(type, nullSequence);
+        }
+        if (DOUBLE.equals(type)) {
+            return new DoubleEncoding(type, nullSequence);
+        }
+        if (type instanceof VarcharType || type instanceof CharType) {
+            return new StringEncoding(type, nullSequence, escapeByte);
+        }
+        if (VARBINARY.equals(type)) {
+            // binary text encoding is not escaped
+            return new BinaryEncoding(type, nullSequence);
+        }
+        if (DATE.equals(type)) {
+            return new DateEncoding(type, nullSequence);
+        }
+        if (type instanceof TimestampType) {
+            return new TimestampEncoding((TimestampType) type, nullSequence);
+        }
+        if (type instanceof ArrayType) {
+            TextColumnEncoding elementEncoding = getEncoding(type.getTypeParameters().get(0), depth + 1);
+            return new ListEncoding(
+                    type,
+                    nullSequence,
+                    getSeparator(depth + 1),
+                    escapeByte,
+                    elementEncoding);
+        }
+        if (type instanceof MapType) {
+            TextColumnEncoding keyEncoding = getEncoding(type.getTypeParameters().get(0), depth + 2);
+            TextColumnEncoding valueEncoding = getEncoding(type.getTypeParameters().get(1), depth + 2);
+            return new MapEncoding(
+                    type,
+                    nullSequence,
+                    getSeparator(depth + 1),
+                    getSeparator(depth + 2),
+                    escapeByte,
+                    keyEncoding,
+                    valueEncoding);
+        }
+        if (type instanceof RowType) {
+            List<TextColumnEncoding> fieldEncodings = type.getTypeParameters().stream()
+                    .map(fieldType -> getEncoding(fieldType, depth + 1))
+                    .collect(toImmutableList());
+            return new StructEncoding(
+                    type,
+                    nullSequence,
+                    getSeparator(depth + 1),
+                    escapeByte,
+                    lastColumnTakesRest,
+                    fieldEncodings);
+        }
+        throw new TrinoException(NOT_SUPPORTED, "unsupported type: " + type);
     }
 
-    @Override
-    public ColumnEncoding shortEncoding(Type type)
+    private byte getSeparator(int depth)
     {
-        return longEncoding(type);
+        if (depth >= separators.length) {
+            throw new NotEnoughSeparatorsException(depth);
+        }
+        return separators[depth];
     }
 
-    @Override
-    public ColumnEncoding intEncoding(Type type)
+    private static class NotEnoughSeparatorsException
+            extends RuntimeException
     {
-        return longEncoding(type);
-    }
+        private final int depth;
 
-    @Override
-    public ColumnEncoding longEncoding(Type type)
-    {
-        return new LongEncoding(type, nullSequence);
-    }
+        public NotEnoughSeparatorsException(int depth)
+        {
+            this.depth = depth;
+        }
 
-    @Override
-    public ColumnEncoding decimalEncoding(Type type)
-    {
-        return new DecimalEncoding(type, nullSequence);
-    }
-
-    @Override
-    public ColumnEncoding floatEncoding(Type type)
-    {
-        return new FloatEncoding(type, nullSequence);
-    }
-
-    @Override
-    public ColumnEncoding doubleEncoding(Type type)
-    {
-        return new DoubleEncoding(type, nullSequence);
-    }
-
-    @Override
-    public ColumnEncoding stringEncoding(Type type)
-    {
-        return new StringEncoding(type, nullSequence, escapeByte);
-    }
-
-    @Override
-    public ColumnEncoding binaryEncoding(Type type)
-    {
-        // binary text encoding is not escaped
-        return new BinaryEncoding(type, nullSequence);
-    }
-
-    @Override
-    public ColumnEncoding dateEncoding(Type type)
-    {
-        return new DateEncoding(type, nullSequence);
-    }
-
-    @Override
-    public ColumnEncoding timestampEncoding(TimestampType type)
-    {
-        return new TimestampEncoding(type, nullSequence);
-    }
-
-    @Override
-    public ColumnEncoding listEncoding(Type type, ColumnEncoding elementEncoding)
-    {
-        return new ListEncoding(
-                type,
-                nullSequence,
-                separators,
-                escapeByte,
-                (TextColumnEncoding) elementEncoding);
-    }
-
-    @Override
-    public ColumnEncoding mapEncoding(Type type, ColumnEncoding keyEncoding, ColumnEncoding valueEncoding)
-    {
-        return new MapEncoding(
-                type,
-                nullSequence,
-                separators,
-                escapeByte,
-                (TextColumnEncoding) keyEncoding,
-                (TextColumnEncoding) valueEncoding);
-    }
-
-    @Override
-    public ColumnEncoding structEncoding(Type type, List<ColumnEncoding> fieldEncodings)
-    {
-        return new StructEncoding(
-                type,
-                nullSequence,
-                separators,
-                escapeByte,
-                lastColumnTakesRest,
-                fieldEncodings.stream()
-                        .map(TextColumnEncoding.class::cast)
-                        .collect(Collectors.toList()));
+        public int getDepth()
+        {
+            return depth;
+        }
     }
 }

@@ -23,9 +23,9 @@ import io.trino.spi.block.BlockBuilder;
 public interface TextColumnEncoding
         extends ColumnEncoding
 {
-    void encodeValueInto(int depth, Block block, int position, SliceOutput output)
+    void encodeValueInto(Block block, int position, SliceOutput output)
             throws FileCorruptionException;
 
-    void decodeValueInto(int depth, BlockBuilder builder, Slice slice, int offset, int length)
+    void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
             throws FileCorruptionException;
 }

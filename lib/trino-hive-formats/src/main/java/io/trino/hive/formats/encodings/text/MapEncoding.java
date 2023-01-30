@@ -27,25 +27,29 @@ public class MapEncoding
 {
     private final TextColumnEncoding keyEncoding;
     private final TextColumnEncoding valueEncoding;
+    private final byte elementSeparator;
+    private final byte keyValueSeparator;
 
-    public MapEncoding(Type type, Slice nullSequence,
-            byte[] separators,
+    public MapEncoding(
+            Type type,
+            Slice nullSequence,
+            byte elementSeparator,
+            byte keyValueSeparator,
             Byte escapeByte,
             TextColumnEncoding keyEncoding,
             TextColumnEncoding valueEncoding)
     {
-        super(type, nullSequence, separators, escapeByte);
+        super(type, nullSequence, escapeByte);
+        this.elementSeparator = elementSeparator;
+        this.keyValueSeparator = keyValueSeparator;
         this.keyEncoding = keyEncoding;
         this.valueEncoding = valueEncoding;
     }
 
     @Override
-    public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
+    public void encodeValueInto(Block block, int position, SliceOutput output)
             throws FileCorruptionException
     {
-        byte elementSeparator = getSeparator(depth);
-        byte keyValueSeparator = getSeparator(depth + 1);
-
         Block map = block.getObject(position, Block.class);
         boolean first = true;
         for (int elementIndex = 0; elementIndex < map.getPositionCount(); elementIndex += 2) {
@@ -57,23 +61,21 @@ public class MapEncoding
                 output.writeByte(elementSeparator);
             }
             first = false;
-            keyEncoding.encodeValueInto(depth + 2, map, elementIndex, output);
+            keyEncoding.encodeValueInto(map, elementIndex, output);
             output.writeByte(keyValueSeparator);
             if (map.isNull(elementIndex + 1)) {
                 output.writeBytes(nullSequence);
             }
             else {
-                valueEncoding.encodeValueInto(depth + 2, map, elementIndex + 1, output);
+                valueEncoding.encodeValueInto(map, elementIndex + 1, output);
             }
         }
     }
 
     @Override
-    public void decodeValueInto(int depth, BlockBuilder builder, Slice slice, int offset, int length)
+    public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
             throws FileCorruptionException
     {
-        byte elementSeparator = getSeparator(depth);
-        byte keyValueSeparator = getSeparator(depth + 1);
         int end = offset + length;
 
         BlockBuilder mapBuilder = builder.beginBlockEntry();
@@ -83,7 +85,7 @@ public class MapEncoding
             while (offset < end) {
                 byte currentByte = slice.getByte(offset);
                 if (currentByte == elementSeparator) {
-                    decodeEntryInto(depth, mapBuilder, slice, elementOffset, offset - elementOffset, keyValueSeparatorPosition);
+                    decodeEntryInto(mapBuilder, slice, elementOffset, offset - elementOffset, keyValueSeparatorPosition);
                     elementOffset = offset + 1;
                     keyValueSeparatorPosition = -1;
                 }
@@ -96,12 +98,12 @@ public class MapEncoding
                 }
                 offset++;
             }
-            decodeEntryInto(depth, mapBuilder, slice, elementOffset, offset - elementOffset, keyValueSeparatorPosition);
+            decodeEntryInto(mapBuilder, slice, elementOffset, offset - elementOffset, keyValueSeparatorPosition);
         }
         builder.closeEntry();
     }
 
-    private void decodeEntryInto(int depth, BlockBuilder builder, Slice slice, int offset, int length, int keyValueSeparatorPosition)
+    private void decodeEntryInto(BlockBuilder builder, Slice slice, int offset, int length, int keyValueSeparatorPosition)
             throws FileCorruptionException
     {
         // if there is no key value separator, the key is all the data and the value is null
@@ -119,7 +121,7 @@ public class MapEncoding
         }
 
         // output the key
-        keyEncoding.decodeValueInto(depth + 2, builder, slice, offset, keyLength);
+        keyEncoding.decodeValueInto(builder, slice, offset, keyLength);
 
         // output value
         if (keyValueSeparatorPosition == -1) {
@@ -132,7 +134,7 @@ public class MapEncoding
                 builder.appendNull();
             }
             else {
-                valueEncoding.decodeValueInto(depth + 2, builder, slice, valueOffset, valueLength);
+                valueEncoding.decodeValueInto(builder, slice, valueOffset, valueLength);
             }
         }
     }

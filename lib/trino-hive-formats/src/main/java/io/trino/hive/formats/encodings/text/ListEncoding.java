@@ -23,20 +23,20 @@ import io.trino.spi.type.Type;
 public class ListEncoding
         extends BlockEncoding
 {
+    private final byte separator;
     private final TextColumnEncoding elementEncoding;
 
-    public ListEncoding(Type type, Slice nullSequence, byte[] separators, Byte escapeByte, TextColumnEncoding elementEncoding)
+    public ListEncoding(Type type, Slice nullSequence, byte separator, Byte escapeByte, TextColumnEncoding elementEncoding)
     {
-        super(type, nullSequence, separators, escapeByte);
+        super(type, nullSequence, escapeByte);
+        this.separator = separator;
         this.elementEncoding = elementEncoding;
     }
 
     @Override
-    public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
+    public void encodeValueInto(Block block, int position, SliceOutput output)
             throws FileCorruptionException
     {
-        byte separator = getSeparator(depth);
-
         Block list = block.getObject(position, Block.class);
         for (int elementIndex = 0; elementIndex < list.getPositionCount(); elementIndex++) {
             if (elementIndex > 0) {
@@ -46,16 +46,15 @@ public class ListEncoding
                 output.writeBytes(nullSequence);
             }
             else {
-                elementEncoding.encodeValueInto(depth + 1, list, elementIndex, output);
+                elementEncoding.encodeValueInto(list, elementIndex, output);
             }
         }
     }
 
     @Override
-    public void decodeValueInto(int depth, BlockBuilder builder, Slice slice, int offset, int length)
+    public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
             throws FileCorruptionException
     {
-        byte separator = getSeparator(depth);
         int end = offset + length;
 
         BlockBuilder arrayBlockBuilder = builder.beginBlockEntry();
@@ -64,7 +63,7 @@ public class ListEncoding
             while (offset < end) {
                 byte currentByte = slice.getByte(offset);
                 if (currentByte == separator) {
-                    decodeElementValueInto(depth, arrayBlockBuilder, slice, elementOffset, offset - elementOffset);
+                    decodeElementValueInto(arrayBlockBuilder, slice, elementOffset, offset - elementOffset);
                     elementOffset = offset + 1;
                 }
                 else if (isEscapeByte(currentByte) && offset + 1 < length) {
@@ -73,19 +72,19 @@ public class ListEncoding
                 }
                 offset++;
             }
-            decodeElementValueInto(depth, arrayBlockBuilder, slice, elementOffset, offset - elementOffset);
+            decodeElementValueInto(arrayBlockBuilder, slice, elementOffset, offset - elementOffset);
         }
         builder.closeEntry();
     }
 
-    private void decodeElementValueInto(int depth, BlockBuilder blockBuilder, Slice slice, int offset, int length)
+    private void decodeElementValueInto(BlockBuilder blockBuilder, Slice slice, int offset, int length)
             throws FileCorruptionException
     {
         if (nullSequence.equals(0, nullSequence.length(), slice, offset, length)) {
             blockBuilder.appendNull();
         }
         else {
-            elementEncoding.decodeValueInto(depth + 1, blockBuilder, slice, offset, length);
+            elementEncoding.decodeValueInto(blockBuilder, slice, offset, length);
         }
     }
 }
