@@ -11,14 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.hive.formats.encodings;
+package io.trino.hive.formats.encodings.binary;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimestampType;
 
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.function.BiFunction;
 
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
@@ -28,7 +26,7 @@ import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 
-public final class TimestampHolder
+final class TimestampHolder
 {
     private final long seconds;
     private final int nanosOfSecond;
@@ -50,11 +48,6 @@ public final class TimestampHolder
     public int getNanosOfSecond()
     {
         return nanosOfSecond;
-    }
-
-    public LocalDateTime toLocalDateTime()
-    {
-        return LocalDateTime.ofEpochSecond(seconds, nanosOfSecond, ZoneOffset.UTC);
     }
 
     public static BiFunction<Block, Integer, TimestampHolder> getFactory(TimestampType type)

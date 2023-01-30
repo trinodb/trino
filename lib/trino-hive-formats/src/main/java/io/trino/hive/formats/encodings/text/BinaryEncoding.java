@@ -21,13 +21,16 @@ import io.trino.hive.formats.encodings.EncodeOutput;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Base64;
+
+import static org.apache.commons.codec.binary.Base64.decodeBase64;
+import static org.apache.commons.codec.binary.Base64.isBase64;
 
 public class BinaryEncoding
         implements TextColumnEncoding
 {
-    private static final Base64.Decoder base64Decoder = Base64.getDecoder();
     private static final Base64.Encoder base64Encoder = Base64.getEncoder();
 
     private final Type type;
@@ -66,6 +69,7 @@ public class BinaryEncoding
     }
 
     @Override
+    @SuppressModernizer
     public Block decodeColumn(ColumnData columnData)
     {
         int size = columnData.rowCount();
@@ -79,8 +83,7 @@ public class BinaryEncoding
                 builder.appendNull();
             }
             else {
-                byte[] data = slice.getBytes(offset, length);
-                type.writeSlice(builder, Slices.wrappedBuffer(base64Decoder.decode(data)));
+                decodeValue(builder, slice, offset, length);
             }
         }
         return builder.build();
@@ -89,7 +92,19 @@ public class BinaryEncoding
     @Override
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
+        decodeValue(builder, slice, offset, length);
+    }
+
+    // This code must use the Apache commons base64 decoder which supports both standard and URL safe alphabets
+    @SuppressModernizer
+    private void decodeValue(BlockBuilder builder, Slice slice, int offset, int length)
+    {
         byte[] data = slice.getBytes(offset, length);
-        type.writeSlice(builder, Slices.wrappedBuffer(base64Decoder.decode(data)));
+        if (isBase64(data)) {
+            type.writeSlice(builder, Slices.wrappedBuffer(decodeBase64(data)));
+        }
+        else {
+            type.writeSlice(builder, slice, offset, length);
+        }
     }
 }
