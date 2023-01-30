@@ -11,26 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.hive.formats.rcfile;
+package io.trino.hive.formats;
 
 import java.io.IOException;
 
 import static java.lang.String.format;
 
-public class RcFileCorruptionException
+public class FileCorruptionException
         extends IOException
 {
-    public RcFileCorruptionException(String message)
+    public FileCorruptionException(String message)
     {
         super(message);
     }
 
-    public RcFileCorruptionException(String messageFormat, Object... args)
+    public FileCorruptionException(String messageFormat, Object... args)
     {
         super(format(messageFormat, args));
     }
 
-    public RcFileCorruptionException(Throwable cause, String messageFormat, Object... args)
+    public FileCorruptionException(Throwable cause, String messageFormat, Object... args)
     {
         super(format(messageFormat, args), cause);
     }

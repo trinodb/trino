@@ -14,13 +14,14 @@
 package io.trino.hive.formats.rcfile;
 
 import io.airlift.slice.SliceOutput;
+import io.trino.hive.formats.FileCorruptionException;
 import io.trino.spi.block.Block;
 
 public interface ColumnEncoding
 {
     void encodeColumn(Block block, SliceOutput output, EncodeOutput encodeOutput)
-            throws RcFileCorruptionException;
+            throws FileCorruptionException;
 
     Block decodeColumn(ColumnData columnData)
-            throws RcFileCorruptionException;
+            throws FileCorruptionException;
 }
