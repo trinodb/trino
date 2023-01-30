@@ -283,6 +283,10 @@ public class TestingTrinoServer
                     binder.bind(ExchangeManagerRegistry.class).in(Scopes.SINGLETON);
                 });
 
+        if (coordinator) {
+            modules.add(new TestingSessionTimeModule());
+        }
+
         if (discoveryUri.isPresent()) {
             requireNonNull(environment, "environment required when discoveryUri is present");
             serverProperties.put("discovery.uri", discoveryUri.get().toString());
