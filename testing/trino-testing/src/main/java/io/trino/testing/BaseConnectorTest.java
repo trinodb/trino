@@ -33,6 +33,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.server.BasicQueryInfo;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -84,6 +85,8 @@ import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.UNKNOWN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -1234,13 +1237,18 @@ public abstract class BaseConnectorTest
     public void testFederatedMaterializedView()
     {
         String viewName = "test_federated_mv_" + randomNameSuffix();
-
         String mockSchemaForListing = "mock_schema_for_listing_" + randomNameSuffix();
-        AtomicReference<List<String>> mockListing = new AtomicReference<>(List.of("first_table"));
+
         String query = "" +
                 "SELECT table_name, count(*) AS c FROM mock_dynamic_listing.information_schema.tables " +
                 "WHERE table_schema = '" + mockSchemaForListing + "' " +
                 "GROUP BY table_name"; // GROUP BY so that it is easy to distinguish between inlined view and reading materialization
+        String create = "CREATE MATERIALIZED VIEW " + viewName + " AS " + query;
+        if (!hasBehavior(SUPPORTS_CREATE_FEDERATED_MATERIALIZED_VIEW)) {
+            // Note: the expected message may need to be updated when a connector supports materialized views, but not federated.
+            assertQueryFails(create, "This connector does not support creating materialized views");
+            return;
+        }
 
         PlanMatchPattern readFromBaseTables = anyTree(
                 node(AggregationNode.class, // final
@@ -1249,43 +1257,38 @@ public abstract class BaseConnectorTest
                                         anyTree(tableScan("tables"))))));
         PlanMatchPattern readFromStorageTable = node(OutputNode.class, node(TableScanNode.class));
 
+        AtomicReference<List<String>> mockListing = new AtomicReference<>(List.of("first_table"));
+        String initialResults = "VALUES (VARCHAR 'first_table', BIGINT '1')";
         withMockTableListing(
                 mockSchemaForListing,
                 connectorSession -> List.copyOf(mockListing.get()),
                 () -> {
-                    String create = "CREATE MATERIALIZED VIEW " + viewName + " AS " + query;
-                    if (!hasBehavior(SUPPORTS_CREATE_FEDERATED_MATERIALIZED_VIEW)) {
-                        // Note: the expected message may need to be updated when a connector supports materialized views, but not federated.
-                        assertQueryFails(create, "This connector does not support creating materialized views");
-                        return;
-                    }
-
                     assertUpdate(create);
 
-                    assertThat(query("TABLE " + viewName))
-                            // The MV is not refreshed yet, so gets inlined
-                            .hasPlan(readFromBaseTables)
-                            .matches("VALUES (VARCHAR 'first_table', BIGINT '1')");
+                    // The MV is initially not fresh
+                    assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(STALE);
+                    assertThat(query("TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
 
                     assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
-                    assertThat(query("TABLE " + viewName))
-                            .hasPlan(readFromStorageTable)
-                            .matches("VALUES (VARCHAR 'first_table', BIGINT '1')");
+
+                    // Even right after the REFRESH, it's unknown that the view is FRESH
+                    assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(UNKNOWN);
+                    assertThat(query("TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
 
                     // Change underlying state
                     mockListing.set(List.of("first_table", "second_table"));
+                    String updatedResults = "VALUES (VARCHAR 'first_table', BIGINT '1'), ('second_table', 1)";
 
                     // The materialized view should return now-stale data, since it doesn't know when it is no longer fresh
-                    assertThat(query("TABLE " + viewName))
-                            .hasPlan(readFromStorageTable)
-                            .matches("VALUES (VARCHAR 'first_table', BIGINT '1')");
-                    assertThat(query("SELECT freshness FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'"))
-                            .matches("VALUES VARCHAR 'UNKNOWN'");
+                    assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(UNKNOWN);
+                    assertThat(query("TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
 
                     assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 2);
-                    assertThat(query("TABLE " + viewName))
-                            .hasPlan(readFromStorageTable)
-                            .matches("VALUES (VARCHAR 'first_table', BIGINT '1'), ('second_table', 1)");
+
+                    // Even right after the REFRESH, it's unknown that the view is FRESH
+                    assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(UNKNOWN);
+
+                    assertThat(query("TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
 
                     assertUpdate("DROP MATERIALIZED VIEW " + viewName);
                 });
@@ -1311,6 +1314,16 @@ public abstract class BaseConnectorTest
                 "TABLE " + viewName,
                 "line 1:1: Failed analyzing stored view '%1$s\\.%2$s\\.%3$s': line 3:3: Table '%1$s\\.%2$s\\.%4$s' does not exist".formatted(catalog, schema, viewName, baseTable));
         assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+    }
+
+    private MaterializedViewFreshness.Freshness getMaterializedViewFreshness(String materializedViewName)
+    {
+        String freshness = (String) computeScalar(
+                "SELECT freshness FROM system.metadata.materialized_views " +
+                        "WHERE catalog_name = CURRENT_CATALOG " +
+                        "AND schema_name = CURRENT_SCHEMA " +
+                        "AND name = '" + materializedViewName + "'");
+        return MaterializedViewFreshness.Freshness.valueOf(freshness);
     }
 
     @Test
