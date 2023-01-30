@@ -24,6 +24,9 @@ import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.compression.Codec;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.compression.MemoryCompressedSliceOutput;
+import io.trino.hive.formats.encodings.ColumnEncoding;
+import io.trino.hive.formats.encodings.ColumnEncodingFactory;
+import io.trino.hive.formats.encodings.EncodeOutput;
 import io.trino.hive.formats.rcfile.RcFileWriteValidation.RcFileWriteValidationBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -75,7 +78,7 @@ public class RcFileWriter
 
     private final DataOutputStream output;
     private final List<Type> types;
-    private final RcFileEncoding encoding;
+    private final ColumnEncodingFactory encoding;
 
     private final long syncFirst = ThreadLocalRandom.current().nextLong();
     private final long syncSecond = ThreadLocalRandom.current().nextLong();
@@ -97,7 +100,7 @@ public class RcFileWriter
     public RcFileWriter(
             OutputStream rawOutput,
             List<Type> types,
-            RcFileEncoding encoding,
+            ColumnEncodingFactory encoding,
             Optional<CompressionKind> compressionKind,
             Map<String, String> metadata,
             boolean validate)
@@ -117,7 +120,7 @@ public class RcFileWriter
     public RcFileWriter(
             OutputStream rawOutput,
             List<Type> types,
-            RcFileEncoding encoding,
+            ColumnEncodingFactory encoding,
             Optional<CompressionKind> compressionKind,
             Map<String, String> metadata,
             DataSize targetMinRowGroupSize,

@@ -19,8 +19,8 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hive.formats.compression.CompressionKind;
-import io.trino.hive.formats.rcfile.RcFileEncoding;
-import io.trino.hive.formats.rcfile.binary.BinaryRcFileEncoding;
+import io.trino.hive.formats.encodings.ColumnEncodingFactory;
+import io.trino.hive.formats.encodings.binary.BinaryColumnEncodingFactory;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.StorageFormat;
@@ -105,12 +105,12 @@ public class RcFileFileWriterFactory
             return Optional.empty();
         }
 
-        RcFileEncoding rcFileEncoding;
+        ColumnEncodingFactory columnEncodingFactory;
         if (LAZY_BINARY_COLUMNAR_SERDE_CLASS.equals(storageFormat.getSerde())) {
-            rcFileEncoding = new BinaryRcFileEncoding(timeZone);
+            columnEncodingFactory = new BinaryColumnEncodingFactory(timeZone);
         }
         else if (COLUMNAR_SERDE_CLASS.equals(storageFormat.getSerde())) {
-            rcFileEncoding = createTextVectorEncoding(schema);
+            columnEncodingFactory = createTextVectorEncoding(schema);
         }
         else {
             return Optional.empty();
@@ -146,7 +146,7 @@ public class RcFileFileWriterFactory
                     outputStream,
                     outputStreamMemoryContext,
                     rollbackAction,
-                    rcFileEncoding,
+                    columnEncodingFactory,
                     fileColumnTypes,
                     compressionKind,
                     fileInputColumnIndexes,
