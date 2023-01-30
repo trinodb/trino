@@ -37,6 +37,7 @@ import it.unimi.dsi.fastutil.ints.IntList;
 
 import javax.annotation.Nullable;
 
+import java.io.Closeable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -57,6 +58,7 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class PagePartitioner
+        implements Closeable
 {
     private static final int COLUMNAR_STRATEGY_COEFFICIENT = 2;
     private final OutputBuffer outputBuffer;
@@ -444,11 +446,19 @@ public class PagePartitioner
         return new Page(page.getPositionCount(), blocks);
     }
 
+    @Override
     public void close()
     {
-        flushPositionsAppenders(true);
-        flushPageBuilders(true);
-        memoryContext.close();
+        try {
+            flushPositionsAppenders(true);
+            flushPageBuilders(true);
+        }
+        finally {
+            // clear buffers before memory release
+            Arrays.fill(positionsAppenders, null);
+            Arrays.fill(pageBuilders, null);
+            memoryContext.close();
+        }
     }
 
     private void flushPageBuilders(boolean force)
