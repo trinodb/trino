@@ -739,7 +739,8 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getPartitionNamesByFilter(String databaseName,
+    public Optional<List<String>> getPartitionNamesByFilter(
+            String databaseName,
             String tableName,
             List<String> columnNames,
             TupleDomain<String> partitionKeysFilter)
