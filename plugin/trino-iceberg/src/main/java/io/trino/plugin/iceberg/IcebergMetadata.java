@@ -73,7 +73,6 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.MaterializedViewFreshness;
-import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
@@ -2550,7 +2549,8 @@ public class IcebergMetadata
             IcebergTableHandle tableHandle = getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
 
             if (tableHandle == null) {
-                throw new MaterializedViewNotFoundException(materializedViewName);
+                // Base table is gone
+                return new MaterializedViewFreshness(STALE);
             }
             Optional<Long> snapshotAtRefresh;
             if (value.isEmpty()) {
