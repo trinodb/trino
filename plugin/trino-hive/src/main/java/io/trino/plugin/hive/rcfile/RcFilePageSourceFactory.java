@@ -25,10 +25,10 @@ import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.memory.MemoryInputFile;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hive.formats.FileCorruptionException;
-import io.trino.hive.formats.rcfile.RcFileEncoding;
+import io.trino.hive.formats.encodings.ColumnEncodingFactory;
+import io.trino.hive.formats.encodings.binary.BinaryColumnEncodingFactory;
+import io.trino.hive.formats.encodings.text.TextColumnEncodingFactory;
 import io.trino.hive.formats.rcfile.RcFileReader;
-import io.trino.hive.formats.rcfile.binary.BinaryRcFileEncoding;
-import io.trino.hive.formats.rcfile.text.TextRcFileEncoding;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -64,8 +64,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.hive.formats.rcfile.text.TextRcFileEncoding.DEFAULT_NULL_SEQUENCE;
-import static io.trino.hive.formats.rcfile.text.TextRcFileEncoding.getDefaultSeparators;
+import static io.trino.hive.formats.encodings.text.TextColumnEncodingFactory.DEFAULT_NULL_SEQUENCE;
+import static io.trino.hive.formats.encodings.text.TextColumnEncodingFactory.getDefaultSeparators;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
@@ -134,13 +134,13 @@ public class RcFilePageSourceFactory
             boolean originalFile,
             AcidTransaction transaction)
     {
-        RcFileEncoding rcFileEncoding;
+        ColumnEncodingFactory columnEncodingFactory;
         String deserializerClassName = getDeserializerClassName(schema);
         if (deserializerClassName.equals(LAZY_BINARY_COLUMNAR_SERDE_CLASS)) {
-            rcFileEncoding = new BinaryRcFileEncoding(timeZone);
+            columnEncodingFactory = new BinaryColumnEncodingFactory(timeZone);
         }
         else if (deserializerClassName.equals(COLUMNAR_SERDE_CLASS)) {
-            rcFileEncoding = createTextVectorEncoding(schema);
+            columnEncodingFactory = createTextVectorEncoding(schema);
         }
         else {
             return Optional.empty();
@@ -196,7 +196,7 @@ public class RcFilePageSourceFactory
 
             RcFileReader rcFileReader = new RcFileReader(
                     inputFile,
-                    rcFileEncoding,
+                    columnEncodingFactory,
                     readColumns.buildOrThrow(),
                     start,
                     length);
@@ -224,7 +224,7 @@ public class RcFilePageSourceFactory
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
     }
 
-    public static TextRcFileEncoding createTextVectorEncoding(Properties schema)
+    public static TextColumnEncodingFactory createTextVectorEncoding(Properties schema)
     {
         // separators
         int nestingLevels;
@@ -264,7 +264,7 @@ public class RcFilePageSourceFactory
             escapeByte = getByte(escapeProperty, (byte) '\\');
         }
 
-        return new TextRcFileEncoding(
+        return new TextColumnEncodingFactory(
                 nullSequence,
                 separators,
                 escapeByte,

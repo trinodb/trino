@@ -23,6 +23,9 @@ import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.ReadWriteUtils;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.compression.ValueDecompressor;
+import io.trino.hive.formats.encodings.ColumnData;
+import io.trino.hive.formats.encodings.ColumnEncoding;
+import io.trino.hive.formats.encodings.ColumnEncodingFactory;
 import io.trino.hive.formats.rcfile.RcFileWriteValidation.WriteChecksum;
 import io.trino.hive.formats.rcfile.RcFileWriteValidation.WriteChecksumBuilder;
 import io.trino.spi.Page;
@@ -104,7 +107,7 @@ public class RcFileReader
 
     public RcFileReader(
             TrinoInputFile inputFile,
-            RcFileEncoding encoding,
+            ColumnEncodingFactory encoding,
             Map<Integer, Type> readColumns,
             long offset,
             long length)
@@ -115,7 +118,7 @@ public class RcFileReader
 
     private RcFileReader(
             TrinoInputFile inputFile,
-            RcFileEncoding encoding,
+            ColumnEncodingFactory encoding,
             Map<Integer, Type> readColumns,
             long offset,
             long length,
@@ -501,7 +504,7 @@ public class RcFileReader
     static void validateFile(
             RcFileWriteValidation writeValidation,
             TrinoInputFile inputFile,
-            RcFileEncoding encoding,
+            ColumnEncodingFactory encoding,
             List<Type> types)
             throws FileCorruptionException
     {
