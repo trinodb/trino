@@ -13,15 +13,30 @@
  */
 package io.trino.hive.formats.encodings.binary;
 
-import io.trino.hive.formats.encodings.ColumnEncoding;
 import io.trino.hive.formats.encodings.ColumnEncodingFactory;
+import io.trino.spi.TrinoException;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import org.joda.time.DateTimeZone;
 
-import java.util.List;
 import java.util.stream.Collectors;
 
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.util.Objects.requireNonNull;
 
 public class BinaryColumnEncodingFactory
@@ -35,99 +50,57 @@ public class BinaryColumnEncodingFactory
     }
 
     @Override
-    public ColumnEncoding booleanEncoding(Type type)
+    public BinaryColumnEncoding getEncoding(Type type)
     {
-        return new BooleanEncoding(type);
-    }
-
-    @Override
-    public ColumnEncoding byteEncoding(Type type)
-    {
-        return new ByteEncoding(type);
-    }
-
-    @Override
-    public ColumnEncoding shortEncoding(Type type)
-    {
-        return new ShortEncoding(type);
-    }
-
-    @Override
-    public ColumnEncoding intEncoding(Type type)
-    {
-        return longEncoding(type);
-    }
-
-    @Override
-    public ColumnEncoding longEncoding(Type type)
-    {
-        return new LongEncoding(type);
-    }
-
-    @Override
-    public ColumnEncoding decimalEncoding(Type type)
-    {
-        return new DecimalEncoding(type);
-    }
-
-    @Override
-    public ColumnEncoding floatEncoding(Type type)
-    {
-        return new FloatEncoding(type);
-    }
-
-    @Override
-    public ColumnEncoding doubleEncoding(Type type)
-    {
-        return new DoubleEncoding(type);
-    }
-
-    @Override
-    public ColumnEncoding stringEncoding(Type type)
-    {
-        return new StringEncoding(type);
-    }
-
-    @Override
-    public ColumnEncoding binaryEncoding(Type type)
-    {
-        return new BinaryEncoding(type);
-    }
-
-    @Override
-    public ColumnEncoding dateEncoding(Type type)
-    {
-        return new DateEncoding(type);
-    }
-
-    @Override
-    public ColumnEncoding timestampEncoding(TimestampType type)
-    {
-        return new TimestampEncoding(type, timeZone);
-    }
-
-    @Override
-    public ColumnEncoding listEncoding(Type type, ColumnEncoding elementEncoding)
-    {
-        return new ListEncoding(type, (BinaryColumnEncoding) elementEncoding);
-    }
-
-    @Override
-    public ColumnEncoding mapEncoding(Type type, ColumnEncoding keyEncoding, ColumnEncoding valueEncoding)
-    {
-        return new MapEncoding(
-                type,
-                (BinaryColumnEncoding) keyEncoding,
-                (BinaryColumnEncoding) valueEncoding);
-    }
-
-    @Override
-    public ColumnEncoding structEncoding(Type type, List<ColumnEncoding> fieldEncodings)
-    {
-        return new StructEncoding(
-                type,
-                fieldEncodings.stream()
-                        .map(BinaryColumnEncoding.class::cast)
-                        .collect(Collectors.toList()));
+        if (BOOLEAN.equals(type)) {
+            return new BooleanEncoding(type);
+        }
+        if (TINYINT.equals(type)) {
+            return new ByteEncoding(type);
+        }
+        if (SMALLINT.equals(type)) {
+            return new ShortEncoding(type);
+        }
+        if (INTEGER.equals(type) || BIGINT.equals(type)) {
+            return new LongEncoding(type);
+        }
+        if (type instanceof DecimalType) {
+            return new DecimalEncoding(type);
+        }
+        if (REAL.equals(type)) {
+            return new FloatEncoding(type);
+        }
+        if (DOUBLE.equals(type)) {
+            return new DoubleEncoding(type);
+        }
+        if (type instanceof VarcharType || type instanceof CharType) {
+            return new StringEncoding(type);
+        }
+        if (VARBINARY.equals(type)) {
+            return new BinaryEncoding(type);
+        }
+        if (DATE.equals(type)) {
+            return new DateEncoding(type);
+        }
+        if (type instanceof TimestampType) {
+            return new TimestampEncoding((TimestampType) type, timeZone);
+        }
+        if (type instanceof ArrayType) {
+            return new ListEncoding(type, getEncoding(type.getTypeParameters().get(0)));
+        }
+        if (type instanceof MapType) {
+            return new MapEncoding(
+                    type,
+                    getEncoding(type.getTypeParameters().get(0)),
+                    getEncoding(type.getTypeParameters().get(1)));
+        }
+        if (type instanceof RowType) {
+            return new StructEncoding(
+                    type,
+                    type.getTypeParameters().stream()
+                            .map(this::getEncoding)
+                            .collect(Collectors.toList()));
+        }
+        throw new TrinoException(NOT_SUPPORTED, "unsupported type: " + type);
     }
 }

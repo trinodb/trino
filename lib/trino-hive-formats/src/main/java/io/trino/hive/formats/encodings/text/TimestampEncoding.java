@@ -79,7 +79,7 @@ public class TimestampEncoding
     }
 
     @Override
-    public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
+    public void encodeValueInto(Block block, int position, SliceOutput output)
     {
         LocalDateTime localDateTime = TimestampHolder.getFactory(type).apply(block, position).toLocalDateTime();
         buffer.setLength(0);
@@ -111,7 +111,7 @@ public class TimestampEncoding
     }
 
     @Override
-    public void decodeValueInto(int depth, BlockBuilder builder, Slice slice, int offset, int length)
+    public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
         DecodedTimestamp decodedTimestamp = parseTimestamp(slice, offset, length);
         trinoTimestampEncoder.write(decodedTimestamp, builder);
