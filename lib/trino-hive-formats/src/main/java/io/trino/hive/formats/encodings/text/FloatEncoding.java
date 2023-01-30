@@ -55,7 +55,7 @@ public class FloatEncoding
     }
 
     @Override
-    public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
+    public void encodeValueInto(Block block, int position, SliceOutput output)
     {
         float value = Float.intBitsToFloat((int) type.getLong(block, position));
         buffer.setLength(0);
@@ -87,7 +87,7 @@ public class FloatEncoding
     }
 
     @Override
-    public void decodeValueInto(int depth, BlockBuilder builder, Slice slice, int offset, int length)
+    public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
             throws FileCorruptionException
     {
         type.writeLong(builder, Float.floatToIntBits(parseFloat(slice, offset, length)));

@@ -27,14 +27,12 @@ public abstract class BlockEncoding
 {
     private final Type type;
     protected final Slice nullSequence;
-    private final byte[] separators;
     private final Byte escapeByte;
 
-    public BlockEncoding(Type type, Slice nullSequence, byte[] separators, Byte escapeByte)
+    public BlockEncoding(Type type, Slice nullSequence, Byte escapeByte)
     {
         this.type = type;
         this.nullSequence = nullSequence;
-        this.separators = separators;
         this.escapeByte = escapeByte;
     }
 
@@ -47,7 +45,7 @@ public abstract class BlockEncoding
                 output.writeBytes(nullSequence);
             }
             else {
-                encodeValueInto(1, block, position, output);
+                encodeValueInto(block, position, output);
             }
             encodeOutput.closeEntry();
         }
@@ -65,7 +63,7 @@ public abstract class BlockEncoding
             int length = columnData.getLength(i);
             int offset = columnData.getOffset(i);
             if (!isNullSequence(slice, offset, length)) {
-                decodeValueInto(1, builder, slice, offset, length);
+                decodeValueInto(builder, slice, offset, length);
             }
             else {
                 builder.appendNull();
@@ -83,10 +81,5 @@ public abstract class BlockEncoding
     protected final boolean isEscapeByte(byte currentByte)
     {
         return escapeByte != null && currentByte == escapeByte;
-    }
-
-    protected final byte getSeparator(int depth)
-    {
-        return separators[depth];
     }
 }

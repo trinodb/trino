@@ -56,7 +56,7 @@ public class LongEncoding
     }
 
     @Override
-    public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
+    public void encodeValueInto(Block block, int position, SliceOutput output)
     {
         long value = type.getLong(block, position);
         buffer.setLength(0);
@@ -87,7 +87,7 @@ public class LongEncoding
     }
 
     @Override
-    public void decodeValueInto(int depth, BlockBuilder builder, Slice slice, int offset, int length)
+    public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
         type.writeLong(builder, parseLong(slice, offset, length));
     }
