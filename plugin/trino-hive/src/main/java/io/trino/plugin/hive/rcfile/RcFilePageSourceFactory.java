@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.rcfile;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slice;
+import com.google.common.collect.Maps;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -28,6 +28,7 @@ import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.encodings.ColumnEncodingFactory;
 import io.trino.hive.formats.encodings.binary.BinaryColumnEncodingFactory;
 import io.trino.hive.formats.encodings.text.TextColumnEncodingFactory;
+import io.trino.hive.formats.encodings.text.TextEncodingOptions;
 import io.trino.hive.formats.rcfile.RcFileReader;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
@@ -61,11 +62,8 @@ import java.util.OptionalInt;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.hive.formats.encodings.text.TextColumnEncodingFactory.DEFAULT_NULL_SEQUENCE;
-import static io.trino.hive.formats.encodings.text.TextColumnEncodingFactory.getDefaultSeparators;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
@@ -75,14 +73,7 @@ import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
 import static io.trino.plugin.hive.util.HiveClassNames.COLUMNAR_SERDE_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.LAZY_BINARY_COLUMNAR_SERDE_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
-import static io.trino.plugin.hive.util.SerdeConstants.COLLECTION_DELIM;
-import static io.trino.plugin.hive.util.SerdeConstants.ESCAPE_CHAR;
-import static io.trino.plugin.hive.util.SerdeConstants.FIELD_DELIM;
-import static io.trino.plugin.hive.util.SerdeConstants.MAPKEY_DELIM;
-import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_FORMAT;
-import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LAST_COLUMN_TAKES_REST;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
-import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_NULL_FORMAT;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -90,8 +81,6 @@ import static java.util.Objects.requireNonNull;
 public class RcFilePageSourceFactory
         implements HivePageSourceFactory
 {
-    private static final int TEXT_LEGACY_NESTING_LEVELS = 8;
-    private static final int TEXT_EXTENDED_NESTING_LEVELS = 29;
     private static final DataSize BUFFER_SIZE = DataSize.of(8, Unit.MEGABYTE);
 
     private final TypeManager typeManager;
@@ -140,7 +129,7 @@ public class RcFilePageSourceFactory
             columnEncodingFactory = new BinaryColumnEncodingFactory(timeZone);
         }
         else if (deserializerClassName.equals(COLUMNAR_SERDE_CLASS)) {
-            columnEncodingFactory = createTextVectorEncoding(schema);
+            columnEncodingFactory = new TextColumnEncodingFactory(TextEncodingOptions.fromSchema(Maps.fromProperties(schema)));
         }
         else {
             return Optional.empty();
@@ -222,66 +211,5 @@ public class RcFilePageSourceFactory
     private static String splitError(Throwable t, Path path, long start, long length)
     {
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
-    }
-
-    public static TextColumnEncodingFactory createTextVectorEncoding(Properties schema)
-    {
-        // separators
-        int nestingLevels;
-        if (!"true".equalsIgnoreCase(schema.getProperty("hive.serialization.extend.nesting.levels"))) {
-            nestingLevels = TEXT_LEGACY_NESTING_LEVELS;
-        }
-        else {
-            nestingLevels = TEXT_EXTENDED_NESTING_LEVELS;
-        }
-        byte[] separators = getDefaultSeparators(nestingLevels);
-
-        // the first three separators are set by old-old properties
-        separators[0] = getByte(schema.getProperty(FIELD_DELIM, schema.getProperty(SERIALIZATION_FORMAT)), separators[0]);
-        // for map field collection delimiter, Hive 1.x uses "colelction.delim" but Hive 3.x uses "collection.delim"
-        // https://issues.apache.org/jira/browse/HIVE-16922
-        separators[1] = getByte(schema.getProperty(COLLECTION_DELIM, schema.getProperty("colelction.delim")), separators[1]);
-        separators[2] = getByte(schema.getProperty(MAPKEY_DELIM), separators[2]);
-
-        // null sequence
-        Slice nullSequence;
-        String nullSequenceString = schema.getProperty(SERIALIZATION_NULL_FORMAT);
-        if (nullSequenceString == null) {
-            nullSequence = DEFAULT_NULL_SEQUENCE;
-        }
-        else {
-            nullSequence = Slices.utf8Slice(nullSequenceString);
-        }
-
-        // last column takes rest
-        String lastColumnTakesRestString = schema.getProperty(SERIALIZATION_LAST_COLUMN_TAKES_REST);
-        boolean lastColumnTakesRest = "true".equalsIgnoreCase(lastColumnTakesRestString);
-
-        // escaped
-        String escapeProperty = schema.getProperty(ESCAPE_CHAR);
-        Byte escapeByte = null;
-        if (escapeProperty != null) {
-            escapeByte = getByte(escapeProperty, (byte) '\\');
-        }
-
-        return new TextColumnEncodingFactory(
-                nullSequence,
-                separators,
-                escapeByte,
-                lastColumnTakesRest);
-    }
-
-    @SuppressWarnings("NumericCastThatLosesPrecision")
-    private static byte getByte(String value, byte defaultValue)
-    {
-        if (isNullOrEmpty(value)) {
-            return defaultValue;
-        }
-        try {
-            return Byte.parseByte(value);
-        }
-        catch (NumberFormatException e) {
-            return (byte) value.charAt(0);
-        }
     }
 }

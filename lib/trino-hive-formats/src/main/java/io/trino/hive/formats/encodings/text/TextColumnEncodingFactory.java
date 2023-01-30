@@ -13,8 +13,6 @@
  */
 package io.trino.hive.formats.encodings.text;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.hive.formats.encodings.ColumnEncodingFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
@@ -26,10 +24,11 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
-import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.hive.formats.encodings.text.TextEncodingOptions.NestingLevels.EXTENDED;
+import static io.trino.hive.formats.encodings.text.TextEncodingOptions.NestingLevels.EXTENDED_ADDITIONAL;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -41,70 +40,21 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class TextColumnEncodingFactory
         implements ColumnEncodingFactory
 {
-    private static final byte[] DEFAULT_SEPARATORS = new byte[] {
-            1,  // Start of Heading
-            2,  // Start of text
-            3,  // End of Text
-            4,  // End of Transmission
-            5,  // Enquiry
-            6,  // Acknowledge
-            7,  // Bell
-            8,  // Backspace
-            // RESERVED 9,  // Horizontal Tab
-            // RESERVED 10, // Line Feed
-            11, // Vertical Tab
-            // RESERVED 12, // Form Feed
-            // RESERVED 13, // Carriage Return
-            14, // Shift Out
-            15, // Shift In
-            16, // Data Link Escape
-            17, // Device Control One
-            18, // Device Control Two
-            19, // Device Control Three
-            20, // Device Control Four
-            21, // Negative Acknowledge
-            22, // Synchronous Idle
-            23, // End of Transmission Block
-            24, // Cancel
-            25, // End of medium
-            26, // Substitute
-            // RESERVED 27, // Escape
-            28, // File Separator
-            29, // Group separator
-            // RESERVED 30, // Record Separator
-            // RESERVED 31, // Unit separator
-    };
-    public static final Slice DEFAULT_NULL_SEQUENCE = Slices.utf8Slice("\\N");
-
-    private final Slice nullSequence;
-    private final byte[] separators;
-    private final Byte escapeByte;
-    private final boolean lastColumnTakesRest;
+    private final TextEncodingOptions textEncodingOptions;
 
     public TextColumnEncodingFactory()
     {
-        this(
-                DEFAULT_NULL_SEQUENCE,
-                DEFAULT_SEPARATORS.clone(),
-                null,
-                false);
+        this(TextEncodingOptions.builder().build());
     }
 
-    public TextColumnEncodingFactory(Slice nullSequence, byte[] separators, Byte escapeByte, boolean lastColumnTakesRest)
+    public TextColumnEncodingFactory(TextEncodingOptions textEncodingOptions)
     {
-        this.nullSequence = nullSequence;
-        this.separators = separators;
-        this.escapeByte = escapeByte;
-        this.lastColumnTakesRest = lastColumnTakesRest;
-    }
-
-    public static byte[] getDefaultSeparators(int nestingLevels)
-    {
-        return Arrays.copyOf(DEFAULT_SEPARATORS, nestingLevels);
+        this.textEncodingOptions = requireNonNull(textEncodingOptions, "simpleOptions is null");
     }
 
     @Override
@@ -114,47 +64,64 @@ public class TextColumnEncodingFactory
             return getEncoding(type, 0);
         }
         catch (NotEnoughSeparatorsException e) {
-            throw new IllegalArgumentException(format("Type %s requires %s nesting levels", type, e.getDepth()));
+            if (e.getDepth() > EXTENDED_ADDITIONAL.getLevels()) {
+                throw new IllegalArgumentException(format(
+                        "Type %s requires %s nesting levels, which is not possible",
+                        type,
+                        e.getDepth()));
+            }
+            if (e.getDepth() > EXTENDED.getLevels()) {
+                throw new IllegalArgumentException(format(
+                        "Type %s requires %s nesting levels, which can be enabled with the %s table property",
+                        type,
+                        e.getDepth(),
+                        EXTENDED_ADDITIONAL.getTableProperty()));
+            }
+            throw new IllegalArgumentException(format(
+                    "Type %s requires %s nesting levels, which can be enabled with the %s table property",
+                    type,
+                    e.getDepth(),
+                    EXTENDED.getTableProperty()));
         }
     }
 
     private TextColumnEncoding getEncoding(Type type, int depth)
     {
         if (BOOLEAN.equals(type)) {
-            return new BooleanEncoding(type, nullSequence);
+            return new BooleanEncoding(type, textEncodingOptions.getNullSequence());
         }
         if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type) || BIGINT.equals(type)) {
-            return new LongEncoding(type, nullSequence);
+            return new LongEncoding(type, textEncodingOptions.getNullSequence());
         }
         if (type instanceof DecimalType) {
-            return new DecimalEncoding(type, nullSequence);
+            return new DecimalEncoding(type, textEncodingOptions.getNullSequence());
         }
         if (REAL.equals(type)) {
-            return new FloatEncoding(type, nullSequence);
+            return new FloatEncoding(type, textEncodingOptions.getNullSequence());
         }
         if (DOUBLE.equals(type)) {
-            return new DoubleEncoding(type, nullSequence);
+            return new DoubleEncoding(type, textEncodingOptions.getNullSequence());
         }
         if (type instanceof VarcharType || type instanceof CharType) {
-            return new StringEncoding(type, nullSequence, escapeByte);
+            return new StringEncoding(type, textEncodingOptions.getNullSequence(), textEncodingOptions.getEscapeByte());
         }
         if (VARBINARY.equals(type)) {
             // binary text encoding is not escaped
-            return new BinaryEncoding(type, nullSequence);
+            return new BinaryEncoding(type, textEncodingOptions.getNullSequence());
         }
         if (DATE.equals(type)) {
-            return new DateEncoding(type, nullSequence);
+            return new DateEncoding(type, textEncodingOptions.getNullSequence());
         }
         if (type instanceof TimestampType) {
-            return new TimestampEncoding((TimestampType) type, nullSequence);
+            return new TimestampEncoding((TimestampType) type, textEncodingOptions.getNullSequence());
         }
         if (type instanceof ArrayType) {
             TextColumnEncoding elementEncoding = getEncoding(type.getTypeParameters().get(0), depth + 1);
             return new ListEncoding(
                     type,
-                    nullSequence,
+                    textEncodingOptions.getNullSequence(),
                     getSeparator(depth + 1),
-                    escapeByte,
+                    textEncodingOptions.getEscapeByte(),
                     elementEncoding);
         }
         if (type instanceof MapType) {
@@ -162,10 +129,10 @@ public class TextColumnEncodingFactory
             TextColumnEncoding valueEncoding = getEncoding(type.getTypeParameters().get(1), depth + 2);
             return new MapEncoding(
                     type,
-                    nullSequence,
+                    textEncodingOptions.getNullSequence(),
                     getSeparator(depth + 1),
                     getSeparator(depth + 2),
-                    escapeByte,
+                    textEncodingOptions.getEscapeByte(),
                     keyEncoding,
                     valueEncoding);
         }
@@ -175,10 +142,10 @@ public class TextColumnEncodingFactory
                     .collect(toImmutableList());
             return new StructEncoding(
                     type,
-                    nullSequence,
+                    textEncodingOptions.getNullSequence(),
                     getSeparator(depth + 1),
-                    escapeByte,
-                    lastColumnTakesRest,
+                    textEncodingOptions.getEscapeByte(),
+                    textEncodingOptions.isLastColumnTakesRest(),
                     fieldEncodings);
         }
         throw new TrinoException(NOT_SUPPORTED, "unsupported type: " + type);
@@ -186,10 +153,10 @@ public class TextColumnEncodingFactory
 
     private byte getSeparator(int depth)
     {
-        if (depth >= separators.length) {
+        if (depth >= textEncodingOptions.getSeparators().length()) {
             throw new NotEnoughSeparatorsException(depth);
         }
-        return separators[depth];
+        return textEncodingOptions.getSeparators().getByte(depth);
     }
 
     private static class NotEnoughSeparatorsException
