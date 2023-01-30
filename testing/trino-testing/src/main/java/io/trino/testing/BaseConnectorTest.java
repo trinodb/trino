@@ -1220,6 +1220,28 @@ public abstract class BaseConnectorTest
                 });
     }
 
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testMaterializedViewBaseTableGone(boolean initialized)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
+
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
+        String viewName = "mv_base_table_missing_" + randomNameSuffix();
+        String baseTable = "mv_base_table_missing_the_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + baseTable + " AS SELECT 1 a", 1);
+        assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM " + baseTable);
+        if (initialized) {
+            assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
+        }
+        assertUpdate("DROP TABLE " + baseTable);
+        assertQueryFails(
+                "TABLE " + viewName,
+                "line 1:1: Failed analyzing stored view '%1$s\\.%2$s\\.%3$s': line 3:3: Table '%1$s\\.%2$s\\.%4$s' does not exist".formatted(catalog, schema, viewName, baseTable));
+        assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+    }
+
     @Test
     public void testCompatibleTypeChangeForView()
     {
