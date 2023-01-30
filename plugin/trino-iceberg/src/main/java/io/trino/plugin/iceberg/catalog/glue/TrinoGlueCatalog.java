@@ -789,8 +789,8 @@ public class TrinoGlueCatalog
                             .map(table -> new SchemaTableName(glueNamespace, table.getName()))
                             .collect(toImmutableList()));
                 }
-                catch (EntityNotFoundException e) {
-                    // Namespace may have been deleted
+                catch (EntityNotFoundException | AccessDeniedException e) {
+                    // Namespace may have been deleted or permission denied
                 }
             }
         }
