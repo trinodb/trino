@@ -81,7 +81,7 @@ Password authentication needs to be configured to use LDAP. Create an
 
     password-authenticator.name=ldap
     ldap.url=ldaps://ldap-server:636
-    ldap.ssl-trust-certificate=/path/to/ldap_server.crt
+    ldap.ssl.truststore.path=/path/to/ldap_server.crt
     ldap.user-bind-pattern=<Refer below for usage>
 
 ================================== ======================================================
