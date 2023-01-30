@@ -224,8 +224,22 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
         assertThat(s3.listObjects(bucketName, location).getObjectSummaries()).isEmpty();
     }
 
-    private String schemaPath()
+    @Override
+    protected String schemaPath()
     {
         return format("s3://%s/%s", bucketName, schemaName);
+    }
+
+    @Override
+    protected boolean locationExists(String location)
+    {
+        String prefix = "s3://" + bucketName + "/";
+        AmazonS3 s3 = AmazonS3ClientBuilder.standard().build();
+        ListObjectsV2Request request = new ListObjectsV2Request()
+                .withBucketName(bucketName)
+                .withPrefix(location.substring(prefix.length()))
+                .withMaxKeys(1);
+        return !s3.listObjectsV2(request)
+                .getObjectSummaries().isEmpty();
     }
 }

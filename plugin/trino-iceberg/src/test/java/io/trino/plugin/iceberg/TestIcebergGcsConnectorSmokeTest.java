@@ -163,9 +163,21 @@ public class TestIcebergGcsConnectorSmokeTest
         return format("CREATE SCHEMA %1$s WITH (location = '%2$s%1$s')", schema, schemaPath());
     }
 
-    private String schemaPath()
+    @Override
+    protected String schemaPath()
     {
         return format("gs://%s/%s/", gcpStorageBucket, schema);
+    }
+
+    @Override
+    protected boolean locationExists(String location)
+    {
+        try {
+            return fileSystem.exists(new org.apache.hadoop.fs.Path(location));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Test

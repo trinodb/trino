@@ -25,16 +25,20 @@ import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.assertj.core.util.Files;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergRestCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
+    private File warehouseLocation;
+
     public TestIcebergRestCatalogConnectorSmokeTest()
     {
         super(new IcebergConfig().getFileFormat().toIceberg());
@@ -56,7 +60,7 @@ public class TestIcebergRestCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        File warehouseLocation = Files.newTemporaryFolder();
+        warehouseLocation = Files.newTemporaryFolder();
         closeAfterClass(() -> deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE));
 
         Catalog backend = backendCatalog(warehouseLocation);
@@ -114,6 +118,18 @@ public class TestIcebergRestCatalogConnectorSmokeTest
     {
         // used when registering a table, which is not supported by the REST catalog
         throw new UnsupportedOperationException("metadata location for register_table is not supported");
+    }
+
+    @Override
+    protected String schemaPath()
+    {
+        return format("%s/%s", warehouseLocation, getSession().getSchema());
+    }
+
+    @Override
+    protected boolean locationExists(String location)
+    {
+        return java.nio.file.Files.exists(Path.of(location));
     }
 
     @Override

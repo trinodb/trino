@@ -141,6 +141,18 @@ public class TestIcebergAbfsConnectorSmokeTest
     }
 
     @Override
+    protected String schemaPath()
+    {
+        return formatAbfsUrl(container, account, bucketName) + schemaName;
+    }
+
+    @Override
+    protected boolean locationExists(String location)
+    {
+        return hiveHadoop.executeInContainer("hadoop", "fs", "-test", "-d", location).getExitCode() == 0;
+    }
+
+    @Override
     protected void deleteDirectory(String location)
     {
         hiveHadoop.executeInContainerFailOnError("hadoop", "fs", "-rm", "-f", "-r", location);
