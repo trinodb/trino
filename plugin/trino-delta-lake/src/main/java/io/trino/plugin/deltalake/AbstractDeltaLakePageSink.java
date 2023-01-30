@@ -38,7 +38,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
@@ -63,7 +62,6 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWri
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.canonicalizeColumnName;
 import static io.trino.plugin.hive.util.HiveUtil.escapePathName;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -160,7 +158,7 @@ public abstract class AbstractDeltaLakePageSink
                     dataColumnHandles.add(column);
                     dataColumnsInputIndex.add(inputIndex);
                     dataColumnNames.add(column.getName());
-                    dataColumnTypes.add(column.getType());
+                    dataColumnTypes.add(column.getSupportedType());
                     break;
                 case SYNTHESIZED:
                     processSynthesizedColumn(column);
@@ -457,16 +455,6 @@ public abstract class AbstractDeltaLakePageSink
         try {
             Closeable rollbackAction = () -> fileSystem.deleteFile(path);
 
-            List<Type> parquetTypes = dataColumnTypes.stream()
-                    .map(type -> {
-                        if (type instanceof TimestampWithTimeZoneType) {
-                            verify(((TimestampWithTimeZoneType) type).getPrecision() == 3, "Unsupported type: %s", type);
-                            return TIMESTAMP_MILLIS;
-                        }
-                        return type;
-                    })
-                    .collect(toImmutableList());
-
             // we use identity column mapping; input page already contains only data columns per
             // DataLagePageSink.getDataPage()
             int[] identityMapping = new int[dataColumnTypes.size()];
@@ -474,11 +462,11 @@ public abstract class AbstractDeltaLakePageSink
                 identityMapping[i] = i;
             }
 
-            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(parquetTypes, dataColumnNames, false, false);
+            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(dataColumnTypes, dataColumnNames, false, false);
             return new ParquetFileWriter(
                     fileSystem.newOutputFile(path),
                     rollbackAction,
-                    parquetTypes,
+                    dataColumnTypes,
                     dataColumnNames,
                     schemaConverter.getMessageType(),
                     schemaConverter.getPrimitiveTypes(),
