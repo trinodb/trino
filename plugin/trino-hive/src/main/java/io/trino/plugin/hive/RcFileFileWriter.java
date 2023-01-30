@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.CountingOutputStream;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.compression.CompressionKind;
-import io.trino.hive.formats.rcfile.RcFileEncoding;
+import io.trino.hive.formats.encodings.ColumnEncodingFactory;
 import io.trino.hive.formats.rcfile.RcFileWriter;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.spi.Page;
@@ -66,7 +66,7 @@ public class RcFileFileWriter
             OutputStream outputStream,
             AggregatedMemoryContext outputStreamMemoryContext,
             Closeable rollbackAction,
-            RcFileEncoding rcFileEncoding,
+            ColumnEncodingFactory columnEncodingFactory,
             List<Type> fileColumnTypes,
             Optional<CompressionKind> compressionKind,
             int[] fileInputColumnIndexes,
@@ -79,7 +79,7 @@ public class RcFileFileWriter
         rcFileWriter = new RcFileWriter(
                 this.outputStream,
                 fileColumnTypes,
-                rcFileEncoding,
+                columnEncodingFactory,
                 compressionKind,
                 metadata,
                 validationInputFactory.isPresent());

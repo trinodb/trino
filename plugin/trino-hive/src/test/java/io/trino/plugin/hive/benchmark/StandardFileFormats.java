@@ -16,10 +16,10 @@ package io.trino.plugin.hive.benchmark;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hive.formats.rcfile.RcFileEncoding;
+import io.trino.hive.formats.encodings.ColumnEncodingFactory;
+import io.trino.hive.formats.encodings.binary.BinaryColumnEncodingFactory;
+import io.trino.hive.formats.encodings.text.TextColumnEncodingFactory;
 import io.trino.hive.formats.rcfile.RcFileWriter;
-import io.trino.hive.formats.rcfile.binary.BinaryRcFileEncoding;
-import io.trino.hive.formats.rcfile.text.TextRcFileEncoding;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcWriter;
 import io.trino.orc.OrcWriterOptions;
@@ -95,7 +95,7 @@ public final class StandardFileFormats
             return new PrestoRcFileFormatWriter(
                     targetFile,
                     columnTypes,
-                    new BinaryRcFileEncoding(UTC),
+                    new BinaryColumnEncodingFactory(UTC),
                     compressionCodec);
         }
     };
@@ -126,7 +126,7 @@ public final class StandardFileFormats
             return new PrestoRcFileFormatWriter(
                     targetFile,
                     columnTypes,
-                    new TextRcFileEncoding(),
+                    new TextColumnEncodingFactory(),
                     compressionCodec);
         }
     };
@@ -379,7 +379,7 @@ public final class StandardFileFormats
     {
         private final RcFileWriter writer;
 
-        public PrestoRcFileFormatWriter(File targetFile, List<Type> types, RcFileEncoding encoding, HiveCompressionCodec compressionCodec)
+        public PrestoRcFileFormatWriter(File targetFile, List<Type> types, ColumnEncodingFactory encoding, HiveCompressionCodec compressionCodec)
                 throws IOException
         {
             writer = new RcFileWriter(

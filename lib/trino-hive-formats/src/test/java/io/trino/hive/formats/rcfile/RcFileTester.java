@@ -26,8 +26,9 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.local.LocalInputFile;
 import io.trino.hadoop.HadoopNative;
 import io.trino.hive.formats.compression.CompressionKind;
-import io.trino.hive.formats.rcfile.binary.BinaryRcFileEncoding;
-import io.trino.hive.formats.rcfile.text.TextRcFileEncoding;
+import io.trino.hive.formats.encodings.ColumnEncodingFactory;
+import io.trino.hive.formats.encodings.binary.BinaryColumnEncodingFactory;
+import io.trino.hive.formats.encodings.text.TextColumnEncodingFactory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -191,9 +192,9 @@ public class RcFileTester
             }
 
             @Override
-            public RcFileEncoding getVectorEncoding()
+            public ColumnEncodingFactory getVectorEncoding()
             {
-                return new BinaryRcFileEncoding(HIVE_STORAGE_TIME_ZONE);
+                return new BinaryColumnEncodingFactory(HIVE_STORAGE_TIME_ZONE);
             }
         },
 
@@ -215,15 +216,15 @@ public class RcFileTester
             }
 
             @Override
-            public RcFileEncoding getVectorEncoding()
+            public ColumnEncodingFactory getVectorEncoding()
             {
-                return new TextRcFileEncoding();
+                return new TextColumnEncodingFactory();
             }
         };
 
         public abstract Serializer createSerializer();
 
-        public abstract RcFileEncoding getVectorEncoding();
+        public abstract ColumnEncodingFactory getVectorEncoding();
     }
 
     public enum Compression
@@ -586,7 +587,7 @@ public class RcFileTester
         return syncPositions;
     }
 
-    private static RcFileReader createRcFileReader(TempFile tempFile, Type type, RcFileEncoding encoding)
+    private static RcFileReader createRcFileReader(TempFile tempFile, Type type, ColumnEncodingFactory encoding)
             throws IOException
     {
         TrinoInputFile rcFileDataSource = new LocalInputFile(tempFile.getFile());
