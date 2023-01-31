@@ -36,6 +36,10 @@ import io.trino.plugin.hive.line.CsvPageSourceFactory;
 import io.trino.plugin.hive.line.JsonFileWriterFactory;
 import io.trino.plugin.hive.line.JsonPageSourceFactory;
 import io.trino.plugin.hive.line.RegexPageSourceFactory;
+import io.trino.plugin.hive.line.SimpleSequenceFilePageSourceFactory;
+import io.trino.plugin.hive.line.SimpleSequenceFileWriterFactory;
+import io.trino.plugin.hive.line.SimpleTextFilePageSourceFactory;
+import io.trino.plugin.hive.line.SimpleTextFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -200,6 +204,8 @@ public final class HiveTestUtils
                 .add(new CsvPageSourceFactory(fileSystemFactory, stats, hiveConfig))
                 .add(new JsonPageSourceFactory(fileSystemFactory, stats, hiveConfig))
                 .add(new RegexPageSourceFactory(fileSystemFactory, stats, hiveConfig))
+                .add(new SimpleTextFilePageSourceFactory(fileSystemFactory, stats, hiveConfig))
+                .add(new SimpleSequenceFilePageSourceFactory(fileSystemFactory, stats, hiveConfig))
                 .add(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, hdfsEnvironment, stats, hiveConfig))
                 .add(new OrcPageSourceFactory(new OrcReaderConfig(), fileSystemFactory, stats, hiveConfig))
                 .add(new ParquetPageSourceFactory(fileSystemFactory, stats, new ParquetReaderConfig(), hiveConfig))
@@ -214,10 +220,13 @@ public final class HiveTestUtils
     public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
     {
         TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment);
+        NodeVersion nodeVersion = new NodeVersion("test_version");
         return ImmutableSet.<HiveFileWriterFactory>builder()
                 .add(new CsvFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .add(new JsonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
-                .add(new RcFileFileWriterFactory(hdfsEnvironment, TESTING_TYPE_MANAGER, new NodeVersion("test_version"), hiveConfig))
+                .add(new SimpleTextFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
+                .add(new SimpleSequenceFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, nodeVersion))
+                .add(new RcFileFileWriterFactory(hdfsEnvironment, TESTING_TYPE_MANAGER, nodeVersion, hiveConfig))
                 .add(getDefaultOrcFileWriterFactory(hdfsEnvironment))
                 .build();
     }

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.hive.formats.HiveFormatUtils;
 
 import java.util.Arrays;
 import java.util.List;
@@ -26,6 +25,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static io.trino.hive.formats.HiveFormatUtils.TIMESTAMP_FORMATS_KEY;
+import static io.trino.hive.formats.HiveFormatUtils.getTimestampFormatsSchemaProperty;
 import static io.trino.hive.formats.encodings.text.TextEncodingOptions.NestingLevels.EXTENDED;
 import static io.trino.hive.formats.encodings.text.TextEncodingOptions.NestingLevels.EXTENDED_ADDITIONAL;
 
@@ -212,44 +212,44 @@ public class TextEncodingOptions
         }
     }
 
-    public static TextEncodingOptions fromSchema(Map<String, String> schema)
+    public static TextEncodingOptions fromSchema(Map<String, String> serdeProperties)
     {
         Builder builder = builder();
 
-        if ("true".equalsIgnoreCase(schema.get(EXTENDED_ADDITIONAL.getTableProperty()))) {
+        if ("true".equalsIgnoreCase(serdeProperties.get(EXTENDED_ADDITIONAL.getTableProperty()))) {
             builder.extendedAdditionalNestingLevels();
         }
-        else if ("true".equalsIgnoreCase(schema.get(EXTENDED.getTableProperty()))) {
+        else if ("true".equalsIgnoreCase(serdeProperties.get(EXTENDED.getTableProperty()))) {
             builder.extendedNestingLevels();
         }
 
         // the first three separators are set by old-old properties
-        builder.fieldDelimiter(getByte(schema.getOrDefault(FIELD_DELIMITER_KEY, schema.get(FORMAT_KEY)), DEFAULT_SEPARATORS[0]));
+        builder.fieldDelimiter(getByte(serdeProperties.getOrDefault(FIELD_DELIMITER_KEY, serdeProperties.get(FORMAT_KEY)), DEFAULT_SEPARATORS[0]));
         // for map field collection delimiter, Hive 1.x uses "colelction.delim" but Hive 3.x uses "collection.delim"
         // https://issues.apache.org/jira/browse/HIVE-16922
-        builder.collectionDelimiter(getByte(schema.getOrDefault(COLLECTION_DELIMITER_KEY, schema.get("colelction.delim")), DEFAULT_SEPARATORS[1]));
-        builder.mapKeyDelimiter(getByte(schema.get(MAP_KEY_DELIMITER_KEY), DEFAULT_SEPARATORS[2]));
+        builder.collectionDelimiter(getByte(serdeProperties.getOrDefault(COLLECTION_DELIMITER_KEY, serdeProperties.get("colelction.delim")), DEFAULT_SEPARATORS[1]));
+        builder.mapKeyDelimiter(getByte(serdeProperties.get(MAP_KEY_DELIMITER_KEY), DEFAULT_SEPARATORS[2]));
 
         // null sequence
-        String nullSequenceString = schema.get(NULL_FORMAT_KEY);
+        String nullSequenceString = serdeProperties.get(NULL_FORMAT_KEY);
         if (nullSequenceString != null) {
             builder.nullSequence(Slices.utf8Slice(nullSequenceString));
         }
 
         // last column takes rest
-        String lastColumnTakesRestString = schema.get(LAST_COLUMN_TAKES_REST_KEY);
+        String lastColumnTakesRestString = serdeProperties.get(LAST_COLUMN_TAKES_REST_KEY);
         if ("true".equalsIgnoreCase(lastColumnTakesRestString)) {
             builder.lastColumnTakesRest();
         }
 
         // escaped
-        String escapeProperty = schema.get(ESCAPE_CHAR_KEY);
+        String escapeProperty = serdeProperties.get(ESCAPE_CHAR_KEY);
         if (escapeProperty != null) {
             builder.escapeByte(getByte(escapeProperty, (byte) '\\'));
         }
 
         // timestamp formats
-        builder.timestampFormats(HiveFormatUtils.getTimestampFormatsSchemaProperty(schema));
+        builder.timestampFormats(getTimestampFormatsSchemaProperty(serdeProperties));
 
         return builder.build();
     }

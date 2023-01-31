@@ -31,6 +31,10 @@ import io.trino.plugin.hive.line.CsvPageSourceFactory;
 import io.trino.plugin.hive.line.JsonFileWriterFactory;
 import io.trino.plugin.hive.line.JsonPageSourceFactory;
 import io.trino.plugin.hive.line.RegexPageSourceFactory;
+import io.trino.plugin.hive.line.SimpleSequenceFilePageSourceFactory;
+import io.trino.plugin.hive.line.SimpleSequenceFileWriterFactory;
+import io.trino.plugin.hive.line.SimpleTextFilePageSourceFactory;
+import io.trino.plugin.hive.line.SimpleTextFileWriterFactory;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
@@ -125,6 +129,8 @@ public class HiveModule
         pageSourceFactoryBinder.addBinding().to(CsvPageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(JsonPageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(RegexPageSourceFactory.class).in(Scopes.SINGLETON);
+        pageSourceFactoryBinder.addBinding().to(SimpleTextFilePageSourceFactory.class).in(Scopes.SINGLETON);
+        pageSourceFactoryBinder.addBinding().to(SimpleSequenceFilePageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(OrcPageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(ParquetPageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(RcFilePageSourceFactory.class).in(Scopes.SINGLETON);
@@ -141,6 +147,8 @@ public class HiveModule
         configBinder(binder).bindConfig(OrcWriterConfig.class);
         fileWriterFactoryBinder.addBinding().to(CsvFileWriterFactory.class).in(Scopes.SINGLETON);
         fileWriterFactoryBinder.addBinding().to(JsonFileWriterFactory.class).in(Scopes.SINGLETON);
+        fileWriterFactoryBinder.addBinding().to(SimpleTextFileWriterFactory.class).in(Scopes.SINGLETON);
+        fileWriterFactoryBinder.addBinding().to(SimpleSequenceFileWriterFactory.class).in(Scopes.SINGLETON);
         fileWriterFactoryBinder.addBinding().to(OrcFileWriterFactory.class).in(Scopes.SINGLETON);
         fileWriterFactoryBinder.addBinding().to(RcFileFileWriterFactory.class).in(Scopes.SINGLETON);
 

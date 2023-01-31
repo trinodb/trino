@@ -5283,6 +5283,8 @@ public abstract class AbstractTestHive
                 return ParquetPageSource.class;
             case CSV:
             case JSON:
+            case TEXTFILE:
+            case SEQUENCEFILE:
                 return LinePageSource.class;
             default:
                 throw new AssertionError("File type does not use a PageSource: " + hiveStorageFormat);

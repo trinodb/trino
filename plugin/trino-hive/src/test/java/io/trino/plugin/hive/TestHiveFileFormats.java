@@ -27,6 +27,10 @@ import io.trino.plugin.hive.line.CsvFileWriterFactory;
 import io.trino.plugin.hive.line.CsvPageSourceFactory;
 import io.trino.plugin.hive.line.JsonFileWriterFactory;
 import io.trino.plugin.hive.line.JsonPageSourceFactory;
+import io.trino.plugin.hive.line.SimpleSequenceFilePageSourceFactory;
+import io.trino.plugin.hive.line.SimpleSequenceFileWriterFactory;
+import io.trino.plugin.hive.line.SimpleTextFilePageSourceFactory;
+import io.trino.plugin.hive.line.SimpleTextFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -146,14 +150,17 @@ public class TestHiveFileFormats
             throws Exception
     {
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
-                .filter(column -> !column.getName().equals("t_map_null_key_complex_key_value"))
+                // t_map_null_key_* must be disabled because Trino cannot produce maps with null keys so the writer will throw
+                .filter(TestHiveFileFormats::withoutNullMapKeyTests)
                 .collect(toList());
 
         assertThatFileFormat(TEXTFILE)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withFileSizePadding(fileSizePadding)
-                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+                .withFileWriterFactory(new SimpleTextFileWriterFactory(HDFS_FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER))
+                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByPageSource(new SimpleTextFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test(dataProvider = "validRowAndFileSizePadding")
@@ -161,14 +168,17 @@ public class TestHiveFileFormats
             throws Exception
     {
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
-                .filter(column -> !column.getName().equals("t_map_null_key_complex_key_value"))
+                // t_map_null_key_* must be disabled because Trino cannot produce maps with null keys so the writer will throw
+                .filter(TestHiveFileFormats::withoutNullMapKeyTests)
                 .collect(toList());
 
         assertThatFileFormat(SEQUENCEFILE)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withFileSizePadding(fileSizePadding)
-                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+                .withFileWriterFactory(new SimpleSequenceFileWriterFactory(HDFS_FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER, new NodeVersion("test")))
+                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByPageSource(new SimpleSequenceFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test(dataProvider = "validRowAndFileSizePadding")
@@ -559,12 +569,16 @@ public class TestHiveFileFormats
         assertThatFileFormat(SEQUENCEFILE)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
-                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+                .withFileWriterFactory(new SimpleSequenceFileWriterFactory(HDFS_FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER, new NodeVersion("test")))
+                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByPageSource(new SimpleSequenceFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
 
         assertThatFileFormat(TEXTFILE)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
-                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+                .withFileWriterFactory(new SimpleTextFileWriterFactory(HDFS_FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER))
+                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByPageSource(new SimpleTextFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -675,7 +689,9 @@ public class TestHiveFileFormats
                 .withWriteColumns(writeColumns)
                 .withReadColumns(readColumns)
                 .withRowsCount(rowCount)
-                .isReadableByRecordCursorPageSource(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+                .withFileWriterFactory(new SimpleSequenceFileWriterFactory(HDFS_FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER, new NodeVersion("test")))
+                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByPageSource(new SimpleSequenceFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -683,7 +699,8 @@ public class TestHiveFileFormats
             throws Exception
     {
         List<TestColumn> supportedColumns = TEST_COLUMNS.stream()
-                .filter(column -> !column.getName().equals("t_map_null_key_complex_key_value"))
+                // t_map_null_key_* must be disabled because Trino cannot produce maps with null keys so the writer will throw
+                .filter(TestHiveFileFormats::withoutNullMapKeyTests)
                 .collect(toList());
 
         List<TestColumn> regularColumns = getRegularColumns(supportedColumns);
@@ -701,7 +718,9 @@ public class TestHiveFileFormats
                 .withWriteColumns(writeColumns)
                 .withReadColumns(readColumns)
                 .withRowsCount(rowCount)
-                .isReadableByRecordCursorPageSource(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+                .withFileWriterFactory(new SimpleTextFileWriterFactory(HDFS_FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER))
+                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByPageSource(new SimpleTextFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test(dataProvider = "rowCount")
