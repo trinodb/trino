@@ -41,7 +41,6 @@ public class DeltaLakeColumnHandle
     private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DeltaLakeColumnHandle.class).instanceSize());
 
     public static final String ROW_ID_COLUMN_NAME = "$row_id";
-    public static final Type ROW_ID_COLUMN_TYPE = BIGINT;
 
     public static final Type MERGE_ROW_ID_TYPE = rowType(
             field("path", VARCHAR),
