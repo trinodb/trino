@@ -156,7 +156,7 @@ public final class HiveFormatUtils
         }
     }
 
-    private static BigDecimal parseDecimal(String value, DecimalType decimalType)
+    public static BigDecimal parseDecimal(String value, DecimalType decimalType)
     {
         try {
             return new BigDecimal(value).setScale(DecimalConversions.intScale(decimalType.getScale()), HALF_UP);

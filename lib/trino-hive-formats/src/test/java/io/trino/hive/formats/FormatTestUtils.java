@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.line.Column;
 import io.trino.hive.formats.line.LineBuffer;
+import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
@@ -89,11 +90,11 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.trimTrailingSpaces;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.rescale;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -102,6 +103,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static java.lang.Math.max;
+import static java.math.RoundingMode.HALF_UP;
 import static java.time.ZoneOffset.UTC;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
@@ -207,6 +209,11 @@ public final class FormatTestUtils
         throw new IllegalArgumentException("unsupported type: " + type);
     }
 
+    public static Object decodeRecordReaderValue(Type type, Object actualValue)
+    {
+        return decodeRecordReaderValue(type, actualValue, Optional.empty());
+    }
+
     public static Object decodeRecordReaderValue(Type type, Object actualValue, Optional<DateTimeZone> hiveStorageTimeZone)
     {
         if (actualValue instanceof LazyObjectBase lazyObject) {
@@ -219,8 +226,12 @@ public final class FormatTestUtils
         if (actualValue instanceof HiveDecimal decimal) {
             DecimalType decimalType = (DecimalType) type;
             // writable messes with the scale so rescale the values to the Trino type
-            BigDecimal rescaledValue = rescale(decimal.bigDecimalValue(), decimalType);
-            return new SqlDecimal(rescaledValue.unscaledValue(), decimalType.getPrecision(), decimalType.getScale());
+            BigDecimal bigDecimal = decimal.bigDecimalValue();
+            bigDecimal = bigDecimal.setScale(decimalType.getScale(), HALF_UP);
+            if (bigDecimal.precision() > decimalType.getPrecision()) {
+                throw new IllegalArgumentException("decimal precision larger than column precision");
+            }
+            return new SqlDecimal(bigDecimal.unscaledValue(), decimalType.getPrecision(), decimalType.getScale());
         }
 
         if (actualValue instanceof Date date) {
@@ -436,6 +447,15 @@ public final class FormatTestUtils
         }
     }
 
+    public static List<Object> readTrinoValues(List<Column> columns, Page page, int position)
+    {
+        List<Object> values = new ArrayList<>();
+        for (int i = 0; i < columns.size(); i++) {
+            values.add(columns.get(i).type().getObjectValue(null, page.getBlock(i), position));
+        }
+        return values;
+    }
+
     public static Page toSingleRowPage(List<Column> columns, List<?> expectedValues)
     {
         PageBuilder pageBuilder = new PageBuilder(columns.stream().map(Column::type).collect(toImmutableList()));
@@ -618,6 +638,20 @@ public final class FormatTestUtils
         throw new IllegalArgumentException("unsupported type: " + type);
     }
 
+    public static SqlTimestamp toSqlTimestamp(TimestampType timestampType, LocalDateTime localDateTime)
+    {
+        if (localDateTime == null) {
+            return null;
+        }
+        DecodedTimestamp decodedTimestamp = new DecodedTimestamp(localDateTime.toEpochSecond(UTC), localDateTime.getNano());
+        if (timestampType.isShort()) {
+            long micros = (Long) createTimestampEncoder(timestampType, DateTimeZone.UTC).getTimestamp(decodedTimestamp);
+            return SqlTimestamp.newInstance(timestampType.getPrecision(), micros, 0);
+        }
+        LongTimestamp longTimestamp = (LongTimestamp) createTimestampEncoder(timestampType, DateTimeZone.UTC).getTimestamp(decodedTimestamp);
+        return SqlTimestamp.newInstance(timestampType.getPrecision(), longTimestamp.getEpochMicros(), longTimestamp.getPicosOfMicro());
+    }
+
     public static LineBuffer createLineBuffer(String value)
             throws IOException
     {
@@ -631,5 +665,10 @@ public final class FormatTestUtils
         LineBuffer lineBuffer = new LineBuffer(bufferSize, bufferSize);
         lineBuffer.write(value.getInput(), value.length());
         return lineBuffer;
+    }
+
+    public static boolean isScalarType(Type type)
+    {
+        return !(type instanceof ArrayType) && !(type instanceof MapType) && !(type instanceof RowType);
     }
 }
