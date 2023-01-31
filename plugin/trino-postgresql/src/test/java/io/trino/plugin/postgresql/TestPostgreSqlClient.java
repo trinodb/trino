@@ -46,10 +46,13 @@ import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
+import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.tree.WhenClause;
 import io.trino.testing.TestingConnectorSession;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -81,6 +84,13 @@ public class TestPostgreSqlClient
     private static final JdbcColumnHandle BIGINT_COLUMN =
             JdbcColumnHandle.builder()
                     .setColumnName("c_bigint")
+                    .setColumnType(BIGINT)
+                    .setJdbcTypeHandle(new JdbcTypeHandle(Types.BIGINT, Optional.of("int8"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
+                    .build();
+
+    private static final JdbcColumnHandle BIGINT_COLUMN2 =
+            JdbcColumnHandle.builder()
+                    .setColumnName("c_bigint2")
                     .setColumnType(BIGINT)
                     .setJdbcTypeHandle(new JdbcTypeHandle(Types.BIGINT, Optional.of("int8"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                     .build();
@@ -441,6 +451,45 @@ public class TestPostgreSqlClient
                                 Map.of("c_varchar", VARCHAR_COLUMN.getColumnType(), "c_varchar2", VARCHAR_COLUMN2.getColumnType())),
                 Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN, VARCHAR_COLUMN2.getColumnName(), VARCHAR_COLUMN2)))
                 .hasValue("(\"c_varchar\") IN ('value1', 'value2', \"c_varchar2\")");
+    }
+
+    @Test
+    public void testSimpleCase()
+    {
+        assertThat(JDBC_CLIENT.convertPredicate(
+                SESSION,
+                translateToConnectorExpression(
+                        new SimpleCaseExpression(
+                                new SymbolReference("c_bigint"),
+                                List.of(new WhenClause(new LongLiteral("50"), new SymbolReference("c_double"))),
+                                Optional.empty()),
+                        Map.of("c_bigint", BIGINT_COLUMN.getColumnType(), "c_double", DOUBLE_COLUMN.getColumnType())),
+                Map.of(BIGINT_COLUMN.getColumnName(), BIGINT_COLUMN, DOUBLE_COLUMN.getColumnName(), DOUBLE_COLUMN)))
+                .hasValue("(CASE \"c_bigint\" WHEN 50 THEN \"c_double\" END)");
+
+        assertThat(JDBC_CLIENT.convertPredicate(
+                SESSION,
+                translateToConnectorExpression(
+                        new SimpleCaseExpression(
+                                new SymbolReference("c_bigint"),
+                                List.of(new WhenClause(new LongLiteral("50"), new SymbolReference("c_bigint")),
+                                        new WhenClause(new LongLiteral("60"), new ArithmeticBinaryExpression(
+                                                ArithmeticBinaryExpression.Operator.ADD, new SymbolReference("c_bigint"), new LongLiteral("1")))
+                                ), Optional.empty()),
+                        Map.of("c_bigint", BIGINT_COLUMN.getColumnType())),
+                Map.of(BIGINT_COLUMN.getColumnName(), BIGINT_COLUMN)))
+                .hasValue("(CASE \"c_bigint\" WHEN 50 THEN \"c_bigint\" WHEN 60 THEN (\"c_bigint\") + (1) END)");
+
+        assertThat(JDBC_CLIENT.convertPredicate(
+                SESSION,
+                translateToConnectorExpression(
+                        new SimpleCaseExpression(
+                                new SymbolReference("c_bigint"),
+                                List.of(new WhenClause(new SymbolReference("c_bigint2"), new LongLiteral("50"))),
+                                Optional.of(new LongLiteral("60"))),
+                        Map.of("c_bigint", BIGINT_COLUMN.getColumnType(), "c_bigint2", BIGINT_COLUMN2.getColumnType())),
+                Map.of(BIGINT_COLUMN.getColumnName(), BIGINT_COLUMN, BIGINT_COLUMN2.getColumnName(), BIGINT_COLUMN2)))
+                .hasValue("(CASE \"c_bigint\" WHEN \"c_bigint2\" THEN 50 ELSE 60 END)");
     }
 
     private ConnectorExpression translateToConnectorExpression(Expression expression, Map<String, Type> symbolTypes)
