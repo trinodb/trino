@@ -13,17 +13,10 @@
  */
 package io.trino.parquet.reader.decoders;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.parquet.reader.SimpleSliceInputStream;
-import io.trino.parquet.reader.flat.BinaryBuffer;
 import io.trino.plugin.base.type.DecodedTimestamp;
-import io.trino.spi.type.CharType;
-import io.trino.spi.type.Chars;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
-import io.trino.spi.type.VarcharType;
-import io.trino.spi.type.Varchars;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesReader;
@@ -42,7 +35,6 @@ import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.parquet.ParquetTypeUtils.checkBytesFitInShortDecimal;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.parquet.reader.flat.Int96ColumnAdapter.Int96Buffer;
-import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 
@@ -167,112 +159,6 @@ public class ApacheParquetValueDecoders
                 Int128 value = Int128.fromBigEndian(delegate.readBytes().getBytes());
                 values[currentOutputOffset] = value.getHigh();
                 values[currentOutputOffset + 1] = value.getLow();
-            }
-        }
-
-        @Override
-        public void skip(int n)
-        {
-            delegate.skip(n);
-        }
-    }
-
-    public static final class BoundedVarcharApacheParquetValueDecoder
-            implements ValueDecoder<BinaryBuffer>
-    {
-        private final ValuesReader delegate;
-        private final int boundedLength;
-
-        public BoundedVarcharApacheParquetValueDecoder(ValuesReader delegate, VarcharType varcharType)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-            checkArgument(
-                    !varcharType.isUnbounded(),
-                    "Trino type %s is not a bounded varchar",
-                    varcharType);
-            this.boundedLength = varcharType.getBoundedLength();
-        }
-
-        @Override
-        public void init(SimpleSliceInputStream input)
-        {
-            initialize(input, delegate);
-        }
-
-        @Override
-        public void read(BinaryBuffer values, int offsetsIndex, int length)
-        {
-            for (int i = 0; i < length; i++) {
-                byte[] value = delegate.readBytes().getBytes();
-                Slice slice = Varchars.truncateToLength(Slices.wrappedBuffer(value), boundedLength);
-                values.add(slice, i + offsetsIndex);
-            }
-        }
-
-        @Override
-        public void skip(int n)
-        {
-            delegate.skip(n);
-        }
-    }
-
-    public static final class CharApacheParquetValueDecoder
-            implements ValueDecoder<BinaryBuffer>
-    {
-        private final ValuesReader delegate;
-        private final int maxLength;
-
-        public CharApacheParquetValueDecoder(ValuesReader delegate, CharType charType)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-            this.maxLength = charType.getLength();
-        }
-
-        @Override
-        public void init(SimpleSliceInputStream input)
-        {
-            initialize(input, delegate);
-        }
-
-        @Override
-        public void read(BinaryBuffer values, int offsetsIndex, int length)
-        {
-            for (int i = 0; i < length; i++) {
-                byte[] value = delegate.readBytes().getBytes();
-                Slice slice = Chars.trimTrailingSpaces(truncateToLength(Slices.wrappedBuffer(value), maxLength));
-                values.add(slice, i + offsetsIndex);
-            }
-        }
-
-        @Override
-        public void skip(int n)
-        {
-            delegate.skip(n);
-        }
-    }
-
-    public static final class BinaryApacheParquetValueDecoder
-            implements ValueDecoder<BinaryBuffer>
-    {
-        private final ValuesReader delegate;
-
-        public BinaryApacheParquetValueDecoder(ValuesReader delegate)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-        }
-
-        @Override
-        public void init(SimpleSliceInputStream input)
-        {
-            initialize(input, delegate);
-        }
-
-        @Override
-        public void read(BinaryBuffer values, int offsetsIndex, int length)
-        {
-            for (int i = 0; i < length; i++) {
-                byte[] value = delegate.readBytes().getBytes();
-                values.add(value, i + offsetsIndex);
             }
         }
 

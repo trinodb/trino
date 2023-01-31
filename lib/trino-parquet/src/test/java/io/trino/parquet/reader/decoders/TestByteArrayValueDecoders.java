@@ -14,10 +14,17 @@
 package io.trino.parquet.reader.decoders;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import io.trino.parquet.ParquetEncoding;
+import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.parquet.reader.flat.BinaryBuffer;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.Chars;
 import io.trino.spi.type.VarcharType;
+import io.trino.spi.type.Varchars;
 import io.trino.testing.DataProviders;
+import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 
@@ -29,26 +36,29 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.parquet.ParquetEncoding.DELTA_BYTE_ARRAY;
 import static io.trino.parquet.ParquetEncoding.DELTA_LENGTH_BYTE_ARRAY;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.reader.TestData.randomAsciiData;
 import static io.trino.parquet.reader.TestData.randomBinaryData;
-import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.BinaryApacheParquetValueDecoder;
-import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.BoundedVarcharApacheParquetValueDecoder;
-import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.CharApacheParquetValueDecoder;
 import static io.trino.parquet.reader.flat.BinaryColumnAdapter.BINARY_ADAPTER;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public final class TestByteArrayValueDecoders
         extends AbstractValueDecodersTest
 {
+    private static final List<ParquetEncoding> ENCODINGS = ImmutableList.of(PLAIN, RLE_DICTIONARY, DELTA_LENGTH_BYTE_ARRAY, DELTA_BYTE_ARRAY);
+
     private static final BiConsumer<BinaryBuffer, BinaryBuffer> BINARY_ASSERT = (actual, expected) -> {
         assertThat(actual.getOffsets()).containsExactly(expected.getOffsets());
         assertThat(actual.asSlice()).isEqualTo(expected.asSlice());
@@ -65,7 +75,7 @@ public final class TestByteArrayValueDecoders
                                 BinaryApacheParquetValueDecoder::new,
                                 BINARY_ADAPTER,
                                 BINARY_ASSERT),
-                        ImmutableList.of(PLAIN, RLE_DICTIONARY, DELTA_LENGTH_BYTE_ARRAY),
+                        ENCODINGS,
                         generateUnboundedBinaryInputs()),
                 testArgs(
                         new TestType<>(
@@ -74,16 +84,10 @@ public final class TestByteArrayValueDecoders
                                 BinaryApacheParquetValueDecoder::new,
                                 BINARY_ADAPTER,
                                 BINARY_ASSERT),
-                        ImmutableList.of(PLAIN, RLE_DICTIONARY, DELTA_LENGTH_BYTE_ARRAY),
+                        ENCODINGS,
                         generateUnboundedBinaryInputs()),
-                testArgs(
-                        createBoundedVarcharTestType(),
-                        ImmutableList.of(PLAIN, RLE_DICTIONARY, DELTA_LENGTH_BYTE_ARRAY),
-                        generateBoundedVarcharInputs()),
-                testArgs(
-                        createCharTestType(),
-                        ImmutableList.of(PLAIN, RLE_DICTIONARY, DELTA_LENGTH_BYTE_ARRAY),
-                        generateCharInputs()));
+                testArgs(createBoundedVarcharTestType(), ENCODINGS, generateBoundedVarcharInputs()),
+                testArgs(createCharTestType(), ENCODINGS, generateCharInputs()));
     }
 
     private static TestType<BinaryBuffer> createBoundedVarcharTestType()
@@ -291,5 +295,111 @@ public final class TestByteArrayValueDecoders
         }
 
         return getWrittenBuffer(valuesWriter);
+    }
+
+    private static final class BoundedVarcharApacheParquetValueDecoder
+            implements ValueDecoder<BinaryBuffer>
+    {
+        private final ValuesReader delegate;
+        private final int boundedLength;
+
+        public BoundedVarcharApacheParquetValueDecoder(ValuesReader delegate, VarcharType varcharType)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            checkArgument(
+                    !varcharType.isUnbounded(),
+                    "Trino type %s is not a bounded varchar",
+                    varcharType);
+            this.boundedLength = varcharType.getBoundedLength();
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            initialize(input, delegate);
+        }
+
+        @Override
+        public void read(BinaryBuffer values, int offsetsIndex, int length)
+        {
+            for (int i = 0; i < length; i++) {
+                byte[] value = delegate.readBytes().getBytes();
+                Slice slice = Varchars.truncateToLength(Slices.wrappedBuffer(value), boundedLength);
+                values.add(slice, i + offsetsIndex);
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
+    }
+
+    private static final class CharApacheParquetValueDecoder
+            implements ValueDecoder<BinaryBuffer>
+    {
+        private final ValuesReader delegate;
+        private final int maxLength;
+
+        public CharApacheParquetValueDecoder(ValuesReader delegate, CharType charType)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            this.maxLength = charType.getLength();
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            initialize(input, delegate);
+        }
+
+        @Override
+        public void read(BinaryBuffer values, int offsetsIndex, int length)
+        {
+            for (int i = 0; i < length; i++) {
+                byte[] value = delegate.readBytes().getBytes();
+                Slice slice = Chars.trimTrailingSpaces(truncateToLength(Slices.wrappedBuffer(value), maxLength));
+                values.add(slice, i + offsetsIndex);
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
+    }
+
+    private static final class BinaryApacheParquetValueDecoder
+            implements ValueDecoder<BinaryBuffer>
+    {
+        private final ValuesReader delegate;
+
+        public BinaryApacheParquetValueDecoder(ValuesReader delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            initialize(input, delegate);
+        }
+
+        @Override
+        public void read(BinaryBuffer values, int offsetsIndex, int length)
+        {
+            for (int i = 0; i < length; i++) {
+                byte[] value = delegate.readBytes().getBytes();
+                values.add(value, i + offsetsIndex);
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
     }
 }
