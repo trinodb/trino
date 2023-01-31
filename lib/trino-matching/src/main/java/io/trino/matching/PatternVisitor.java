@@ -16,6 +16,7 @@ package io.trino.matching;
 import io.trino.matching.pattern.CapturePattern;
 import io.trino.matching.pattern.EqualsPattern;
 import io.trino.matching.pattern.FilterPattern;
+import io.trino.matching.pattern.TypeOfListPattern;
 import io.trino.matching.pattern.TypeOfPattern;
 import io.trino.matching.pattern.WithPattern;
 
@@ -24,6 +25,8 @@ import java.util.Optional;
 public interface PatternVisitor
 {
     void visitTypeOf(TypeOfPattern<?> pattern);
+
+    void visitTypeOfList(TypeOfListPattern<?> pattern);
 
     void visitWith(WithPattern<?> pattern);
 

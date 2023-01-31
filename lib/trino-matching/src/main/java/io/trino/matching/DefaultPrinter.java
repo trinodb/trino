@@ -16,6 +16,7 @@ package io.trino.matching;
 import io.trino.matching.pattern.CapturePattern;
 import io.trino.matching.pattern.EqualsPattern;
 import io.trino.matching.pattern.FilterPattern;
+import io.trino.matching.pattern.TypeOfListPattern;
 import io.trino.matching.pattern.TypeOfPattern;
 import io.trino.matching.pattern.WithPattern;
 
@@ -37,6 +38,13 @@ public class DefaultPrinter
     {
         visitPrevious(pattern);
         appendLine("typeOf(%s)", pattern.expectedClass().getSimpleName());
+    }
+
+    @Override
+    public void visitTypeOfList(TypeOfListPattern<?> pattern)
+    {
+        visitPrevious(pattern);
+        appendLine("typeOfList(%s)", pattern.expectedClass().getSimpleName());
     }
 
     @Override

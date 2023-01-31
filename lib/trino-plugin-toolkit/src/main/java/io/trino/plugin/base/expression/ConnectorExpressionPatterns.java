@@ -26,6 +26,7 @@ import io.trino.spi.type.Type;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -129,5 +130,11 @@ public final class ConnectorExpressionPatterns
         return expressions -> expectedTypes.equals(expressions.stream()
                 .map(ConnectorExpression::getType)
                 .collect(toImmutableList()));
+    }
+
+    public static Predicate<List<? extends ConnectorExpression>> expressionTypes(Predicate<ConnectorExpressionIndex> predicate)
+    {
+        return expressions -> IntStream.range(0, expressions.size())
+                .allMatch(i -> predicate.test(new ConnectorExpressionIndex(expressions.get(i).getType(), i, i == expressions.size() - 1)));
     }
 }

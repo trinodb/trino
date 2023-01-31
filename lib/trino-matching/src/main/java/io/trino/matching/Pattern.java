@@ -16,9 +16,11 @@ package io.trino.matching;
 import com.google.common.collect.Iterables;
 import io.trino.matching.pattern.CapturePattern;
 import io.trino.matching.pattern.FilterPattern;
+import io.trino.matching.pattern.TypeOfListPattern;
 import io.trino.matching.pattern.TypeOfPattern;
 import io.trino.matching.pattern.WithPattern;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
@@ -39,6 +41,11 @@ public abstract class Pattern<T>
     public static <T> Pattern<T> typeOf(Class<T> expectedClass)
     {
         return new TypeOfPattern<>(expectedClass);
+    }
+
+    public static <T> Pattern<List<? extends T>> typeOfList(Class<T> expectedClass)
+    {
+        return new TypeOfListPattern<>(expectedClass);
     }
 
     protected Pattern(Pattern<?> previous)

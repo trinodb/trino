@@ -60,8 +60,10 @@ import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.tree.WhenClause;
 import io.trino.type.JoniRegexp;
 import io.trino.type.LikeFunctions;
 import io.trino.type.Re2JRegexp;
@@ -98,6 +100,7 @@ import static io.trino.spi.expression.StandardFunctions.NOT_EQUAL_OPERATOR_FUNCT
 import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NULLIF_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.SIMPLE_CASE_WHEN_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.SUBTRACT_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -301,6 +304,10 @@ public final class ConnectorExpressionTranslator
                 return translateInPredicate(call.getArguments().get(0), call.getArguments().get(1));
             }
 
+            if (SIMPLE_CASE_WHEN_FUNCTION_NAME.equals(call.getFunctionName())) {
+                return translateSimpleCaseWhen(call.getArguments());
+            }
+
             QualifiedName name = QualifiedName.of(call.getFunctionName().getName());
             List<TypeSignature> argumentTypes = call.getArguments().stream()
                     .map(argument -> argument.getType().getTypeSignature())
@@ -498,6 +505,49 @@ public final class ConnectorExpressionTranslator
             return Optional.empty();
         }
 
+        protected Optional<Expression> translateSimpleCaseWhen(List<ConnectorExpression> arguments)
+        {
+            int argumentsSize = arguments.size();
+            if (argumentsSize < 3) {
+                return Optional.empty();
+            }
+
+            Optional<Expression> operand = translate(arguments.get(0));
+            if (operand.isEmpty()) {
+                return Optional.empty();
+            }
+
+            ImmutableList.Builder<WhenClause> builder = ImmutableList.builder();
+            for (int i = 1; i < argumentsSize - 1; i += 2) {
+                Optional<WhenClause> whenClause = translateWhenClause(arguments.get(i), arguments.get(i + 1));
+                if (whenClause.isPresent()) {
+                    builder.add(whenClause.get());
+                }
+                else {
+                    return Optional.empty();
+                }
+            }
+            List<WhenClause> whenClauses = builder.build();
+
+            Optional<Expression> defaultValue = argumentsSize % 2 == 0
+                    ? translate(arguments.get(argumentsSize - 1))
+                    : Optional.empty();
+
+            return Optional.of(new SimpleCaseExpression(operand.get(), whenClauses, defaultValue));
+        }
+
+        protected Optional<WhenClause> translateWhenClause(ConnectorExpression operandValue, ConnectorExpression resultValue)
+        {
+            Optional<Expression> operand = translate(operandValue);
+            Optional<Expression> result = translate(resultValue);
+            if (operand.isPresent() && result.isPresent()) {
+                return Optional.of(new WhenClause(operand.get(), result.get()));
+            }
+            else {
+                return Optional.empty();
+            }
+        }
+
         protected Optional<List<Expression>> extractExpressionsFromArrayCall(ConnectorExpression expression)
         {
             if (!(expression instanceof Call call)) {
@@ -649,6 +699,49 @@ public final class ConnectorExpressionTranslator
             }
 
             return Optional.empty();
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
+        {
+            if (!isComplexExpressionPushdown(session)) {
+                return Optional.empty();
+            }
+
+            ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builder();
+
+            Optional<ConnectorExpression> operand = process(node.getOperand());
+            if (operand.isEmpty()) {
+                return Optional.empty();
+            }
+            arguments.add(operand.get());
+
+            for (WhenClause whenClauseExpression : node.getWhenClauses()) {
+                Expression whenClauseOperandExpression = whenClauseExpression.getOperand();
+                Expression whenClauseResultExpression = whenClauseExpression.getResult();
+
+                Optional<ConnectorExpression> whenClauseOperand = process(whenClauseOperandExpression);
+                if (whenClauseOperand.isEmpty()) {
+                    return Optional.empty();
+                }
+                arguments.add(whenClauseOperand.get());
+
+                Optional<ConnectorExpression> whenClauseResult = process(whenClauseResultExpression);
+                if (whenClauseResult.isEmpty()) {
+                    return Optional.empty();
+                }
+                arguments.add(whenClauseResult.get());
+            }
+
+            if (node.getDefaultValue().isPresent()) {
+                Optional<ConnectorExpression> defaultValue = process(node.getDefaultValue().get());
+                if (defaultValue.isEmpty()) {
+                    return Optional.empty();
+                }
+                arguments.add(defaultValue.get());
+            }
+
+            return Optional.of(new Call(typeOf(node), SIMPLE_CASE_WHEN_FUNCTION_NAME, arguments.build()));
         }
 
         @Override

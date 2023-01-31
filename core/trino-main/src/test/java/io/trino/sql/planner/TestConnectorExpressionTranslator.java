@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.Session;
@@ -45,9 +46,11 @@ import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.tree.WhenClause;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.type.LikeFunctions;
@@ -71,6 +74,7 @@ import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERA
 import static io.trino.spi.expression.StandardFunctions.NEGATE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NULLIF_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.SIMPLE_CASE_WHEN_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -490,6 +494,50 @@ public class TestConnectorExpressionTranslator
                         new SymbolReference("varchar_symbol_1"),
                         new InListExpression(List.of(new SymbolReference("varchar_symbol_1"), new NullLiteral()))),
                 Optional.empty());
+    }
+
+    @Test
+    public void testTranslateSimpleCase()
+    {
+        double doubleValue = 50.0d;
+        String strValue1 = "abc";
+        String strValue2 = "def";
+        Expression operand = new SymbolReference("double_symbol_1");
+        List<WhenClause> whenClauses = ImmutableList.of(
+                new WhenClause(new SymbolReference("double_symbol_2"), new SymbolReference("varchar_symbol_1")),
+                new WhenClause(new DoubleLiteral(String.valueOf(doubleValue)), new StringLiteral(strValue1)));
+        Expression defaultValue = new StringLiteral(strValue2);
+
+        ConnectorExpression operandConnectorExpression = new Variable("double_symbol_1", DOUBLE);
+
+        List<ConnectorExpression> whenClauseConnectorExpressions = ImmutableList.of(
+                new Variable("double_symbol_2", DOUBLE),
+                new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                new Constant(doubleValue, DOUBLE),
+                new Constant(Slices.wrappedBuffer(strValue1.getBytes(UTF_8)), createVarcharType(strValue1.length())));
+
+        ConnectorExpression defaultValueConnectorExpression =
+                new Constant(Slices.wrappedBuffer(strValue2.getBytes(UTF_8)), createVarcharType(strValue2.length()));
+
+        assertTranslationRoundTrips(
+                new SimpleCaseExpression(operand, whenClauses, Optional.of(defaultValue)),
+                new Call(VARCHAR_TYPE,
+                        SIMPLE_CASE_WHEN_FUNCTION_NAME,
+                        ImmutableList.<ConnectorExpression>builder()
+                                .add(operandConnectorExpression)
+                                .addAll(whenClauseConnectorExpressions)
+                                .add(defaultValueConnectorExpression)
+                                .build()));
+
+        assertTranslationRoundTrips(
+                new SimpleCaseExpression(operand, whenClauses, Optional.empty()),
+                new Call(
+                        VARCHAR_TYPE,
+                        SIMPLE_CASE_WHEN_FUNCTION_NAME,
+                        ImmutableList.<ConnectorExpression>builder()
+                                .add(operandConnectorExpression)
+                                .addAll(whenClauseConnectorExpressions)
+                                .build()));
     }
 
     private void assertTranslationRoundTrips(Expression expression, ConnectorExpression connectorExpression)

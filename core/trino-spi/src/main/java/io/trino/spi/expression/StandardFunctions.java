@@ -96,4 +96,6 @@ public final class StandardFunctions
      * $array creates instance of {@link ArrayType}
      */
     public static final FunctionName ARRAY_CONSTRUCTOR_FUNCTION_NAME = new FunctionName("$array");
+
+    public static final FunctionName SIMPLE_CASE_WHEN_FUNCTION_NAME = new FunctionName("$simple_case_when");
 }

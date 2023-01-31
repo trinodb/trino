@@ -55,6 +55,12 @@ public class JdbcConnectorExpressionRewriterBuilder
         return this;
     }
 
+    public JdbcConnectorExpressionRewriterBuilder add(Function<Map<String, Set<String>>, ConnectorExpressionRule<?, String>> ruleFunction)
+    {
+        rules.add(ruleFunction.apply(typeClasses));
+        return this;
+    }
+
     public JdbcConnectorExpressionRewriterBuilder withTypeClass(String typeClass, Set<String> typeNames)
     {
         requireNonNull(typeClass, "typeClass is null");
