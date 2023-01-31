@@ -33,6 +33,8 @@ import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
 import io.trino.plugin.hive.gcs.HiveGcsConfig;
 import io.trino.plugin.hive.line.CsvFileWriterFactory;
 import io.trino.plugin.hive.line.CsvPageSourceFactory;
+import io.trino.plugin.hive.line.JsonFileWriterFactory;
+import io.trino.plugin.hive.line.JsonPageSourceFactory;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -195,6 +197,7 @@ public final class HiveTestUtils
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         return ImmutableSet.<HivePageSourceFactory>builder()
                 .add(new CsvPageSourceFactory(fileSystemFactory, stats, hiveConfig))
+                .add(new JsonPageSourceFactory(fileSystemFactory, stats, hiveConfig))
                 .add(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, hdfsEnvironment, stats, hiveConfig))
                 .add(new OrcPageSourceFactory(new OrcReaderConfig(), fileSystemFactory, stats, hiveConfig))
                 .add(new ParquetPageSourceFactory(fileSystemFactory, stats, new ParquetReaderConfig(), hiveConfig))
@@ -211,6 +214,7 @@ public final class HiveTestUtils
         TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment);
         return ImmutableSet.<HiveFileWriterFactory>builder()
                 .add(new CsvFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
+                .add(new JsonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .add(new RcFileFileWriterFactory(hdfsEnvironment, TESTING_TYPE_MANAGER, new NodeVersion("test_version"), hiveConfig))
                 .add(getDefaultOrcFileWriterFactory(hdfsEnvironment))
                 .build();
