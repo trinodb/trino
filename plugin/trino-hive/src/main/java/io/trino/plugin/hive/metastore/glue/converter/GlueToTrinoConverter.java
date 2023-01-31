@@ -32,6 +32,9 @@ import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.PrincipalType;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Locale;
@@ -59,6 +62,19 @@ public final class GlueToTrinoConverter
 
     private GlueToTrinoConverter() {}
 
+    public static String getTableType(com.amazonaws.services.glue.model.Table glueTable)
+    {
+        // Athena treats missing table type as EXTERNAL_TABLE.
+        return firstNonNull(getTableTypeNullable(glueTable), EXTERNAL_TABLE.name());
+    }
+
+    @Nullable
+    @SuppressModernizer // Usage of `Table.getTableType` is not allowed. Only this method can call that.
+    public static String getTableTypeNullable(com.amazonaws.services.glue.model.Table glueTable)
+    {
+        return glueTable.getTableType();
+    }
+
     public static Database convertDatabase(com.amazonaws.services.glue.model.Database glueDb)
     {
         return Database.builder()
@@ -81,8 +97,7 @@ public final class GlueToTrinoConverter
                 .setDatabaseName(dbName)
                 .setTableName(glueTable.getName())
                 .setOwner(Optional.ofNullable(glueTable.getOwner()))
-                // Athena treats missing table type as EXTERNAL_TABLE.
-                .setTableType(firstNonNull(glueTable.getTableType(), EXTERNAL_TABLE.name()))
+                .setTableType(getTableType(glueTable))
                 .setParameters(tableParameters)
                 .setViewOriginalText(Optional.ofNullable(glueTable.getViewOriginalText()))
                 .setViewExpandedText(Optional.ofNullable(glueTable.getViewExpandedText()));

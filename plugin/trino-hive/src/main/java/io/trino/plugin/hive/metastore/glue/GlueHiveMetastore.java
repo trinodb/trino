@@ -151,6 +151,7 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter.convertPartition;
+import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.mappedCopy;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
@@ -177,7 +178,7 @@ public class GlueHiveMetastore
     private static final int BATCH_UPDATE_PARTITION_MAX_PAGE_SIZE = 100;
     private static final int AWS_GLUE_GET_PARTITIONS_MAX_RESULTS = 1000;
     private static final Comparator<Iterable<String>> PARTITION_VALUE_COMPARATOR = lexicographical(String.CASE_INSENSITIVE_ORDER);
-    private static final Predicate<com.amazonaws.services.glue.model.Table> VIEWS_FILTER = table -> VIRTUAL_VIEW.name().equals(table.getTableType());
+    private static final Predicate<com.amazonaws.services.glue.model.Table> VIEWS_FILTER = table -> VIRTUAL_VIEW.name().equals(getTableTypeNullable(table));
 
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
@@ -703,7 +704,7 @@ public class GlueHiveMetastore
                 .withPartitionKeys(glueTable.getPartitionKeys())
                 .withViewOriginalText(glueTable.getViewOriginalText())
                 .withViewExpandedText(glueTable.getViewExpandedText())
-                .withTableType(glueTable.getTableType())
+                .withTableType(getTableTypeNullable(glueTable))
                 .withTargetTable(glueTable.getTargetTable())
                 .withParameters(glueTable.getParameters());
     }
