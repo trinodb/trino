@@ -68,7 +68,6 @@ import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.Decimals.encodeShortScaledValue;
-import static io.trino.spi.type.Decimals.isLongDecimal;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -213,8 +212,8 @@ public class MongoPageSource
                 type.writeDouble(output, ((Number) value).doubleValue());
             }
             else if (javaType == Int128.class) {
-                verify(isLongDecimal(type), "The type should be long decimal");
                 DecimalType decimalType = (DecimalType) type;
+                verify(!decimalType.isShort(), "The type should be long decimal");
                 BigDecimal decimal = ((Decimal128) value).bigDecimalValue();
                 type.writeObject(output, Decimals.encodeScaledValue(decimal, decimalType.getScale()));
             }
