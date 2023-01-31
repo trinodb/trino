@@ -179,11 +179,6 @@ queries/tasks are no longer retried in the event of repeated failures:
        declaring the query as failed.
      - ``4``
      - Only ``QUERY``
-   * - ``task-retry-attempts-overall``
-     - Maximum number retries across all tasks within a given query
-       before declaring the query as failed.
-     - ``null`` (no limit)
-     - Only ``TASK``
    * - ``task-retry-attempts-per-task``
      - Maximum number of times Trino may attempt to retry a single task before
        declaring the query as failed.
@@ -252,16 +247,6 @@ properties only apply to a ``TASK`` retry policy.
        ``fault_tolerant_execution_target_task_split_count``
        :ref:`session property <session-properties-definition>`.
      - ``64``
-   * - ``fault-tolerant-execution-min-task-split-count``
-     - Minimum number of :ref:`splits <trino-concept-splits>` processed by
-       a single task. This value is not split weight-adjusted and serves as
-       protection against situations where catalogs report an incorrect split
-       weight.
-
-       May be overridden for the current session with the
-       ``fault_tolerant_execution_min_task_split_count``
-       :ref:`session property <session-properties-definition>`.
-     - ``16``
    * - ``fault-tolerant-execution-max-task-split-count``
      - Maximum number of :ref:`splits <trino-concept-splits>` processed by a
        single task. This value is not split weight-adjusted and serves as
