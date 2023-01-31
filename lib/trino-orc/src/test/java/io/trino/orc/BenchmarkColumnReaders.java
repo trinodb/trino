@@ -47,6 +47,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -424,7 +425,7 @@ public class BenchmarkColumnReaders
         OrcRecordReader createRecordReader()
                 throws IOException
         {
-            OrcReader orcReader = OrcReader.createOrcReader(dataSource, new OrcReaderOptions())
+            OrcReader orcReader = OrcReader.createOrcReader(Optional.empty(), dataSource, new OrcReaderOptions(), StorageOrcFileMetadataProvider.INSTANCE)
                     .orElseThrow(() -> new RuntimeException("File is empty"));
             return orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),

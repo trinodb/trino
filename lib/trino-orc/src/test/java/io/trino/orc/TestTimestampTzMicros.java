@@ -21,6 +21,8 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.io.Resources.toByteArray;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -37,10 +39,13 @@ public class TestTimestampTzMicros
     public void test()
             throws Exception
     {
-        OrcReader orcReader = OrcReader.createOrcReader(new MemoryOrcDataSource(
-                                new OrcDataSourceId("memory"),
-                                Slices.wrappedBuffer(toByteArray(getResource("timestamp-tz-micros.orc")))),
-                        new OrcReaderOptions())
+        OrcReader orcReader = OrcReader.createOrcReader(
+                Optional.empty(),
+                new MemoryOrcDataSource(
+                        new OrcDataSourceId("memory"),
+                        Slices.wrappedBuffer(toByteArray(getResource("timestamp-tz-micros.orc")))),
+                new OrcReaderOptions(),
+                StorageOrcFileMetadataProvider.INSTANCE)
                 .orElseThrow(() -> new RuntimeException("File is empty"));
 
         TimestampWithTimeZoneType timestampTzType = createTimestampWithTimeZoneType(6);

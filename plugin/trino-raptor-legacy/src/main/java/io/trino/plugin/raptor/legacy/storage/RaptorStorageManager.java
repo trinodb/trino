@@ -30,6 +30,7 @@ import io.trino.orc.OrcPredicate;
 import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
+import io.trino.orc.StorageOrcFileMetadataProvider;
 import io.trino.orc.TupleDomainOrcPredicate;
 import io.trino.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
 import io.trino.plugin.base.CatalogName;
@@ -237,7 +238,7 @@ public class RaptorStorageManager
         AggregatedMemoryContext memoryUsage = newSimpleAggregatedMemoryContext();
 
         try {
-            OrcReader reader = OrcReader.createOrcReader(dataSource, orcReaderOptions)
+            OrcReader reader = OrcReader.createOrcReader(Optional.empty(), dataSource, orcReaderOptions, StorageOrcFileMetadataProvider.INSTANCE)
                     .orElseThrow(() -> new TrinoException(RAPTOR_ERROR, "Data file is empty for shard " + shardUuid));
 
             Map<Long, OrcColumn> indexMap = columnIdIndex(reader.getRootColumn().getNestedColumns());
@@ -391,7 +392,7 @@ public class RaptorStorageManager
     private List<ColumnStats> computeShardStats(File file)
     {
         try (OrcDataSource dataSource = fileOrcDataSource(orcReaderOptions, file)) {
-            OrcReader reader = OrcReader.createOrcReader(dataSource, orcReaderOptions)
+            OrcReader reader = OrcReader.createOrcReader(Optional.empty(), dataSource, orcReaderOptions, StorageOrcFileMetadataProvider.INSTANCE)
                     .orElseThrow(() -> new TrinoException(RAPTOR_ERROR, "Data file is empty: " + file));
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();

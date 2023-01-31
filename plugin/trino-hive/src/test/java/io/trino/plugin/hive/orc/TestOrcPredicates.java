@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcWriterOptions;
+import io.trino.orc.StorageOrcFileMetadataProvider;
 import io.trino.plugin.hive.AbstractTestHiveFileFormats;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -163,7 +164,7 @@ public class TestOrcPredicates
             ConnectorSession session,
             FileSplit split)
     {
-        OrcPageSourceFactory readerFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, STATS, UTC);
+        OrcPageSourceFactory readerFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, STATS, UTC, StorageOrcFileMetadataProvider.INSTANCE);
 
         Properties splitProperties = new Properties();
         splitProperties.setProperty(FILE_INPUT_FORMAT, ORC.getInputFormat());
@@ -226,6 +227,8 @@ public class TestOrcPredicates
                 split.getStart(),
                 split.getLength(),
                 split.getLength(),
+                // TODO padesai fix this
+                0,
                 splitProperties,
                 predicate,
                 columnHandles,

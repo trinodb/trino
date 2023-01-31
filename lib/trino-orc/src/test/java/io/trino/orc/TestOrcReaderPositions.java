@@ -42,6 +42,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
@@ -305,7 +306,7 @@ public class TestOrcReaderPositions
             createFileWithOnlyUserMetadata(tempFile.getFile(), metadata);
 
             OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
-            OrcReader orcReader = OrcReader.createOrcReader(orcDataSource, READER_OPTIONS)
+            OrcReader orcReader = OrcReader.createOrcReader(Optional.empty(), orcDataSource, READER_OPTIONS, StorageOrcFileMetadataProvider.INSTANCE)
                     .orElseThrow(() -> new RuntimeException("File is empty"));
             Footer footer = orcReader.getFooter();
             Map<String, String> readMetadata = Maps.transformValues(footer.getUserMetadata(), Slice::toStringAscii);

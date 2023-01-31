@@ -126,6 +126,7 @@ public class RcFilePageSourceFactory
             long start,
             long length,
             long estimatedFileSize,
+            long modifiedTime,
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,

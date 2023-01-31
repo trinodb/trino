@@ -23,6 +23,7 @@ import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.io.Resources.getResource;
@@ -57,7 +58,7 @@ public class TestOrcWithoutRowGroupInfo
         // this file was written by minor compaction in hive
         File file = new File(getResource("orcFileWithoutRowGroupInfo.orc").toURI());
 
-        OrcReader orcReader = createOrcReader(new FileOrcDataSource(file, new OrcReaderOptions()), new OrcReaderOptions()).orElseThrow();
+        OrcReader orcReader = createOrcReader(Optional.empty(), new FileOrcDataSource(file, new OrcReaderOptions()), new OrcReaderOptions(), StorageOrcFileMetadataProvider.INSTANCE).orElseThrow();
 
         assertEquals(orcReader.getFooter().getNumberOfRows(), 2);
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), OptionalInt.empty());

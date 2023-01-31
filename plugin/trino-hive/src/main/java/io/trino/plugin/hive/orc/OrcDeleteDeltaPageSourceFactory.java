@@ -14,6 +14,8 @@
 package io.trino.plugin.hive.orc;
 
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.orc.FileStatusInfo;
+import io.trino.orc.OrcFileMetadataProvider;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -25,22 +27,30 @@ import static java.util.Objects.requireNonNull;
 
 public class OrcDeleteDeltaPageSourceFactory
 {
+    private final Optional<FileStatusInfo> fileStatusInfo;
     private final OrcReaderOptions options;
     private final FileFormatDataSourceStats stats;
+    private final OrcFileMetadataProvider orcFileMetadataProvider;
 
     public OrcDeleteDeltaPageSourceFactory(
+            Optional<FileStatusInfo> fileStatusInfo,
             OrcReaderOptions options,
-            FileFormatDataSourceStats stats)
+            FileFormatDataSourceStats stats,
+            OrcFileMetadataProvider orcFileMetadataProvider)
     {
+        this.fileStatusInfo = requireNonNull(fileStatusInfo, "fileStatusInfo is null");
         this.options = requireNonNull(options, "options is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.orcFileMetadataProvider = requireNonNull(orcFileMetadataProvider, "orcFileMetadataProvider is null");
     }
 
     public Optional<ConnectorPageSource> createPageSource(TrinoInputFile inputFile)
     {
         return createOrcDeleteDeltaPageSource(
+                fileStatusInfo,
                 inputFile,
                 options,
-                stats);
+                stats,
+                orcFileMetadataProvider);
     }
 }

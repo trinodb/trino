@@ -31,6 +31,7 @@ import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
+import io.trino.orc.StorageOrcFileMetadataProvider;
 import io.trino.orc.TupleDomainOrcPredicate;
 import io.trino.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
 import io.trino.orc.metadata.OrcType;
@@ -551,7 +552,8 @@ public class IcebergPageSourceProvider
         try {
             orcDataSource = new TrinoOrcDataSource(inputFile, options, stats);
 
-            OrcReader reader = OrcReader.createOrcReader(orcDataSource, options)
+            // TODO: implement metadata caching
+            OrcReader reader = OrcReader.createOrcReader(Optional.empty(), orcDataSource, options, StorageOrcFileMetadataProvider.INSTANCE)
                     .orElseThrow(() -> new TrinoException(ICEBERG_BAD_DATA, "ORC file is zero length"));
 
             List<OrcColumn> fileColumns = reader.getRootColumn().getNestedColumns();

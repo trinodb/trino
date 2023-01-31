@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.Iterables.cycle;
@@ -127,7 +128,7 @@ public class TestReadBloomFilter
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
-        OrcReader orcReader = OrcReader.createOrcReader(orcDataSource, READER_OPTIONS)
+        OrcReader orcReader = OrcReader.createOrcReader(Optional.empty(), orcDataSource, READER_OPTIONS, StorageOrcFileMetadataProvider.INSTANCE)
                 .orElseThrow(() -> new RuntimeException("File is empty"));
 
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));

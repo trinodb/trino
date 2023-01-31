@@ -94,6 +94,7 @@ public class TestOnlyNulls
                         0,
                         parquetFile.length(),
                         parquetFile.length(),
+                        0,
                         schema,
                         List.of(column),
                         domain,

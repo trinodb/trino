@@ -58,7 +58,7 @@ public class TestSliceDictionaryColumnReader
 
         // prepare for read
         OrcDataSource dataSource = new MemoryOrcDataSource(new OrcDataSourceId(orcFile.getPath()), Slices.wrappedBuffer(readAllBytes(orcFile.toPath())));
-        OrcReader orcReader = OrcReader.createOrcReader(dataSource, new OrcReaderOptions())
+        OrcReader orcReader = OrcReader.createOrcReader(Optional.empty(), dataSource, new OrcReaderOptions(), StorageOrcFileMetadataProvider.INSTANCE)
                 .orElseThrow(() -> new RuntimeException("File is empty"));
         Footer footer = orcReader.getFooter();
         List<OrcColumn> columns = orcReader.getRootColumn().getNestedColumns();

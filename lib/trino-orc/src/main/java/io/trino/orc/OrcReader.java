@@ -13,7 +13,6 @@
  */
 package io.trino.orc;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
@@ -29,7 +28,6 @@ import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.OrcMetadataReader;
 import io.trino.orc.metadata.OrcType;
 import io.trino.orc.metadata.OrcType.OrcTypeKind;
-import io.trino.orc.metadata.PostScript;
 import io.trino.orc.metadata.PostScript.HiveWriterVersion;
 import io.trino.orc.stream.OrcChunkLoader;
 import io.trino.orc.stream.OrcInputStream;
@@ -50,12 +48,10 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcDecompressor.createOrcDecompressor;
 import static io.trino.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.trino.orc.metadata.PostScript.MAGIC;
-import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -71,10 +67,6 @@ public class OrcReader
 
     private static final Logger log = Logger.get(OrcReader.class);
 
-    private static final int CURRENT_MAJOR_VERSION = 0;
-    private static final int CURRENT_MINOR_VERSION = 12;
-    private static final int EXPECTED_FOOTER_SIZE = 16 * 1024;
-
     private final OrcDataSource orcDataSource;
     private final ExceptionWrappingMetadataReader metadataReader;
     private final OrcReaderOptions options;
@@ -88,16 +80,18 @@ public class OrcReader
 
     private final Optional<OrcWriteValidation> writeValidation;
 
-    public static Optional<OrcReader> createOrcReader(OrcDataSource orcDataSource, OrcReaderOptions options)
+    public static Optional<OrcReader> createOrcReader(Optional<FileStatusInfo> fileStatusInfo, OrcDataSource orcDataSource, OrcReaderOptions options, OrcFileMetadataProvider orcFileMetadataProvider)
             throws IOException
     {
-        return createOrcReader(orcDataSource, options, Optional.empty());
+        return createOrcReader(fileStatusInfo, orcDataSource, options, Optional.empty(), orcFileMetadataProvider);
     }
 
     private static Optional<OrcReader> createOrcReader(
+            Optional<FileStatusInfo> fileStatusInfo,
             OrcDataSource orcDataSource,
             OrcReaderOptions options,
-            Optional<OrcWriteValidation> writeValidation)
+            Optional<OrcWriteValidation> writeValidation,
+            OrcFileMetadataProvider fileMetadataProvider)
             throws IOException
     {
         orcDataSource = wrapWithCacheIfTiny(orcDataSource, options.getTinyStripeThreshold());
@@ -108,99 +102,40 @@ public class OrcReader
             throw new OrcCorruptionException(orcDataSource.getId(), "Invalid file size %s", estimatedFileSize);
         }
 
-        long expectedReadSize = min(estimatedFileSize, EXPECTED_FOOTER_SIZE);
-        Slice fileTail = orcDataSource.readTail(toIntExact(expectedReadSize));
-        if (fileTail.length() == 0) {
+        ExceptionWrappingMetadataReader metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), new OrcMetadataReader());
+        Optional<OrcFileTail> orcFileTail = fileMetadataProvider.getOrcFileTail(fileStatusInfo, orcDataSource, metadataReader, writeValidation);
+
+        if (orcFileTail.isEmpty()) {
             return Optional.empty();
         }
 
-        return Optional.of(new OrcReader(orcDataSource, options, writeValidation, fileTail));
+        return Optional.of(new OrcReader(orcDataSource, options, writeValidation, metadataReader, orcFileTail.get()));
     }
 
     private OrcReader(
             OrcDataSource orcDataSource,
             OrcReaderOptions options,
             Optional<OrcWriteValidation> writeValidation,
-            Slice fileTail)
+            ExceptionWrappingMetadataReader metadataReader,
+            OrcFileTail fileTail)
             throws IOException
     {
         this.options = requireNonNull(options, "options is null");
         this.orcDataSource = orcDataSource;
-        this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), new OrcMetadataReader());
-
+        this.metadataReader = requireNonNull(metadataReader, "metadataReader is null");
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
 
-        //
-        // Read the file tail:
-        //
-        // variable: Footer
-        // variable: Metadata
-        // variable: PostScript - contains length of footer and metadata
-        // 1 byte: postScriptSize
-
-        // get length of PostScript - last byte of the file
-        int postScriptSize = fileTail.getUnsignedByte(fileTail.length() - SIZE_OF_BYTE);
-        if (postScriptSize >= fileTail.length()) {
-            throw new OrcCorruptionException(orcDataSource.getId(), "Invalid postscript length %s", postScriptSize);
-        }
-
-        // decode the post script
-        PostScript postScript;
-        try {
-            postScript = metadataReader.readPostScript(fileTail.slice(fileTail.length() - SIZE_OF_BYTE - postScriptSize, postScriptSize).getInput());
-        }
-        catch (OrcCorruptionException e) {
-            // check if this is an ORC file and not an RCFile or something else
-            try {
-                Slice headerMagic = orcDataSource.readFully(0, MAGIC.length());
-                if (!MAGIC.equals(headerMagic)) {
-                    throw new OrcCorruptionException(orcDataSource.getId(), "Not an ORC file");
-                }
-            }
-            catch (IOException ignored) {
-                // throw original exception
-            }
-
-            throw e;
-        }
-
-        // verify this is a supported version
-        checkOrcVersion(orcDataSource, postScript.getVersion());
-        validateWrite(validation -> validation.getVersion().equals(postScript.getVersion()), "Unexpected version");
-
-        this.bufferSize = toIntExact(postScript.getCompressionBlockSize());
-
-        // check compression codec is supported
-        this.compressionKind = postScript.getCompression();
+        this.bufferSize = fileTail.bufferSize();
+        this.compressionKind = fileTail.compressionKind();
         this.decompressor = createOrcDecompressor(orcDataSource.getId(), compressionKind, bufferSize);
-        validateWrite(validation -> validation.getCompression() == compressionKind, "Unexpected compression");
 
-        this.hiveWriterVersion = postScript.getHiveWriterVersion();
+        this.hiveWriterVersion = fileTail.hiveWriterVersion();
 
-        int footerSize = toIntExact(postScript.getFooterLength());
-        int metadataSize = toIntExact(postScript.getMetadataLength());
-
-        // check if extra bytes need to be read
-        Slice completeFooterSlice;
-        int completeFooterSize = footerSize + metadataSize + postScriptSize + SIZE_OF_BYTE;
-        if (completeFooterSize > fileTail.length()) {
-            // initial read was not large enough, so just read again with the correct size
-            completeFooterSlice = orcDataSource.readTail(completeFooterSize);
-        }
-        else {
-            // footer is already in the bytes in fileTail, just adjust position, length
-            completeFooterSlice = fileTail.slice(fileTail.length() - completeFooterSize, completeFooterSize);
-        }
-
-        // read metadata
-        Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
-        try (InputStream metadataInputStream = new OrcInputStream(OrcChunkLoader.create(orcDataSource.getId(), metadataSlice, decompressor, newSimpleAggregatedMemoryContext()))) {
+        try (InputStream metadataInputStream = new OrcInputStream(OrcChunkLoader.create(orcDataSource.getId(), fileTail.metadataSlice(), decompressor, newSimpleAggregatedMemoryContext()))) {
             this.metadata = metadataReader.readMetadata(hiveWriterVersion, metadataInputStream);
         }
 
-        // read footer
-        Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
-        try (InputStream footerInputStream = new OrcInputStream(OrcChunkLoader.create(orcDataSource.getId(), footerSlice, decompressor, newSimpleAggregatedMemoryContext()))) {
+        try (InputStream footerInputStream = new OrcInputStream(OrcChunkLoader.create(orcDataSource.getId(), fileTail.footerSlice(), decompressor, newSimpleAggregatedMemoryContext()))) {
             this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream);
         }
         if (footer.getTypes().size() == 0) {
@@ -209,8 +144,8 @@ public class OrcReader
 
         this.rootColumn = createOrcColumn("", "", new OrcColumnId(0), footer.getTypes(), orcDataSource.getId());
 
-        validateWrite(validation -> validation.getColumnNames().equals(getColumnNames()), "Unexpected column names");
-        validateWrite(validation -> validation.getRowGroupMaxRowCount() == footer.getRowsInRowGroup().orElse(0), "Unexpected rows in group");
+        validateWrite(writeValidation, orcDataSource, validation -> validation.getColumnNames().equals(getColumnNames()), "Unexpected column names");
+        validateWrite(writeValidation, orcDataSource, validation -> validation.getRowGroupMaxRowCount() == footer.getRowsInRowGroup().orElse(0), "Unexpected rows in group");
         if (writeValidation.isPresent()) {
             writeValidation.get().validateMetadata(orcDataSource.getId(), footer.getUserMetadata());
             writeValidation.get().validateFileStatistics(orcDataSource.getId(), footer.getFileStats());
@@ -369,38 +304,6 @@ public class OrcReader
         return new OrcColumn(path, columnId, fieldName, orcType.getOrcTypeKind(), orcDataSourceId, nestedColumns, orcType.getAttributes());
     }
 
-    /**
-     * Check to see if this ORC file is from a future version and if so,
-     * warn the user that we may not be able to read all of the column encodings.
-     */
-    // This is based on the Apache Hive ORC code
-    private static void checkOrcVersion(OrcDataSource orcDataSource, List<Integer> version)
-    {
-        if (version.size() >= 1) {
-            int major = version.get(0);
-            int minor = 0;
-            if (version.size() > 1) {
-                minor = version.get(1);
-            }
-
-            if (major > CURRENT_MAJOR_VERSION || (major == CURRENT_MAJOR_VERSION && minor > CURRENT_MINOR_VERSION)) {
-                log.warn("ORC file %s was written by a newer Hive version %s. This file may not be readable by this version of Hive (%s.%s).",
-                        orcDataSource,
-                        Joiner.on('.').join(version),
-                        CURRENT_MAJOR_VERSION,
-                        CURRENT_MINOR_VERSION);
-            }
-        }
-    }
-
-    private void validateWrite(Predicate<OrcWriteValidation> test, String messageFormat, Object... args)
-            throws OrcCorruptionException
-    {
-        if (writeValidation.isPresent() && !test.test(writeValidation.get())) {
-            throw new OrcCorruptionException(orcDataSource.getId(), "Write validation failed: " + messageFormat, args);
-        }
-    }
-
     static void validateFile(
             OrcWriteValidation writeValidation,
             OrcDataSource input,
@@ -408,7 +311,12 @@ public class OrcReader
             throws OrcCorruptionException
     {
         try {
-            OrcReader orcReader = createOrcReader(input, new OrcReaderOptions(), Optional.of(writeValidation))
+            OrcReader orcReader = createOrcReader(
+                    Optional.empty(),
+                    input,
+                    new OrcReaderOptions(),
+                    Optional.of(writeValidation),
+                    StorageOrcFileMetadataProvider.INSTANCE)
                     .orElseThrow(() -> new OrcCorruptionException(input.getId(), "File is empty"));
             try (OrcRecordReader orcRecordReader = orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
@@ -498,5 +406,13 @@ public class OrcReader
     public interface FieldMapper
     {
         OrcColumn get(String fieldName);
+    }
+
+    static void validateWrite(Optional<OrcWriteValidation> writeValidation, OrcDataSource orcDataSource, Predicate<OrcWriteValidation> test, String messageFormat, Object... args)
+            throws OrcCorruptionException
+    {
+        if (writeValidation.isPresent() && !test.test(writeValidation.get())) {
+            throw new OrcCorruptionException(orcDataSource.getId(), "Write validation failed: " + messageFormat, args);
+        }
     }
 }

@@ -258,7 +258,7 @@ public class TestStructColumnReader
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
-        OrcReader orcReader = OrcReader.createOrcReader(orcDataSource, READER_OPTIONS)
+        OrcReader orcReader = OrcReader.createOrcReader(Optional.empty(), orcDataSource, READER_OPTIONS, StorageOrcFileMetadataProvider.INSTANCE)
                 .orElseThrow(() -> new RuntimeException("File is empty"));
 
         OrcRecordReader recordReader = orcReader.createRecordReader(

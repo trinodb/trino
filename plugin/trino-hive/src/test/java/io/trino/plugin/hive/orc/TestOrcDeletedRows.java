@@ -15,6 +15,7 @@ package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.orc.OrcReaderOptions;
+import io.trino.orc.StorageOrcFileMetadataProvider;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.spi.Page;
@@ -27,6 +28,7 @@ import org.apache.hadoop.hive.ql.io.AcidUtils;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -152,8 +154,10 @@ public class TestOrcDeletedRows
     private static OrcDeletedRows createOrcDeletedRows(AcidInfo acidInfo, String sourceFileName)
     {
         OrcDeleteDeltaPageSourceFactory pageSourceFactory = new OrcDeleteDeltaPageSourceFactory(
+                Optional.empty(),
                 new OrcReaderOptions(),
-                new FileFormatDataSourceStats());
+                new FileFormatDataSourceStats(),
+                StorageOrcFileMetadataProvider.INSTANCE);
 
         OrcDeletedRows deletedRows = new OrcDeletedRows(
                 sourceFileName,

@@ -22,6 +22,7 @@ import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
 import io.trino.orc.OrcWriter;
+import io.trino.orc.StorageOrcFileMetadataProvider;
 import io.trino.plugin.raptor.legacy.metadata.ColumnInfo;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -36,6 +37,7 @@ import java.io.InterruptedIOException;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.Duration.nanosSince;
@@ -56,7 +58,7 @@ public final class OrcFileRewriter
             throws IOException
     {
         OrcReaderOptions options = new OrcReaderOptions();
-        OrcReader reader = createOrcReader(new FileOrcDataSource(input, options), options)
+        OrcReader reader = createOrcReader(Optional.empty(), new FileOrcDataSource(input, options), options, StorageOrcFileMetadataProvider.INSTANCE)
                 .orElseThrow(() -> new IOException("File is empty: " + input));
         return rewrite(typeManager, reader, output, rowsToDelete);
     }

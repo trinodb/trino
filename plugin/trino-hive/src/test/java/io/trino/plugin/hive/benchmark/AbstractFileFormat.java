@@ -222,6 +222,7 @@ public abstract class AbstractFileFormat
                         0,
                         targetFile.length(),
                         targetFile.length(),
+                        0,
                         schema,
                         readColumns,
                         TupleDomain.all(),

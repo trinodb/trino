@@ -22,6 +22,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -45,7 +46,7 @@ public class TestOrcLz4
     public void testReadLz4(byte[] data)
             throws Exception
     {
-        OrcReader orcReader = OrcReader.createOrcReader(new MemoryOrcDataSource(new OrcDataSourceId("memory"), Slices.wrappedBuffer(data)), new OrcReaderOptions())
+        OrcReader orcReader = OrcReader.createOrcReader(Optional.empty(), new MemoryOrcDataSource(new OrcDataSourceId("memory"), Slices.wrappedBuffer(data)), new OrcReaderOptions(), StorageOrcFileMetadataProvider.INSTANCE)
                 .orElseThrow(() -> new RuntimeException("File is empty"));
 
         assertEquals(orcReader.getCompressionKind(), LZ4);

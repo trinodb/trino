@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.orc.OrcReaderOptions;
+import io.trino.orc.StorageOrcFileMetadataProvider;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.security.ConnectorIdentity;
@@ -27,6 +28,7 @@ import org.apache.hadoop.hive.ql.io.BucketCodec;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.util.Optional;
 
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
@@ -44,8 +46,10 @@ public class TestOrcDeleteDeltaPageSource
         File deleteDeltaFile = new File(Resources.getResource("fullacid_delete_delta_test/delete_delta_0000004_0000004_0000/bucket_00000").toURI());
         TrinoInputFile inputFile = HDFS_FILE_SYSTEM_FACTORY.create(ConnectorIdentity.ofUser("test")).newInputFile(deleteDeltaFile.toURI().toString());
         OrcDeleteDeltaPageSourceFactory pageSourceFactory = new OrcDeleteDeltaPageSourceFactory(
+                Optional.empty(),
                 new OrcReaderOptions(),
-                new FileFormatDataSourceStats());
+                new FileFormatDataSourceStats(),
+                StorageOrcFileMetadataProvider.INSTANCE);
 
         ConnectorPageSource pageSource = pageSourceFactory.createPageSource(inputFile).orElseThrow();
         MaterializedResult materializedRows = MaterializedResult.materializeSourceDataStream(SESSION, pageSource, ImmutableList.of(BIGINT, INTEGER, BIGINT));

@@ -40,6 +40,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Random;
 import java.util.function.Function;
@@ -202,7 +203,7 @@ public class TestCachingOrcDataSource
                 .withMaxMergeDistance(maxMergeDistance)
                 .withTinyStripeThreshold(tinyStripeThreshold)
                 .withMaxReadBlockSize(DataSize.of(1, Unit.MEGABYTE));
-        OrcReader orcReader = OrcReader.createOrcReader(orcDataSource, options)
+        OrcReader orcReader = OrcReader.createOrcReader(Optional.empty(), orcDataSource, options, StorageOrcFileMetadataProvider.INSTANCE)
                 .orElseThrow(() -> new RuntimeException("File is empty"));
         // 1 for reading file footer
         assertEquals(orcDataSource.getReadCount(), 1);

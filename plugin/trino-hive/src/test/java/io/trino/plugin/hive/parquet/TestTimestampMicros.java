@@ -120,6 +120,7 @@ public class TestTimestampMicros
                 0,
                 parquetFile.length(),
                 parquetFile.length(),
+                0,
                 schema,
                 List.of(createBaseColumn(columnName, 0, columnHiveType, columnType, REGULAR, Optional.empty())),
                 TupleDomain.all(),

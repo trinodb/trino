@@ -38,6 +38,7 @@ import java.math.BigInteger;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -113,7 +114,7 @@ public class BenchmarkOrcDecimalReader
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(dataPath, READER_OPTIONS);
-            OrcReader orcReader = OrcReader.createOrcReader(dataSource, READER_OPTIONS)
+            OrcReader orcReader = OrcReader.createOrcReader(Optional.empty(), dataSource, READER_OPTIONS, StorageOrcFileMetadataProvider.INSTANCE)
                     .orElseThrow(() -> new RuntimeException("File is empty"));
             return orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),

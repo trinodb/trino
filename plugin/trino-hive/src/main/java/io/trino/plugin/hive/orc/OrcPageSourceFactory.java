@@ -21,10 +21,12 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.orc.FileStatusInfo;
 import io.trino.orc.NameBasedFieldMapper;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcDataSourceId;
+import io.trino.orc.OrcFileMetadataProvider;
 import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
@@ -124,29 +126,23 @@ public class OrcPageSourceFactory
     private final FileFormatDataSourceStats stats;
     private final DateTimeZone legacyTimeZone;
     private final int domainCompactionThreshold;
+    private final OrcFileMetadataProvider fileMetadataProvider;
 
     @Inject
     public OrcPageSourceFactory(
             OrcReaderConfig config,
             TrinoFileSystemFactory fileSystemFactory,
             FileFormatDataSourceStats stats,
-            HiveConfig hiveConfig)
+            HiveConfig hiveConfig,
+            OrcFileMetadataProvider fileMetadataProvider)
     {
         this(
                 config.toOrcReaderOptions(),
                 fileSystemFactory,
                 stats,
                 hiveConfig.getOrcLegacyDateTimeZone(),
-                hiveConfig.getDomainCompactionThreshold());
-    }
-
-    public OrcPageSourceFactory(
-            OrcReaderOptions orcReaderOptions,
-            TrinoFileSystemFactory fileSystemFactory,
-            FileFormatDataSourceStats stats,
-            DateTimeZone legacyTimeZone)
-    {
-        this(orcReaderOptions, fileSystemFactory, stats, legacyTimeZone, 0);
+                hiveConfig.getDomainCompactionThreshold(),
+                fileMetadataProvider);
     }
 
     public OrcPageSourceFactory(
@@ -154,13 +150,25 @@ public class OrcPageSourceFactory
             TrinoFileSystemFactory fileSystemFactory,
             FileFormatDataSourceStats stats,
             DateTimeZone legacyTimeZone,
-            int domainCompactionThreshold)
+            OrcFileMetadataProvider fileMetadataProvider)
+    {
+        this(orcReaderOptions, fileSystemFactory, stats, legacyTimeZone, 0, fileMetadataProvider);
+    }
+
+    public OrcPageSourceFactory(
+            OrcReaderOptions orcReaderOptions,
+            TrinoFileSystemFactory fileSystemFactory,
+            FileFormatDataSourceStats stats,
+            DateTimeZone legacyTimeZone,
+            int domainCompactionThreshold,
+            OrcFileMetadataProvider fileMetadataProvider)
     {
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.legacyTimeZone = legacyTimeZone;
         this.domainCompactionThreshold = domainCompactionThreshold;
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.fileMetadataProvider = requireNonNull(fileMetadataProvider, "fileMetadataProvider is null");
     }
 
     public static Properties stripUnnecessaryProperties(Properties schema)
@@ -181,6 +189,7 @@ public class OrcPageSourceFactory
             long start,
             long length,
             long estimatedFileSize,
+            long fileModifiedTime,
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -208,6 +217,7 @@ public class OrcPageSourceFactory
                 start,
                 length,
                 estimatedFileSize,
+                fileModifiedTime,
                 readerColumnHandles,
                 columns,
                 isUseOrcColumnNames(session),
@@ -238,6 +248,7 @@ public class OrcPageSourceFactory
             long start,
             long length,
             long estimatedFileSize,
+            long fileModifiedTime,
             List<HiveColumnHandle> columns,
             List<HiveColumnHandle> projections,
             boolean useOrcColumnNames,
@@ -279,7 +290,7 @@ public class OrcPageSourceFactory
 
         AggregatedMemoryContext memoryUsage = newSimpleAggregatedMemoryContext();
         try {
-            Optional<OrcReader> optionalOrcReader = OrcReader.createOrcReader(orcDataSource, options);
+            Optional<OrcReader> optionalOrcReader = OrcReader.createOrcReader(Optional.of(new FileStatusInfo(fileModifiedTime)), orcDataSource, options, fileMetadataProvider);
             if (optionalOrcReader.isEmpty()) {
                 return new EmptyPageSource();
             }
@@ -405,7 +416,7 @@ public class OrcPageSourceFactory
             Optional<OrcDeletedRows> deletedRows = acidInfo.map(info ->
                     new OrcDeletedRows(
                             path.getName(),
-                            new OrcDeleteDeltaPageSourceFactory(options, stats),
+                            new OrcDeleteDeltaPageSourceFactory(Optional.of(new FileStatusInfo(fileModifiedTime)), options, stats, fileMetadataProvider),
                             identity,
                             fileSystemFactory,
                             info,
@@ -415,6 +426,7 @@ public class OrcPageSourceFactory
             Optional<Long> originalFileRowId = acidInfo
                     .filter(OrcPageSourceFactory::hasOriginalFiles)
                     // TODO reduce number of file footer accesses. Currently this is quadratic to the number of original files.
+                    //      leverage caching metadata provider
                     .map(info -> OriginalFilesUtils.getPrecedingRowCount(
                             acidInfo.get().getOriginalFiles(),
                             path,

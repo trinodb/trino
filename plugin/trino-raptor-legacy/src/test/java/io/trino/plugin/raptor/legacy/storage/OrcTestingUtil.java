@@ -21,6 +21,7 @@ import io.trino.orc.OrcPredicate;
 import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
+import io.trino.orc.StorageOrcFileMetadataProvider;
 import io.trino.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
@@ -28,6 +29,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -54,7 +56,7 @@ final class OrcTestingUtil
     public static OrcRecordReader createReader(OrcDataSource dataSource, List<Long> columnIds, List<Type> types)
             throws IOException
     {
-        OrcReader orcReader = OrcReader.createOrcReader(dataSource, READER_OPTIONS)
+        OrcReader orcReader = OrcReader.createOrcReader(Optional.empty(), dataSource, READER_OPTIONS, StorageOrcFileMetadataProvider.INSTANCE)
                 .orElseThrow(() -> new RuntimeException("File is empty"));
 
         List<String> columnNames = orcReader.getColumnNames();

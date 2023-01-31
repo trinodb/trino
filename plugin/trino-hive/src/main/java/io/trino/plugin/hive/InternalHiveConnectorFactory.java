@@ -115,6 +115,7 @@ public final class InternalHiveConnectorFactory
                     new HiveGcsModule(),
                     new HiveAzureModule(),
                     new HiveCosModule(),
+                    new OrcCacheModule(),
                     conditionalModule(RubixEnabledConfig.class, RubixEnabledConfig::isCacheEnabled, new RubixModule()),
                     new HiveMetastoreModule(metastore),
                     new HiveSecurityModule(),

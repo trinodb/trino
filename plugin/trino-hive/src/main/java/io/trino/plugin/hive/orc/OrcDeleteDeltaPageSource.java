@@ -16,11 +16,13 @@ package io.trino.plugin.hive.orc;
 import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.orc.FileStatusInfo;
 import io.trino.orc.NameBasedFieldMapper;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcDataSourceId;
+import io.trino.orc.OrcFileMetadataProvider;
 import io.trino.orc.OrcPredicate;
 import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
@@ -72,9 +74,11 @@ public class OrcDeleteDeltaPageSource
     private boolean closed;
 
     public static Optional<ConnectorPageSource> createOrcDeleteDeltaPageSource(
+            Optional<FileStatusInfo> fileStatusInfo,
             TrinoInputFile inputFile,
             OrcReaderOptions options,
-            FileFormatDataSourceStats stats)
+            FileFormatDataSourceStats stats,
+            OrcFileMetadataProvider fileMetadataProvider)
     {
         OrcDataSource orcDataSource;
         String path = inputFile.location();
@@ -95,7 +99,7 @@ public class OrcDeleteDeltaPageSource
         }
 
         try {
-            Optional<OrcReader> orcReader = createOrcReader(orcDataSource, options);
+            Optional<OrcReader> orcReader = createOrcReader(fileStatusInfo, orcDataSource, options, fileMetadataProvider);
             if (orcReader.isPresent()) {
                 return Optional.of(new OrcDeleteDeltaPageSource(path, inputFile.length(), orcReader.get(), orcDataSource, stats));
             }

@@ -16,6 +16,7 @@ package io.trino.plugin.hive.orc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.orc.StorageOrcFileMetadataProvider;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -80,7 +81,8 @@ public class TestOrcPageSourceFactory
             new OrcReaderConfig(),
             new HdfsFileSystemFactory(HDFS_ENVIRONMENT),
             new FileFormatDataSourceStats(),
-            new HiveConfig());
+            new HiveConfig(),
+            StorageOrcFileMetadataProvider.INSTANCE);
 
     @Test
     public void testFullFileRead()
@@ -237,6 +239,7 @@ public class TestOrcPageSourceFactory
                 0,
                 fileSize,
                 fileSize,
+                0,
                 createSchema(),
                 columnHandles,
                 tupleDomain,
