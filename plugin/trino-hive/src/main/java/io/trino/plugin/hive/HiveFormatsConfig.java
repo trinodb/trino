@@ -22,6 +22,7 @@ public class HiveFormatsConfig
     private boolean csvNativeWriterEnabled = true;
     private boolean jsonNativeReaderEnabled = true;
     private boolean jsonNativeWriterEnabled = true;
+    private boolean regexNativeReaderEnabled = true;
 
     public boolean isCsvNativeReaderEnabled()
     {
@@ -72,6 +73,19 @@ public class HiveFormatsConfig
     public HiveFormatsConfig setJsonNativeWriterEnabled(boolean jsonNativeWriterEnabled)
     {
         this.jsonNativeWriterEnabled = jsonNativeWriterEnabled;
+        return this;
+    }
+
+    public boolean isRegexNativeReaderEnabled()
+    {
+        return regexNativeReaderEnabled;
+    }
+
+    @Config("regex.native-reader.enabled")
+    @ConfigDescription("Use native REGEX reader")
+    public HiveFormatsConfig setRegexNativeReaderEnabled(boolean regexNativeReaderEnabled)
+    {
+        this.regexNativeReaderEnabled = regexNativeReaderEnabled;
         return this;
     }
 }
