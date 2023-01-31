@@ -32,7 +32,11 @@ public class TestHiveFormatsConfig
                 .setCsvNativeWriterEnabled(true)
                 .setJsonNativeReaderEnabled(true)
                 .setJsonNativeWriterEnabled(true)
-                .setRegexNativeReaderEnabled(true));
+                .setRegexNativeReaderEnabled(true)
+                .setTextFileNativeReaderEnabled(true)
+                .setTextFileNativeWriterEnabled(true)
+                .setSequenceFileNativeReaderEnabled(true)
+                .setSequenceFileNativeWriterEnabled(true));
     }
 
     @Test
@@ -44,6 +48,10 @@ public class TestHiveFormatsConfig
                 .put("json.native-reader.enabled", "false")
                 .put("json.native-writer.enabled", "false")
                 .put("regex.native-reader.enabled", "false")
+                .put("text-file.native-reader.enabled", "false")
+                .put("text-file.native-writer.enabled", "false")
+                .put("sequence-file.native-reader.enabled", "false")
+                .put("sequence-file.native-writer.enabled", "false")
                 .buildOrThrow();
 
         HiveFormatsConfig expected = new HiveFormatsConfig()
@@ -51,7 +59,11 @@ public class TestHiveFormatsConfig
                 .setCsvNativeWriterEnabled(false)
                 .setJsonNativeReaderEnabled(false)
                 .setJsonNativeWriterEnabled(false)
-                .setRegexNativeReaderEnabled(false);
+                .setRegexNativeReaderEnabled(false)
+                .setTextFileNativeReaderEnabled(false)
+                .setTextFileNativeWriterEnabled(false)
+                .setSequenceFileNativeReaderEnabled(false)
+                .setSequenceFileNativeWriterEnabled(false);
 
         assertFullMapping(properties, expected);
     }

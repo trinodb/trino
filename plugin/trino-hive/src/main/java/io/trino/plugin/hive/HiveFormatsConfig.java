@@ -23,6 +23,10 @@ public class HiveFormatsConfig
     private boolean jsonNativeReaderEnabled = true;
     private boolean jsonNativeWriterEnabled = true;
     private boolean regexNativeReaderEnabled = true;
+    private boolean textFileNativeReaderEnabled = true;
+    private boolean textFileNativeWriterEnabled = true;
+    private boolean sequenceFileNativeReaderEnabled = true;
+    private boolean sequenceFileNativeWriterEnabled = true;
 
     public boolean isCsvNativeReaderEnabled()
     {
@@ -86,6 +90,58 @@ public class HiveFormatsConfig
     public HiveFormatsConfig setRegexNativeReaderEnabled(boolean regexNativeReaderEnabled)
     {
         this.regexNativeReaderEnabled = regexNativeReaderEnabled;
+        return this;
+    }
+
+    public boolean isTextFileNativeReaderEnabled()
+    {
+        return textFileNativeReaderEnabled;
+    }
+
+    @Config("text-file.native-reader.enabled")
+    @ConfigDescription("Use native text file reader")
+    public HiveFormatsConfig setTextFileNativeReaderEnabled(boolean textFileNativeReaderEnabled)
+    {
+        this.textFileNativeReaderEnabled = textFileNativeReaderEnabled;
+        return this;
+    }
+
+    public boolean isTextFileNativeWriterEnabled()
+    {
+        return textFileNativeWriterEnabled;
+    }
+
+    @Config("text-file.native-writer.enabled")
+    @ConfigDescription("Use native text file writer")
+    public HiveFormatsConfig setTextFileNativeWriterEnabled(boolean textFileNativeWriterEnabled)
+    {
+        this.textFileNativeWriterEnabled = textFileNativeWriterEnabled;
+        return this;
+    }
+
+    public boolean isSequenceFileNativeReaderEnabled()
+    {
+        return sequenceFileNativeReaderEnabled;
+    }
+
+    @Config("sequence-file.native-reader.enabled")
+    @ConfigDescription("Use native sequence file reader")
+    public HiveFormatsConfig setSequenceFileNativeReaderEnabled(boolean sequenceFileNativeReaderEnabled)
+    {
+        this.sequenceFileNativeReaderEnabled = sequenceFileNativeReaderEnabled;
+        return this;
+    }
+
+    public boolean isSequenceFileNativeWriterEnabled()
+    {
+        return sequenceFileNativeWriterEnabled;
+    }
+
+    @Config("sequence-file.native-writer.enabled")
+    @ConfigDescription("Use native sequence file writer")
+    public HiveFormatsConfig setSequenceFileNativeWriterEnabled(boolean sequenceFileNativeWriterEnabled)
+    {
+        this.sequenceFileNativeWriterEnabled = sequenceFileNativeWriterEnabled;
         return this;
     }
 }

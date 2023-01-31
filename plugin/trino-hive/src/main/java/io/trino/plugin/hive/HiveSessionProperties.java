@@ -66,6 +66,10 @@ public final class HiveSessionProperties
     private static final String JSON_NATIVE_READER_ENABLED = "json_native_reader_enabled";
     private static final String JSON_NATIVE_WRITER_ENABLED = "json_native_writer_enabled";
     private static final String REGEX_NATIVE_READER_ENABLED = "regex_native_reader_enabled";
+    private static final String TEXT_FILE_NATIVE_READER_ENABLED = "text_file_native_reader_enabled";
+    private static final String TEXT_FILE_NATIVE_WRITER_ENABLED = "text_file_native_writer_enabled";
+    private static final String SEQUENCE_FILE_NATIVE_READER_ENABLED = "sequence_file_native_reader_enabled";
+    private static final String SEQUENCE_FILE_NATIVE_WRITER_ENABLED = "sequence_file_native_writer_enabled";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
@@ -219,6 +223,26 @@ public final class HiveSessionProperties
                         REGEX_NATIVE_READER_ENABLED,
                         "Use native REGEX reader",
                         hiveFormatsConfig.isRegexNativeReaderEnabled(),
+                        false),
+                booleanProperty(
+                        TEXT_FILE_NATIVE_READER_ENABLED,
+                        "Use native text file reader",
+                        hiveFormatsConfig.isTextFileNativeReaderEnabled(),
+                        false),
+                booleanProperty(
+                        TEXT_FILE_NATIVE_WRITER_ENABLED,
+                        "Use native text file writer",
+                        hiveFormatsConfig.isTextFileNativeWriterEnabled(),
+                        false),
+                booleanProperty(
+                        SEQUENCE_FILE_NATIVE_READER_ENABLED,
+                        "Use native sequence file reader",
+                        hiveFormatsConfig.isSequenceFileNativeReaderEnabled(),
+                        false),
+                booleanProperty(
+                        SEQUENCE_FILE_NATIVE_WRITER_ENABLED,
+                        "Use native sequence file writer",
+                        hiveFormatsConfig.isSequenceFileNativeWriterEnabled(),
                         false),
                 booleanProperty(
                         ORC_BLOOM_FILTERS_ENABLED,
@@ -649,6 +673,26 @@ public final class HiveSessionProperties
     public static boolean isRegexNativeReaderEnabled(ConnectorSession session)
     {
         return session.getProperty(REGEX_NATIVE_READER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isTextFileNativeReaderEnabled(ConnectorSession session)
+    {
+        return session.getProperty(TEXT_FILE_NATIVE_READER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isTextFileNativeWriterEnabled(ConnectorSession session)
+    {
+        return session.getProperty(TEXT_FILE_NATIVE_WRITER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isSequenceFileNativeReaderEnabled(ConnectorSession session)
+    {
+        return session.getProperty(SEQUENCE_FILE_NATIVE_READER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isSequenceFileNativeWriterEnabled(ConnectorSession session)
+    {
+        return session.getProperty(SEQUENCE_FILE_NATIVE_WRITER_ENABLED, Boolean.class);
     }
 
     public static boolean isOrcBloomFiltersEnabled(ConnectorSession session)
