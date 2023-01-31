@@ -29,7 +29,9 @@ public class TestHiveFormatsConfig
     {
         assertRecordedDefaults(recordDefaults(HiveFormatsConfig.class)
                 .setCsvNativeReaderEnabled(true)
-                .setCsvNativeWriterEnabled(true));
+                .setCsvNativeWriterEnabled(true)
+                .setJsonNativeReaderEnabled(true)
+                .setJsonNativeWriterEnabled(true));
     }
 
     @Test
@@ -38,11 +40,15 @@ public class TestHiveFormatsConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("csv.native-reader.enabled", "false")
                 .put("csv.native-writer.enabled", "false")
+                .put("json.native-reader.enabled", "false")
+                .put("json.native-writer.enabled", "false")
                 .buildOrThrow();
 
         HiveFormatsConfig expected = new HiveFormatsConfig()
                 .setCsvNativeReaderEnabled(false)
-                .setCsvNativeWriterEnabled(false);
+                .setCsvNativeWriterEnabled(false)
+                .setJsonNativeReaderEnabled(false)
+                .setJsonNativeWriterEnabled(false);
 
         assertFullMapping(properties, expected);
     }

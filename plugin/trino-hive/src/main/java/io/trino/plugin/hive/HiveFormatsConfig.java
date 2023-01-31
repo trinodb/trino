@@ -20,6 +20,8 @@ public class HiveFormatsConfig
 {
     private boolean csvNativeReaderEnabled = true;
     private boolean csvNativeWriterEnabled = true;
+    private boolean jsonNativeReaderEnabled = true;
+    private boolean jsonNativeWriterEnabled = true;
 
     public boolean isCsvNativeReaderEnabled()
     {
@@ -44,6 +46,32 @@ public class HiveFormatsConfig
     public HiveFormatsConfig setCsvNativeWriterEnabled(boolean csvNativeWriterEnabled)
     {
         this.csvNativeWriterEnabled = csvNativeWriterEnabled;
+        return this;
+    }
+
+    public boolean isJsonNativeReaderEnabled()
+    {
+        return jsonNativeReaderEnabled;
+    }
+
+    @Config("json.native-reader.enabled")
+    @ConfigDescription("Use native JSON reader")
+    public HiveFormatsConfig setJsonNativeReaderEnabled(boolean jsonNativeReaderEnabled)
+    {
+        this.jsonNativeReaderEnabled = jsonNativeReaderEnabled;
+        return this;
+    }
+
+    public boolean isJsonNativeWriterEnabled()
+    {
+        return jsonNativeWriterEnabled;
+    }
+
+    @Config("json.native-writer.enabled")
+    @ConfigDescription("Use native JSON writer")
+    public HiveFormatsConfig setJsonNativeWriterEnabled(boolean jsonNativeWriterEnabled)
+    {
+        this.jsonNativeWriterEnabled = jsonNativeWriterEnabled;
         return this;
     }
 }
