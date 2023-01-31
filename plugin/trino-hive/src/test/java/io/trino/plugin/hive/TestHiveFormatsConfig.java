@@ -31,7 +31,8 @@ public class TestHiveFormatsConfig
                 .setCsvNativeReaderEnabled(true)
                 .setCsvNativeWriterEnabled(true)
                 .setJsonNativeReaderEnabled(true)
-                .setJsonNativeWriterEnabled(true));
+                .setJsonNativeWriterEnabled(true)
+                .setRegexNativeReaderEnabled(true));
     }
 
     @Test
@@ -42,13 +43,15 @@ public class TestHiveFormatsConfig
                 .put("csv.native-writer.enabled", "false")
                 .put("json.native-reader.enabled", "false")
                 .put("json.native-writer.enabled", "false")
+                .put("regex.native-reader.enabled", "false")
                 .buildOrThrow();
 
         HiveFormatsConfig expected = new HiveFormatsConfig()
                 .setCsvNativeReaderEnabled(false)
                 .setCsvNativeWriterEnabled(false)
                 .setJsonNativeReaderEnabled(false)
-                .setJsonNativeWriterEnabled(false);
+                .setJsonNativeWriterEnabled(false)
+                .setRegexNativeReaderEnabled(false);
 
         assertFullMapping(properties, expected);
     }

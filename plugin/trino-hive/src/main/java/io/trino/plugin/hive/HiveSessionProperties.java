@@ -65,6 +65,7 @@ public final class HiveSessionProperties
     private static final String CSV_NATIVE_WRITER_ENABLED = "csv_native_writer_enabled";
     private static final String JSON_NATIVE_READER_ENABLED = "json_native_reader_enabled";
     private static final String JSON_NATIVE_WRITER_ENABLED = "json_native_writer_enabled";
+    private static final String REGEX_NATIVE_READER_ENABLED = "regex_native_reader_enabled";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
@@ -213,6 +214,11 @@ public final class HiveSessionProperties
                         JSON_NATIVE_WRITER_ENABLED,
                         "Use native JSON writer",
                         hiveFormatsConfig.isJsonNativeWriterEnabled(),
+                        false),
+                booleanProperty(
+                        REGEX_NATIVE_READER_ENABLED,
+                        "Use native REGEX reader",
+                        hiveFormatsConfig.isRegexNativeReaderEnabled(),
                         false),
                 booleanProperty(
                         ORC_BLOOM_FILTERS_ENABLED,
@@ -638,6 +644,11 @@ public final class HiveSessionProperties
     public static boolean isJsonNativeWriterEnabled(ConnectorSession session)
     {
         return session.getProperty(JSON_NATIVE_WRITER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isRegexNativeReaderEnabled(ConnectorSession session)
+    {
+        return session.getProperty(REGEX_NATIVE_READER_ENABLED, Boolean.class);
     }
 
     public static boolean isOrcBloomFiltersEnabled(ConnectorSession session)

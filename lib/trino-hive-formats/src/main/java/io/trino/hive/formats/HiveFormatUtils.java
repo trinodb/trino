@@ -219,7 +219,7 @@ public final class HiveFormatUtils
         return parseHiveTimestamp(value);
     }
 
-    private static DecodedTimestamp parseHiveTimestamp(String value)
+    public static DecodedTimestamp parseHiveTimestamp(String value)
     {
         // Otherwise try default timestamp parsing
         // default parser uses Java util time
