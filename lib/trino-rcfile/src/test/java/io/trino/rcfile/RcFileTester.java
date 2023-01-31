@@ -31,7 +31,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -678,10 +677,10 @@ public class RcFileTester
             else if (BIGINT.equals(type)) {
                 type.writeLong(blockBuilder, ((Number) value).longValue());
             }
-            else if (Decimals.isShortDecimal(type)) {
+            else if (type instanceof DecimalType decimalType && decimalType.isShort()) {
                 type.writeLong(blockBuilder, ((SqlDecimal) value).toBigDecimal().unscaledValue().longValue());
             }
-            else if (Decimals.isLongDecimal(type)) {
+            else if (type instanceof DecimalType decimalType && !decimalType.isShort()) {
                 type.writeObject(blockBuilder, Int128.valueOf(((SqlDecimal) value).toBigDecimal().unscaledValue()));
             }
             else if (REAL.equals(type)) {
