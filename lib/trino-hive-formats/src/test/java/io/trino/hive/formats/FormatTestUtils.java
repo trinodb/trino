@@ -14,8 +14,13 @@
 package io.trino.hive.formats;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.hive.formats.compression.CompressionKind;
+import io.trino.hive.formats.line.Column;
+import io.trino.hive.formats.line.LineBuffer;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -69,6 +74,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.joda.time.DateTimeZone;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -81,6 +87,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -94,6 +101,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static java.lang.Math.max;
 import static java.time.ZoneOffset.UTC;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
@@ -428,6 +436,17 @@ public final class FormatTestUtils
         }
     }
 
+    public static Page toSingleRowPage(List<Column> columns, List<?> expectedValues)
+    {
+        PageBuilder pageBuilder = new PageBuilder(columns.stream().map(Column::type).collect(toImmutableList()));
+        pageBuilder.declarePosition();
+        for (int index = 0; index < columns.size(); index++) {
+            writeTrinoValue(columns.get(index).type(), pageBuilder.getBlockBuilder(index), expectedValues.get(index));
+        }
+        Page page = pageBuilder.build();
+        return page;
+    }
+
     public static void writeTrinoValue(Type type, BlockBuilder blockBuilder, Object value)
     {
         if (value == null) {
@@ -597,5 +616,20 @@ public final class FormatTestUtils
             return newStruct;
         }
         throw new IllegalArgumentException("unsupported type: " + type);
+    }
+
+    public static LineBuffer createLineBuffer(String value)
+            throws IOException
+    {
+        return createLineBuffer(utf8Slice(value));
+    }
+
+    public static LineBuffer createLineBuffer(Slice value)
+            throws IOException
+    {
+        int bufferSize = max(1, value.length());
+        LineBuffer lineBuffer = new LineBuffer(bufferSize, bufferSize);
+        lineBuffer.write(value.getInput(), value.length());
+        return lineBuffer;
     }
 }
