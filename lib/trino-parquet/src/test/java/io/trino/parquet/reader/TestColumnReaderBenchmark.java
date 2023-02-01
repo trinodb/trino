@@ -108,4 +108,16 @@ public class TestColumnReaderBenchmark
             benchmark.read();
         }
     }
+
+    @Test
+    public void testUuidColumnReaderBenchmark()
+            throws IOException
+    {
+        for (ParquetEncoding encoding : ImmutableList.of(PLAIN, DELTA_BYTE_ARRAY)) {
+            BenchmarkUuidColumnReader benchmark = new BenchmarkUuidColumnReader();
+            benchmark.encoding = encoding;
+            benchmark.setup();
+            benchmark.read();
+        }
+    }
 }
