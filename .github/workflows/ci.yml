@@ -110,7 +110,7 @@ jobs:
         id: set-matrix
         run: |
           # The output from rev-list ends with a newline, so we have to filter out index -1 in jq since it's an empty string
-          JQ_PIPELINE='split("\n") | .[0:-1] | map({base_ref: "${{ github.event.pull_request.base.ref }}", commit: .}) | select(length > 0) | {include: .}'
+          JQ_PIPELINE='split("\n") | .[0:-1] | map({commit: ., base_ref: "${{ github.event.pull_request.base.ref }}"}) | select(length > 0) | {include: .}'
 
           # Make sure the PR branch contains the compile-commit composite job
           if git merge-base --is-ancestor $( git rev-list HEAD -- .github/actions/compile-commit/action.yml | tail -n 1 ) ${{ github.event.pull_request.head.sha }}
