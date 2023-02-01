@@ -6375,6 +6375,8 @@ public abstract class BaseIcebergConnectorTest
             case "bigint -> integer":
             case "decimal(5,3) -> decimal(5,2)":
             case "varchar -> char(20)":
+            case "time(6) -> time(3)":
+            case "timestamp(6) -> timestamp(3)":
             case "array(integer) -> array(bigint)":
                 // Iceberg allows updating column types if the update is safe. Safe updates are:
                 // - int to bigint
@@ -6393,7 +6395,9 @@ public abstract class BaseIcebergConnectorTest
     @Override
     protected void verifySetColumnTypeFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching(".*(Cannot change column type|not supported for Iceberg|Not a primitive type|Cannot change type ).*");
+        assertThat(e).hasMessageMatching(".*(Failed to set column type: Cannot change (column type:|type from .* to )" +
+                "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
+                "|Type not supported for Iceberg: char\\(20\\)).*");
     }
 
     private Session prepareCleanUpSession()
