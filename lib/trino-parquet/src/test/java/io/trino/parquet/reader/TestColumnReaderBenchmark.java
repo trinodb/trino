@@ -22,9 +22,22 @@ import java.io.IOException;
 import static io.trino.parquet.ParquetEncoding.DELTA_BINARY_PACKED;
 import static io.trino.parquet.ParquetEncoding.DELTA_BYTE_ARRAY;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
+import static io.trino.parquet.ParquetEncoding.RLE;
 
 public class TestColumnReaderBenchmark
 {
+    @Test
+    public void testBooleanColumnReaderBenchmark()
+            throws IOException
+    {
+        for (ParquetEncoding encoding : ImmutableList.of(PLAIN, RLE)) {
+            BenchmarkBooleanColumnReader benchmark = new BenchmarkBooleanColumnReader();
+            benchmark.encoding = encoding;
+            benchmark.setup();
+            benchmark.read();
+        }
+    }
+
     @Test
     public void testByteColumnReaderBenchmark()
             throws IOException
