@@ -15,21 +15,27 @@ package io.trino.parquet.reader;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
 import io.trino.spi.type.DecimalType;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesWriter;
+import org.apache.parquet.column.values.deltastrings.DeltaByteArrayWriter;
 import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
+import org.openjdk.jmh.annotations.Param;
 
 import java.util.Random;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.trino.parquet.ParquetEncoding.DELTA_BYTE_ARRAY;
+import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.reader.TestData.randomBigInteger;
+import static java.lang.String.format;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 
 public class BenchmarkLongDecimalColumnReader
@@ -38,6 +44,12 @@ public class BenchmarkLongDecimalColumnReader
     private static final int LENGTH = 2 * SIZE_OF_LONG;
 
     private final Random random = new Random(1);
+
+    @Param({
+            "PLAIN",
+            "DELTA_BYTE_ARRAY",
+    })
+    public ParquetEncoding encoding;
 
     @Override
     protected PrimitiveField createPrimitiveField()
@@ -56,7 +68,13 @@ public class BenchmarkLongDecimalColumnReader
     @Override
     protected ValuesWriter createValuesWriter(int bufferSize)
     {
-        return new FixedLenByteArrayPlainValuesWriter(LENGTH, bufferSize, bufferSize, HeapByteBufferAllocator.getInstance());
+        if (encoding.equals(PLAIN)) {
+            return new FixedLenByteArrayPlainValuesWriter(LENGTH, bufferSize, bufferSize, HeapByteBufferAllocator.getInstance());
+        }
+        else if (encoding.equals(DELTA_BYTE_ARRAY)) {
+            return new DeltaByteArrayWriter(bufferSize, bufferSize, HeapByteBufferAllocator.getInstance());
+        }
+        throw new UnsupportedOperationException(format("encoding %s is not supported", encoding));
     }
 
     @Override

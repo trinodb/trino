@@ -20,6 +20,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 
 import static io.trino.parquet.ParquetEncoding.DELTA_BINARY_PACKED;
+import static io.trino.parquet.ParquetEncoding.DELTA_BYTE_ARRAY;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 
 public class TestColumnReaderBenchmark
@@ -93,6 +94,18 @@ public class TestColumnReaderBenchmark
                 benchmark.setup();
                 benchmark.read();
             }
+        }
+    }
+
+    @Test
+    public void testLongDecimalColumnReaderBenchmark()
+            throws IOException
+    {
+        for (ParquetEncoding encoding : ImmutableList.of(PLAIN, DELTA_BYTE_ARRAY)) {
+            BenchmarkLongDecimalColumnReader benchmark = new BenchmarkLongDecimalColumnReader();
+            benchmark.encoding = encoding;
+            benchmark.setup();
+            benchmark.read();
         }
     }
 }
