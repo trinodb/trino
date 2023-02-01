@@ -13,21 +13,28 @@
  */
 package io.trino.parquet.reader.decoders;
 
+import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.UuidType;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.math.BigInteger;
+import java.nio.ByteOrder;
 import java.util.OptionalInt;
 import java.util.Random;
+import java.util.UUID;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -61,7 +68,8 @@ public final class TestFixedWidthByteArrayValueDecoders
                 generateShortDecimalTests(RLE_DICTIONARY),
                 generateLongDecimalTests(PLAIN),
                 generateLongDecimalTests(DELTA_BYTE_ARRAY),
-                generateLongDecimalTests(RLE_DICTIONARY));
+                generateLongDecimalTests(RLE_DICTIONARY),
+                generateUuidTests());
     }
 
     private static Object[][] generateShortDecimalTests(ParquetEncoding encoding)
@@ -87,6 +95,16 @@ public final class TestFixedWidthByteArrayValueDecoders
                 .toArray(Object[][]::new);
     }
 
+    private static Object[][] generateUuidTests()
+    {
+        return ImmutableList.of(PLAIN, DELTA_BYTE_ARRAY).stream()
+                .map(encoding -> new Object[] {
+                        createUuidTestType(),
+                        encoding,
+                        new UuidInputProvider()})
+                .toArray(Object[][]::new);
+    }
+
     private static TestType<long[]> createShortDecimalTestType(int typeLength, int precision)
     {
         DecimalType decimalType = DecimalType.createDecimalType(precision, 2);
@@ -107,6 +125,16 @@ public final class TestFixedWidthByteArrayValueDecoders
                 createField(FIXED_LEN_BYTE_ARRAY, OptionalInt.of(typeLength), decimalType),
                 ValueDecoders::getFixedWidthLongDecimalDecoder,
                 LongDecimalApacheParquetValueDecoder::new,
+                INT128_ADAPTER,
+                (actual, expected) -> assertThat(actual).isEqualTo(expected));
+    }
+
+    private static TestType<long[]> createUuidTestType()
+    {
+        return new TestType<>(
+                createField(FIXED_LEN_BYTE_ARRAY, OptionalInt.of(16), UuidType.UUID),
+                ValueDecoders::getUuidDecoder,
+                UuidApacheParquetValueDecoder::new,
                 INT128_ADAPTER,
                 (actual, expected) -> assertThat(actual).isEqualTo(expected));
     }
@@ -155,6 +183,30 @@ public final class TestFixedWidthByteArrayValueDecoders
                 return "fixed_len_byte_array(" + typeLength + ")";
             }
         };
+    }
+
+    private static class UuidInputProvider
+            implements InputDataProvider
+    {
+        @Override
+        public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
+        {
+            byte[][] bytes = new byte[dataSize][];
+            for (int i = 0; i < dataSize; i++) {
+                UUID uuid = UUID.randomUUID();
+                bytes[i] = Slices.wrappedLongArray(
+                                uuid.getMostSignificantBits(),
+                                uuid.getLeastSignificantBits())
+                        .getBytes();
+            }
+            return writeBytes(valuesWriter, bytes);
+        }
+
+        @Override
+        public String toString()
+        {
+            return "uuid";
+        }
     }
 
     private static DataBuffer writeBytes(ValuesWriter valuesWriter, byte[][] input)
@@ -240,6 +292,42 @@ public final class TestFixedWidthByteArrayValueDecoders
                 Int128 value = Int128.fromBigEndian(delegate.readBytes().getBytes());
                 values[currentOutputOffset] = value.getHigh();
                 values[currentOutputOffset + 1] = value.getLow();
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
+    }
+
+    private static final class UuidApacheParquetValueDecoder
+            implements ValueDecoder<long[]>
+    {
+        private static final VarHandle LONG_ARRAY_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
+
+        private final ValuesReader delegate;
+
+        private UuidApacheParquetValueDecoder(ValuesReader delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            initialize(input, delegate);
+        }
+
+        @Override
+        public void read(long[] values, int offset, int length)
+        {
+            int endOffset = (offset + length) * 2;
+            for (int currentOutputOffset = offset * 2; currentOutputOffset < endOffset; currentOutputOffset += 2) {
+                byte[] data = delegate.readBytes().getBytes();
+                values[currentOutputOffset] = (long) LONG_ARRAY_HANDLE.get(data, 0);
+                values[currentOutputOffset + 1] = (long) LONG_ARRAY_HANDLE.get(data, Long.BYTES);
             }
         }
 
