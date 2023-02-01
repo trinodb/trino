@@ -611,13 +611,13 @@ public class DynamoDbJdbcClient
 
         sortKeyMetadata.ifPresent(metadata ->
                 templateColumns.add(new RsdColumnDefinition(
-                        sortKeyMetadata.get().getName(),
-                        sortKeyMetadata.get().getType() instanceof VarcharType ? "string" : sortKeyMetadata.get().getType().getTypeSignature().toString(),
+                        metadata.getName(),
+                        metadata.getType() instanceof VarcharType ? "string" : metadata.getType().getTypeSignature().toString(),
                         true,
-                        getColumnSize(sortKeyMetadata.get()),
-                        sortKeyMetadata.get().getComment(),
+                        getColumnSize(metadata),
+                        metadata.getComment(),
                         "RANGE",
-                        getDynamoDbTypeFromSql(sortKeyMetadata.get().getType().getDisplayName()))));
+                        getDynamoDbTypeFromSql(metadata.getType().getDisplayName()))));
 
         for (ColumnMetadata metadata : columns) {
             if (metadata.getName().equalsIgnoreCase(partitionKeyMetadata.getName()) ||
