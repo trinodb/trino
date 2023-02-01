@@ -722,6 +722,40 @@ public class TransformingValueDecoders
         return new LongToByteTransformDecoder(getShortDecimalDecoder(encoding, field));
     }
 
+    public static ValueDecoder<long[]> getDeltaUuidDecoder(ParquetEncoding encoding)
+    {
+        checkArgument(encoding.equals(DELTA_BYTE_ARRAY), "encoding %s is not DELTA_BYTE_ARRAY", encoding);
+        ValueDecoder<BinaryBuffer> delegate = new BinaryDeltaByteArrayDecoder();
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(long[] values, int offset, int length)
+            {
+                BinaryBuffer buffer = new BinaryBuffer(length);
+                delegate.read(buffer, 0, length);
+                SimpleSliceInputStream binaryInput = new SimpleSliceInputStream(buffer.asSlice());
+
+                int endOffset = (offset + length) * 2;
+                for (int outputOffset = offset * 2; outputOffset < endOffset; outputOffset += 2) {
+                    values[outputOffset] = binaryInput.readLong();
+                    values[outputOffset + 1] = binaryInput.readLong();
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
     private static class LongToIntTransformDecoder
             implements ValueDecoder<int[]>
     {
