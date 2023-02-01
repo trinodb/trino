@@ -24,13 +24,18 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
+import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.io.ParquetDecodingException;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.joda.time.DateTimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.parquet.ParquetEncoding.DELTA_BYTE_ARRAY;
 import static io.trino.parquet.ParquetReaderUtils.toByteExact;
 import static io.trino.parquet.ParquetReaderUtils.toShortExact;
+import static io.trino.parquet.ParquetTypeUtils.checkBytesFitInShortDecimal;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
+import static io.trino.parquet.reader.decoders.DeltaByteArrayDecoders.BinaryDeltaByteArrayDecoder;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getBinaryDecoder;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getInt32Decoder;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getInt96Decoder;
@@ -440,38 +445,20 @@ public class TransformingValueDecoders
 
     public static ValueDecoder<long[]> getBinaryLongDecimalDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
-        ValueDecoder<BinaryBuffer> delegate = getBinaryDecoder(encoding, field);
-        return new ValueDecoder<>()
-        {
-            @Override
-            public void init(SimpleSliceInputStream input)
-            {
-                delegate.init(input);
-            }
+        return new BinaryToLongDecimalTransformDecoder(getBinaryDecoder(encoding, field));
+    }
 
-            @Override
-            public void read(long[] values, int offset, int length)
-            {
-                BinaryBuffer buffer = new BinaryBuffer(length);
-                delegate.read(buffer, 0, length);
-                int[] offsets = buffer.getOffsets();
-                Slice binaryInput = buffer.asSlice();
-
-                for (int i = 0; i < length; i++) {
-                    int positionOffset = offsets[i];
-                    int positionLength = offsets[i + 1] - positionOffset;
-                    Int128 value = Int128.fromBigEndian(binaryInput.getBytes(positionOffset, positionLength));
-                    values[2 * (offset + i)] = value.getHigh();
-                    values[2 * (offset + i) + 1] = value.getLow();
-                }
-            }
-
-            @Override
-            public void skip(int n)
-            {
-                delegate.skip(n);
-            }
-        };
+    public static ValueDecoder<long[]> getDeltaFixedWidthLongDecimalDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        checkArgument(encoding.equals(DELTA_BYTE_ARRAY), "encoding %s is not DELTA_BYTE_ARRAY", encoding);
+        ColumnDescriptor descriptor = field.getDescriptor();
+        LogicalTypeAnnotation logicalTypeAnnotation = descriptor.getPrimitiveType().getLogicalTypeAnnotation();
+        checkArgument(
+                logicalTypeAnnotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation
+                        && decimalAnnotation.getPrecision() > Decimals.MAX_SHORT_PRECISION,
+                "Column %s is not a long decimal",
+                descriptor);
+        return new BinaryToLongDecimalTransformDecoder(new BinaryDeltaByteArrayDecoder());
     }
 
     public static ValueDecoder<long[]> getBinaryShortDecimalDecoder(ParquetEncoding encoding, PrimitiveField field)
@@ -502,6 +489,59 @@ public class TransformingValueDecoders
                     // No need for checkBytesFitInShortDecimal as the standard requires variable binary decimals
                     // to be stored in minimum possible number of bytes
                     values[offset + i] = getShortDecimalValue(inputBytes, positionOffset, positionLength);
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public static ValueDecoder<long[]> getDeltaFixedWidthShortDecimalDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        checkArgument(encoding.equals(DELTA_BYTE_ARRAY), "encoding %s is not DELTA_BYTE_ARRAY", encoding);
+        ColumnDescriptor descriptor = field.getDescriptor();
+        LogicalTypeAnnotation logicalTypeAnnotation = descriptor.getPrimitiveType().getLogicalTypeAnnotation();
+        checkArgument(
+                logicalTypeAnnotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation
+                        && decimalAnnotation.getPrecision() <= Decimals.MAX_SHORT_PRECISION,
+                "Column %s is not a short decimal",
+                descriptor);
+        int typeLength = descriptor.getPrimitiveType().getTypeLength();
+        checkArgument(typeLength > 0 && typeLength <= 16, "Expected column %s to have type length in range (1-16)", descriptor);
+        return new ValueDecoder<>()
+        {
+            private final ValueDecoder<BinaryBuffer> delegate = new BinaryDeltaByteArrayDecoder();
+
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(long[] values, int offset, int length)
+            {
+                BinaryBuffer buffer = new BinaryBuffer(length);
+                delegate.read(buffer, 0, length);
+
+                // Each position in FIXED_LEN_BYTE_ARRAY has fixed length
+                int bytesOffset = 0;
+                int bytesLength = typeLength;
+                if (typeLength > Long.BYTES) {
+                    bytesOffset = typeLength - Long.BYTES;
+                    bytesLength = Long.BYTES;
+                }
+
+                byte[] inputBytes = buffer.asSlice().byteArray();
+                int[] offsets = buffer.getOffsets();
+                for (int i = 0; i < length; i++) {
+                    int inputOffset = offsets[i];
+                    checkBytesFitInShortDecimal(inputBytes, inputOffset, bytesOffset, descriptor);
+                    values[offset + i] = getShortDecimalValue(inputBytes, inputOffset + bytesOffset, bytesLength);
                 }
             }
 
@@ -771,6 +811,46 @@ public class TransformingValueDecoders
             delegate.read(buffer, 0, length);
             for (int i = 0; i < length; i++) {
                 values[offset + i] = toByteExact(buffer[i]);
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
+    }
+
+    private static class BinaryToLongDecimalTransformDecoder
+            implements ValueDecoder<long[]>
+    {
+        private final ValueDecoder<BinaryBuffer> delegate;
+
+        private BinaryToLongDecimalTransformDecoder(ValueDecoder<BinaryBuffer> delegate)
+        {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            delegate.init(input);
+        }
+
+        @Override
+        public void read(long[] values, int offset, int length)
+        {
+            BinaryBuffer buffer = new BinaryBuffer(length);
+            delegate.read(buffer, 0, length);
+            int[] offsets = buffer.getOffsets();
+            Slice binaryInput = buffer.asSlice();
+
+            for (int i = 0; i < length; i++) {
+                int positionOffset = offsets[i];
+                int positionLength = offsets[i + 1] - positionOffset;
+                Int128 value = Int128.fromBigEndian(binaryInput.getBytes(positionOffset, positionLength));
+                values[2 * (offset + i)] = value.getHigh();
+                values[2 * (offset + i) + 1] = value.getLow();
             }
         }
 

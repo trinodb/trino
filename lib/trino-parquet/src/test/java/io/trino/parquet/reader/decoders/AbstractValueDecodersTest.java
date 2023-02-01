@@ -87,6 +87,7 @@ import static org.apache.parquet.column.values.dictionary.DictionaryValuesWriter
 import static org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainLongDictionaryValuesWriter;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 
 public abstract class AbstractValueDecodersTest
 {
@@ -390,7 +391,7 @@ public abstract class AbstractValueDecodersTest
             throw new IllegalArgumentException("Delta length byte array encoding writer is not supported for type " + typeName);
         }
         if (encoding.equals(DELTA_BYTE_ARRAY)) {
-            if (typeName.equals(BINARY)) {
+            if (typeName.equals(BINARY) || typeName.equals(FIXED_LEN_BYTE_ARRAY)) {
                 return new DeltaByteArrayWriter(MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
             }
             throw new IllegalArgumentException("Delta byte array encoding writer is not supported for type " + typeName);

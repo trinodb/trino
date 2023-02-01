@@ -15,28 +15,37 @@ package io.trino.parquet.reader.decoders;
 
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 
 import java.math.BigInteger;
 import java.util.OptionalInt;
 import java.util.Random;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.parquet.ParquetEncoding.DELTA_BYTE_ARRAY;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
+import static io.trino.parquet.ParquetTypeUtils.checkBytesFitInShortDecimal;
+import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.parquet.ParquetTypeUtils.paddingBigInteger;
 import static io.trino.parquet.reader.TestData.longToBytes;
 import static io.trino.parquet.reader.TestData.maxPrecision;
 import static io.trino.parquet.reader.TestData.unscaledRandomShortDecimalSupplier;
-import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.LongDecimalApacheParquetValueDecoder;
-import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.ShortDecimalApacheParquetValueDecoder;
-import static io.trino.parquet.reader.decoders.ValueDecoders.getFixedWidthShortDecimalDecoder;
 import static io.trino.parquet.reader.flat.Int128ColumnAdapter.INT128_ADAPTER;
 import static io.trino.parquet.reader.flat.LongColumnAdapter.LONG_ADAPTER;
 import static io.trino.testing.DataProviders.concat;
 import static java.lang.Math.min;
+import static java.util.Objects.requireNonNull;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -48,8 +57,10 @@ public final class TestFixedWidthByteArrayValueDecoders
     {
         return concat(
                 generateShortDecimalTests(PLAIN),
+                generateShortDecimalTests(DELTA_BYTE_ARRAY),
                 generateShortDecimalTests(RLE_DICTIONARY),
                 generateLongDecimalTests(PLAIN),
+                generateLongDecimalTests(DELTA_BYTE_ARRAY),
                 generateLongDecimalTests(RLE_DICTIONARY));
     }
 
@@ -153,5 +164,89 @@ public final class TestFixedWidthByteArrayValueDecoders
         }
 
         return getWrittenBuffer(valuesWriter);
+    }
+
+    private static final class ShortDecimalApacheParquetValueDecoder
+            implements ValueDecoder<long[]>
+    {
+        private final ValuesReader delegate;
+        private final ColumnDescriptor descriptor;
+        private final int typeLength;
+
+        private ShortDecimalApacheParquetValueDecoder(ValuesReader delegate, ColumnDescriptor descriptor)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            LogicalTypeAnnotation logicalTypeAnnotation = descriptor.getPrimitiveType().getLogicalTypeAnnotation();
+            checkArgument(
+                    logicalTypeAnnotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation
+                            && decimalAnnotation.getPrecision() <= Decimals.MAX_SHORT_PRECISION,
+                    "Column %s is not a short decimal",
+                    descriptor);
+            this.typeLength = descriptor.getPrimitiveType().getTypeLength();
+            checkArgument(typeLength > 0 && typeLength <= 16, "Expected column %s to have type length in range (1-16)", descriptor);
+            this.descriptor = descriptor;
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            initialize(input, delegate);
+        }
+
+        @Override
+        public void read(long[] values, int offset, int length)
+        {
+            int bytesOffset = 0;
+            int bytesLength = typeLength;
+            if (typeLength > Long.BYTES) {
+                bytesOffset = typeLength - Long.BYTES;
+                bytesLength = Long.BYTES;
+            }
+            for (int i = offset; i < offset + length; i++) {
+                byte[] bytes = delegate.readBytes().getBytes();
+                checkBytesFitInShortDecimal(bytes, 0, bytesOffset, descriptor);
+                values[i] = getShortDecimalValue(bytes, bytesOffset, bytesLength);
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
+    }
+
+    private static final class LongDecimalApacheParquetValueDecoder
+            implements ValueDecoder<long[]>
+    {
+        private final ValuesReader delegate;
+
+        private LongDecimalApacheParquetValueDecoder(ValuesReader delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            initialize(input, delegate);
+        }
+
+        @Override
+        public void read(long[] values, int offset, int length)
+        {
+            int endOffset = (offset + length) * 2;
+            for (int currentOutputOffset = offset * 2; currentOutputOffset < endOffset; currentOutputOffset += 2) {
+                Int128 value = Int128.fromBigEndian(delegate.readBytes().getBytes());
+                values[currentOutputOffset] = value.getHigh();
+                values[currentOutputOffset + 1] = value.getLow();
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
     }
 }
