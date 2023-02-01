@@ -22,6 +22,7 @@ import java.util.OptionalInt;
 import java.util.Random;
 
 import static io.trino.parquet.ParquetEncoding.PLAIN;
+import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.reader.TestData.generateMixedData;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.BooleanApacheParquetValueDecoder;
 import static io.trino.parquet.reader.flat.BooleanColumnAdapter.BOOLEAN_ADAPTER;
@@ -41,7 +42,7 @@ public final class TestBooleanValueDecoders
                         BooleanApacheParquetValueDecoder::new,
                         BOOLEAN_ADAPTER,
                         (actual, expected) -> assertThat(actual).isEqualTo(expected)),
-                ImmutableList.of(PLAIN),
+                ImmutableList.of(PLAIN, RLE),
                 BooleanInputProvider.values());
     }
 

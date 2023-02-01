@@ -165,7 +165,11 @@ public final class ValueDecoders
     {
         return switch (encoding) {
             case PLAIN -> new BooleanPlainValueDecoder();
-            case RLE, BIT_PACKED -> new BooleanApacheParquetValueDecoder(getApacheParquetReader(encoding, field));
+            case RLE -> new RleBitPackingHybridBooleanDecoder();
+            // BIT_PACKED is a deprecated encoding which should not be used anymore as per
+            // https://github.com/apache/parquet-format/blob/master/Encodings.md#bit-packed-deprecated-bit_packed--4
+            // An unoptimized decoder for this encoding is provided here for compatibility with old files or non-compliant writers
+            case BIT_PACKED -> new BooleanApacheParquetValueDecoder(getApacheParquetReader(encoding, field));
             default -> throw wrongEncoding(encoding, field);
         };
     }
