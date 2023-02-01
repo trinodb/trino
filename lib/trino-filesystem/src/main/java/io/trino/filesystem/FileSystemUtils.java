@@ -22,8 +22,8 @@ public final class FileSystemUtils
 
     public static FileSystem getRawFileSystem(FileSystem fileSystem)
     {
-        if (fileSystem instanceof FilterFileSystem) {
-            return getRawFileSystem(((FilterFileSystem) fileSystem).getRawFileSystem());
+        while (fileSystem instanceof FilterFileSystem wrapper) {
+            fileSystem = wrapper.getRawFileSystem();
         }
         return fileSystem;
     }
