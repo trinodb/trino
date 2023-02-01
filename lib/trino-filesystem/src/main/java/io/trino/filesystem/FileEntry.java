@@ -13,14 +13,52 @@
  */
 package io.trino.filesystem;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.Optional;
+
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Math.addExact;
+import static java.lang.Math.max;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
-public record FileEntry(String path, long length, long lastModified)
+public record FileEntry(String path, long length, long lastModified, Optional<List<BlockLocation>> blockLocations)
 {
     public FileEntry
     {
         checkArgument(length >= 0, "length is negative");
         requireNonNull(path, "path is null");
+        requireNonNull(blockLocations, "blockLocations is null");
+        blockLocations = blockLocations.map(locations -> validatedBlockLocations(locations, length));
+    }
+
+    public record BlockLocation(List<String> hosts, long offset, long length)
+    {
+        public BlockLocation
+        {
+            hosts = ImmutableList.copyOf(requireNonNull(hosts, "hosts is null"));
+            checkArgument(offset >= 0, "offset is negative");
+            checkArgument(length >= 0, "length is negative");
+        }
+    }
+
+    private static List<BlockLocation> validatedBlockLocations(List<BlockLocation> blockLocations, long length)
+    {
+        checkArgument(!blockLocations.isEmpty(), "blockLocations is empty");
+        blockLocations = blockLocations.stream()
+                .sorted(comparing(BlockLocation::offset))
+                .collect(toImmutableList());
+
+        long position = 0;
+        for (BlockLocation location : blockLocations) {
+            checkArgument(location.offset() <= position, "blockLocations has a gap");
+            position = max(position, addExact(location.offset(), location.length()));
+        }
+        checkArgument(position >= length, "blockLocations does not cover file");
+
+        return blockLocations;
     }
 }
