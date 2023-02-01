@@ -16,7 +16,6 @@ package io.trino.plugin.raptor.legacy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 
 import java.util.Objects;
@@ -34,8 +33,6 @@ public final class RaptorColumnHandle
 {
     // Generated rowId column for updates
     private static final long SHARD_ROW_ID_COLUMN_ID = -1;
-    private static final String SHARD_ROW_ID_COLUMN_NAME = "$shard_row_id";
-    private static final BigintType SHARD_ROW_ID_COLUMN_TYPE = BIGINT;
 
     public static final long SHARD_UUID_COLUMN_ID = -2;
     public static final String SHARD_UUID_COLUMN_NAME = "$shard_uuid";
@@ -109,11 +106,6 @@ public final class RaptorColumnHandle
         return Objects.hash(columnId);
     }
 
-    public boolean isShardRowId()
-    {
-        return isShardRowIdColumn(columnId);
-    }
-
     public boolean isShardUuid()
     {
         return isShardUuidColumn(columnId);
@@ -127,11 +119,6 @@ public final class RaptorColumnHandle
     public static boolean isShardRowIdColumn(long columnId)
     {
         return columnId == SHARD_ROW_ID_COLUMN_ID;
-    }
-
-    public static RaptorColumnHandle shardRowIdHandle()
-    {
-        return new RaptorColumnHandle(SHARD_ROW_ID_COLUMN_NAME, SHARD_ROW_ID_COLUMN_ID, SHARD_ROW_ID_COLUMN_TYPE);
     }
 
     public static boolean isShardUuidColumn(long columnId)
