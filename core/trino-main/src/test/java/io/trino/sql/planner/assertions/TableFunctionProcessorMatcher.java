@@ -48,6 +48,7 @@ public class TableFunctionProcessorMatcher
     private final List<List<String>> requiredSymbols;
     private final Optional<Map<String, String>> markerSymbols;
     private final Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification;
+    private final Optional<String> hashSymbol;
 
     private TableFunctionProcessorMatcher(
             String name,
@@ -55,7 +56,8 @@ public class TableFunctionProcessorMatcher
             List<List<String>> passThroughSymbols,
             List<List<String>> requiredSymbols,
             Optional<Map<String, String>> markerSymbols,
-            Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification)
+            Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification,
+            Optional<String> hashSymbol)
     {
         this.name = requireNonNull(name, "name is null");
         this.properOutputs = ImmutableList.copyOf(properOutputs);
@@ -67,6 +69,7 @@ public class TableFunctionProcessorMatcher
                 .collect(toImmutableList());
         this.markerSymbols = markerSymbols.map(ImmutableMap::copyOf);
         this.specification = requireNonNull(specification, "specification is null");
+        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
     }
 
     @Override
@@ -142,6 +145,12 @@ public class TableFunctionProcessorMatcher
             }
         }
 
+        if (hashSymbol.isPresent()) {
+            if (!hashSymbol.map(symbolAliases::get).equals(tableFunctionProcessorNode.getHashSymbol().map(Symbol::toSymbolReference))) {
+                return NO_MATCH;
+            }
+        }
+
         ImmutableMap.Builder<String, SymbolReference> properOutputsMapping = ImmutableMap.builder();
         for (int i = 0; i < properOutputs.size(); i++) {
             properOutputsMapping.put(properOutputs.get(i), tableFunctionProcessorNode.getProperOutputs().get(i).toSymbolReference());
@@ -164,6 +173,7 @@ public class TableFunctionProcessorMatcher
                 .add("requiredSymbols", requiredSymbols)
                 .add("markerSymbols", markerSymbols)
                 .add("specification", specification)
+                .add("hashSymbol", hashSymbol)
                 .toString();
     }
 
@@ -176,6 +186,7 @@ public class TableFunctionProcessorMatcher
         private List<List<String>> requiredSymbols = ImmutableList.of();
         private Optional<Map<String, String>> markerSymbols = Optional.empty();
         private Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification = Optional.empty();
+        private Optional<String> hashSymbol = Optional.empty();
 
         public Builder()
         {
@@ -223,11 +234,17 @@ public class TableFunctionProcessorMatcher
             return this;
         }
 
+        public Builder hashSymbol(String hashSymbol)
+        {
+            this.hashSymbol = Optional.of(hashSymbol);
+            return this;
+        }
+
         public PlanMatchPattern build()
         {
             PlanMatchPattern[] sources = source.map(sourcePattern -> new PlanMatchPattern[] {sourcePattern}).orElse(new PlanMatchPattern[] {});
             return node(TableFunctionProcessorNode.class, sources)
-                    .with(new TableFunctionProcessorMatcher(name, properOutputs, passThroughSymbols, requiredSymbols, markerSymbols, specification));
+                    .with(new TableFunctionProcessorMatcher(name, properOutputs, passThroughSymbols, requiredSymbols, markerSymbols, specification, hashSymbol));
         }
     }
 }
