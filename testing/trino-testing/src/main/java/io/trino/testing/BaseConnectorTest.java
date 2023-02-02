@@ -164,7 +164,14 @@ public abstract class BaseConnectorTest
     private final ConcurrentMap<String, Function<ConnectorSession, List<String>>> mockTableListings = new ConcurrentHashMap<>();
 
     @BeforeClass
-    public void addMockCatalog()
+    public void initMockCatalog()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        queryRunner.installPlugin(buildMockConnectorPlugin());
+        queryRunner.createCatalog("mock_dynamic_listing", "mock", Map.of());
+    }
+
+    protected MockConnectorPlugin buildMockConnectorPlugin()
     {
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                 .withListSchemaNames(session -> ImmutableList.copyOf(mockTableListings.keySet()))
@@ -177,9 +184,7 @@ public abstract class BaseConnectorTest
                             .apply(session);
                 })
                 .build();
-        QueryRunner queryRunner = getQueryRunner();
-        queryRunner.installPlugin(new MockConnectorPlugin(connectorFactory));
-        queryRunner.createCatalog("mock_dynamic_listing", "mock", Map.of());
+        return new MockConnectorPlugin(connectorFactory);
     }
 
     /**
