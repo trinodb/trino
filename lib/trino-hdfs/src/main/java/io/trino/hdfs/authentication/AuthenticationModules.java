@@ -21,6 +21,8 @@ import com.google.inject.Singleton;
 import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.plugin.base.authentication.KerberosAuthentication;
 import io.trino.plugin.base.authentication.KerberosConfiguration;
+import io.trino.plugin.base.security.SimpleUserNameProvider;
+import io.trino.plugin.base.security.UserNameProvider;
 
 import javax.inject.Inject;
 

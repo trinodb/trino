@@ -13,6 +13,7 @@
  */
 package io.trino.hdfs.authentication;
 
+import io.trino.plugin.base.security.UserNameProvider;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.security.UserGroupInformation;
 
