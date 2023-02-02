@@ -181,15 +181,59 @@ The minimal age of a query in the history before it is expired. An expired
 query is removed from the query history buffer and no longer available in
 the :doc:`/admin/web-interface`.
 
+``query.remote-task.enable-adaptive-request-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-boolean`
+* **Default value:** ``true``
+* **Session property:** ``query_remote_task_enable_adaptive_request_size``
+
+Enables dynamically splitting up server requests sent by tasks, which can
+prevent out-of-memory errors for large schemas. The default settings are
+optimized for typical usage and should only be modified by advanced users
+working with extremely large tables.
+
+``query.remote-task.guaranteed-splits-per-task``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-integer`
+* **Default value:** ``3``
+* **Session property:** ``query_remote_task_guaranteed_splits_per_task``
+
+The minimum number of splits that should be assigned to each remote task to
+ensure that each task has a minimum amount of work to perform. Requires
+``query.remote-task.enable-adaptive-request-size`` to be enabled.
+
 ``query.remote-task.max-error-duration``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** :ref:`prop-type-duration`
 * **Default value:** ``5m``
 
-Timeout value for remote tasks that fail to communicate with the
-coordinator. If the coordinator is unable to receive updates from a remote task
-before this value is reached, the coordinator treats the task as failed.
+Timeout value for remote tasks that fail to communicate with the coordinator. If
+the coordinator is unable to receive updates from a remote task before this
+value is reached, the coordinator treats the task as failed.
+
+``query.remote-task.max-request-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-data-size`
+* **Default value:** ``8MB``
+* **Session property:** ``query_remote_task_max_request_size``
+
+The maximum size of a single request made by a remote task. Requires
+``query.remote-task.enable-adaptive-request-size`` to be enabled.
+
+``query.remote-task.request-size-headroom``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-data-size`
+* **Default value:** ``2MB``
+* **Session property:** ``query_remote_task_request_size_headroom``
+
+Determines the amount of headroom that should be allocated beyond the size of
+the request data. Requires ``query.remote-task.enable-adaptive-request-size`` to
+be enabled.
 
 ``retry-policy``
 ^^^^^^^^^^^^^^^^
