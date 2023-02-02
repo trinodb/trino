@@ -37,7 +37,6 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
-import io.trino.plugin.hive.HiveUpdateProcessor;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.acid.AcidSchema;
@@ -54,7 +53,6 @@ import io.trino.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
-import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -100,10 +98,9 @@ import static io.trino.plugin.hive.HiveSessionProperties.isOrcBloomFiltersEnable
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
 import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.mergedRowColumns;
-import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.updatedRowColumns;
-import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.updatedRowColumnsWithOriginalFiles;
 import static io.trino.plugin.hive.orc.OrcPageSource.handleException;
-import static io.trino.plugin.hive.util.HiveUtil.isDeserializerClass;
+import static io.trino.plugin.hive.util.HiveClassNames.ORC_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -116,6 +113,7 @@ import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.isFullAcidTable;
+import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 
 public class OrcPageSourceFactory
         implements HivePageSourceFactory
@@ -165,6 +163,16 @@ public class OrcPageSourceFactory
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
 
+    public static Properties stripUnnecessaryProperties(Properties schema)
+    {
+        if (ORC_SERDE_CLASS.equals(getDeserializerClassName(schema)) && !isFullAcidTable(Maps.fromProperties(schema))) {
+            Properties stripped = new Properties();
+            stripped.put(SERIALIZATION_LIB, schema.getProperty(SERIALIZATION_LIB));
+            return stripped;
+        }
+        return schema;
+    }
+
     @Override
     public Optional<ReaderPageSource> createPageSource(
             Configuration configuration,
@@ -181,7 +189,7 @@ public class OrcPageSourceFactory
             boolean originalFile,
             AcidTransaction transaction)
     {
-        if (!isDeserializerClass(schema, OrcSerde.class)) {
+        if (!ORC_SERDE_CLASS.equals(getDeserializerClassName(schema))) {
             return Optional.empty();
         }
 
@@ -415,31 +423,7 @@ public class OrcPageSourceFactory
                             options,
                             stats));
 
-            if (transaction.isDelete()) {
-                if (originalFile) {
-                    int bucket = bucketNumber.orElse(0);
-                    long startingRowId = originalFileRowId.orElse(0L);
-                    columnAdaptations.add(ColumnAdaptation.originalFileRowIdColumn(startingRowId, bucket));
-                }
-                else {
-                    columnAdaptations.add(ColumnAdaptation.rowIdColumn());
-                }
-            }
-            else if (transaction.isUpdate()) {
-                HiveUpdateProcessor updateProcessor = transaction.getUpdateProcessor().orElseThrow(() -> new IllegalArgumentException("updateProcessor not present"));
-                List<HiveColumnHandle> dependencyColumns = projections.stream()
-                        .filter(HiveColumnHandle::isBaseColumn)
-                        .collect(toImmutableList());
-                if (originalFile) {
-                    int bucket = bucketNumber.orElse(0);
-                    long startingRowId = originalFileRowId.orElse(0L);
-                    columnAdaptations.add(updatedRowColumnsWithOriginalFiles(startingRowId, bucket, updateProcessor, dependencyColumns));
-                }
-                else {
-                    columnAdaptations.add(updatedRowColumns(updateProcessor, dependencyColumns));
-                }
-            }
-            else if (transaction.isMerge()) {
+            if (transaction.isMerge()) {
                 if (originalFile) {
                     int bucket = bucketNumber.orElse(0);
                     long startingRowId = originalFileRowId.orElse(0L);

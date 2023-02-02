@@ -651,7 +651,7 @@ public class TestSourcePartitionedScheduler
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setIncludeCoordinator(false)
                 .setMaxSplitsPerNode(20)
-                .setMaxPendingSplitsPerTask(0)
+                .setMinPendingSplitsPerTask(0)
                 .setSplitsBalancingPolicy(splitsBalancingPolicy);
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap, new Duration(0, SECONDS)));
 

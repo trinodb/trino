@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>404-SNAPSHOT</version>
+        <version>407-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -219,11 +219,6 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method boolean io.trino.spi.connector.MaterializedViewFreshness::isMaterializedViewFresh()</old>
-                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

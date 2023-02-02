@@ -14,9 +14,11 @@
 package io.trino.spi.security;
 
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.FunctionKind;
 
 import java.security.Principal;
 import java.util.Collection;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -273,6 +275,11 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot show columns of table %s", tableName));
     }
 
+    public static void denyShowColumns(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot show columns of table %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyAddColumn(String tableName)
     {
         denyAddColumn(tableName, null);
@@ -291,6 +298,16 @@ public class AccessDeniedException
     public static void denyDropColumn(String tableName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot drop a column from table %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyAlterColumn(String tableName)
+    {
+        denyAlterColumn(tableName, null);
+    }
+
+    public static void denyAlterColumn(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot alter a column for table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
     public static void denySetTableAuthorization(String tableName, TrinoPrincipal principal)
@@ -641,6 +658,11 @@ public class AccessDeniedException
     public static void denyExecuteFunction(String functionName)
     {
         throw new AccessDeniedException(format("Cannot execute function %s", functionName));
+    }
+
+    public static void denyExecuteFunction(String functionName, FunctionKind functionKind, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot execute %s function %s%s", functionKind.name().toLowerCase(Locale.ROOT), functionName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyExecuteTableProcedure(String tableName, String procedureName)

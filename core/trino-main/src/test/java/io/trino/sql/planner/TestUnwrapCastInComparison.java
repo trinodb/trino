@@ -628,12 +628,16 @@ public class TestUnwrapCastInComparison
         // INTEGER->REAL implicit cast is not injective if the real constant is >= 2^23 and <= 2^31 - 1
         testUnwrap("integer", "a = REAL '8388608'", "CAST(a AS REAL) = REAL '8388608.0'");
 
-        testUnwrap("integer", "a = REAL '2147483647'", "CAST(a AS REAL) = REAL '2.14748365E9'");
+        testUnwrap("integer", "a = REAL '2147483647'", Runtime.version().feature() >= 19
+                ? "CAST(a AS REAL) = REAL '2.1474836E9'"
+                : "CAST(a AS REAL) = REAL '2.14748365E9'");
 
         // INTEGER->REAL implicit cast is not injective if the real constant is <= -2^23 and >= -2^31 + 1
         testUnwrap("integer", "a = REAL '-8388608'", "CAST(a AS REAL) = REAL '-8388608.0'");
 
-        testUnwrap("integer", "a = REAL '-2147483647'", "CAST(a AS REAL) = REAL '-2.14748365E9'");
+        testUnwrap("integer", "a = REAL '-2147483647'", Runtime.version().feature() >= 19
+                ? "CAST(a AS REAL) = REAL '-2.1474836E9'"
+                : "CAST(a AS REAL) = REAL '-2.14748365E9'");
 
         // DECIMAL(p)->DOUBLE not injective for p > 15
         testUnwrap("decimal(16)", "a = DOUBLE '1'", "CAST(a AS DOUBLE) = 1E0");
@@ -787,32 +791,19 @@ public class TestUnwrapCastInComparison
 
     private void testNoUnwrap(Session session, String inputType, String inputPredicate, String expectedCastType)
     {
-        String sql = format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE a %s", inputType, inputPredicate);
-        try {
-            assertPlan(sql,
-                    session,
-                    output(
-                            filter(format("CAST(a AS %s) %s", expectedCastType, inputPredicate),
-                                    values("a"))));
-        }
-        catch (Throwable e) {
-            e.addSuppressed(new Exception("Query: " + sql));
-            throw e;
-        }
+        assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE a %s", inputType, inputPredicate),
+                session,
+                output(
+                        filter(format("CAST(a AS %s) %s", expectedCastType, inputPredicate),
+                                values("a"))));
     }
 
     private void testRemoveFilter(String inputType, String inputPredicate)
     {
-        String sql = format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s", inputType, inputPredicate);
-        try {
-            assertPlan(sql,
-                    output(
-                            values("a")));
-        }
-        catch (Throwable e) {
-            e.addSuppressed(new Exception("Query: " + sql));
-            throw e;
-        }
+        assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s AND rand() = 42", inputType, inputPredicate),
+                output(
+                        filter("rand() = 42e0",
+                                values("a"))));
     }
 
     private void testUnwrap(String inputType, String inputPredicate, String expectedPredicate)
@@ -822,18 +813,11 @@ public class TestUnwrapCastInComparison
 
     private void testUnwrap(Session session, String inputType, String inputPredicate, String expectedPredicate)
     {
-        String sql = format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s", inputType, inputPredicate);
-        try {
-            assertPlan(sql,
-                    session,
-                    output(
-                            filter(expectedPredicate,
-                                    values("a"))));
-        }
-        catch (Throwable e) {
-            e.addSuppressed(new Exception("Query: " + sql));
-            throw e;
-        }
+        assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s OR rand() = 42", inputType, inputPredicate),
+                session,
+                output(
+                        filter(format("%s OR rand() = 42e0", expectedPredicate),
+                                values("a"))));
     }
 
     private static Session withZone(Session session, TimeZoneKey timeZoneKey)

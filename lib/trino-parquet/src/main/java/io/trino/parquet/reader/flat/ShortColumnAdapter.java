@@ -18,6 +18,8 @@ import io.trino.spi.block.ShortArrayBlock;
 
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.sizeOf;
+
 public class ShortColumnAdapter
         implements ColumnAdapter<short[]>
 {
@@ -30,20 +32,34 @@ public class ShortColumnAdapter
     }
 
     @Override
-    public Block createNonNullBlock(int size, short[] values)
+    public Block createNonNullBlock(short[] values)
     {
-        return new ShortArrayBlock(size, Optional.empty(), values);
+        return new ShortArrayBlock(values.length, Optional.empty(), values);
     }
 
     @Override
-    public Block createNullableBlock(int size, boolean[] nulls, short[] values)
+    public Block createNullableBlock(boolean[] nulls, short[] values)
     {
-        return new ShortArrayBlock(size, Optional.of(nulls), values);
+        return new ShortArrayBlock(values.length, Optional.of(nulls), values);
     }
 
     @Override
     public void copyValue(short[] source, int sourceIndex, short[] destination, int destinationIndex)
     {
         destination[destinationIndex] = source[sourceIndex];
+    }
+
+    @Override
+    public void decodeDictionaryIds(short[] values, int offset, int length, int[] ids, short[] dictionary)
+    {
+        for (int i = 0; i < length; i++) {
+            values[offset + i] = dictionary[ids[i]];
+        }
+    }
+
+    @Override
+    public long getSizeInBytes(short[] values)
+    {
+        return sizeOf(values);
     }
 }

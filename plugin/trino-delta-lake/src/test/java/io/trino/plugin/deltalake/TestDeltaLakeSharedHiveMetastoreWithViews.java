@@ -24,9 +24,9 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_ACCESS_KEY;
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_SECRET_KEY;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
+import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -49,7 +49,7 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
                 "delta",
                 schema,
                 ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
-                hiveMinioDataLake.getMinioAddress(),
+                hiveMinioDataLake.getMinio().getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
         queryRunner.execute("CREATE SCHEMA " + schema + " WITH (location = 's3://" + bucketName + "/" + schema + "')");
 
@@ -57,7 +57,7 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
         Map<String, String> s3Properties = ImmutableMap.<String, String>builder()
                 .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
                 .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
-                .put("hive.s3.endpoint", hiveMinioDataLake.getMinioAddress())
+                .put("hive.s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
                 .put("hive.s3.path-style-access", "true")
                 .buildOrThrow();
         queryRunner.createCatalog(

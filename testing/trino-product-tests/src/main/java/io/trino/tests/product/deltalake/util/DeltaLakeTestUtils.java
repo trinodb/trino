@@ -18,6 +18,7 @@ import org.intellij.lang.annotations.Language;
 
 import java.util.Optional;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -60,6 +61,6 @@ public final class DeltaLakeTestUtils
         return (String) result.rows().stream()
                 .filter(row -> row.get(0).equals("Comment"))
                 .map(row -> row.get(1))
-                .findFirst().orElseThrow();
+                .collect(onlyElement());
     }
 }

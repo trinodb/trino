@@ -30,11 +30,11 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
+import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_DDL;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMNS;
-import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMN_TYPES;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_DDL;
 
 class S3SelectRecordCursor<K, V extends Writable>
         extends GenericHiveRecordCursor<K, V>

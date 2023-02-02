@@ -9,9 +9,8 @@ remote exchange (GATHER, SINGLE, [])
                             final aggregation over (suppkey_0)
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["suppkey_0"])
-                                        local exchange (REPARTITION, ROUND_ROBIN, [])
-                                            partial aggregation over (suppkey_0)
-                                                scan lineitem
+                                        partial aggregation over (suppkey_0)
+                                            scan lineitem
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPLICATE, BROADCAST, [])
                         final aggregation over ()
@@ -21,6 +20,5 @@ remote exchange (GATHER, SINGLE, [])
                                         final aggregation over (suppkey_7)
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["suppkey_7"])
-                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                        partial aggregation over (suppkey_7)
-                                                            scan lineitem
+                                                    partial aggregation over (suppkey_7)
+                                                        scan lineitem

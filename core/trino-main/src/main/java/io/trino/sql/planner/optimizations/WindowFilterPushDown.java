@@ -148,8 +148,7 @@ public class WindowFilterPushDown
                 }
                 source = rowNumberNode;
             }
-            else if (source instanceof WindowNode && isOptimizeTopNRanking(session)) {
-                WindowNode windowNode = (WindowNode) source;
+            else if (source instanceof WindowNode windowNode && isOptimizeTopNRanking(session)) {
                 Optional<RankingType> rankingType = toTopNRankingType(windowNode);
                 if (rankingType.isPresent()) {
                     TopNRankingNode topNRankingNode = convertToTopNRanking(windowNode, rankingType.get(), limit);
@@ -181,8 +180,7 @@ public class WindowFilterPushDown
                     return rewriteFilterSource(node, source, rowNumberSymbol, ((RowNumberNode) source).getMaxRowCountPerPartition().get());
                 }
             }
-            else if (source instanceof WindowNode && isOptimizeTopNRanking(session)) {
-                WindowNode windowNode = (WindowNode) source;
+            else if (source instanceof WindowNode windowNode && isOptimizeTopNRanking(session)) {
                 Optional<RankingType> rankingType = toTopNRankingType(windowNode);
                 if (rankingType.isPresent()) {
                     Symbol rankingSymbol = getOnlyElement(windowNode.getWindowFunctions().entrySet()).getKey();

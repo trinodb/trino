@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.Session.SessionBuilder;
+import io.trino.client.NodeVersion;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
@@ -256,7 +257,8 @@ public class TestStartTransactionTask
                 metadata,
                 WarningCollector.NOOP,
                 Optional.empty(),
-                true);
+                true,
+                new NodeVersion("test"));
     }
 
     private static SessionBuilder sessionBuilder()

@@ -1,0 +1,30 @@
+remote exchange (GATHER, SINGLE, [])
+    local exchange (GATHER, UNKNOWN, [])
+        remote exchange (REPARTITION, ROUND_ROBIN, [])
+            final aggregation over (expr$gid, name_18, name_23)
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, ["expr$gid", "name_18", "name_23"])
+                        partial aggregation over (expr$gid, name_18, name_23)
+                            join (INNER, PARTITIONED):
+                                remote exchange (REPARTITION, HASH, ["custkey"])
+                                    join (INNER, PARTITIONED):
+                                        remote exchange (REPARTITION, HASH, ["orderkey_4"])
+                                            scan orders
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPARTITION, HASH, ["orderkey"])
+                                                join (INNER, REPLICATED):
+                                                    scan lineitem
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            join (INNER, REPLICATED):
+                                                                scan supplier
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                        scan nation
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["custkey_8"])
+                                        join (INNER, REPLICATED):
+                                            scan customer
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    scan nation

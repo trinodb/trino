@@ -22,11 +22,10 @@ To connect to MySQL, you need:
 Configuration
 -------------
 
-To configure the MySQL connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``mysql.properties``, to
-mount the MySQL connector as the ``mysql`` catalog.
-Create the file with the following contents, replacing the
-connection properties as appropriate for your setup:
+To configure the MySQL connector, create a catalog properties file in
+``etc/catalog`` named, for example, ``example.properties``, to mount the MySQL
+connector as the ``mysql`` catalog. Create the file with the following contents,
+replacing the connection properties as appropriate for your setup:
 
 .. code-block:: text
 
@@ -40,14 +39,12 @@ to the MySQL JDBC driver. The supported parameters for the URL are
 available in the `MySQL Developer Guide
 <https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-configuration-properties.html>`_.
 
-For example, the following ``connection-url`` allows you to
-configure the JDBC driver to interpret time values based on UTC as a timezone on
-the server, and serves as a `workaround for a known issue
-<https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-usagenotes-known-issues-limitations.html>`_.
+For example, the following ``connection-url`` allows you to require encrypted
+connections to the MySQL server:
 
 .. code-block:: text
 
-    connection-url=jdbc:mysql://example.net:3306?serverTimezone=UTC
+    connection-url=jdbc:mysql://example.net:3306?sslMode=REQUIRED
 
 The ``connection-user`` and ``connection-password`` are typically required and
 determine the user credentials for the connection, often a service user. You can
@@ -268,25 +265,25 @@ Querying MySQL
 The MySQL connector provides a schema for every MySQL *database*.
 You can see the available MySQL databases by running ``SHOW SCHEMAS``::
 
-    SHOW SCHEMAS FROM mysql;
+    SHOW SCHEMAS FROM example;
 
 If you have a MySQL database named ``web``, you can view the tables
 in this database by running ``SHOW TABLES``::
 
-    SHOW TABLES FROM mysql.web;
+    SHOW TABLES FROM example.web;
 
 You can see a list of the columns in the ``clicks`` table in the ``web`` database
 using either of the following::
 
-    DESCRIBE mysql.web.clicks;
-    SHOW COLUMNS FROM mysql.web.clicks;
+    DESCRIBE example.web.clicks;
+    SHOW COLUMNS FROM example.web.clicks;
 
 Finally, you can access the ``clicks`` table in the ``web`` database::
 
-    SELECT * FROM mysql.web.clicks;
+    SELECT * FROM example.web.clicks;
 
 If you used a different name for your catalog properties file, use
-that catalog name instead of ``mysql`` in the above examples.
+that catalog name instead of ``example`` in the above examples.
 
 .. _mysql-sql-support:
 
@@ -334,7 +331,7 @@ For example, group and concatenate all employee IDs by manager ID::
       *
     FROM
       TABLE(
-        mysql.system.query(
+        example.system.query(
           query => 'SELECT
             manager_id, GROUP_CONCAT(employee_id)
           FROM
@@ -419,6 +416,8 @@ The connector supports pushdown for a number of operations:
 * :func:`variance`
 * :func:`var_pop`
 * :func:`var_samp`
+
+.. include:: pushdown-correctness-behavior.fragment
 
 .. include:: join-pushdown-enabled-true.fragment
 

@@ -580,10 +580,9 @@ public class ExpressionInterpreter
                         }
                     }
                 }
-                else if (value instanceof Expression) {
+                else if (value instanceof Expression expression) {
                     verify(!(value instanceof NullLiteral), "Null value is expected to be represented as null, not NullLiteral");
                     // Skip duplicates unless they are non-deterministic.
-                    Expression expression = (Expression) value;
                     if (!isDeterministic(expression, metadata) || uniqueNewOperands.add(expression)) {
                         newOperands.add(expression);
                     }
@@ -603,13 +602,12 @@ public class ExpressionInterpreter
             Object value = processWithExceptionHandling(node.getValue(), context);
 
             Expression valueListExpression = node.getValueList();
-            if (!(valueListExpression instanceof InListExpression)) {
+            if (!(valueListExpression instanceof InListExpression valueList)) {
                 if (!optimize) {
                     throw new UnsupportedOperationException("IN predicate value list type not yet implemented: " + valueListExpression.getClass().getName());
                 }
                 return node;
             }
-            InListExpression valueList = (InListExpression) valueListExpression;
             // `NULL IN ()` would be false, but InListExpression cannot be empty by construction
             if (value == null) {
                 return null;
@@ -1508,8 +1506,7 @@ public class ExpressionInterpreter
             }
 
             // Subscript on Row hasn't got a dedicated operator. It is interpreted by hand.
-            if (base instanceof SingleRowBlock) {
-                SingleRowBlock row = (SingleRowBlock) base;
+            if (base instanceof SingleRowBlock row) {
                 int position = toIntExact((long) index - 1);
                 if (position < 0 || position >= row.getPositionCount()) {
                     throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "ROW index out of bounds: " + (position + 1));

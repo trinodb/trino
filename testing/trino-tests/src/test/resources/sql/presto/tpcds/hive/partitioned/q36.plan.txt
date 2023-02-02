@@ -8,17 +8,15 @@ local exchange (GATHER, SINGLE, [])
                             partial aggregation over (groupid, i_category$gid, i_class$gid)
                                 join (INNER, PARTITIONED):
                                     remote exchange (REPARTITION, HASH, ["ss_item_sk"])
-                                        local exchange (REPARTITION, ROUND_ROBIN, [])
+                                        join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                join (INNER, REPLICATED):
-                                                    scan store_sales
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan date_dim
+                                                scan store_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan store
+                                                        scan date_dim
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    scan store
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["i_item_sk"])
-                                            local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                scan item
+                                            scan item

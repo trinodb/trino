@@ -32,6 +32,9 @@ import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.PrincipalType;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Locale;
@@ -41,16 +44,17 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.metastore.util.Memoizers.memoizeLast;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 
 public final class GlueToTrinoConverter
 {
@@ -58,11 +62,27 @@ public final class GlueToTrinoConverter
 
     private GlueToTrinoConverter() {}
 
+    public static String getTableType(com.amazonaws.services.glue.model.Table glueTable)
+    {
+        // Athena treats missing table type as EXTERNAL_TABLE.
+        return firstNonNull(getTableTypeNullable(glueTable), EXTERNAL_TABLE.name());
+    }
+
+    @Nullable
+    @SuppressModernizer // Usage of `Table.getTableType` is not allowed. Only this method can call that.
+    public static String getTableTypeNullable(com.amazonaws.services.glue.model.Table glueTable)
+    {
+        return glueTable.getTableType();
+    }
+
     public static Database convertDatabase(com.amazonaws.services.glue.model.Database glueDb)
     {
         return Database.builder()
                 .setDatabaseName(glueDb.getName())
-                .setLocation(Optional.ofNullable(glueDb.getLocationUri()))
+                // Currently it's not possible to create a Glue database with empty location string ""
+                // (validation error detected: Value '' at 'database.locationUri' failed to satisfy constraint: Member must have length greater than or equal to 1)
+                // However, it has been observed that Glue databases with empty location do exist in the wild.
+                .setLocation(Optional.ofNullable(emptyToNull(glueDb.getLocationUri())))
                 .setComment(Optional.ofNullable(glueDb.getDescription()))
                 .setParameters(firstNonNull(glueDb.getParameters(), ImmutableMap.of()))
                 .setOwnerName(Optional.of(PUBLIC_OWNER))
@@ -77,8 +97,7 @@ public final class GlueToTrinoConverter
                 .setDatabaseName(dbName)
                 .setTableName(glueTable.getName())
                 .setOwner(Optional.ofNullable(glueTable.getOwner()))
-                // Athena treats missing table type as EXTERNAL_TABLE.
-                .setTableType(firstNonNull(glueTable.getTableType(), EXTERNAL_TABLE.name()))
+                .setTableType(getTableType(glueTable))
                 .setParameters(tableParameters)
                 .setViewOriginalText(Optional.ofNullable(glueTable.getViewOriginalText()))
                 .setViewExpandedText(Optional.ofNullable(glueTable.getViewExpandedText()));

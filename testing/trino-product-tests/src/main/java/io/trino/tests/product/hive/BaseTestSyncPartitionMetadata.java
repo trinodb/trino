@@ -186,6 +186,16 @@ public abstract class BaseTestSyncPartitionMetadata
         assertPartitions(tableName, row("a", "1"), row("b", "2"));
     }
 
+    public void testSyncPartitionMetadataWithNullArgument()
+    {
+        assertQueryFailure(() -> onTrino().executeQuery("CALL system.sync_partition_metadata(NULL, 'page_views', 'ADD')"))
+                .hasMessageMatching(".*schema_name cannot be null.*");
+        assertQueryFailure(() -> onTrino().executeQuery("CALL system.sync_partition_metadata('web', NULl, 'ADD')"))
+                .hasMessageMatching(".*table_name cannot be null.*");
+        assertQueryFailure(() -> onTrino().executeQuery("CALL system.sync_partition_metadata('web', 'page_views', NULL)"))
+                .hasMessageMatching(".*mode cannot be null.*");
+    }
+
     private String tableLocation(String tableName)
     {
         return schemaLocation() + '/' + tableName;

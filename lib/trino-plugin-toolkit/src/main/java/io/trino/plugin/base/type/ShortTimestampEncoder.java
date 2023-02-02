@@ -22,6 +22,8 @@ import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.round;
+import static java.lang.Math.addExact;
+import static java.lang.Math.multiplyExact;
 
 class ShortTimestampEncoder
         extends AbstractTrinoTimestampEncoder<Long>
@@ -43,12 +45,12 @@ class ShortTimestampEncoder
     {
         long micros;
         if (timeZone != DateTimeZone.UTC) {
-            micros = timeZone.convertUTCToLocal(decodedTimestamp.getEpochSeconds() * MILLISECONDS_PER_SECOND) * MICROSECONDS_PER_MILLISECOND;
+            micros = multiplyExact(timeZone.convertUTCToLocal(multiplyExact(decodedTimestamp.epochSeconds(), MILLISECONDS_PER_SECOND)), MICROSECONDS_PER_MILLISECOND);
         }
         else {
-            micros = decodedTimestamp.getEpochSeconds() * MICROSECONDS_PER_SECOND;
+            micros = multiplyExact(decodedTimestamp.epochSeconds(), MICROSECONDS_PER_SECOND);
         }
-        int nanosOfSecond = (int) round(decodedTimestamp.getNanosOfSecond(), 9 - type.getPrecision());
-        return micros + nanosOfSecond / NANOSECONDS_PER_MICROSECOND;
+        int nanosOfSecond = (int) round(decodedTimestamp.nanosOfSecond(), 9 - type.getPrecision());
+        return addExact(micros, nanosOfSecond / NANOSECONDS_PER_MICROSECOND);
     }
 }

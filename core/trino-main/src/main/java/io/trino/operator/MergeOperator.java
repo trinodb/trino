@@ -17,12 +17,12 @@ import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.trino.exchange.DirectExchangeInput;
-import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
-import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.type.Type;
 import io.trino.split.RemoteSplit;
@@ -35,8 +35,6 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -102,7 +100,7 @@ public class MergeOperator
                     operatorContext,
                     sourceId,
                     directExchangeClientSupplier,
-                    serdeFactory.createPagesSerde(driverContext.getSession().getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey)),
+                    serdeFactory.createDeserializer(driverContext.getSession().getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey)),
                     orderingCompiler.compilePageWithPositionComparator(types, sortChannels, sortOrder),
                     outputChannels,
                     outputTypes);
@@ -118,7 +116,7 @@ public class MergeOperator
     private final OperatorContext operatorContext;
     private final PlanNodeId sourceId;
     private final DirectExchangeClientSupplier directExchangeClientSupplier;
-    private final PagesSerde pagesSerde;
+    private final PageDeserializer deserializer;
     private final PageWithPositionComparator comparator;
     private final List<Integer> outputChannels;
     private final List<Type> outputTypes;
@@ -135,7 +133,7 @@ public class MergeOperator
             OperatorContext operatorContext,
             PlanNodeId sourceId,
             DirectExchangeClientSupplier directExchangeClientSupplier,
-            PagesSerde pagesSerde,
+            PageDeserializer deserializer,
             PageWithPositionComparator comparator,
             List<Integer> outputChannels,
             List<Type> outputTypes)
@@ -143,10 +141,15 @@ public class MergeOperator
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
-        this.pagesSerde = requireNonNull(pagesSerde, "pagesSerde is null");
+        this.deserializer = requireNonNull(deserializer, "deserializer is null");
         this.comparator = requireNonNull(comparator, "comparator is null");
         this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
         this.outputTypes = requireNonNull(outputTypes, "outputTypes is null");
+
+        LocalMemoryContext memoryContext = operatorContext.newLocalUserMemoryContext(MergeOperator.class.getSimpleName());
+        // memory footprint of deserializer does not change over time
+        memoryContext.setBytes(deserializer.getRetainedSizeInBytes());
+        closer.register(memoryContext::close);
     }
 
     @Override
@@ -156,7 +159,7 @@ public class MergeOperator
     }
 
     @Override
-    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
+    public void addSplit(Split split)
     {
         requireNonNull(split, "split is null");
         checkArgument(split.getConnectorSplit() instanceof RemoteSplit, "split is not a remote split");
@@ -177,12 +180,10 @@ public class MergeOperator
         client.noMoreLocations();
         pageProducers.add(client.pages()
                 .map(serializedPage -> {
-                    Page page = pagesSerde.deserialize(serializedPage);
+                    Page page = deserializer.deserialize(serializedPage);
                     operatorContext.recordNetworkInput(serializedPage.length(), page.getPositionCount());
                     return page;
                 }));
-
-        return Optional::empty;
     }
 
     @Override

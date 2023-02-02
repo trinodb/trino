@@ -492,12 +492,11 @@ public class TestShowStats
     @Test
     public void testShowStatsWithAggregation()
     {
-        // TODO - row count should be 1 - https://github.com/trinodb/trino/issues/6323
         assertQuery(
                 "SHOW STATS FOR (SELECT count(*) AS x FROM orders)",
                 "VALUES " +
                         "   ('x', null, null, null, null, null, null), " +
-                        "   (null, null, null, null, null, null, null)");
+                        "   (null, null, null, null, 1, null, null)");
 
         assertQuery(
                 sessionWith(getSession(), PREFER_PARTIAL_AGGREGATION, "false"),
@@ -625,11 +624,11 @@ public class TestShowStats
         assertQuery(
                 "SHOW STATS FOR (SELECT * FROM nation ORDER BY nationkey LIMIT 7)",
                 "VALUES " +
-                        "   ('nationkey', null, null, null, null, null, null), " +
-                        "   ('name', null, null, null, null, null, null), " +
-                        "   ('comment', null, null, null, null, null, null), " +
-                        "   ('regionkey', null, null, null, null, null, null), " +
-                        "   (null, null, null, null, null, null, null)");
+                        "   ('nationkey', null, 7, 0, null, 0, 24), " +
+                        "   ('name', 49.56, 7, 0, null, null, null), " +
+                        "   ('comment', 519.96, 7, 0, null, null, null), " +
+                        "   ('regionkey', null, 5, 0, null, 0, 4), " +
+                        "   (null, null, null, null, 7, null, null)");
 
         assertQuery(
                 sessionWith(getSession(), USE_PARTIAL_TOPN, "false"),

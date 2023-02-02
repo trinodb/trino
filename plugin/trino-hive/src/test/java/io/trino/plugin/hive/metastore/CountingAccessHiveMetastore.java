@@ -47,6 +47,7 @@ public class CountingAccessHiveMetastore
         GET_TABLE_WITH_PARAMETER,
         GET_TABLE_STATISTICS,
         REPLACE_TABLE,
+        DROP_TABLE,
     }
 
     private final HiveMetastore delegate;
@@ -142,7 +143,8 @@ public class CountingAccessHiveMetastore
     @Override
     public void dropTable(String databaseName, String tableName, boolean deleteData)
     {
-        throw new UnsupportedOperationException();
+        methodInvocations.add(Methods.DROP_TABLE);
+        delegate.dropTable(databaseName, tableName, deleteData);
     }
 
     @Override

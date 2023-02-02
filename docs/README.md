@@ -33,6 +33,12 @@ The Google guidelines include more material than listed here, and are used as a
 guide that enable easy decision making about proposed doc changes. Changes to
 existing documentation to follow these guidelines are underway.
 
+As a specific style note, because different readers may perceive the phrases "a
+SQL" or "an SQL" to be incorrect depending on how they pronounce SQL, aim to
+avoid use of "a/an SQL" in Trino documentation. Try to reword, re-order, or
+adjust writing so that it is not necessary. If there is absolutely no way around
+it, default to using "a SQL."
+
 Other useful resources:
 
 - [Google Technical Writing Courses](https://developers.google.com/tech-writing)

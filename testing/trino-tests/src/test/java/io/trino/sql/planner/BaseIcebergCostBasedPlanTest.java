@@ -89,6 +89,11 @@ public abstract class BaseIcebergCostBasedPlanTest
     private FileHiveMetastore fileMetastore;
     private Map<String, String> connectorConfiguration;
 
+    protected BaseIcebergCostBasedPlanTest(String schemaName, String fileFormatName, boolean partitioned)
+    {
+        super(schemaName, Optional.of(fileFormatName), partitioned);
+    }
+
     @Override
     protected ConnectorFactory createConnectorFactory()
     {
@@ -155,9 +160,10 @@ public abstract class BaseIcebergCostBasedPlanTest
     @BeforeClass
     public void prepareTables()
     {
+        String schema = getQueryRunner().getDefaultSession().getSchema().orElseThrow();
         fileMetastore.createDatabase(
                 Database.builder()
-                        .setDatabaseName(getSchema())
+                        .setDatabaseName(schema)
                         .setOwnerName(Optional.empty())
                         .setOwnerType(Optional.empty())
                         .build());
@@ -169,6 +175,8 @@ public abstract class BaseIcebergCostBasedPlanTest
     // Iceberg metadata files are linked using absolute paths, so the path within the bucket name must match where the metadata was exported from.
     protected void populateTableFromResource(String tableName, String resourcePath, String targetPath)
     {
+        String schema = getQueryRunner().getDefaultSession().getSchema().orElseThrow();
+
         log.info("Copying resources for %s unpartitioned table from %s to %s in the container", tableName, resourcePath, targetPath);
         minio.copyResources(resourcePath, BUCKET_NAME, targetPath);
 
@@ -184,7 +192,7 @@ public abstract class BaseIcebergCostBasedPlanTest
         log.info("Registering table %s using metadata location %s", tableName, metadataLocation);
         fileMetastore.createTable(
                 Table.builder()
-                        .setDatabaseName(getSchema())
+                        .setDatabaseName(schema)
                         .setTableName(tableName)
                         .setOwner(Optional.empty())
                         .setTableType(TableType.EXTERNAL_TABLE.name())

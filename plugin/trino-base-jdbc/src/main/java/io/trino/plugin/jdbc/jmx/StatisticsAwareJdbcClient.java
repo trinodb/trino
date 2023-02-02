@@ -159,10 +159,10 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session, JdbcSplit split)
+    public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
             throws SQLException
     {
-        return stats.getGetConnectionWithSplit().wrap(() -> delegate().getConnection(session, split));
+        return stats.getGetConnectionWithSplit().wrap(() -> delegate().getConnection(session, split, tableHandle));
     }
 
     @Override
@@ -238,6 +238,12 @@ public final class StatisticsAwareJdbcClient
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         stats.getRenameColumn().wrap(() -> delegate().renameColumn(session, handle, jdbcColumn, newColumnName));
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        stats.getSetColumnType().wrap(() -> delegate().setColumnType(session, handle, column, type));
     }
 
     @Override

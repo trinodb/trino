@@ -21,7 +21,7 @@ import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
-import io.trino.parquet.predicate.Predicate;
+import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.ParquetReaderColumn;
@@ -84,6 +84,7 @@ import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.createParque
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.getColumnIndexStore;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.getParquetMessageType;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.getParquetTupleDomain;
+import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_BAD_DATA;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CURSOR_ERROR;
@@ -116,7 +117,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 
 public class HudiPageSourceProvider
         implements ConnectorPageSourceProvider
@@ -125,6 +125,7 @@ public class HudiPageSourceProvider
     private final FileFormatDataSourceStats dataSourceStats;
     private final ParquetReaderOptions options;
     private final DateTimeZone timeZone;
+    private static final int DOMAIN_COMPACTION_THRESHOLD = 1000;
 
     @Inject
     public HudiPageSourceProvider(
@@ -206,7 +207,7 @@ public class HudiPageSourceProvider
                     ? TupleDomain.all()
                     : getParquetTupleDomain(descriptorsByPath, hudiSplit.getPredicate(), fileSchema, useColumnNames);
 
-            Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, timeZone);
+            TupleDomainParquetPredicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, timeZone);
 
             long nextStart = 0;
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
@@ -216,7 +217,7 @@ public class HudiPageSourceProvider
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
                 Optional<ColumnIndexStore> columnIndex = getColumnIndexStore(dataSource, block, descriptorsByPath, parquetTupleDomain, options);
                 if (start <= firstDataPage && firstDataPage < start + length
-                        && predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndex, timeZone)) {
+                        && predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndex, Optional.empty(), timeZone, DOMAIN_COMPACTION_THRESHOLD)) {
                     blocks.add(block);
                     blockStarts.add(nextStart);
                     columnIndexes.add(columnIndex);

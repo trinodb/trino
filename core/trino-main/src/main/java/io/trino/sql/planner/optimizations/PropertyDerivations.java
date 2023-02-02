@@ -42,7 +42,6 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
-import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
@@ -78,7 +77,6 @@ import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnnestNode;
-import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.CoalesceExpression;
@@ -219,7 +217,7 @@ public final class PropertyDerivations
             ImmutableList.Builder<LocalProperty<Symbol>> newLocalProperties = ImmutableList.builder();
             newLocalProperties.addAll(properties.getLocalProperties());
             newLocalProperties.add(new GroupingProperty<>(ImmutableList.of(node.getIdColumn())));
-            node.getSource().getOutputSymbols().stream()
+            node.getSource().getOutputSymbols()
                     .forEach(column -> newLocalProperties.add(new ConstantProperty<>(column)));
 
             if (properties.getNodePartitioning().isPresent()) {
@@ -295,6 +293,8 @@ public final class PropertyDerivations
         public ActualProperties visitPatternRecognition(PatternRecognitionNode node, List<ActualProperties> inputProperties)
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+            // Crop properties to output columns.
+            ActualProperties translatedProperties = properties.translate(symbol -> node.getOutputSymbols().contains(symbol) ? Optional.of(symbol) : Optional.empty());
 
             // If the input is completely pre-partitioned and sorted, then the original input properties will be respected is some cases.
             // ALL ROW PER MATCH with overlapping matches might shuffle rows and break the order.
@@ -302,12 +302,10 @@ public final class PropertyDerivations
             Optional<OrderingScheme> orderingScheme = node.getOrderingScheme();
             if (ImmutableSet.copyOf(node.getPartitionBy()).equals(node.getPrePartitionedInputs())
                     && (orderingScheme.isEmpty() || node.getPreSortedOrderPrefix() == orderingScheme.get().getOrderBy().size())) {
-                if (node.getRowsPerMatch() == WINDOW || (!node.getRowsPerMatch().isOneRow() && node.getSkipToPosition() == PAST_LAST)) {
-                    return properties;
-                }
-                if (node.getRowsPerMatch() == ONE) {
-                    // Crop properties to output columns.
-                    return properties.translate(symbol -> node.getOutputSymbols().contains(symbol) ? Optional.of(symbol) : Optional.empty());
+                if (node.getRowsPerMatch() == WINDOW ||
+                        node.getRowsPerMatch() == ONE ||
+                        node.getSkipToPosition() == PAST_LAST) {
+                    return translatedProperties;
                 }
             }
 
@@ -318,7 +316,7 @@ public final class PropertyDerivations
             // TODO: come up with a more general form of this operation for other streaming operators
             if (!node.getPrePartitionedInputs().isEmpty()) {
                 GroupingProperty<Symbol> prePartitionedProperty = new GroupingProperty<>(node.getPrePartitionedInputs());
-                for (LocalProperty<Symbol> localProperty : properties.getLocalProperties()) {
+                for (LocalProperty<Symbol> localProperty : translatedProperties.getLocalProperties()) {
                     if (!prePartitionedProperty.isSimplifiedBy(localProperty)) {
                         break;
                     }
@@ -340,8 +338,8 @@ public final class PropertyDerivations
                                 .forEach(localProperties::add));
             }
 
-            return ActualProperties.builderFrom(properties)
-                    .local(LocalProperties.normalizeAndPrune(localProperties.build()))
+            return ActualProperties.builderFrom(translatedProperties)
+                    .local(localProperties.build())
                     .build();
         }
 
@@ -456,19 +454,6 @@ public final class PropertyDerivations
             return ActualProperties.builder()
                     .global(coordinatorSingleStreamPartition())
                     .build();
-        }
-
-        @Override
-        public ActualProperties visitDelete(DeleteNode node, List<ActualProperties> inputProperties)
-        {
-            // drop all symbols in property because delete doesn't pass on any of the columns
-            return Iterables.getOnlyElement(inputProperties).translate(symbol -> Optional.empty());
-        }
-
-        @Override
-        public ActualProperties visitUpdate(UpdateNode node, List<ActualProperties> inputProperties)
-        {
-            return Iterables.getOnlyElement(inputProperties).translate(symbol -> Optional.empty());
         }
 
         @Override

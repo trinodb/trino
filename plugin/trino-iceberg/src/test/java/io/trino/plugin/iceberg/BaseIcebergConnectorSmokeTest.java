@@ -28,6 +28,8 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
+import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -301,6 +303,96 @@ public abstract class BaseIcebergConnectorSmokeTest
                         "ROW(INT '2', VARCHAR 'USA', BOOLEAN 'false'), " +
                         "ROW(INT '3', VARCHAR 'POLAND', BOOLEAN 'true')");
         assertUpdate(format("DROP TABLE %s", tableName));
+    }
+
+    @Test
+    public void testUnregisterTable()
+    {
+        String tableName = "test_unregister_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 a", 1);
+        String tableLocation = getTableLocation(tableName);
+
+        assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '" + tableName + "')");
+        assertQueryFails("SELECT * FROM " + tableName, ".* Table .* does not exist");
+
+        assertUpdate("CALL iceberg.system.register_table(CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "')");
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testUnregisterBrokenTable()
+    {
+        String tableName = "test_unregister_broken_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 a", 1);
+        String tableLocation = getTableLocation(tableName);
+
+        // Break the table by deleting files from the storage
+        deleteDirectory(tableLocation);
+
+        // Verify unregister_table successfully deletes the table from metastore
+        assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '" + tableName + "')");
+        assertQueryFails("SELECT * FROM " + tableName, ".* Table .* does not exist");
+    }
+
+    protected abstract void deleteDirectory(String location);
+
+    @Test
+    public void testUnregisterTableNotExistingSchema()
+    {
+        String schemaName = "test_unregister_table_not_existing_schema_" + randomNameSuffix();
+        assertQueryFails(
+                "CALL system.unregister_table('" + schemaName + "', 'non_existent_table')",
+                "Schema " + schemaName + " not found");
+    }
+
+    @Test
+    public void testUnregisterTableNotExistingTable()
+    {
+        String tableName = "test_unregister_table_not_existing_table_" + randomNameSuffix();
+        assertQueryFails(
+                "CALL system.unregister_table(CURRENT_SCHEMA, '" + tableName + "')",
+                "Table .* not found");
+    }
+
+    @Test
+    public void testRepeatUnregisterTable()
+    {
+        String tableName = "test_repeat_unregister_table_not_" + randomNameSuffix();
+        assertQueryFails(
+                "CALL system.unregister_table(CURRENT_SCHEMA, '" + tableName + "')",
+                "Table .* not found");
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 a", 1);
+        String tableLocation = getTableLocation(tableName);
+
+        assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '" + tableName + "')");
+
+        // Verify failure the procedure can't unregister the tables more than once
+        assertQueryFails("CALL system.unregister_table(CURRENT_SCHEMA, '" + tableName + "')", "Table .* not found");
+
+        assertUpdate("CALL iceberg.system.register_table(CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "')");
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testUnregisterTableAccessControl()
+    {
+        String tableName = "test_unregister_table_access_control_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 a", 1);
+
+        assertAccessDenied(
+                "CALL system.unregister_table(CURRENT_SCHEMA, '" + tableName + "')",
+                "Cannot drop table .*",
+                privilege(tableName, DROP_TABLE));
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private String getTableLocation(String tableName)

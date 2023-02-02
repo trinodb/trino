@@ -18,6 +18,8 @@ import io.trino.spi.block.Int128ArrayBlock;
 
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.sizeOf;
+
 public class Int128ColumnAdapter
         implements ColumnAdapter<long[]>
 {
@@ -30,15 +32,15 @@ public class Int128ColumnAdapter
     }
 
     @Override
-    public Block createNonNullBlock(int size, long[] values)
+    public Block createNonNullBlock(long[] values)
     {
-        return new Int128ArrayBlock(size, Optional.empty(), values);
+        return new Int128ArrayBlock(values.length / 2, Optional.empty(), values);
     }
 
     @Override
-    public Block createNullableBlock(int size, boolean[] nulls, long[] values)
+    public Block createNullableBlock(boolean[] nulls, long[] values)
     {
-        return new Int128ArrayBlock(size, Optional.of(nulls), values);
+        return new Int128ArrayBlock(values.length / 2, Optional.of(nulls), values);
     }
 
     @Override
@@ -46,5 +48,22 @@ public class Int128ColumnAdapter
     {
         destination[destinationIndex * 2] = source[sourceIndex * 2];
         destination[(destinationIndex * 2) + 1] = source[(sourceIndex * 2) + 1];
+    }
+
+    @Override
+    public void decodeDictionaryIds(long[] values, int offset, int length, int[] ids, long[] dictionary)
+    {
+        for (int i = 0; i < length; i++) {
+            int id = 2 * ids[i];
+            int destinationIndex = 2 * (offset + i);
+            values[destinationIndex] = dictionary[id];
+            values[destinationIndex + 1] = dictionary[id + 1];
+        }
+    }
+
+    @Override
+    public long getSizeInBytes(long[] values)
+    {
+        return sizeOf(values);
     }
 }

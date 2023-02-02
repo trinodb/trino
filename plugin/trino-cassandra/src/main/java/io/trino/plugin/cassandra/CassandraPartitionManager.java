@@ -82,7 +82,7 @@ public class CassandraPartitionManager
                                 .flatMap(partitionTupleDomain -> partitionTupleDomain.getDomains()
                                         .map(Map::keySet)
                                         .map(Set::stream))
-                                .orElse(Stream.empty()))
+                                .orElseGet(Stream::empty))
                         .collect(toImmutableSet());
                 remainingTupleDomain = tupleDomain.filter((column, domain) -> !usedPartitionColumns.contains(column));
             }

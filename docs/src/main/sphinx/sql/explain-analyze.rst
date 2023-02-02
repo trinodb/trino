@@ -28,9 +28,8 @@ Examples
 In the example below, you can see the CPU time spent in each stage, as well as the relative
 cost of each plan node in the stage. Note that the relative cost of the plan nodes is based on
 wall time, which may or may not be correlated to CPU time. For each plan node you can see
-some additional statistics (e.g: average input per node instance, average number of hash collisions for
-relevant plan nodes). Such statistics are useful when one wants to detect data anomalies for a query
-(skewness, abnormal hash collisions).
+some additional statistics (e.g: average input per node instance). Such statistics are useful
+when one wants to detect data anomalies for a query (e.g: skewness).
 
 .. code-block:: sql
 
@@ -41,6 +40,7 @@ relevant plan nodes). Such statistics are useful when one wants to detect data a
 
                                               Query Plan
     -----------------------------------------------------------------------------------------------
+    Trino version: version
     Fragment 1 [HASH]
         CPU: 22.58ms, Scheduled: 96.72ms, Blocked 46.21s (Input: 23.06s, Output: 0.00ns), Input: 1000 rows (37.11kB); per task: avg.: 1000.00 std.dev.: 0.00, Output: 1000 rows (28.32kB)
         Output layout: [clerk, count]
@@ -55,7 +55,6 @@ relevant plan nodes). Such statistics are useful when one wants to detect data a
            │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: 0B}
            │   CPU: 8.00ms (3.51%), Scheduled: 22.00ms (5.28%), Blocked: 0.00ns (0.00%), Output: 1000 rows (37.11kB)
            │   Input avg.: 15.63 rows, Input std.dev.: 24.36%
-           │   Collisions avg.: 0.00 (0.00% est.), Collisions std.dev.: ?%
            │   count := count("count_0")
            └─ LocalExchange[partitioning = HASH, hashColumn = [$hashvalue], arguments = ["clerk"]]
               │   Layout: [clerk:varchar(15), count_0:bigint, $hashvalue:bigint]
@@ -75,7 +74,6 @@ relevant plan nodes). Such statistics are useful when one wants to detect data a
         │   Layout: [clerk:varchar(15), $hashvalue_2:bigint, count_0:bigint]
         │   CPU: 30.00ms (13.16%), Scheduled: 30.00ms (7.19%), Blocked: 0.00ns (0.00%), Output: 1000 rows (37.11kB)
         │   Input avg.: 818058.00 rows, Input std.dev.: 0.00%
-        │   Collisions avg.: 8247.00 (25415.23% est.), Collisions std.dev.: 0.00%
         │   count_0 := count(*)
         └─ ScanFilterProject[table = hive:sf1:orders, filterPredicate = ("orderdate" > DATE '1995-01-01')]
                Layout: [clerk:varchar(15), $hashvalue_2:bigint]
@@ -102,7 +100,6 @@ For example, the window function operator will output the following::
                │   Layout: [clerk:varchar(15), count:bigint]
                │   CPU: 157.00ms (53.40%), Scheduled: 158.00ms (37.71%), Blocked: 0.00ns (0.00%), Output: 818058 rows (22.62MB)
                │   metrics:
-               │     'Blocked time distribution (s)' = {count=1.00, p01=0.00, p05=0.00, p10=0.00, p25=0.00, p50=0.00, p75=0.00, p90=0.00, p95=0.00, p99=0.00, min=0.00, max=0.00}
                │     'CPU time distribution (s)' = {count=1.00, p01=0.16, p05=0.16, p10=0.16, p25=0.16, p50=0.16, p75=0.16, p90=0.16, p95=0.16, p99=0.16, min=0.16, max=0.16}
                │     'Input rows distribution' = {count=1.00, p01=818058.00, p05=818058.00, p10=818058.00, p25=818058.00, p50=818058.00, p75=818058.00, p90=818058.00, p95=818058.00, p99=818058.00, min=818058.00, max=818058.00}
                │     'Scheduled time distribution (s)' = {count=1.00, p01=0.16, p05=0.16, p10=0.16, p25=0.16, p50=0.16, p75=0.16, p90=0.16, p95=0.16, p99=0.16, min=0.16, max=0.16}

@@ -22,8 +22,12 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Random;
 
+import static io.trino.parquet.ParquetReaderUtils.readFixedWidthInt;
 import static io.trino.parquet.ParquetReaderUtils.readUleb128Int;
-import static io.trino.parquet.reader.TestData.randomInt;
+import static io.trino.parquet.ParquetReaderUtils.readUleb128Long;
+import static io.trino.parquet.reader.TestData.randomLong;
+import static io.trino.parquet.reader.TestData.randomUnsignedInt;
+import static org.apache.parquet.bytes.BytesUtils.writeIntLittleEndianPaddedOnBitWidth;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParquetReaderUtils
@@ -35,13 +39,57 @@ public class TestParquetReaderUtils
         Random random = new Random(1);
         for (int bitWidth = 1; bitWidth <= 32; bitWidth++) {
             for (int i = 0; i < 10; i++) {
-                int value = randomInt(random, bitWidth);
+                int value = randomUnsignedInt(random, bitWidth);
                 SimpleSliceInputStream sliceInputStream = getSliceInputStream(BytesUtils::writeUnsignedVarInt, value);
                 assertThat(readUleb128Int(sliceInputStream))
                         .isEqualTo(value);
                 assertThat(sliceInputStream.asSlice().length())
                         .isEqualTo(0);
             }
+        }
+    }
+
+    @Test
+    public void testReadUleb128Long()
+            throws IOException
+    {
+        Random random = new Random(1);
+        for (int bitWidth = 1; bitWidth <= 64; bitWidth++) {
+            long value = randomLong(random, bitWidth);
+            SimpleSliceInputStream sliceInputStream = getSliceInputStream(BytesUtils::writeUnsignedVarLong, value);
+            assertThat(readUleb128Long(sliceInputStream))
+                    .isEqualTo(value);
+            assertThat(sliceInputStream.asSlice().length())
+                    .isEqualTo(0);
+        }
+    }
+
+    @Test
+    public void testReadFixedWidthInt()
+            throws IOException
+    {
+        Random random = new Random(1);
+        for (int bytesWidth = 0; bytesWidth <= 4; bytesWidth++) {
+            int value = randomUnsignedInt(random, bytesWidth * Byte.SIZE);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            writeIntLittleEndianPaddedOnBitWidth(out, value, bytesWidth * Byte.SIZE);
+            SimpleSliceInputStream sliceInputStream = new SimpleSliceInputStream(Slices.wrappedBuffer(out.toByteArray()));
+            assertThat(readFixedWidthInt(sliceInputStream, bytesWidth))
+                    .isEqualTo(value);
+            assertThat(sliceInputStream.asSlice().length())
+                    .isEqualTo(0);
+        }
+
+        long[] bytesWidthMaxValues = new long[] {(1 << 8) - 1, (1 << 16) - 1, (1 << 24) - 1, (1L << 32) - 1};
+        for (int bytesWidth = 1; bytesWidth <= 4; bytesWidth++) {
+            int value = (int) bytesWidthMaxValues[bytesWidth - 1];
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            writeIntLittleEndianPaddedOnBitWidth(out, value, bytesWidth * Byte.SIZE);
+            SimpleSliceInputStream sliceInputStream = new SimpleSliceInputStream(Slices.wrappedBuffer(out.toByteArray()));
+            assertThat(readFixedWidthInt(sliceInputStream, bytesWidth))
+                    .isEqualTo(value);
+            assertThat(sliceInputStream.asSlice().length())
+                    .isEqualTo(0);
         }
     }
 

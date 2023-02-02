@@ -62,7 +62,7 @@ public class HiveMetadataFactory
     private final MetadataProvider metadataProvider;
     private final LocationService locationService;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
-    private final BoundedExecutor renameExecution;
+    private final BoundedExecutor fileSystemExecutor;
     private final BoundedExecutor dropExecutor;
     private final Executor updateExecutor;
     private final long maxPartitionDropsPerQuery;
@@ -106,7 +106,7 @@ public class HiveMetadataFactory
                 metastoreFactory,
                 hdfsEnvironment,
                 partitionManager,
-                hiveConfig.getMaxConcurrentFileRenames(),
+                hiveConfig.getMaxConcurrentFileSystemOperations(),
                 hiveConfig.getMaxConcurrentMetastoreDrops(),
                 hiveConfig.getMaxConcurrentMetastoreUpdates(),
                 hiveConfig.getMaxPartitionDropsPerQuery(),
@@ -142,7 +142,7 @@ public class HiveMetadataFactory
             HiveMetastoreFactory metastoreFactory,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
-            int maxConcurrentFileRenames,
+            int maxConcurrentFileSystemOperations,
             int maxConcurrentMetastoreDrops,
             int maxConcurrentMetastoreUpdates,
             long maxPartitionDropsPerQuery,
@@ -197,7 +197,7 @@ public class HiveMetadataFactory
         this.accessControlMetadataFactory = requireNonNull(accessControlMetadataFactory, "accessControlMetadataFactory is null");
         this.hiveTransactionHeartbeatInterval = requireNonNull(hiveTransactionHeartbeatInterval, "hiveTransactionHeartbeatInterval is null");
 
-        renameExecution = new BoundedExecutor(executorService, maxConcurrentFileRenames);
+        fileSystemExecutor = new BoundedExecutor(executorService, maxConcurrentFileSystemOperations);
         dropExecutor = new BoundedExecutor(executorService, maxConcurrentMetastoreDrops);
         if (maxConcurrentMetastoreUpdates == 1) {
             // this will serve as a kill switch in case we observe that parallel updates causes conflicts in metastore's DB side
@@ -225,7 +225,7 @@ public class HiveMetadataFactory
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,
                 hiveMetastoreClosure,
-                renameExecution,
+                fileSystemExecutor,
                 dropExecutor,
                 updateExecutor,
                 skipDeletionForAlter,

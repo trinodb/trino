@@ -24,6 +24,7 @@ import org.joda.time.DateTime;
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -83,6 +84,7 @@ public class TaskStats
     private final Duration outputBlockedTime;
 
     private final DataSize physicalWrittenDataSize;
+    private final Optional<Integer> maxWriterCount;
 
     private final int fullGcCount;
     private final Duration fullGcTime;
@@ -130,6 +132,7 @@ public class TaskStats
                 0,
                 new Duration(0, MILLISECONDS),
                 DataSize.ofBytes(0),
+                Optional.empty(),
                 0,
                 new Duration(0, MILLISECONDS),
                 ImmutableList.of());
@@ -187,6 +190,7 @@ public class TaskStats
             @JsonProperty("outputBlockedTime") Duration outputBlockedTime,
 
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
+            @JsonProperty("writerCount") Optional<Integer> writerCount,
 
             @JsonProperty("fullGcCount") int fullGcCount,
             @JsonProperty("fullGcTime") Duration fullGcTime,
@@ -260,6 +264,7 @@ public class TaskStats
         this.outputBlockedTime = requireNonNull(outputBlockedTime, "outputBlockedTime is null");
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
+        this.maxWriterCount = requireNonNull(writerCount, "writerCount is null");
 
         checkArgument(fullGcCount >= 0, "fullGcCount is negative");
         this.fullGcCount = fullGcCount;
@@ -483,6 +488,12 @@ public class TaskStats
     }
 
     @JsonProperty
+    public Optional<Integer> getMaxWriterCount()
+    {
+        return maxWriterCount;
+    }
+
+    @JsonProperty
     public List<PipelineStats> getPipelines()
     {
         return pipelines;
@@ -566,6 +577,7 @@ public class TaskStats
                 outputPositions,
                 outputBlockedTime,
                 physicalWrittenDataSize,
+                maxWriterCount,
                 fullGcCount,
                 fullGcTime,
                 ImmutableList.of());
@@ -613,6 +625,7 @@ public class TaskStats
                 outputPositions,
                 outputBlockedTime,
                 physicalWrittenDataSize,
+                maxWriterCount,
                 fullGcCount,
                 fullGcTime,
                 summarizePipelineStats(pipelines));

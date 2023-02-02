@@ -160,7 +160,7 @@ public abstract class AbstractTestQueryFramework
         Map<QueryId, Map<String, Long>> queryTaggedReservations = memoryPool.getTaggedMemoryAllocations();
 
         List<BasicQueryInfo> queriesWithMemory = coordinator.getQueryManager().getQueries().stream()
-                .filter(query -> queryReservations.keySet().contains(query.getQueryId()))
+                .filter(query -> queryReservations.containsKey(query.getQueryId()))
                 .collect(toImmutableList());
 
         StringBuilder result = new StringBuilder();
@@ -542,13 +542,13 @@ public abstract class AbstractTestQueryFramework
         }
     }
 
-    protected String formatSqlText(String sql)
+    protected String formatSqlText(@Language("SQL") String sql)
     {
         return formatSql(SQL_PARSER.createStatement(sql, createParsingOptions(getSession())));
     }
 
     //TODO: should WarningCollector be added?
-    protected String getExplainPlan(String query, ExplainType.Type planType)
+    protected String getExplainPlan(@Language("SQL") String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = queryRunner.getQueryExplainer();
         return newTransaction()
@@ -558,7 +558,7 @@ public abstract class AbstractTestQueryFramework
                 });
     }
 
-    protected String getGraphvizExplainPlan(String query, ExplainType.Type planType)
+    protected String getGraphvizExplainPlan(@Language("SQL") String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = queryRunner.getQueryExplainer();
         return newTransaction()
@@ -615,18 +615,15 @@ public abstract class AbstractTestQueryFramework
         Plan plan = runner.getQueryPlan(queryId);
         PlanNodeId nodeId = PlanNodeSearcher.searchFrom(plan.getRoot())
                 .where(node -> {
-                    if (!(node instanceof ProjectNode)) {
+                    if (!(node instanceof ProjectNode projectNode)) {
                         return false;
                     }
-                    ProjectNode projectNode = (ProjectNode) node;
-                    if (!(projectNode.getSource() instanceof FilterNode)) {
+                    if (!(projectNode.getSource() instanceof FilterNode filterNode)) {
                         return false;
                     }
-                    FilterNode filterNode = (FilterNode) projectNode.getSource();
-                    if (!(filterNode.getSource() instanceof TableScanNode)) {
+                    if (!(filterNode.getSource() instanceof TableScanNode tableScanNode)) {
                         return false;
                     }
-                    TableScanNode tableScanNode = (TableScanNode) filterNode.getSource();
                     TableMetadata tableMetadata = getTableMetadata(tableScanNode.getTable());
                     return tableMetadata.getQualifiedName().equals(catalogSchemaTableName);
                 })

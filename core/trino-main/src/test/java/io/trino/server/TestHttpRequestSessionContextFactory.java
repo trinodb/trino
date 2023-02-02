@@ -86,7 +86,14 @@ public class TestHttpRequestSessionContextFactory
         assertEquals(context.getCatalog().orElse(null), "testCatalog");
         assertEquals(context.getSchema().orElse(null), "testSchema");
         assertEquals(context.getPath().orElse(null), "testPath");
-        assertEquals(context.getIdentity(), Identity.ofUser("testUser"));
+        assertEquals(context.getIdentity(), Identity.forUser("testUser")
+                .withGroups(ImmutableSet.of("testUser"))
+                .withConnectorRoles(ImmutableMap.of(
+                        "foo_connector", new SelectedRole(SelectedRole.Type.ALL, Optional.empty()),
+                        "bar_connector", new SelectedRole(SelectedRole.Type.NONE, Optional.empty()),
+                        "foobar_connector", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("catalog-role"))))
+                .withEnabledRoles(ImmutableSet.of("system-role"))
+                .build());
         assertEquals(context.getClientInfo().orElse(null), "client-info");
         assertEquals(context.getLanguage().orElse(null), "zh-TW");
         assertEquals(context.getTimeZoneId().orElse(null), "Asia/Taipei");
@@ -97,12 +104,7 @@ public class TestHttpRequestSessionContextFactory
                 "some_session_property", "some value with , comma"));
         assertEquals(context.getPreparedStatements(), ImmutableMap.of("query1", "select * from foo", "query2", "select * from bar"));
         assertEquals(context.getSelectedRole(), new SelectedRole(SelectedRole.Type.ROLE, Optional.of("system-role")));
-        assertEquals(context.getIdentity().getCatalogRoles(), ImmutableMap.of(
-                "foo_connector", new SelectedRole(SelectedRole.Type.ALL, Optional.empty()),
-                "bar_connector", new SelectedRole(SelectedRole.Type.NONE, Optional.empty()),
-                "foobar_connector", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("catalog-role"))));
         assertEquals(context.getIdentity().getExtraCredentials(), ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz"));
-        assertEquals(context.getIdentity().getGroups(), ImmutableSet.of("testUser"));
     }
 
     @Test

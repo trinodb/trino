@@ -40,13 +40,14 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class ScaledWriterScheduler
         implements StageScheduler
 {
+    private static final double BUFFER_FULL_THRESHOLD = 0.5;
+
     private final StageExecution stage;
     private final Supplier<Collection<TaskStatus>> sourceTasksProvider;
     private final Supplier<Collection<TaskStatus>> writerTasksProvider;
     private final NodeSelector nodeSelector;
     private final ScheduledExecutorService executor;
     private final long writerMinSizeBytes;
-    private final int maxTaskWriterCount;
     private final Set<InternalNode> scheduledNodes = new HashSet<>();
     private final AtomicBoolean done = new AtomicBoolean();
     private volatile SettableFuture<Void> future = SettableFuture.create();
@@ -57,8 +58,7 @@ public class ScaledWriterScheduler
             Supplier<Collection<TaskStatus>> writerTasksProvider,
             NodeSelector nodeSelector,
             ScheduledExecutorService executor,
-            DataSize writerMinSize,
-            int maxTaskWriterCount)
+            DataSize writerMinSize)
     {
         this.stage = requireNonNull(stage, "stage is null");
         this.sourceTasksProvider = requireNonNull(sourceTasksProvider, "sourceTasksProvider is null");
@@ -66,7 +66,6 @@ public class ScaledWriterScheduler
         this.nodeSelector = requireNonNull(nodeSelector, "nodeSelector is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.writerMinSizeBytes = writerMinSize.toBytes();
-        this.maxTaskWriterCount = maxTaskWriterCount;
     }
 
     public void finish()
@@ -93,23 +92,59 @@ public class ScaledWriterScheduler
             return 1;
         }
 
-        double fullTasks = sourceTasksProvider.get().stream()
-                .filter(task -> !task.getState().isDone())
-                .map(TaskStatus::getOutputBufferStatus)
-                .map(OutputBufferStatus::isOverutilized)
-                .mapToDouble(full -> full ? 1.0 : 0.0)
-                .average().orElse(0.0);
+        Collection<TaskStatus> writerTasks = writerTasksProvider.get();
+        // Do not scale tasks until all existing writer tasks are initialized with maxWriterCount
+        if (writerTasks.size() != scheduledNodes.size()
+                || writerTasks.stream().map(TaskStatus::getMaxWriterCount).anyMatch(Optional::isEmpty)) {
+            return 0;
+        }
 
-        long writtenBytes = writerTasksProvider.get().stream()
+        long writtenBytes = writerTasks.stream()
                 .map(TaskStatus::getPhysicalWrittenDataSize)
                 .mapToLong(DataSize::toBytes)
                 .sum();
 
-        if ((fullTasks >= 0.5) && (writtenBytes >= (writerMinSizeBytes * maxTaskWriterCount * scheduledNodes.size()))) {
+        long minWrittenBytesToScaleUp = writerTasks.stream()
+                .map(TaskStatus::getMaxWriterCount)
+                .map(Optional::get)
+                .mapToLong(writerCount -> writerMinSizeBytes * writerCount)
+                .sum();
+
+        // When there is a big data skewness, there could be a bottleneck due to the skewed workers even if most of the workers are not over-utilized.
+        // Check both, weighted output buffer over-utilization rate and average output buffer over-utilization rate, in case when there are many over-utilized small tasks
+        // due to fewer not-over-utilized big skewed tasks.
+        if ((isWeightedBufferFull() || isAverageBufferFull()) && (writtenBytes >= minWrittenBytesToScaleUp)) {
             return 1;
         }
 
         return 0;
+    }
+
+    private boolean isWeightedBufferFull()
+    {
+        double totalOutputSize = 0.0;
+        double overutilizedOutputSize = 0.0;
+        for (TaskStatus task : sourceTasksProvider.get()) {
+            if (!task.getState().isDone()) {
+                long outputDataSize = task.getOutputDataSize().toBytes();
+                totalOutputSize += outputDataSize;
+                if (task.getOutputBufferStatus().isOverutilized()) {
+                    overutilizedOutputSize += outputDataSize;
+                }
+            }
+        }
+
+        return totalOutputSize > 0 && overutilizedOutputSize / totalOutputSize >= BUFFER_FULL_THRESHOLD;
+    }
+
+    private boolean isAverageBufferFull()
+    {
+        return sourceTasksProvider.get().stream()
+                .filter(task -> !task.getState().isDone())
+                .map(TaskStatus::getOutputBufferStatus)
+                .map(OutputBufferStatus::isOverutilized)
+                .mapToDouble(full -> full ? 1.0 : 0.0)
+                .average().orElse(0.0) >= BUFFER_FULL_THRESHOLD;
     }
 
     private List<RemoteTask> scheduleTasks(int count)

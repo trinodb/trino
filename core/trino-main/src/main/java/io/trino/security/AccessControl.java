@@ -258,6 +258,13 @@ public interface AccessControl
     void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName);
 
     /**
+     * Check if identity is allowed to alter columns to the specified table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanAlterColumn(SecurityContext context, QualifiedObjectName tableName);
+
+    /**
      * Check if identity is allowed to change the specified table's user/role.
      *
      * @throws AccessDeniedException if not allowed
@@ -559,8 +566,8 @@ public interface AccessControl
         return ImmutableList.of();
     }
 
-    default List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
+    default Optional<ViewExpression> getColumnMask(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
     {
-        return ImmutableList.of();
+        return Optional.empty();
     }
 }

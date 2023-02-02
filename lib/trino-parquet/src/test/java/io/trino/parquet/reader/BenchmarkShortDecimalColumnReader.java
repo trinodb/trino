@@ -13,36 +13,28 @@
  */
 package io.trino.parquet.reader;
 
+import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
 import io.trino.spi.type.DecimalType;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesWriter;
+import org.apache.parquet.column.values.deltastrings.DeltaByteArrayWriter;
 import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
-import org.openjdk.jmh.annotations.Fork;
-import org.openjdk.jmh.annotations.Measurement;
-import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.Warmup;
 
+import static io.trino.parquet.ParquetEncoding.DELTA_BYTE_ARRAY;
+import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.reader.TestData.longToBytes;
+import static io.trino.parquet.reader.TestData.maxPrecision;
 import static io.trino.parquet.reader.TestData.unscaledRandomShortDecimalSupplier;
-import static java.lang.Math.toIntExact;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.lang.String.format;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 
-@State(Scope.Thread)
-@OutputTimeUnit(SECONDS)
-@Measurement(iterations = 15, time = 500, timeUnit = MILLISECONDS)
-@Warmup(iterations = 5, time = 500, timeUnit = MILLISECONDS)
-@Fork(2)
 public class BenchmarkShortDecimalColumnReader
         extends AbstractColumnReaderBenchmark<long[]>
 {
@@ -50,6 +42,12 @@ public class BenchmarkShortDecimalColumnReader
             "1", "2", "3", "4", "5", "6", "7", "8",
     })
     public int byteArrayLength;
+
+    @Param({
+            "PLAIN",
+            "DELTA_BYTE_ARRAY",
+    })
+    public ParquetEncoding encoding;
 
     @Override
     protected PrimitiveField createPrimitiveField()
@@ -69,7 +67,13 @@ public class BenchmarkShortDecimalColumnReader
     @Override
     protected ValuesWriter createValuesWriter(int bufferSize)
     {
-        return new FixedLenByteArrayPlainValuesWriter(byteArrayLength, bufferSize, bufferSize, HeapByteBufferAllocator.getInstance());
+        if (encoding.equals(PLAIN)) {
+            return new FixedLenByteArrayPlainValuesWriter(byteArrayLength, bufferSize, bufferSize, HeapByteBufferAllocator.getInstance());
+        }
+        else if (encoding.equals(DELTA_BYTE_ARRAY)) {
+            return new DeltaByteArrayWriter(bufferSize, bufferSize, HeapByteBufferAllocator.getInstance());
+        }
+        throw new UnsupportedOperationException(format("encoding %s is not supported", encoding));
     }
 
     @Override
@@ -84,16 +88,6 @@ public class BenchmarkShortDecimalColumnReader
     {
         Binary binary = Binary.fromConstantByteArray(longToBytes(batch[index], byteArrayLength));
         writer.writeBytes(binary);
-    }
-
-    private static int maxPrecision(int numBytes)
-    {
-        return toIntExact(
-                // convert double to long
-                Math.round(
-                        // number of base-10 digits
-                        Math.floor(Math.log10(
-                                Math.pow(2, 8 * numBytes - 1) - 1))));  // max value stored in numBytes
     }
 
     public static void main(String[] args)

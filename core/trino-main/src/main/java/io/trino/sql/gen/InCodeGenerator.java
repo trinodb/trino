@@ -365,10 +365,9 @@ public class InCodeGenerator
 
     private static boolean isDeterminateConstant(RowExpression expression, MethodHandle isIndeterminateFunction)
     {
-        if (!(expression instanceof ConstantExpression)) {
+        if (!(expression instanceof ConstantExpression constantExpression)) {
             return false;
         }
-        ConstantExpression constantExpression = (ConstantExpression) expression;
         Object value = constantExpression.getValue();
         if (value == null) {
             return false;

@@ -30,6 +30,7 @@ import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode.Type;
@@ -41,7 +42,6 @@ import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.planner.plan.WindowNode.Specification;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
@@ -207,8 +207,7 @@ public class DecorrelateUnnest
         // Here, any underlying projection that was a source of the correlated UnnestNode, is appended as a source of the rewritten UnnestNode.
         // If the projection is not necessary for UnnestNode (i.e. it does not produce any unnest symbols), it should be pruned afterwards.
         PlanNode unnestSource = context.getLookup().resolve(unnestNode.getSource());
-        if (unnestSource instanceof ProjectNode) {
-            ProjectNode sourceProjection = (ProjectNode) unnestSource;
+        if (unnestSource instanceof ProjectNode sourceProjection) {
             input = new ProjectNode(
                     sourceProjection.getId(),
                     input,
@@ -289,11 +288,10 @@ public class DecorrelateUnnest
      */
     private static boolean isSupportedUnnest(PlanNode node, List<Symbol> correlation, Lookup lookup)
     {
-        if (!(node instanceof UnnestNode)) {
+        if (!(node instanceof UnnestNode unnestNode)) {
             return false;
         }
 
-        UnnestNode unnestNode = (UnnestNode) node;
         List<Symbol> unnestSymbols = unnestNode.getMappings().stream()
                 .map(UnnestNode.Mapping::getInput)
                 .collect(toImmutableList());
@@ -473,7 +471,7 @@ public class DecorrelateUnnest
             WindowNode windowNode = new WindowNode(
                     idAllocator.getNextId(),
                     source.getPlan(),
-                    new Specification(ImmutableList.of(uniqueSymbol), Optional.of(node.getOrderingScheme())),
+                    new DataOrganizationSpecification(ImmutableList.of(uniqueSymbol), Optional.of(node.getOrderingScheme())),
                     ImmutableMap.of(rowNumberSymbol, rowNumberFunction),
                     Optional.empty(),
                     ImmutableSet.of(),

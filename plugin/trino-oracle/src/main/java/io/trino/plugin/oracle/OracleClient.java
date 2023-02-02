@@ -678,4 +678,10 @@ public class OracleClient
                 varcharLiteral(comment.orElse("")));
         execute(session, sql);
     }
+
+    @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
+    }
 }

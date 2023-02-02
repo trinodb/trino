@@ -47,7 +47,7 @@ public class TestTable
     public TestTable(SqlExecutor sqlExecutor, String namePrefix)
     {
         this.sqlExecutor = sqlExecutor;
-        this.name = namePrefix + randomTableSuffix();
+        this.name = namePrefix + randomNameSuffix();
         this.tableDefinition = null;
     }
 
@@ -128,11 +128,5 @@ public class TestTable
     public void close()
     {
         sqlExecutor.execute("DROP TABLE " + name);
-    }
-
-    @Deprecated
-    public static String randomTableSuffix()
-    {
-        return randomNameSuffix();
     }
 }

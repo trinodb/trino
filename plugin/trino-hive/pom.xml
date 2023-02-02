@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>404-SNAPSHOT</version>
+        <version>407-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -49,6 +49,11 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-hive-formats</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-memory-context</artifactId>
         </dependency>
 
@@ -68,11 +73,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-rcfile</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.trino.hadoop</groupId>
             <artifactId>hadoop-apache</artifactId>
         </dependency>
@@ -80,6 +80,11 @@
         <dependency>
             <groupId>io.trino.hive</groupId>
             <artifactId>hive-apache</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino.hive</groupId>
+            <artifactId>hive-thrift</artifactId>
         </dependency>
 
         <dependency>
@@ -256,6 +261,11 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-api</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.thrift</groupId>
             <artifactId>libthrift</artifactId>
         </dependency>
@@ -331,6 +341,19 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-client</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-exchange-filesystem</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-exchange-filesystem</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
@@ -492,6 +515,18 @@
                     </dependency>
                 </dependencies>
             </plugin>
+
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredResourcePatterns>
+                        <!-- com.amazonaws:aws-java-sdk-core and software.amazon.awssdk:sdk-core MIME type file duplicate-->
+                        <ignoredResourcePattern>mime.types</ignoredResourcePattern>
+                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 
@@ -509,19 +544,27 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/TestHiveGlueMetastore.java</exclude>
+                                <exclude>**/TestTrinoS3FileSystemAwsS3.java</exclude>
                                 <exclude>**/TestFullParquetReader.java</exclude>
+                                <exclude>**/Test*FailureRecoveryTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>fte-tests</id>
+            <build>
+                <plugins>
                     <plugin>
-                        <groupId>org.basepom.maven</groupId>
-                        <artifactId>duplicate-finder-maven-plugin</artifactId>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <ignoredResourcePatterns>
-                                <!-- com.amazonaws:aws-java-sdk-core and software.amazon.awssdk:sdk-core MIME type file duplicate-->
-                                <ignoredResourcePattern>mime.types</ignoredResourcePattern>
-                                <ignoredResourcePattern>about.html</ignoredResourcePattern>
-                            </ignoredResourcePatterns>
+                            <includes>
+                                <include>**/Test*FailureRecoveryTest.java</include>
+                            </includes>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -546,7 +589,7 @@
         </profile>
 
         <profile>
-            <id>test-hive-glue</id>
+            <id>aws-tests</id>
             <build>
                 <plugins>
                     <plugin>
@@ -555,6 +598,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestHiveGlueMetastore.java</include>
+                                <include>**/TestTrinoS3FileSystemAwsS3.java</include>
                             </includes>
                         </configuration>
                     </plugin>

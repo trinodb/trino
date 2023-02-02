@@ -15,13 +15,13 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ViewColumn;
 import io.trino.security.AccessControl;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.AnalyzerFactory;
@@ -36,13 +36,19 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class CreateMaterializedViewTask
@@ -109,6 +115,10 @@ public class CreateMaterializedViewTask
                 parameterLookup,
                 true);
 
+        if (statement.getGracePeriod().isPresent()) {
+            // Should fail in analysis
+            throw new UnsupportedOperationException();
+        }
         MaterializedViewDefinition definition = new MaterializedViewDefinition(
                 sql,
                 session.getCatalog(),
@@ -119,7 +129,15 @@ public class CreateMaterializedViewTask
                 Optional.empty(),
                 properties);
 
-        accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name, properties);
+        Set<String> specifiedPropertyKeys = statement.getProperties().stream()
+                // property names are case-insensitive and normalized to lower case
+                .map(property -> property.getName().getValue().toLowerCase(ENGLISH))
+                .collect(toImmutableSet());
+        Map<String, Object> explicitlySetProperties = properties.keySet().stream()
+                .peek(key -> verify(key.equals(key.toLowerCase(ENGLISH)), "Property name '%s' not in lower-case", key))
+                .filter(specifiedPropertyKeys::contains)
+                .collect(toImmutableMap(Function.identity(), properties::get));
+        accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name, explicitlySetProperties);
         plannerContext.getMetadata().createMaterializedView(session, name, definition, statement.isReplace(), statement.isNotExists());
 
         stateMachine.setOutput(analysis.getTarget());

@@ -191,6 +191,7 @@ import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
+import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
@@ -461,6 +462,11 @@ class AstBuilder
     @Override
     public Node visitCreateMaterializedView(SqlBaseParser.CreateMaterializedViewContext context)
     {
+        Optional<IntervalLiteral> gracePeriod = Optional.empty();
+        if (context.GRACE() != null) {
+            gracePeriod = Optional.of((IntervalLiteral) visit(context.interval()));
+        }
+
         Optional<String> comment = Optional.empty();
         if (context.COMMENT() != null) {
             comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
@@ -477,6 +483,7 @@ class AstBuilder
                 (Query) visit(context.query()),
                 context.REPLACE() != null,
                 context.EXISTS() != null,
+                gracePeriod,
                 properties,
                 comment);
     }
@@ -697,6 +704,17 @@ class AstBuilder
                 (ColumnDefinition) visit(context.columnDefinition()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
+    }
+
+    @Override
+    public Node visitSetColumnType(SqlBaseParser.SetColumnTypeContext context)
+    {
+        return new SetColumnType(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.columnName),
+                (DataType) visit(context.type()),
+                context.EXISTS() != null);
     }
 
     @Override
@@ -3744,19 +3762,5 @@ class AstBuilder
                 return QueryPeriod.RangeType.VERSION;
         }
         throw new IllegalArgumentException("Unsupported query period range type: " + token.getText());
-    }
-
-    private static Trim.Specification toTrimSpecification(String functionName)
-    {
-        requireNonNull(functionName, "functionName is null");
-        switch (functionName) {
-            case "trim":
-                return Trim.Specification.BOTH;
-            case "ltrim":
-                return Trim.Specification.LEADING;
-            case "rtrim":
-                return Trim.Specification.TRAILING;
-        }
-        throw new IllegalArgumentException("Unsupported trim specification: " + functionName);
     }
 }

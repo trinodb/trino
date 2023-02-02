@@ -399,7 +399,8 @@ public class DruidJdbcClient
                     table.getLimit(),
                     table.getColumns(),
                     table.getOtherReferencedTables(),
-                    table.getNextSyntheticColumnId());
+                    table.getNextSyntheticColumnId(),
+                    table.getAuthorization());
         }
 
         return table;
@@ -480,6 +481,12 @@ public class DruidJdbcClient
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming columns");
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
     }
 
     @Override

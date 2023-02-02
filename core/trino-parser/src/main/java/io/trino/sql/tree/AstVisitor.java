@@ -667,6 +667,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitSetColumnType(SetColumnType node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitSetTableAuthorization(SetTableAuthorization node, C context)
     {
         return visitStatement(node, context);

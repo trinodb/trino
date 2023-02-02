@@ -39,8 +39,8 @@ Configuration
 -------------
 
 To configure the Kafka connector, create a catalog properties file
-``etc/catalog/kafka.properties`` with the following content,
-replacing the properties as appropriate.
+``etc/catalog/example.properties`` with the following content, replacing the
+properties as appropriate.
 
 In some cases, such as when using specialized authentication methods, it is necessary to specify
 additional Kafka client properties in order to access your Kafka cluster. To do so,
@@ -627,9 +627,9 @@ for a Kafka message:
 .. code-block:: json
 
     {
-      "tableName": "your-table-name",
-      "schemaName": "your-schema-name",
-      "topicName": "your-topic-name",
+      "tableName": "example_table_name",
+      "schemaName": "example_schema_name",
+      "topicName": "example_topic_name",
       "key": { "..." },
       "message": {
         "dataFormat": "raw",
@@ -717,9 +717,9 @@ The following is an example CSV field definition in a `table definition file
 .. code-block:: json
 
     {
-      "tableName": "your-table-name",
-      "schemaName": "your-schema-name",
-      "topicName": "your-topic-name",
+      "tableName": "example_table_name",
+      "schemaName": "example_schema_name",
+      "topicName": "example_topic_name",
       "key": { "..." },
       "message": {
         "dataFormat": "csv",
@@ -836,9 +836,9 @@ The following is an example JSON field definition in a `table definition file
 .. code-block:: json
 
     {
-      "tableName": "your-table-name",
-      "schemaName": "your-schema-name",
-      "topicName": "your-topic-name",
+      "tableName": "example_table_name",
+      "schemaName": "example_schema_name",
+      "topicName": "example_topic_name",
       "key": { "..." },
       "message": {
         "dataFormat": "json",
@@ -922,9 +922,9 @@ The following example shows an Avro field definition in a `table definition file
 .. code-block:: json
 
     {
-      "tableName": "your-table-name",
-      "schemaName": "your-schema-name",
-      "topicName": "your-topic-name",
+      "tableName": "example_table_name",
+      "schemaName": "example_schema_name",
+      "topicName": "example_topic_name",
       "key": { "..." },
       "message":
       {
@@ -986,6 +986,8 @@ The following is an example insert query for the preceding table definition:
     INSERT INTO example_avro_table (field1, field2, field3)
       VALUES (123456789, 'example text', FALSE);
 
+.. _kafka-protobuf-encoding:
+
 Protobuf encoder
 """"""""""""""""
 
@@ -1044,9 +1046,9 @@ file <#table-definition-files>`__ for a Kafka message:
 .. code-block:: json
 
     {
-      "tableName": "your-table-name",
-      "schemaName": "your-schema-name",
-      "topicName": "your-topic-name",
+      "tableName": "example_table_name",
+      "schemaName": "example_schema_name",
+      "topicName": "example_topic_name",
       "key": { "..." },
       "message":
       {

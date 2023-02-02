@@ -55,7 +55,7 @@ public class FlakyTestRetryAnalyzer
 
         Optional<String> enabledSystemPropertyValue = Optional.ofNullable(System.getProperty(ENABLED_SYSTEM_PROPERTY));
         if (!enabledSystemPropertyValue.map(Boolean::parseBoolean)
-                .orElse(System.getenv("CONTINUOUS_INTEGRATION") != null)) {
+                .orElseGet(() -> System.getenv("CONTINUOUS_INTEGRATION") != null)) {
             log.info(
                     "FlakyTestRetryAnalyzer not enabled: " +
                             "CONTINUOUS_INTEGRATION environment is not detected or " +
@@ -81,7 +81,7 @@ public class FlakyTestRetryAnalyzer
         }
         String stackTrace = getStackTraceAsString(result.getThrowable());
         if (!Pattern.compile(annotation.match()).matcher(stackTrace).find()) {
-            log.warn("not retrying; stacktrace '%s' does not match pattern '%s'", stackTrace, annotation.match());
+            log.warn("not retrying; stacktrace does not match pattern '%s': [%s]", annotation.match(), stackTrace);
             return false;
         }
 

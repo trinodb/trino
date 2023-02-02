@@ -25,8 +25,8 @@ Create a catalog properties file that specifies the Druid connector by setting
 the ``connector.name`` to ``druid`` and configuring the ``connection-url`` with
 the JDBC string to connect to Druid.
 
-For example, to access a database as ``druid``, create the file
-``etc/catalog/druid.properties``. Replace ``BROKER:8082`` with the correct
+For example, to access a database as ``example``, create the file
+``etc/catalog/example.properties``. Replace ``BROKER:8082`` with the correct
 host and port of your Druid broker.
 
 .. code-block:: properties
@@ -43,7 +43,7 @@ secured by basic authentication by updating the URL and adding credentials:
     connection-user=root
     connection-password=secret
 
-Now you can access your Druid database in Trino with the ``druiddb`` catalog
+Now you can access your Druid database in Trino with the ``example`` catalog
 name from the properties file.
 
 The ``connection-user`` and ``connection-password`` are typically required and
@@ -144,7 +144,7 @@ to split and then count the number of comma-separated values in a column::
       num_reports
     FROM
       TABLE(
-        druid.system.query(
+        example.system.query(
           query => 'SELECT
             MV_LENGTH(
               STRING_TO_MV(direct_reports, ",")

@@ -84,10 +84,7 @@ public class CanonicalizationAware<T extends Node>
 
     public static Boolean canonicalizationAwareComparison(Node left, Node right)
     {
-        if (left instanceof Identifier && right instanceof Identifier) {
-            Identifier leftIdentifier = (Identifier) left;
-            Identifier rightIdentifier = (Identifier) right;
-
+        if (left instanceof Identifier leftIdentifier && right instanceof Identifier rightIdentifier) {
             return leftIdentifier.getCanonicalValue().equals(rightIdentifier.getCanonicalValue());
         }
 
@@ -96,8 +93,8 @@ public class CanonicalizationAware<T extends Node>
 
     public static OptionalInt canonicalizationAwareHash(Node node)
     {
-        if (node instanceof Identifier) {
-            return OptionalInt.of(((Identifier) node).getCanonicalValue().hashCode());
+        if (node instanceof Identifier identifier) {
+            return OptionalInt.of(identifier.getCanonicalValue().hashCode());
         }
         if (node.getChildren().isEmpty()) {
             return OptionalInt.of(node.hashCode());

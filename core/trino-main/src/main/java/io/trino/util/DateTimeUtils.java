@@ -18,6 +18,7 @@ import io.trino.client.IntervalYearMonth;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.tree.IntervalLiteral.IntervalField;
+import org.assertj.core.util.VisibleForTesting;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.DurationFieldType;
@@ -35,10 +36,13 @@ import org.joda.time.format.PeriodFormatter;
 import org.joda.time.format.PeriodFormatterBuilder;
 import org.joda.time.format.PeriodParser;
 
+import java.time.DateTimeException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -67,7 +71,64 @@ public final class DateTimeUtils
         // - the required format is 'YYYY-MM-DD'
         // - all components should be unsigned numbers
         // https://github.com/trinodb/trino/issues/10677
+
+        OptionalInt days = parseIfIso8601DateFormat(value);
+        if (days.isPresent()) {
+            return days.getAsInt();
+        }
         return toIntExact(TimeUnit.MILLISECONDS.toDays(DATE_FORMATTER.parseMillis(value)));
+    }
+
+    /**
+     * Parse date if it is in the format {@code yyyy-MM-dd}.
+     *
+     * @return the number of days since 1970-01-01 or empty when value does not match the expected format
+     * @throws DateTimeException when value matches the expected format but is invalid (month or day number out of range)
+     */
+    @VisibleForTesting
+    static OptionalInt parseIfIso8601DateFormat(String value)
+    {
+        if (value.length() != 10 || value.charAt(4) != '-' || value.charAt(7) != '-') {
+            return OptionalInt.empty();
+        }
+
+        OptionalInt year = parseIntSimple(value, 0, 4);
+        if (year.isEmpty()) {
+            return OptionalInt.empty();
+        }
+
+        OptionalInt month = parseIntSimple(value, 5, 2);
+        if (month.isEmpty()) {
+            return OptionalInt.empty();
+        }
+
+        OptionalInt day = parseIntSimple(value, 8, 2);
+        if (day.isEmpty()) {
+            return OptionalInt.empty();
+        }
+
+        LocalDate date = LocalDate.of(year.getAsInt(), month.getAsInt(), day.getAsInt());
+        return OptionalInt.of(toIntExact(date.toEpochDay()));
+    }
+
+    /**
+     * Parse positive integer with radix 10.
+     *
+     * @return parsed value or empty if any non digit found
+     */
+    private static OptionalInt parseIntSimple(String input, int offset, int length)
+    {
+        checkArgument(length > 0, "Invalid length %s", length);
+
+        int result = 0;
+        for (int i = 0; i < length; i++) {
+            int digit = input.charAt(offset + i) - '0';
+            if (digit < 0 || digit > 9) {
+                return OptionalInt.empty();
+            }
+            result = result * 10 + digit;
+        }
+        return OptionalInt.of(result);
     }
 
     public static String printDate(int days)

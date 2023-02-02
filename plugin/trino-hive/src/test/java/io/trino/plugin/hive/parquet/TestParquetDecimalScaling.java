@@ -17,7 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.plugin.hive.HiveQueryRunner;
-import io.trino.plugin.hive.parquet.write.TestMapredParquetOutputFormat;
+import io.trino.plugin.hive.parquet.write.TestingMapredParquetOutputFormat;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -357,10 +357,8 @@ public class TestParquetDecimalScaling
         if (overflows(new BigDecimal(writeValue).unscaledValue(), schemaPrecision)) {
             @Language("SQL") String query = format("SELECT * FROM tpch.%s", tableName);
             @Language("RegExp") String expectedMessage = format(
-                    "Could not read unscaled value %s into decimal\\(%d,%d\\) from column .*",
-                    new BigDecimal(writeValue).unscaledValue(),
-                    schemaPrecision,
-                    schemaScale);
+                    "Could not read unscaled value %s into a short decimal from column .*",
+                    new BigDecimal(writeValue).unscaledValue());
 
             assertQueryFails(optimizedParquetReaderEnabled(false), query, expectedMessage);
             assertQueryFails(optimizedParquetReaderEnabled(true), query, expectedMessage);
@@ -473,7 +471,7 @@ public class TestParquetDecimalScaling
         jobConf.setEnum(WRITER_VERSION, writerVersion);
 
         try {
-            FileSinkOperator.RecordWriter recordWriter = new TestMapredParquetOutputFormat(Optional.of(parquetSchema), true, DateTimeZone.getDefault())
+            FileSinkOperator.RecordWriter recordWriter = new TestingMapredParquetOutputFormat(Optional.of(parquetSchema), true, DateTimeZone.getDefault())
                     .getHiveRecordWriter(
                             jobConf,
                             path,

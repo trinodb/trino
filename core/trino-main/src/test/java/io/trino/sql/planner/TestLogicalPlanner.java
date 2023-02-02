@@ -29,7 +29,6 @@ import io.trino.spi.type.RowType;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.trino.sql.planner.optimizations.AddLocalExchanges;
@@ -106,6 +105,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.apply;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.correlatedJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -224,11 +224,10 @@ public class TestLogicalPlanner
                                 FINAL,
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE, REPARTITION,
-                                                exchange(LOCAL, REPARTITION,
-                                                        aggregation(
-                                                                ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
-                                                                PARTIAL,
-                                                                anyTree(tableScan("orders", ImmutableMap.of("totalprice", "totalprice"))))))))));
+                                                aggregation(
+                                                        ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
+                                                        PARTIAL,
+                                                        anyTree(tableScan("orders", ImmutableMap.of("totalprice", "totalprice")))))))));
 
         // simple group by over filter that keeps at most one group
         assertDistributedPlan("SELECT orderstatus, sum(totalprice) FROM orders WHERE orderstatus='O' GROUP BY orderstatus",
@@ -238,11 +237,10 @@ public class TestLogicalPlanner
                                 FINAL,
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE, REPARTITION,
-                                                exchange(LOCAL, REPARTITION,
-                                                        aggregation(
-                                                                ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
-                                                                PARTIAL,
-                                                                anyTree(tableScan("orders", ImmutableMap.of("totalprice", "totalprice"))))))))));
+                                                aggregation(
+                                                        ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
+                                                        PARTIAL,
+                                                        anyTree(tableScan("orders", ImmutableMap.of("totalprice", "totalprice")))))))));
     }
 
     @Test
@@ -816,6 +814,31 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testCorrelatedJoinWithNullCondition()
+    {
+        assertPlan(
+                "SELECT regionkey, n.name FROM region LEFT JOIN LATERAL (SELECT name FROM nation) n ON NULL",
+                CREATED,
+                anyTree(
+                    correlatedJoin(
+                            List.of("r_row_number", "r_regionkey", "r_name", "r_comment"),
+                            "CAST(null AS boolean)",
+                            tableScan("region", Map.of(
+                                    "r_row_number", "row_number",
+                                    "r_regionkey", "regionkey",
+                                    "r_name", "name",
+                                    "r_comment", "comment")),
+                            anyTree(tableScan("nation")))));
+        assertPlan(
+                "SELECT regionkey, n.name FROM region LEFT JOIN LATERAL (SELECT name FROM nation) n ON NULL",
+                any(
+                        join(LEFT, builder -> builder
+                                .equiCriteria(List.of())
+                                .left(tableScan("region"))
+                                .right(values("name")))));
+    }
+
+    @Test
     public void testCorrelatedScalarSubqueryInSelect()
     {
         assertDistributedPlan("SELECT name, (SELECT name FROM region WHERE regionkey = nation.regionkey) FROM nation",
@@ -1111,6 +1134,14 @@ public class TestLogicalPlanner
                 "SELECT * FROM nation WHERE 1 = 0",
                 output(
                         values("nationkey", "name", "regionkey", "comment")));
+        assertPlan(
+                "SELECT * FROM nation WHERE null",
+                output(
+                        values("nationkey", "name", "regionkey", "comment")));
+        assertPlan(
+                "SELECT * FROM nation WHERE nationkey = null",
+                output(
+                        values("nationkey", "name", "regionkey", "comment")));
     }
 
     @Test
@@ -1253,8 +1284,7 @@ public class TestLogicalPlanner
                                 .right(
                                         anyTree(
                                                 exchange(REMOTE, REPARTITION,
-                                                        exchange(LOCAL, REPARTITION,
-                                                                tableScan("region", ImmutableMap.of("RIGHT_REGIONKEY", "regionkey")))))))),
+                                                        tableScan("region", ImmutableMap.of("RIGHT_REGIONKEY", "regionkey"))))))),
                 plan -> // make sure there are only two remote exchanges (one in probe and one in build side)
                         assertEquals(
                                 countOfMatchingNodes(
@@ -1491,7 +1521,7 @@ public class TestLogicalPlanner
                 "SELECT name FROM nation OFFSET 2 ROWS",
                 any(
                         strictProject(
-                                ImmutableMap.of("name", new ExpressionMatcher("name")),
+                                ImmutableMap.of("name", expression("name")),
                                 filter(
                                         "row_num > BIGINT '2'",
                                         rowNumber(
@@ -1505,7 +1535,7 @@ public class TestLogicalPlanner
                 "SELECT name FROM nation ORDER BY regionkey OFFSET 2 ROWS",
                 any(
                         strictProject(
-                                ImmutableMap.of("name", new ExpressionMatcher("name")),
+                                ImmutableMap.of("name", expression("name")),
                                 filter(
                                         "row_num > BIGINT '2'",
                                         rowNumber(
@@ -1522,7 +1552,7 @@ public class TestLogicalPlanner
                 "SELECT name FROM nation ORDER BY regionkey OFFSET 2 ROWS FETCH NEXT 5 ROWS ONLY",
                 any(
                         strictProject(
-                                ImmutableMap.of("name", new ExpressionMatcher("name")),
+                                ImmutableMap.of("name", expression("name")),
                                 filter(
                                         "row_num > BIGINT '2'",
                                         rowNumber(
@@ -1541,7 +1571,7 @@ public class TestLogicalPlanner
                 "SELECT name FROM nation OFFSET 2 ROWS FETCH NEXT 5 ROWS ONLY",
                 any(
                         strictProject(
-                                ImmutableMap.of("name", new ExpressionMatcher("name")),
+                                ImmutableMap.of("name", expression("name")),
                                 filter(
                                         "row_num > BIGINT '2'",
                                         rowNumber(
@@ -1561,7 +1591,7 @@ public class TestLogicalPlanner
                 "SELECT name, regionkey FROM nation ORDER BY regionkey FETCH FIRST 6 ROWS WITH TIES",
                 any(
                         strictProject(
-                                ImmutableMap.of("name", new ExpressionMatcher("name"), "regionkey", new ExpressionMatcher("regionkey")),
+                                ImmutableMap.of("name", expression("name"), "regionkey", expression("regionkey")),
                                 topNRanking(
                                         pattern -> pattern
                                                 .specification(
@@ -1581,14 +1611,14 @@ public class TestLogicalPlanner
                 "SELECT name, regionkey FROM nation ORDER BY regionkey OFFSET 10 ROWS FETCH FIRST 6 ROWS WITH TIES",
                 any(
                         strictProject(
-                                ImmutableMap.of("name", new ExpressionMatcher("name"), "regionkey", new ExpressionMatcher("regionkey")),
+                                ImmutableMap.of("name", expression("name"), "regionkey", expression("regionkey")),
                                 filter(
                                         "row_num > BIGINT '10'",
                                         rowNumber(
                                                 pattern -> pattern
                                                         .partitionBy(ImmutableList.of()),
                                                 strictProject(
-                                                        ImmutableMap.of("name", new ExpressionMatcher("name"), "regionkey", new ExpressionMatcher("regionkey")),
+                                                        ImmutableMap.of("name", expression("name"), "regionkey", expression("regionkey")),
                                                         topNRanking(
                                                                 pattern -> pattern
                                                                         .specification(
@@ -1752,13 +1782,11 @@ public class TestLogicalPlanner
                                                 node(MarkDistinctNode.class,
                                                         exchange(LOCAL, REPARTITION,
                                                                 exchange(REMOTE, REPARTITION,
-                                                                        exchange(LOCAL, REPARTITION,
-                                                                                project(ImmutableMap.of("hash_custkey", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(custkey), 0))"), "hash_nationkey", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(nationkey), 0))")),
-                                                                                        tableScan("customer", ImmutableMap.of("custkey", "custkey", "nationkey", "nationkey"))))),
+                                                                        project(ImmutableMap.of("hash_custkey", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(custkey), 0))"), "hash_nationkey", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(nationkey), 0))")),
+                                                                                tableScan("customer", ImmutableMap.of("custkey", "custkey", "nationkey", "nationkey")))),
                                                                 exchange(REMOTE, REPARTITION,
-                                                                        exchange(LOCAL, REPARTITION,
-                                                                                node(ProjectNode.class,
-                                                                                        node(TableScanNode.class)))))))))));
+                                                                        node(ProjectNode.class,
+                                                                                node(TableScanNode.class))))))))));
     }
 
     @Test
@@ -1935,16 +1963,13 @@ public class TestLogicalPlanner
                                                 exchange(
                                                         REMOTE,
                                                         REPARTITION,
-                                                        exchange(
-                                                                LOCAL,
-                                                                REPARTITION,
-                                                                aggregation(
-                                                                        ImmutableMap.of("partial_count", functionCall("count", ImmutableList.of("CONSTANT"))),
-                                                                        PARTIAL,
-                                                                        anyTree(
-                                                                                project(
-                                                                                        ImmutableMap.of("CONSTANT", expression("1")),
-                                                                                        tableScan("orders")))))))))));
+                                                        aggregation(
+                                                                ImmutableMap.of("partial_count", functionCall("count", ImmutableList.of("CONSTANT"))),
+                                                                PARTIAL,
+                                                                anyTree(
+                                                                        project(
+                                                                                ImmutableMap.of("CONSTANT", expression("1")),
+                                                                                tableScan("orders"))))))))));
     }
 
     @Test

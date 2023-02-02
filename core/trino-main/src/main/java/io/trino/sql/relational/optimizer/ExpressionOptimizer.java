@@ -123,8 +123,7 @@ public class ExpressionOptimizer
                 case IF: {
                     checkState(specialForm.getArguments().size() == 3, "IF function should have 3 arguments. Get " + specialForm.getArguments().size());
                     RowExpression optimizedOperand = specialForm.getArguments().get(0).accept(this, context);
-                    if (optimizedOperand instanceof ConstantExpression) {
-                        ConstantExpression constantOperand = (ConstantExpression) optimizedOperand;
+                    if (optimizedOperand instanceof ConstantExpression constantOperand) {
                         checkState(constantOperand.getType().equals(BOOLEAN), "Operand of IF function should be BOOLEAN type. Get type " + constantOperand.getType().getDisplayName());
                         if (Boolean.TRUE.equals(constantOperand.getValue())) {
                             return specialForm.getArguments().get(1).accept(this, context);
@@ -190,9 +189,8 @@ public class ExpressionOptimizer
 
         private CallExpression rewriteCast(CallExpression call)
         {
-            if (call.getArguments().get(0) instanceof CallExpression) {
+            if (call.getArguments().get(0) instanceof CallExpression innerCall) {
                 // Optimization for CAST(JSON_PARSE(...) AS ARRAY/MAP/ROW)
-                CallExpression innerCall = (CallExpression) call.getArguments().get(0);
                 if (innerCall.getResolvedFunction().getSignature().getName().equals("json_parse")) {
                     checkArgument(innerCall.getType().equals(JSON));
                     checkArgument(innerCall.getArguments().size() == 1);

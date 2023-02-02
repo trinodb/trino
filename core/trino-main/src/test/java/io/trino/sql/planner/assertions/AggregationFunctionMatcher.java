@@ -44,11 +44,9 @@ public class AggregationFunctionMatcher
     public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         Optional<Symbol> result = Optional.empty();
-        if (!(node instanceof AggregationNode)) {
+        if (!(node instanceof AggregationNode aggregationNode)) {
             return result;
         }
-
-        AggregationNode aggregationNode = (AggregationNode) node;
 
         FunctionCall expectedCall = callMaker.getExpectedValue(symbolAliases);
         for (Map.Entry<Symbol, Aggregation> assignment : aggregationNode.getAggregations().entrySet()) {

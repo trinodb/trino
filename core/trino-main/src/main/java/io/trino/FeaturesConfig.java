@@ -50,6 +50,7 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
         "deprecated.legacy-row-to-json-cast",
         "deprecated.legacy-timestamp",
         "deprecated.legacy-unnest-array-rows",
+        "deprecated.legacy-update-delete-implementation",
         "experimental-syntax-enabled",
         "experimental.resource-groups-enabled",
         "fast-inequality-joins",
@@ -66,10 +67,7 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
 public class FeaturesConfig
 {
     @VisibleForTesting
-    static final String SPILL_ENABLED = "spill-enabled";
     public static final String SPILLER_SPILL_PATH = "spiller-spill-path";
-
-    private boolean legacyUpdateDeleteImplementation;
 
     private boolean redistributeWrites = true;
     private boolean scaleWriters = true;
@@ -115,20 +113,6 @@ public class FeaturesConfig
         ABORT,
         RETRY,
         /**/;
-    }
-
-    @Deprecated
-    public boolean isLegacyUpdateDeleteImplementation()
-    {
-        return legacyUpdateDeleteImplementation;
-    }
-
-    @Deprecated
-    @Config("deprecated.legacy-update-delete-implementation")
-    public FeaturesConfig setLegacyUpdateDeleteImplementation(boolean legacyUpdateDeleteImplementation)
-    {
-        this.legacyUpdateDeleteImplementation = legacyUpdateDeleteImplementation;
-        return this;
     }
 
     public boolean isOmitDateTimeTypePrecision()
@@ -225,7 +209,7 @@ public class FeaturesConfig
         return spillEnabled;
     }
 
-    @Config(SPILL_ENABLED)
+    @Config("spill-enabled")
     @LegacyConfig("experimental.spill-enabled")
     public FeaturesConfig setSpillEnabled(boolean spillEnabled)
     {
@@ -251,7 +235,7 @@ public class FeaturesConfig
         return spillerSpillPaths;
     }
 
-    @Config(SPILLER_SPILL_PATH)
+    @Config("spiller-spill-path")
     @LegacyConfig("experimental.spiller-spill-path")
     public FeaturesConfig setSpillerSpillPaths(String spillPaths)
     {

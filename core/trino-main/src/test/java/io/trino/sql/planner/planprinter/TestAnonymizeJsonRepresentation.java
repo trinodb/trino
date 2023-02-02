@@ -44,7 +44,6 @@ import java.util.function.Function;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.predicate.Domain.all;
@@ -166,7 +165,7 @@ public class TestAnonymizeJsonRepresentation
         assertAnonymizedRepresentation(
                 pb -> pb.tableScan(
                         new TableHandle(
-                                createRootCatalogHandle("tpch"),
+                                queryRunner.getCatalogHandle("tpch"),
                                 new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
                                 TpchTransactionHandle.INSTANCE),
                         ImmutableList.of(pb.symbol("a", BIGINT), pb.symbol("b", BIGINT), pb.symbol("c", BIGINT), pb.symbol("d", BIGINT)),

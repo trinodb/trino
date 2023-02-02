@@ -101,18 +101,14 @@ public class UnwrapSingleColumnRowInApply
             Expression expression = assignment.getValue();
 
             Optional<Unwrapping> unwrapped = Optional.empty();
-            if (expression instanceof InPredicate) {
-                InPredicate predicate = (InPredicate) expression;
-
+            if (expression instanceof InPredicate predicate) {
                 unwrapped = unwrapSingleColumnRow(
                         context,
                         predicate.getValue(),
                         predicate.getValueList(),
                         (value, list) -> new InPredicate(value.toSymbolReference(), list.toSymbolReference()));
             }
-            else if (expression instanceof QuantifiedComparisonExpression) {
-                QuantifiedComparisonExpression comparison = (QuantifiedComparisonExpression) expression;
-
+            else if (expression instanceof QuantifiedComparisonExpression comparison) {
                 unwrapped = unwrapSingleColumnRow(
                         context,
                         comparison.getValue(),
@@ -153,8 +149,7 @@ public class UnwrapSingleColumnRowInApply
     private Optional<Unwrapping> unwrapSingleColumnRow(Context context, Expression value, Expression list, BiFunction<Symbol, Symbol, Expression> function)
     {
         Type type = typeAnalyzer.getType(context.getSession(), context.getSymbolAllocator().getTypes(), value);
-        if (type instanceof RowType) {
-            RowType rowType = (RowType) type;
+        if (type instanceof RowType rowType) {
             if (rowType.getFields().size() == 1) {
                 Type elementType = rowType.getTypeParameters().get(0);
 

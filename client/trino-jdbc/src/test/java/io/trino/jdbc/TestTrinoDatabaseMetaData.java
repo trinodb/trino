@@ -671,6 +671,7 @@ public class TestTrinoDatabaseMetaData
                 assertEquals(rs.getString("TABLE_SCHEM"), "information_schema");
                 assertEquals(rs.getString("TABLE_NAME"), "tables");
                 assertEquals(rs.getString("COLUMN_NAME"), "table_name");
+                assertEquals(rs.getLong("NULLABLE"), DatabaseMetaData.columnNullable);
                 assertEquals(rs.getString("IS_NULLABLE"), "YES");
                 assertEquals(rs.getInt("DATA_TYPE"), Types.VARCHAR);
                 assertTrue(rs.next());
@@ -742,6 +743,7 @@ public class TestTrinoDatabaseMetaData
             try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "tiny", "supplier", "suppkey")) {
                 assertColumnMetadata(rs);
                 assertTrue(rs.next());
+                assertEquals(rs.getLong("NULLABLE"), DatabaseMetaData.columnNoNulls);
                 assertEquals(rs.getString("IS_NULLABLE"), "NO");
             }
         }
@@ -811,7 +813,7 @@ public class TestTrinoDatabaseMetaData
                 assertColumnSpec(rs, Types.TIME, 15L, null, 6L, null, createTimeType(6));
                 assertColumnSpec(rs, Types.TIME, 18L, null, 9L, null, createTimeType(9));
                 assertColumnSpec(rs, Types.TIME, 21L, null, 12L, null, createTimeType(12));
-                assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 18L, null, 3L, null, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
+                assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 18L, null, 3L, null, TimeWithTimeZoneType.TIME_TZ_MILLIS);
                 assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 14L, null, 0L, null, createTimeWithTimeZoneType(0));
                 assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 18L, null, 3L, null, createTimeWithTimeZoneType(3));
                 assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 21L, null, 6L, null, createTimeWithTimeZoneType(6));

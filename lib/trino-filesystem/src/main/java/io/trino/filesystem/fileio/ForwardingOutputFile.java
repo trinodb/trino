@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static java.util.Objects.requireNonNull;
 
 public class ForwardingOutputFile
@@ -42,7 +43,8 @@ public class ForwardingOutputFile
     public PositionOutputStream create()
     {
         try {
-            return new CountingPositionOutputStream(outputFile.create());
+            // Callers of this method don't have access to memory context so we skip tracking memory here
+            return new CountingPositionOutputStream(outputFile.create(newSimpleAggregatedMemoryContext()));
         }
         catch (IOException e) {
             throw new UncheckedIOException("Failed to create file: " + location(), e);
@@ -53,7 +55,8 @@ public class ForwardingOutputFile
     public PositionOutputStream createOrOverwrite()
     {
         try {
-            return new CountingPositionOutputStream(outputFile.createOrOverwrite());
+            // Callers of this method don't have access to memory context so we skip tracking memory here
+            return new CountingPositionOutputStream(outputFile.createOrOverwrite(newSimpleAggregatedMemoryContext()));
         }
         catch (IOException e) {
             throw new UncheckedIOException("Failed to create file: " + location(), e);

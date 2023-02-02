@@ -51,6 +51,7 @@ import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
@@ -263,7 +264,6 @@ import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
-import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.cachingHiveMetastore;
 import static io.trino.plugin.hive.orc.OrcPageSource.ORC_CODEC_METRIC_PREFIX;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
@@ -787,19 +787,22 @@ public abstract class AbstractTestHive
                 .setRcfileTimeZone("UTC");
 
         hdfsEnvironment = HDFS_ENVIRONMENT;
-        HiveMetastore metastore = cachingHiveMetastore(
-                new BridgingHiveMetastore(testingThriftHiveMetastoreBuilder()
+        HiveMetastore metastore = CachingHiveMetastore.builder()
+                .delegate(new BridgingHiveMetastore(testingThriftHiveMetastoreBuilder()
                         .metastoreClient(metastoreAddress)
                         .hiveConfig(hiveConfig)
                         .thriftMetastoreConfig(new ThriftMetastoreConfig()
                                 .setAssumeCanonicalPartitionKeys(true))
                         .hdfsEnvironment(hdfsEnvironment)
-                        .build()),
-                executor,
-                new Duration(1, MINUTES),
-                Optional.of(new Duration(15, SECONDS)),
-                10000,
-                new CachingHiveMetastoreConfig().isPartitionCacheEnabled());
+                        .build()))
+                .executor(executor)
+                .metadataCacheEnabled(true)
+                .statsCacheEnabled(true)
+                .cacheTtl(new Duration(1, MINUTES))
+                .refreshInterval(new Duration(15, SECONDS))
+                .maximumSize(10000)
+                .partitionCacheEnabled(new CachingHiveMetastoreConfig().isPartitionCacheEnabled())
+                .build();
 
         setup(databaseName, hiveConfig, metastore, hdfsEnvironment);
     }
@@ -915,8 +918,7 @@ public abstract class AbstractTestHive
                 hiveConfig,
                 getDefaultHivePageSourceFactories(hdfsEnvironment, hiveConfig),
                 getDefaultHiveRecordCursorProviders(hiveConfig, hdfsEnvironment),
-                new GenericHiveRecordCursorProvider(hdfsEnvironment, hiveConfig),
-                Optional.empty());
+                new GenericHiveRecordCursorProvider(hdfsEnvironment, hiveConfig));
         nodePartitioningProvider = new HiveNodePartitioningProvider(
                 new TestingNodeManager("fake-environment"),
                 TESTING_TYPE_MANAGER);
@@ -4728,9 +4730,8 @@ public abstract class AbstractTestHive
                     .orElse(ImmutableList.of());
             List<Partition> partitions = metastoreClient
                     .getPartitionsByNames(table, partitionNames)
-                    .entrySet()
+                    .values()
                     .stream()
-                    .map(Map.Entry::getValue)
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .collect(toImmutableList());

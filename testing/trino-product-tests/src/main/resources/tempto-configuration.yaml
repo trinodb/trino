@@ -110,7 +110,7 @@ databases:
     https_keystore_password: ${databases.presto.https_keystore_password}
 
   mysql:
-    jdbc_driver_class: com.mysql.jdbc.Driver
+    jdbc_driver_class: com.mysql.cj.jdbc.Driver
     jdbc_url: jdbc:mysql://mysql:13306/test
     jdbc_user: root
     jdbc_password: test

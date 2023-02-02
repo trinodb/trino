@@ -98,8 +98,7 @@ public class SimplifyFilterPredicate
 
     private Optional<Expression> simplifyFilterExpression(Expression expression)
     {
-        if (expression instanceof IfExpression) {
-            IfExpression ifExpression = (IfExpression) expression;
+        if (expression instanceof IfExpression ifExpression) {
             Expression condition = ifExpression.getCondition();
             Expression trueValue = ifExpression.getTrueValue();
             Optional<Expression> falseValue = ifExpression.getFalseValue();
@@ -125,13 +124,11 @@ public class SimplifyFilterPredicate
             return Optional.empty();
         }
 
-        if (expression instanceof NullIfExpression) {
-            NullIfExpression nullIfExpression = (NullIfExpression) expression;
+        if (expression instanceof NullIfExpression nullIfExpression) {
             return Optional.of(LogicalExpression.and(nullIfExpression.getFirst(), isFalseOrNullPredicate(nullIfExpression.getSecond())));
         }
 
-        if (expression instanceof SearchedCaseExpression) {
-            SearchedCaseExpression caseExpression = (SearchedCaseExpression) expression;
+        if (expression instanceof SearchedCaseExpression caseExpression) {
             Optional<Expression> defaultValue = caseExpression.getDefaultValue();
 
             List<Expression> operands = caseExpression.getWhenClauses().stream()
@@ -173,8 +170,7 @@ public class SimplifyFilterPredicate
             // all results not true, and default true
             if (notTrueResultsCount == results.size() && defaultValue.isPresent() && defaultValue.get().equals(TRUE_LITERAL)) {
                 ImmutableList.Builder<Expression> builder = ImmutableList.builder();
-                operands.stream()
-                        .forEach(operand -> builder.add(isFalseOrNullPredicate(operand)));
+                operands.forEach(operand -> builder.add(isFalseOrNullPredicate(operand)));
                 return Optional.of(combineConjuncts(metadata, builder.build()));
             }
             // skip clauses with not true conditions
@@ -200,8 +196,7 @@ public class SimplifyFilterPredicate
             return Optional.empty();
         }
 
-        if (expression instanceof SimpleCaseExpression) {
-            SimpleCaseExpression caseExpression = (SimpleCaseExpression) expression;
+        if (expression instanceof SimpleCaseExpression caseExpression) {
             Optional<Expression> defaultValue = caseExpression.getDefaultValue();
 
             if (caseExpression.getOperand() instanceof NullLiteral) {

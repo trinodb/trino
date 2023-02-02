@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CachingTableStatsProvider;
@@ -38,6 +37,7 @@ import io.trino.metadata.TableLayout;
 import io.trino.metadata.TableMetadata;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -55,7 +55,6 @@ import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.LimitNode;
@@ -71,7 +70,6 @@ import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
-import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 import io.trino.sql.planner.sanity.PlanSanityChecker;
@@ -498,6 +496,18 @@ public class LogicalPlanner
                             .withRelationType(accessControlScope.getRelationId(), accessControlScope.getRelationType().withOnlyVisibleFields())
                             .build();
                 });
+        plan = planner.addCheckConstraints(
+                analysis.getCheckConstraints(table),
+                table,
+                plan,
+                node -> {
+                    Scope accessControlScope = analysis.getAccessControlScope(table);
+                    // hidden fields are not accessible in insert
+                    return Scope.builder()
+                            .like(accessControlScope)
+                            .withRelationType(accessControlScope.getRelationId(), accessControlScope.getRelationType().withOnlyVisibleFields())
+                            .build();
+                });
 
         List<String> insertedTableColumnNames = insertedColumns.stream()
                 .map(ColumnMetadata::getName)
@@ -730,7 +740,7 @@ public class LogicalPlanner
         PlanNode planNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of())
                 .plan(node);
 
-        WriterTarget target = planNode instanceof DeleteNode ? ((DeleteNode) planNode).getTarget() : ((MergeWriterNode) planNode).getTarget();
+        WriterTarget target = ((MergeWriterNode) planNode).getTarget();
         TableFinishNode commitNode = new TableFinishNode(
                 idAllocator.getNextId(),
                 planNode,
@@ -747,7 +757,7 @@ public class LogicalPlanner
         PlanNode planNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of())
                 .plan(node);
 
-        WriterTarget target = planNode instanceof UpdateNode ? ((UpdateNode) planNode).getTarget() : ((MergeWriterNode) planNode).getTarget();
+        WriterTarget target = ((MergeWriterNode) planNode).getTarget();
         TableFinishNode commitNode = new TableFinishNode(
                 idAllocator.getNextId(),
                 planNode,
@@ -817,11 +827,10 @@ public class LogicalPlanner
         Map<NodeRef<LambdaArgumentDeclaration>, Symbol> result = new LinkedHashMap<>();
 
         for (Entry<NodeRef<Expression>, Type> entry : analysis.getTypes().entrySet()) {
-            if (!(entry.getKey().getNode() instanceof LambdaArgumentDeclaration)) {
+            if (!(entry.getKey().getNode() instanceof LambdaArgumentDeclaration argument)) {
                 continue;
             }
 
-            LambdaArgumentDeclaration argument = (LambdaArgumentDeclaration) entry.getKey().getNode();
             Key key = new Key(argument, entry.getValue());
 
             // Allocate the same symbol for all lambda argument names with a given type. This is needed to be able to

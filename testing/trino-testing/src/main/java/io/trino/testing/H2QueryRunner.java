@@ -26,6 +26,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -71,7 +72,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
@@ -86,6 +86,7 @@ import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.math.RoundingMode.HALF_UP;
 import static java.util.Collections.nCopies;
 
 public class H2QueryRunner
@@ -289,13 +290,13 @@ public class H2QueryRunner
                         row.add(stringValue);
                     }
                 }
-                else if (type instanceof CharType) {
+                else if (type instanceof CharType charType) {
                     String stringValue = resultSet.getString(i);
                     if (resultSet.wasNull()) {
                         row.add(null);
                     }
                     else {
-                        row.add(padSpaces(stringValue, (CharType) type));
+                        row.add(padSpaces(stringValue, charType));
                     }
                 }
                 else if (VARBINARY.equals(type)) {
@@ -327,7 +328,7 @@ public class H2QueryRunner
                         row.add(timeValue);
                     }
                 }
-                else if (TIME_WITH_TIME_ZONE.equals(type)) {
+                else if (type instanceof TimeWithTimeZoneType) {
                     throw new UnsupportedOperationException("H2 does not support TIME WITH TIME ZONE");
                 }
                 else if (type instanceof TimestampType) {
@@ -367,15 +368,14 @@ public class H2QueryRunner
                     checkState(resultSet.wasNull(), "Expected a null value, but got %s", objectValue);
                     row.add(null);
                 }
-                else if (type instanceof DecimalType) {
-                    DecimalType decimalType = (DecimalType) type;
+                else if (type instanceof DecimalType decimalType) {
                     BigDecimal decimalValue = resultSet.getBigDecimal(i);
                     if (resultSet.wasNull()) {
                         row.add(null);
                     }
                     else {
                         row.add(decimalValue
-                                .setScale(decimalType.getScale(), BigDecimal.ROUND_HALF_UP)
+                                .setScale(decimalType.getScale(), HALF_UP)
                                 .round(new MathContext(decimalType.getPrecision())));
                     }
                 }

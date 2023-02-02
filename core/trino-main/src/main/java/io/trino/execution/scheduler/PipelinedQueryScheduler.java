@@ -26,7 +26,6 @@ import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.exchange.DirectExchangeInput;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.ExecutionFailureInfo;
@@ -56,6 +55,7 @@ import io.trino.server.DynamicFilterService;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.NodePartitionMap;
 import io.trino.sql.planner.NodePartitioningManager;
@@ -112,10 +112,7 @@ import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
 import static io.trino.SystemSessionProperties.getRetryInitialDelay;
 import static io.trino.SystemSessionProperties.getRetryMaxDelay;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
-import static io.trino.SystemSessionProperties.getTaskScaleWritersMaxWriterCount;
-import static io.trino.SystemSessionProperties.getTaskWriterCount;
 import static io.trino.SystemSessionProperties.getWriterMinSize;
-import static io.trino.SystemSessionProperties.isTaskScaleWritersEnabled;
 import static io.trino.execution.QueryState.STARTING;
 import static io.trino.execution.scheduler.PipelinedStageExecution.createPipelinedStageExecution;
 import static io.trino.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
@@ -1076,8 +1073,7 @@ public class PipelinedQueryScheduler
                         writerTasksProvider,
                         nodeScheduler.createNodeSelector(session, Optional.empty()),
                         executor,
-                        getWriterMinSize(session),
-                        isTaskScaleWritersEnabled(session) ? getTaskScaleWritersMaxWriterCount(session) : getTaskWriterCount(session));
+                        getWriterMinSize(session));
 
                 whenAllStages(childStageExecutions, StageExecution.State::isDone)
                         .addListener(scheduler::finish, directExecutor());

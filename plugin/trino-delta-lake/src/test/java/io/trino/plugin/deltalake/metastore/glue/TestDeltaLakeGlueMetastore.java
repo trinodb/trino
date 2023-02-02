@@ -61,7 +61,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Verify.verify;
@@ -80,8 +79,9 @@ import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -144,7 +144,7 @@ public class TestDeltaLakeGlueMetastore
                         .collect(toImmutableList()))
                 .build();
 
-        databaseName = "test_delta_glue" + randomName();
+        databaseName = "test_delta_glue" + randomNameSuffix();
         metastoreClient.createDatabase(Database.builder()
                 .setDatabaseName(databaseName)
                 .setOwnerName(Optional.of("public"))
@@ -175,10 +175,10 @@ public class TestDeltaLakeGlueMetastore
     public void testHideNonDeltaLakeTable()
             throws Exception
     {
-        SchemaTableName deltaLakeTable = new SchemaTableName(databaseName, "delta_lake_table_" + randomName());
-        SchemaTableName nonDeltaLakeTable1 = new SchemaTableName(databaseName, "hive_table_" + randomName());
-        SchemaTableName nonDeltaLakeTable2 = new SchemaTableName(databaseName, "hive_table_" + randomName());
-        SchemaTableName nonDeltaLakeView1 = new SchemaTableName(databaseName, "hive_view_" + randomName());
+        SchemaTableName deltaLakeTable = new SchemaTableName(databaseName, "delta_lake_table_" + randomNameSuffix());
+        SchemaTableName nonDeltaLakeTable1 = new SchemaTableName(databaseName, "hive_table_" + randomNameSuffix());
+        SchemaTableName nonDeltaLakeTable2 = new SchemaTableName(databaseName, "hive_table_" + randomNameSuffix());
+        SchemaTableName nonDeltaLakeView1 = new SchemaTableName(databaseName, "hive_view_" + randomNameSuffix());
 
         String deltaLakeTableLocation = tableLocation(deltaLakeTable);
         createTable(deltaLakeTable, deltaLakeTableLocation, tableBuilder -> {
@@ -267,8 +267,8 @@ public class TestDeltaLakeGlueMetastore
     {
         File deltaTableLogLocation = new File(new File(new URI(deltaLakeTableLocation)), "_delta_log");
         verify(deltaTableLogLocation.mkdirs(), "mkdirs() on '%s' failed", deltaTableLogLocation);
-        byte[] entry = Resources.toByteArray(Resources.getResource("deltalake/person/_delta_log/00000000000000000000.json"));
-        Files.write(new File(deltaTableLogLocation, "00000000000000000000.json").toPath(), entry);
+        String entry = Resources.toString(Resources.getResource("deltalake/person/_delta_log/00000000000000000000.json"), UTF_8);
+        Files.writeString(new File(deltaTableLogLocation, "00000000000000000000.json").toPath(), entry);
     }
 
     private String tableLocation(SchemaTableName tableName)
@@ -312,10 +312,5 @@ public class TestDeltaLakeGlueMetastore
 
         PrincipalPrivileges principalPrivileges = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
         metastoreClient.createTable(table.build(), principalPrivileges);
-    }
-
-    private static String randomName()
-    {
-        return UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
     }
 }

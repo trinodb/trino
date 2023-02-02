@@ -28,7 +28,6 @@ import io.trino.execution.SplitAssignment;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -76,8 +75,6 @@ public class Driver
     @SuppressWarnings("unused")
     private final List<Operator> allOperators;
     private final Optional<SourceOperator> sourceOperator;
-    private final Optional<DeleteOperator> deleteOperator;
-    private final Optional<UpdateOperator> updateOperator;
 
     // This variable acts as a staging area. When new splits (encapsulated in SplitAssignment) are
     // provided to a Driver, the Driver will not process them right away. Instead, the splits are
@@ -131,25 +128,13 @@ public class Driver
         checkArgument(!operators.isEmpty(), "There must be at least one operator");
 
         Optional<SourceOperator> sourceOperator = Optional.empty();
-        Optional<DeleteOperator> deleteOperator = Optional.empty();
-        Optional<UpdateOperator> updateOperator = Optional.empty();
         for (Operator operator : operators) {
             if (operator instanceof SourceOperator) {
                 checkArgument(sourceOperator.isEmpty(), "There must be at most one SourceOperator");
                 sourceOperator = Optional.of((SourceOperator) operator);
             }
-            else if (operator instanceof DeleteOperator) {
-                checkArgument(deleteOperator.isEmpty(), "There must be at most one DeleteOperator");
-                deleteOperator = Optional.of((DeleteOperator) operator);
-            }
-            else if (operator instanceof UpdateOperator) {
-                checkArgument(updateOperator.isEmpty(), "There must be at most one UpdateOperator");
-                updateOperator = Optional.of((UpdateOperator) operator);
-            }
         }
         this.sourceOperator = sourceOperator;
-        this.deleteOperator = deleteOperator;
-        this.updateOperator = updateOperator;
 
         currentSplitAssignment = sourceOperator.map(operator -> new SplitAssignment(operator.getSourceId(), ImmutableSet.of(), false)).orElse(null);
         // initially the driverBlockedFuture is not blocked (it is completed)
@@ -259,9 +244,7 @@ public class Driver
         for (ScheduledSplit newSplit : newSplits) {
             Split split = newSplit.getSplit();
 
-            Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplit(split);
-            deleteOperator.ifPresent(deleteOperator -> deleteOperator.setPageSource(pageSource));
-            updateOperator.ifPresent(updateOperator -> updateOperator.setPageSource(pageSource));
+            sourceOperator.addSplit(split);
         }
 
         // set no more splits
@@ -385,7 +368,7 @@ public class Driver
 
         processNewSources();
 
-        // If there is only one operator, finish it
+        // One of the operators is already finished (and removed from activeOperators list). Finish bottommost operator.
         // Some operators (LookupJoinOperator and HashBuildOperator) are broken and requires finish to be called continuously
         // TODO remove the second part of the if statement, when these operators are fixed
         // Note: finish should not be called on the natural source of the pipeline as this could cause the task to finish early
@@ -619,7 +602,7 @@ public class Driver
     }
 
     @FormatMethod
-    private static Throwable addSuppressedException(Throwable inFlightException, Throwable newException, String message, Object... args)
+    private static Throwable addSuppressedException(Throwable inFlightException, Throwable newException, String message, final Object... args)
     {
         if (newException instanceof Error) {
             if (inFlightException == null) {

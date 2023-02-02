@@ -371,23 +371,21 @@ public class TestTableScanRedirectionWithPushdown
             ConnectorExpression newVariable;
             ColumnHandle newColumnHandle;
             Type type = projection.getType();
-            if (projection instanceof Variable) {
-                newVariableName = ((Variable) projection).getName();
+            if (projection instanceof Variable variable) {
+                newVariableName = variable.getName();
                 newVariable = new Variable(newVariableName, type);
                 newColumnHandle = assignments.get(newVariableName);
             }
-            else if (projection instanceof FieldDereference) {
-                FieldDereference dereference = (FieldDereference) projection;
-                if (!(dereference.getTarget() instanceof Variable)) {
+            else if (projection instanceof FieldDereference dereference) {
+                if (!(dereference.getTarget() instanceof Variable variable)) {
                     throw new UnsupportedOperationException();
                 }
-                String dereferenceTargetName = ((Variable) dereference.getTarget()).getName();
+                String dereferenceTargetName = variable.getName();
                 newVariableName = ((MockConnectorColumnHandle) assignments.get(dereferenceTargetName)).getName() + "#" + dereference.getField();
                 newVariable = new Variable(newVariableName, type);
                 newColumnHandle = new MockConnectorColumnHandle(newVariableName, type);
             }
-            else if (projection instanceof Call) {
-                Call call = (Call) projection;
+            else if (projection instanceof Call call) {
                 if (!(CAST_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1)) {
                     throw new UnsupportedOperationException();
                 }

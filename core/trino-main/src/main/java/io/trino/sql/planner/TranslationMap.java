@@ -266,7 +266,7 @@ class TranslationMap
 
                 return getSymbolForColumn(node)
                         .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
-                        .orElse(coerceIfNecessary(node, node));
+                        .orElseGet(() -> coerceIfNecessary(node, node));
             }
 
             @Override
@@ -844,9 +844,9 @@ class TranslationMap
                         .add(pathExpression)
                         .add(orderedParameters.getParametersRow())
                         .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getEmptyBehavior().ordinal())))
-                        .add(rewritten.getEmptyDefault().orElse(new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))))
+                        .add(rewritten.getEmptyDefault().orElseGet(() -> new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))))
                         .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())))
-                        .add(rewritten.getErrorDefault().orElse(new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))));
+                        .add(rewritten.getErrorDefault().orElseGet(() -> new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))));
 
                 Expression result = new FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
 

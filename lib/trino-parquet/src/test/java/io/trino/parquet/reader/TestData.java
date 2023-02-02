@@ -16,23 +16,36 @@ package io.trino.parquet.reader;
 import com.google.common.primitives.Bytes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.parquet.ParquetReaderUtils;
 import io.trino.spi.type.Decimals;
+import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.function.IntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.parquet.ParquetTypeUtils.paddingBigInteger;
+import static java.lang.Math.toIntExact;
 
 public final class TestData
 {
     private TestData() {}
+
+    // Based on org.apache.parquet.schema.Types.BasePrimitiveBuilder.maxPrecision to determine the max decimal precision supported by INT32/INT64
+    public static int maxPrecision(int numBytes)
+    {
+        return toIntExact(
+                // convert double to long
+                Math.round(
+                        // number of base-10 digits
+                        Math.floor(Math.log10(
+                                Math.pow(2, 8 * numBytes - 1) - 1))));  // max value stored in numBytes
+    }
 
     public static IntFunction<long[]> unscaledRandomShortDecimalSupplier(int bitWidth, int precision)
     {
@@ -62,7 +75,7 @@ public final class TestData
 
     public static boolean[] generateMixedData(Random r, int size, int maxGroupSize)
     {
-        List<Boolean> mixedList = new ArrayList<>();
+        BooleanArrayList mixedList = new BooleanArrayList(size);
         while (mixedList.size() < size) {
             boolean isGroup = r.nextBoolean();
             int groupSize = r.nextInt(maxGroupSize);
@@ -79,9 +92,7 @@ public final class TestData
             }
         }
         boolean[] result = new boolean[size];
-        for (int i = 0; i < size; i++) {
-            result[i] = mixedList.get(i);
-        }
+        mixedList.getElements(0, result, 0, size);
         return result;
     }
 
@@ -118,6 +129,15 @@ public final class TestData
 
     public static int randomInt(Random r, int bitWidth)
     {
+        checkArgument(bitWidth <= 32 && bitWidth > 0, "bit width must be in range 1 - 32 inclusive");
+        if (bitWidth == 32) {
+            return r.nextInt();
+        }
+        return propagateSignBit(r.nextInt(), 32 - bitWidth);
+    }
+
+    public static int randomUnsignedInt(Random r, int bitWidth)
+    {
         checkArgument(bitWidth <= 32 && bitWidth >= 0, "bit width must be in range 0 - 32 inclusive");
         if (bitWidth == 32) {
             return r.nextInt();
@@ -128,27 +148,46 @@ public final class TestData
         return r.nextInt(1 << bitWidth);
     }
 
-    private static long randomLong(Random r, int bitWidth)
+    public static long randomLong(Random r, int bitWidth)
     {
         checkArgument(bitWidth <= 64 && bitWidth > 0, "bit width must be in range 1 - 64 inclusive");
         if (bitWidth == 64) {
             return r.nextLong();
         }
-        return propagateSignBit(r.nextLong(), 64 - bitWidth);
+        return ParquetReaderUtils.propagateSignBit(r.nextLong(), 64 - bitWidth);
     }
 
-    /**
-     * Propagate the sign bit in values that are shorter than 8 bytes.
-     * <p>
-     * When the value of less than 8 bytes in put into a long variable, the padding bytes on the
-     * left side of the number should be all zeros for a positive number or all ones for negatives.
-     * This method does this padding using signed bit shift operator without branches.
-     *
-     * @param value Value to trim
-     * @param bitsToPad Number of bits to pad
-     * @return Value with correct padding
-     */
-    private static long propagateSignBit(long value, int bitsToPad)
+    public static byte[][] randomBinaryData(int size, int minLength, int maxLength)
+    {
+        Random random = new Random(Objects.hash(size, minLength, maxLength));
+        byte[][] data = new byte[size][];
+        for (int i = 0; i < size; i++) {
+            int length = random.nextInt(maxLength - minLength + 1) + minLength;
+            byte[] value = new byte[length];
+            random.nextBytes(value);
+            data[i] = value;
+        }
+
+        return data;
+    }
+
+    public static byte[][] randomAsciiData(int size, int minLength, int maxLength)
+    {
+        Random random = new Random(Objects.hash(size, minLength, maxLength));
+        byte[][] data = new byte[size][];
+        for (int i = 0; i < size; i++) {
+            int length = random.nextInt(maxLength - minLength + 1) + minLength;
+            byte[] value = new byte[length];
+            for (int j = 0; j < length; j++) {
+                value[j] = (byte) random.nextInt(128);
+            }
+            data[i] = value;
+        }
+
+        return data;
+    }
+
+    private static int propagateSignBit(int value, int bitsToPad)
     {
         return value << bitsToPad >> bitsToPad;
     }

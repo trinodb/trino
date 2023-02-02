@@ -22,7 +22,6 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.FeaturesConfig;
 import io.trino.collect.cache.NonKeyEvictableLoadingCache;
-import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.SpillContext;
@@ -32,6 +31,7 @@ import io.trino.spi.type.Type;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import javax.crypto.SecretKey;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -165,9 +165,10 @@ public class FileSingleStreamSpillerFactory
     @Override
     public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, LocalMemoryContext memoryContext)
     {
-        PagesSerde serde = serdeFactory.createPagesSerde(spillEncryptionEnabled ? Optional.of(createRandomAesEncryptionKey()) : Optional.empty());
+        Optional<SecretKey> encryptionKey = spillEncryptionEnabled ? Optional.of(createRandomAesEncryptionKey()) : Optional.empty();
         return new FileSingleStreamSpiller(
-                serde,
+                serdeFactory,
+                encryptionKey,
                 executor,
                 getNextSpillPath(),
                 spillerStats,

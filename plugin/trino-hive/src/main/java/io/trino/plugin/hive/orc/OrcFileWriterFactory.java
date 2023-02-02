@@ -38,7 +38,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -70,6 +69,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.isOrcOptimizedWriterVal
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_NAMES;
 import static io.trino.plugin.hive.acid.AcidSchema.createAcidColumnPrestoTypes;
 import static io.trino.plugin.hive.acid.AcidSchema.createRowType;
+import static io.trino.plugin.hive.util.HiveClassNames.ORC_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static io.trino.plugin.hive.util.HiveUtil.getOrcWriterOptions;
@@ -137,7 +137,7 @@ public class OrcFileWriterFactory
             boolean useAcidSchema,
             WriterKind writerKind)
     {
-        if (!OrcOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
+        if (!ORC_OUTPUT_FORMAT_CLASS.equals(storageFormat.getOutputFormat())) {
             return Optional.empty();
         }
 
@@ -153,11 +153,6 @@ public class OrcFileWriterFactory
         int[] fileInputColumnIndexes = fileColumnNames.stream()
                 .mapToInt(inputColumnNames::indexOf)
                 .toArray();
-        if (transaction.isAcidDeleteOperation(writerKind)) {
-            // For delete, set the "row" column to -1
-            fileInputColumnIndexes[fileInputColumnIndexes.length - 1] = -1;
-        }
-
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             String stringPath = path.toString();
@@ -227,7 +222,7 @@ public class OrcFileWriterFactory
     public static OrcDataSink createOrcDataSink(TrinoFileSystem fileSystem, String path)
             throws IOException
     {
-        return new OutputStreamOrcDataSink(fileSystem.newOutputFile(path).create());
+        return OutputStreamOrcDataSink.create(fileSystem.newOutputFile(path));
     }
 
     private static CompressionKind getCompression(Properties schema, JobConf configuration)

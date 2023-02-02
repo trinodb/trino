@@ -11,9 +11,8 @@ The Google Sheets connector allows reading `Google Sheets <https://www.google.co
 Configuration
 -------------
 
-Create ``etc/catalog/sheets.properties``
-to mount the Google Sheets connector as the ``sheets`` catalog,
-replacing the properties as appropriate:
+Create ``etc/catalog/example.properties`` to mount the Google Sheets connector
+as the ``example`` catalog, with the following contents:
 
 .. code-block:: text
 
@@ -30,9 +29,11 @@ The following configuration properties are available:
 Property name                       Description
 =================================== =====================================================================
 ``gsheets.credentials-path``        Path to the Google API JSON key file
+``gsheets.credentials-key``         The base64 encoded credentials key
 ``gsheets.metadata-sheet-id``       Sheet ID of the spreadsheet, that contains the table mapping
 ``gsheets.max-data-cache-size``     Maximum number of spreadsheets to cache, defaults to ``1000``
 ``gsheets.data-cache-ttl``          How long to cache spreadsheet data or metadata, defaults to ``5m``
+``gsheets.read-timeout``            Timeout to read data from spreadsheet, defaults to ``20s``
 =================================== =====================================================================
 
 Credentials
@@ -54,6 +55,9 @@ The connector requires credentials in order to access the Google Sheets API.
 The key file needs to be available on the Trino coordinator and workers.
 Set the ``gsheets.credentials-path`` configuration property to point to this file.
 The exact name of the file does not matter -- it can be named anything.
+
+Alternatively, set the ``gsheets.credentials-key`` configuration property.
+It should contain the contents of the JSON file, encoded using base64.
 
 Metadata sheet
 --------------

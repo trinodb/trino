@@ -81,7 +81,7 @@ Password authentication needs to be configured to use LDAP. Create an
 
     password-authenticator.name=ldap
     ldap.url=ldaps://ldap-server:636
-    ldap.ssl-trust-certificate=/path/to/ldap_server.crt
+    ldap.ssl.truststore.path=/path/to/ldap_server.crt
     ldap.user-bind-pattern=<Refer below for usage>
 
 ================================== ======================================================
@@ -110,7 +110,7 @@ Property                           Description
 ``ldap.ignore-referrals``          Ignore referrals to other LDAP servers while
                                    performing search queries. Defaults to ``false``.
 ``ldap.cache-ttl``                 LDAP cache duration. Defaults to ``1h``.
-``ldap.timeout.connection``        Timeout for establishing an LDAP connection.
+``ldap.timeout.connect``           Timeout for establishing an LDAP connection.
 ``ldap.timeout.read``              Timeout for reading data from an LDAP connection.
 ================================== ======================================================
 

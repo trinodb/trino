@@ -14,27 +14,37 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.Multimap;
+import com.google.common.math.Stats;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.StageId;
+import io.trino.metadata.Split;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.sql.planner.plan.PlanNodeId;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.inject.Inject;
 
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY;
 import static java.lang.String.format;
@@ -42,6 +52,8 @@ import static java.util.Objects.requireNonNull;
 
 public class TaskDescriptorStorage
 {
+    private static final Logger log = Logger.get(TaskDescriptorStorage.class);
+
     private final long maxMemoryInBytes;
 
     @GuardedBy("this")
@@ -158,6 +170,9 @@ public class TaskDescriptorStorage
                     .orElseThrow(() -> new VerifyException(format("storage is empty but reservedBytes (%s) is still greater than maxMemoryInBytes (%s)", reservedBytes, maxMemoryInBytes)));
             TaskDescriptors storage = storages.get(killCandidate);
             long previousReservedBytes = storage.getReservedBytes();
+
+            log.info("Failing query %s; reclaiming %s of %s task descriptor memory from %s queries; extraStorageInfo=%s", killCandidate, storage.getReservedBytes(), succinctBytes(reservedBytes), storages.size(), storage.getDebugInfo());
+
             storage.fail(new TrinoException(
                     EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY,
                     format("Task descriptor storage capacity has been exceeded: %s > %s", succinctBytes(maxMemoryInBytes), succinctBytes(reservedBytes))));
@@ -212,6 +227,47 @@ public class TaskDescriptorStorage
         public long getReservedBytes()
         {
             return reservedBytes;
+        }
+
+        private String getDebugInfo()
+        {
+            Multimap<StageId, TaskDescriptor> descriptorsByStageId = descriptors.entrySet().stream()
+                    .collect(toImmutableSetMultimap(
+                            entry -> entry.getKey().getStageId(),
+                            Map.Entry::getValue));
+
+            Map<StageId, String> debugInfoByStageId = descriptorsByStageId.asMap().entrySet().stream()
+                    .collect(toImmutableMap(
+                            Map.Entry::getKey,
+                            entry -> getDebugInfo(entry.getValue())));
+
+            return String.valueOf(debugInfoByStageId);
+        }
+
+        private String getDebugInfo(Collection<TaskDescriptor> taskDescriptors)
+        {
+            int taskDescriptorsCount = taskDescriptors.size();
+            Stats taskDescriptorsRetainedSizeStats = Stats.of(taskDescriptors.stream().mapToLong(TaskDescriptor::getRetainedSizeInBytes));
+
+            Set<PlanNodeId> planNodeIds = taskDescriptors.stream().flatMap(taskDescriptor -> taskDescriptor.getSplits().keySet().stream()).collect(toImmutableSet());
+            Map<PlanNodeId, String> splitsDebugInfo = new HashMap<>();
+            for (PlanNodeId planNodeId : planNodeIds) {
+                Stats splitCountStats = Stats.of(taskDescriptors.stream().mapToLong(taskDescriptor -> taskDescriptor.getSplits().asMap().get(planNodeId).size()));
+                Stats splitSizeStats = Stats.of(taskDescriptors.stream().flatMap(taskDescriptor -> taskDescriptor.getSplits().get(planNodeId).stream()).mapToLong(Split::getRetainedSizeInBytes));
+                splitsDebugInfo.put(
+                        planNodeId,
+                        "{splitCountMean=%s, splitCountStdDev=%s, splitSizeMean=%s, splitSizeStdDev=%s}".formatted(
+                                splitCountStats.mean(),
+                                splitCountStats.populationStandardDeviation(),
+                                splitSizeStats.mean(),
+                                splitSizeStats.populationStandardDeviation()));
+            }
+
+            return "[taskDescriptorsCount=%s, taskDescriptorsRetainedSizeMean=%s, taskDescriptorsRetainedSizeStdDev=%s, splits=%s]".formatted(
+                    taskDescriptorsCount,
+                    taskDescriptorsRetainedSizeStats.mean(),
+                    taskDescriptorsRetainedSizeStats.populationStandardDeviation(),
+                    splitsDebugInfo);
         }
 
         private void fail(RuntimeException failure)

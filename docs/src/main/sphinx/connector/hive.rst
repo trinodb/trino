@@ -525,11 +525,20 @@ with Parquet files performed by the Hive connector.
         definition. The equivalent catalog session property is
         ``parquet_use_column_names``.
       - ``true``
+    * - ``parquet.max-read-block-row-count``
+      - Sets the maximum number of rows read in a batch.
+      - ``8192``
     * - ``parquet.optimized-reader.enabled``
       - Whether batched column readers should be used when reading Parquet files
         for improved performance. Set this property to ``false`` to disable the
         optimized parquet reader by default. The equivalent catalog session
         property is ``parquet_optimized_reader_enabled``.
+      - ``true``
+    * - ``parquet.use-bloom-filter``
+      - Whether bloom filters are used for predicate pushdown when reading
+        Parquet files. Set this property to ``false`` to disable the usage of
+        bloom filters by default. The equivalent catalog session property is
+        ``parquet_use_bloom_filter``.
       - ``true``
     * - ``parquet.optimized-writer.enabled``
       - Whether the optimized writer should be used when writing Parquet files.
@@ -791,10 +800,11 @@ Table redirection
 
 .. include:: table-redirection.fragment
 
-The connector supports redirection from Hive tables to Iceberg
+The connector supports redirection from Hive tables to Iceberg, Hudi
 and Delta Lake tables with the following catalog configuration properties:
 
 - ``hive.iceberg-catalog-name`` for redirecting the query to :doc:`/connector/iceberg`
+- ``hive.hudi-catalog-name`` for redirecting the query to :doc:`/connector/hudi`
 - ``hive.delta-lake-catalog-name`` for redirecting the query to :doc:`/connector/delta-lake`
 
 .. _hive-sql-support:

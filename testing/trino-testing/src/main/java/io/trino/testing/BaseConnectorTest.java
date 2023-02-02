@@ -124,6 +124,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_TYPE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_COLUMN_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TRUNCATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
@@ -701,7 +702,7 @@ public abstract class BaseConnectorTest
     /**
      * Test interactions between optimizer (including CBO), scheduling and connector metadata APIs.
      */
-    @Test(timeOut = 300_000, dataProvider = "joinDistributionTypes")
+    @Test(dataProvider = "joinDistributionTypes")
     public void testJoinWithEmptySides(JoinDistributionType joinDistributionType)
     {
         Session session = noJoinReordering(joinDistributionType);
@@ -1017,12 +1018,12 @@ public abstract class BaseConnectorTest
                 "SELECT table_name, table_type FROM information_schema.tables " +
                         "WHERE table_schema = '" + view.getSchemaName() + "'"))
                 .skippingTypesCheck()
-                .containsAll("VALUES ('" + view.getObjectName() + "', 'BASE TABLE')"); // TODO table_type should probably be "* VIEW"
+                .containsAll("VALUES ('" + view.getObjectName() + "', 'MATERIALIZED VIEW')");
         // information_schema.tables with table_name filter
         assertQuery(
                 "SELECT table_name, table_type FROM information_schema.tables " +
                         "WHERE table_schema = '" + view.getSchemaName() + "' and table_name = '" + view.getObjectName() + "'",
-                "VALUES ('" + view.getObjectName() + "', 'BASE TABLE')");
+                "VALUES ('" + view.getObjectName() + "', 'MATERIALIZED VIEW')");
 
         // system.jdbc.tables without filter
         assertThat(query("SELECT table_schem, table_name, table_type FROM system.jdbc.tables"))
@@ -1217,6 +1218,28 @@ public abstract class BaseConnectorTest
 
                     assertUpdate("DROP MATERIALIZED VIEW " + viewName);
                 });
+    }
+
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testMaterializedViewBaseTableGone(boolean initialized)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
+
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
+        String viewName = "mv_base_table_missing_" + randomNameSuffix();
+        String baseTable = "mv_base_table_missing_the_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + baseTable + " AS SELECT 1 a", 1);
+        assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM " + baseTable);
+        if (initialized) {
+            assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
+        }
+        assertUpdate("DROP TABLE " + baseTable);
+        assertQueryFails(
+                "TABLE " + viewName,
+                "line 1:1: Failed analyzing stored view '%1$s\\.%2$s\\.%3$s': line 3:3: Table '%1$s\\.%2$s\\.%4$s' does not exist".formatted(catalog, schema, viewName, baseTable));
+        assertUpdate("DROP MATERIALIZED VIEW " + viewName);
     }
 
     @Test
@@ -2187,6 +2210,207 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testSetColumnType()
+    {
+        if (!hasBehavior(SUPPORTS_SET_COLUMN_TYPE)) {
+            assertQueryFails("ALTER TABLE nation ALTER COLUMN nationkey SET DATA TYPE bigint", "This connector does not support setting column types");
+            return;
+        }
+
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_", "AS SELECT CAST(123 AS integer) AS col")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE bigint");
+
+            assertEquals(getColumnType(table.getName(), "col"), "bigint");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES bigint '123'");
+        }
+    }
+
+    @Test(dataProvider = "setColumnTypesDataProvider")
+    public void testSetColumnTypes(SetColumnTypeSetup setup)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_", " AS SELECT CAST(" + setup.sourceValueLiteral + " AS " + setup.sourceColumnType + ") AS col")) {
+            Runnable setColumnType = () -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE " + setup.newColumnType);
+            if (setup.unsupportedType) {
+                assertThatThrownBy(setColumnType::run)
+                        .satisfies(this::verifySetColumnTypeFailurePermissible);
+                return;
+            }
+            setColumnType.run();
+
+            assertEquals(getColumnType(table.getName(), "col"), setup.newColumnType);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("SELECT " + setup.newValueLiteral);
+        }
+        catch (Exception e) {
+            verifyUnsupportedTypeException(e, setup.sourceColumnType);
+            throw new SkipException("Unsupported column type: " + setup.sourceColumnType);
+        }
+    }
+
+    @DataProvider
+    public Object[][] setColumnTypesDataProvider()
+    {
+        return setColumnTypeSetupData().stream()
+                .map(this::filterSetColumnTypesDataProvider)
+                .flatMap(Optional::stream)
+                .collect(toDataProvider());
+    }
+
+    protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
+    {
+        return Optional.of(setup);
+    }
+
+    private List<SetColumnTypeSetup> setColumnTypeSetupData()
+    {
+        return ImmutableList.<SetColumnTypeSetup>builder()
+                .add(new SetColumnTypeSetup("tinyint", "TINYINT '127'", "smallint"))
+                .add(new SetColumnTypeSetup("smallint", "SMALLINT '32767'", "integer"))
+                .add(new SetColumnTypeSetup("integer", "2147483647", "bigint"))
+                .add(new SetColumnTypeSetup("bigint", "BIGINT '-2147483648'", "integer"))
+                .add(new SetColumnTypeSetup("real", "REAL '10.3'", "double"))
+                .add(new SetColumnTypeSetup("real", "REAL 'NaN'", "double"))
+                .add(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(10,3)")) // short decimal -> short decimal
+                .add(new SetColumnTypeSetup("decimal(28,3)", "12.345", "decimal(38,3)")) // long decimal -> long decimal
+                .add(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(38,3)")) // short decimal -> long decimal
+                .add(new SetColumnTypeSetup("decimal(5,3)", "12.340", "decimal(5,2)"))
+                .add(new SetColumnTypeSetup("decimal(5,3)", "12.349", "decimal(5,2)"))
+                .add(new SetColumnTypeSetup("time(3)", "TIME '15:03:00.123'", "time(6)"))
+                .add(new SetColumnTypeSetup("time(6)", "TIME '15:03:00.123000'", "time(3)"))
+                .add(new SetColumnTypeSetup("time(6)", "TIME '15:03:00.123999'", "time(3)"))
+                .add(new SetColumnTypeSetup("timestamp(3)", "TIMESTAMP '2020-02-12 15:03:00.123'", "timestamp(6)"))
+                .add(new SetColumnTypeSetup("timestamp(6)", "TIMESTAMP '2020-02-12 15:03:00.123000'", "timestamp(3)"))
+                .add(new SetColumnTypeSetup("timestamp(6)", "TIMESTAMP '2020-02-12 15:03:00.123999'", "timestamp(3)"))
+                .add(new SetColumnTypeSetup("timestamp(3) with time zone", "TIMESTAMP '2020-02-12 15:03:00.123 +01:00'", "timestamp(6) with time zone"))
+                .add(new SetColumnTypeSetup("varchar(100)", "'shorten-varchar'", "varchar(50)"))
+                .add(new SetColumnTypeSetup("char(25)", "'shorten-char'", "char(20)"))
+                .add(new SetColumnTypeSetup("char(20)", "'char-to-varchar'", "varchar"))
+                .add(new SetColumnTypeSetup("varchar", "'varchar-to-char'", "char(20)"))
+                .add(new SetColumnTypeSetup("array(integer)", "array[1]", "array(bigint)"))
+                .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(x bigint)"))
+                .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(y integer)", "cast(row(NULL) as row(x integer))")) // rename a field
+                .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(x integer, y integer)", "cast(row(1, NULL) as row(x integer, y integer))")) // add a new field
+                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(x integer)", "cast(row(1) as row(x integer))")) // remove an existing field
+                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(y integer, x integer)", "cast(row(2, 1) as row(y integer, x integer))")) // reorder fields
+                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(z integer, y integer, x integer)", "cast(row(null, 2, 1) as row(z integer, y integer, x integer))")) // reorder fields with a new field
+                .add(new SetColumnTypeSetup("row(x row(nested integer))", "row(row(1))", "row(x row(nested bigint))", "cast(row(row(1)) as row(x row(nested bigint)))")) // update a nested field
+                .add(new SetColumnTypeSetup("row(x row(a integer, b integer))", "row(row(1, 2))", "row(x row(b integer, a integer))", "cast(row(row(2, 1)) as row(x row(b integer, a integer)))")) // reorder a nested field
+                .build();
+    }
+
+    public record SetColumnTypeSetup(String sourceColumnType, String sourceValueLiteral, String newColumnType, String newValueLiteral, boolean unsupportedType)
+    {
+        public SetColumnTypeSetup(String sourceColumnType, String sourceValueLiteral, String newColumnType)
+        {
+            this(sourceColumnType, sourceValueLiteral, newColumnType, "CAST(CAST(%s AS %s) AS %s)".formatted(sourceValueLiteral, sourceColumnType, newColumnType));
+        }
+
+        public SetColumnTypeSetup(String sourceColumnType, String sourceValueLiteral, String newColumnType, String newValueLiteral)
+        {
+            this(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, false);
+        }
+
+        public SetColumnTypeSetup
+        {
+            requireNonNull(sourceColumnType, "sourceColumnType is null");
+            requireNonNull(sourceValueLiteral, "sourceValueLiteral is null");
+            requireNonNull(newColumnType, "newColumnType is null");
+            requireNonNull(newValueLiteral, "newValueLiteral is null");
+        }
+
+        public SetColumnTypeSetup withNewValueLiteral(String newValueLiteral)
+        {
+            checkState(!unsupportedType);
+            return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, unsupportedType);
+        }
+
+        public SetColumnTypeSetup asUnsupported()
+        {
+            return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, true);
+        }
+    }
+
+    @Test
+    public void testSetColumnTypeWithNotNull()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_null_", "(col int NOT NULL)")) {
+            assertFalse(columnIsNullable(table.getName(), "col"));
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE bigint");
+            assertFalse(columnIsNullable(table.getName(), "col"));
+        }
+    }
+
+    @Test
+    public void testSetColumnTypeWithComment()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_comment_", "(col int COMMENT 'test comment')")) {
+            assertEquals(getColumnComment(table.getName(), "col"), "test comment");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE bigint");
+            assertEquals(getColumnComment(table.getName(), "col"), "test comment");
+        }
+    }
+
+    @Test
+    public void testSetColumnTypeWithDefaultColumn()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_INSERT));
+
+        try (TestTable table = createTableWithDefaultColumns()) {
+            // col_default column inserts 43 by default
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col_default SET DATA TYPE bigint");
+            assertUpdate("INSERT INTO " + table.getName() + " (col_required, col_required2) VALUES (1, 10)", 1);
+            assertQuery("SELECT col_default FROM " + table.getName(), "VALUES 43");
+        }
+    }
+
+    @Test
+    public void testSetColumnIncompatibleType()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_invalid_column_type_", "AS SELECT 'test' AS col")) {
+            assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE integer"))
+                    .satisfies(this::verifySetColumnTypeFailurePermissible);
+        }
+    }
+
+    @Test
+    public void testSetColumnOutOfRangeType()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_invalid_range_", "AS SELECT CAST(9223372036854775807 AS bigint) AS col")) {
+            assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE integer"))
+                    .satisfies(this::verifySetColumnTypeFailurePermissible);
+        }
+    }
+
+    protected void verifySetColumnTypeFailurePermissible(Throwable e)
+    {
+        throw new AssertionError("Unexpected set column type failure", e);
+    }
+
+    private String getColumnType(String tableName, String columnName)
+    {
+        return (String) computeScalar(format("SELECT data_type FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = '%s' AND column_name = '%s'",
+                tableName,
+                columnName));
+    }
+
+    @Test
     public void testCreateTable()
     {
         String tableName = "test_create_" + randomNameSuffix();
@@ -2535,7 +2759,7 @@ public abstract class BaseConnectorTest
     public void testCreateTableAsSelect()
     {
         String tableName = "test_ctas" + randomNameSuffix();
-        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)) {
             assertQueryFails("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name, regionkey FROM nation", "This connector does not support creating tables with data");
             return;
         }
@@ -2673,12 +2897,11 @@ public abstract class BaseConnectorTest
     @Test
     public void testCreateTableAsSelectNegativeDate()
     {
+        // Covered by testCreateTableAsSelect
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
         String tableName = "negative_date_" + randomNameSuffix();
 
-        if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)) {
-            assertQueryFails(format("CREATE TABLE %s AS SELECT DATE '-0001-01-01' AS dt", tableName), "This connector does not support creating tables with data");
-            return;
-        }
         if (!hasBehavior(SUPPORTS_NEGATIVE_DATE)) {
             assertQueryFails(format("CREATE TABLE %s AS SELECT DATE '-0001-01-01' AS dt", tableName), errorMessageForCreateTableAsSelectNegativeDate("-0001-01-01"));
             return;
@@ -2946,6 +3169,34 @@ public abstract class BaseConnectorTest
             assertThat(getColumnComment(table.getName(), "a")).isEqualTo("a comment");
             assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS NULL");
             assertThat(getColumnComment(table.getName(), "a")).isEqualTo(null);
+        }
+    }
+
+    @Test(dataProvider = "testColumnNameDataProvider")
+    public void testCommentColumnName(String columnName)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_COMMENT_ON_COLUMN));
+
+        if (!requiresDelimiting(columnName)) {
+            testCommentColumnName(columnName, false);
+        }
+        testCommentColumnName(columnName, true);
+    }
+
+    protected void testCommentColumnName(String columnName, boolean delimited)
+    {
+        String nameInSql = toColumnNameInSql(columnName, delimited);
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_column_name", "(" + nameInSql + " integer)")) {
+            assertUpdate("COMMENT ON COLUMN " + table.getName() + "." + nameInSql + " IS 'test comment'");
+            assertThat(getColumnComment(table.getName(), columnName.replace("'", "''").toLowerCase(ENGLISH))).isEqualTo("test comment");
+        }
+        catch (RuntimeException e) {
+            if (isColumnNameRejected(e, columnName, delimited)) {
+                // It is OK if give column name is not allowed and is clearly rejected by the connector.
+                return;
+            }
+            throw e;
         }
     }
 
@@ -3824,6 +4075,19 @@ public abstract class BaseConnectorTest
 
             assertUpdate("UPDATE " + tableName + " SET row_t = ROW(row_t.f1 * 2, row_t.f2) WHERE row_t.f1 = 22", 1);
             assertQuery("SELECT int_t, row_t.f1, row_t.f2 FROM " + tableName, "VALUES (0, 2, 3), (11, 12, 14), (21, 44, 23)");
+        }
+    }
+
+    @Test
+    public void testPredicateOnRowTypeField()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_INSERT) && hasBehavior(SUPPORTS_ROW_TYPE));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_predicate_on_row_type_field", "(int_t INT, row_t row(varchar_t VARCHAR, int_t INT))")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, row('first', 1)), (20, row('second', 10)), (200, row('third', 100))", 3);
+            assertQuery("SELECT int_t FROM " + table.getName() + " WHERE row_t.int_t = 1", "VALUES 2");
+            assertQuery("SELECT int_t FROM " + table.getName() + " WHERE row_t.int_t > 1", "VALUES 20, 200");
+            assertQuery("SELECT int_t FROM " + table.getName() + " WHERE int_t = 2 AND row_t.int_t = 1", "VALUES 2");
         }
     }
 
@@ -5008,10 +5272,10 @@ public abstract class BaseConnectorTest
         String targetTable = "merge_update_columns_reversed_" + randomNameSuffix();
         assertUpdate(createTableForWrites("CREATE TABLE " + targetTable + " (a, b, c) AS VALUES (1, 2, 3)"), 1);
         assertUpdate("""
-                MERGE INTO %s t USING (VALUES(1)) AS s(a) ON (t.a = s.a)
-                    WHEN MATCHED THEN UPDATE
-                        SET c = 100, b = 42, a = 0
-                """.formatted(targetTable),
+                        MERGE INTO %s t USING (VALUES(1)) AS s(a) ON (t.a = s.a)
+                            WHEN MATCHED THEN UPDATE
+                                SET c = 100, b = 42, a = 0
+                        """.formatted(targetTable),
                 1);
         assertQuery("SELECT * FROM " + targetTable, "VALUES (0, 42, 100)");
 

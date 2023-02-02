@@ -57,10 +57,12 @@ public class TestRemoveTrivialFilters
     {
         tester().assertThat(new RemoveTrivialFilters())
                 .on(p -> p.filter(
-                        expression("null"),
+                        expression("CAST(null AS boolean)"),
                         p.values(
                                 ImmutableList.of(p.symbol("a")),
                                 ImmutableList.of(expressions("1")))))
-                .matches(values("a"));
+                .matches(values(
+                        ImmutableList.of("a"),
+                        ImmutableList.of()));
     }
 }

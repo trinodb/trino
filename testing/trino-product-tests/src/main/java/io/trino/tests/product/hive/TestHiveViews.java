@@ -16,12 +16,14 @@ package io.trino.tests.product.hive;
 import com.google.common.collect.ImmutableList;
 import io.trino.jdbc.Row;
 import io.trino.tempto.Requires;
+import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableOrdersTable;
 import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
@@ -38,6 +40,18 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestHiveViews
         extends AbstractTestHiveViews
 {
+    // Currently, Trino columns type signature does not correspond one to one with the Hive view columns type in case of `varchar` and `string` columns
+    @Override
+    protected List<QueryAssert.Row> getExpectedHiveViewTextualColumnsTypes()
+    {
+        return ImmutableList.of(
+                row("a_char_1", "char(1)"),
+                row("a_char_255", "char(255)"),
+                row("a_varchar_1", "varchar"),
+                row("a_varchar_65535", "varchar"),
+                row("a_string", "varchar"));
+    }
+
     @Test(groups = HIVE_VIEWS)
     public void testFailingHiveViewsWithMetadataListing()
     {

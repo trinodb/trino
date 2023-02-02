@@ -420,8 +420,7 @@ public class KuduClientSession
 
     private void setTypeAttributes(ColumnMetadata columnMetadata, ColumnSchemaBuilder builder)
     {
-        if (columnMetadata.getType() instanceof DecimalType) {
-            DecimalType type = (DecimalType) columnMetadata.getType();
+        if (columnMetadata.getType() instanceof DecimalType type) {
             ColumnTypeAttributes attributes = new ColumnTypeAttributes.ColumnTypeAttributesBuilder()
                     .precision(type.getPrecision())
                     .scale(type.getScale()).build();

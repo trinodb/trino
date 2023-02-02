@@ -18,6 +18,7 @@ import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.common.primitives.Primitives;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
@@ -29,6 +30,7 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.MongoIterable;
 import com.mongodb.client.model.Collation;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
@@ -67,7 +69,6 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -81,6 +82,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.spi.HostAddress.fromParts;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -141,6 +143,11 @@ public class MongoSession
     // The 'simple' locale is the default collection in MongoDB. The locale doesn't allow specifying other fields (e.g. numericOrdering)
     // https://www.mongodb.com/docs/manual/reference/collation/
     private static final Collation SIMPLE_COLLATION = Collation.builder().locale("simple").build();
+    private static final Map<String, Object> AUTHORIZED_LIST_COLLECTIONS_COMMAND = ImmutableMap.<String, Object>builder()
+            .put("listCollections", 1.0)
+            .put("nameOnly", true)
+            .put("authorizedCollections", true)
+            .buildOrThrow();
 
     private final TypeManager typeManager;
     private final MongoClient client;
@@ -180,9 +187,7 @@ public class MongoSession
 
     public List<String> getAllSchemas()
     {
-        return ImmutableList.copyOf(client.listDatabaseNames()).stream()
-                .map(name -> name.toLowerCase(ENGLISH))
-                .collect(toImmutableList());
+        return ImmutableList.copyOf(listDatabaseNames().map(name -> name.toLowerCase(ENGLISH)));
     }
 
     public void createSchema(String schemaName)
@@ -193,7 +198,7 @@ public class MongoSession
 
     public void dropSchema(String schemaName)
     {
-        client.getDatabase(schemaName).drop();
+        client.getDatabase(toRemoteSchemaName(schemaName)).drop();
     }
 
     public Set<String> getAllTables(String schema)
@@ -202,7 +207,7 @@ public class MongoSession
         String schemaName = toRemoteSchemaName(schema);
         ImmutableSet.Builder<String> builder = ImmutableSet.builder();
 
-        builder.addAll(ImmutableList.copyOf(client.getDatabase(schemaName).listCollectionNames()).stream()
+        builder.addAll(ImmutableList.copyOf(listCollectionNames(schemaName)).stream()
                 .filter(name -> !name.equals(schemaCollection))
                 .filter(name -> !SYSTEM_TABLES.contains(name))
                 .collect(toSet()));
@@ -344,6 +349,31 @@ public class MongoSession
 
         database.getCollection(remoteTableName)
                 .updateMany(Filters.empty(), Updates.unset(columnName));
+
+        tableCache.invalidate(table.getSchemaTableName());
+    }
+
+    public void setColumnType(MongoTableHandle table, String columnName, Type type)
+    {
+        String remoteSchemaName = table.getRemoteTableName().getDatabaseName();
+        String remoteTableName = table.getRemoteTableName().getCollectionName();
+
+        Document metadata = getTableMetadata(remoteSchemaName, remoteTableName);
+
+        List<Document> columns = getColumnMetadata(metadata).stream()
+                .map(document -> {
+                    if (document.getString(FIELDS_NAME_KEY).equals(columnName)) {
+                        document.put(FIELDS_TYPE_KEY, type.getTypeSignature().toString());
+                        return document;
+                    }
+                    return document;
+                })
+                .collect(toImmutableList());
+
+        metadata.replace(FIELDS_KEY, columns);
+
+        client.getDatabase(remoteSchemaName).getCollection(schemaCollection)
+                .findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
 
         tableCache.invalidate(table.getSchemaTableName());
     }
@@ -644,7 +674,7 @@ public class MongoSession
 
     public boolean collectionExists(MongoDatabase db, String collectionName)
     {
-        for (String name : db.listCollectionNames()) {
+        for (String name : listCollectionNames(db.getName())) {
             if (name.equalsIgnoreCase(collectionName)) {
                 return true;
             }
@@ -659,18 +689,13 @@ public class MongoSession
     }
 
     private Set<String> getTableMetadataNames(String schemaName)
-            throws TableNotFoundException
     {
-        MongoDatabase db = client.getDatabase(schemaName);
-        MongoCursor<Document> cursor = db.getCollection(schemaCollection)
-                .find().projection(new Document(TABLE_NAME_KEY, true)).iterator();
-
-        HashSet<String> names = new HashSet<>();
-        while (cursor.hasNext()) {
-            names.add((cursor.next()).getString(TABLE_NAME_KEY));
+        try (MongoCursor<Document> cursor = client.getDatabase(schemaName).getCollection(schemaCollection)
+                .find().projection(new Document(TABLE_NAME_KEY, true)).iterator()) {
+            return Streams.stream(cursor)
+                    .map(document -> document.getString(TABLE_NAME_KEY))
+                    .collect(toImmutableSet());
         }
-
-        return names;
     }
 
     private void createTableMetadata(RemoteTableName remoteSchemaTableName, List<MongoColumnHandle> columns, Optional<String> tableComment)
@@ -840,12 +865,20 @@ public class MongoSession
         if (!caseInsensitiveNameMatching) {
             return schemaName;
         }
-        for (String remoteSchemaName : client.listDatabaseNames()) {
+        for (String remoteSchemaName : listDatabaseNames()) {
             if (schemaName.equals(remoteSchemaName.toLowerCase(ENGLISH))) {
                 return remoteSchemaName;
             }
         }
         return schemaName;
+    }
+
+    private MongoIterable<String> listDatabaseNames()
+    {
+        return client.listDatabases()
+                .nameOnly(true)
+                .authorizedDatabasesOnly(true)
+                .map(result -> result.getString("name"));
     }
 
     private String toRemoteTableName(String schemaName, String tableName)
@@ -854,12 +887,23 @@ public class MongoSession
         if (!caseInsensitiveNameMatching) {
             return tableName;
         }
-        for (String remoteTableName : client.getDatabase(schemaName).listCollectionNames()) {
+        for (String remoteTableName : listCollectionNames(schemaName)) {
             if (tableName.equals(remoteTableName.toLowerCase(ENGLISH))) {
                 return remoteTableName;
             }
         }
         return tableName;
+    }
+
+    private List<String> listCollectionNames(String databaseName)
+    {
+        MongoDatabase database = client.getDatabase(databaseName);
+        Document cursor = database.runCommand(new Document(AUTHORIZED_LIST_COLLECTIONS_COMMAND)).get("cursor", Document.class);
+
+        List<Document> firstBatch = cursor.get("firstBatch", List.class);
+        return firstBatch.stream()
+                .map(document -> document.getString("name"))
+                .collect(toImmutableList());
     }
 
     private boolean isView(String schemaName, String tableName)
@@ -868,6 +912,7 @@ public class MongoSession
                 .put("listCollections", 1.0)
                 .put("filter", documentOf("name", tableName))
                 .put("nameOnly", true)
+                .put("authorizedCollections", true)
                 .buildOrThrow());
         Document cursor = client.getDatabase(schemaName).runCommand(listCollectionsCommand).get("cursor", Document.class);
         List<Document> firstBatch = cursor.get("firstBatch", List.class);

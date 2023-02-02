@@ -19,7 +19,6 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
-import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.testing.QueryRunner;
@@ -114,7 +113,7 @@ public class TestJdbcConnectionCreation
         @Provides
         @Singleton
         @ForBaseJdbc
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
+        public ConnectionFactory getConnectionFactory()
         {
             return connectionCountingConnectionFactory;
         }

@@ -156,11 +156,10 @@ public class ReplaceJoinOverConstantWithProject
 
     private boolean isSingleConstantRow(PlanNode node)
     {
-        if (!(node instanceof ValuesNode)) {
+        if (!(node instanceof ValuesNode values)) {
             return false;
         }
 
-        ValuesNode values = (ValuesNode) node;
         if (values.getRowCount() != 1) {
             return false;
         }
@@ -187,8 +186,7 @@ public class ReplaceJoinOverConstantWithProject
         Assignments.Builder assignments = Assignments.builder()
                 .putIdentities(sourceOutputs);
 
-        constantOutputs.stream()
-                .forEach(symbol -> assignments.put(symbol, mapping.get(symbol)));
+        constantOutputs.forEach(symbol -> assignments.put(symbol, mapping.get(symbol)));
 
         return new ProjectNode(idAllocator.getNextId(), source, assignments.build());
     }

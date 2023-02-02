@@ -40,6 +40,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.Duration.nanosSince;
+import static io.trino.testng.services.Listeners.formatTestName;
 import static io.trino.testng.services.Listeners.reportListenerFailure;
 import static java.lang.String.format;
 import static java.lang.management.ManagementFactory.getThreadMXBean;
@@ -176,7 +177,7 @@ public class LogTestDurationListener
         }
 
         try {
-            beginTest(getName(testClass));
+            beginTest(formatTestName(testClass));
         }
         catch (RuntimeException | Error e) {
             reportListenerFailure(LogTestDurationListener.class, "onBeforeClass: \n%s", getStackTraceAsString(e));
@@ -191,7 +192,7 @@ public class LogTestDurationListener
         }
 
         try {
-            String name = getName(testClass);
+            String name = formatTestName(testClass);
             Duration duration = endTest(name);
             if (duration.compareTo(CLASS_LOGGING_THRESHOLD) > 0) {
                 LOG.warn("Tests from %s took %s", name, duration);
@@ -210,7 +211,7 @@ public class LogTestDurationListener
         }
 
         try {
-            beginTest(getName(method));
+            beginTest(formatTestName(testResult));
         }
         catch (RuntimeException | Error e) {
             reportListenerFailure(LogTestDurationListener.class, "beforeInvocation: \n%s", getStackTraceAsString(e));
@@ -225,7 +226,7 @@ public class LogTestDurationListener
         }
 
         try {
-            String name = getName(method);
+            String name = formatTestName(testResult);
             Duration duration = endTest(name);
             if (duration.compareTo(SINGLE_TEST_LOGGING_THRESHOLD) > 0) {
                 LOG.info("Test %s took %s", name, duration);
@@ -251,16 +252,5 @@ public class LogTestDurationListener
         Long startTime = started.remove(name);
         checkState(startTime != null, "There is no start record for test: %s", name);
         return nanosSince(startTime);
-    }
-
-    private static String getName(ITestClass testClass)
-    {
-        return testClass.getName();
-    }
-
-    private static String getName(IInvokedMethod method)
-    {
-        // See ProgressLoggingListener.formatTestName
-        return format("%s.%s", method.getTestMethod().getTestClass().getName(), method.getTestMethod().getMethodName());
     }
 }

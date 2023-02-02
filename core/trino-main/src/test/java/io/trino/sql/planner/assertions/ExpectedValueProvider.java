@@ -14,7 +14,7 @@
 package io.trino.sql.planner.assertions;
 
 /**
- * An implementation of ExpectedValueProvider<T> should hold the values and
+ * An implementation of ExpectedValueProvider should hold the values and
  * SymbolAliases needed to call T's constructor, and call
  * SymbolAlias.toSymbol() to get actual Symbols to pass to T's constructor.
  * Doing this ensures that changes to T's .equals() method that requires a

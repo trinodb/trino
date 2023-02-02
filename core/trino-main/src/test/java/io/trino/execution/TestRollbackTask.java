@@ -16,6 +16,7 @@ package io.trino.execution;
 
 import io.trino.Session;
 import io.trino.Session.SessionBuilder;
+import io.trino.client.NodeVersion;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
@@ -128,7 +129,8 @@ public class TestRollbackTask
                 metadata,
                 WarningCollector.NOOP,
                 Optional.empty(),
-                true);
+                true,
+                new NodeVersion("test"));
     }
 
     private static SessionBuilder sessionBuilder()

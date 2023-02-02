@@ -78,7 +78,7 @@ public class JdbcRecordCursor
         objectReadFunctions = new ObjectReadFunction[columnHandles.size()];
 
         try {
-            connection = jdbcClient.getConnection(session, split);
+            connection = jdbcClient.getConnection(session, split, table);
 
             for (int i = 0; i < this.columnHandles.length; i++) {
                 JdbcColumnHandle columnHandle = columnHandles.get(i);
@@ -154,8 +154,7 @@ public class JdbcRecordCursor
                     resultSet = resultSetFuture.get();
                 }
                 catch (ExecutionException e) {
-                    if (e.getCause() instanceof SQLException) {
-                        SQLException cause = (SQLException) e.getCause();
+                    if (e.getCause() instanceof SQLException cause) {
                         SQLException sqlException = new SQLException(cause.getMessage(), cause.getSQLState(), cause.getErrorCode(), e);
                         if (cause.getNextException() != null) {
                             sqlException.setNextException(cause.getNextException());

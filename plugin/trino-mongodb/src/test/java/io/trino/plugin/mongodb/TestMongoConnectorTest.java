@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.mongodb.DBRef;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Collation;
 import com.mongodb.client.model.CreateCollectionOptions;
 import io.trino.sql.planner.plan.LimitNode;
@@ -546,69 +547,6 @@ public class TestMongoConnectorTest
     }
 
     @Test
-    public void testCaseInsensitive()
-            throws Exception
-    {
-        MongoCollection<Document> collection = client.getDatabase("testCase").getCollection("testInsensitive");
-        collection.insertOne(new Document(ImmutableMap.of("Name", "abc", "Value", 1)));
-
-        assertQuery("SHOW SCHEMAS IN mongodb LIKE 'testcase'", "SELECT 'testcase'");
-        assertQuery("SHOW TABLES IN testcase", "SELECT 'testinsensitive'");
-        assertQuery(
-                "SHOW COLUMNS FROM testcase.testInsensitive",
-                "VALUES ('name', 'varchar', '', ''), ('value', 'bigint', '', '')");
-
-        assertQuery("SELECT name, value FROM testcase.testinsensitive", "SELECT 'abc', 1");
-        assertUpdate("INSERT INTO testcase.testinsensitive VALUES('def', 2)", 1);
-
-        assertQuery("SELECT value FROM testcase.testinsensitive WHERE name = 'def'", "SELECT 2");
-        assertUpdate("DROP TABLE testcase.testinsensitive");
-    }
-
-    @Test
-    public void testCaseInsensitiveRenameTable()
-    {
-        MongoCollection<Document> collection = client.getDatabase("testCase_RenameTable").getCollection("testInsensitive_RenameTable");
-        collection.insertOne(new Document(ImmutableMap.of("value", 1)));
-        assertQuery("SHOW TABLES IN testcase_renametable", "SELECT 'testinsensitive_renametable'");
-        assertQuery("SELECT value FROM testcase_renametable.testinsensitive_renametable", "SELECT 1");
-
-        assertUpdate("ALTER TABLE testcase_renametable.testinsensitive_renametable RENAME TO testcase_renametable.testinsensitive_renamed_table");
-
-        assertQuery("SHOW TABLES IN testcase_renametable", "SELECT 'testinsensitive_renamed_table'");
-        assertQuery("SELECT value FROM testcase_renametable.testinsensitive_renamed_table", "SELECT 1");
-        assertUpdate("DROP TABLE testcase_renametable.testinsensitive_renamed_table");
-    }
-
-    @Test
-    public void testNonLowercaseViewName()
-    {
-        // Case insensitive schema name
-        MongoCollection<Document> collection = client.getDatabase("NonLowercaseSchema").getCollection("test_collection");
-        collection.insertOne(new Document(ImmutableMap.of("Name", "abc", "Value", 1)));
-
-        client.getDatabase("NonLowercaseSchema").createView("lowercase_view", "test_collection", ImmutableList.of());
-        assertQuery("SELECT value FROM nonlowercaseschema.lowercase_view WHERE name = 'abc'", "SELECT 1");
-
-        // Case insensitive view name
-        collection = client.getDatabase("test_database").getCollection("test_collection");
-        collection.insertOne(new Document(ImmutableMap.of("Name", "abc", "Value", 1)));
-
-        client.getDatabase("test_database").createView("NonLowercaseView", "test_collection", ImmutableList.of());
-        assertQuery("SELECT value FROM test_database.nonlowercaseview WHERE name = 'abc'", "SELECT 1");
-
-        // Case insensitive schema and view name
-        client.getDatabase("NonLowercaseSchema").createView("NonLowercaseView", "test_collection", ImmutableList.of());
-        assertQuery("SELECT value FROM nonlowercaseschema.nonlowercaseview WHERE name = 'abc'", "SELECT 1");
-
-        assertUpdate("DROP TABLE nonlowercaseschema.lowercase_view");
-        assertUpdate("DROP TABLE test_database.nonlowercaseview");
-        assertUpdate("DROP TABLE nonlowercaseschema.test_collection");
-        assertUpdate("DROP TABLE test_database.test_collection");
-        assertUpdate("DROP TABLE nonlowercaseschema.nonlowercaseview");
-    }
-
-    @Test
     public void testSelectView()
     {
         assertUpdate("CREATE TABLE test.view_base AS SELECT 'foo' _varchar", 1);
@@ -782,6 +720,18 @@ public class TestMongoConnectorTest
     }
 
     @Test
+    public void testNativeQueryCaseNonLowercaseColumn()
+    {
+        String tableName = "test_non_lowercase_column" + randomNameSuffix();
+        client.getDatabase("test").getCollection(tableName)
+                .insertOne(new Document("TestColumn", 1));
+
+        assertQuery(
+                "SELECT * FROM TABLE(mongodb.system.query(database => 'test', collection => '" + tableName + "', filter => '{\"TestColumn\": 1}'))",
+                "VALUES 1");
+    }
+
+    @Test
     public void testNativeQueryInvalidArgument()
     {
         assertQueryFails(
@@ -824,6 +774,17 @@ public class TestMongoConnectorTest
         assertUpdate("DROP TABLE \"" + sourceTableName + "\"");
     }
 
+    @Test
+    public void testListTablesFromSchemaWithBigAmountOfTables()
+    {
+        MongoDatabase database = client.getDatabase("huge_schema");
+        for (int i = 0; i < 10_000; i++) {
+            database.createCollection("table_" + i);
+        }
+
+        assertThat(getQueryRunner().execute("SHOW TABLES FROM mongodb.huge_schema").getRowCount()).isEqualTo(10_000);
+    }
+
     @Override
     protected OptionalInt maxSchemaNameLength()
     {
@@ -846,6 +807,29 @@ public class TestMongoConnectorTest
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching(".*fully qualified namespace .* is too long.*|Qualified identifier name must be shorter than or equal to '120'.*");
+    }
+
+    @Override
+    protected void verifySetColumnTypeFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Cannot change type");
+    }
+
+    @Override
+    protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
+    {
+        switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            case "bigint -> integer":
+            case "decimal(5,3) -> decimal(5,2)":
+            case "time(3) -> time(6)":
+            case "time(6) -> time(3)":
+            case "timestamp(3) -> timestamp(6)":
+            case "timestamp(6) -> timestamp(3)":
+            case "timestamp(3) with time zone -> timestamp(6) with time zone":
+            case "timestamp(6) with time zone -> timestamp(3) with time zone":
+                return Optional.of(setup.asUnsupported());
+        }
+        return Optional.of(setup);
     }
 
     private void assertOneNotNullResult(String query)

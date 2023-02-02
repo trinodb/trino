@@ -33,6 +33,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.security.AccessControlUtil.checkCanKillQueryOwnedBy;
 import static io.trino.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static io.trino.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
@@ -60,6 +61,8 @@ public class KillQueryProcedure
     @UsedByGeneratedCode
     public void killQuery(String queryId, String message, ConnectorSession session)
     {
+        checkProcedureArgument(queryId != null, "query_id cannot be null");
+
         QueryId query = parseQueryId(queryId);
 
         try {
@@ -93,7 +96,7 @@ public class KillQueryProcedure
                 "kill_query",
                 ImmutableList.<Argument>builder()
                         .add(new Argument("QUERY_ID", VARCHAR))
-                        .add(new Argument("MESSAGE", VARCHAR))
+                        .add(new Argument("MESSAGE", VARCHAR, false, null))
                         .build(),
                 KILL_QUERY.bindTo(this));
     }

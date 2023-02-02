@@ -19,13 +19,13 @@ import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogHandle;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.memory.MemoryInfo;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNode;
 import io.trino.spi.HostAddress;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.memory.MemoryPoolInfo;
 import io.trino.testing.assertions.Assert;
 import org.testng.annotations.AfterMethod;
@@ -100,6 +100,7 @@ public class TestBinPackingNodeAllocator
         nodeAllocatorService = new BinPackingNodeAllocatorService(
                 nodeManager,
                 () -> workerMemoryInfos,
+                false,
                 false,
                 Duration.of(1, MINUTES),
                 taskRuntimeMemoryEstimationOverhead,

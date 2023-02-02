@@ -220,7 +220,7 @@ public class TestTimeZoneKey
             hasher.putString(timeZoneKey.getId(), StandardCharsets.UTF_8);
         }
         // Zone file should not (normally) be changed, so let's make this more difficult
-        assertEquals(hasher.hash().asLong(), 3150949494363069024L, "zone-index.properties file contents changed!");
+        assertEquals(hasher.hash().asLong(), 4825838578917475630L, "zone-index.properties file contents changed!");
     }
 
     @Test

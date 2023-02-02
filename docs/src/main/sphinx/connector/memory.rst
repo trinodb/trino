@@ -9,7 +9,7 @@ Configuration
 -------------
 
 To configure the Memory connector, create a catalog properties file
-``etc/catalog/memory.properties`` with the following contents:
+``etc/catalog/example.properties`` with the following contents:
 
 .. code-block:: text
 
@@ -24,21 +24,21 @@ Examples
 
 Create a table using the Memory connector::
 
-    CREATE TABLE memory.default.nation AS
+    CREATE TABLE example.default.nation AS
     SELECT * from tpch.tiny.nation;
 
 Insert data into a table in the Memory connector::
 
-    INSERT INTO memory.default.nation
+    INSERT INTO example.default.nation
     SELECT * FROM tpch.tiny.nation;
 
 Select from the Memory connector::
 
-    SELECT * FROM memory.default.nation;
+    SELECT * FROM example.default.nation;
 
 Drop table::
 
-    DROP TABLE memory.default.nation;
+    DROP TABLE example.default.nation;
 
 .. _memory-type-mapping:
 

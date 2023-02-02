@@ -472,8 +472,9 @@ public class CassandraTypeManager
             case INET:
             case VARINT:
             case TUPLE:
-            case UDT:
                 return quoteStringLiteralForJson(cassandraValue.toString());
+            case UDT:
+                return quoteStringLiteralForJson(((UdtValue) cassandraValue).getFormattedContents());
 
             case BLOB:
             case CUSTOM:
@@ -597,28 +598,27 @@ public class CassandraTypeManager
             return false;
         }
 
-        if (dataType instanceof UserDefinedType) {
-            return ((UserDefinedType) dataType).getFieldTypes().stream()
-                    .allMatch(fieldType -> isFullySupported(fieldType));
+        if (dataType instanceof UserDefinedType userDefinedType) {
+            return userDefinedType.getFieldTypes().stream()
+                    .allMatch(this::isFullySupported);
         }
 
-        if (dataType instanceof MapType) {
-            MapType mapType = (MapType) dataType;
+        if (dataType instanceof MapType mapType) {
             return Arrays.stream(new DataType[] {mapType.getKeyType(), mapType.getValueType()})
-                    .allMatch(type -> isFullySupported(type));
+                    .allMatch(this::isFullySupported);
         }
 
-        if (dataType instanceof ListType) {
-            return isFullySupported(((ListType) dataType).getElementType());
+        if (dataType instanceof ListType listType) {
+            return isFullySupported(listType.getElementType());
         }
 
-        if (dataType instanceof TupleType) {
-            return ((TupleType) dataType).getComponentTypes().stream()
-                    .allMatch(componentType -> isFullySupported(componentType));
+        if (dataType instanceof TupleType tupleType) {
+            return tupleType.getComponentTypes().stream()
+                    .allMatch(this::isFullySupported);
         }
 
-        if (dataType instanceof SetType) {
-            return isFullySupported(((SetType) dataType).getElementType());
+        if (dataType instanceof SetType setType) {
+            return isFullySupported(setType.getElementType());
         }
 
         return true;

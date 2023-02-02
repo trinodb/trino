@@ -15,8 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
-import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -43,14 +42,14 @@ public class IcebergSplitManager
 
     private final IcebergTransactionManager transactionManager;
     private final TypeManager typeManager;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
 
     @Inject
-    public IcebergSplitManager(IcebergTransactionManager transactionManager, TypeManager typeManager, HdfsEnvironment hdfsEnvironment)
+    public IcebergSplitManager(IcebergTransactionManager transactionManager, TypeManager typeManager, TrinoFileSystemFactory fileSystemFactory)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
 
     @Override
@@ -76,8 +75,8 @@ public class IcebergSplitManager
         TableScan tableScan = icebergTable.newScan()
                 .useSnapshot(table.getSnapshotId().get());
         IcebergSplitSource splitSource = new IcebergSplitSource(
-                hdfsEnvironment,
-                new HdfsContext(session),
+                fileSystemFactory,
+                session,
                 table,
                 tableScan,
                 table.getMaxScannedFileSize(),

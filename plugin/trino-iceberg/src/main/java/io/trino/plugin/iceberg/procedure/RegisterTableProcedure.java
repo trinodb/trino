@@ -78,7 +78,6 @@ public class RegisterTableProcedure
 
     private final TrinoCatalogFactory catalogFactory;
     private final TrinoFileSystemFactory fileSystemFactory;
-    private final ClassLoader classLoader;
     private final boolean registerTableProcedureEnabled;
 
     @Inject
@@ -86,8 +85,6 @@ public class RegisterTableProcedure
     {
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        // this class is loaded by PluginClassLoader, and we need its reference to be stored
-        this.classLoader = getClass().getClassLoader();
         this.registerTableProcedureEnabled = requireNonNull(icebergConfig, "icebergConfig is null").isRegisterTableProcedureEnabled();
     }
 
@@ -112,7 +109,7 @@ public class RegisterTableProcedure
             String tableLocation,
             String metadataFileName)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doRegisterTable(
                     clientSession,
                     schemaName,

@@ -87,7 +87,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
         FileAttribute<Set<PosixFilePermission>> posixFilePermissions = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
         Path hadoopCoreSiteXmlTempFile = Files.createTempFile("core-site", ".xml", posixFilePermissions);
         hadoopCoreSiteXmlTempFile.toFile().deleteOnExit();
-        Files.write(hadoopCoreSiteXmlTempFile, abfsSpecificCoreSiteXmlContent.getBytes(UTF_8));
+        Files.writeString(hadoopCoreSiteXmlTempFile, abfsSpecificCoreSiteXmlContent);
 
         HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(
                 bucketName,

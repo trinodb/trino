@@ -18,6 +18,7 @@ import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.SortOrder;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.FunctionCall;
@@ -43,13 +44,13 @@ public final class WindowMatcher
         implements Matcher
 {
     private final Optional<Set<SymbolAlias>> prePartitionedInputs;
-    private final Optional<ExpectedValueProvider<WindowNode.Specification>> specification;
+    private final Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification;
     private final Optional<Integer> preSortedOrderPrefix;
     private final Optional<Optional<SymbolAlias>> hashSymbol;
 
     private WindowMatcher(
             Optional<Set<SymbolAlias>> prePartitionedInputs,
-            Optional<ExpectedValueProvider<WindowNode.Specification>> specification,
+            Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification,
             Optional<Integer> preSortedOrderPrefix,
             Optional<Optional<SymbolAlias>> hashSymbol)
     {
@@ -133,7 +134,7 @@ public final class WindowMatcher
     {
         private final PlanMatchPattern source;
         private Optional<Set<SymbolAlias>> prePartitionedInputs = Optional.empty();
-        private Optional<ExpectedValueProvider<WindowNode.Specification>> specification = Optional.empty();
+        private Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification = Optional.empty();
         private Optional<Integer> preSortedOrderPrefix = Optional.empty();
         private final List<AliasMatcher> windowFunctionMatchers = new LinkedList<>();
         private Optional<Optional<SymbolAlias>> hashSymbol = Optional.empty();
@@ -161,7 +162,7 @@ public final class WindowMatcher
             return specification(PlanMatchPattern.specification(partitionBy, orderBy, orderings));
         }
 
-        public Builder specification(ExpectedValueProvider<WindowNode.Specification> specification)
+        public Builder specification(ExpectedValueProvider<DataOrganizationSpecification> specification)
         {
             requireNonNull(specification, "specification is null");
             this.specification = Optional.of(specification);

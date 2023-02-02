@@ -288,7 +288,7 @@ public final class ParquetTypeUtils
         return value;
     }
 
-    public static void checkBytesFitInShortDecimal(byte[] bytes, int offset, int length, Type trinoType, ColumnDescriptor descriptor)
+    public static void checkBytesFitInShortDecimal(byte[] bytes, int offset, int length, ColumnDescriptor descriptor)
     {
         int endOffset = offset + length;
         // Equivalent to expectedValue = bytes[endOffset] < 0 ? -1 : 0
@@ -296,9 +296,8 @@ public final class ParquetTypeUtils
         for (int i = offset; i < endOffset; i++) {
             if (bytes[i] != expectedValue) {
                 throw new TrinoException(NOT_SUPPORTED, format(
-                        "Could not read unscaled value %s into %s from column %s",
-                        new BigInteger(bytes),
-                        trinoType,
+                        "Could not read unscaled value %s into a short decimal from column %s",
+                        new BigInteger(bytes, offset, length + Long.BYTES),
                         descriptor));
             }
         }

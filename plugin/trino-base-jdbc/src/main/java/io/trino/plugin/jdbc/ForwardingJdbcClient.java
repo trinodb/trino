@@ -139,10 +139,10 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session, JdbcSplit split)
+    public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
             throws SQLException
     {
-        return delegate().getConnection(session, split);
+        return delegate().getConnection(session, split, tableHandle);
     }
 
     @Override
@@ -317,6 +317,12 @@ public abstract class ForwardingJdbcClient
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         delegate().renameColumn(session, handle, jdbcColumn, newColumnName);
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        delegate().setColumnType(session, handle, column, type);
     }
 
     @Override

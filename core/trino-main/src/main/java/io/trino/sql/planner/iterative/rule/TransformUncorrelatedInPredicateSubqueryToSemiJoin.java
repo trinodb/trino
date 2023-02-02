@@ -72,11 +72,10 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
         }
 
         Expression expression = getOnlyElement(applyNode.getSubqueryAssignments().getExpressions());
-        if (!(expression instanceof InPredicate)) {
+        if (!(expression instanceof InPredicate inPredicate)) {
             return Result.empty();
         }
 
-        InPredicate inPredicate = (InPredicate) expression;
         Symbol semiJoinSymbol = getOnlyElement(applyNode.getSubqueryAssignments().getSymbols());
 
         SemiJoinNode replacement = new SemiJoinNode(context.getIdAllocator().getNextId(),

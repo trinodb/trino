@@ -508,8 +508,7 @@ public final class DomainTranslator
                 return createComparisonExtractionResult(normalized.getComparisonOperator(), symbol, type, value.getValue(), complement)
                         .orElseGet(() -> super.visitComparisonExpression(node, complement));
             }
-            if (symbolExpression instanceof Cast) {
-                Cast castExpression = (Cast) symbolExpression;
+            if (symbolExpression instanceof Cast castExpression) {
                 // type of expression which is then cast to type of value
                 Type castSourceType = requireNonNull(expressionTypes.get(NodeRef.of(castExpression.getExpression())), "No type for Cast source expression");
                 Type castTargetType = requireNonNull(expressionTypes.get(NodeRef.of(castExpression)), "No type for Cast target expression");
@@ -935,11 +934,10 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitInPredicate(InPredicate node, Boolean complement)
         {
-            if (!(node.getValueList() instanceof InListExpression)) {
+            if (!(node.getValueList() instanceof InListExpression valueList)) {
                 return super.visitInPredicate(node, complement);
             }
 
-            InListExpression valueList = (InListExpression) node.getValueList();
             checkState(!valueList.getValues().isEmpty(), "InListExpression should never be empty");
 
             Optional<ExtractionResult> directExtractionResult = processSimpleInPredicate(node, complement);
@@ -1052,15 +1050,15 @@ public final class DomainTranslator
             }
 
             Type type = typeAnalyzer.getType(session, types, value);
-            if (!(type instanceof VarcharType)) {
+            if (!(type instanceof VarcharType varcharType)) {
                 // TODO support CharType
                 return Optional.empty();
             }
-            VarcharType varcharType = (VarcharType) type;
 
             Symbol symbol = Symbol.from(value);
 
-            if (!(typeAnalyzer.getType(session, types, patternArgument) instanceof LikePatternType)) {
+            if (!(typeAnalyzer.getType(session, types, patternArgument) instanceof LikePatternType) ||
+                    !SymbolsExtractor.extractAll(patternArgument).isEmpty()) {
                 // dynamic pattern or escape
                 return Optional.empty();
             }

@@ -425,8 +425,7 @@ public class Query
         @Override
         protected void print(List<String> warnings)
         {
-            warnings.stream()
-                    .forEach(printStream::println);
+            warnings.forEach(printStream::println);
         }
 
         @Override

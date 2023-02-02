@@ -455,6 +455,12 @@ public class ClickHouseClient
         execute(session, sql);
     }
 
+    @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
+    }
+
     private static String clickhouseVarcharLiteral(String value)
     {
         requireNonNull(value, "value is null");

@@ -190,6 +190,9 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_CREATE_VIEW:
+                return true;
+
             case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
@@ -276,6 +279,19 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a', TIMESTAMP '2020-01-01 01:22:34.000 UTC')", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'b', TIMESTAMP '2021-01-01 01:22:34.000 UTC')", 1);
         assertQuery("SELECT a, b, CAST(c AS VARCHAR) FROM " + tableName, "VALUES (1, 'a', '2020-01-01 01:22:34.000 UTC'), (2, 'b', '2021-01-01 01:22:34.000 UTC')");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testPathUriDecoding()
+    {
+        String tableName = "test_uri_table_" + randomNameSuffix();
+        registerTableFromResources(tableName, "databricks/uri", getQueryRunner());
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('a=equal', 1), ('a:colon', 2), ('a+plus', 3), ('a space', 4), ('a%percent', 5)");
+        String firstFilePath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE y = 1");
+        assertQuery("SELECT * FROM " + tableName + " WHERE \"$path\" = '" + firstFilePath + "'", "VALUES ('a=equal', 1)");
+
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -1148,7 +1164,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     }
 
     @Test(dataProvider = "testCheckpointWriteStatsAsStructDataProvider")
-    public void testCheckpointWriteStatsAsStruct(String type, String inputValue, String nullsFraction, String statsValue)
+    public void testCheckpointWriteStatsAsStruct(String type, String sampleValue, String highValue, String nullsFraction, String minValue, String maxValue)
     {
         String tableName = "test_checkpoint_write_stats_as_struct_" + randomNameSuffix();
 
@@ -1158,13 +1174,17 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         tableName,
                         type,
                         getLocationForTable(bucketName, tableName)));
-        assertUpdate("INSERT INTO " + tableName + " SELECT " + inputValue, 1);
+        assertUpdate("INSERT INTO " + tableName + " SELECT " + sampleValue + " UNION ALL SELECT " + highValue, 2);
+
+        // TODO: Open checkpoint parquet file and verify 'stats_parsed' field directly
+        assertThat(getTableFiles(tableName))
+                .contains(getTableLocation(tableName) + "/_delta_log/_last_checkpoint");
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
-                        "('col', null, null, " + nullsFraction + ", null, " + statsValue + ", " + statsValue + ")," +
-                        "(null, null, null, null, 1.0, null, null)");
+                        "('col', null, null, " + nullsFraction + ", null, " + minValue + ", " + maxValue + ")," +
+                        "(null, null, null, null, 2.0, null, null)");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1172,23 +1192,24 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @DataProvider
     public Object[][] testCheckpointWriteStatsAsStructDataProvider()
     {
+        // type, sampleValue, highValue, nullsFraction, minValue, maxValue
         return new Object[][] {
-                {"boolean", "true", "0.0", "null"},
-                {"integer", "1", "0.0", "1"},
-                {"tinyint", "2", "0.0", "2"},
-                {"smallint", "3", "0.0", "3"},
-                {"bigint", "1000", "0.0", "1000"},
-                {"real", "0.1", "0.0", "0.1"},
-                {"double", "1.0", "0.0", "1.0"},
-                {"decimal(3,2)", "3.14", "0.0", "3.14"},
-                {"decimal(30,1)", "12345", "0.0", "12345.0"},
-                {"varchar", "'test'", "0.0", "null"},
-                {"varbinary", "X'65683F'", "0.0", "null"},
-                {"date", "date '2021-02-03'", "0.0", "'2021-02-03'"},
-                {"timestamp(3) with time zone", "timestamp '2001-08-22 03:04:05.321 -08:00'", "0.0", "'2001-08-22 11:04:05.321 UTC'"},
-                {"array(int)", "array[1]", "null", "null"},
-                {"map(varchar,int)", "map(array['foo', 'bar'], array[1, 2])", "null", "null"},
-                {"row(x bigint)", "cast(row(1) as row(x bigint))", "null", "null"},
+                {"boolean", "true", "false", "0.0", "null", "null"},
+                {"integer", "1", "2147483647", "0.0", "1", "2147483647"},
+                {"tinyint", "2", "127", "0.0", "2", "127"},
+                {"smallint", "3", "32767", "0.0", "3", "32767"},
+                {"bigint", "1000", "9223372036854775807", "0.0", "1000", "9223372036854775807"},
+                {"real", "0.1", "999999.999", "0.0", "0.1", "1000000.0"},
+                {"double", "1.0", "9999999999999.999", "0.0", "1.0", "'1.0E13'"},
+                {"decimal(3,2)", "3.14", "9.99", "0.0", "3.14", "9.99"},
+                {"decimal(30,1)", "12345", "99999999999999999999999999999.9", "0.0", "12345.0", "'1.0E29'"},
+                {"varchar", "'test'", "'ŻŻŻŻŻŻŻŻŻŻ'", "0.0", "null", "null"},
+                {"varbinary", "X'65683F'", "X'ffffffffffffffffffff'", "0.0", "null", "null"},
+                {"date", "date '2021-02-03'", "date '9999-12-31'", "0.0", "'2021-02-03'", "'9999-12-31'"},
+                {"timestamp(3) with time zone", "timestamp '2001-08-22 03:04:05.321 -08:00'", "timestamp '9999-12-31 23:59:59.999 +12:00'", "0.0", "'2001-08-22 11:04:05.321 UTC'", "'9999-12-31 11:59:59.999 UTC'"},
+                {"array(int)", "array[1]", "array[2147483647]", "null", "null", "null"},
+                {"map(varchar,int)", "map(array['foo', 'bar'], array[1, 2])", "map(array['foo', 'bar'], array[-2147483648, 2147483647])", "null", "null", "null"},
+                {"row(x bigint)", "cast(row(1) as row(x bigint))", "cast(row(9223372036854775807) as row(x bigint))", "null", "null", "null"},
         };
     }
 
@@ -1835,23 +1856,5 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             return location;
         }
         throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
-    }
-
-    private String getTableComment(String tableName)
-    {
-        return (String) computeScalar(format(
-                "SELECT comment FROM system.metadata.table_comments WHERE catalog_name = '%s' AND schema_name = '%s' AND table_name = '%s'",
-                getSession().getCatalog().orElseThrow(),
-                SCHEMA,
-                tableName));
-    }
-
-    private String getColumnComment(String tableName, String columnName)
-    {
-        return (String) computeScalar(format(
-                "SELECT comment FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s' AND column_name = '%s'",
-                SCHEMA,
-                tableName,
-                columnName));
     }
 }

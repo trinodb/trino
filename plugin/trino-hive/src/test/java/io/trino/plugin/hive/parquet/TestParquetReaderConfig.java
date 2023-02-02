@@ -33,10 +33,12 @@ public class TestParquetReaderConfig
         assertRecordedDefaults(recordDefaults(ParquetReaderConfig.class)
                 .setIgnoreStatistics(false)
                 .setMaxReadBlockSize(DataSize.of(16, MEGABYTE))
+                .setMaxReadBlockRowCount(8 * 1024)
                 .setMaxMergeDistance(DataSize.of(1, MEGABYTE))
                 .setMaxBufferSize(DataSize.of(8, MEGABYTE))
                 .setUseColumnIndex(true)
-                .setOptimizedReaderEnabled(true));
+                .setOptimizedReaderEnabled(true)
+                .setUseBloomFilter(true));
     }
 
     @Test
@@ -45,19 +47,23 @@ public class TestParquetReaderConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("parquet.ignore-statistics", "true")
                 .put("parquet.max-read-block-size", "66kB")
+                .put("parquet.max-read-block-row-count", "500")
                 .put("parquet.max-buffer-size", "1431kB")
                 .put("parquet.max-merge-distance", "342kB")
                 .put("parquet.use-column-index", "false")
                 .put("parquet.optimized-reader.enabled", "false")
+                .put("parquet.use-bloom-filter", "false")
                 .buildOrThrow();
 
         ParquetReaderConfig expected = new ParquetReaderConfig()
                 .setIgnoreStatistics(true)
                 .setMaxReadBlockSize(DataSize.of(66, KILOBYTE))
+                .setMaxReadBlockRowCount(500)
                 .setMaxBufferSize(DataSize.of(1431, KILOBYTE))
                 .setMaxMergeDistance(DataSize.of(342, KILOBYTE))
                 .setUseColumnIndex(false)
-                .setOptimizedReaderEnabled(false);
+                .setOptimizedReaderEnabled(false)
+                .setUseBloomFilter(false);
 
         assertFullMapping(properties, expected);
     }

@@ -17,16 +17,15 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 // same as io.trino.orc.DiskRange
 public final class DiskRange
 {
     private final long offset;
-    private final int length;
+    private final long length;
 
-    public DiskRange(long offset, int length)
+    public DiskRange(long offset, long length)
     {
         checkArgument(offset >= 0, "offset is negative");
         checkArgument(length > 0, "length must be at least 1");
@@ -40,7 +39,7 @@ public final class DiskRange
         return offset;
     }
 
-    public int getLength()
+    public long getLength()
     {
         return length;
     }
@@ -65,7 +64,7 @@ public final class DiskRange
         requireNonNull(otherDiskRange, "otherDiskRange is null");
         long start = Math.min(this.offset, otherDiskRange.getOffset());
         long end = Math.max(getEnd(), otherDiskRange.getEnd());
-        return new DiskRange(start, toIntExact(end - start));
+        return new DiskRange(start, end - start);
     }
 
     @Override

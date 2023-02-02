@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.execution.StageInfo;
 import io.trino.execution.TaskInfo;
-import io.trino.operator.HashCollisionsInfo;
 import io.trino.operator.OperatorStats;
 import io.trino.operator.PipelineStats;
 import io.trino.operator.TaskStats;
@@ -82,7 +81,6 @@ public final class PlanNodeStatsSummarizer
         Map<PlanNodeId, Long> planNodeBlockedMillis = new HashMap<>();
 
         Map<PlanNodeId, Map<String, BasicOperatorStats>> basicOperatorStats = new HashMap<>();
-        Map<PlanNodeId, Map<String, OperatorHashCollisionsStats>> operatorHashCollisionsStats = new HashMap<>();
         Map<PlanNodeId, WindowOperatorStats> windowNodeStats = new HashMap<>();
 
         for (PipelineStats pipelineStats : taskStats.getPipelines()) {
@@ -160,22 +158,8 @@ public final class PlanNodeStatsSummarizer
             for (OperatorStats operatorStats : pipelineStats.getOperatorSummaries()) {
                 PlanNodeId planNodeId = operatorStats.getPlanNodeId();
 
-                if (operatorStats.getInfo() instanceof HashCollisionsInfo) {
-                    HashCollisionsInfo hashCollisionsInfo = (HashCollisionsInfo) operatorStats.getInfo();
-                    operatorHashCollisionsStats.merge(planNodeId,
-                            ImmutableMap.of(
-                                    operatorStats.getOperatorType(),
-                                    new OperatorHashCollisionsStats(
-                                            hashCollisionsInfo.getWeightedHashCollisions(),
-                                            hashCollisionsInfo.getWeightedSumSquaredHashCollisions(),
-                                            hashCollisionsInfo.getWeightedExpectedHashCollisions(),
-                                            operatorStats.getInputPositions())),
-                            (map1, map2) -> mergeMaps(map1, map2, OperatorHashCollisionsStats::merge));
-                }
-
                 // The only statistics we have for Window Functions are very low level, thus displayed only in VERBOSE mode
-                if (operatorStats.getInfo() instanceof WindowInfo) {
-                    WindowInfo windowInfo = (WindowInfo) operatorStats.getInfo();
+                if (operatorStats.getInfo() instanceof WindowInfo windowInfo) {
                     windowNodeStats.merge(planNodeId, WindowOperatorStats.create(windowInfo), WindowOperatorStats::mergeWith);
                 }
             }
@@ -195,21 +179,7 @@ public final class PlanNodeStatsSummarizer
             // and therefore only have scheduled time, but no output stats
             long outputPositions = planNodeOutputPositions.getOrDefault(planNodeId, 0L);
 
-            if (operatorHashCollisionsStats.containsKey(planNodeId)) {
-                nodeStats = new HashCollisionPlanNodeStats(
-                        planNodeId,
-                        new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
-                        new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
-                        new Duration(planNodeBlockedMillis.get(planNodeId), MILLISECONDS),
-                        planNodeInputPositions.get(planNodeId),
-                        succinctBytes(planNodeInputBytes.get(planNodeId)),
-                        outputPositions,
-                        succinctBytes(planNodeOutputBytes.getOrDefault(planNodeId, 0L)),
-                        succinctBytes(planNodeSpilledDataSize.get(planNodeId)),
-                        basicOperatorStats.get(planNodeId),
-                        operatorHashCollisionsStats.get(planNodeId));
-            }
-            else if (windowNodeStats.containsKey(planNodeId)) {
+            if (windowNodeStats.containsKey(planNodeId)) {
                 nodeStats = new WindowPlanNodeStats(
                         planNodeId,
                         new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),

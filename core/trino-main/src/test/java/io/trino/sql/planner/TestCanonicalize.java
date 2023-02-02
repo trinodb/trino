@@ -22,7 +22,7 @@ import io.trino.sql.planner.assertions.ExpectedValueProvider;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
-import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
 import org.testng.annotations.Test;
@@ -55,7 +55,7 @@ public class TestCanonicalize
     @Test
     public void testDuplicatesInWindowOrderBy()
     {
-        ExpectedValueProvider<WindowNode.Specification> specification = specification(
+        ExpectedValueProvider<DataOrganizationSpecification> specification = specification(
                 ImmutableList.of(),
                 ImmutableList.of("A"),
                 ImmutableMap.of("A", SortOrder.ASC_NULLS_LAST));

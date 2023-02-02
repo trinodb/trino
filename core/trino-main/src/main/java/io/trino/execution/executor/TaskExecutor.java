@@ -335,23 +335,27 @@ public class TaskExecutor
                         blockedQuantaWallTime,
                         unblockedQuantaWallTime);
 
-                if (taskHandle.isDestroyed()) {
-                    // If the handle is destroyed, we destroy the task splits to complete the future
-                    splitsToDestroy.add(prioritizedSplitRunner);
-                }
-                else if (intermediate) {
-                    // Note: we do not record queued time for intermediate splits
-                    startIntermediateSplit(prioritizedSplitRunner);
+                if (intermediate) {
                     // add the runner to the handle so it can be destroyed if the task is canceled
-                    taskHandle.recordIntermediateSplit(prioritizedSplitRunner);
+                    if (taskHandle.recordIntermediateSplit(prioritizedSplitRunner)) {
+                        // Note: we do not record queued time for intermediate splits
+                        startIntermediateSplit(prioritizedSplitRunner);
+                    }
+                    else {
+                        splitsToDestroy.add(prioritizedSplitRunner);
+                    }
                 }
                 else {
                     // add this to the work queue for the task
-                    taskHandle.enqueueSplit(prioritizedSplitRunner);
-                    // if task is under the limit for guaranteed splits, start one
-                    scheduleTaskIfNecessary(taskHandle);
-                    // if globally we have more resources, start more
-                    addNewEntrants();
+                    if (taskHandle.enqueueSplit(prioritizedSplitRunner)) {
+                        // if task is under the limit for guaranteed splits, start one
+                        scheduleTaskIfNecessary(taskHandle);
+                        // if globally we have more resources, start more
+                        addNewEntrants();
+                    }
+                    else {
+                        splitsToDestroy.add(prioritizedSplitRunner);
+                    }
                 }
 
                 finishedFutures.add(prioritizedSplitRunner.getFinishedFuture());
@@ -524,7 +528,9 @@ public class TaskExecutor
                         }
 
                         if (split.isFinished()) {
-                            log.debug("%s is finished", split.getInfo());
+                            if (log.isDebugEnabled()) {
+                                log.debug("%s is finished", split.getInfo());
+                            }
                             splitFinished(split);
                         }
                         else {
@@ -545,15 +551,23 @@ public class TaskExecutor
                     catch (Throwable t) {
                         // ignore random errors due to driver thread interruption
                         if (!split.isDestroyed()) {
-                            if (t instanceof TrinoException) {
-                                TrinoException e = (TrinoException) t;
-                                log.error(t, "Error processing %s: %s: %s", split.getInfo(), e.getErrorCode().getName(), e.getMessage());
+                            if (t instanceof TrinoException trinoException) {
+                                log.error(t, "Error processing %s: %s: %s", split.getInfo(), trinoException.getErrorCode().getName(), trinoException.getMessage());
                             }
                             else {
                                 log.error(t, "Error processing %s", split.getInfo());
                             }
                         }
                         splitFinished(split);
+                    }
+                    finally {
+                        // Clear the interrupted flag on the current thread, driver cancellation may have triggered an interrupt
+                        if (Thread.interrupted()) {
+                            if (closed) {
+                                // reset interrupted flag if closed before interrupt
+                                Thread.currentThread().interrupt();
+                            }
+                        }
                     }
                 }
             }

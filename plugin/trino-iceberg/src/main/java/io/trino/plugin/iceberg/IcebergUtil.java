@@ -51,6 +51,7 @@ import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
@@ -105,6 +106,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
+import static io.trino.plugin.iceberg.TrinoMetricsReporter.TRINO_METRICS_REPORTER;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
@@ -132,6 +134,7 @@ import static java.lang.Float.parseFloat;
 import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
@@ -154,6 +157,7 @@ public final class IcebergUtil
     public static final String METADATA_FOLDER_NAME = "metadata";
     public static final String METADATA_FILE_EXTENSION = ".metadata.json";
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
+    static final String TRINO_QUERY_ID_NAME = "trino_query_id";
 
     private IcebergUtil() {}
 
@@ -171,7 +175,7 @@ public final class IcebergUtil
                 table.getTableName(),
                 Optional.empty(),
                 Optional.empty());
-        return new BaseTable(operations, quotedTableName(table));
+        return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
     }
 
     public static Table getIcebergTableWithMetadata(
@@ -189,7 +193,7 @@ public final class IcebergUtil
                 Optional.empty(),
                 Optional.empty());
         operations.initializeFromMetadata(tableMetadata);
-        return new BaseTable(operations, quotedTableName(table));
+        return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
     }
 
     public static Map<String, Object> getIcebergTableProperties(Table icebergTable)
@@ -464,9 +468,8 @@ public final class IcebergUtil
             if (type.equals(TIMESTAMP_TZ_MICROS)) {
                 return timestampTzFromMicros(parseLong(valueString));
             }
-            if (type instanceof VarcharType) {
+            if (type instanceof VarcharType varcharType) {
                 Slice value = utf8Slice(valueString);
-                VarcharType varcharType = (VarcharType) type;
                 if (!varcharType.isUnbounded() && SliceUtf8.countCodePoints(value) > varcharType.getBoundedLength()) {
                     throw new IllegalArgumentException();
                 }
@@ -480,7 +483,7 @@ public final class IcebergUtil
             }
             if (type instanceof DecimalType decimalType) {
                 BigDecimal decimal = new BigDecimal(valueString);
-                decimal = decimal.setScale(decimalType.getScale(), BigDecimal.ROUND_UNNECESSARY);
+                decimal = decimal.setScale(decimalType.getScale(), UNNECESSARY);
                 if (decimal.precision() > decimalType.getPrecision()) {
                     throw new IllegalArgumentException();
                 }
@@ -667,5 +670,11 @@ public final class IcebergUtil
     public static String fileName(String path)
     {
         return path.substring(path.lastIndexOf('/') + 1);
+    }
+
+    public static void commit(SnapshotUpdate<?> update, ConnectorSession session)
+    {
+        update.set(TRINO_QUERY_ID_NAME, session.getQueryId());
+        update.commit();
     }
 }

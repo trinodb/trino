@@ -18,6 +18,8 @@ import io.trino.spi.block.ByteArrayBlock;
 
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.sizeOf;
+
 public class ByteColumnAdapter
         implements ColumnAdapter<byte[]>
 {
@@ -30,20 +32,34 @@ public class ByteColumnAdapter
     }
 
     @Override
-    public Block createNonNullBlock(int size, byte[] values)
+    public Block createNonNullBlock(byte[] values)
     {
-        return new ByteArrayBlock(size, Optional.empty(), values);
+        return new ByteArrayBlock(values.length, Optional.empty(), values);
     }
 
     @Override
-    public Block createNullableBlock(int size, boolean[] nulls, byte[] values)
+    public Block createNullableBlock(boolean[] nulls, byte[] values)
     {
-        return new ByteArrayBlock(size, Optional.of(nulls), values);
+        return new ByteArrayBlock(values.length, Optional.of(nulls), values);
     }
 
     @Override
     public void copyValue(byte[] source, int sourceIndex, byte[] destination, int destinationIndex)
     {
         destination[destinationIndex] = source[sourceIndex];
+    }
+
+    @Override
+    public void decodeDictionaryIds(byte[] values, int offset, int length, int[] ids, byte[] dictionary)
+    {
+        for (int i = 0; i < length; i++) {
+            values[offset + i] = dictionary[ids[i]];
+        }
+    }
+
+    @Override
+    public long getSizeInBytes(byte[] values)
+    {
+        return sizeOf(values);
     }
 }

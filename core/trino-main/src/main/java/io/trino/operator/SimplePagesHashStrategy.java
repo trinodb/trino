@@ -23,6 +23,7 @@ import io.trino.type.BlockTypeOperators.BlockPositionComparison;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
@@ -31,6 +32,7 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -42,7 +44,7 @@ public class SimplePagesHashStrategy
     private final List<Type> types;
     private final List<Optional<BlockPositionComparison>> comparisonOperators;
     private final List<Integer> outputChannels;
-    private final List<List<Block>> channels;
+    private final List<ObjectArrayList<Block>> channels;
     private final List<Integer> hashChannels;
     private final List<Block> precomputedHashChannel;
     private final Optional<Integer> sortChannel;
@@ -53,7 +55,7 @@ public class SimplePagesHashStrategy
     public SimplePagesHashStrategy(
             List<Type> types,
             List<Integer> outputChannels,
-            List<List<Block>> channels,
+            List<ObjectArrayList<Block>> channels,
             List<Integer> hashChannels,
             OptionalInt precomputedHashChannel,
             Optional<Integer> sortChannel,
@@ -99,10 +101,12 @@ public class SimplePagesHashStrategy
     @Override
     public long getSizeInBytes()
     {
-        return INSTANCE_SIZE + channels.stream()
-                .flatMap(List::stream)
-                .mapToLong(Block::getRetainedSizeInBytes)
-                .sum();
+        return INSTANCE_SIZE +
+                (channels.size() > 0 ? sizeOf(channels.get(0).elements()) * channels.size() : 0) +
+                channels.stream()
+                        .flatMap(List::stream)
+                        .mapToLong(Block::getRetainedSizeInBytes)
+                        .sum();
     }
 
     @Override

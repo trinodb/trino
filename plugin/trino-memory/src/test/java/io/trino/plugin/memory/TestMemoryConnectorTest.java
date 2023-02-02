@@ -95,6 +95,7 @@ public class TestMemoryConnectorTest
 
             case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
+            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
             case SUPPORTS_COMMENT_ON_VIEW:
@@ -205,7 +206,7 @@ public class TestMemoryConnectorTest
         assertEquals(result.getResult().getRowCount(), 615);
 
         OperatorStats probeStats = getScanOperatorStats(getDistributedQueryRunner(), result.getQueryId()).stream()
-                .findFirst().orElseThrow();
+                .findFirst().orElseThrow(); // there should be two: one for lineitem and one for supplier
         assertEquals(probeStats.getInputPositions(), 615);
         assertEquals(probeStats.getPhysicalInputPositions(), LINEITEM_COUNT);
     }

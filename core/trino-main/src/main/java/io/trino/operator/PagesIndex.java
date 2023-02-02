@@ -63,6 +63,7 @@ import static io.trino.operator.HashArraySizeSupplier.defaultHashArraySizeSuppli
 import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static io.trino.operator.SyntheticAddress.encodeSyntheticAddress;
+import static io.trino.operator.join.JoinUtils.getSingleBigintJoinChannel;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -211,6 +212,9 @@ public class PagesIndex
         positionCount = 0;
         nextBlockToCompact = 0;
         pagesMemorySize = 0;
+        positionCounts.clear();
+        positionCounts.trim();
+        pageCount = 0;
 
         estimatedSize = calculateEstimatedSize();
     }
@@ -466,7 +470,7 @@ public class PagesIndex
         // if compilation fails, use interpreter
         return new SimplePagesHashStrategy(
                 types,
-                outputChannels.orElse(rangeList(types.size())),
+                outputChannels.orElseGet(() -> rangeList(types.size())),
                 ImmutableList.copyOf(channels),
                 joinChannels,
                 hashChannel,
@@ -502,7 +506,7 @@ public class PagesIndex
             Map<Integer, Rectangle> partitions)
     {
         // TODO probably shouldn't copy to reduce memory and for memory accounting's sake
-        List<List<Block>> channels = ImmutableList.copyOf(this.channels);
+        List<ObjectArrayList<Block>> channels = ImmutableList.copyOf(this.channels);
         return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, radiusChannel, partitionChannel, spatialRelationshipTest, filterFunctionFactory, partitions);
     }
 
@@ -516,7 +520,7 @@ public class PagesIndex
             Optional<List<Integer>> outputChannels,
             HashArraySizeSupplier hashArraySizeSupplier)
     {
-        List<List<Block>> channels = ImmutableList.copyOf(this.channels);
+        List<ObjectArrayList<Block>> channels = ImmutableList.copyOf(this.channels);
         if (!joinChannels.isEmpty()) {
             // todo compiled implementation of lookup join does not support when we are joining with empty join channels.
             // This code path will trigger only for OUTER joins. To fix that we need to add support for
@@ -536,7 +540,7 @@ public class PagesIndex
 
         PagesHashStrategy hashStrategy = new SimplePagesHashStrategy(
                 types,
-                outputChannels.orElse(rangeList(types.size())),
+                outputChannels.orElseGet(() -> rangeList(types.size())),
                 channels,
                 joinChannels,
                 hashChannel,
@@ -615,5 +619,24 @@ public class PagesIndex
                 return page;
             }
         };
+    }
+
+    public long getEstimatedMemoryRequiredToCreateLookupSource(
+            HashArraySizeSupplier hashArraySizeSupplier,
+            Optional<Integer> sortChannel,
+            List<Integer> joinChannels)
+    {
+        // channels and valueAddresses are shared between PagesIndex and JoinHashSupplier and are accounted as part of lookupSourceEstimatedRetainedSizeInBytes
+        long lookupSourceEstimatedRetainedSizeInBytes = JoinHashSupplier.getEstimatedRetainedSizeInBytes(
+                positionCount,
+                valueAddresses,
+                ImmutableList.copyOf(channels),
+                pagesMemorySize,
+                sortChannel,
+                getSingleBigintJoinChannel(joinChannels, types),
+                hashArraySizeSupplier);
+        // PageIndex is retained during LookupSource creation, hence any extra memory retained by the PagesIndex must be accounted here
+        long pagesIndexAdditionalRetainedSizeInBytes = INSTANCE_SIZE + sizeOf(positionCounts.elements());
+        return pagesIndexAdditionalRetainedSizeInBytes + lookupSourceEstimatedRetainedSizeInBytes;
     }
 }

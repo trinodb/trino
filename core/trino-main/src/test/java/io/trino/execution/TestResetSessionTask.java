@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.client.NodeVersion;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -119,7 +120,8 @@ public class TestResetSessionTask
                 metadata,
                 WarningCollector.NOOP,
                 Optional.empty(),
-                true);
+                true,
+                new NodeVersion("test"));
 
         getFutureValue(new ResetSessionTask(metadata, sessionPropertyManager).execute(
                 new ResetSession(QualifiedName.of(CATALOG_NAME, "baz")),

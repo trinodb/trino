@@ -15,18 +15,21 @@ package io.trino.parquet.reader;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV2;
-import io.trino.parquet.DictionaryPage;
+import io.trino.parquet.Page;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.decoders.ValueDecoders;
 import io.trino.parquet.reader.flat.FlatColumnReader;
 import io.trino.spi.block.Block;
+import org.apache.parquet.bytes.ByteBufferAllocator;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.values.ValuesWriter;
-import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter;
+import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainIntegerDictionaryValuesWriter;
+import org.apache.parquet.column.values.fallback.FallbackValuesWriter;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridEncoder;
 import org.apache.parquet.internal.filter2.columnindex.RowRanges;
@@ -38,7 +41,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -55,6 +57,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static io.trino.parquet.reader.FilteredRowRanges.RowRange;
 import static io.trino.parquet.reader.TestingColumnReader.toTrinoDictionaryPage;
@@ -76,10 +79,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestColumnReader
 {
+    private static final Random RANDOM = new Random(104729L);
     private static final PrimitiveType REQUIRED_TYPE = new PrimitiveType(REQUIRED, INT32, "");
     private static final PrimitiveType OPTIONAL_TYPE = new PrimitiveType(OPTIONAL, INT32, "");
     private static final PrimitiveField NULLABLE_FIELD = new PrimitiveField(INTEGER, false, new ColumnDescriptor(new String[] {}, OPTIONAL_TYPE, 0, 1), 0);
     private static final PrimitiveField FIELD = new PrimitiveField(INTEGER, true, new ColumnDescriptor(new String[] {}, REQUIRED_TYPE, 0, 0), 0);
+    private static final LocalMemoryContext MEMORY_CONTEXT = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
 
     @Test(dataProvider = "testRowRangesProvider")
     public void testReadFilteredPage(
@@ -93,7 +98,7 @@ public class TestColumnReader
         NullPositionsProvider nullPositionsProvider = columnReaderInput.getPageNullPositionsProvider();
         List<TestingPage> testingPages = getTestingPages(nullPositionsProvider, pageRowRanges);
         reader.setPageReader(
-                getPageReader(testingPages, columnReaderInput.dictionaryEncoded()),
+                getPageReader(testingPages, columnReaderInput.dictionaryEncoding()),
                 selectedRows.map(FilteredRowRanges::new));
 
         int rowCount = selectedRows.map(ranges -> toIntExact(ranges.rowCount()))
@@ -180,8 +185,8 @@ public class TestColumnReader
     {
         INT_PRIMITIVE_NO_NULLS(() -> new IntColumnReader(FIELD), FIELD),
         INT_PRIMITIVE_NULLABLE(() -> new IntColumnReader(NULLABLE_FIELD), NULLABLE_FIELD),
-        INT_FLAT_NO_NULLS(() -> new FlatColumnReader<>(FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER), FIELD),
-        INT_FLAT_NULLABLE(() -> new FlatColumnReader<>(NULLABLE_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER), NULLABLE_FIELD);
+        INT_FLAT_NO_NULLS(() -> new FlatColumnReader<>(FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), FIELD),
+        INT_FLAT_NULLABLE(() -> new FlatColumnReader<>(NULLABLE_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), NULLABLE_FIELD);
 
         private final Supplier<ColumnReader> columnReader;
         private final PrimitiveField field;
@@ -216,8 +221,7 @@ public class TestColumnReader
             @Override
             Supplier<Boolean> getFunction()
             {
-                Random random = new Random(42);
-                return random::nextBoolean;
+                return RANDOM::nextBoolean;
             }
         },
         ALTERNATE_SEEK {
@@ -235,13 +239,13 @@ public class TestColumnReader
         abstract Supplier<Boolean> getFunction();
     }
 
-    private record ColumnReaderInput(ColumnReaderProvider columnReaderProvider, NullPositionsProvider nullPositionsProvider, boolean dictionaryEncoded)
+    private record ColumnReaderInput(ColumnReaderProvider columnReaderProvider, NullPositionsProvider nullPositionsProvider, DictionaryEncoding dictionaryEncoding)
     {
-        private ColumnReaderInput(ColumnReaderProvider columnReaderProvider, NullPositionsProvider nullPositionsProvider, boolean dictionaryEncoded)
+        private ColumnReaderInput(ColumnReaderProvider columnReaderProvider, NullPositionsProvider nullPositionsProvider, DictionaryEncoding dictionaryEncoding)
         {
             this.columnReaderProvider = requireNonNull(columnReaderProvider, "columnReader is null");
             this.nullPositionsProvider = requireNonNull(nullPositionsProvider, "nullPositions is null");
-            this.dictionaryEncoded = dictionaryEncoded;
+            this.dictionaryEncoding = dictionaryEncoding;
         }
 
         public NullPositionsProvider getPageNullPositionsProvider()
@@ -255,7 +259,7 @@ public class TestColumnReader
             return toStringHelper(this)
                     .add("columnReader", columnReaderProvider)
                     .add("nullPositions", nullPositionsProvider)
-                    .add("dictionary", dictionaryEncoded)
+                    .add("dictionary", dictionaryEncoding)
                     .toString();
         }
     }
@@ -272,12 +276,12 @@ public class TestColumnReader
             nullPositionsProviders = Stream.of(NullPositionsProvider.values())
                     .collect(toDataProvider());
         }
-        Object[][] dictionaryEncoded = Stream.of(true, false)
+        Object[][] dictionaryEncoded = Arrays.stream(DictionaryEncoding.values())
                 .collect(toDataProvider());
         return Arrays.stream(cartesianProduct(nullPositionsProviders, dictionaryEncoded))
                 // Skip ALL_NULLS case for dictionary encoded data
-                .filter(args -> args[0] != NullPositionsProvider.ALL_NULLS || args[1].equals(false))
-                .map(args -> new ColumnReaderInput(columnReaderProvider, (NullPositionsProvider) args[0], (boolean) args[1]))
+                .filter(args -> args[0] != NullPositionsProvider.ALL_NULLS || args[1].equals(DictionaryEncoding.NONE))
+                .map(args -> new ColumnReaderInput(columnReaderProvider, (NullPositionsProvider) args[0], (DictionaryEncoding) args[1]))
                 .toArray(ColumnReaderInput[]::new);
     }
 
@@ -328,6 +332,13 @@ public class TestColumnReader
         abstract boolean[] getRequiredPositions(int positionsCount);
     }
 
+    private enum DictionaryEncoding
+    {
+        NONE,
+        ALL,
+        MIXED
+    }
+
     private static Set<Integer> getRequiredPositions(List<TestingPage> testingPages)
     {
         return testingPages.stream()
@@ -341,25 +352,34 @@ public class TestColumnReader
                 .collect(toImmutableSet());
     }
 
-    private static PageReader getPageReader(List<TestingPage> testingPages, boolean dictionaryEncoded)
+    private static PageReader getPageReader(List<TestingPage> testingPages, DictionaryEncoding dictionaryEncoding)
     {
         ValuesWriter encoder;
-        if (dictionaryEncoded) {
-            encoder = new DictionaryValuesWriter.PlainIntegerDictionaryValuesWriter(Integer.MAX_VALUE, RLE_DICTIONARY, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
+        if (dictionaryEncoding == DictionaryEncoding.ALL) {
+            encoder = new PlainIntegerDictionaryValuesWriter(Integer.MAX_VALUE, RLE_DICTIONARY, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
+        }
+        else if (dictionaryEncoding == DictionaryEncoding.MIXED) {
+            int numDictionaryPages = 1;
+            if (testingPages.size() > 1) {
+                // Choose a point for fallback from dictionary to plain encoding randomly
+                numDictionaryPages = RANDOM.nextInt(1, testingPages.size());
+            }
+            encoder = FallbackValuesWriter.of(
+                    new TestingPlainIntegerDictionaryValuesWriter(numDictionaryPages, RLE_DICTIONARY, Encoding.PLAIN, HeapByteBufferAllocator.getInstance()),
+                    new PlainValuesWriter(1000, 1000, HeapByteBufferAllocator.getInstance()));
         }
         else {
             encoder = new PlainValuesWriter(1000, 1000, HeapByteBufferAllocator.getInstance());
         }
-        LinkedList<DataPage> inputPages = new LinkedList<>(createDataPages(testingPages, encoder));
-        DictionaryPage dictionaryPage = null;
-        if (dictionaryEncoded) {
-            dictionaryPage = toTrinoDictionaryPage(encoder.toDictPageAndClose());
+        List<? extends Page> inputPages = createDataPages(testingPages, encoder);
+        if (dictionaryEncoding != DictionaryEncoding.NONE) {
+            inputPages = ImmutableList.<Page>builder().add(toTrinoDictionaryPage(encoder.toDictPageAndClose())).addAll(inputPages).build();
         }
         return new PageReader(
                 UNCOMPRESSED,
-                inputPages,
-                dictionaryPage,
-                pagesRowCount(testingPages),
+                inputPages.iterator(),
+                dictionaryEncoding != DictionaryEncoding.NONE,
+                dictionaryEncoding == DictionaryEncoding.ALL || (dictionaryEncoding == DictionaryEncoding.MIXED && testingPages.size() == 1),
                 false);
     }
 
@@ -376,6 +396,7 @@ public class TestColumnReader
         int[] values = new int[rowCount];
         int valueCount = getPageValues(testingPage, values);
         int nullCount = rowCount - valueCount;
+        byte[] encodedBytes = encodePlainValues(encoder, values, valueCount);
         DataPage dataPage = new DataPageV2(
                 rowCount,
                 nullCount,
@@ -383,7 +404,7 @@ public class TestColumnReader
                 EMPTY_SLICE,
                 Slices.wrappedBuffer(encodeDefinitionLevels(testingPage.getRequiredPositions())),
                 getParquetEncoding(encoder.getEncoding()),
-                Slices.wrappedBuffer(encodePlainValues(encoder, values, valueCount)),
+                Slices.wrappedBuffer(encodedBytes),
                 rowCount * 4,
                 OptionalLong.of(toIntExact(testingPage.getPageRowRange().start())),
                 null,
@@ -473,6 +494,38 @@ public class TestColumnReader
         public int getRowCount()
         {
             return toIntExact(pageRowRange.end() + 1 - pageRowRange.start());
+        }
+    }
+
+    private static class TestingPlainIntegerDictionaryValuesWriter
+            extends PlainIntegerDictionaryValuesWriter
+    {
+        private final int dictionaryPagesBeforeFallback;
+        private int pagesWritten;
+
+        public TestingPlainIntegerDictionaryValuesWriter(int dictionaryPagesBeforeFallback, Encoding encodingForDataPage, Encoding encodingForDictionaryPage, ByteBufferAllocator allocator)
+        {
+            super(Integer.MAX_VALUE, encodingForDataPage, encodingForDictionaryPage, allocator);
+            this.dictionaryPagesBeforeFallback = dictionaryPagesBeforeFallback;
+        }
+
+        @Override
+        public boolean isCompressionSatisfying(long rawSize, long encodedSize)
+        {
+            return true;
+        }
+
+        @Override
+        public void reset()
+        {
+            pagesWritten++;
+            super.reset();
+        }
+
+        @Override
+        public boolean shouldFallBack()
+        {
+            return pagesWritten >= dictionaryPagesBeforeFallback;
         }
     }
 

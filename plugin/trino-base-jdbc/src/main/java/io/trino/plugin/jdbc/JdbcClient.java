@@ -85,7 +85,7 @@ public interface JdbcClient
 
     ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle);
 
-    Connection getConnection(ConnectorSession session, JdbcSplit split)
+    Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
             throws SQLException;
 
     default void abortReadConnection(Connection connection, ResultSet resultSet)
@@ -146,6 +146,8 @@ public interface JdbcClient
     void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column);
 
     void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName);
+
+    void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type);
 
     void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName);
 

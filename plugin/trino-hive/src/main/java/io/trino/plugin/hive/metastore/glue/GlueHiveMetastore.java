@@ -17,6 +17,7 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.AmazonWebServiceRequest;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.handlers.AsyncHandler;
 import com.amazonaws.handlers.RequestHandler2;
@@ -60,6 +61,7 @@ import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.UpdateDatabaseRequest;
 import com.amazonaws.services.glue.model.UpdatePartitionRequest;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -68,8 +70,13 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionNotFoundException;
@@ -126,6 +133,7 @@ import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
@@ -133,13 +141,17 @@ import static com.google.common.collect.Comparators.lexicographical;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
+import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter.convertPartition;
+import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.mappedCopy;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
@@ -153,8 +165,6 @@ import static java.util.function.Predicate.not;
 import static java.util.function.UnaryOperator.identity;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
-import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 
 public class GlueHiveMetastore
         implements HiveMetastore
@@ -168,6 +178,7 @@ public class GlueHiveMetastore
     private static final int BATCH_UPDATE_PARTITION_MAX_PAGE_SIZE = 100;
     private static final int AWS_GLUE_GET_PARTITIONS_MAX_RESULTS = 1000;
     private static final Comparator<Iterable<String>> PARTITION_VALUE_COMPARATOR = lexicographical(String.CASE_INSENSITIVE_ORDER);
+    private static final Predicate<com.amazonaws.services.glue.model.Table> VIEWS_FILTER = table -> VIRTUAL_VIEW.name().equals(getTableTypeNullable(table));
 
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
@@ -232,6 +243,23 @@ public class GlueHiveMetastore
         asyncGlueClientBuilder.setCredentials(credentialsProvider);
 
         return asyncGlueClientBuilder.build();
+    }
+
+    @VisibleForTesting
+    public static GlueHiveMetastore createTestingGlueHiveMetastore(String defaultWarehouseDir)
+    {
+        HdfsConfig hdfsConfig = new HdfsConfig();
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
+        return new GlueHiveMetastore(
+                hdfsEnvironment,
+                new GlueHiveMetastoreConfig()
+                        .setDefaultWarehouseDir(defaultWarehouseDir),
+                DefaultAWSCredentialsProviderChain.getInstance(),
+                directExecutor(),
+                new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
+                Optional.empty(),
+                table -> true);
     }
 
     @Managed
@@ -441,12 +469,16 @@ public class GlueHiveMetastore
     @Override
     public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
-        // TODO
-        throw new UnsupportedOperationException("getTablesWithParameter for GlueHiveMetastore is not implemented");
+        return getAllViews(databaseName, table -> parameterValue.equals(firstNonNull(table.getParameters(), ImmutableMap.of()).get(parameterKey)));
     }
 
     @Override
     public List<String> getAllViews(String databaseName)
+    {
+        return getAllViews(databaseName, table -> true);
+    }
+
+    private List<String> getAllViews(String databaseName, Predicate<com.amazonaws.services.glue.model.Table> additionalFilter)
     {
         try {
             List<String> views = getPaginatedResults(
@@ -458,7 +490,7 @@ public class GlueHiveMetastore
                     stats.getGetTables())
                     .map(GetTablesResult::getTableList)
                     .flatMap(List::stream)
-                    .filter(table -> VIRTUAL_VIEW.name().equals(table.getTableType()))
+                    .filter(VIEWS_FILTER.and(additionalFilter))
                     .map(com.amazonaws.services.glue.model.Table::getName)
                     .collect(toImmutableList());
             return views;
@@ -672,7 +704,7 @@ public class GlueHiveMetastore
                 .withPartitionKeys(glueTable.getPartitionKeys())
                 .withViewOriginalText(glueTable.getViewOriginalText())
                 .withViewExpandedText(glueTable.getViewExpandedText())
-                .withTableType(glueTable.getTableType())
+                .withTableType(getTableTypeNullable(glueTable))
                 .withTargetTable(glueTable.getTargetTable())
                 .withParameters(glueTable.getParameters());
     }

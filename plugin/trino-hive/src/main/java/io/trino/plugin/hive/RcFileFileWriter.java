@@ -15,12 +15,11 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CountingOutputStream;
-import io.airlift.slice.OutputStreamSliceOutput;
-import io.trino.rcfile.AircompressorCodecFactory;
-import io.trino.rcfile.HadoopCodecFactory;
-import io.trino.rcfile.RcFileDataSource;
-import io.trino.rcfile.RcFileEncoding;
-import io.trino.rcfile.RcFileWriter;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.hive.formats.compression.CompressionKind;
+import io.trino.hive.formats.rcfile.RcFileEncoding;
+import io.trino.hive.formats.rcfile.RcFileWriter;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -54,32 +53,34 @@ public class RcFileFileWriter
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     private final CountingOutputStream outputStream;
+    private final AggregatedMemoryContext outputStreamMemoryContext;
     private final RcFileWriter rcFileWriter;
     private final Closeable rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
-    private final Optional<Supplier<RcFileDataSource>> validationInputFactory;
+    private final Optional<Supplier<TrinoInputFile>> validationInputFactory;
 
     private long validationCpuNanos;
 
     public RcFileFileWriter(
             OutputStream outputStream,
+            AggregatedMemoryContext outputStreamMemoryContext,
             Closeable rollbackAction,
             RcFileEncoding rcFileEncoding,
             List<Type> fileColumnTypes,
-            Optional<String> codecName,
+            Optional<CompressionKind> compressionKind,
             int[] fileInputColumnIndexes,
             Map<String, String> metadata,
-            Optional<Supplier<RcFileDataSource>> validationInputFactory)
+            Optional<Supplier<TrinoInputFile>> validationInputFactory)
             throws IOException
     {
         this.outputStream = new CountingOutputStream(outputStream);
+        this.outputStreamMemoryContext = outputStreamMemoryContext;
         rcFileWriter = new RcFileWriter(
-                new OutputStreamSliceOutput(this.outputStream),
+                this.outputStream,
                 fileColumnTypes,
                 rcFileEncoding,
-                codecName,
-                new AircompressorCodecFactory(new HadoopCodecFactory(getClass().getClassLoader())),
+                compressionKind,
                 metadata,
                 validationInputFactory.isPresent());
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
@@ -105,7 +106,7 @@ public class RcFileFileWriter
     @Override
     public long getMemoryUsage()
     {
-        return INSTANCE_SIZE + rcFileWriter.getRetainedSizeInBytes();
+        return INSTANCE_SIZE + rcFileWriter.getRetainedSizeInBytes() + outputStreamMemoryContext.getBytes();
     }
 
     @Override
@@ -148,11 +149,10 @@ public class RcFileFileWriter
 
         if (validationInputFactory.isPresent()) {
             try {
-                try (RcFileDataSource input = validationInputFactory.get().get()) {
-                    long startThreadCpuTime = THREAD_MX_BEAN.getCurrentThreadCpuTime();
-                    rcFileWriter.validate(input);
-                    validationCpuNanos += THREAD_MX_BEAN.getCurrentThreadCpuTime() - startThreadCpuTime;
-                }
+                TrinoInputFile inputFile = validationInputFactory.get().get();
+                long startThreadCpuTime = THREAD_MX_BEAN.getCurrentThreadCpuTime();
+                rcFileWriter.validate(inputFile);
+                validationCpuNanos += THREAD_MX_BEAN.getCurrentThreadCpuTime() - startThreadCpuTime;
             }
             catch (IOException | UncheckedIOException e) {
                 throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);

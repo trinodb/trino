@@ -339,7 +339,7 @@ public class DeltaLakeConfig
     }
 
     @Config(EXTENDED_STATISTICS_ENABLED)
-    @ConfigDescription("Use extended statistics collected by ANALYZE")
+    @ConfigDescription("Enable collection (ANALYZE) and use of extended statistics.")
     public DeltaLakeConfig setExtendedStatisticsEnabled(boolean extendedStatisticsEnabled)
     {
         this.extendedStatisticsEnabled = extendedStatisticsEnabled;

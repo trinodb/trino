@@ -45,6 +45,7 @@ import io.trino.execution.ResetSessionTask;
 import io.trino.execution.RevokeRolesTask;
 import io.trino.execution.RevokeTask;
 import io.trino.execution.RollbackTask;
+import io.trino.execution.SetColumnTypeTask;
 import io.trino.execution.SetPathTask;
 import io.trino.execution.SetPropertiesTask;
 import io.trino.execution.SetRoleTask;
@@ -97,6 +98,7 @@ import io.trino.sql.tree.ResetSession;
 import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.RevokeRoles;
 import io.trino.sql.tree.Rollback;
+import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
@@ -211,6 +213,7 @@ public final class StatementUtils
             .add(dataDefinitionStatement(Revoke.class, RevokeTask.class))
             .add(dataDefinitionStatement(RevokeRoles.class, RevokeRolesTask.class))
             .add(dataDefinitionStatement(Rollback.class, RollbackTask.class))
+            .add(dataDefinitionStatement(SetColumnType.class, SetColumnTypeTask.class))
             .add(dataDefinitionStatement(SetPath.class, SetPathTask.class))
             .add(dataDefinitionStatement(SetRole.class, SetRoleTask.class))
             .add(dataDefinitionStatement(SetSchemaAuthorization.class, SetSchemaAuthorizationTask.class))
@@ -271,8 +274,7 @@ public final class StatementUtils
     private static <T extends Statement> void verifyTaskInterfaceType(Class<T> statementType, Class<?> taskType, Class<?> expectedInterfaceType)
     {
         for (Type genericInterface : taskType.getGenericInterfaces()) {
-            if (genericInterface instanceof ParameterizedType) {
-                ParameterizedType parameterizedInterface = (ParameterizedType) genericInterface;
+            if (genericInterface instanceof ParameterizedType parameterizedInterface) {
                 if (parameterizedInterface.getRawType().equals(expectedInterfaceType)) {
                     Type actualStatementType = parameterizedInterface.getActualTypeArguments()[0];
                     checkArgument(actualStatementType.equals(statementType), format("Expected %s statement type to be %s", statementType.getSimpleName(), taskType.getSimpleName()));

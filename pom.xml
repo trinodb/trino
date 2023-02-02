@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>130</version>
+        <version>133</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>404-SNAPSHOT</version>
+    <version>407-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -49,30 +49,31 @@
         <dep.accumulo.version>1.7.4</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.11.1</dep.antlr.version>
-        <dep.airlift.version>219</dep.airlift.version>
+        <dep.airlift.version>223</dep.airlift.version>
+        <dep.arrow.version>9.0.0</dep.arrow.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.aws-sdk.version>1.12.261</dep.aws-sdk.version>
         <dep.okhttp.version>3.14.9</dep.okhttp.version>
-        <dep.joda.version>2.12.0</dep.joda.version>
+        <dep.joda.version>2.12.2</dep.joda.version>
         <dep.jsonwebtoken.version>0.11.2</dep.jsonwebtoken.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>1.14</dep.drift.version>
-        <dep.tempto.version>189</dep.tempto.version>
+        <dep.tempto.version>191</dep.tempto.version>
         <dep.gcs.version>2.2.8</dep.gcs.version>
-        <dep.errorprone.version>2.15.0</dep.errorprone.version>
-        <dep.testcontainers.version>1.17.3</dep.testcontainers.version>
+        <dep.errorprone.version>2.18.0</dep.errorprone.version>
+        <dep.testcontainers.version>1.17.6</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.coral.version>2.0.77</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
         <dep.casandra.version>4.14.0</dep.casandra.version>
         <dep.minio.version>7.1.4</dep.minio.version>
-        <dep.iceberg.version>1.0.0</dep.iceberg.version>
+        <dep.iceberg.version>1.1.0</dep.iceberg.version>
         <dep.spotbugs-annotations.version>4.7.2</dep.spotbugs-annotations.version>
         <dep.protobuf.version>3.21.6</dep.protobuf.version>
         <dep.wire.version>3.2.2</dep.wire.version>
         <dep.kotlin.version>1.4.0</dep.kotlin.version>
 
-        <dep.docker.images.version>72</dep.docker.images.version>
+        <dep.docker.images.version>76</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -86,6 +87,16 @@
         <air.test.thread-count>2</air.test.thread-count>
         <!-- Be conservative about memory allotment, because tests start background process (e.g. docker containers) -->
         <air.test.jvmsize>3g</air.test.jvmsize>
+        <!-- G1 default region size for a small heap is 1MB. Tests (TestHiveConnectorTest.testMultipleWritersWhenTaskScaleWritersIsEnabled) in particular
+             were observed allocating large number of byte[] of about 1.6MB in size, thus being treated as humongous allocations and preventing heap saturation.
+             Force bigger region size in attempt to help G1 utilize heap fully. -->
+        <air.test.jvm.additional-arguments>
+            -XX:G1HeapRegionSize=32M
+            -XX:+UnlockDiagnosticVMOptions
+            <!-- bump from default of 2 -->
+            -XX:GCLockerRetryAllocationCount=10
+            -XX:-G1UsePreventiveGC
+        </air.test.jvm.additional-arguments>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
     </properties>
@@ -107,6 +118,7 @@
         <module>lib/trino-geospatial-toolkit</module>
         <module>lib/trino-hadoop-toolkit</module>
         <module>lib/trino-hdfs</module>
+        <module>lib/trino-hive-formats</module>
         <module>lib/trino-matching</module>
         <module>lib/trino-memory-context</module>
         <module>lib/trino-orc</module>
@@ -114,7 +126,6 @@
         <!-- TODO(https://github.com/trinodb/trino/issues/13051): Remove whole module when Phoenix5 is released -->
         <module>lib/trino-phoenix5-patched</module>
         <module>lib/trino-plugin-toolkit</module>
-        <module>lib/trino-rcfile</module>
         <module>lib/trino-record-decoder</module>
         <module>plugin/trino-accumulo</module>
         <module>plugin/trino-accumulo-iterators</module>
@@ -129,6 +140,7 @@
         <module>plugin/trino-elasticsearch</module>
         <module>plugin/trino-example-http</module>
         <module>plugin/trino-exchange-filesystem</module>
+        <module>plugin/trino-exchange-hdfs</module>
         <module>plugin/trino-geospatial</module>
         <module>plugin/trino-google-sheets</module>
         <module>plugin/trino-hive</module>
@@ -347,6 +359,12 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-hive-formats</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-hive-hadoop2</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -548,12 +566,6 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
-                <artifactId>trino-rcfile</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
                 <artifactId>trino-record-decoder</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -714,7 +726,7 @@
             <dependency>
                 <groupId>io.trino.benchto</groupId>
                 <artifactId>benchto-driver</artifactId>
-                <version>0.20</version>
+                <version>0.23</version>
             </dependency>
 
             <dependency>
@@ -733,6 +745,12 @@
                 <groupId>io.trino.hive</groupId>
                 <artifactId>hive-apache-jdbc</artifactId>
                 <version>0.13.1-9</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino.hive</groupId>
+                <artifactId>hive-thrift</artifactId>
+                <version>1</version>
             </dependency>
 
             <dependency>
@@ -943,7 +961,7 @@
             <dependency>
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.30</version>
+                <version>1.32</version>
             </dependency>
 
             <dependency>
@@ -1536,7 +1554,7 @@
             <dependency>
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
-                <version>8.0.22</version>
+                <version>8.0.29</version>
             </dependency>
 
             <dependency>
@@ -1589,6 +1607,24 @@
             </dependency>
 
             <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-compression</artifactId>
+                <version>${dep.arrow.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-memory-core</artifactId>
+                <version>${dep.arrow.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-vector</artifactId>
+                <version>${dep.arrow.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.apache.avro</groupId>
                 <artifactId>avro</artifactId>
                 <version>1.9.2</version>
@@ -1597,7 +1633,7 @@
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-compress</artifactId>
-                <version>1.21</version>
+                <version>1.22</version>
             </dependency>
 
             <dependency>
@@ -1622,6 +1658,23 @@
                 <groupId>org.apache.iceberg</groupId>
                 <artifactId>iceberg-core</artifactId>
                 <version>${dep.iceberg.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.avro</groupId>
+                        <artifactId>avro</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.iceberg</groupId>
+                <artifactId>iceberg-core</artifactId>
+                <version>${dep.iceberg.version}</version>
+                <classifier>tests</classifier>
                 <exclusions>
                     <exclusion>
                         <groupId>org.apache.avro</groupId>
@@ -1693,21 +1746,7 @@
             <dependency>
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
-                <version>0.9.3-1</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.httpcomponents</groupId>
-                        <artifactId>httpcore</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.httpcomponents</groupId>
-                        <artifactId>httpclient</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>javax.servlet</groupId>
-                        <artifactId>servlet-api</artifactId>
-                    </exclusion>
-                </exclusions>
+                <version>0.17.0</version>
             </dependency>
 
             <dependency>
@@ -1787,12 +1826,6 @@
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-stdlib-common</artifactId>
                 <version>${dep.kotlin.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.jgrapht</groupId>
-                <artifactId>jgrapht-core</artifactId>
-                <version>0.9.0</version>
             </dependency>
 
             <dependency>
@@ -1891,7 +1924,7 @@
             <dependency>
                 <groupId>org.yaml</groupId>
                 <artifactId>snakeyaml</artifactId>
-                <version>1.31</version>
+                <version>1.33</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -2146,6 +2179,8 @@
                                     -Xep:ClassCanBeStatic:ERROR \
                                     -Xep:CompareToZero:ERROR \
                                     -Xep:DefaultCharset:ERROR \
+                                    -Xep:DistinctVarargsChecker:ERROR \
+                                    -Xep:EmptyBlockTag:ERROR \
                                     -Xep:EqualsGetClass:OFF <!-- we would rather want the opposite check --> \
                                     -Xep:EqualsIncompatibleType:ERROR \
                                     -Xep:FallThrough:ERROR \
@@ -2161,7 +2196,10 @@
                                     -Xep:MutablePublicArray:ERROR \
                                     -Xep:NullOptional:ERROR \
                                     -Xep:ObjectToString:ERROR \
+                                    -Xep:OptionalNotPresent:ERROR \
+                                    -Xep:Overrides:ERROR \
                                     -Xep:PreferredInterfaceType:OFF <!-- flags List fields even if initialized with ImmutableList --> \
+                                    -Xep:PrimitiveArrayPassedToVarargsMethod:ERROR \
                                     -Xep:StreamResourceLeak:ERROR \
                                     -Xep:UnnecessaryLambda:OFF <!-- we deliberately use it in a couple of places --> \
                                     -Xep:UnnecessaryMethodReference:ERROR \

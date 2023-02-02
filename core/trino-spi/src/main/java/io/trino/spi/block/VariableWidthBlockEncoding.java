@@ -42,13 +42,21 @@ public class VariableWidthBlockEncoding
         int positionCount = variableWidthBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
 
-        // offsets
+        // lengths
+        int[] lengths = new int[positionCount];
         int totalLength = 0;
+        int nonNullsCount = 0;
+
         for (int position = 0; position < positionCount; position++) {
             int length = variableWidthBlock.getSliceLength(position);
             totalLength += length;
-            sliceOutput.appendInt(totalLength);
+            lengths[nonNullsCount] = length;
+            nonNullsCount += variableWidthBlock.isNull(position) ? 0 : 1;
         }
+
+        sliceOutput
+                .appendInt(nonNullsCount)
+                .writeBytes(Slices.wrappedIntArray(lengths, 0, nonNullsCount));
 
         encodeNullsAsBits(sliceOutput, variableWidthBlock);
 
@@ -61,9 +69,11 @@ public class VariableWidthBlockEncoding
     public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();
+        int nonNullsCount = sliceInput.readInt();
 
         int[] offsets = new int[positionCount + 1];
-        sliceInput.readBytes(Slices.wrappedIntArray(offsets), SIZE_OF_INT, positionCount * SIZE_OF_INT);
+        int[] lengths = new int[nonNullsCount];
+        sliceInput.readBytes(Slices.wrappedIntArray(lengths), 0, nonNullsCount * SIZE_OF_INT);
 
         boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
 
@@ -71,6 +81,16 @@ public class VariableWidthBlockEncoding
         Slice slice = Slices.allocate(blockSize);
         sliceInput.readBytes(slice);
 
+        int nonNullPosition = 0;
+        int offset = 0;
+
+        for (int i = 0; i < positionCount; i++) {
+            if (valueIsNull == null || !valueIsNull[i]) {
+                offset += lengths[nonNullPosition];
+                nonNullPosition++;
+            }
+            offsets[i + 1] = offset;
+        }
         return new VariableWidthBlock(0, positionCount, slice, offsets, valueIsNull);
     }
 }

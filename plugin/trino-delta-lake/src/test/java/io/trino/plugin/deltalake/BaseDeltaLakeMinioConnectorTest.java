@@ -83,7 +83,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                 ImmutableMap.of(
                         "delta.enable-non-concurrent-writes", "true",
                         "delta.register-table-procedure.enabled", "true"),
-                hiveMinioDataLake.getMinioAddress(),
+                hiveMinioDataLake.getMinio().getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
         queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = 's3://" + bucketName + "/" + SCHEMA + "')");
         TpchTable.getTables().forEach(table -> {
@@ -113,11 +113,13 @@ public abstract class BaseDeltaLakeMinioConnectorTest
 
             case SUPPORTS_DROP_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
+            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
             case SUPPORTS_DELETE:
             case SUPPORTS_UPDATE:
             case SUPPORTS_MERGE:
+            case SUPPORTS_CREATE_VIEW:
                 return true;
 
             default:
@@ -516,7 +518,6 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                 .setSystemProperty("task_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
-                .setCatalogSessionProperty("delta_lake", "parquet_optimized_writer_enabled", "true")
                 .build();
         assertUpdate(session, createTableSql, 100000);
         Set<String> initialFiles = getActiveFiles(tableName);
@@ -528,7 +529,6 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                 .setSystemProperty("task_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
-                .setCatalogSessionProperty("delta_lake", "parquet_optimized_writer_enabled", "true")
                 .setCatalogSessionProperty("delta_lake", "target_max_file_size", maxSize.toString())
                 .build();
 

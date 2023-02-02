@@ -919,7 +919,9 @@ public final class SortedRangeSet
         List<Range> ranges = getRanges().getOrderedRanges();
         Type type = getType();
 
-        Range typeRange = type.getRange().map(range -> Range.range(type, range.getMin(), true, range.getMax(), true)).orElse(Range.all(type));
+        Range typeRange = type.getRange()
+                .map(range -> Range.range(type, range.getMin(), true, range.getMax(), true))
+                .orElseGet(() -> Range.all(type));
 
         List<Object> result = new ArrayList<>();
         for (Range range : ranges) {
@@ -979,6 +981,44 @@ public final class SortedRangeSet
 
         return Stream.concat(prefix, suffix)
                 .collect(joining(", ", "{", "}"));
+    }
+
+    public static Builder builder(Type type, int expectedSize)
+    {
+        return new SortedRangeSet.Builder(type, expectedSize);
+    }
+
+    public static class Builder
+    {
+        private final Type type;
+        private final MethodHandle rangeComparisonOperator;
+        private final List<Range> ranges;
+
+        private Builder(Type type, int expectedSize)
+        {
+            this.type = requireNonNull(type, "type is null");
+            // Calculating the comparison operator once instead of per range to avoid hitting TypeOperators cache
+            this.rangeComparisonOperator = Range.getComparisonOperator(type);
+            this.ranges = new ArrayList<>(expectedSize);
+        }
+
+        public Builder addRangeInclusive(Object lowValue, Object highValue)
+        {
+            ranges.add(new Range(type, true, Optional.of(lowValue), true, Optional.of(highValue), rangeComparisonOperator));
+            return this;
+        }
+
+        public Builder addValue(Object value)
+        {
+            Optional<Object> valueAsOptional = Optional.of(value);
+            ranges.add(new Range(type, true, valueAsOptional, true, valueAsOptional, rangeComparisonOperator));
+            return this;
+        }
+
+        public SortedRangeSet build()
+        {
+            return SortedRangeSet.of(ranges);
+        }
     }
 
     static SortedRangeSet buildFromUnsortedRanges(Type type, Collection<Range> unsortedRanges)

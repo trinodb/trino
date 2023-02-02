@@ -91,6 +91,10 @@ public final class HiveTypeTranslator
 {
     private HiveTypeTranslator() {}
 
+    public static final String UNION_FIELD_TAG_NAME = "tag";
+    public static final String UNION_FIELD_FIELD_PREFIX = "field";
+    public static final Type UNION_FIELD_TAG_TYPE = TINYINT;
+
     public static TypeInfo toTypeInfo(Type type)
     {
         requireNonNull(type, "type is null");
@@ -115,8 +119,7 @@ public final class HiveTypeTranslator
         if (DOUBLE.equals(type)) {
             return HIVE_DOUBLE.getTypeInfo();
         }
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             if (varcharType.isUnbounded()) {
                 return HIVE_STRING.getTypeInfo();
             }
@@ -125,8 +128,7 @@ public final class HiveTypeTranslator
             }
             throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported VARCHAR types: VARCHAR(<=%d), VARCHAR.", type, HiveVarchar.MAX_VARCHAR_LENGTH));
         }
-        if (type instanceof CharType) {
-            CharType charType = (CharType) type;
+        if (type instanceof CharType charType) {
             int charLength = charType.getLength();
             if (charLength <= HiveChar.MAX_CHAR_LENGTH) {
                 return getCharTypeInfo(charLength);
@@ -143,8 +145,7 @@ public final class HiveTypeTranslator
         if (type instanceof TimestampType) {
             return HIVE_TIMESTAMP.getTypeInfo();
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             return new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale());
         }
         if (isArrayType(type)) {
@@ -213,10 +214,10 @@ public final class HiveTypeTranslator
                 UnionTypeInfo unionTypeInfo = (UnionTypeInfo) typeInfo;
                 List<TypeInfo> unionObjectTypes = unionTypeInfo.getAllUnionObjectTypeInfos();
                 ImmutableList.Builder<TypeSignatureParameter> typeSignatures = ImmutableList.builder();
-                typeSignatures.add(namedField("tag", TINYINT.getTypeSignature()));
+                typeSignatures.add(namedField(UNION_FIELD_TAG_NAME, UNION_FIELD_TAG_TYPE.getTypeSignature()));
                 for (int i = 0; i < unionObjectTypes.size(); i++) {
                     TypeInfo unionObjectType = unionObjectTypes.get(i);
-                    typeSignatures.add(namedField("field" + i, toTypeSignature(unionObjectType, timestampPrecision)));
+                    typeSignatures.add(namedField(UNION_FIELD_FIELD_PREFIX + i, toTypeSignature(unionObjectType, timestampPrecision)));
                 }
                 return rowType(typeSignatures.build());
         }

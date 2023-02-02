@@ -21,6 +21,7 @@ import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
 
@@ -32,9 +33,12 @@ import java.util.Optional;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
+import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
+import static java.lang.String.format;
 
 public final class DeltaLakeSessionProperties
         implements SessionPropertiesProvider
@@ -44,12 +48,12 @@ public final class DeltaLakeSessionProperties
     public static final String VACUUM_MIN_RETENTION = "vacuum_min_retention";
     private static final String HIVE_CATALOG_NAME = "hive_catalog_name";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
+    private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet.max_read_block_row_count";
     private static final String PARQUET_USE_COLUMN_INDEX = "parquet_use_column_index";
     private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
-    private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "parquet_optimized_writer_enabled"; // = HiveSessionProperties#PARQUET_OPTIMIZED_WRITER_ENABLED
     private static final String COMPRESSION_CODEC = "compression_codec";
     // This property is not supported by Delta Lake and exists solely for technical reasons.
     @Deprecated
@@ -95,6 +99,18 @@ public final class DeltaLakeSessionProperties
                         "Parquet: Maximum size of a block to read",
                         parquetReaderConfig.getMaxReadBlockSize(),
                         false),
+                integerProperty(
+                        PARQUET_MAX_READ_BLOCK_ROW_COUNT,
+                        "Parquet: Maximum number of rows read in a batch",
+                        parquetReaderConfig.getMaxReadBlockRowCount(),
+                        value -> {
+                            if (value < 128 || value > 65536) {
+                                throw new TrinoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s must be between 128 and 65536: %s", PARQUET_MAX_READ_BLOCK_ROW_COUNT, value));
+                            }
+                        },
+                        false),
                 booleanProperty(
                         PARQUET_USE_COLUMN_INDEX,
                         "Use Parquet column index",
@@ -120,11 +136,6 @@ public final class DeltaLakeSessionProperties
                         "Target maximum size of written files; the actual size may be larger",
                         deltaLakeConfig.getTargetMaxFileSize(),
                         false),
-                booleanProperty(
-                        PARQUET_OPTIMIZED_WRITER_ENABLED,
-                        "Enable optimized writer",
-                        parquetWriterConfig.isParquetOptimizedWriterEnabled(),
-                        false),
                 enumProperty(
                         TIMESTAMP_PRECISION,
                         "Internal Delta Lake connector property",
@@ -144,7 +155,7 @@ public final class DeltaLakeSessionProperties
                         false),
                 booleanProperty(
                         EXTENDED_STATISTICS_ENABLED,
-                        "Use extended statistics collected by ANALYZE",
+                        "Enable collection (ANALYZE) and use of extended statistics.",
                         deltaLakeConfig.isExtendedStatisticsEnabled(),
                         false),
                 booleanProperty(
@@ -157,6 +168,11 @@ public final class DeltaLakeSessionProperties
                         "Compression codec to use when writing new data files",
                         HiveCompressionCodec.class,
                         deltaLakeConfig.getCompressionCodec(),
+                        value -> {
+                            if (value == HiveCompressionCodec.LZ4) {
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, "Unsupported codec: LZ4");
+                            }
+                        },
                         false));
     }
 
@@ -191,6 +207,11 @@ public final class DeltaLakeSessionProperties
         return session.getProperty(PARQUET_MAX_READ_BLOCK_SIZE, DataSize.class);
     }
 
+    public static int getParquetMaxReadBlockRowCount(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_MAX_READ_BLOCK_ROW_COUNT, Integer.class);
+    }
+
     public static boolean isParquetUseColumnIndex(ConnectorSession session)
     {
         return session.getProperty(PARQUET_USE_COLUMN_INDEX, Boolean.class);
@@ -199,11 +220,6 @@ public final class DeltaLakeSessionProperties
     public static boolean isParquetOptimizedReaderEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_OPTIMIZED_READER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isParquetOptimizedWriterEnabled(ConnectorSession session)
-    {
-        return session.getProperty(PARQUET_OPTIMIZED_WRITER_ENABLED, Boolean.class);
     }
 
     public static DataSize getParquetWriterBlockSize(ConnectorSession session)

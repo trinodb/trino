@@ -65,7 +65,7 @@ public class TestMySqlClient
             session -> {
                 throw new UnsupportedOperationException();
             },
-            new DefaultQueryBuilder(),
+            new DefaultQueryBuilder(RemoteQueryModifier.NONE),
             TESTING_TYPE_MANAGER,
             new DefaultIdentifierMapping(),
             RemoteQueryModifier.NONE);

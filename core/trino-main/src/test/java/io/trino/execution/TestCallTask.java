@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
@@ -53,7 +54,6 @@ import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
-import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.util.Reflection.methodHandle;
@@ -131,12 +131,13 @@ public class TestCallTask
     private void executeCallTask(MethodHandle methodHandle, Function<TransactionManager, AccessControl> accessControlProvider)
     {
         TransactionManager transactionManager = queryRunner.getTransactionManager();
-        ProcedureRegistry procedureRegistry = createProcedureRegistry(
-                new Procedure(
+        ProcedureRegistry procedureRegistry = new ProcedureRegistry(CatalogServiceProvider.singleton(
+                queryRunner.getCatalogHandle(TEST_CATALOG_NAME),
+                new CatalogProcedures(ImmutableList.of(new Procedure(
                         "test",
                         "testing_procedure",
                         ImmutableList.of(),
-                        methodHandle));
+                        methodHandle)))));
         AccessControl accessControl = accessControlProvider.apply(transactionManager);
 
         PlannerContext plannerContext = plannerContextBuilder()
@@ -148,11 +149,6 @@ public class TestCallTask
                         stateMachine(transactionManager, plannerContext.getMetadata(), accessControl),
                         ImmutableList.of(),
                         WarningCollector.NOOP);
-    }
-
-    private static ProcedureRegistry createProcedureRegistry(Procedure procedure)
-    {
-        return new ProcedureRegistry(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, new CatalogProcedures(ImmutableList.of(procedure))));
     }
 
     private QueryStateMachine stateMachine(TransactionManager transactionManager, Metadata metadata, AccessControl accessControl)
@@ -174,7 +170,8 @@ public class TestCallTask
                 metadata,
                 WarningCollector.NOOP,
                 Optional.empty(),
-                true);
+                true,
+                new NodeVersion("test"));
     }
 
     public static void testingMethod()

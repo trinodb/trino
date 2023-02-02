@@ -35,8 +35,8 @@ The connector recognizes Delta tables created in the metastore by the Databricks
 runtime. If non-Delta tables are present in the metastore, as well, they are not
 visible to the connector.
 
-To configure the Delta Lake connector, create a catalog properties file, for
-example ``etc/catalog/delta.properties``, that references the ``delta-lake``
+To configure the Delta Lake connector, create a catalog properties file
+``etc/catalog/example.properties`` that references the ``delta-lake``
 connector. Update the ``hive.metastore.uri`` with the URI of your Hive metastore
 Thrift service:
 
@@ -100,7 +100,6 @@ values. Typical usage does not require you to configure them.
 
         * ``NONE``
         * ``SNAPPY``
-        * ``LZ4``
         * ``ZSTD``
         * ``GZIP``
       - ``SNAPPY``
@@ -217,11 +216,9 @@ connector.
       - A decimal value in the range (0, 1] used as a minimum for weights assigned to each split. A low value may improve performance
         on tables with small files. A higher value may improve performance for queries with highly skewed aggregations or joins.
       - 0.05
-    * - ``parquet.optimized-writer.enabled``
-      - Whether the optimized writer should be used when writing Parquet files.
-        The equivalent catalog session property is
-        ``parquet_optimized_writer_enabled``.
-      - ``true``
+    * - ``parquet.max-read-block-row-count``
+      - Sets the maximum number of rows read in a batch.
+      - ``8192``
     * - ``parquet.optimized-reader.enabled``
       - Whether batched column readers should be used when reading Parquet files
         for improved performance. Set this property to ``false`` to disable the
@@ -240,9 +237,6 @@ configure processing of Parquet files.
     * - Property name
       - Description
       - Default
-    * - ``parquet_optimized_writer_enabled``
-      - Whether the optimized writer should be used when writing Parquet files.
-      - ``true``
     * - ``parquet_optimized_reader_enabled``
       - Whether batched column readers should be used when reading Parquet files
         for improved performance.
@@ -418,6 +412,7 @@ Delta Lake. In addition to the :ref:`globally available
 statements, the connector supports the following features:
 
 * :ref:`sql-data-management`, see also :ref:`delta-lake-write-support`
+* :ref:`sql-view-management`
 * :doc:`/sql/create-schema`, see also :ref:`delta-lake-create-schema`
 * :doc:`/sql/create-table`, see also :ref:`delta-lake-create-table`
 * :doc:`/sql/create-table-as`
@@ -500,14 +495,14 @@ You can create a schema with the :doc:`/sql/create-schema` statement and the
 subdirectory under the schema location. Data files for tables in this schema
 using the default location are cleaned up if the table is dropped::
 
-  CREATE SCHEMA delta.my_schema
+  CREATE SCHEMA example.example_schema
   WITH (location = 's3://my-bucket/a/path');
 
 Optionally, the location can be omitted. Tables in this schema must have a
 location included when you create them. The data files for these tables are not
 removed if the table is dropped::
 
-  CREATE SCHEMA delta.my_schema;
+  CREATE SCHEMA example.example_schema;
 
 .. _delta-lake-create-table:
 
@@ -517,7 +512,7 @@ Creating tables
 When Delta tables exist in storage, but not in the metastore, Trino can be used
 to register them::
 
-  CREATE TABLE delta.default.my_table (
+  CREATE TABLE example.default.example_table (
     dummy bigint
   )
   WITH (
@@ -540,7 +535,7 @@ If the specified location does not already contain a Delta table, the connector
 automatically writes the initial transaction log entries and registers the table
 in the metastore. As a result, any Databricks engine can write to the table::
 
-   CREATE TABLE delta.default.new_table (id bigint, address varchar);
+   CREATE TABLE example.default.new_table (id bigint, address varchar);
 
 The Delta Lake connector also supports creating tables using the :doc:`CREATE
 TABLE AS </sql/create-table-as>` syntax.
@@ -562,7 +557,7 @@ There are three table properties available for use in table creation.
 
 The following example uses all three table properties::
 
-  CREATE TABLE delta.default.my_partitioned_table
+  CREATE TABLE example.default.example_partitioned_table
   WITH (
     location = 's3://my-bucket/a/path',
     partitioned_by = ARRAY['regionkey'],
@@ -580,7 +575,7 @@ The connector can register table into the metastore with existing transaction lo
 The ``system.register_table`` procedure allows the caller to register an existing delta lake
 table in the metastore, using its existing transaction logs and data files::
 
-    CALL delta.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 's3://my-bucket/a/path')
+    CALL example.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 's3://my-bucket/a/path')
 
 To prevent unauthorized users from accessing data, this procedure is disabled by default.
 The procedure is enabled only when ``delta.register-table-procedure.enabled`` is set to ``true``.
@@ -657,7 +652,7 @@ limit the amount of data used to generate the table statistics:
 
 .. code-block:: SQL
 
-  ANALYZE my_table WITH(files_modified_after = TIMESTAMP '2021-08-23
+  ANALYZE example_table WITH(files_modified_after = TIMESTAMP '2021-08-23
   16:43:01.321 Z')
 
 As a result, only files newer than the specified time stamp are used in the
@@ -668,7 +663,7 @@ property:
 
 .. code-block:: SQL
 
-  ANALYZE my_table WITH(columns = ARRAY['nationkey', 'regionkey'])
+  ANALYZE example_table WITH(columns = ARRAY['nationkey', 'regionkey'])
 
 To run ``ANALYZE`` with ``columns`` more than once, the next ``ANALYZE`` must
 run on the same set or a subset of the original columns used.
@@ -692,7 +687,7 @@ extended statistics for a specified table in a specified schema:
 
 .. code-block::
 
-  CALL delta_catalog.system.drop_extended_stats('my_schema', 'my_table')
+  CALL example.system.drop_extended_stats('example_schema', 'example_table')
 
 
 Memory usage
@@ -720,7 +715,7 @@ as follows:
 
 .. code-block:: shell
 
-  CALL mydeltacatalog.system.vacuum('myschemaname', 'mytablename', '7d');
+  CALL example.system.vacuum('exampleschemaname', 'exampletablename', '7d');
 
 All parameters are required, and must be presented in the following order:
 

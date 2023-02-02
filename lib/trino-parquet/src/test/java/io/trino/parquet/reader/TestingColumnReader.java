@@ -71,6 +71,7 @@ import java.util.Map.Entry;
 import java.util.function.IntFunction;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static io.trino.parquet.ParquetTypeUtils.paddingBigInteger;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -335,6 +336,8 @@ public class TestingColumnReader
     private static final Assertion<Float> ASSERT_FLOAT = (values, block, offset, blockOffset) -> assertThat(intBitsToFloat(block.getInt(blockOffset, 0))).isEqualTo(values[offset].floatValue());
     private static final Assertion<Number> ASSERT_LONG = (values, block, offset, blockOffset) -> assertThat(block.getLong(blockOffset, 0)).isEqualTo(values[offset].longValue());
     private static final Assertion<Double> ASSERT_DOUBLE = (values, block, offset, blockOffset) -> assertThat(Double.longBitsToDouble(block.getLong(blockOffset, 0))).isEqualTo(values[offset].doubleValue());
+    private static final Assertion<Float> ASSERT_DOUBLE_STORED_AS_FLOAT = (values, block, offset, blockOffset) ->
+            assertThat(Double.longBitsToDouble(block.getLong(blockOffset, 0))).isEqualTo(values[offset].floatValue());
     private static final Assertion<Number> ASSERT_INT_128 = new Assertion<>()
     {
         @Override
@@ -477,8 +480,8 @@ public class TestingColumnReader
     private static Assertion<DecodedTimestamp> assertInt96Short(int rounding)
     {
         return (values, block, offset, blockOffset) -> {
-            long epochSeconds = values[offset].getEpochSeconds();
-            int nanos = values[offset].getNanosOfSecond();
+            long epochSeconds = values[offset].epochSeconds();
+            int nanos = values[offset].nanosOfSecond();
             long epochNanos = epochSeconds * Timestamps.NANOSECONDS_PER_SECOND + nanos;
             long expectedMicros = Timestamps.round(epochNanos, rounding) / 1000;
 
@@ -489,8 +492,8 @@ public class TestingColumnReader
     private static Assertion<DecodedTimestamp> assertInt96Long()
     {
         return (values, block, offset, blockOffset) -> {
-            long epochSeconds = values[offset].getEpochSeconds();
-            int nanos = values[offset].getNanosOfSecond();
+            long epochSeconds = values[offset].epochSeconds();
+            int nanos = values[offset].nanosOfSecond();
             long epochNanos = epochSeconds * Timestamps.NANOSECONDS_PER_SECOND + nanos;
 
             long actualEpochMicros = block.getLong(blockOffset, 0);
@@ -503,8 +506,8 @@ public class TestingColumnReader
     private static Assertion<DecodedTimestamp> assertInt96ShortWithTimezone()
     {
         return (values, block, offset, blockOffset) -> {
-            long epochSeconds = values[offset].getEpochSeconds();
-            int nanos = values[offset].getNanosOfSecond();
+            long epochSeconds = values[offset].epochSeconds();
+            int nanos = values[offset].nanosOfSecond();
             long epochNanos = epochSeconds * Timestamps.NANOSECONDS_PER_SECOND + nanos;
             long expectedMillis = Timestamps.round(epochNanos, 6) / 1000000;
 
@@ -609,7 +612,7 @@ public class TestingColumnReader
                         .collect(toDataProvider()));
     }
 
-    private static Binary encodeInt96Timestamp(long epochSeconds, int nanos)
+    public static Binary encodeInt96Timestamp(long epochSeconds, int nanos)
     {
         LocalDateTime javaTime = LocalDateTime.ofEpochSecond(epochSeconds, nanos, UTC);
         Slice slice = Slices.allocate(12);
@@ -629,6 +632,8 @@ public class TestingColumnReader
         return new ColumnReaderFormat[] {
                 new ColumnReaderFormat<>(BOOLEAN, BooleanType.BOOLEAN, BOOLEAN_WRITER, null, WRITE_BOOLEAN, ASSERT_BYTE),
                 new ColumnReaderFormat<>(FLOAT, REAL, PLAIN_WRITER, DICTIONARY_FLOAT_WRITER, WRITE_FLOAT, ASSERT_FLOAT),
+                // FLOAT parquet primitive type can be read as a DOUBLE or REAL type in Trino
+                new ColumnReaderFormat<>(FLOAT, DoubleType.DOUBLE, PLAIN_WRITER, DICTIONARY_FLOAT_WRITER, WRITE_FLOAT, ASSERT_DOUBLE_STORED_AS_FLOAT),
                 new ColumnReaderFormat<>(DOUBLE, DoubleType.DOUBLE, PLAIN_WRITER, DICTIONARY_DOUBLE_WRITER, WRITE_DOUBLE, ASSERT_DOUBLE),
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
                 new ColumnReaderFormat<>(INT32, BIGINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
@@ -638,6 +643,9 @@ public class TestingColumnReader
                 new ColumnReaderFormat<>(BINARY, VARCHAR, PLAIN_WRITER, DICTIONARY_BINARY_WRITER, WRITE_BINARY, ASSERT_BINARY),
                 new ColumnReaderFormat<>(INT64, decimalType(0, 16), createDecimalType(16), PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT64, BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_LONG),
+                new ColumnReaderFormat<>(INT64, INTEGER, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_INT),
+                new ColumnReaderFormat<>(INT64, SMALLINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_SHORT),
+                new ColumnReaderFormat<>(INT64, TINYINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_BYTE),
                 new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 2), createDecimalType(2), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_SHORT_DECIMAL, ASSERT_LONG),
                 new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, decimalType(2, 38), createDecimalType(38, 2), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, writeLongDecimal(16), ASSERT_INT_128),
                 new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, uuidType(), UUID, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_UUID, ASSERT_INT_128),
@@ -646,7 +654,8 @@ public class TestingColumnReader
                 new ColumnReaderFormat<>(INT64, timeType(false, MICROS), TimeType.TIME_MICROS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, assertTime(6)),
                 // Short decimals
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
-                new ColumnReaderFormat<>(INT32, createDecimalType(9), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
+                // INT32 values can be read as zero scale decimals provided the precision is at least 10 to accommodate the largest possible integer
+                new ColumnReaderFormat<>(INT32, createDecimalType(10), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), BIGINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), INTEGER, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), SMALLINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_SHORT, ASSERT_SHORT),
@@ -847,8 +856,7 @@ public class TestingColumnReader
             Class<? extends Block> blockClass = BLOCK_CLASSES.entrySet().stream()
                     .filter(entry -> entry.getKey().getClass().isAssignableFrom(trinoType.getClass()))
                     .map(Entry::getValue)
-                    .findFirst()
-                    .orElseThrow();
+                    .collect(onlyElement());
             if (block.getClass() != RunLengthEncodedBlock.class && block.getClass() != DictionaryBlock.class) {
                 assertThat(block).isInstanceOf(blockClass);
             }

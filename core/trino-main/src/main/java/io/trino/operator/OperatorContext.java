@@ -162,11 +162,6 @@ public class OperatorContext
         return driverContext.getSession();
     }
 
-    public boolean isDone()
-    {
-        return driverContext.isDone();
-    }
-
     void recordAddInput(OperationTimer operationTimer, Page page)
     {
         operationTimer.recordOperationComplete(addInputTiming);

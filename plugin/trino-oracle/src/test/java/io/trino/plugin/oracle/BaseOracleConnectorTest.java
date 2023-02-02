@@ -74,6 +74,7 @@ public abstract class BaseOracleConnectorTest
                 return false;
 
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
+            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:
@@ -178,6 +179,12 @@ public abstract class BaseOracleConnectorTest
         assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'new comment'");
         // without remarksReporting Oracle does not return comments set
         assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).doesNotContain("COMMENT 'new comment'");
+    }
+
+    @Override
+    public void testCommentColumnName(String columnName)
+    {
+        throw new SkipException("The test is covered in TestOraclePoolRemarksReportingConnectorSmokeTest");
     }
 
     /**

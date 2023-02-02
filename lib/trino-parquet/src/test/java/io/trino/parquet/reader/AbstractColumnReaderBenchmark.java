@@ -32,12 +32,12 @@ import org.openjdk.jmh.runner.options.WarmupMode;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 
 import static io.trino.jmh.Benchmarks.benchmark;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -101,8 +101,8 @@ public abstract class AbstractColumnReaderBenchmark<VALUES>
     public int read()
             throws IOException
     {
-        ColumnReader columnReader = ColumnReaderFactory.create(field, UTC, true);
-        columnReader.setPageReader(new PageReader(UNCOMPRESSED, new LinkedList<>(dataPages), null, dataPositions, false), Optional.empty());
+        ColumnReader columnReader = ColumnReaderFactory.create(field, UTC, newSimpleAggregatedMemoryContext(), true);
+        columnReader.setPageReader(new PageReader(UNCOMPRESSED, dataPages.iterator(), false, false, false), Optional.empty());
         int rowsRead = 0;
         while (rowsRead < dataPositions) {
             int remaining = dataPositions - rowsRead;

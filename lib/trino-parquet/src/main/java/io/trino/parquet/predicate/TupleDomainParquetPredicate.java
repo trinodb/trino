@@ -18,22 +18,26 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.parquet.BloomFilterStore;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.dictionary.Dictionary;
 import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.filter2.predicate.FilterApi;
 import org.apache.parquet.filter2.predicate.FilterPredicate;
 import org.apache.parquet.filter2.predicate.Operators;
@@ -41,6 +45,7 @@ import org.apache.parquet.filter2.predicate.UserDefinedPredicate;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.ColumnIndex;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
+import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
@@ -50,6 +55,7 @@ import org.joda.time.DateTimeZone;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,6 +76,8 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.requireNonNull;
@@ -77,7 +85,6 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 
 public class TupleDomainParquetPredicate
-        implements Predicate
 {
     private final TupleDomain<ColumnDescriptor> effectivePredicate;
     private final List<ColumnDescriptor> columns;
@@ -90,13 +97,27 @@ public class TupleDomainParquetPredicate
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 
-    @Override
-    public Optional<List<ColumnDescriptor>> getIndexLookupCandidates(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id)
+    /**
+     * Should the Parquet Reader process a file section with the specified statistics,
+     * and if it should, then return the columns are candidates for further inspection of more
+     * granular statistics from column index and dictionary.
+     *
+     * @param valueCounts the number of values for a column in the segment; this can be used with
+     * Statistics to determine if a column is only null
+     * @param statistics column statistics
+     * @param id Parquet file name
+     *
+     * @return Optional.empty() if statistics were sufficient to eliminate the file section.
+     * Otherwise, a list of columns for which page-level indices and dictionary could be consulted
+     * to potentially eliminate the file section. An optional with empty list is returned if there is
+     * going to be no benefit in looking at column index or dictionary for any column.
+     */
+    public Optional<List<ColumnDescriptor>> getIndexLookupCandidates(
+            Map<ColumnDescriptor, Long> valueCounts,
+            Map<ColumnDescriptor, Statistics<?>> statistics,
+            ParquetDataSourceId id)
             throws ParquetCorruptionException
     {
-        if (numberOfRows == 0) {
-            return Optional.empty();
-        }
         if (effectivePredicate.isNone()) {
             return Optional.empty();
         }
@@ -117,10 +138,14 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
+            Long columnValueCount = valueCounts.get(column);
+            if (columnValueCount == null) {
+                throw new IllegalArgumentException(format("Missing columnValueCount for column %s in %s", column, id));
+            }
             Domain domain = getDomain(
                     column,
                     effectivePredicateDomain.getType(),
-                    numberOfRows,
+                    columnValueCount,
                     columnStatistics,
                     id,
                     timeZone);
@@ -136,7 +161,13 @@ public class TupleDomainParquetPredicate
         return Optional.of(candidateColumns.build());
     }
 
-    @Override
+    /**
+     * Should the Parquet Reader process a file section with the specified dictionary based on that
+     * single dictionary. This is safe to check repeatedly to avoid loading more parquet dictionaries
+     * if the section can already be eliminated.
+     *
+     * @param dictionary The single column dictionary
+     */
     public boolean matches(DictionaryDescriptor dictionary)
     {
         requireNonNull(dictionary, "dictionary is null");
@@ -151,16 +182,18 @@ public class TupleDomainParquetPredicate
         return effectivePredicateDomain == null || effectivePredicateMatches(effectivePredicateDomain, dictionary);
     }
 
-    @Override
-    public boolean matches(long numberOfRows, ColumnIndexStore columnIndexStore, ParquetDataSourceId id)
+    /**
+     * Should the Parquet Reader process a file section with the specified statistics.
+     *
+     * @param valueCounts the number of values for a column in the segment; this can be used with
+     * Statistics to determine if a column is only null
+     * @param columnIndexStore column index (statistics) store
+     * @param id Parquet file name
+     */
+    public boolean matches(Map<ColumnDescriptor, Long> valueCounts, ColumnIndexStore columnIndexStore, ParquetDataSourceId id)
             throws ParquetCorruptionException
     {
         requireNonNull(columnIndexStore, "columnIndexStore is null");
-
-        if (numberOfRows == 0) {
-            return false;
-        }
-
         if (effectivePredicate.isNone()) {
             return false;
         }
@@ -179,7 +212,11 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
-            Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnIndex, id, column, timeZone);
+            Long columnValueCount = valueCounts.get(column);
+            if (columnValueCount == null) {
+                throw new IllegalArgumentException(format("Missing columnValueCount for column %s in %s", column, id));
+            }
+            Domain domain = getDomain(effectivePredicateDomain.getType(), columnValueCount, columnIndex, id, column, timeZone);
             if (!effectivePredicateDomain.overlaps(domain)) {
                 return false;
             }
@@ -188,7 +225,53 @@ public class TupleDomainParquetPredicate
         return true;
     }
 
-    @Override
+    /**
+     * Should the Parquet Reader process a file section with the specified bloomfilter Store
+     *
+     * @param bloomFilterStore bloomfilter Store
+     */
+    public boolean matches(BloomFilterStore bloomFilterStore, int domainCompactionThreshold)
+    {
+        requireNonNull(bloomFilterStore, "bloomFilterStore is null");
+
+        if (effectivePredicate.isNone()) {
+            return false;
+        }
+        Map<ColumnDescriptor, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
+                .orElseThrow(() -> new IllegalStateException("Effective predicate other than none should have domains"));
+
+        for (ColumnDescriptor column : columns) {
+            Domain effectivePredicateDomain = effectivePredicateDomains.get(column);
+
+            // the bloom filter bitset contains only non-null values so isn't helpful
+            if (effectivePredicateDomain == null || effectivePredicateDomain.isNullAllowed()) {
+                continue;
+            }
+
+            Optional<Collection<Object>> discreteValues = extractDiscreteValues(domainCompactionThreshold, effectivePredicateDomain.getValues());
+            // values are not discrete, so bloom filter isn't helpful
+            if (discreteValues.isEmpty()) {
+                continue;
+            }
+
+            Optional<BloomFilter> bloomFilterOptional = bloomFilterStore.getBloomFilter(ColumnPath.get(column.getPath()));
+            if (bloomFilterOptional.isEmpty()) {
+                continue;
+            }
+            BloomFilter bloomFilter = bloomFilterOptional.get();
+            if (discreteValues.get().stream().noneMatch(value -> checkInBloomFilter(bloomFilter, value, effectivePredicateDomain.getType()))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Convert Predicate to Parquet filter if possible.
+     *
+     * @param timeZone current Parquet timezone
+     * @return Converted Parquet filter or null if conversion not possible
+     */
     public Optional<FilterPredicate> toParquetFilter(DateTimeZone timeZone)
     {
         return Optional.ofNullable(convertToParquetFilter(timeZone));
@@ -203,7 +286,7 @@ public class TupleDomainParquetPredicate
     public static Domain getDomain(
             ColumnDescriptor column,
             Type type,
-            long rowCount,
+            long columnValuesCount,
             Statistics<?> statistics,
             ParquetDataSourceId id,
             DateTimeZone timeZone)
@@ -213,7 +296,7 @@ public class TupleDomainParquetPredicate
             return Domain.all(type);
         }
 
-        if (statistics.isNumNullsSet() && statistics.getNumNulls() == rowCount) {
+        if (statistics.isNumNullsSet() && statistics.getNumNulls() == columnValuesCount) {
             return Domain.onlyNull(type);
         }
 
@@ -268,7 +351,7 @@ public class TupleDomainParquetPredicate
         }
 
         if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DATE) || type.equals(SMALLINT) || type.equals(TINYINT)) {
-            List<Range> ranges = new ArrayList<>(minimums.size());
+            SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
                 long min = asLong(minimums.get(i));
                 long max = asLong(maximums.get(i));
@@ -276,28 +359,27 @@ public class TupleDomainParquetPredicate
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
 
-                ranges.add(Range.range(type, min, true, max, true));
+                rangesBuilder.addRangeInclusive(min, max);
             }
 
-            return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
+            return Domain.create(rangesBuilder.build(), hasNullValue);
         }
 
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
-            List<Range> ranges = new ArrayList<>(minimums.size());
+        if (type instanceof DecimalType decimalType) {
+            SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             if (decimalType.isShort()) {
                 for (int i = 0; i < minimums.size(); i++) {
                     Object min = minimums.get(i);
                     Object max = maximums.get(i);
 
                     long minValue = min instanceof Binary ? getShortDecimalValue(((Binary) min).getBytes()) : asLong(min);
-                    long maxValue = min instanceof Binary ? getShortDecimalValue(((Binary) max).getBytes()) : asLong(max);
+                    long maxValue = max instanceof Binary ? getShortDecimalValue(((Binary) max).getBytes()) : asLong(max);
 
                     if (isStatisticsOverflow(type, minValue, maxValue)) {
                         return Domain.create(ValueSet.all(type), hasNullValue);
                     }
 
-                    ranges.add(Range.range(type, minValue, true, maxValue, true));
+                    rangesBuilder.addRangeInclusive(minValue, maxValue);
                 }
             }
             else {
@@ -305,15 +387,15 @@ public class TupleDomainParquetPredicate
                     Int128 min = Int128.fromBigEndian(((Binary) minimums.get(i)).getBytes());
                     Int128 max = Int128.fromBigEndian(((Binary) maximums.get(i)).getBytes());
 
-                    ranges.add(Range.range(type, min, true, max, true));
+                    rangesBuilder.addRangeInclusive(min, max);
                 }
             }
 
-            return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
+            return Domain.create(rangesBuilder.build(), hasNullValue);
         }
 
         if (type.equals(REAL)) {
-            List<Range> ranges = new ArrayList<>(minimums.size());
+            SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
                 Float min = (Float) minimums.get(i);
                 Float max = (Float) maximums.get(i);
@@ -322,13 +404,13 @@ public class TupleDomainParquetPredicate
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
 
-                ranges.add(Range.range(type, (long) floatToRawIntBits(min), true, (long) floatToRawIntBits(max), true));
+                rangesBuilder.addRangeInclusive((long) floatToRawIntBits(min), (long) floatToRawIntBits(max));
             }
-            return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
+            return Domain.create(rangesBuilder.build(), hasNullValue);
         }
 
         if (type.equals(DOUBLE)) {
-            List<Range> ranges = new ArrayList<>(minimums.size());
+            SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
                 Double min = (Double) minimums.get(i);
                 Double max = (Double) maximums.get(i);
@@ -337,25 +419,25 @@ public class TupleDomainParquetPredicate
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
 
-                ranges.add(Range.range(type, min, true, max, true));
+                rangesBuilder.addRangeInclusive(min, max);
             }
-            return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
+            return Domain.create(rangesBuilder.build(), hasNullValue);
         }
 
         if (type instanceof VarcharType) {
-            List<Range> ranges = new ArrayList<>(minimums.size());
+            SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
                 Slice min = Slices.wrappedBuffer(((Binary) minimums.get(i)).toByteBuffer());
                 Slice max = Slices.wrappedBuffer(((Binary) maximums.get(i)).toByteBuffer());
-                ranges.add(Range.range(type, min, true, max, true));
+                rangesBuilder.addRangeInclusive(min, max);
             }
-            return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
+            return Domain.create(rangesBuilder.build(), hasNullValue);
         }
 
         if (type instanceof TimestampType) {
             if (column.getPrimitiveType().getPrimitiveTypeName().equals(INT96)) {
                 TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder((TimestampType) type, timeZone);
-                List<Object> values = new ArrayList<>(minimums.size());
+                SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
                 for (int i = 0; i < minimums.size(); i++) {
                     Object min = minimums.get(i);
                     Object max = maximums.get(i);
@@ -368,37 +450,33 @@ public class TupleDomainParquetPredicate
                         return Domain.create(ValueSet.all(type), hasNullValue);
                     }
 
-                    values.add(timestampEncoder.getTimestamp(decodeInt96Timestamp((Binary) min)));
+                    rangesBuilder.addValue(timestampEncoder.getTimestamp(decodeInt96Timestamp((Binary) min)));
                 }
-                return Domain.multipleValues(type, values, hasNullValue);
+                return Domain.create(rangesBuilder.build(), hasNullValue);
             }
             if (column.getPrimitiveType().getPrimitiveTypeName().equals(INT64)) {
                 LogicalTypeAnnotation logicalTypeAnnotation = column.getPrimitiveType().getLogicalTypeAnnotation();
-                if (!(logicalTypeAnnotation instanceof TimestampLogicalTypeAnnotation)) {
+                if (!(logicalTypeAnnotation instanceof TimestampLogicalTypeAnnotation timestampTypeAnnotation)) {
                     // Invalid statistics. Unit and UTC adjustment are not known
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
 
-                TimestampLogicalTypeAnnotation timestampTypeAnnotation = (TimestampLogicalTypeAnnotation) logicalTypeAnnotation;
                 // Bail out if the precision is not known
                 if (timestampTypeAnnotation.getUnit() == null) {
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
                 TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder((TimestampType) type, DateTimeZone.UTC);
 
-                List<Range> ranges = new ArrayList<>(minimums.size());
+                SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
                 for (int i = 0; i < minimums.size(); i++) {
                     long min = (long) minimums.get(i);
                     long max = (long) maximums.get(i);
 
-                    ranges.add(Range.range(
-                            type,
+                    rangesBuilder.addRangeInclusive(
                             timestampEncoder.getTimestamp(decodeInt64Timestamp(min, timestampTypeAnnotation.getUnit())),
-                            true,
-                            timestampEncoder.getTimestamp(decodeInt64Timestamp(max, timestampTypeAnnotation.getUnit())),
-                            true));
+                            timestampEncoder.getTimestamp(decodeInt64Timestamp(max, timestampTypeAnnotation.getUnit())));
                 }
-                return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
+                return Domain.create(rangesBuilder.build(), hasNullValue);
             }
         }
 
@@ -408,7 +486,7 @@ public class TupleDomainParquetPredicate
     @VisibleForTesting
     public static Domain getDomain(
             Type type,
-            long rowCount,
+            long columnValuesCount,
             ColumnIndex columnIndex,
             ParquetDataSourceId id,
             ColumnDescriptor descriptor,
@@ -421,7 +499,8 @@ public class TupleDomainParquetPredicate
 
         List<ByteBuffer> maxValues = columnIndex.getMaxValues();
         List<ByteBuffer> minValues = columnIndex.getMinValues();
-        List<Long> nullCounts = columnIndex.getNullCounts();
+        // Null counts is optional in the format, see org.apache.parquet.internal.column.columnindex.ColumnIndexBuilder for reference
+        Optional<List<Long>> nullCounts = Optional.ofNullable(columnIndex.getNullCounts());
         List<Boolean> nullPages = columnIndex.getNullPages();
 
         String columnName = descriptor.getPrimitiveType().getName();
@@ -432,13 +511,15 @@ public class TupleDomainParquetPredicate
             return Domain.all(type);
         }
 
-        long totalNullCount = nullCounts.stream()
-                .mapToLong(value -> value)
-                .sum();
-        boolean hasNullValue = totalNullCount > 0;
-
-        if (hasNullValue && totalNullCount == rowCount) {
-            return Domain.onlyNull(type);
+        boolean hasNullValue = true;
+        if (nullCounts.isPresent()) {
+            long totalNullCount = nullCounts.orElseThrow().stream()
+                    .mapToLong(value -> value)
+                    .sum();
+            if (totalNullCount == columnValuesCount) {
+                return Domain.onlyNull(type);
+            }
+            hasNullValue = totalNullCount > 0;
         }
 
         try {
@@ -523,16 +604,17 @@ public class TupleDomainParquetPredicate
     private static boolean isCorruptedColumnIndex(
             List<ByteBuffer> minValues,
             List<ByteBuffer> maxValues,
-            List<Long> nullCounts,
+            Optional<List<Long>> nullCounts,
             List<Boolean> nullPages)
     {
-        if (maxValues == null || minValues == null || nullCounts == null || nullPages == null) {
+        if (maxValues == null || minValues == null || nullPages == null) {
             return true;
         }
 
-        return maxValues.size() != minValues.size()
-                || maxValues.size() != nullPages.size()
-                || maxValues.size() != nullCounts.size();
+        int pageCount = nullPages.size();
+        return (nullCounts.isPresent() && nullCounts.get().size() != pageCount)
+                || minValues.size() != pageCount
+                || maxValues.size() != pageCount;
     }
 
     public static long asLong(Object value)
@@ -542,6 +624,49 @@ public class TupleDomainParquetPredicate
         }
 
         throw new IllegalArgumentException("Can't convert value to long: " + value.getClass().getName());
+    }
+
+    /**
+     * Check if the predicateValue might be in the bloomfilter
+     *
+     * @param bloomFilter parquet bloomfilter.
+     * @param predicateValue effective discrete predicate value.
+     * @param sqlType Type that contains information about the type schema from connector's metadata
+     * @return true if the predicateValue might be in the bloomfilter, false if the predicateValue absolutely is not in the bloomfilter
+     */
+    @VisibleForTesting
+    public static boolean checkInBloomFilter(BloomFilter bloomFilter, Object predicateValue, Type sqlType)
+    {
+        // TODO: Support TIMESTAMP, CHAR and DECIMAL
+        if (sqlType == TINYINT || sqlType == SMALLINT || sqlType == INTEGER || sqlType == DATE) {
+            return bloomFilter.findHash(bloomFilter.hash(toIntExact(((Number) predicateValue).longValue())));
+        }
+        if (sqlType == BIGINT) {
+            return bloomFilter.findHash(bloomFilter.hash(((Number) predicateValue).longValue()));
+        }
+        else if (sqlType == DOUBLE) {
+            return bloomFilter.findHash(bloomFilter.hash(((Double) predicateValue).doubleValue()));
+        }
+        else if (sqlType == REAL) {
+            return bloomFilter.findHash(bloomFilter.hash(intBitsToFloat(toIntExact(((Number) predicateValue).longValue()))));
+        }
+        else if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType) {
+            return bloomFilter.findHash(bloomFilter.hash(Binary.fromConstantByteBuffer(((Slice) predicateValue).toByteBuffer())));
+        }
+        else if (sqlType instanceof UuidType) {
+            return bloomFilter.findHash(bloomFilter.hash(Binary.fromConstantByteArray(((Slice) predicateValue).getBytes())));
+        }
+
+        return true;
+    }
+
+    private static Optional<Collection<Object>> extractDiscreteValues(int domainCompactionThreshold, ValueSet valueSet)
+    {
+        if (!valueSet.isDiscreteSet()) {
+            return valueSet.tryExpandRanges(domainCompactionThreshold);
+        }
+
+        return Optional.of(valueSet.getDiscreteSet());
     }
 
     private FilterPredicate convertToParquetFilter(DateTimeZone timeZone)
@@ -665,21 +790,14 @@ public class TupleDomainParquetPredicate
 
         private Function<Integer, Object> getConverter(PrimitiveType primitiveType)
         {
-            switch (primitiveType.getPrimitiveTypeName()) {
-                case INT32:
-                    return (i) -> dictionary.decodeToInt(i);
-                case INT64:
-                    return (i) -> dictionary.decodeToLong(i);
-                case FLOAT:
-                    return (i) -> dictionary.decodeToFloat(i);
-                case DOUBLE:
-                    return (i) -> dictionary.decodeToDouble(i);
-                case FIXED_LEN_BYTE_ARRAY:
-                case BINARY:
-                case INT96:
-                default:
-                    return (i) -> dictionary.decodeToBinary(i);
-            }
+            return switch (primitiveType.getPrimitiveTypeName()) {
+                case BOOLEAN -> throw new ParquetDecodingException("Dictionary encoding does not support: " + primitiveType.getPrimitiveTypeName());
+                case INT32 -> (i) -> dictionary.decodeToInt(i);
+                case INT64 -> (i) -> dictionary.decodeToLong(i);
+                case FLOAT -> (i) -> dictionary.decodeToFloat(i);
+                case DOUBLE -> (i) -> dictionary.decodeToDouble(i);
+                case FIXED_LEN_BYTE_ARRAY, BINARY, INT96 -> (i) -> dictionary.decodeToBinary(i);
+            };
         }
     }
 

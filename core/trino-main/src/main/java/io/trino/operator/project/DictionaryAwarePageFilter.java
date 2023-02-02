@@ -58,9 +58,9 @@ public class DictionaryAwarePageFilter
     {
         Block block = page.getBlock(0).getLoadedBlock();
 
-        if (block instanceof RunLengthEncodedBlock) {
-            Block value = ((RunLengthEncodedBlock) block).getValue();
-            Optional<boolean[]> selectedPosition = processDictionary(session, value);
+        if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
+            Block value = runLengthEncodedBlock.getValue();
+            Optional<boolean[]> selectedPosition = processDictionary(session, value, block.getPositionCount());
             // single value block is always considered effective, but the processing could have thrown
             // in that case we fallback and process again so the correct error message sent
             if (selectedPosition.isPresent()) {
@@ -68,10 +68,9 @@ public class DictionaryAwarePageFilter
             }
         }
 
-        if (block instanceof DictionaryBlock) {
-            DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
+        if (block instanceof DictionaryBlock dictionaryBlock) {
             // Attempt to process the dictionary.  If dictionary is processing has not been considered effective, an empty response will be returned
-            Optional<boolean[]> selectedDictionaryPositions = processDictionary(session, dictionaryBlock.getDictionary());
+            Optional<boolean[]> selectedDictionaryPositions = processDictionary(session, dictionaryBlock.getDictionary(), block.getPositionCount());
             // record the usage count regardless of dictionary processing choice, so we have stats for next time
             lastDictionaryUsageCount += page.getPositionCount();
             // if dictionary was processed, produce a dictionary block; otherwise do normal processing
@@ -83,7 +82,7 @@ public class DictionaryAwarePageFilter
         return filter.filter(session, new Page(block));
     }
 
-    private Optional<boolean[]> processDictionary(ConnectorSession session, Block dictionary)
+    private Optional<boolean[]> processDictionary(ConnectorSession session, Block dictionary, int blockPositionsCount)
     {
         if (lastInputDictionary == dictionary) {
             return lastOutputDictionary;
@@ -91,9 +90,9 @@ public class DictionaryAwarePageFilter
 
         // Process dictionary if:
         //   this is the first block
-        //   there is only entry in the dictionary
+        //   dictionary positions count is not greater than block positions count
         //   the last dictionary was used for more positions than were in the dictionary
-        boolean shouldProcessDictionary = lastInputDictionary == null || dictionary.getPositionCount() == 1 || lastDictionaryUsageCount >= lastInputDictionary.getPositionCount();
+        boolean shouldProcessDictionary = lastInputDictionary == null || dictionary.getPositionCount() <= blockPositionsCount || lastDictionaryUsageCount >= lastInputDictionary.getPositionCount();
 
         lastDictionaryUsageCount = 0;
         lastInputDictionary = dictionary;

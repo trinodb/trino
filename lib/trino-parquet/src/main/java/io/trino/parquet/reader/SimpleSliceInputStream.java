@@ -14,8 +14,10 @@
 package io.trino.parquet.reader;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.UnsafeSlice;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -47,6 +49,20 @@ public final class SimpleSliceInputStream
         return slice.getByte(offset++);
     }
 
+    public short readShort()
+    {
+        short value = slice.getShort(offset);
+        offset += Short.BYTES;
+        return value;
+    }
+
+    public int readInt()
+    {
+        int value = slice.getInt(offset);
+        offset += Integer.BYTES;
+        return value;
+    }
+
     public long readLong()
     {
         long value = slice.getLong(offset);
@@ -59,6 +75,25 @@ public final class SimpleSliceInputStream
         byte[] bytes = slice.getBytes();
         offset = slice.length();
         return bytes;
+    }
+
+    public void readBytes(byte[] output, int outputOffset, int length)
+    {
+        slice.getBytes(offset, output, outputOffset, length);
+        offset += length;
+    }
+
+    public void readBytes(Slice destination, int destinationIndex, int length)
+    {
+        slice.getBytes(offset, destination, destinationIndex, length);
+        offset += length;
+    }
+
+    public Slice readSlice(int length)
+    {
+        Slice result = slice.slice(offset, length);
+        offset += length;
+        return result;
     }
 
     public void skip(int n)
@@ -87,5 +122,59 @@ public final class SimpleSliceInputStream
     public int getByteArrayOffset()
     {
         return offset + slice.byteArrayOffset();
+    }
+
+    public void ensureBytesAvailable(int bytes)
+    {
+        checkPositionIndexes(offset, offset + bytes, slice.length());
+    }
+
+    /**
+     * Always check if needed data is available with ensureBytesAvailable method.
+     * Failing to do so may result in instant JVM crash.
+     */
+    public int readIntUnsafe()
+    {
+        int value = UnsafeSlice.getIntUnchecked(slice, offset);
+        offset += Integer.BYTES;
+        return value;
+    }
+
+    /**
+     * Always check if needed data is available with ensureBytesAvailable method.
+     * Failing to do so may result in instant JVM crash.
+     */
+    public long readLongUnsafe()
+    {
+        long value = UnsafeSlice.getLongUnchecked(slice, offset);
+        offset += Long.BYTES;
+        return value;
+    }
+
+    /**
+     * Always check if needed data is available with ensureBytesAvailable method.
+     * Failing to do so may result in instant JVM crash.
+     */
+    public byte getByteUnsafe(int index)
+    {
+        return UnsafeSlice.getByteUnchecked(slice, offset + index);
+    }
+
+    /**
+     * Always check if needed data is available with ensureBytesAvailable method.
+     * Failing to do so may result in instant JVM crash.
+     */
+    public int getIntUnsafe(int index)
+    {
+        return UnsafeSlice.getIntUnchecked(slice, offset + index);
+    }
+
+    /**
+     * Always check if needed data is available with ensureBytesAvailable method.
+     * Failing to do so may result in instant JVM crash.
+     */
+    public long getLongUnsafe(int index)
+    {
+        return UnsafeSlice.getLongUnchecked(slice, offset + index);
     }
 }

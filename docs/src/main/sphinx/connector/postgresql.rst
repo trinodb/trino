@@ -27,9 +27,9 @@ The connector can query a database on a PostgreSQL server. Create a catalog
 properties file that specifies the PostgreSQL connector by setting the
 ``connector.name`` to ``postgresql``.
 
-For example, to access a database as the ``postgresql`` catalog, create the
-file ``etc/catalog/postgresql.properties``. Replace the connection properties
-as appropriate for your setup:
+For example, to access a database as the ``example`` catalog, create the file
+``etc/catalog/example.properties``. Replace the connection properties as
+appropriate for your setup:
 
 .. code-block:: text
 
@@ -286,25 +286,25 @@ Querying PostgreSQL
 The PostgreSQL connector provides a schema for every PostgreSQL schema.
 You can see the available PostgreSQL schemas by running ``SHOW SCHEMAS``::
 
-    SHOW SCHEMAS FROM postgresql;
+    SHOW SCHEMAS FROM example;
 
 If you have a PostgreSQL schema named ``web``, you can view the tables
 in this schema by running ``SHOW TABLES``::
 
-    SHOW TABLES FROM postgresql.web;
+    SHOW TABLES FROM example.web;
 
 You can see a list of the columns in the ``clicks`` table in the ``web`` database
 using either of the following::
 
-    DESCRIBE postgresql.web.clicks;
-    SHOW COLUMNS FROM postgresql.web.clicks;
+    DESCRIBE example.web.clicks;
+    SHOW COLUMNS FROM example.web.clicks;
 
 Finally, you can access the ``clicks`` table in the ``web`` schema::
 
-    SELECT * FROM postgresql.web.clicks;
+    SELECT * FROM example.web.clicks;
 
 If you used a different name for your catalog properties file, use
-that catalog name instead of ``postgresql`` in the above examples.
+that catalog name instead of ``example`` in the above examples.
 
 .. _postgresql-sql-support:
 
@@ -352,7 +352,7 @@ As a simple example, to select an entire table::
       *
     FROM
       TABLE(
-        postgresql.system.query(
+        example.system.query(
           query => 'SELECT
             *
           FROM
@@ -368,7 +368,7 @@ when using window functions::
       *
     FROM
       TABLE(
-        postgresql.system.query(
+        example.system.query(
           query => 'SELECT
             *,
             array_agg(week) OVER (
@@ -449,6 +449,8 @@ The connector supports pushdown for a number of operations:
 * :func:`corr`
 * :func:`regr_intercept`
 * :func:`regr_slope`
+
+.. include:: pushdown-correctness-behavior.fragment
 
 .. include:: join-pushdown-enabled-true.fragment
 

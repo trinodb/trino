@@ -87,7 +87,7 @@ public class HiveConfig
     private boolean recursiveDirWalkerEnabled;
     private boolean ignoreAbsentPartitions;
 
-    private int maxConcurrentFileRenames = 20;
+    private int maxConcurrentFileSystemOperations = 20;
     private int maxConcurrentMetastoreDrops = 20;
     private int maxConcurrentMetastoreUpdates = 20;
     private int maxPartitionDropsPerQuery = 100_000;
@@ -169,6 +169,7 @@ public class HiveConfig
 
     private Optional<String> icebergCatalogName = Optional.empty();
     private Optional<String> deltaLakeCatalogName = Optional.empty();
+    private Optional<String> hudiCatalogName = Optional.empty();
 
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
 
@@ -300,15 +301,16 @@ public class HiveConfig
     }
 
     @Min(1)
-    public int getMaxConcurrentFileRenames()
+    public int getMaxConcurrentFileSystemOperations()
     {
-        return maxConcurrentFileRenames;
+        return maxConcurrentFileSystemOperations;
     }
 
-    @Config("hive.max-concurrent-file-renames")
-    public HiveConfig setMaxConcurrentFileRenames(int maxConcurrentFileRenames)
+    @LegacyConfig("hive.max-concurrent-file-renames")
+    @Config("hive.max-concurrent-file-system-operations")
+    public HiveConfig setMaxConcurrentFileSystemOperations(int maxConcurrentFileSystemOperations)
     {
-        this.maxConcurrentFileRenames = maxConcurrentFileRenames;
+        this.maxConcurrentFileSystemOperations = maxConcurrentFileSystemOperations;
         return this;
     }
 
@@ -1249,6 +1251,19 @@ public class HiveConfig
     public HiveConfig setDeltaLakeCatalogName(String deltaLakeCatalogName)
     {
         this.deltaLakeCatalogName = Optional.ofNullable(deltaLakeCatalogName);
+        return this;
+    }
+
+    public Optional<String> getHudiCatalogName()
+    {
+        return hudiCatalogName;
+    }
+
+    @Config("hive.hudi-catalog-name")
+    @ConfigDescription("Catalog to redirect to when a Hudi table is referenced")
+    public HiveConfig setHudiCatalogName(String hudiCatalogName)
+    {
+        this.hudiCatalogName = Optional.ofNullable(hudiCatalogName);
         return this;
     }
 

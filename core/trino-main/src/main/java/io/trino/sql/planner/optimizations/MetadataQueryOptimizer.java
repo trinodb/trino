@@ -184,16 +184,15 @@ public class MetadataQueryOptimizer
                         source instanceof SortNode) {
                     source = source.getSources().get(0);
                 }
-                else if (source instanceof ProjectNode) {
+                else if (source instanceof ProjectNode project) {
                     // verify projections are deterministic
-                    ProjectNode project = (ProjectNode) source;
                     if (!Iterables.all(project.getAssignments().getExpressions(), expression -> isDeterministic(expression, plannerContext.getMetadata()))) {
                         return Optional.empty();
                     }
                     source = project.getSource();
                 }
-                else if (source instanceof TableScanNode) {
-                    return Optional.of((TableScanNode) source);
+                else if (source instanceof TableScanNode tableScanNode) {
+                    return Optional.of(tableScanNode);
                 }
                 else {
                     return Optional.empty();

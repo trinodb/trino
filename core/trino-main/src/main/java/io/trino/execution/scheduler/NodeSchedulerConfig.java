@@ -46,11 +46,12 @@ public class NodeSchedulerConfig
     private int minCandidates = 10;
     private boolean includeCoordinator = true;
     private int maxSplitsPerNode = 100;
-    private int maxPendingSplitsPerTask = 10;
+    private int minPendingSplitsPerTask = 10;
+    private int maxAdjustedPendingSplitsWeightPerTask = 2000;
     private NodeSchedulerPolicy nodeSchedulerPolicy = NodeSchedulerPolicy.UNIFORM;
     private boolean optimizedLocalScheduling = true;
     private SplitsBalancingPolicy splitsBalancingPolicy = SplitsBalancingPolicy.STAGE;
-    private int maxUnacknowledgedSplitsPerTask = 500;
+    private int maxUnacknowledgedSplitsPerTask = 2000;
     private Duration allowedNoMatchingNodePeriod = new Duration(2, TimeUnit.MINUTES);
     private NodeAllocatorType nodeAllocatorType = NodeAllocatorType.BIN_PACKING;
 
@@ -108,17 +109,30 @@ public class NodeSchedulerConfig
         return this;
     }
 
-    @Config("node-scheduler.max-pending-splits-per-task")
-    @LegacyConfig({"node-scheduler.max-pending-splits-per-node-per-task", "node-scheduler.max-pending-splits-per-node-per-stage"})
-    public NodeSchedulerConfig setMaxPendingSplitsPerTask(int maxPendingSplitsPerTask)
+    @Config("node-scheduler.min-pending-splits-per-task")
+    @LegacyConfig({"node-scheduler.max-pending-splits-per-task", "node-scheduler.max-pending-splits-per-node-per-task", "node-scheduler.max-pending-splits-per-node-per-stage"})
+    public NodeSchedulerConfig setMinPendingSplitsPerTask(int minPendingSplitsPerTask)
     {
-        this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
+        this.minPendingSplitsPerTask = minPendingSplitsPerTask;
         return this;
     }
 
-    public int getMaxPendingSplitsPerTask()
+    public int getMinPendingSplitsPerTask()
     {
-        return maxPendingSplitsPerTask;
+        return minPendingSplitsPerTask;
+    }
+
+    @Config("node-scheduler.max-adjusted-pending-splits-per-task")
+    public NodeSchedulerConfig setMaxAdjustedPendingSplitsWeightPerTask(int maxAdjustedPendingSplitsWeightPerTask)
+    {
+        this.maxAdjustedPendingSplitsWeightPerTask = maxAdjustedPendingSplitsWeightPerTask;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaxAdjustedPendingSplitsWeightPerTask()
+    {
+        return maxAdjustedPendingSplitsWeightPerTask;
     }
 
     public int getMaxSplitsPerNode()

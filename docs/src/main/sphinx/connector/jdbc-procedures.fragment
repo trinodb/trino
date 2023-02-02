@@ -8,5 +8,5 @@ Procedures
 
   .. code-block:: sql
 
-      USE example.myschema;
+      USE example.example_schema;
       CALL system.flush_metadata_cache();

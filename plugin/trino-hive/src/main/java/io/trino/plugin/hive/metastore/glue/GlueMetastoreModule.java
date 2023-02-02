@@ -25,7 +25,6 @@ import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
@@ -60,8 +59,8 @@ public class GlueMetastoreModule
                 .setDefault().toProvider(DefaultGlueMetastoreTableFilterProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
-        binder.bind(HiveMetastoreFactory.class)
-                .annotatedWith(RawHiveMetastoreFactory.class)
+        newOptionalBinder(binder, Key.get(HiveMetastoreFactory.class, RawHiveMetastoreFactory.class))
+                .setDefault()
                 .to(GlueHiveMetastoreFactory.class)
                 .in(Scopes.SINGLETON);
 
@@ -89,7 +88,7 @@ public class GlueMetastoreModule
     @Provides
     @Singleton
     @ForGlueHiveMetastore
-    public Executor createExecutor(CatalogName catalogName, GlueHiveMetastoreConfig hiveConfig)
+    public Executor createExecutor(GlueHiveMetastoreConfig hiveConfig)
     {
         return createExecutor("hive-glue-partitions-%s", hiveConfig.getGetPartitionThreads());
     }
@@ -97,7 +96,7 @@ public class GlueMetastoreModule
     @Provides
     @Singleton
     @ForGlueColumnStatisticsRead
-    public Executor createStatisticsReadExecutor(CatalogName catalogName, GlueHiveMetastoreConfig hiveConfig)
+    public Executor createStatisticsReadExecutor(GlueHiveMetastoreConfig hiveConfig)
     {
         return createExecutor("hive-glue-statistics-read-%s", hiveConfig.getReadStatisticsThreads());
     }
@@ -105,7 +104,7 @@ public class GlueMetastoreModule
     @Provides
     @Singleton
     @ForGlueColumnStatisticsWrite
-    public Executor createStatisticsWriteExecutor(CatalogName catalogName, GlueHiveMetastoreConfig hiveConfig)
+    public Executor createStatisticsWriteExecutor(GlueHiveMetastoreConfig hiveConfig)
     {
         return createExecutor("hive-glue-statistics-write-%s", hiveConfig.getWriteStatisticsThreads());
     }

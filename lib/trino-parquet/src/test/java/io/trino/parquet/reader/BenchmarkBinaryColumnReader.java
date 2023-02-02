@@ -20,6 +20,7 @@ import io.trino.spi.type.VarcharType;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesWriter;
+import org.apache.parquet.column.values.deltalengthbytearray.DeltaLengthByteArrayValuesWriter;
 import org.apache.parquet.column.values.deltastrings.DeltaByteArrayWriter;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
 import org.apache.parquet.io.api.Binary;
@@ -33,6 +34,8 @@ import java.util.Random;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import static io.trino.parquet.reader.TestData.randomAsciiData;
+import static io.trino.parquet.reader.TestData.randomBinaryData;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -93,6 +96,13 @@ public class BenchmarkBinaryColumnReader
             {
                 return new DeltaByteArrayWriter(bufferSize, bufferSize, HeapByteBufferAllocator.getInstance());
             }
+        },
+        DELTA_LENGTH_BYTE_ARRAY {
+            @Override
+            ValuesWriter getWriter(int bufferSize)
+            {
+                return new DeltaLengthByteArrayValuesWriter(bufferSize, bufferSize, HeapByteBufferAllocator.getInstance());
+            }
         };
 
         abstract ValuesWriter getWriter(int bufferSize);
@@ -100,9 +110,9 @@ public class BenchmarkBinaryColumnReader
 
     public enum FieldType
     {
-        UNBOUNDED(range -> VARBINARY, BenchmarkBinaryColumnReader::randomData),
-        VARCHAR_ASCII_BOUND_EXACT(range -> VarcharType.createVarcharType(max(1, range.to)), BenchmarkBinaryColumnReader::randomAsciiData),
-        CHAR_ASCII_BOUND_HALF(range -> CharType.createCharType(max(1, range.to / 2)), BenchmarkBinaryColumnReader::randomAsciiData),
+        UNBOUNDED(range -> VARBINARY, (size, range) -> randomBinaryData(size, range.from(), range.to())),
+        VARCHAR_ASCII_BOUND_EXACT(range -> VarcharType.createVarcharType(max(1, range.to)), (size, range) -> randomAsciiData(size, range.from(), range.to())),
+        CHAR_ASCII_BOUND_HALF(range -> CharType.createCharType(max(1, range.to / 2)), (size, range) -> randomAsciiData(size, range.from(), range.to())),
         CHAR_BOUND_HALF_PADDING_SOMETIMES(range -> CharType.createCharType(max(1, range.to / 2)), (length, range) -> randomAsciiDataWithPadding(length, range, .01)),
         /**/;
 
@@ -148,36 +158,6 @@ public class BenchmarkBinaryColumnReader
     }
 
     record Range(int from, int to) {}
-
-    private static byte[][] randomData(int size, Range positionLength)
-    {
-        Random random = new Random(Objects.hash(size, positionLength.from(), positionLength.to()));
-        byte[][] data = new byte[size][];
-        for (int i = 0; i < size; i++) {
-            int length = random.nextInt(positionLength.to() - positionLength.from() + 1) + positionLength.from();
-            byte[] value = new byte[length];
-            random.nextBytes(value);
-            data[i] = value;
-        }
-
-        return data;
-    }
-
-    private static byte[][] randomAsciiData(int size, Range positionLength)
-    {
-        Random random = new Random(Objects.hash(size, positionLength.from(), positionLength.to()));
-        byte[][] data = new byte[size][];
-        for (int i = 0; i < size; i++) {
-            int length = random.nextInt(positionLength.to() - positionLength.from() + 1) + positionLength.from();
-            byte[] value = new byte[length];
-            for (int j = 0; j < length; j++) {
-                value[j] = (byte) random.nextInt(128);
-            }
-            data[i] = value;
-        }
-
-        return data;
-    }
 
     private static byte[][] randomAsciiDataWithPadding(int size, Range positionLength, double paddingChance)
     {

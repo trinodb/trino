@@ -166,8 +166,7 @@ public class DictionaryAwarePageProjection
                     return true;
                 }
 
-                if (block instanceof DictionaryBlock) {
-                    DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
+                if (block instanceof DictionaryBlock dictionaryBlock) {
                     // if dictionary was processed, produce a dictionary block; otherwise do normal processing
                     int[] outputIds = filterDictionaryIds(dictionaryBlock, selectedPositions);
                     result = createProjectedDictionaryBlock(selectedPositions.size(), dictionaryOutput.get(), outputIds, sourceIdFunction.apply(dictionaryBlock));
@@ -216,10 +215,10 @@ public class DictionaryAwarePageProjection
             }
 
             // Try use dictionary processing first; if it fails, fall back to the generic case
-            dictionaryProcessingProjectionWork = createDictionaryBlockProjection(dictionary);
+            dictionaryProcessingProjectionWork = createDictionaryBlockProjection(dictionary, block.getPositionCount());
         }
 
-        private Work<Block> createDictionaryBlockProjection(Optional<Block> dictionary)
+        private Work<Block> createDictionaryBlockProjection(Optional<Block> dictionary, int blockPositionsCount)
         {
             if (dictionary.isEmpty()) {
                 lastOutputDictionary = Optional.empty();
@@ -232,10 +231,10 @@ public class DictionaryAwarePageProjection
             }
 
             // Process dictionary if:
-            //   there is only one entry in the dictionary
+            //   dictionary positions count is not greater than block positions count
             //   this is the first block
             //   the last dictionary was used for more positions than were in the dictionary
-            boolean shouldProcessDictionary = dictionary.get().getPositionCount() == 1 || lastInputDictionary == null || lastDictionaryUsageCount >= lastInputDictionary.getPositionCount();
+            boolean shouldProcessDictionary = dictionary.get().getPositionCount() <= blockPositionsCount || lastInputDictionary == null || lastDictionaryUsageCount >= lastInputDictionary.getPositionCount();
 
             // record the usage count regardless of dictionary processing choice, so we have stats for next time
             lastDictionaryUsageCount = 0;

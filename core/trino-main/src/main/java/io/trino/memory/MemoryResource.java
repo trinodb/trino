@@ -13,7 +13,6 @@
  */
 package io.trino.memory;
 
-import io.trino.execution.SqlTaskManager;
 import io.trino.server.security.ResourceSecurity;
 
 import javax.inject.Inject;
@@ -34,7 +33,7 @@ public class MemoryResource
     private final LocalMemoryManager memoryManager;
 
     @Inject
-    public MemoryResource(LocalMemoryManager memoryManager, SqlTaskManager taskManager)
+    public MemoryResource(LocalMemoryManager memoryManager)
     {
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
     }

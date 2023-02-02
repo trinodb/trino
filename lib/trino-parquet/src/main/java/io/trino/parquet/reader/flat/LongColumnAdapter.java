@@ -18,6 +18,8 @@ import io.trino.spi.block.LongArrayBlock;
 
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.sizeOf;
+
 public class LongColumnAdapter
         implements ColumnAdapter<long[]>
 {
@@ -30,20 +32,34 @@ public class LongColumnAdapter
     }
 
     @Override
-    public Block createNonNullBlock(int size, long[] values)
+    public Block createNonNullBlock(long[] values)
     {
-        return new LongArrayBlock(size, Optional.empty(), values);
+        return new LongArrayBlock(values.length, Optional.empty(), values);
     }
 
     @Override
-    public Block createNullableBlock(int size, boolean[] nulls, long[] values)
+    public Block createNullableBlock(boolean[] nulls, long[] values)
     {
-        return new LongArrayBlock(size, Optional.of(nulls), values);
+        return new LongArrayBlock(values.length, Optional.of(nulls), values);
     }
 
     @Override
     public void copyValue(long[] source, int sourceIndex, long[] destination, int destinationIndex)
     {
         destination[destinationIndex] = source[sourceIndex];
+    }
+
+    @Override
+    public void decodeDictionaryIds(long[] values, int offset, int length, int[] ids, long[] dictionary)
+    {
+        for (int i = 0; i < length; i++) {
+            values[offset + i] = dictionary[ids[i]];
+        }
+    }
+
+    @Override
+    public long getSizeInBytes(long[] values)
+    {
+        return sizeOf(values);
     }
 }

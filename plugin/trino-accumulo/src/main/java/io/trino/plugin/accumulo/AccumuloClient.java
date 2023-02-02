@@ -304,13 +304,14 @@ public class AccumuloClient
     private static String getRowIdColumn(ConnectorTableMetadata meta)
     {
         Optional<String> rowIdColumn = AccumuloTableProperties.getRowId(meta.getProperties());
-        return rowIdColumn.orElse(meta.getColumns().get(0).getName()).toLowerCase(Locale.ENGLISH);
+        return rowIdColumn.orElseGet(() -> meta.getColumns().get(0).getName()).toLowerCase(Locale.ENGLISH);
     }
 
     private static List<AccumuloColumnHandle> getColumnHandles(ConnectorTableMetadata meta, String rowIdColumn)
     {
         // Get the column mappings from the table property or auto-generate columns if not defined
-        Map<String, Pair<String, String>> mapping = AccumuloTableProperties.getColumnMapping(meta.getProperties()).orElse(autoGenerateMapping(meta.getColumns(), AccumuloTableProperties.getLocalityGroups(meta.getProperties())));
+        Map<String, Pair<String, String>> mapping = AccumuloTableProperties.getColumnMapping(meta.getProperties())
+                .orElseGet(() -> autoGenerateMapping(meta.getColumns(), AccumuloTableProperties.getLocalityGroups(meta.getProperties())));
 
         // The list of indexed columns
         Optional<List<String>> indexedColumns = AccumuloTableProperties.getIndexColumns(meta.getProperties());

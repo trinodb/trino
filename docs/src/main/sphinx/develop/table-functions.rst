@@ -1,3 +1,4 @@
+
 ===============
 Table functions
 ===============
@@ -136,8 +137,8 @@ execute the table function invocation:
 - The returned row type, specified as an optional ``Descriptor``. It should be
   passed if and only if the table function is declared with the
   ``GENERIC_TABLE`` returned type.
-- Dependencies between descriptor arguments and table arguments. It defaults to
-  ``EMPTY_MAPPING``.
+- Required columns from the table arguments, specified as a map of table
+  argument names to lists of column indexes.
 - Any information gathered during analysis that is useful during planning or
   execution, in the form of a ``ConnectorTableFunctionHandle``.
   ``ConnectorTableFunctionHandle`` is a marker interface intended to carry

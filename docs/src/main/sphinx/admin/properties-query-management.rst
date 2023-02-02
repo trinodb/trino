@@ -28,8 +28,6 @@ stages of a query. You can use the following execution policies:
   result, cluster resource utilization is initially high, but inter-stage
   dependencies typically prevent full processing and cause longer queue times
   which increases the query wall time overall.
-* ``legacy-phased`` has similar functionality to ``phased``, but can increase
-  the query wall time as it attempts to minimize the number of running stages.
 
 ``query.hash-partition-count``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -234,6 +234,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanAlterColumn(SecurityContext context, QualifiedObjectName tableName)
+    {
+        delegate().checkCanAlterColumn(context, tableName);
+    }
+
+    @Override
     public void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName)
     {
         delegate().checkCanDropColumn(context, tableName);
@@ -480,8 +486,8 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
+    public Optional<ViewExpression> getColumnMask(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
     {
-        return delegate().getColumnMasks(context, tableName, columnName, type);
+        return delegate().getColumnMask(context, tableName, columnName, type);
     }
 }

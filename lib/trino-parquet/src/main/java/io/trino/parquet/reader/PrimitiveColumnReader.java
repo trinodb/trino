@@ -60,10 +60,8 @@ public abstract class PrimitiveColumnReader
     private int nextBatchSize;
     private LevelReader repetitionReader;
     private LevelReader definitionReader;
-    private long totalValueCount;
     private PageReader pageReader;
     private Dictionary dictionary;
-    private int currentValueCount;
     private DataPage page;
     private int remainingValueCountInPage;
     private int readOffset;
@@ -117,8 +115,6 @@ public abstract class PrimitiveColumnReader
         else {
             dictionary = null;
         }
-        checkArgument(pageReader.getTotalValueCount() > 0, "page is empty");
-        totalValueCount = pageReader.getTotalValueCount();
         if (rowRanges.isPresent()) {
             indexIterator = rowRanges.get().getParquetRowRanges().iterator();
             // If rowRanges is empty for a row-group, then no page needs to be read, and we should not reach here
@@ -204,7 +200,7 @@ public abstract class PrimitiveColumnReader
      * 100  │  p5  │      │      │
      *      └──────┴──────┴──────┘
      * </pre>
-     *
+     * <p>
      * The pages 1, 2, 3 in col1 are skipped so we have to skip the rows [20, 79]. Because page 1 in col2 contains values
      * only for the rows [40, 79] we skip this entire page as well. To synchronize the row reading we have to skip the
      * values (and the related rl and dl) for the rows [20, 39] in the end of the page 0 for col2. Similarly, we have to
@@ -255,7 +251,6 @@ public abstract class PrimitiveColumnReader
 
     private void seek()
     {
-        checkArgument(currentValueCount <= totalValueCount, "Already read all values in column chunk");
         if (readOffset == 0) {
             return;
         }
@@ -300,7 +295,6 @@ public abstract class PrimitiveColumnReader
             valuesReader = null;
         }
         remainingValueCountInPage -= totalCount;
-        currentValueCount += valuesRead;
     }
 
     private ValuesReader readPageV1(DataPageV1 page)

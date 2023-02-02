@@ -72,7 +72,6 @@ public final class MongoQueryRunner
             queryRunner.createCatalog("tpch", "tpch");
 
             connectorProperties = new HashMap(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("mongodb.case-insensitive-name-matching", "true");
             connectorProperties.putIfAbsent("mongodb.connection-url", server.getConnectionString().toString());
 
             queryRunner.installPlugin(new MongoPlugin());

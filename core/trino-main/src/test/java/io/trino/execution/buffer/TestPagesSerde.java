@@ -29,6 +29,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import javax.crypto.SecretKey;
+
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -122,20 +124,23 @@ public class TestPagesSerde
     private void testRoundTrip(List<Type> types, List<Page> pages, int blockSizeInBytes)
     {
         // without compression, encryption
-        testRoundTrip(types, pages, new PagesSerde(blockEncodingSerde, false, Optional.empty(), blockSizeInBytes));
+        testRoundTrip(types, pages, false, false, blockSizeInBytes);
         // with compression, without encryption
-        testRoundTrip(types, pages, new PagesSerde(blockEncodingSerde, true, Optional.empty(), blockSizeInBytes));
+        testRoundTrip(types, pages, true, false, blockSizeInBytes);
         // without compression, with encryption
-        testRoundTrip(types, pages, new PagesSerde(blockEncodingSerde, false, Optional.of(createRandomAesEncryptionKey()), blockSizeInBytes));
+        testRoundTrip(types, pages, false, true, blockSizeInBytes);
         // with compression, encryption
-        testRoundTrip(types, pages, new PagesSerde(blockEncodingSerde, true, Optional.of(createRandomAesEncryptionKey()), blockSizeInBytes));
+        testRoundTrip(types, pages, true, true, blockSizeInBytes);
     }
 
-    private void testRoundTrip(List<Type> types, List<Page> pages, PagesSerde serde)
+    private void testRoundTrip(List<Type> types, List<Page> pages, boolean compressionEnabled, boolean encryptionEnabled, int blockSizeInBytes)
     {
+        Optional<SecretKey> encryptionKey = encryptionEnabled ? Optional.of(createRandomAesEncryptionKey()) : Optional.empty();
+        PageSerializer serializer = new PageSerializer(blockEncodingSerde, compressionEnabled, encryptionKey, blockSizeInBytes);
+        PageDeserializer deserializer = new PageDeserializer(blockEncodingSerde, compressionEnabled, encryptionKey, blockSizeInBytes);
         for (Page page : pages) {
-            Slice serialized = serde.serialize(page);
-            Page deserialized = serde.deserialize(serialized);
+            Slice serialized = serializer.serialize(page);
+            Page deserialized = deserializer.deserialize(serialized);
             assertPageEquals(types, deserialized, page);
         }
     }
@@ -195,14 +200,14 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(VARCHAR), page);
-        assertEquals(pageSize, 44);
+        assertEquals(pageSize, 48);
 
         // page with one value
         VARCHAR.writeString(builder, "alice");
         pageSize = 44; // Now we have moved to the normal block implementation so the page size overhead is 44
         page = new Page(builder.build());
         int firstValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - pageSize;
-        assertEquals(firstValueSize, 4 + 5); // length + "alice"
+        assertEquals(firstValueSize, 8 + 5); // length + nonNullsCount + "alice"
 
         // page with two values
         VARCHAR.writeString(builder, "bob");
@@ -213,12 +218,14 @@ public class TestPagesSerde
 
     private int serializedSize(List<? extends Type> types, Page expectedPage)
     {
-        PagesSerde serde = new PagesSerdeFactory(blockEncodingSerde, false).createPagesSerde(Optional.empty());
+        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(blockEncodingSerde, false);
+        PageSerializer serializer = serdeFactory.createSerializer(Optional.empty());
+        PageDeserializer deserializer = serdeFactory.createDeserializer(Optional.empty());
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        writePages(serde, sliceOutput, expectedPage);
+        writePages(serializer, sliceOutput, expectedPage);
         Slice slice = sliceOutput.slice();
 
-        Iterator<Page> pageIterator = readPages(serde, slice.getInput());
+        Iterator<Page> pageIterator = readPages(deserializer, slice.getInput());
         if (pageIterator.hasNext()) {
             assertPageEquals(types, pageIterator.next(), expectedPage);
         }
