@@ -371,7 +371,7 @@ public abstract class AbstractValueDecodersTest
                 case BOOLEAN -> new BooleanPlainValuesWriter();
                 case FIXED_LEN_BYTE_ARRAY -> new FixedLenByteArrayPlainValuesWriter(typeLength.orElseThrow(), MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
                 case BINARY, INT32, INT64, DOUBLE, FLOAT -> new PlainValuesWriter(MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
-                default -> throw new IllegalArgumentException("PLAIN encoding writer is not supported for type " + typeName);
+                case INT96 -> new FixedLenByteArrayPlainValuesWriter(12, MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
             };
         }
         if (encoding.equals(RLE_DICTIONARY) || encoding.equals(PLAIN_DICTIONARY)) {
@@ -382,6 +382,7 @@ public abstract class AbstractValueDecodersTest
                 case INT64 -> new PlainLongDictionaryValuesWriter(MAX_VALUE, RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
                 case FLOAT -> new PlainFloatDictionaryValuesWriter(MAX_VALUE, RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
                 case DOUBLE -> new PlainDoubleDictionaryValuesWriter(MAX_VALUE, RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
+                case INT96 -> new PlainFixedLenArrayDictionaryValuesWriter(MAX_VALUE, 12, RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
                 default -> throw new IllegalArgumentException("Dictionary encoding writer is not supported for type " + typeName);
             };
         }

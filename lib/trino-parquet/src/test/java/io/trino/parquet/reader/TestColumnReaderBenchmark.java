@@ -133,4 +133,13 @@ public class TestColumnReaderBenchmark
             benchmark.read();
         }
     }
+
+    @Test
+    public void testInt96ColumnReaderBenchmark()
+            throws IOException
+    {
+        BenchmarkInt96ColumnReader benchmark = new BenchmarkInt96ColumnReader();
+        benchmark.setup();
+        benchmark.read();
+    }
 }
