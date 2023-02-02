@@ -35,7 +35,7 @@ import java.util.Iterator;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static java.util.Objects.requireNonNull;
 
@@ -50,7 +50,6 @@ public final class ParquetColumnChunkIterator
 
     private long valueCount;
     private int dataPageCount;
-    private boolean dictionaryWasRead;
 
     public ParquetColumnChunkIterator(
             Optional<String> fileCreatedBy,
@@ -66,21 +65,16 @@ public final class ParquetColumnChunkIterator
         this.offsetIndex = offsetIndex;
     }
 
-    public boolean hasDictionaryPage()
-    {
-        return metadata.hasDictionaryPage();
-    }
-
     @Override
     public boolean hasNext()
     {
-        return hasMorePages(valueCount, dataPageCount) || (hasDictionaryPage() && !dictionaryWasRead);
+        return hasMorePages(valueCount, dataPageCount);
     }
 
     @Override
     public Page next()
     {
-        checkArgument(hasNext());
+        checkState(hasNext(), "No more data left to read in column (%s), metadata (%s), valueCount %s, dataPageCount %s", descriptor, metadata, valueCount, dataPageCount);
 
         try {
             PageHeader pageHeader = readPageHeader();
@@ -90,10 +84,9 @@ public final class ParquetColumnChunkIterator
             switch (pageHeader.type) {
                 case DICTIONARY_PAGE:
                     if (dataPageCount != 0) {
-                        throw new ParquetCorruptionException("%s has dictionary page at not first position in column chunk", descriptor);
+                        throw new ParquetCorruptionException("Column (%s) has a dictionary page after the first position in column chunk", descriptor);
                     }
                     result = readDictionaryPage(pageHeader, pageHeader.getUncompressed_page_size(), pageHeader.getCompressed_page_size());
-                    dictionaryWasRead = true;
                     break;
                 case DATA_PAGE:
                     result = readDataPageV1(pageHeader, uncompressedPageSize, compressedPageSize, getFirstRowIndex(dataPageCount, offsetIndex));

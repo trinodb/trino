@@ -23,7 +23,6 @@ import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
-import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetTypeUtils;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -55,7 +54,6 @@ import static io.trino.parquet.reader.TestPageReader.DataPageType.V1;
 import static io.trino.parquet.reader.TestPageReader.DataPageType.V2;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.column.Encoding.PLAIN;
-import static org.apache.parquet.column.Encoding.RLE_DICTIONARY;
 import static org.apache.parquet.format.PageType.DATA_PAGE_V2;
 import static org.apache.parquet.format.PageType.DICTIONARY_PAGE;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.SNAPPY;
@@ -199,8 +197,10 @@ public class TestPageReader
         assertPages(compressionCodec, totalValueCount, 3, pageHeader, compressedDataPage, true, ImmutableList.of(Slices.wrappedBuffer(bytes)));
 
         // only dictionary
-        assertPages(compressionCodec, 0, 0, pageHeader, compressedDataPage, true, ImmutableList.of(
-                Slices.wrappedBuffer(Arrays.copyOf(bytes, dictionaryPageSize))));
+        pageReader = createPageReader(0, compressionCodec, true, ImmutableList.of(Slices.wrappedBuffer(Arrays.copyOf(bytes, dictionaryPageSize))));
+        assertThatThrownBy(pageReader::readDictionaryPage)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageStartingWith("No more data left to read");
 
         // multiple slices dictionary
         assertPages(compressionCodec, totalValueCount, 3, pageHeader, compressedDataPage, true, ImmutableList.of(
@@ -239,16 +239,45 @@ public class TestPageReader
 
         int totalValueCount = valueCount * 2;
 
-        // metadata says there is a dictionary but it's not the first page
-        assertThatThrownBy(() -> createPageReader(totalValueCount, compressionCodec, true, ImmutableList.of(Slices.wrappedBuffer(bytes))).readDictionaryPage())
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageStartingWith("DictionaryPage has to be the first page in the column chunk");
+        // There is a dictionary, but it's there as the second page
+        PageReader pageReader = createPageReader(totalValueCount, compressionCodec, true, ImmutableList.of(Slices.wrappedBuffer(bytes)));
+        assertThat(pageReader.readDictionaryPage()).isNull();
+        assertThat(pageReader.readPage()).isNotNull();
+        assertThatThrownBy(pageReader::readPage)
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("has a dictionary page after the first position");
+    }
 
-        // metadata says there is no dictionary, but it's there as second page
-        PageReader pageReader = createPageReader(totalValueCount, compressionCodec, false, ImmutableList.of(Slices.wrappedBuffer(bytes)));
-        assertTrue(pageReader.hasNext());
-        pageReader.skipNextPage();
-        assertThatThrownBy(pageReader::readPage).isInstanceOf(RuntimeException.class).hasCauseInstanceOf(ParquetCorruptionException.class);
+    @Test
+    public void unusedDictionaryPage()
+            throws Exception
+    {
+        // A parquet file produced by Impala was found to have an empty dictionary
+        // which is not used in the encoding of data pages in the column
+        CompressionCodecName compressionCodec = UNCOMPRESSED;
+        byte[] compressedDictionaryPage = TestPageReader.compress(compressionCodec, new byte[0], 0, 0);
+        PageHeader dictionaryPageHeader = new PageHeader(DICTIONARY_PAGE, 0, compressedDictionaryPage.length);
+        dictionaryPageHeader.setDictionary_page_header(new DictionaryPageHeader(0, Encoding.PLAIN));
+        ByteArrayOutputStream out = new ByteArrayOutputStream(100);
+        Util.writePageHeader(dictionaryPageHeader, out);
+        out.write(compressedDictionaryPage);
+
+        DataPageType dataPageType = V2;
+        byte[] compressedDataPage = DATA_PAGE;
+
+        PageHeader pageHeader = new PageHeader(dataPageType.pageType(), DATA_PAGE.length, compressedDataPage.length);
+        int valueCount = 10;
+        dataPageType.setDataPageHeader(pageHeader, valueCount);
+
+        Util.writePageHeader(pageHeader, out);
+        out.write(compressedDataPage);
+        byte[] bytes = out.toByteArray();
+
+        // There is a dictionary, but it's there as the second page
+        PageReader pageReader = createPageReader(valueCount, compressionCodec, true, ImmutableList.of(Slices.wrappedBuffer(bytes)));
+        assertThat(pageReader.readDictionaryPage()).isNotNull();
+        assertThat(pageReader.readPage()).isNotNull();
+        assertThat(pageReader.readPage()).isNull();
     }
 
     private static void assertSinglePage(CompressionCodecName compressionCodec, int valueCount, PageHeader pageHeader, byte[] compressedDataPage, List<Slice> slices)
@@ -363,7 +392,6 @@ public class TestPageReader
         EncodingStats.Builder encodingStats = new EncodingStats.Builder();
         if (hasDictionary) {
             encodingStats.addDictEncoding(PLAIN);
-            encodingStats.addDataEncoding(RLE_DICTIONARY);
         }
         ColumnChunkMetaData columnChunkMetaData = ColumnChunkMetaData.get(
                 ColumnPath.get(""),
