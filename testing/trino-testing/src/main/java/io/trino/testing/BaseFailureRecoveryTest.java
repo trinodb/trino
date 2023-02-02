@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -74,8 +75,10 @@ public abstract class BaseFailureRecoveryTest
     protected static final int INVOCATION_COUNT = 1;
     private static final Duration MAX_ERROR_DURATION = new Duration(5, SECONDS);
     private static final Duration REQUEST_TIMEOUT = new Duration(5, SECONDS);
+    private static final int MAX_PARALLEL_TEST_CONCURRENCY = 4;
 
     private final RetryPolicy retryPolicy;
+    private final Semaphore parallelTestsSemaphore = new Semaphore(MAX_PARALLEL_TEST_CONCURRENCY);
 
     protected BaseFailureRecoveryTest(RetryPolicy retryPolicy)
     {
@@ -197,7 +200,24 @@ public abstract class BaseFailureRecoveryTest
     @Test(invocationCount = INVOCATION_COUNT, dataProvider = "parallelTests")
     public final void testParallel(Runnable runnable)
     {
-        runnable.run();
+        try {
+            // By default, a test method using a @DataProvider with parallel attribute is run in 10 threads (org.testng.xml.XmlSuite#DEFAULT_DATA_PROVIDER_THREAD_COUNT).
+            // We limit number of concurrent test executions to prevent excessive resource usage.
+            //
+            // Note: the downside of this approach is that individual test runtimes will not be representative anymore
+            //       as those will include time spent waiting for semaphore.
+            parallelTestsSemaphore.acquire();
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        try {
+            runnable.run();
+        }
+        finally {
+            parallelTestsSemaphore.release();
+        }
     }
 
     protected void testCreateTable()
