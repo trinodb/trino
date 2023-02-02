@@ -16,6 +16,7 @@ package io.trino.plugin.sqlserver;
 import com.google.common.base.Enums;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.microsoft.sqlserver.jdbc.SQLServerConnection;
@@ -63,7 +64,9 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
@@ -736,6 +739,30 @@ public class SqlServerClient
         name = name.replace("]", escape + "]");
         name = name.replace("[", escape + "[");
         return name;
+    }
+
+    @Override
+    public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        PreparedQuery preparedQuery = new PreparedQuery(format("SELECT * from %s", quoted(getRemoteTableName(session, schemaTableName))), ImmutableList.of());
+        return Optional.of(getTableHandle(session, preparedQuery));
+    }
+
+    private RemoteTableName getRemoteTableName(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            IdentifierMapping identifierMapping = getIdentifierMapping();
+            ConnectorIdentity identity = session.getIdentity();
+            String remoteSchema = identifierMapping.toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
+            String remoteTable = identifierMapping.toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
+            return new RemoteTableName(
+                    Optional.ofNullable(connection.getCatalog()),
+                    Optional.ofNullable(remoteSchema),
+                    remoteTable);
+        }
+        catch (SQLException exception) {
+            throw new TrinoException(JDBC_ERROR, exception);
+        }
     }
 
     @Override
