@@ -64,7 +64,8 @@ public final class PageReader
         boolean hasOnlyDictionaryEncodedPages = isOnlyDictionaryEncodingPages(metadata);
         ParquetColumnChunkIterator compressedPages = new ParquetColumnChunkIterator(
                 fileCreatedBy,
-                new ColumnChunkDescriptor(columnDescriptor, metadata),
+                columnDescriptor,
+                metadata,
                 columnChunk,
                 offsetIndex);
         return new PageReader(metadata.getCodec(), compressedPages, compressedPages.hasDictionaryPage(), hasOnlyDictionaryEncodedPages, hasNoNulls);
