@@ -454,7 +454,7 @@ public class RcFileReader
             throws IOException
     {
         int length = toIntExact(ReadWriteUtils.readVInt(in));
-        verify(length <= MAX_METADATA_STRING_LENGTH, "Metadata string value is too long (%s) in RCFile %s", length, in);
+        verify(length <= MAX_METADATA_STRING_LENGTH, "Metadata string value is too long (%s) in RCFile %s", length, location);
         return in.readSlice(length);
     }
 
