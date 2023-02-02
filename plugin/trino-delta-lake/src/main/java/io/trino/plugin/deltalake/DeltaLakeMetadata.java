@@ -2182,6 +2182,15 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) table;
         AnalyzeHandle analyzeHandle = tableHandle.getAnalyzeHandle().orElseThrow(() -> new IllegalArgumentException("analyzeHandle not set"));
         String location = metastore.getTableLocation(tableHandle.getSchemaTableName(), session);
+        updateTableStatistics(
+                session,
+                Optional.of(analyzeHandle),
+                location,
+                computedStatistics);
+    }
+
+    private void updateTableStatistics(ConnectorSession session, Optional<AnalyzeHandle> analyzeHandle, String location, Collection<ComputedStatistics> computedStatistics)
+    {
         Optional<ExtendedStatistics> oldStatistics = statisticsAccess.readExtendedStatistics(session, location);
 
         // more elaborate logic for handling statistics model evaluation may need to be introduced in the future
@@ -2219,18 +2228,17 @@ public class DeltaLakeMetadata
             finalAlreadyAnalyzedModifiedTimeMax = Comparators.max(oldStatistics.get().getAlreadyAnalyzedModifiedTimeMax(), finalAlreadyAnalyzedModifiedTimeMax);
         }
 
-        if (analyzeHandle.getColumns().isPresent() && !mergedColumnStatistics.keySet().equals(analyzeHandle.getColumns().get())) {
-            // sanity validation
-            throw new IllegalStateException(
-                    format("Unexpected columns in in mergedColumnStatistics %s; expected %s",
-                            mergedColumnStatistics.keySet(),
-                            analyzeHandle.getColumns().get()));
-        }
+        analyzeHandle.flatMap(AnalyzeHandle::getColumns).ifPresent(analyzeColumns -> {
+            if (!mergedColumnStatistics.keySet().equals(analyzeColumns)) {
+                // sanity validation
+                throw new IllegalStateException(format("Unexpected columns in in mergedColumnStatistics %s; expected %s", mergedColumnStatistics.keySet(), analyzeColumns));
+            }
+        });
 
         ExtendedStatistics mergedExtendedStatistics = new ExtendedStatistics(
                 finalAlreadyAnalyzedModifiedTimeMax,
                 mergedColumnStatistics,
-                analyzeHandle.getColumns());
+                analyzeHandle.flatMap(AnalyzeHandle::getColumns));
 
         statisticsAccess.updateExtendedStatistics(session, location, mergedExtendedStatistics);
     }
