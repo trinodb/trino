@@ -16,16 +16,21 @@ package io.trino.parquet.reader.decoders;
 import io.airlift.slice.Slices;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.parquet.reader.flat.BitPackingUtils;
+import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import org.apache.parquet.column.ColumnDescriptor;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.parquet.ParquetReaderUtils.toByteExact;
 import static io.trino.parquet.ParquetReaderUtils.toShortExact;
+import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.parquet.ParquetTypeUtils.checkBytesFitInShortDecimal;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.parquet.reader.flat.BitPackingUtils.unpack;
+import static io.trino.parquet.reader.flat.Int96ColumnAdapter.Int96Buffer;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
@@ -332,6 +337,38 @@ public final class PlainValueDecoders
         public void skip(int n)
         {
             input.skip(n * UUID_SIZE);
+        }
+    }
+
+    public static final class Int96PlainValueDecoder
+            implements ValueDecoder<Int96Buffer>
+    {
+        private static final int LENGTH = SIZE_OF_LONG + SIZE_OF_INT;
+
+        private SimpleSliceInputStream input;
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            this.input = requireNonNull(input, "input is null");
+        }
+
+        @Override
+        public void read(Int96Buffer values, int offset, int length)
+        {
+            input.ensureBytesAvailable(length * LENGTH);
+            for (int i = offset; i < offset + length; i++) {
+                DecodedTimestamp timestamp = decodeInt96Timestamp(input.readLongUnsafe(), input.readIntUnsafe());
+
+                values.longs[i] = timestamp.epochSeconds();
+                values.ints[i] = timestamp.nanosOfSecond();
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            input.skip(n * LENGTH);
         }
     }
 }
