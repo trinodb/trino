@@ -17,5 +17,7 @@ import io.trino.spi.security.ConnectorIdentity;
 
 public interface UserNameProvider
 {
+    UserNameProvider SIMPLE_USER_NAME_PROVIDER = ConnectorIdentity::getUser;
+
     String get(ConnectorIdentity identity);
 }
