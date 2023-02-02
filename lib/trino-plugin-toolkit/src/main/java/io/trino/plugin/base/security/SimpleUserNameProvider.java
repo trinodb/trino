@@ -11,11 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.hdfs.authentication;
+package io.trino.plugin.base.security;
 
 import io.trino.spi.security.ConnectorIdentity;
 
-public interface UserNameProvider
+public class SimpleUserNameProvider
+        implements UserNameProvider
 {
-    String get(ConnectorIdentity identity);
+    @Override
+    public String get(ConnectorIdentity identity)
+    {
+        return identity.getUser();
+    }
 }

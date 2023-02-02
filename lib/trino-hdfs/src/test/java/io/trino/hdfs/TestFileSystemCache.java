@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.concurrent.MoreFutures;
 import io.trino.hdfs.authentication.ImpersonatingHdfsAuthentication;
 import io.trino.hdfs.authentication.SimpleHadoopAuthentication;
-import io.trino.hdfs.authentication.SimpleUserNameProvider;
+import io.trino.plugin.base.security.SimpleUserNameProvider;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
