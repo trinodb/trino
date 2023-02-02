@@ -134,7 +134,7 @@ public class SheetsClient
                 columns.add(new SheetsColumn(columnValue, VarcharType.VARCHAR));
             }
             List<List<String>> dataValues = values.subList(1, values.size()); // removing header info
-            return Optional.of(new SheetsTable(tableName, columns.build(), dataValues));
+            return Optional.of(new SheetsTable(columns.build(), dataValues));
         }
         return Optional.empty();
     }
