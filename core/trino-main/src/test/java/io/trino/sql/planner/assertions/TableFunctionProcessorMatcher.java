@@ -45,6 +45,7 @@ public class TableFunctionProcessorMatcher
     private final String name;
     private final List<String> properOutputs;
     private final List<List<String>> passThroughSymbols;
+    private final List<List<String>> requiredSymbols;
     private final Optional<Map<String, String>> markerSymbols;
     private final Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification;
 
@@ -52,12 +53,16 @@ public class TableFunctionProcessorMatcher
             String name,
             List<String> properOutputs,
             List<List<String>> passThroughSymbols,
+            List<List<String>> requiredSymbols,
             Optional<Map<String, String>> markerSymbols,
             Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification)
     {
         this.name = requireNonNull(name, "name is null");
         this.properOutputs = ImmutableList.copyOf(properOutputs);
         this.passThroughSymbols = passThroughSymbols.stream()
+                .map(ImmutableList::copyOf)
+                .collect(toImmutableList());
+        this.requiredSymbols = requiredSymbols.stream()
                 .map(ImmutableList::copyOf)
                 .collect(toImmutableList());
         this.markerSymbols = markerSymbols.map(ImmutableMap::copyOf);
@@ -98,6 +103,20 @@ public class TableFunctionProcessorMatcher
                         .collect(toImmutableList()))
                 .collect(toImmutableList());
         if (!expectedPassThrough.equals(actualPassThrough)) {
+            return NO_MATCH;
+        }
+
+        List<List<SymbolReference>> expectedRequired = requiredSymbols.stream()
+                .map(list -> list.stream()
+                        .map(symbolAliases::get)
+                        .collect(toImmutableList()))
+                .collect(toImmutableList());
+        List<List<SymbolReference>> actualRequired = tableFunctionProcessorNode.getRequiredSymbols().stream()
+                .map(list -> list.stream()
+                        .map(Symbol::toSymbolReference)
+                        .collect(toImmutableList()))
+                .collect(toImmutableList());
+        if (!expectedRequired.equals(actualRequired)) {
             return NO_MATCH;
         }
 
@@ -142,6 +161,7 @@ public class TableFunctionProcessorMatcher
                 .add("name", name)
                 .add("properOutputs", properOutputs)
                 .add("passThroughSymbols", passThroughSymbols)
+                .add("requiredSymbols", requiredSymbols)
                 .add("markerSymbols", markerSymbols)
                 .add("specification", specification)
                 .toString();
@@ -153,6 +173,7 @@ public class TableFunctionProcessorMatcher
         private String name;
         private List<String> properOutputs = ImmutableList.of();
         private List<List<String>> passThroughSymbols = ImmutableList.of();
+        private List<List<String>> requiredSymbols = ImmutableList.of();
         private Optional<Map<String, String>> markerSymbols = Optional.empty();
         private Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification = Optional.empty();
 
@@ -184,6 +205,12 @@ public class TableFunctionProcessorMatcher
             return this;
         }
 
+        public Builder requiredSymbols(List<List<String>> requiredSymbols)
+        {
+            this.requiredSymbols = requiredSymbols;
+            return this;
+        }
+
         public Builder markerSymbols(Map<String, String> markerSymbols)
         {
             this.markerSymbols = Optional.of(markerSymbols);
@@ -200,7 +227,7 @@ public class TableFunctionProcessorMatcher
         {
             PlanMatchPattern[] sources = source.map(sourcePattern -> new PlanMatchPattern[] {sourcePattern}).orElse(new PlanMatchPattern[] {});
             return node(TableFunctionProcessorNode.class, sources)
-                    .with(new TableFunctionProcessorMatcher(name, properOutputs, passThroughSymbols, markerSymbols, specification));
+                    .with(new TableFunctionProcessorMatcher(name, properOutputs, passThroughSymbols, requiredSymbols, markerSymbols, specification));
         }
     }
 }
