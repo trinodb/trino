@@ -1521,7 +1521,6 @@ public class HiveMetadata
                     .collect(toImmutableMap(HiveColumnHandle::getName, column -> ImmutableSet.copyOf(metastore.getSupportedColumnStatistics(column.getType()))));
             Supplier<PartitionStatistics> emptyPartitionStatistics = Suppliers.memoize(() -> createEmptyPartitionStatistics(columnTypes, columnStatisticTypes));
 
-            int usedComputedStatistics = 0;
             List<Type> partitionTypes = handle.getPartitionColumns().stream()
                     .map(HiveColumnHandle::getType)
                     .collect(toImmutableList());
@@ -1536,11 +1535,9 @@ public class HiveMetadata
                     partitionStatistics.put(partitionValues, emptyPartitionStatistics.get());
                 }
                 else {
-                    usedComputedStatistics++;
                     partitionStatistics.put(partitionValues, createPartitionStatistics(columnTypes, collectedStatistics));
                 }
             }
-            verify(usedComputedStatistics == computedStatistics.size(), "All computed statistics must be used");
             metastore.setPartitionStatistics(table, partitionStatistics.buildOrThrow());
         }
     }
