@@ -169,7 +169,7 @@ public class TestSetSessionTask
 
         assertThatThrownBy(() -> testSetSession("positive_property", new LongLiteral("-1"), "-1"))
                 .isInstanceOf(TrinoException.class)
-                .hasMessage(MUST_BE_POSITIVE);
+                .hasMessage("Invalid value of session property 'my_catalog.positive_property': " + MUST_BE_POSITIVE);
     }
 
     @Test
@@ -177,7 +177,7 @@ public class TestSetSessionTask
     {
         assertThatThrownBy(() -> testSetSession("size_property", new StringLiteral("XL"), "XL"))
                 .isInstanceOf(TrinoException.class)
-                .hasMessage("Invalid value [XL]. Valid values: [SMALL, MEDIUM, LARGE]")
+                .hasMessage("Invalid value of session property 'my_catalog.size_property': Invalid value [XL]. Valid values: [SMALL, MEDIUM, LARGE]")
                 .matches(throwable -> ((TrinoException) throwable).getErrorCode() == INVALID_SESSION_PROPERTY.toErrorCode());
     }
 
