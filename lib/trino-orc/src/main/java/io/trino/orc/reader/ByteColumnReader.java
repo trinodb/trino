@@ -25,7 +25,9 @@ import io.trino.orc.stream.InputStreamSources;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.IntArrayBlock;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ShortArrayBlock;
 import io.trino.spi.type.Type;
 
 import javax.annotation.Nullable;
@@ -43,7 +45,9 @@ import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.reader.ReaderUtils.minNonNullValueSize;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.util.Objects.requireNonNull;
 
@@ -77,7 +81,7 @@ public class ByteColumnReader
             throws OrcCorruptionException
     {
         this.type = requireNonNull(type, "type is null");
-        verifyStreamType(column, type, t -> t == TINYINT || t == INTEGER);
+        verifyStreamType(column, type, t -> t == TINYINT || t == SMALLINT || t == INTEGER || t == BIGINT);
 
         this.column = requireNonNull(column, "column is null");
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
@@ -152,8 +156,14 @@ public class ByteColumnReader
         if (type == TINYINT) {
             return new ByteArrayBlock(nextBatchSize, Optional.empty(), values);
         }
+        if (type == SMALLINT) {
+            return new ShortArrayBlock(nextBatchSize, Optional.empty(), convertToShortArray(values));
+        }
         if (type == INTEGER) {
             return new IntArrayBlock(nextBatchSize, Optional.empty(), convertToIntArray(values));
+        }
+        if (type == BIGINT) {
+            return new LongArrayBlock(nextBatchSize, Optional.empty(), convertToLongArray(values));
         }
         throw new VerifyError("Unsupported type " + type);
     }
@@ -174,8 +184,14 @@ public class ByteColumnReader
         if (type == TINYINT) {
             return new ByteArrayBlock(nextBatchSize, Optional.of(isNull), result);
         }
+        if (type == SMALLINT) {
+            return new ShortArrayBlock(nextBatchSize, Optional.of(isNull), convertToShortArray(result));
+        }
         if (type == INTEGER) {
             return new IntArrayBlock(nextBatchSize, Optional.of(isNull), convertToIntArray(result));
+        }
+        if (type == BIGINT) {
+            return new LongArrayBlock(nextBatchSize, Optional.of(isNull), convertToLongArray(result));
         }
         throw new VerifyError("Unsupported type " + type);
     }
@@ -219,9 +235,27 @@ public class ByteColumnReader
         rowGroupOpen = false;
     }
 
+    private static short[] convertToShortArray(byte[] bytes)
+    {
+        short[] values = new short[bytes.length];
+        for (int i = 0; i < bytes.length; i++) {
+            values[i] = bytes[i];
+        }
+        return values;
+    }
+
     private static int[] convertToIntArray(byte[] bytes)
     {
         int[] values = new int[bytes.length];
+        for (int i = 0; i < bytes.length; i++) {
+            values[i] = bytes[i];
+        }
+        return values;
+    }
+
+    private static long[] convertToLongArray(byte[] bytes)
+    {
+        long[] values = new long[bytes.length];
         for (int i = 0; i < bytes.length; i++) {
             values[i] = bytes[i];
         }

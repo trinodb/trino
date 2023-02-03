@@ -2406,7 +2406,10 @@ public abstract class BaseConnectorTest
     {
         return ImmutableList.<SetColumnTypeSetup>builder()
                 .add(new SetColumnTypeSetup("tinyint", "TINYINT '127'", "smallint"))
+                .add(new SetColumnTypeSetup("tinyint", "TINYINT '127'", "integer"))
+                .add(new SetColumnTypeSetup("tinyint", "TINYINT '127'", "bigint"))
                 .add(new SetColumnTypeSetup("smallint", "SMALLINT '32767'", "integer"))
+                .add(new SetColumnTypeSetup("smallint", "SMALLINT '32767'", "bigint"))
                 .add(new SetColumnTypeSetup("integer", "2147483647", "bigint"))
                 .add(new SetColumnTypeSetup("bigint", "BIGINT '-2147483648'", "integer"))
                 .add(new SetColumnTypeSetup("real", "REAL '10.3'", "double"))
