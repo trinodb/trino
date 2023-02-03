@@ -7,9 +7,23 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Get the hash of local Maven repo
+      id: repo-hash
+      shell: bash
+      run: |
+        TREE_HASH=$( git rev-parse HEAD: )
+        echo "tree-hash=${TREE_HASH}" >> $GITHUB_OUTPUT
+    - name: Cache compile-commit action success
+      id: check-compile-commit-success
+      uses: actions/cache@v3
+      with:
+        path: compile-commit-success.txt
+        key: compile-commit-success-${{ steps.repo-hash.outputs.tree-hash }}
     - uses: ./.github/actions/setup
+      if: steps.check-compile-commit-success.outputs.cache-hit != 'true'
     - name: Check if a specified commit compiles
       shell: bash
+      if: steps.check-compile-commit-success.outputs.cache-hit != 'true'
       run: |
         set -x
 
@@ -32,8 +46,12 @@ runs:
           ${MAVEN_COMPILE_COMMITS} `# defaults, kept in sync with ci.yml` \
           -Dair.check.skip-all=false -Dair.check.skip-basic=true -Dair.check.skip-extended=true -Dair.check.skip-checkstyle=false \
           ${MAVEN_GIB}
+    - name: Mark this workspace as successfully compiled
+      if: steps.check-compile-commit-success.outputs.cache-hit != 'true'
+      shell: bash
+      run: touch compile-commit-success.txt
     - name: Clean local Maven repo
       # Avoid creating a cache entry because this job doesn't download all dependencies
-      if: steps.cache.outputs.cache-hit != 'true'
+      if: steps.check-compile-commit-success.outputs.cache-hit != 'true' && steps.cache.outputs.cache-hit != 'true'
       shell: bash
       run: rm -rf ~/.m2/repository

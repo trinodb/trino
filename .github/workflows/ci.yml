@@ -117,7 +117,7 @@ jobs:
           then
             # The HEAD commit of the PR can be safely ignored since it's already compiled in other jobs
             # This is achieved by adding a tilde (~) after the HEAD sha
-            git rev-list refs/remotes/origin/${{ github.event.pull_request.base.ref }}..${{ github.event.pull_request.head.sha }}~ | jq --raw-input --slurp "$JQ_PIPELINE" > commit-matrix.json
+            git rev-list --reverse refs/remotes/origin/${{ github.event.pull_request.base.ref }}..${{ github.event.pull_request.head.sha }}~ | jq --raw-input --slurp "$JQ_PIPELINE" > commit-matrix.json
           else
             echo -n '' > commit-matrix.json
           fi
