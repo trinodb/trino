@@ -18,7 +18,7 @@ import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
-public final class EnvSinglenodeMysql
+public final class EnvMultinodeMysql
         extends EnvironmentProvider
 {
     // Use non-default MySQL port to avoid conflicts with locally installed MySQL if any.
@@ -40,9 +40,9 @@ public final class EnvSinglenodeMysql
     private final PortBinder portBinder;
 
     @Inject
-    public EnvSinglenodeMysql(Standard standard, DockerFiles dockerFiles, PortBinder portBinder)
+    public EnvMultinodeMysql(StandardMultinode standardMultinode, DockerFiles dockerFiles, PortBinder portBinder)
     {
-        super(ImmutableList.of(standard));
+        super(ImmutableList.of(standardMultinode));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
     }
@@ -50,7 +50,7 @@ public final class EnvSinglenodeMysql
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addConnector("mysql", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-mysql/mysql.properties")));
+        builder.addConnector("mysql", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-mysql/mysql.properties")));
         builder.addContainer(createMySql());
     }
 
