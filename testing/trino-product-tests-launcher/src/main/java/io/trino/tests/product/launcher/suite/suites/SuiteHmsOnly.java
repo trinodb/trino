@@ -15,7 +15,7 @@ package io.trino.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
-import io.trino.tests.product.launcher.env.environment.EnvSinglenode;
+import io.trino.tests.product.launcher.env.environment.EnvMultinode;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
@@ -30,7 +30,7 @@ public class SuiteHmsOnly
     public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
     {
         return ImmutableList.of(
-                testOnEnvironment(EnvSinglenode.class)
+                testOnEnvironment(EnvMultinode.class)
                         .withGroups("configured_features", "hms_only")
                         .build());
     }
