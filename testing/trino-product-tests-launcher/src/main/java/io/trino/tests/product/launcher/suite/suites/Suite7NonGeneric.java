@@ -18,9 +18,9 @@ import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeKerberosKudu;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodePostgresql;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeSqlserver;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHdfsImpersonationCrossRealm;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSparkHive;
-import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSqlserver;
 import io.trino.tests.product.launcher.env.environment.EnvTwoKerberosHives;
 import io.trino.tests.product.launcher.env.environment.EnvTwoMixedHives;
 import io.trino.tests.product.launcher.suite.Suite;
@@ -43,7 +43,7 @@ public class Suite7NonGeneric
                 testOnEnvironment(EnvMultinodePostgresql.class)
                         .withGroups("configured_features", "postgresql")
                         .build(),
-                testOnEnvironment(EnvSinglenodeSqlserver.class)
+                testOnEnvironment(EnvMultinodeSqlserver.class)
                         .withGroups("configured_features", "sqlserver")
                         .build(),
                 testOnEnvironment(EnvSinglenodeSparkHive.class)

@@ -19,7 +19,7 @@ import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
@@ -31,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
-public final class EnvSinglenodeSqlserver
+public final class EnvMultinodeSqlserver
         extends EnvironmentProvider
 {
     public static final int SQLSERVER_PORT = 1433;
@@ -40,9 +40,9 @@ public final class EnvSinglenodeSqlserver
     private final PortBinder portBinder;
 
     @Inject
-    public EnvSinglenodeSqlserver(Standard standard, DockerFiles dockerFiles, PortBinder portBinder)
+    public EnvMultinodeSqlserver(StandardMultinode standardMultinode, DockerFiles dockerFiles, PortBinder portBinder)
     {
-        super(ImmutableList.of(standard));
+        super(ImmutableList.of(standardMultinode));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
     }
@@ -50,7 +50,7 @@ public final class EnvSinglenodeSqlserver
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addConnector("sqlserver", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-sqlserver/sqlserver.properties")));
+        builder.addConnector("sqlserver", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-sqlserver/sqlserver.properties")));
         builder.addContainer(createSqlServer());
     }
 
