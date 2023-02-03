@@ -18,7 +18,7 @@ import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
-public final class EnvSinglenodeCassandra
+public final class EnvMultinodeCassandra
         extends EnvironmentProvider
 {
     private final DockerFiles dockerFiles;
@@ -40,9 +40,9 @@ public final class EnvSinglenodeCassandra
     public static final int CASSANDRA_PORT = 9042;
 
     @Inject
-    protected EnvSinglenodeCassandra(DockerFiles dockerFiles, PortBinder portBinder, Standard standard)
+    protected EnvMultinodeCassandra(DockerFiles dockerFiles, PortBinder portBinder, StandardMultinode standardMultinode)
     {
-        super(ImmutableList.of(standard));
+        super(ImmutableList.of(standardMultinode));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
     }
@@ -51,7 +51,7 @@ public final class EnvSinglenodeCassandra
     public void extendEnvironment(Environment.Builder builder)
     {
         builder.addContainer(createCassandra());
-        builder.addConnector("cassandra", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-cassandra/cassandra.properties")));
+        builder.addConnector("cassandra", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-cassandra/cassandra.properties")));
     }
 
     private DockerContainer createCassandra()
