@@ -77,7 +77,6 @@ public class ByteColumnReader
             throws OrcCorruptionException
     {
         this.type = requireNonNull(type, "type is null");
-        // Iceberg maps ORC tinyint type to integer
         verifyStreamType(column, type, t -> t == TINYINT || t == INTEGER);
 
         this.column = requireNonNull(column, "column is null");

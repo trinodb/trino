@@ -1132,9 +1132,9 @@ public class TestHiveTransactionalTable
             log.info("This shows that Hive see the old data after a column is widened");
             assertThat(onHive().executeQuery("SELECT * FROM " + tableName))
                     .containsOnly(row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"));
-            log.info("This shows that Trino gets an exception trying to widen the type");
-            assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM " + tableName))
-                    .hasMessageMatching(".*Malformed ORC file. Cannot read SQL type 'integer' from ORC stream '.*.age' of type BYTE with attributes.*");
+            log.info("This shows that Trino see the old data after a column is widened");
+            assertThat(onTrino().executeQuery("SELECT * FROM " + tableName))
+                    .containsOnly(row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"));
         });
     }
 

@@ -27,7 +27,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.BINARY;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.LONG;
 import static io.trino.orc.reader.ReaderUtils.invalidStreamType;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 
 public final class ColumnReaders
@@ -65,9 +64,6 @@ public final class ColumnReaders
             case BOOLEAN:
                 return new BooleanColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
             case BYTE:
-                if (type == INTEGER && !column.getAttributes().containsKey("iceberg.id")) {
-                    throw invalidStreamType(column, type);
-                }
                 return new ByteColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
             case SHORT:
             case INT:
