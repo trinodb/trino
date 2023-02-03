@@ -50,7 +50,7 @@ runs:
     - name: Mark this workspace as successfully compiled
       if: steps.check-compile-commit-success.outputs.cache-hit != 'true'
       shell: bash
-      run: touch compile-commit-success.txt
+      run: echo "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" > compile-commit-success.txt
     - name: Clean local Maven repo
       # Avoid creating a cache entry because this job doesn't download all dependencies
       if: steps.check-compile-commit-success.outputs.cache-hit != 'true' && steps.cache.outputs.cache-hit != 'true'
