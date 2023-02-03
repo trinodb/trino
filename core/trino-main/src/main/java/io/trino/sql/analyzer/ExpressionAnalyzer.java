@@ -22,6 +22,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionResolver;
@@ -3129,7 +3131,8 @@ public class ExpressionAnalyzer
             coerceType(expression, actualType, expectedType, message);
         }
 
-        private Type coerceToSingleType(StackableAstVisitorContext<Context> context, Node node, String message, Expression first, Expression second)
+        @FormatMethod
+        private Type coerceToSingleType(StackableAstVisitorContext<Context> context, Node node, @FormatString String message, Expression first, Expression second)
         {
             Type firstType = UNKNOWN;
             if (first != null) {
