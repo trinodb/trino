@@ -22,6 +22,8 @@ public class HiveFormatsConfig
     private boolean csvNativeWriterEnabled = true;
     private boolean jsonNativeReaderEnabled = true;
     private boolean jsonNativeWriterEnabled = true;
+    private boolean openXJsonNativeReaderEnabled = true;
+    private boolean openXJsonNativeWriterEnabled = true;
     private boolean regexNativeReaderEnabled = true;
     private boolean textFileNativeReaderEnabled = true;
     private boolean textFileNativeWriterEnabled = true;
@@ -77,6 +79,32 @@ public class HiveFormatsConfig
     public HiveFormatsConfig setJsonNativeWriterEnabled(boolean jsonNativeWriterEnabled)
     {
         this.jsonNativeWriterEnabled = jsonNativeWriterEnabled;
+        return this;
+    }
+
+    public boolean isOpenXJsonNativeReaderEnabled()
+    {
+        return openXJsonNativeReaderEnabled;
+    }
+
+    @Config("openx-json.native-reader.enabled")
+    @ConfigDescription("Use native OpenXJson reader")
+    public HiveFormatsConfig setOpenXJsonNativeReaderEnabled(boolean openXJsonNativeReaderEnabled)
+    {
+        this.openXJsonNativeReaderEnabled = openXJsonNativeReaderEnabled;
+        return this;
+    }
+
+    public boolean isOpenXJsonNativeWriterEnabled()
+    {
+        return openXJsonNativeWriterEnabled;
+    }
+
+    @Config("openx-json.native-writer.enabled")
+    @ConfigDescription("Use native OpenXJson writer")
+    public HiveFormatsConfig setOpenXJsonNativeWriterEnabled(boolean openXJsonNativeWriterEnabled)
+    {
+        this.openXJsonNativeWriterEnabled = openXJsonNativeWriterEnabled;
         return this;
     }
 
