@@ -89,6 +89,7 @@ public final class HiveFormatUtils
             .toFormatter();
 
     private static final DateTimeFormatter DEFAULT_TIMESTAMP_PARSER = new DateTimeFormatterBuilder()
+            .parseCaseInsensitive()
             .parseLenient()
             // Date part
             .appendValue(YEAR, 1, 10, SignStyle.NORMAL)
@@ -97,7 +98,8 @@ public final class HiveFormatUtils
             .appendLiteral('-')
             .appendValue(DAY_OF_MONTH, 1, 2, SignStyle.NORMAL)
             // Time part
-            .optionalStart().appendLiteral(" ")
+            .optionalStart()
+            .appendLiteral(" ")
             .appendValue(HOUR_OF_DAY, 1, 2, SignStyle.NORMAL)
             .appendLiteral(':')
             .appendValue(MINUTE_OF_HOUR, 1, 2, SignStyle.NORMAL)
@@ -105,6 +107,13 @@ public final class HiveFormatUtils
             .appendValue(SECOND_OF_MINUTE, 1, 2, SignStyle.NORMAL)
             .optionalStart().appendFraction(NANO_OF_SECOND, 1, 9, true).optionalEnd()
             .optionalEnd()
+            .toFormatter()
+            .withResolverStyle(LENIENT);
+
+    private static final DateTimeFormatter ISO_TIMESTAMP_PARSER = new DateTimeFormatterBuilder()
+            .parseCaseInsensitive()
+            .parseLenient()
+            .append(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
             .toFormatter()
             .withResolverStyle(LENIENT);
 
@@ -116,7 +125,8 @@ public final class HiveFormatUtils
             .appendLiteral('-')
             .appendValue(DAY_OF_MONTH, 2, 2, SignStyle.NORMAL)
             // Time part
-            .optionalStart().appendLiteral(" ")
+            .optionalStart()
+            .appendLiteral(" ")
             .appendValue(HOUR_OF_DAY, 2, 2, SignStyle.NORMAL)
             .appendLiteral(':')
             .appendValue(MINUTE_OF_HOUR, 2, 2, SignStyle.NORMAL)
@@ -159,11 +169,16 @@ public final class HiveFormatUtils
     public static BigDecimal parseDecimal(String value, DecimalType decimalType)
     {
         try {
-            return new BigDecimal(value).setScale(DecimalConversions.intScale(decimalType.getScale()), HALF_UP);
+            return scaleDecimal(new BigDecimal(value), decimalType);
         }
         catch (NumberFormatException e) {
             throw new NumberFormatException(format("Cannot convert '%s' to %s. Value is not a number.", value, decimalType));
         }
+    }
+
+    public static BigDecimal scaleDecimal(BigDecimal bigDecimal, DecimalType decimalType)
+    {
+        return bigDecimal.setScale(DecimalConversions.intScale(decimalType.getScale()), HALF_UP);
     }
 
     public static Function<String, DecodedTimestamp> createTimestampParser(List<String> timestampFormats)
@@ -229,7 +244,7 @@ public final class HiveFormatUtils
         }
         catch (DateTimeParseException e) {
             // Try ISO-8601 format
-            localDateTime = LocalDateTime.parse(value);
+            localDateTime = LocalDateTime.parse(value, ISO_TIMESTAMP_PARSER);
         }
         return new DecodedTimestamp(localDateTime.toEpochSecond(ZoneOffset.UTC), localDateTime.getNano());
     }

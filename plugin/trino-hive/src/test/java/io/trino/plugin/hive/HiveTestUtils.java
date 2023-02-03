@@ -35,6 +35,8 @@ import io.trino.plugin.hive.line.CsvFileWriterFactory;
 import io.trino.plugin.hive.line.CsvPageSourceFactory;
 import io.trino.plugin.hive.line.JsonFileWriterFactory;
 import io.trino.plugin.hive.line.JsonPageSourceFactory;
+import io.trino.plugin.hive.line.OpenXJsonFileWriterFactory;
+import io.trino.plugin.hive.line.OpenXJsonPageSourceFactory;
 import io.trino.plugin.hive.line.RegexFileWriterFactory;
 import io.trino.plugin.hive.line.RegexPageSourceFactory;
 import io.trino.plugin.hive.line.SimpleSequenceFilePageSourceFactory;
@@ -198,6 +200,7 @@ public final class HiveTestUtils
         return ImmutableSet.<HivePageSourceFactory>builder()
                 .add(new CsvPageSourceFactory(fileSystemFactory, stats, hiveConfig))
                 .add(new JsonPageSourceFactory(fileSystemFactory, stats, hiveConfig))
+                .add(new OpenXJsonPageSourceFactory(fileSystemFactory, stats, hiveConfig))
                 .add(new RegexPageSourceFactory(fileSystemFactory, stats, hiveConfig))
                 .add(new SimpleTextFilePageSourceFactory(fileSystemFactory, stats, hiveConfig))
                 .add(new SimpleSequenceFilePageSourceFactory(fileSystemFactory, stats, hiveConfig))
@@ -220,6 +223,7 @@ public final class HiveTestUtils
                 .add(new CsvFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .add(new JsonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .add(new RegexFileWriterFactory())
+                .add(new OpenXJsonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .add(new SimpleTextFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .add(new SimpleSequenceFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, nodeVersion))
                 .add(new RcFileFileWriterFactory(hdfsEnvironment, TESTING_TYPE_MANAGER, nodeVersion, hiveConfig))
