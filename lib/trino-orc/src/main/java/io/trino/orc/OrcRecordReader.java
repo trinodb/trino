@@ -122,6 +122,9 @@ public class OrcRecordReader
     private final Optional<StatisticsValidation> stripeStatisticsValidation;
     private final Optional<StatisticsValidation> fileStatisticsValidation;
 
+    private final Optional<Long> startRowPosition;
+    private final Optional<Long> endRowPosition;
+
     public OrcRecordReader(
             List<OrcColumn> readColumns,
             List<Type> readTypes,
@@ -192,6 +195,8 @@ public class OrcRecordReader
         long totalRowCount = 0;
         long fileRowCount = 0;
         long totalDataLength = 0;
+        Optional<Long> startRowPosition = Optional.empty();
+        Optional<Long> endRowPosition = Optional.empty();
         ImmutableList.Builder<StripeInformation> stripes = ImmutableList.builder();
         ImmutableList.Builder<Long> stripeFilePositions = ImmutableList.builder();
         if (fileStats.isEmpty() || predicate.matches(numberOfRows, fileStats.get())) {
@@ -203,10 +208,19 @@ public class OrcRecordReader
                     stripeFilePositions.add(fileRowCount);
                     totalRowCount += stripe.getNumberOfRows();
                     totalDataLength += stripe.getDataLength();
+
+                    if (startRowPosition.isEmpty()) {
+                        startRowPosition = Optional.of(fileRowCount);
+                    }
+                    endRowPosition = Optional.of(fileRowCount + stripe.getNumberOfRows());
                 }
                 fileRowCount += stripe.getNumberOfRows();
             }
         }
+
+        this.startRowPosition = startRowPosition;
+        this.endRowPosition = endRowPosition;
+
         this.totalRowCount = totalRowCount;
         this.totalDataLength = totalDataLength;
         this.stripes = stripes.build();
@@ -350,6 +364,16 @@ public class OrcRecordReader
     public ColumnMetadata<OrcType> getColumnTypes()
     {
         return orcTypes;
+    }
+
+    public Optional<Long> getStartRowPosition()
+    {
+        return startRowPosition;
+    }
+
+    public Optional<Long> getEndRowPosition()
+    {
+        return endRowPosition;
     }
 
     @Override

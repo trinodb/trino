@@ -673,8 +673,8 @@ public class IcebergPageSourceProvider
                                     stats,
                                     reader.getCompressionKind()),
                             columnProjections),
-                    Optional.empty(),
-                    Optional.empty());
+                    recordReader.getStartRowPosition(),
+                    recordReader.getEndRowPosition());
         }
         catch (IOException | RuntimeException e) {
             if (orcDataSource != null) {
