@@ -648,28 +648,28 @@ public class TestAddExchangesPlans
     {
         assertDistributedPlan(
                 "SELECT\n" +
-                "    a,\n" +
-                "    ROW_NUMBER() OVER (\n" +
-                "        PARTITION BY\n" +
-                "            a\n" +
-                "        ORDER BY\n" +
-                "            a\n" +
-                "    ) rn\n" +
-                "FROM (\n" +
-                "    SELECT\n" +
-                "        a,\n" +
-                "        b,\n" +
-                "        COUNT(*)\n" +
-                "    FROM (\n" +
-                "        VALUES\n" +
-                "            (1, 2)\n" +
-                "    ) t (a, b)\n" +
-                "    GROUP BY\n" +
-                "        a,\n" +
-                "        b\n" +
-                ")\n" +
-                "LIMIT\n" +
-                "    2",
+                        "    a,\n" +
+                        "    ROW_NUMBER() OVER (\n" +
+                        "        PARTITION BY\n" +
+                        "            a\n" +
+                        "        ORDER BY\n" +
+                        "            a\n" +
+                        "    ) rn\n" +
+                        "FROM (\n" +
+                        "    SELECT\n" +
+                        "        a,\n" +
+                        "        b,\n" +
+                        "        COUNT(*)\n" +
+                        "    FROM (\n" +
+                        "        VALUES\n" +
+                        "            (1, 2)\n" +
+                        "    ) t (a, b)\n" +
+                        "    GROUP BY\n" +
+                        "        a,\n" +
+                        "        b\n" +
+                        ")\n" +
+                        "LIMIT\n" +
+                        "    2",
                 useExactPartitioning(),
                 anyTree(
                         exchange(REMOTE, REPARTITION,
