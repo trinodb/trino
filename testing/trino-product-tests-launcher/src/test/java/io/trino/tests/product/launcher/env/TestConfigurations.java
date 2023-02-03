@@ -13,7 +13,7 @@
  */
 package io.trino.tests.product.launcher.env;
 
-import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSqlserver;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeSqlserver;
 import io.trino.tests.product.launcher.suite.suites.Suite1;
 import io.trino.tests.product.launcher.suite.suites.Suite6NonGeneric;
 import io.trino.tests.product.launcher.suite.suites.SuiteTpcds;
@@ -38,7 +38,7 @@ public class TestConfigurations
         assertThat(canonicalEnvironmentName("DuzaAla")).isEqualTo("duza-ala");
         assertThat(canonicalEnvironmentName("EnvDuzaAla")).isEqualTo("duza-ala");
         // real life example
-        assertThat(canonicalEnvironmentName(EnvSinglenodeSqlserver.class.getSimpleName())).isEqualTo("singlenode-sqlserver");
+        assertThat(canonicalEnvironmentName(EnvMultinodeSqlserver.class.getSimpleName())).isEqualTo("multinode-sqlserver");
 
         // document current state; this behavior is neither intentional or (currently) forbidden
         assertThat(canonicalEnvironmentName("duza----Ala")).isEqualTo("duza-ala");
