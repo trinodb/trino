@@ -3960,7 +3960,7 @@ public abstract class BaseConnectorTest
     }
 
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
-    @Test(timeOut = 60_000, invocationCount = 4)
+    @Test(timeOut = 160_000, invocationCount = 40)
     public void testAddColumnConcurrently()
             throws Exception
     {
@@ -3969,41 +3969,50 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        int threads = 4;
+        int threads = 40;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
         try (TestTable table = createTableWithOneIntegerColumn("test_add_column")) {
             String tableName = table.getName();
-
+            log.info("Starting add columns for table %s", tableName);
             List<Future<Optional<String>>> futures = IntStream.range(0, threads)
                     .mapToObj(threadNumber -> executor.submit(() -> {
-                        barrier.await(30, SECONDS);
+                        barrier.await(60, SECONDS);
+                        String columnName = "col" + threadNumber;
                         try {
-                            String columnName = "col" + threadNumber;
+                            log.info("About to add column: %s to table %s", columnName, tableName);
                             getQueryRunner().execute("ALTER TABLE " + tableName + " ADD COLUMN " + columnName + " integer");
+                            log.info("Column %s added for table %s", columnName, tableName);
                             return Optional.of(columnName);
                         }
                         catch (Exception e) {
+                            log.error(e, "Original exception during submitting alter column %s for table %s:", columnName, tableName);
                             RuntimeException trinoException = getTrinoExceptionCause(e);
+                            log.error(trinoException, "Trino exception during submitting alter column %s for table %s:", columnName, tableName);
                             try {
                                 verifyConcurrentAddColumnFailurePermissible(trinoException);
                             }
                             catch (Throwable verifyFailure) {
+                                log.error(verifyFailure, "Verify failure during submitting alter column %s for table %s:", columnName, tableName);
                                 if (verifyFailure != e) {
                                     verifyFailure.addSuppressed(e);
                                 }
                                 throw verifyFailure;
                             }
+                            log.warn("Return empty value for column :%s table %s", columnName, tableName);
                             return Optional.<String>empty();
                         }
                     }))
                     .collect(toImmutableList());
 
+            log.info("All alter tasks submitted, futures size: %s for table %s", futures.size(), tableName);
             List<String> addedColumns = futures.stream()
-                    .map(future -> tryGetFutureValue(future, 30, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
+                    .map(future -> tryGetFutureValue(future, 60, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .collect(toImmutableList());
+
+            log.info("Obtaining future results of table %s: %s", tableName, String.join(",", addedColumns));
 
             assertThat(query("DESCRIBE " + tableName))
                     .projected(0)
