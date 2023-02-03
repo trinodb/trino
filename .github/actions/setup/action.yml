@@ -37,7 +37,7 @@ runs:
           java-version: ${{ inputs.java-version }}
       - name: Cache local Maven repo
         id: cache
-        if: ${{ inputs.cache }}
+        if: ${{ inputs.cache && !env.ACT }}
         uses: actions/cache@v3
         with:
           path: ~/.m2/repository
