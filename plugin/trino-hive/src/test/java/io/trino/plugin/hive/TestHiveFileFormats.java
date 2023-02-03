@@ -27,6 +27,8 @@ import io.trino.plugin.hive.line.CsvFileWriterFactory;
 import io.trino.plugin.hive.line.CsvPageSourceFactory;
 import io.trino.plugin.hive.line.JsonFileWriterFactory;
 import io.trino.plugin.hive.line.JsonPageSourceFactory;
+import io.trino.plugin.hive.line.OpenXJsonFileWriterFactory;
+import io.trino.plugin.hive.line.OpenXJsonPageSourceFactory;
 import io.trino.plugin.hive.line.SimpleSequenceFilePageSourceFactory;
 import io.trino.plugin.hive.line.SimpleSequenceFileWriterFactory;
 import io.trino.plugin.hive.line.SimpleTextFilePageSourceFactory;
@@ -85,6 +87,7 @@ import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.buildCol
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.CSV;
 import static io.trino.plugin.hive.HiveStorageFormat.JSON;
+import static io.trino.plugin.hive.HiveStorageFormat.OPENX_JSON;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveStorageFormat.RCBINARY;
@@ -244,6 +247,25 @@ public class TestHiveFileFormats
                 .withFileWriterFactory(new JsonFileWriterFactory(HDFS_FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER))
                 .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
                 .isReadableByPageSource(new JsonPageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
+    }
+
+    @Test(dataProvider = "validRowAndFileSizePadding")
+    public void testOpenXJson(int rowCount, long fileSizePadding)
+            throws Exception
+    {
+        List<TestColumn> testColumns = TEST_COLUMNS.stream()
+                // null map keys are not supported
+                .filter(TestHiveFileFormats::withoutNullMapKeyTests)
+                .collect(toList());
+
+        assertThatFileFormat(OPENX_JSON)
+                .withColumns(testColumns)
+                .withRowsCount(rowCount)
+                .withFileSizePadding(fileSizePadding)
+                // openx serde is not available for testing
+                .withSkipGenericWriterTest()
+                .withFileWriterFactory(new OpenXJsonFileWriterFactory(HDFS_FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER))
+                .isReadableByPageSource(new OpenXJsonPageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test(dataProvider = "validRowAndFileSizePadding")

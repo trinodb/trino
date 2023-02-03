@@ -121,7 +121,6 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
 
 public final class FormatTestUtils
 {
@@ -293,6 +292,8 @@ public final class FormatTestUtils
         map.forEach((entryKey, entryValue) -> newMap.put(
                 decodeRecordReaderValue(keyType, entryKey, hiveStorageTimeZone),
                 decodeRecordReaderValue(valueType, entryValue, hiveStorageTimeZone)));
+        // Trino does not support null keys for hive, so remove them here
+        newMap.remove(null);
         return newMap;
     }
 
@@ -381,10 +382,20 @@ public final class FormatTestUtils
         throw new IllegalArgumentException("Unsupported writable type: " + writable.getClass().getSimpleName());
     }
 
+    public static void assertColumnValuesEquals(List<Column> columns, List<Object> actualValues, List<Object> expectedValues)
+    {
+        for (int i = 0; i < columns.size(); i++) {
+            Type type = columns.get(i).type();
+            Object actualValue = actualValues.get(i);
+            Object expectedValue = expectedValues.get(i);
+            assertColumnValueEquals(type, actualValue, expectedValue);
+        }
+    }
+
     public static void assertColumnValueEquals(Type type, Object actual, Object expected)
     {
-        if (actual == null) {
-            assertNull(expected);
+        if (actual == null || expected == null) {
+            assertEquals(actual, expected);
             return;
         }
         if (type instanceof ArrayType) {

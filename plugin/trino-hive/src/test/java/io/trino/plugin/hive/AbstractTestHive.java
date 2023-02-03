@@ -5291,6 +5291,7 @@ public abstract class AbstractTestHive
                 return ParquetPageSource.class;
             case CSV:
             case JSON:
+            case OPENX_JSON:
             case TEXTFILE:
             case SEQUENCEFILE:
                 return LinePageSource.class;

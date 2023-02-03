@@ -308,6 +308,8 @@ public class TestHiveStorageFormats
                 .filter(format -> !"REGEX".equals(format))
                 // TODO when using JSON serde Hive fails with ClassNotFoundException: org.apache.hive.hcatalog.data.JsonSerDe
                 .filter(format -> !"JSON".equals(format))
+                // OPENX is not supported in Hive by default
+                .filter(format -> !"OPENX_JSON".equals(format))
                 .collect(toImmutableSet());
 
         Assertions.assertThat(ImmutableSet.copyOf(storageFormats()))
