@@ -200,6 +200,7 @@ import io.trino.sql.planner.iterative.rule.RemoveRedundantOffset;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantPredicateAboveTableScan;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantSort;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantSortBelowLimitWithTies;
+import io.trino.sql.planner.iterative.rule.RemoveRedundantTableFunction;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantTopN;
 import io.trino.sql.planner.iterative.rule.RemoveTrivialFilters;
 import io.trino.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
@@ -637,7 +638,8 @@ public class PlanOptimizers
                                 new ImplementBernoulliSampleAsFilter(metadata),
                                 // Must run after RewriteTableFunctionToTableScan because that rule applies to TableFunctionNode.
                                 // While the node gets rewritten to TableFunctionProcessorNode, we can no longer pushdown the function to the connector.
-                                new ImplementTableFunctionSource(metadata))),
+                                new ImplementTableFunctionSource(metadata),
+                                new RemoveRedundantTableFunction())),
                 columnPruningOptimizer,
                 new IterativeOptimizer(
                         plannerContext,
