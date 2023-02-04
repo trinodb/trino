@@ -48,12 +48,10 @@ public class OutputStreamOrcDataSink
     public static OutputStreamOrcDataSink create(OutputStream outputStream)
             throws IOException
     {
-        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
-        return new OutputStreamOrcDataSink(outputStream, memoryContext);
+        return new OutputStreamOrcDataSink(outputStream, newSimpleAggregatedMemoryContext());
     }
 
     private OutputStreamOrcDataSink(OutputStream outputStream, AggregatedMemoryContext memoryContext)
-            throws IOException
     {
         this.output = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputStream is null"));
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
