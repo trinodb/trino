@@ -133,6 +133,12 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.check-commits-dispatcher.outputs.matrix) }}
     steps:
+      - name: Verify args
+        shell: bash
+        if: matrix.commit == ''
+        run: |
+          echo >&2 "Required 'commit' argument not provided"
+          exit 1
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base
