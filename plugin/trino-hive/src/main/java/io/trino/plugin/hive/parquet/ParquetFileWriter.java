@@ -63,7 +63,7 @@ public class ParquetFileWriter
     private final List<Block> nullBlocks;
     private final Optional<Supplier<ParquetDataSource>> validationInputFactory;
     private long validationCpuNanos;
-    private AggregatedMemoryContext memoryContext;
+    private final AggregatedMemoryContext memoryContext;
 
     public ParquetFileWriter(
             TrinoOutputFile outputFile,

@@ -40,7 +40,6 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.Objects.requireNonNull;
@@ -140,7 +139,7 @@ public class S3NativeTransactionLogSynchronizer
             checkState(!fileSystem.newInputFile(newLogEntryPath.toString()).exists(), format("Target file %s was created during locking", newLogEntryPath));
 
             // write transaction log entry
-            try (OutputStream outputStream = fileSystem.newOutputFile(newLogEntryPath.toString()).create(newSimpleAggregatedMemoryContext())) {
+            try (OutputStream outputStream = fileSystem.newOutputFile(newLogEntryPath.toString()).create()) {
                 outputStream.write(entryContents);
             }
         }
@@ -169,7 +168,7 @@ public class S3NativeTransactionLogSynchronizer
         Path lockPath = new Path(lockDirectory, lockFilename);
         TrinoOutputFile lockFile = fileSystem.newOutputFile(lockPath.toString());
         byte[] contentsBytes = lockFileContentsJsonCodec.toJsonBytes(contents);
-        try (OutputStream outputStream = lockFile.create(newSimpleAggregatedMemoryContext())) {
+        try (OutputStream outputStream = lockFile.create()) {
             outputStream.write(contentsBytes);
         }
         return new LockInfo(lockFilename, contents);
