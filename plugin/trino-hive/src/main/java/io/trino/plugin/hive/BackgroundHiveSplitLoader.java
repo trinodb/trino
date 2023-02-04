@@ -758,8 +758,7 @@ public class BackgroundHiveSplitLoader
                 maxSplitFileSize);
         return Optional.of(locatedFileStatuses.stream()
                 .map(locatedFileStatus -> splitFactory.createInternalHiveSplit(locatedFileStatus, OptionalInt.empty(), OptionalInt.empty(), splittable, Optional.empty()))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(Optional::stream)
                 .iterator());
     }
 
@@ -783,8 +782,7 @@ public class BackgroundHiveSplitLoader
                             splittable,
                             acidInfo);
                 })
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(Optional::stream)
                 .iterator();
     }
 
@@ -816,8 +814,7 @@ public class BackgroundHiveSplitLoader
     {
         return Streams.stream(new HiveFileIterator(table, path, fileSystem, directoryLister, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, ignoreAbsentPartitions))
                 .map(status -> splitFactory.createInternalHiveSplit(status, OptionalInt.empty(), OptionalInt.empty(), splittable, acidInfo))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(Optional::stream)
                 .iterator();
     }
 
@@ -907,7 +904,8 @@ public class BackgroundHiveSplitLoader
                     // so we can pass all delete delta locations here, without filtering.
                     eligibleTableBucketNumbers.stream()
                             .map(tableBucketNumber -> splitFactory.createInternalHiveSplit(file, OptionalInt.of(readBucketNumber), OptionalInt.of(tableBucketNumber), splittable, acidInfo))
-                            .forEach(optionalSplit -> optionalSplit.ifPresent(splitList::add));
+                            .flatMap(Optional::stream)
+                            .forEach(splitList::add);
                 }
             }
         }
