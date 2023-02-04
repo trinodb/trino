@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
+import io.airlift.slice.SizeOf;
 import org.apache.hadoop.fs.Path;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -41,7 +42,7 @@ public class AcidInfo
     private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(AcidInfo.class).instanceSize());
 
     private final String partitionLocation;
-    private final List<DeleteDeltaInfo> deleteDeltas;
+    private final List<String> deleteDeltas;
     private final List<OriginalFileInfo> originalFiles;
     private final int bucketId;
     private final boolean orcAcidVersionValidated;
@@ -49,13 +50,13 @@ public class AcidInfo
     @JsonCreator
     public AcidInfo(
             @JsonProperty("partitionLocation") String partitionLocation,
-            @JsonProperty("deleteDeltas") List<DeleteDeltaInfo> deleteDeltas,
+            @JsonProperty("deleteDeltaDirectories") List<String> deleteDeltaDirectories,
             @JsonProperty("originalFiles") List<OriginalFileInfo> originalFiles,
             @JsonProperty("bucketId") int bucketId,
             @JsonProperty("orcAcidVersionValidated") boolean orcAcidVersionValidated)
     {
         this.partitionLocation = requireNonNull(partitionLocation, "partitionLocation is null");
-        this.deleteDeltas = ImmutableList.copyOf(requireNonNull(deleteDeltas, "deleteDeltas is null"));
+        this.deleteDeltas = ImmutableList.copyOf(requireNonNull(deleteDeltaDirectories, "deleteDeltaDirectories is null"));
         this.originalFiles = ImmutableList.copyOf(requireNonNull(originalFiles, "originalFiles is null"));
         this.bucketId = bucketId;
         this.orcAcidVersionValidated = orcAcidVersionValidated;
@@ -80,7 +81,7 @@ public class AcidInfo
     }
 
     @JsonProperty
-    public List<DeleteDeltaInfo> getDeleteDeltas()
+    public List<String> getDeleteDeltaDirectories()
     {
         return deleteDeltas;
     }
@@ -130,59 +131,8 @@ public class AcidInfo
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(partitionLocation)
-                + estimatedSizeOf(deleteDeltas, DeleteDeltaInfo::getRetainedSizeInBytes)
+                + estimatedSizeOf(deleteDeltas, SizeOf::estimatedSizeOf)
                 + estimatedSizeOf(originalFiles, OriginalFileInfo::getRetainedSizeInBytes);
-    }
-
-    public static class DeleteDeltaInfo
-    {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DeleteDeltaInfo.class).instanceSize());
-
-        private final String directoryName;
-
-        @JsonCreator
-        public DeleteDeltaInfo(@JsonProperty("directoryName") String directoryName)
-        {
-            this.directoryName = directoryName;
-        }
-
-        @JsonProperty
-        public String getDirectoryName()
-        {
-            return directoryName;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            DeleteDeltaInfo that = (DeleteDeltaInfo) o;
-            return Objects.equals(directoryName, that.directoryName);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(directoryName);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("directoryName", directoryName)
-                    .toString();
-        }
-
-        public long getRetainedSizeInBytes()
-        {
-            return INSTANCE_SIZE + estimatedSizeOf(directoryName);
-        }
     }
 
     public static class OriginalFileInfo
@@ -256,7 +206,7 @@ public class AcidInfo
     public static class Builder
     {
         private final Path partitionLocation;
-        private final List<DeleteDeltaInfo> deleteDeltaInfos = new ArrayList<>();
+        private final List<String> deleteDeltaDirectories = new ArrayList<>();
         private final ListMultimap<Integer, OriginalFileInfo> bucketIdToOriginalFileInfoMap = ArrayListMultimap.create();
         private boolean orcAcidVersionValidated;
 
@@ -275,7 +225,7 @@ public class AcidInfo
                     deleteDeltaPath.getParent().toString(),
                     partitionLocation);
 
-            deleteDeltaInfos.add(new DeleteDeltaInfo(deleteDeltaPath.getName()));
+            deleteDeltaDirectories.add(deleteDeltaPath.getName());
             return this;
         }
 
@@ -305,19 +255,17 @@ public class AcidInfo
                     bucketId > -1 && bucketIdToOriginalFileInfoMap.containsKey(bucketId),
                     "Bucket Id to OriginalFileInfo map should have entry for requested bucket id: %s",
                     bucketId);
-            List<DeleteDeltaInfo> deleteDeltas = ImmutableList.copyOf(deleteDeltaInfos);
-            return new AcidInfo(partitionLocation.toString(), deleteDeltas, bucketIdToOriginalFileInfoMap.get(bucketId), bucketId, orcAcidVersionValidated);
+            return new AcidInfo(partitionLocation.toString(), deleteDeltaDirectories, bucketIdToOriginalFileInfoMap.get(bucketId), bucketId, orcAcidVersionValidated);
         }
 
         public Optional<AcidInfo> build()
         {
-            List<DeleteDeltaInfo> deleteDeltas = ImmutableList.copyOf(deleteDeltaInfos);
-            if (deleteDeltas.isEmpty() && orcAcidVersionValidated) {
+            if (deleteDeltaDirectories.isEmpty() && orcAcidVersionValidated) {
                 // We do not want to bail out with `Optional.empty()` if ORC ACID version was not validated based on _orc_acid_version file.
                 // If we did so extra validation in OrcPageSourceFactory (based on file metadata) would not be performed.
                 return Optional.empty();
             }
-            return Optional.of(new AcidInfo(partitionLocation.toString(), deleteDeltas, ImmutableList.of(), -1, orcAcidVersionValidated));
+            return Optional.of(new AcidInfo(partitionLocation.toString(), deleteDeltaDirectories, ImmutableList.of(), -1, orcAcidVersionValidated));
         }
     }
 }
