@@ -295,7 +295,7 @@ public class OrcDeletedRows
         private ImmutableSet.Builder<RowId> deletedRowsBuilder = ImmutableSet.builder();
         private int deletedRowsBuilderSize;
         @Nullable
-        private Iterator<AcidInfo.DeleteDeltaInfo> deleteDeltas;
+        private Iterator<String> deleteDeltaDirectories;
         @Nullable
         private ConnectorPageSource currentPageSource;
         @Nullable
@@ -308,15 +308,15 @@ public class OrcDeletedRows
         {
             long initialMemorySize = retainedMemorySize(deletedRowsBuilderSize, currentPage);
 
-            if (deleteDeltas == null) {
-                deleteDeltas = acidInfo.getDeleteDeltas().iterator();
+            if (deleteDeltaDirectories == null) {
+                deleteDeltaDirectories = acidInfo.getDeleteDeltaDirectories().iterator();
             }
 
-            while (deleteDeltas.hasNext() || currentPageSource != null) {
+            while (deleteDeltaDirectories.hasNext() || currentPageSource != null) {
                 try {
                     if (currentPageSource == null) {
-                        AcidInfo.DeleteDeltaInfo deleteDeltaInfo = deleteDeltas.next();
-                        currentPath = createPath(acidInfo, deleteDeltaInfo, sourceFileName);
+                        String deleteDeltaDirectory = deleteDeltaDirectories.next();
+                        currentPath = createPath(acidInfo, deleteDeltaDirectory, sourceFileName);
                         TrinoInputFile inputFile = fileSystem.newInputFile(currentPath.toString());
                         if (inputFile.exists()) {
                             currentPageSource = pageSourceFactory.createPageSource(inputFile).orElseGet(() -> new EmptyPageSource());
@@ -391,9 +391,9 @@ public class OrcDeletedRows
         return sizeOfObjectArray(rowCount) + (long) rowCount * RowId.INSTANCE_SIZE + (currentPage != null ? currentPage.getRetainedSizeInBytes() : 0);
     }
 
-    private static Path createPath(AcidInfo acidInfo, AcidInfo.DeleteDeltaInfo deleteDeltaInfo, String fileName)
+    private static Path createPath(AcidInfo acidInfo, String deleteDeltaDirectory, String fileName)
     {
-        Path directory = new Path(acidInfo.getPartitionLocation(), deleteDeltaInfo.getDirectoryName());
+        Path directory = new Path(acidInfo.getPartitionLocation(), deleteDeltaDirectory);
 
         // When direct insert is enabled base and delta directories contain bucket_[id]_[attemptId] files
         // but delete delta directories contain bucket files without attemptId so we have to remove it from filename.
