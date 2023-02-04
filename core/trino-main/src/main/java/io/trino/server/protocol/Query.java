@@ -548,7 +548,6 @@ class Query
     {
         if (!resultsConsumed && queryInfo.getOutputStage().isEmpty()) {
             return queryResultRowsBuilder(session)
-                    .withColumnsAndTypes(ImmutableList.of(), ImmutableList.of())
                     .build();
         }
         // Remove as many pages as possible from the exchange until just greater than DESIRED_RESULT_BYTES
