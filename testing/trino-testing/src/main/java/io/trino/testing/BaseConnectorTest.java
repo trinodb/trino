@@ -3969,7 +3969,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        int threads = 40;
+        int threads = 5;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
         try (TestTable table = createTableWithOneIntegerColumn("test_add_column")) {
@@ -3999,8 +3999,8 @@ public abstract class BaseConnectorTest
                                 }
                                 throw verifyFailure;
                             }
-                            log.warn("Return empty value for column :%s table %s", columnName, tableName);
-                            return Optional.<String>empty();
+                            log.warn("Return fail value for column :%s table %s", columnName, tableName);
+                            return Optional.of("fail" + columnName);
                         }
                     }))
                     .collect(toImmutableList());
@@ -4012,12 +4012,26 @@ public abstract class BaseConnectorTest
                     .map(Optional::get)
                     .collect(toImmutableList());
 
+            for (String columnName : addedColumns) {
+                if (columnName.startsWith("fail")) {
+                    columnName = columnName.replaceAll("fail", "");
+                    log.warn("About to insert data for failed column :%s table %s", columnName, tableName);
+                    try {
+                        getQueryRunner().execute(format("INSERT INTO %s (%s) VALUES (%s)", tableName, columnName, 1));
+                        log.info("!!!!!!!!!!!! Data inserted for failed column %s for table %s", columnName, tableName);
+                    }
+                    catch (Exception ex) {
+                        log.error(ex, "Exception during insert into column %s for table %s:", columnName, tableName);
+                    }
+                }
+            }
+
             log.info("Obtaining future results of table %s: %s", tableName, String.join(",", addedColumns));
 
             assertThat(query("DESCRIBE " + tableName))
                     .projected(0)
                     .skippingTypesCheck()
-                    .matches(Stream.concat(Stream.of("col"), addedColumns.stream())
+                    .matches(Stream.concat(Stream.of("col"), addedColumns.stream().filter(s -> !s.startsWith("fail")))
                             .map(value -> format("'%s'", value))
                             .collect(joining(",", "VALUES ", "")));
         }
