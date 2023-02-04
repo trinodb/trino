@@ -186,7 +186,7 @@ public class QueryResultRows
 
         public Builder withColumnsAndTypes(@Nullable List<Column> columns, @Nullable List<Type> types)
         {
-            if (columns != null || types != null) {
+            if (columns != null && types != null) {
                 this.columns = Optional.of(combine(columns, types));
             }
 
