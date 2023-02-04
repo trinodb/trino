@@ -118,10 +118,9 @@ public class OrcDeletedRows
 
         static MaskDeletedRowsFunction noMaskForPage(Page page)
         {
+            int positionCount = page.getPositionCount();
             return new MaskDeletedRowsFunction()
             {
-                int positionCount = page.getPositionCount();
-
                 @Override
                 public int getPositionCount()
                 {
@@ -205,6 +204,7 @@ public class OrcDeletedRows
 
         private RowId getRowId(int position)
         {
+            verify(sourcePage != null, "sourcePage is null");
             long originalTransaction;
             long row;
             int bucket;
@@ -271,10 +271,7 @@ public class OrcDeletedRows
             }
         }
 
-        if (state == State.LOADED) {
-            return true;
-        }
-        return false;
+        return state == State.LOADED;
     }
 
     public void close()
@@ -292,7 +289,7 @@ public class OrcDeletedRows
 
     private class Loader
     {
-        private ImmutableSet.Builder<RowId> deletedRowsBuilder = ImmutableSet.builder();
+        private final ImmutableSet.Builder<RowId> deletedRowsBuilder = ImmutableSet.builder();
         private int deletedRowsBuilderSize;
         @Nullable
         private Iterator<String> deleteDeltaDirectories;
@@ -319,7 +316,7 @@ public class OrcDeletedRows
                         currentPath = createPath(acidInfo, deleteDeltaDirectory, sourceFileName);
                         TrinoInputFile inputFile = fileSystem.newInputFile(currentPath.toString());
                         if (inputFile.exists()) {
-                            currentPageSource = pageSourceFactory.createPageSource(inputFile).orElseGet(() -> new EmptyPageSource());
+                            currentPageSource = pageSourceFactory.createPageSource(inputFile).orElseGet(EmptyPageSource::new);
                         }
                     }
 
@@ -386,9 +383,10 @@ public class OrcDeletedRows
         }
     }
 
-    private long retainedMemorySize(int rowCount, @Nullable Page currentPage)
+    private static long retainedMemorySize(int rowCount, @Nullable Page currentPage)
     {
-        return sizeOfObjectArray(rowCount) + (long) rowCount * RowId.INSTANCE_SIZE + (currentPage != null ? currentPage.getRetainedSizeInBytes() : 0);
+        long pageSize = (currentPage != null) ? currentPage.getRetainedSizeInBytes() : 0;
+        return sizeOfObjectArray(rowCount) + ((long) rowCount * RowId.INSTANCE_SIZE) + pageSize;
     }
 
     private static Path createPath(AcidInfo acidInfo, String deleteDeltaDirectory, String fileName)
@@ -398,10 +396,10 @@ public class OrcDeletedRows
         // When direct insert is enabled base and delta directories contain bucket_[id]_[attemptId] files
         // but delete delta directories contain bucket files without attemptId so we have to remove it from filename.
         if (hasAttemptId(fileName)) {
-            return new Path(directory, fileName.substring(0, fileName.lastIndexOf("_")));
+            return new Path(directory, fileName.substring(0, fileName.lastIndexOf('_')));
         }
 
-        if (acidInfo.getOriginalFiles().size() > 0) {
+        if (!acidInfo.getOriginalFiles().isEmpty()) {
             // Original file format is different from delete delta, construct delete delta file path from bucket ID of original file.
             return bucketFileName(directory, acidInfo.getBucketId());
         }
