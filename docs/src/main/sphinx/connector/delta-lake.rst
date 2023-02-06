@@ -540,7 +540,7 @@ in the metastore. As a result, any Databricks engine can write to the table::
 The Delta Lake connector also supports creating tables using the :doc:`CREATE
 TABLE AS </sql/create-table-as>` syntax.
 
-There are three table properties available for use in table creation.
+The following properties are available for use:
 
 .. list-table:: Delta Lake table properties
   :widths: 40, 60
@@ -554,14 +554,17 @@ There are three table properties available for use in table creation.
     - Set partition columns.
   * - ``checkpoint_interval``
     - Set the checkpoint interval in seconds.
+  * - ``change_data_feed_enabled``
+    - Enables storing change data feed entries.
 
-The following example uses all three table properties::
+The following example uses all four table properties::
 
   CREATE TABLE example.default.example_partitioned_table
   WITH (
     location = 's3://my-bucket/a/path',
     partitioned_by = ARRAY['regionkey'],
-    checkpoint_interval = 5
+    checkpoint_interval = 5,
+    change_data_feed_enabled = true
   )
   AS SELECT name, comment, regionkey FROM tpch.tiny.nation;
 
