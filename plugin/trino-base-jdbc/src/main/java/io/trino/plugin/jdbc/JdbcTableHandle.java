@@ -19,7 +19,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -34,7 +33,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public final class JdbcTableHandle
-        implements ConnectorTableHandle
+        extends BaseJdbcConnectorTableHandle
 {
     private final JdbcRelationHandle relationHandle;
 
@@ -149,6 +148,7 @@ public final class JdbcTableHandle
         return limit;
     }
 
+    @Override
     @JsonProperty
     public Optional<List<JdbcColumnHandle>> getColumns()
     {
