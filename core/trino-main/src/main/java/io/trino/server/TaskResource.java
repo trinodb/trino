@@ -189,11 +189,14 @@ public class TaskResource
         }
 
         Duration waitTime = randomizeWaitTime(maxWait);
-        ListenableFuture<TaskInfo> futureTaskInfo = addTimeout(
-                taskManager.getTaskInfo(taskId, currentVersion),
-                () -> taskManager.getTaskInfo(taskId),
-                waitTime,
-                timeoutExecutor);
+        ListenableFuture<TaskInfo> futureTaskInfo = taskManager.getTaskInfo(taskId, currentVersion);
+        if (!futureTaskInfo.isDone()) {
+            futureTaskInfo = addTimeout(
+                    futureTaskInfo,
+                    () -> taskManager.getTaskInfo(taskId),
+                    waitTime,
+                    timeoutExecutor);
+        }
 
         if (shouldSummarize(uriInfo)) {
             futureTaskInfo = Futures.transform(futureTaskInfo, TaskInfo::summarize, directExecutor());
@@ -232,11 +235,14 @@ public class TaskResource
         // TODO: With current implementation, a newly completed driver group won't trigger immediate HTTP response,
         // leading to a slight delay of approx 1 second, which is not a major issue for any query that are heavy weight enough
         // to justify group-by-group execution. In order to fix this, REST endpoint /v1/{task}/status will need change.
-        ListenableFuture<TaskStatus> futureTaskStatus = addTimeout(
-                taskManager.getTaskStatus(taskId, currentVersion),
-                () -> taskManager.getTaskStatus(taskId),
-                waitTime,
-                timeoutExecutor);
+        ListenableFuture<TaskStatus> futureTaskStatus = taskManager.getTaskStatus(taskId, currentVersion);
+        if (!futureTaskStatus.isDone()) {
+            futureTaskStatus = addTimeout(
+                    futureTaskStatus,
+                    () -> taskManager.getTaskStatus(taskId),
+                    waitTime,
+                    timeoutExecutor);
+        }
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
