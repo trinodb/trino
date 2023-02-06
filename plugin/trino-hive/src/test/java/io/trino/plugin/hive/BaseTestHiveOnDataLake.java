@@ -24,6 +24,10 @@ import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.minio.MinioClient;
@@ -39,11 +43,15 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -1553,6 +1561,62 @@ public abstract class BaseTestHiveOnDataLake
                 "VALUES ('POLAND_1', '2022-02-01 12'), ('POLAND_2', '2022-02-01 12')");
     }
 
+    @Test
+    public void testAnalyzePartitionedTableWithCanonicalization()
+    {
+        String tableName = "test_analyze_table_canonicalization_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE %s (a_varchar varchar, month varchar) WITH (partitioned_by = ARRAY['month'])".formatted(getFullyQualifiedTestTableName(tableName)));
+
+        assertUpdate("INSERT INTO " + getFullyQualifiedTestTableName(tableName) + " VALUES ('A', '01'), ('B', '01'), ('C', '02'), ('D', '03')", 4);
+
+        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*/[^/]*$', '') FROM " + getFullyQualifiedTestTableName(tableName)).getOnlyValue();
+
+        String externalTableName = "external_" + tableName;
+        List<String> partitionColumnNames = List.of("month");
+        assertUpdate(
+                """
+                CREATE TABLE %s(
+                  a_varchar varchar,
+                  month integer)
+                WITH (
+                   partitioned_by = ARRAY['month'],
+                   external_location='%s')
+                """.formatted(getFullyQualifiedTestTableName(externalTableName), tableLocation));
+
+        addPartitions(tableName, externalTableName, partitionColumnNames, TupleDomain.all());
+        assertQuery("SELECT * FROM " + HIVE_TEST_SCHEMA + ".\"" + externalTableName + "$partitions\"", "VALUES 1, 2, 3");
+        assertUpdate("ANALYZE " + getFullyQualifiedTestTableName(externalTableName), 4);
+        assertQuery("SHOW STATS FOR " + getFullyQualifiedTestTableName(externalTableName),
+                """
+                        VALUES
+                            ('a_varchar', 4.0, 2.0, 0.0, null, null, null),
+                            ('month', null, 3.0, 0.0, null, 1, 3),
+                            (null, null, null, null, 4.0, null, null)
+                        """);
+
+        assertUpdate("INSERT INTO " + getFullyQualifiedTestTableName(tableName) + " VALUES ('E', '04')", 1);
+        addPartitions(
+                tableName,
+                externalTableName,
+                partitionColumnNames,
+                TupleDomain.fromFixedValues(Map.of("month", new NullableValue(VARCHAR, utf8Slice("04")))));
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => '" + HIVE_TEST_SCHEMA + "', table_name => '" + externalTableName + "')");
+        assertQuery("SELECT * FROM " + HIVE_TEST_SCHEMA + ".\"" + externalTableName + "$partitions\"", "VALUES 1, 2, 3, 4");
+        assertUpdate("ANALYZE " + getFullyQualifiedTestTableName(externalTableName) + " WITH (partitions = ARRAY[ARRAY['04']])", 1);
+        assertQuery("SHOW STATS FOR " + getFullyQualifiedTestTableName(externalTableName),
+                """
+                        VALUES
+                            ('a_varchar', 5.0, 2.0, 0.0, null, null, null),
+                            ('month', null, 4.0, 0.0, null, 1, 4),
+                            (null, null, null, null, 5.0, null, null)
+                        """);
+        // TODO (https://github.com/trinodb/trino/issues/15998) fix selective ANALYZE for table with non-canonical partition values
+        assertQueryFails("ANALYZE " + getFullyQualifiedTestTableName(externalTableName) + " WITH (partitions = ARRAY[ARRAY['4']])", "Partition no longer exists: month=4");
+
+        assertUpdate("DROP TABLE " + getFullyQualifiedTestTableName(externalTableName));
+        assertUpdate("DROP TABLE " + getFullyQualifiedTestTableName(tableName));
+    }
+
     private void renamePartitionResourcesOutsideTrino(String tableName, String partitionColumn, String regionKey)
     {
         String partitionName = format("%s=%s", partitionColumn, regionKey);
@@ -1704,5 +1768,33 @@ public abstract class BaseTestHiveOnDataLake
                 .containsAll(resultBuilder(getSession())
                         .row(true)
                         .build());
+    }
+
+    private void addPartitions(
+            String sourceTableName,
+            String destinationExternalTableName,
+            List<String> columnNames,
+            TupleDomain<String> partitionsKeyFilter)
+    {
+        Optional<List<String>> partitionNames = metastoreClient.getPartitionNamesByFilter(HIVE_TEST_SCHEMA, sourceTableName, columnNames, partitionsKeyFilter);
+        if (partitionNames.isEmpty()) {
+            // nothing to add
+            return;
+        }
+        Table table = metastoreClient.getTable(HIVE_TEST_SCHEMA, sourceTableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(HIVE_TEST_SCHEMA, sourceTableName)));
+        Map<String, Optional<Partition>> partitionsByNames = metastoreClient.getPartitionsByNames(table, partitionNames.get());
+
+        metastoreClient.addPartitions(
+                HIVE_TEST_SCHEMA,
+                destinationExternalTableName,
+                partitionsByNames.entrySet().stream()
+                        .map(e -> new PartitionWithStatistics(
+                                e.getValue()
+                                        .map(p -> Partition.builder(p).setTableName(destinationExternalTableName).build())
+                                        .orElseThrow(),
+                                e.getKey(),
+                                PartitionStatistics.empty()))
+                        .collect(toImmutableList()));
     }
 }
