@@ -56,7 +56,7 @@ public class KerberosHadoopAuthentication
     @Override
     public UserGroupInformation getUserGroupInformation()
     {
-        Subject subject = kerberosAuthentication.getSubject();
+        Subject subject = kerberosAuthentication.getLoginContext().getSubject();
         return createUserGroupInformationForSubject(subject);
     }
 }
