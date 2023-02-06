@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hudi.partition;
 
+import io.airlift.log.Logger;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.metastore.Column;
@@ -37,6 +38,8 @@ import static java.lang.String.format;
 public class HiveHudiPartitionInfo
         implements HudiPartitionInfo
 {
+    private static final Logger log = Logger.get(HiveHudiPartitionInfo.class);
+
     private final Table table;
     private final List<HiveColumnHandle> partitionColumnHandles;
     private final TupleDomain<HiveColumnHandle> constraintSummary;
@@ -76,6 +79,7 @@ public class HiveHudiPartitionInfo
     public String getRelativePartitionPath()
     {
         if (relativePartitionPath == null) {
+            log.info(">>> getRelativePartitionPath calling getPartition");
             loadPartitionInfo(hiveMetastore.getPartition(table, HiveUtil.toPartitionValues(hivePartitionName)));
         }
         return relativePartitionPath;
@@ -91,6 +95,7 @@ public class HiveHudiPartitionInfo
     public List<HivePartitionKey> getHivePartitionKeys()
     {
         if (hivePartitionKeys == null) {
+            log.info(">>> getHivePartitionKeys calling getPartition");
             loadPartitionInfo(hiveMetastore.getPartition(table, HiveUtil.toPartitionValues(hivePartitionName)));
         }
         return hivePartitionKeys;

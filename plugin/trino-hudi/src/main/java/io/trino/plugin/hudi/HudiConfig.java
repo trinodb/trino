@@ -17,6 +17,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 
 import javax.validation.constraints.DecimalMax;
@@ -46,6 +47,10 @@ public class HudiConfig
     private double minimumAssignedSplitWeight = 0.05;
     private int maxSplitsPerSecond = Integer.MAX_VALUE;
     private int maxOutstandingSplits = 1000;
+    private int splitLoaderParallelism = 2;
+    private int splitGeneratorParallelism = 16;
+    private int partitionScannerParallelism = 16;
+    private long perTransactionMetastoreCacheMaximumSize = 1000;
 
     public List<String> getColumnsToHide()
     {
@@ -189,6 +194,63 @@ public class HudiConfig
     public HudiConfig setMaxOutstandingSplits(int maxOutstandingSplits)
     {
         this.maxOutstandingSplits = maxOutstandingSplits;
+        return this;
+    }
+
+    @Min(1)
+    public int getSplitGeneratorParallelism()
+    {
+        return splitGeneratorParallelism;
+    }
+
+    @Config("hudi.split-generator-parallelism")
+    @ConfigDescription("Number of threads to generate splits from partitions.")
+    public HudiConfig setSplitGeneratorParallelism(int splitGeneratorParallelism)
+    {
+        this.splitGeneratorParallelism = splitGeneratorParallelism;
+        return this;
+    }
+
+    @Min(1)
+    public int getSplitLoaderParallelism()
+    {
+        return splitLoaderParallelism;
+    }
+
+    @Config("hudi.split-loader-parallelism")
+    @ConfigDescription("Number of threads to run background split loader. "
+            + "A single background split loader is needed per query.")
+    public HudiConfig setSplitLoaderParallelism(int splitLoaderParallelism)
+    {
+        this.splitLoaderParallelism = splitLoaderParallelism;
+        return this;
+    }
+
+    @Config("hudi.partition-scanner-parallelism")
+    @ConfigDescription("Number of threads to use for partition scanners")
+    public HudiConfig setPartitionScannerParallelism(int partitionScannerParallelism)
+    {
+        this.partitionScannerParallelism = partitionScannerParallelism;
+        return this;
+    }
+
+    @Min(1)
+    public int getPartitionScannerParallelism()
+    {
+        return partitionScannerParallelism;
+    }
+
+    @Min(1)
+    public long getPerTransactionMetastoreCacheMaximumSize()
+    {
+        return perTransactionMetastoreCacheMaximumSize;
+    }
+
+    @LegacyConfig("hudi.per-transaction-metastore-cache-maximum-size")
+    @Config("delta.per-transaction-metastore-cache-maximum-size")
+    public HudiConfig setPerTransactionMetastoreCacheMaximumSize(long perTransactionMetastoreCacheMaximumSize)
+    {
+        this.perTransactionMetastoreCacheMaximumSize = perTransactionMetastoreCacheMaximumSize;
         return this;
     }
 }

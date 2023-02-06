@@ -30,4 +30,6 @@ public interface HudiDirectoryLister
     List<FileStatus> listStatus(HudiPartitionInfo partitionInfo);
 
     Map<String, Optional<Partition>> getPartitions(List<String> partitionNames);
+
+    Optional<HudiPartitionInfo> getPartitionInfo(String partition);
 }

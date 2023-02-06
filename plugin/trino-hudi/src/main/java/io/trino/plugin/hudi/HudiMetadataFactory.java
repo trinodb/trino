@@ -14,8 +14,8 @@
 package io.trino.plugin.hudi;
 
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
@@ -23,6 +23,7 @@ import javax.inject.Inject;
 
 import java.util.Optional;
 
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static java.util.Objects.requireNonNull;
 
 public class HudiMetadataFactory
@@ -41,7 +42,10 @@ public class HudiMetadataFactory
 
     public HudiMetadata create(ConnectorIdentity identity)
     {
-        HiveMetastore metastore = metastoreFactory.createMetastore(Optional.of(identity));
-        return new HudiMetadata(metastore, hdfsEnvironment, typeManager);
+        // create per-transaction cache over hive metastore interface
+        CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(
+                metastoreFactory.createMetastore(Optional.of(identity)),
+                2000);
+        return new HudiMetadata(cachingHiveMetastore, hdfsEnvironment, typeManager);
     }
 }

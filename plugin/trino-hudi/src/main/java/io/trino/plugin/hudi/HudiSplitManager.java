@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hudi;
 
+import io.airlift.log.Logger;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
@@ -30,15 +31,20 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.fs.Path;
+import org.apache.hudi.common.util.HoodieTimer;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiFunction;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.hudi.HudiSessionProperties.getMaxOutstandingSplits;
+import static io.trino.plugin.hudi.HudiSessionProperties.getMaxSplitsPerSecond;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -46,27 +52,33 @@ import static java.util.function.Function.identity;
 public class HudiSplitManager
         implements ConnectorSplitManager
 {
+    private static final Logger log = Logger.get(HudiSplitManager.class);
+
     private final HudiTransactionManager transactionManager;
+    private final HudiPartitionManager partitionManager;
     private final BiFunction<ConnectorIdentity, HiveTransactionHandle, HiveMetastore> metastoreProvider;
     private final HdfsEnvironment hdfsEnvironment;
     private final ExecutorService executor;
-    private final int maxSplitsPerSecond;
-    private final int maxOutstandingSplits;
+    private final ScheduledExecutorService splitLoaderExecutorService;
+    private final ExecutorService splitGeneratorExecutorService;
 
     @Inject
     public HudiSplitManager(
             HudiTransactionManager transactionManager,
+            HudiPartitionManager partitionManager,
             BiFunction<ConnectorIdentity, HiveTransactionHandle, HiveMetastore> metastoreProvider,
             HdfsEnvironment hdfsEnvironment,
             @ForHudiSplitManager ExecutorService executor,
-            HudiConfig hudiConfig)
+            @ForHudiSplitSource ScheduledExecutorService splitLoaderExecutorService,
+            @ForHudiBackgroundSplitLoader ExecutorService splitGeneratorExecutorService)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.executor = requireNonNull(executor, "executor is null");
-        this.maxSplitsPerSecond = requireNonNull(hudiConfig, "hudiConfig is null").getMaxSplitsPerSecond();
-        this.maxOutstandingSplits = hudiConfig.getMaxOutstandingSplits();
+        this.splitLoaderExecutorService = requireNonNull(splitLoaderExecutorService, "splitLoaderExecutorService is null");
+        this.splitGeneratorExecutorService = requireNonNull(splitGeneratorExecutorService, "splitGeneratorExecutorService is null");
     }
 
     @PreDestroy
@@ -92,6 +104,11 @@ public class HudiSplitManager
         HiveMetastore metastore = metastoreProvider.apply(session.getIdentity(), (HiveTransactionHandle) transaction);
         Table table = metastore.getTable(hudiTableHandle.getSchemaName(), hudiTableHandle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName(hudiTableHandle.getSchemaName(), hudiTableHandle.getTableName())));
+
+        HoodieTimer timer = new HoodieTimer().startTimer();
+        List<String> partitions = partitionManager.getEffectivePartitions(hudiTableHandle, metastore);
+        log.debug("Took %d ms to get %d partitions", timer.endTimer(), partitions.size());
+
         HudiSplitSource splitSource = new HudiSplitSource(
                 session,
                 metastore,
@@ -100,8 +117,11 @@ public class HudiSplitManager
                 hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(table.getStorage().getLocation())),
                 partitionColumnHandles,
                 executor,
-                maxSplitsPerSecond,
-                maxOutstandingSplits);
+                splitLoaderExecutorService,
+                splitGeneratorExecutorService,
+                getMaxSplitsPerSecond(session),
+                getMaxOutstandingSplits(session),
+                partitions);
         return new ClassLoaderSafeConnectorSplitSource(splitSource, HudiSplitManager.class.getClassLoader());
     }
 }
