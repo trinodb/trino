@@ -199,6 +199,7 @@ import io.trino.sql.planner.iterative.rule.RemoveRedundantPredicateAboveTableSca
 import io.trino.sql.planner.iterative.rule.RemoveRedundantSort;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantSortBelowLimitWithTies;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantTopN;
+import io.trino.sql.planner.iterative.rule.RemoveRedundantWindow;
 import io.trino.sql.planner.iterative.rule.RemoveTrivialFilters;
 import io.trino.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
 import io.trino.sql.planner.iterative.rule.RemoveUnreferencedScalarSubqueries;
@@ -441,6 +442,7 @@ public class PlanOptimizers
                                         new ReplaceRedundantJoinWithProject(),
                                         new RemoveRedundantEnforceSingleRowNode(),
                                         new RemoveRedundantExists(),
+                                        new RemoveRedundantWindow(),
                                         new ImplementFilteredAggregations(metadata),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MergeLimitWithDistinct(),
