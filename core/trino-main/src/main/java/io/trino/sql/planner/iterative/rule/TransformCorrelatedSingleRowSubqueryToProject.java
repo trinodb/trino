@@ -22,9 +22,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
 
-import java.util.List;
-
-import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.filter;
 import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -61,28 +58,20 @@ public class TransformCorrelatedSingleRowSubqueryToProject
     @Override
     public Result apply(CorrelatedJoinNode parent, Captures captures, Context context)
     {
-        List<ValuesNode> values = searchFrom(parent.getSubquery(), context.getLookup())
-                .recurseOnlyWhen(ProjectNode.class::isInstance)
-                .where(ValuesNode.class::isInstance)
-                .findAll();
+        PlanNode subquery = context.getLookup().resolve(parent.getSubquery());
 
-        if (values.size() != 1 || !isSingleRowValuesWithNoColumns(values.get(0))) {
-            return Result.empty();
+        if (subquery instanceof ProjectNode project) {
+            if (context.getLookup().resolve(project.getSource()) instanceof ValuesNode values && isSingleRowValuesWithNoColumns(values)) {
+                Assignments assignments = Assignments.builder()
+                        .putIdentities(parent.getInput().getOutputSymbols())
+                        .putAll(project.getAssignments())
+                        .build();
+                return Result.ofPlanNode(projectNode(parent.getInput(), assignments, context));
+            }
         }
 
-        List<ProjectNode> subqueryProjections = searchFrom(parent.getSubquery(), context.getLookup())
-                .where(node -> node instanceof ProjectNode && !node.getOutputSymbols().equals(parent.getCorrelation()))
-                .findAll();
-
-        if (subqueryProjections.size() == 0) {
+        if (subquery instanceof ValuesNode values && isSingleRowValuesWithNoColumns(values)) {
             return Result.ofPlanNode(parent.getInput());
-        }
-        if (subqueryProjections.size() == 1) {
-            Assignments assignments = Assignments.builder()
-                    .putIdentities(parent.getInput().getOutputSymbols())
-                    .putAll(subqueryProjections.get(0).getAssignments())
-                    .build();
-            return Result.ofPlanNode(projectNode(parent.getInput(), assignments, context));
         }
 
         return Result.empty();
