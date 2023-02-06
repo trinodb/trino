@@ -42,27 +42,18 @@ public class KerberosAuthentication
         this.configuration = kerberosConfiguration.getConfiguration();
     }
 
-    public Subject getSubject()
+    public LoginContext getLoginContext()
     {
         Subject subject = new Subject(false, ImmutableSet.of(principal), emptySet(), emptySet());
+        return loginFromSubject(subject);
+    }
+
+    public LoginContext loginFromSubject(Subject subject)
+    {
         try {
             LoginContext loginContext = new LoginContext("", subject, null, configuration);
             loginContext.login();
-            return loginContext.getSubject();
-        }
-        catch (LoginException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public void attemptLogin(Subject subject)
-    {
-        try {
-            synchronized (subject.getPrivateCredentials()) {
-                subject.getPrivateCredentials().clear();
-                LoginContext loginContext = new LoginContext("", subject, null, configuration);
-                loginContext.login();
-            }
+            return loginContext;
         }
         catch (LoginException e) {
             throw new RuntimeException(e);

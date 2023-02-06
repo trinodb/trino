@@ -16,6 +16,8 @@ package io.trino.plugin.base.authentication;
 import javax.annotation.concurrent.GuardedBy;
 import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosTicket;
+import javax.security.auth.login.LoginContext;
+import javax.security.auth.login.LoginException;
 
 import static io.trino.plugin.base.authentication.KerberosTicketUtils.getTicketGrantingTicket;
 import static java.util.Objects.requireNonNull;
@@ -25,7 +27,7 @@ public class CachingKerberosAuthentication
     private final KerberosAuthentication kerberosAuthentication;
 
     @GuardedBy("this")
-    private Subject subject;
+    private LoginContext loginContext;
 
     @GuardedBy("this")
     private long nextRefreshTime;
@@ -37,19 +39,28 @@ public class CachingKerberosAuthentication
 
     public synchronized Subject getSubject()
     {
-        if (subject == null || ticketNeedsRefresh()) {
-            subject = requireNonNull(kerberosAuthentication.getSubject(), "kerberosAuthentication.getSubject() is null");
+        if (loginContext == null || ticketNeedsRefresh()) {
+            loginContext = kerberosAuthentication.getLoginContext();
+            Subject subject = getRequiredSubject();
             KerberosTicket tgtTicket = getTicketGrantingTicket(subject);
             nextRefreshTime = KerberosTicketUtils.getRefreshTime(tgtTicket);
+            return subject;
         }
-        return subject;
+        return getRequiredSubject();
     }
 
     public synchronized void reauthenticateIfSoonWillBeExpired()
     {
-        requireNonNull(subject, "subject is null, getSubject() must be called before reauthenticate()");
+        requireNonNull(loginContext, "loginContext is null. getSubject must be called before reauthenticateIfSoonWillBeExpired");
         if (ticketNeedsRefresh()) {
-            kerberosAuthentication.attemptLogin(subject);
+            Subject subject = getRequiredSubject();
+            try {
+                loginContext.logout();
+                loginContext = kerberosAuthentication.loginFromSubject(subject);
+            }
+            catch (LoginException e) {
+                throw new RuntimeException(e);
+            }
             KerberosTicket tgtTicket = getTicketGrantingTicket(subject);
             nextRefreshTime = KerberosTicketUtils.getRefreshTime(tgtTicket);
         }
@@ -58,5 +69,10 @@ public class CachingKerberosAuthentication
     private boolean ticketNeedsRefresh()
     {
         return nextRefreshTime < System.currentTimeMillis();
+    }
+
+    private Subject getRequiredSubject()
+    {
+        return requireNonNull(loginContext.getSubject(), "loginContext.getSubject() is null");
     }
 }
