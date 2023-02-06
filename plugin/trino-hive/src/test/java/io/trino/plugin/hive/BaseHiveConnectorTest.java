@@ -4456,6 +4456,8 @@ public abstract class BaseHiveConnectorTest
                         getSession().getSchema().get())))
                 .hasMessageMatching("Inserting into Hive table with skip.footer.line.count property not supported");
 
+        assertUpdate("DROP TABLE csv_table_skip_footer");
+
         createTableSql = format("" +
                         "CREATE TABLE %s.%s.csv_table_skip_header_footer (\n" +
                         "   name VARCHAR\n" +
