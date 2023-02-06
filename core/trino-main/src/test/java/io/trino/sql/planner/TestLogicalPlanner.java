@@ -2290,6 +2290,17 @@ public class TestLogicalPlanner
                                                 anyTree(node(ValuesNode.class)))))));
     }
 
+    @Test
+    public void testDecorrelateSingleRowSubquery()
+    {
+        assertPlan("SELECT * FROM (VALUES 1, 2, 3) t(a), LATERAL (VALUES a * 3)",
+                output(
+                        values(ImmutableList.of("a", "expr"), ImmutableList.of(
+                                ImmutableList.of(new LongLiteral("1"), new LongLiteral("3")),
+                                ImmutableList.of(new LongLiteral("2"), new LongLiteral("6")),
+                                ImmutableList.of(new LongLiteral("3"), new LongLiteral("9"))))));
+    }
+
     private Session noJoinReordering()
     {
         return Session.builder(getQueryRunner().getDefaultSession())

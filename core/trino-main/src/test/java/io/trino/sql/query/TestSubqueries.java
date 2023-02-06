@@ -710,12 +710,12 @@ public class TestSubqueries
         assertThat(assertions.query(
                 "SELECT (SELECT outer_relation.b FROM (VALUES 1) inner_relation) FROM (values 2) outer_relation(b)"))
                 .matches("VALUES 2");
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT (VALUES b) FROM (VALUES 2) outer_relation(b)"))
-                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
-        assertThatThrownBy(() -> assertions.query(
+                .matches("VALUES 2");
+        assertThat(assertions.query(
                 "SELECT (SELECT a + b FROM (VALUES 1) inner_relation(a)) FROM (VALUES 2) outer_relation(b)"))
-                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                .matches("VALUES 3");
         assertThatThrownBy(() -> assertions.query(
                 "SELECT (SELECT rank() OVER(partition by b) FROM (VALUES 1) inner_relation(a)) FROM (VALUES 2) outer_relation(b)"))
                 .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
