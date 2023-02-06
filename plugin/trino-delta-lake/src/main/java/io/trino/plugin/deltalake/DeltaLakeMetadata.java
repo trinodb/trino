@@ -1409,6 +1409,20 @@ public class DeltaLakeMetadata
             transactionLogWriter.flush();
             writeCommitted = true;
             writeCheckpointIfNeeded(session, new SchemaTableName(handle.getSchemaName(), handle.getTableName()), checkpointInterval, commitVersion);
+
+            if (isCollectExtendedStatisticsColumnStatisticsOnWrite(session) && !computedStatistics.isEmpty() && !dataFileInfos.isEmpty()) {
+                // TODO (https://github.com/trinodb/trino/issues/16088) Add synchronization when version conflict for INSERT is resolved.
+                Optional<Instant> maxFileModificationTime = dataFileInfos.stream()
+                        .map(DataFileInfo::getCreationTime)
+                        .max(Long::compare)
+                        .map(Instant::ofEpochMilli);
+                updateTableStatistics(
+                        session,
+                        Optional.empty(),
+                        handle.getLocation(),
+                        maxFileModificationTime,
+                        computedStatistics);
+            }
         }
         catch (Exception e) {
             if (!writeCommitted) {
@@ -2207,10 +2221,18 @@ public class DeltaLakeMetadata
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableSet());
 
+        Optional<ExtendedStatistics> existingStatistics = Optional.empty();
+        Optional<Set<String>> analyzeColumnNames = Optional.empty();
+        String tableLocation = getLocation(tableMetadata.getProperties());
+        if (tableLocation != null) {
+            existingStatistics = statisticsAccess.readExtendedStatistics(session, tableLocation);
+            analyzeColumnNames = existingStatistics.flatMap(ExtendedStatistics::getAnalyzedColumns);
+        }
+
         return getStatisticsCollectionMetadata(
-                Optional.empty(),
+                existingStatistics,
                 tableMetadata.getColumns(),
-                allColumnNames,
+                analyzeColumnNames.orElse(allColumnNames),
                 // File modified time does not need to be collected as a statistics because it gets derived directly from files being written
                 false);
     }
@@ -2327,7 +2349,13 @@ public class DeltaLakeMetadata
             finalAlreadyAnalyzedModifiedTimeMax = Comparators.max(oldStatistics.get().getAlreadyAnalyzedModifiedTimeMax(), finalAlreadyAnalyzedModifiedTimeMax);
         }
 
-        analyzeHandle.flatMap(AnalyzeHandle::getColumns).ifPresent(analyzeColumns -> {
+        Optional<Set<String>> analyzedColumns = analyzeHandle.flatMap(AnalyzeHandle::getColumns);
+        // If update is invoked by other command than ANALYZE, statistics should preserve previous columns set.
+        if (analyzeHandle.isEmpty()) {
+            analyzedColumns = oldStatistics.flatMap(ExtendedStatistics::getAnalyzedColumns);
+        }
+
+        analyzedColumns.ifPresent(analyzeColumns -> {
             if (!mergedColumnStatistics.keySet().equals(analyzeColumns)) {
                 // sanity validation
                 throw new IllegalStateException(format("Unexpected columns in in mergedColumnStatistics %s; expected %s", mergedColumnStatistics.keySet(), analyzeColumns));
@@ -2337,7 +2365,7 @@ public class DeltaLakeMetadata
         ExtendedStatistics mergedExtendedStatistics = new ExtendedStatistics(
                 finalAlreadyAnalyzedModifiedTimeMax,
                 mergedColumnStatistics,
-                analyzeHandle.flatMap(AnalyzeHandle::getColumns));
+                analyzedColumns);
 
         statisticsAccess.updateExtendedStatistics(session, location, mergedExtendedStatistics);
     }
