@@ -13,6 +13,12 @@
  */
 package io.trino.tests.product.deltalake;
 
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.ListObjectsV2Result;
+import com.google.inject.Inject;
+import com.google.inject.name.Named;
+import io.trino.tempto.BeforeTestWithContext;
+import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
@@ -29,15 +35,28 @@ import static java.lang.String.format;
 public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
+    @Inject
+    @Named("s3.server_type")
+    private String s3ServerType;
+
+    private AmazonS3 s3Client;
+
+    @BeforeTestWithContext
+    public void setup()
+    {
+        super.setUp();
+        s3Client = new S3ClientFactory().createS3Client(s3ServerType);
+    }
+
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
     public void testUpdateTableWithCdf()
     {
         String tableName = "test_updates_to_table_with_cdf_" + randomNameSuffix();
         try {
-            onDelta().executeQuery("CREATE TABLE default." + tableName + " (col1 STRING, updated_column INT) " +
-                    "USING DELTA " +
-                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                    "TBLPROPERTIES (delta.enableChangeDataFeed = true)");
+            onTrino().executeQuery("CREATE TABLE delta.default." + tableName + " (col1 VARCHAR, updated_column INT) " +
+                    "WITH (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "', change_data_feed_enabled = true)");
+
+            Assertions.assertThat(onTrino().executeQuery("SHOW CREATE TABLE " + tableName).getOnlyValue().toString()).contains("change_data_feed_enabled = true");
 
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES ('testValue1', 1)");
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES ('testValue2', 2)");
@@ -59,7 +78,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
                             row("testValue4", 4, "update_postimage", 5L));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+            onTrino().executeQuery("DROP TABLE IF EXISTS delta.default." + tableName);
         }
     }
 
@@ -476,5 +495,59 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
         finally {
             onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
         }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    public void testThatCdfDoesntWorkWhenPropertyIsNotSet()
+    {
+        String tableName1 = "test_cdf_doesnt_work_when_property_is_not_set_1_" + randomNameSuffix();
+        String tableName2 = "test_cdf_doesnt_work_when_property_is_not_set_2_" + randomNameSuffix();
+        assertThereIsNoCdfFileGenerated(tableName1, "");
+        assertThereIsNoCdfFileGenerated(tableName2, "change_data_feed_enabled = false");
+    }
+
+    private void assertThereIsNoCdfFileGenerated(String tableName, String tableProperty)
+    {
+        try {
+            onTrino().executeQuery("CREATE TABLE delta.default." + tableName + " (col1 VARCHAR, updated_column INT) " +
+                    "WITH (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                    (tableProperty.isEmpty() ? "" : ", " + tableProperty) + ")");
+
+            if (tableProperty.isEmpty()) {
+                Assertions.assertThat(onTrino().executeQuery("SHOW CREATE TABLE " + tableName).getOnlyValue().toString())
+                        .doesNotContain("change_data_feed_enabled");
+            }
+            else {
+                Assertions.assertThat(onTrino().executeQuery("SHOW CREATE TABLE " + tableName).getOnlyValue().toString())
+                        .contains(tableProperty);
+            }
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES ('testValue1', 1)");
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES ('testValue2', 2)");
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES ('testValue3', 3)");
+
+            // as INSERTs don't generate cdf files other operation is needed, UPDATE will do
+            onTrino().executeQuery("UPDATE delta.default." + tableName +
+                    " SET updated_column = 5 WHERE col1 = 'testValue3'");
+            onDelta().executeQuery("UPDATE default." + tableName +
+                    " SET updated_column = 4 WHERE col1 = 'testValue2'");
+
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(
+                            row("testValue1", 1),
+                            row("testValue2", 4),
+                            row("testValue3", 5));
+
+            assertThatThereIsNoChangeDataFiles(tableName);
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE IF EXISTS delta.default." + tableName);
+        }
+    }
+
+    private void assertThatThereIsNoChangeDataFiles(String tableName)
+    {
+        String prefix = "databricks-compatibility-test-" + tableName + "/_change_data/";
+        ListObjectsV2Result listResult = s3Client.listObjectsV2(bucketName, prefix);
+        Assertions.assertThat(listResult.getObjectSummaries()).isEmpty();
     }
 }

@@ -177,9 +177,11 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isCollectExte
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isLegacyCreateTableWithExistingLocationEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isTableStatisticsEnabled;
+import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHANGE_DATA_FEED_ENABLED_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHECKPOINT_INTERVAL_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.PARTITIONED_BY_PROPERTY;
+import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getChangeDataFeedEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getCheckpointInterval;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getLocation;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getPartitionedBy;
@@ -474,6 +476,9 @@ public class DeltaLakeMetadata
         Optional<Long> checkpointInterval = tableHandle.getMetadataEntry().getCheckpointInterval();
         checkpointInterval.ifPresent(value -> properties.put(CHECKPOINT_INTERVAL_PROPERTY, value));
 
+        Optional<Boolean> changeDataFeedEnabled = tableHandle.getMetadataEntry().isChangeDataFeedEnabled();
+        changeDataFeedEnabled.ifPresent(value -> properties.put(CHANGE_DATA_FEED_ENABLED_PROPERTY, value));
+
         return new ConnectorTableMetadata(
                 tableHandle.getSchemaTableName(),
                 columns,
@@ -708,6 +713,7 @@ public class DeltaLakeMetadata
         ensurePathExists(session, targetPath);
         Path deltaLogDirectory = getTransactionLogDir(targetPath);
         Optional<Long> checkpointInterval = getCheckpointInterval(tableMetadata.getProperties());
+        Optional<Boolean> changeDataFeedEnabled = getChangeDataFeedEnabled(tableMetadata.getProperties());
 
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
@@ -725,6 +731,7 @@ public class DeltaLakeMetadata
                 Map<String, Boolean> columnsNullability = tableMetadata.getColumns().stream()
                         .collect(toImmutableMap(ColumnMetadata::getName, ColumnMetadata::isNullable));
                 TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriterWithoutTransactionIsolation(session, targetPath.toString());
+
                 appendTableEntries(
                         0,
                         transactionLogWriter,
@@ -734,7 +741,7 @@ public class DeltaLakeMetadata
                         columnComments,
                         columnsNullability,
                         deltaLakeColumns.stream().collect(toImmutableMap(DeltaLakeColumnHandle::getName, ignored -> ImmutableMap.of())),
-                        configurationForNewTable(checkpointInterval),
+                        configurationForNewTable(checkpointInterval, changeDataFeedEnabled),
                         CREATE_TABLE_OPERATION,
                         session,
                         nodeVersion,
@@ -863,7 +870,8 @@ public class DeltaLakeMetadata
                 location,
                 getCheckpointInterval(tableMetadata.getProperties()),
                 external,
-                tableMetadata.getComment());
+                tableMetadata.getComment(),
+                getChangeDataFeedEnabled(tableMetadata.getProperties()));
     }
 
     private Optional<String> getSchemaLocation(Database database)
@@ -975,7 +983,7 @@ public class DeltaLakeMetadata
                     ImmutableMap.of(),
                     handle.getInputColumns().stream().collect(toImmutableMap(DeltaLakeColumnHandle::getName, ignored -> true)),
                     handle.getInputColumns().stream().collect(toImmutableMap(DeltaLakeColumnHandle::getName, ignored -> ImmutableMap.of())),
-                    configurationForNewTable(handle.getCheckpointInterval()),
+                    configurationForNewTable(handle.getCheckpointInterval(), handle.getChangeDataFeedEnabled()),
                     CREATE_TABLE_AS_OPERATION,
                     session,
                     nodeVersion,

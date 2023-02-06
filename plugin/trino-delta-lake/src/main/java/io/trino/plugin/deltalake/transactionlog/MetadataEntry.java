@@ -36,6 +36,7 @@ public class MetadataEntry
     public static final String DELTA_CHECKPOINT_WRITE_STATS_AS_STRUCT_PROPERTY = "delta.checkpoint.writeStatsAsStruct";
 
     private static final String DELTA_CHECKPOINT_INTERVAL_PROPERTY = "delta.checkpointInterval";
+    private static final String DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY = "delta.enableChangeDataFeed";
 
     private final String id;
     private final String name;
@@ -156,11 +157,28 @@ public class MetadataEntry
         }
     }
 
-    public static Map<String, String> configurationForNewTable(Optional<Long> checkpointInterval)
+    @JsonIgnore
+    public Optional<Boolean> isChangeDataFeedEnabled()
     {
-        return checkpointInterval
-                .map(value -> ImmutableMap.of(DELTA_CHECKPOINT_INTERVAL_PROPERTY, String.valueOf(value)))
-                .orElseGet(ImmutableMap::of);
+        if (this.getConfiguration() == null) {
+            return Optional.empty();
+        }
+
+        String value = this.getConfiguration().get(DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY);
+        if (value == null) {
+            return Optional.empty();
+        }
+
+        boolean changeDataFeedEnabled = Boolean.parseBoolean(value);
+        return Optional.of(changeDataFeedEnabled);
+    }
+
+    public static Map<String, String> configurationForNewTable(Optional<Long> checkpointInterval, Optional<Boolean> changeDataFeedEnabled)
+    {
+        ImmutableMap.Builder<String, String> configurationMapBuilder = ImmutableMap.builder();
+        checkpointInterval.ifPresent(interval -> configurationMapBuilder.put(DELTA_CHECKPOINT_INTERVAL_PROPERTY, String.valueOf(interval)));
+        changeDataFeedEnabled.ifPresent(enabled -> configurationMapBuilder.put(DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY, String.valueOf(enabled)));
+        return configurationMapBuilder.buildOrThrow();
     }
 
     @Override

@@ -851,6 +851,17 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         assertQuery("SELECT * FROM " + tableName, "VALUES(1, null, 100), (2, null, 200)");
     }
 
+    @Test
+    public void testThatEnableCdfTablePropertyIsShownForCtasTables()
+    {
+        String tableName = "test_show_create_show_property_for_table_created_with_ctas_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(page_url, views)" +
+                "WITH (change_data_feed_enabled = true) " +
+                "AS VALUES ('url1', 1), ('url2', 2)", 2);
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("change_data_feed_enabled = true");
+    }
+
     @Override
     protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
     {
