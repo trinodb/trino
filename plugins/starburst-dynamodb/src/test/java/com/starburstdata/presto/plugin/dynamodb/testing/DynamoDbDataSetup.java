@@ -10,14 +10,14 @@
 package com.starburstdata.presto.plugin.dynamodb.testing;
 
 import com.starburstdata.presto.plugin.dynamodb.DynamoDbConfig;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.trino.testing.datatype.ColumnSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TemporaryRelation;
 import io.trino.testing.sql.TestTable;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 
 import java.sql.SQLException;
 import java.time.temporal.ChronoUnit;
@@ -37,7 +37,7 @@ public class DynamoDbDataSetup
     private final SqlExecutor sqlExecutor;
     private final String tableNamePrefix;
 
-    private static final RetryPolicy<SqlExecutor> QUERY_EXECUTION_RETRY_POLICY = new RetryPolicy<SqlExecutor>()
+    private static final RetryPolicy<SqlExecutor> QUERY_EXECUTION_RETRY_POLICY = RetryPolicy.<SqlExecutor>builder()
             .withBackoff(1, 5, ChronoUnit.SECONDS)
             .withMaxRetries(5)
             .handleIf(throwable -> getCausalChain(throwable).stream()
@@ -45,7 +45,8 @@ public class DynamoDbDataSetup
             .onRetry(event -> log.warn(
                     "Query failed on attempt %s, will retry. Exception: %s",
                     event.getAttemptCount(),
-                    event.getLastFailure().getMessage()));
+                    event.getLastException().getMessage()))
+            .build();
 
     public DynamoDbDataSetup(DynamoDbConfig config, SqlExecutor sqlExecutor, String tableNamePrefix)
     {
@@ -90,7 +91,7 @@ public class DynamoDbDataSetup
 
         // CData driver will intermittently throw a SQLException with no error message
         // Retrying the query typically works
-        Failsafe.with(QUERY_EXECUTION_RETRY_POLICY.copy())
+        Failsafe.with(QUERY_EXECUTION_RETRY_POLICY)
                 .run(() -> sqlExecutor.execute(sql));
     }
 
