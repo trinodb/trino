@@ -52,6 +52,7 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.hive.formats.ReadWriteUtils.writeLengthPrefixedString;
 import static io.trino.hive.formats.ReadWriteUtils.writeVInt;
+import static io.trino.hive.formats.compression.CompressionKind.LZOP;
 import static io.trino.hive.formats.rcfile.RcFileReader.validateFile;
 import static java.lang.StrictMath.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -133,6 +134,7 @@ public class RcFileWriter
         checkArgument(!types.isEmpty(), "types is empty");
         requireNonNull(encoding, "encoding is null");
         requireNonNull(compressionKind, "compressionKind is null");
+        checkArgument(!compressionKind.equals(Optional.of(LZOP)), "LZOP cannot be use with RCFile.  LZO compression can be used, but LZ4 is preferred.");
         requireNonNull(metadata, "metadata is null");
         checkArgument(!metadata.containsKey(PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY), "Cannot set property %s", PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY);
         checkArgument(!metadata.containsKey(COLUMN_COUNT_METADATA_KEY), "Cannot set property %s", COLUMN_COUNT_METADATA_KEY);
