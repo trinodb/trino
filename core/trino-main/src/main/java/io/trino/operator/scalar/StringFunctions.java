@@ -126,6 +126,27 @@ public final class StringFunctions
         return replace(str, search, Slices.EMPTY_SLICE);
     }
 
+    @Description("Greedily removes occurrences of a pattern in a string")
+    @ScalarFunction
+    @LiteralParameters({"x", "y"})
+    @SqlType("varchar(x)")
+    public static Slice replace(@LiteralParameter("x") Long x, @LiteralParameter("y") Long y, @SqlType("char(x)") Slice str, @SqlType("varchar(y)") Slice search)
+    {
+        str = padSpaces(str, x.intValue());
+        return replace(str, search, Slices.EMPTY_SLICE);
+    }
+
+    @Description("Greedily replaces occurrences of a pattern with a string")
+    @ScalarFunction
+    @LiteralParameters({"x", "y", "z", "u"})
+    @Constraint(variable = "u", expression = "min(2147483647, x + z * (x + 1))")
+    @SqlType("varchar(u)")
+    public static Slice replace(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice str, @SqlType("varchar(y)") Slice search, @SqlType("varchar(z)") Slice replace)
+    {
+        str = padSpaces(str, x.intValue());
+        return replace(str, search, replace);
+    }
+
     @Description("Greedily replaces occurrences of a pattern with a string")
     @ScalarFunction
     @LiteralParameters({"x", "y", "z", "u"})

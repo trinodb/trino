@@ -241,6 +241,23 @@ public class TestStringFunctions
         assertFunction("REPLACE('::\uD801\uDC2D::', ':', '')", createVarcharType(5), "\uD801\uDC2D"); //\uD801\uDC2D is one character
         assertFunction("REPLACE('\u00D6sterreich', '\u00D6', 'Oe')", createVarcharType(32), "Oesterreich");
 
+        // Test replace (char(x), varchar(y), varchar(z)) and replace (char(x), varchar(y))
+        assertFunction("REPLACE(CHAR 'aaa', 'a', 'aa')", createVarcharType(11), "aaaaaa");
+        assertFunction("REPLACE(CHAR 'abcdefabcdef', 'cd', 'XX')", createVarcharType(38), "abXXefabXXef");
+        assertFunction("REPLACE(CHAR 'abcdefabcdef', 'cd')", createVarcharType(12), "abefabef");
+        assertFunction("REPLACE(CHAR '0000123', '0')", createVarcharType(7), "123");
+        assertFunction("REPLACE(CHAR '0000123', '0', ' ')", createVarcharType(15), "    123");
+        assertFunction("REPLACE(CHAR 'foo', '')", createVarcharType(3), "foo");
+        assertFunction("REPLACE(CHAR 'foo', '', '')", createVarcharType(3), "foo");
+        assertFunction("REPLACE(CHAR 'foo', 'foo', '')", createVarcharType(3), "");
+        assertFunction("REPLACE(CHAR 'abc', '', 'xx')", createVarcharType(11), "xxaxxbxxcxx");
+        assertFunction("REPLACE(CHAR '', '', 'xx')", createVarcharType(2), "xx");
+        assertFunction("REPLACE(CHAR '', '')", createVarcharType(0), "");
+        assertFunction("REPLACE(CHAR '', '', '')", createVarcharType(0), "");
+        assertFunction("REPLACE(CHAR '  a  bc  ', '  ', 'XX')", createVarcharType(29), "XXaXXbcXX");
+        assertFunction("REPLACE(CHAR 'abc', 'c', ' ')", createVarcharType(7), "ab ");
+        assertFunction("REPLACE(CHAR 'abc ', 'c', 'z')", createVarcharType(9), "abz ");
+
         assertFunction("CAST(REPLACE(utf8(from_hex('CE')), '', 'X') AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("X\u00CEX"));
         assertFunction("CAST(REPLACE('abc' || utf8(from_hex('CE')), '', 'X') AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("XaXbXcX\u00CEX"));
         assertFunction("CAST(REPLACE(utf8(from_hex('CE')) || 'xyz', '', 'X') AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("X\u00CEXxXyXzX"));
