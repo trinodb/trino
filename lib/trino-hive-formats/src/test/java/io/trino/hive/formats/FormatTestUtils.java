@@ -32,6 +32,7 @@ import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
@@ -79,6 +80,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -113,17 +115,24 @@ import static org.testng.Assert.assertNull;
 
 public final class FormatTestUtils
 {
-    // LZO is not tested because the Hadoop native library is not available in Trino
     public static final List<Optional<CompressionKind>> COMPRESSION = ImmutableList.<Optional<CompressionKind>>builder()
             .add(Optional.of(CompressionKind.SNAPPY))
             .add(Optional.of(CompressionKind.LZ4))
             .add(Optional.of(CompressionKind.GZIP))
             .add(Optional.of(CompressionKind.ZSTD))
+            .add(Optional.of(CompressionKind.LZO))
+            .add(Optional.of(CompressionKind.LZOP))
             .add(Optional.of(CompressionKind.BZIP2))
             .add(Optional.empty())
             .build();
 
     private FormatTestUtils() {}
+
+    public static void configureCompressionCodecs(Configuration configuration)
+    {
+        checkArgument(configuration.get("io.compression.codecs") == null, "Compression codecs already configured");
+        configuration.set("io.compression.codecs", CompressionKind.LZOP.getHadoopClassName() + "," + CompressionKind.LZO.getHadoopClassName());
+    }
 
     public static ObjectInspector getJavaObjectInspector(Type type)
     {

@@ -73,6 +73,13 @@ public abstract class AbstractTestRcFileReader
     }
 
     @Test
+    public void testLzopDisabled()
+            throws Exception
+    {
+        RcFileTester.testLzopDisabled();
+    }
+
+    @Test
     public void testNoData()
             throws Exception
     {

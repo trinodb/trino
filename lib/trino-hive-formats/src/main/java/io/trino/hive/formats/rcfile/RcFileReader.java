@@ -21,6 +21,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.DataSeekableInputStream;
 import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.ReadWriteUtils;
+import io.trino.hive.formats.compression.Codec;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.compression.ValueDecompressor;
 import io.trino.hive.formats.encodings.ColumnData;
@@ -46,6 +47,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.ByteStreams.skipFully;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.trino.hive.formats.compression.CompressionKind.LZOP;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -177,8 +179,11 @@ public class RcFileReader
         // setup the compression codec
         if (compressed) {
             String codecClassName = readLengthPrefixedString(input).toStringUtf8();
+            CompressionKind compressionKind = CompressionKind.fromHadoopClassName(codecClassName);
+            checkArgument(compressionKind != LZOP, "LZOP cannot be use with RCFile.  LZO compression can be used, but LZ4 is preferred.");
+            Codec codecFromHadoopClassName = compressionKind.createCodec();
             validateWrite(validation -> validation.getCodecClassName().equals(Optional.of(codecClassName)), "Unexpected compression codec");
-            this.decompressor = CompressionKind.createCodecFromHadoopClassName(codecClassName).createValueDecompressor();
+            this.decompressor = codecFromHadoopClassName.createValueDecompressor();
         }
         else {
             validateWrite(validation -> validation.getCodecClassName().equals(Optional.empty()), "Expected file to be compressed");

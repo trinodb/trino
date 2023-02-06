@@ -38,6 +38,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
@@ -93,6 +94,7 @@ import static io.trino.hive.formats.FormatTestUtils.getJavaObjectInspector;
 import static io.trino.hive.formats.FormatTestUtils.toHiveWriteValue;
 import static io.trino.hive.formats.FormatTestUtils.writeTrinoValue;
 import static io.trino.hive.formats.ReadWriteUtils.findFirstSyncPosition;
+import static io.trino.hive.formats.compression.CompressionKind.LZOP;
 import static io.trino.hive.formats.rcfile.RcFileWriter.PRESTO_RCFILE_WRITER_VERSION;
 import static io.trino.hive.formats.rcfile.RcFileWriter.PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY;
 import static io.trino.spi.type.StandardTypes.MAP;
@@ -108,6 +110,7 @@ import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_ID
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.mapred.Reporter.NULL;
 import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_CODEC;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -198,6 +201,34 @@ public class RcFileTester
         // We assume that the compression algorithms generally work
         rcFileTester.compressions = COMPRESSION;
         return rcFileTester;
+    }
+
+    public static void testLzopDisabled()
+            throws Exception
+    {
+        for (Format format : Format.values()) {
+            try (TempFile tempFile = new TempFile()) {
+                assertThatThrownBy(() -> new RcFileWriter(
+                        new FileOutputStream(tempFile.file()),
+                        ImmutableList.of(VarcharType.VARCHAR),
+                        format.getVectorEncoding(),
+                        Optional.of(LZOP),
+                        ImmutableMap.of(),
+                        false))
+                        .isInstanceOf(IllegalArgumentException.class);
+            }
+
+            try (TempFile tempFile = new TempFile()) {
+                writeRcFileColumnOld(tempFile.file(), format, Optional.of(LZOP), VarcharType.VARCHAR, ImmutableList.of("test").iterator());
+                assertThatThrownBy(() -> new RcFileReader(
+                        new LocalInputFile(tempFile.file()),
+                        format.getVectorEncoding(),
+                        ImmutableMap.of(0, VarcharType.VARCHAR),
+                        0,
+                        tempFile.file().length()))
+                        .isInstanceOf(IllegalArgumentException.class);
+            }
+        }
     }
 
     public void testRoundTrip(Type type, Iterable<?> writeValues, Format... skipFormats)
@@ -294,6 +325,9 @@ public class RcFileTester
 
         for (Format format : formats) {
             for (Optional<CompressionKind> compression : compressions) {
+                if (compression.equals(Optional.of(LZOP))) {
+                    continue;
+                }
                 // write old, read new
                 try (TempFile tempFile = new TempFile()) {
                     writeRcFileColumnOld(tempFile.file(), format, compression, type, finalValues.iterator());
