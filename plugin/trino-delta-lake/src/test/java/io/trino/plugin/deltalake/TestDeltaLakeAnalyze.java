@@ -93,10 +93,20 @@ public class TestDeltaLakeAnalyze
                         "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
 
-        // insert one more copy; should not influence stats other than rowcount
+        // insert one more copy
         assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation", 25);
 
-        runAnalyzeVerifySplitCount(tableName, 1);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
+                        "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
+                        "('comment', 3714.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 354.0, 25.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 50.0, null, null)");
+
+        // check that analyze does not change already calculated statistics
+        assertUpdate("ANALYZE " + tableName);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -109,19 +119,6 @@ public class TestDeltaLakeAnalyze
 
         // insert modified rows
         assertUpdate("INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
-
-        // without ANALYZE all stats but size and NDV should be updated
-        assertQuery(
-                "SHOW STATS FOR " + tableName,
-                "VALUES " +
-                        "('nationkey', null, 25.0, 0.0, null, 0, 49)," +
-                        "('regionkey', null, 5.0, 0.0, null, 0, 9)," +
-                        "('comment', 3714.0, 25.0, 0.0, null, null, null)," +
-                        "('name', 354.0, 25.0, 0.0, null, null, null)," +
-                        "(null, null, null, null, 75.0, null, null)");
-
-        // with analyze we should get new size and NDV
-        runAnalyzeVerifySplitCount(tableName, 1);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -163,10 +160,20 @@ public class TestDeltaLakeAnalyze
                         "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
 
-        // insert one more copy; should not influence stats other than rowcount
+        // insert one more copy
         assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation", 25);
 
-        runAnalyzeVerifySplitCount(tableName, 5);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
+                        "('regionkey', null, 5.0, 0.0, null, null, null)," +
+                        "('comment', 3714.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 354.0, 25.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 50.0, null, null)");
+
+        // check that analyze does not change already calculated statistics
+        assertUpdate("ANALYZE " + tableName);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -180,18 +187,6 @@ public class TestDeltaLakeAnalyze
         // insert modified rows
         assertUpdate("INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
 
-        // without ANALYZE all stats but size and NDV should be updated
-        assertQuery(
-                "SHOW STATS FOR " + tableName,
-                "VALUES " +
-                        "('nationkey', null, 25.0, 0.0, null, 0, 49)," +
-                        "('regionkey', null, 10.0, 0.0, null, null, null)," +
-                        "('comment', 3714.0, 25.0, 0.0, null, null, null)," +
-                        "('name', 354.0, 25.0, 0.0, null, null, null)," +
-                        "(null, null, null, null, 75.0, null, null)");
-
-        // with analyze we should get new size and NDV
-        runAnalyzeVerifySplitCount(tableName, 5);
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
@@ -327,8 +322,22 @@ public class TestDeltaLakeAnalyze
         assertQueryFails("ANALYZE " + tableName,
                 "List of columns to be analyzed must be a subset of previously used: \\[nationkey, regionkey\\]. To extend list of analyzed columns drop table statistics");
 
-        // insert modified rows
+        // insert modified rows should update stats only for already used columns
         assertUpdate("INSERT INTO " + tableName + " SELECT nationkey + 25, concat(name, '1'), regionkey + 5, concat(comment, '21') FROM tpch.sf1.nation", 25);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 50.0, 0.0, null, 0, 49)," +
+                        "('regionkey', null, 10.0, 0.0, null, 0, 9)," +
+                        "('comment', null, null, 0.0, null, null, null)," +
+                        "('name', null, null, 0.0, null, null, null)," +
+                        "(null, null, null, null, 50.0, null, null)");
+
+        // insert should not extend list of analyzed columns
+        assertQueryFails(
+                format("ANALYZE %s WITH(columns = ARRAY['nationkey', 'regionkey', 'name'])", tableName),
+                "List of columns to be analyzed must be a subset of previously used: \\[nationkey, regionkey\\]. To extend list of analyzed columns drop table statistics");
 
         // perform one more analyze for nationkey and regionkey
         assertUpdate(format("ANALYZE %s WITH(columns = ARRAY['nationkey', 'regionkey'])", tableName));
@@ -530,6 +539,164 @@ public class TestDeltaLakeAnalyze
                         "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
                         "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
+    }
+
+    @Test
+    public void testStatisticsOnInsertWhenStatsNotCollectedBefore()
+    {
+        String tableName = "test_statistics_on_insert_when_stats_not_collected_before_" + randomNameSuffix();
+        assertUpdate(
+                disableStatisticsCollectionOnWrite(getSession()),
+                "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, null, 0.0, null, 0, 24)," +
+                        "('regionkey', null, null, 0.0, null, 0, 4)," +
+                        "('comment', null, null, 0.0, null, null, null)," +
+                        "('name', null, null, 0.0, null, null, null)," +
+                        "(null, null, null, null, 25.0, null, null)");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (111, 'a', 333, 'b')", 1);
+
+        // size and NVD statistics should be based only on data added after statistics are enabled
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 1.0, 0.0, null, 0, 111)," +
+                        "('regionkey', null, 1.0, 0.0, null, 0, 333)," +
+                        "('comment', 1.0, 1.0, 0.0, null, null, null)," +
+                        "('name', 1.0, 1.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 26.0, null, null)");
+    }
+
+    @Test
+    public void testStatisticsOnInsertWhenCollectionOnWriteDisabled()
+    {
+        String tableName = "test_statistics_on_insert_when_collection_on_write_disabled_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
+                        "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 25.0, null, null)");
+
+        // insert modified rows
+        assertUpdate(
+                disableStatisticsCollectionOnWrite(getSession()),
+                "INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
+
+        // without ANALYZE all stats but size and NDV should be updated
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 25.0, 0.0, null, 0, 49)," +
+                        "('regionkey', null, 5.0, 0.0, null, 0, 9)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 50.0, null, null)");
+
+        // with analyze we should get new size and NDV
+        assertUpdate("ANALYZE " + tableName);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 50.0, 0.0, null, 0, 49)," +
+                        "('regionkey', null, 10.0, 0.0, null, 0, 9)," +
+                        "('comment', 3714.0, 50.0, 0.0, null, null, null)," +
+                        "('name', 354.0, 50.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 50.0, null, null)");
+    }
+
+    @Test
+    public void testPartitionedStatisticsOnInsertWhenCollectionOnWriteDisabled()
+    {
+        String tableName = "test_partitioned_statistics_on_insert_when_collection_on_write_disabled_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName
+                        + " WITH ("
+                        + "   partitioned_by = ARRAY['regionkey']"
+                        + ")"
+                        + "AS SELECT * FROM tpch.sf1.nation",
+                25);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
+                        "('regionkey', null, 5.0, 0.0, null,  null, null)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 25.0, null, null)");
+
+        // insert modified rows
+        assertUpdate(disableStatisticsCollectionOnWrite(getSession()),
+                "INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
+
+        // without ANALYZE all stats but size and NDV should be updated
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 25.0, 0.0, null, 0, 49)," +
+                        "('regionkey', null, 10.0, 0.0, null,  null, null)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 50.0, null, null)");
+
+        // with analyze we should get new size and NDV
+        assertUpdate("ANALYZE " + tableName);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 50.0, 0.0, null, 0, 49)," +
+                        "('regionkey', null, 10.0, 0.0, null,  null, null)," +
+                        "('comment', 3714.0, 50.0, 0.0, null, null, null)," +
+                        "('name', 354.0, 50.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 50.0, null, null)");
+    }
+
+    @Test
+    public void testIncrementalStatisticsUpdateOnInsert()
+    {
+        String tableName = "test_incremental_statistics_update_on_insert_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
+                        "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 25.0, null, null)");
+
+        assertUpdate("INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 50.0, 0.0, null, 0, 49)," +
+                        "('regionkey', null, 10.0, 0.0, null, 0, 9)," +
+                        "('comment', 3714.0, 50.0, 0.0, null, null, null)," +
+                        "('name', 354.0, 50.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 50.0, null, null)");
+
+        assertUpdate("INSERT INTO " + tableName + " SELECT nationkey + 50, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 75.0, 0.0, null, 0, 74)," +
+                        "('regionkey', null, 10.0, 0.0, null, 0, 9)," +
+                        "('comment', 5571.0, 50.0, 0.0, null, null, null)," +
+                        "('name', 531.0, 50.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 75.0, null, null)");
     }
 
     private void runAnalyzeVerifySplitCount(String tableName, long expectedSplitCount)
