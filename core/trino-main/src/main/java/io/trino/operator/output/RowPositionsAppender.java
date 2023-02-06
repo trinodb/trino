@@ -43,8 +43,8 @@ public class RowPositionsAppender
     private boolean hasNullRow;
     private boolean hasNonNullRow;
     private boolean[] rowIsNull = new boolean[0];
-    private long retainedSizeInBytes;
-    private long sizeInBytes;
+    private long retainedSizeInBytes = -1;
+    private long sizeInBytes = -1;
 
     public static RowPositionsAppender createRowAppender(
             PositionsAppenderFactory positionsAppenderFactory,
@@ -63,7 +63,7 @@ public class RowPositionsAppender
     {
         this.fieldAppenders = requireNonNull(fieldAppenders, "fields is null");
         this.initialEntryCount = expectedPositions;
-        updateRetainedSize();
+        resetSize();
     }
 
     @Override
@@ -103,7 +103,7 @@ public class RowPositionsAppender
         }
 
         positionCount += positions.size();
-        updateSize();
+        resetSize();
     }
 
     @Override
@@ -135,7 +135,7 @@ public class RowPositionsAppender
             throw new IllegalArgumentException("unsupported block type: " + value);
         }
         positionCount += rlePositionCount;
-        updateSize();
+        resetSize();
     }
 
     @Override
@@ -165,7 +165,7 @@ public class RowPositionsAppender
             throw new IllegalArgumentException("unsupported block type: " + value);
         }
         positionCount++;
-        updateSize();
+        resetSize();
     }
 
     @Override
@@ -191,16 +191,32 @@ public class RowPositionsAppender
     @Override
     public long getRetainedSizeInBytes()
     {
-        long size = retainedSizeInBytes;
+        if (retainedSizeInBytes != -1) {
+            return retainedSizeInBytes;
+        }
+
+        long size = INSTANCE_SIZE + sizeOf(rowIsNull);
         for (PositionsAppender field : fieldAppenders) {
             size += field.getRetainedSizeInBytes();
         }
+
+        retainedSizeInBytes = size;
         return size;
     }
 
     @Override
     public long getSizeInBytes()
     {
+        if (sizeInBytes != -1) {
+            return sizeInBytes;
+        }
+
+        long size = (Integer.BYTES + Byte.BYTES) * (long) positionCount;
+        for (PositionsAppender field : fieldAppenders) {
+            size += field.getSizeInBytes();
+        }
+
+        sizeInBytes = size;
         return sizeInBytes;
     }
 
@@ -210,10 +226,9 @@ public class RowPositionsAppender
         initialized = false;
         rowIsNull = new boolean[0];
         positionCount = 0;
-        sizeInBytes = 0;
         hasNonNullRow = false;
         hasNullRow = false;
-        updateRetainedSize();
+        resetSize();
     }
 
     private boolean allPositionsNull(IntArrayList positions, Block block)
@@ -265,21 +280,13 @@ public class RowPositionsAppender
 
             int newCapacity = Math.max(newSize, positionCount + additionalCapacity);
             rowIsNull = Arrays.copyOf(rowIsNull, newCapacity);
-            updateRetainedSize();
+            resetSize();
         }
     }
 
-    private void updateSize()
+    private void resetSize()
     {
-        long size = (Integer.BYTES + Byte.BYTES) * (long) positionCount;
-        for (PositionsAppender field : fieldAppenders) {
-            size += field.getSizeInBytes();
-        }
-        sizeInBytes = size;
-    }
-
-    private void updateRetainedSize()
-    {
-        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(rowIsNull);
+        sizeInBytes = -1;
+        retainedSizeInBytes = -1;
     }
 }
