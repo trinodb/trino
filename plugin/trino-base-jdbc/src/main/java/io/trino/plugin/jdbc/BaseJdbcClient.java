@@ -227,44 +227,49 @@ public abstract class BaseJdbcClient
     @Override
     public JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery)
     {
-        ImmutableList.Builder<JdbcColumnHandle> columns = ImmutableList.builder();
         try (Connection connection = connectionFactory.openConnection(session);
                 PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty())) {
             ResultSetMetaData metadata = preparedStatement.getMetaData();
             if (metadata == null) {
                 throw new UnsupportedOperationException("Query not supported: ResultSetMetaData not available for query: " + preparedQuery.getQuery());
             }
-            for (int column = 1; column <= metadata.getColumnCount(); column++) {
-                // Use getColumnLabel method because query pass-through table function may contain column aliases
-                String name = metadata.getColumnLabel(column);
-                JdbcTypeHandle jdbcTypeHandle = new JdbcTypeHandle(
-                        metadata.getColumnType(column),
-                        Optional.ofNullable(metadata.getColumnTypeName(column)),
-                        Optional.of(metadata.getPrecision(column)),
-                        Optional.of(metadata.getScale(column)),
-                        Optional.empty(), // TODO support arrays
-                        Optional.of(metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE));
-                Type type = toColumnMapping(session, connection, jdbcTypeHandle)
-                        .orElseThrow(() -> new UnsupportedOperationException(format("Unsupported type: %s of column: %s", jdbcTypeHandle, name)))
-                        .getType();
-                columns.add(new JdbcColumnHandle(name, jdbcTypeHandle, type));
-            }
+            return new JdbcTableHandle(
+                    new JdbcQueryRelationHandle(preparedQuery),
+                    TupleDomain.all(),
+                    ImmutableList.of(),
+                    Optional.empty(),
+                    OptionalLong.empty(),
+                    Optional.of(getColumns(session, connection, metadata)),
+                    // The query is opaque, so we don't know referenced tables
+                    Optional.empty(),
+                    0,
+                    Optional.empty());
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, "Failed to get table handle for prepared query. " + firstNonNull(e.getMessage(), e), e);
         }
+    }
 
-        return new JdbcTableHandle(
-                new JdbcQueryRelationHandle(preparedQuery),
-                TupleDomain.all(),
-                ImmutableList.of(),
-                Optional.empty(),
-                OptionalLong.empty(),
-                Optional.of(columns.build()),
-                // The query is opaque, so we don't know referenced tables
-                Optional.empty(),
-                0,
-                Optional.empty());
+    protected List<JdbcColumnHandle> getColumns(ConnectorSession session, Connection connection, ResultSetMetaData metadata)
+            throws SQLException
+    {
+        ImmutableList.Builder<JdbcColumnHandle> columns = ImmutableList.builder();
+        for (int column = 1; column <= metadata.getColumnCount(); column++) {
+            // Use getColumnLabel method because query pass-through table function may contain column aliases
+            String name = metadata.getColumnLabel(column);
+            JdbcTypeHandle jdbcTypeHandle = new JdbcTypeHandle(
+                    metadata.getColumnType(column),
+                    Optional.ofNullable(metadata.getColumnTypeName(column)),
+                    Optional.of(metadata.getPrecision(column)),
+                    Optional.of(metadata.getScale(column)),
+                    Optional.empty(), // TODO support arrays
+                    Optional.of(metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE));
+            Type type = toColumnMapping(session, connection, jdbcTypeHandle)
+                    .orElseThrow(() -> new UnsupportedOperationException(format("Unsupported type: %s of column: %s", jdbcTypeHandle, name)))
+                    .getType();
+            columns.add(new JdbcColumnHandle(name, jdbcTypeHandle, type));
+        }
+        return columns.build();
     }
 
     @Override
@@ -405,6 +410,12 @@ public abstract class BaseJdbcClient
             throws SQLException
     {
         verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(tableHandle));
+        return getConnection(session);
+    }
+
+    private Connection getConnection(ConnectorSession session)
+            throws SQLException
+    {
         Connection connection = connectionFactory.openConnection(session);
         try {
             connection.setReadOnly(true);
