@@ -36,6 +36,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -44,13 +47,13 @@ import static io.trino.plugin.hudi.HudiSessionProperties.getMinimumAssignedSplit
 import static io.trino.plugin.hudi.HudiSessionProperties.getStandardSplitWeightSize;
 import static io.trino.plugin.hudi.HudiSessionProperties.isSizeBasedSplitWeightsEnabled;
 import static io.trino.plugin.hudi.HudiUtil.buildTableMetaClient;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.stream.Collectors.toList;
 
 public class HudiSplitSource
         implements ConnectorSplitSource
 {
     private final AsyncQueue<ConnectorSplit> queue;
+    private final ScheduledFuture splitLoaderFuture;
     private final AtomicReference<TrinoException> trinoException = new AtomicReference<>();
 
     public HudiSplitSource(
@@ -61,8 +64,11 @@ public class HudiSplitSource
             TrinoFileSystemFactory fileSystemFactory,
             Map<String, HiveColumnHandle> partitionColumnHandleMap,
             ExecutorService executor,
+            ScheduledExecutorService splitLoaderExecutorService,
+            ExecutorService splitGeneratorExecutorService,
             int maxSplitsPerSecond,
-            int maxOutstandingSplits)
+            int maxOutstandingSplits,
+            List<String> partitions)
     {
         HudiTableMetaClient metaClient = buildTableMetaClient(fileSystemFactory.create(session), tableHandle.getBasePath());
         List<HiveColumnHandle> partitionColumnHandles = table.getPartitionColumns().stream()
@@ -73,7 +79,8 @@ public class HudiSplitSource
                 metaClient,
                 metastore,
                 table,
-                partitionColumnHandles);
+                partitionColumnHandles,
+                partitions);
 
         this.queue = new ThrottledAsyncQueue<>(maxSplitsPerSecond, maxOutstandingSplits, executor);
         HudiBackgroundSplitLoader splitLoader = new HudiBackgroundSplitLoader(
@@ -81,14 +88,10 @@ public class HudiSplitSource
                 tableHandle,
                 hudiDirectoryLister,
                 queue,
-                executor,
+                splitGeneratorExecutorService,
                 createSplitWeightProvider(session),
-                throwable -> {
-                    trinoException.compareAndSet(null, new TrinoException(GENERIC_INTERNAL_ERROR,
-                            "Failed to generate splits for " + table.getTableName(), throwable));
-                    queue.finish();
-                });
-        splitLoader.start();
+                partitions);
+        this.splitLoaderFuture = splitLoaderExecutorService.schedule(splitLoader, 0, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -115,7 +118,7 @@ public class HudiSplitSource
     @Override
     public boolean isFinished()
     {
-        return queue.isFinished();
+        return splitLoaderFuture.isDone() && queue.isFinished();
     }
 
     private static HudiSplitWeightProvider createSplitWeightProvider(ConnectorSession session)
