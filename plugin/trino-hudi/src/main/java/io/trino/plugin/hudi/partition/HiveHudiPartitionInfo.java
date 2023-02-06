@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hudi.partition;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.Location;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
@@ -76,12 +77,6 @@ public class HiveHudiPartitionInfo
     }
 
     @Override
-    public String getHivePartitionName()
-    {
-        return hivePartitionName;
-    }
-
-    @Override
     public List<HivePartitionKey> getHivePartitionKeys()
     {
         if (hivePartitionKeys == null) {
@@ -93,13 +88,11 @@ public class HiveHudiPartitionInfo
     @Override
     public boolean doesMatchPredicates()
     {
+        if (hivePartitionName.equals("")) {
+            hivePartitionKeys = ImmutableList.of();
+            return true;
+        }
         return partitionMatchesPredicates(table.getSchemaTableName(), hivePartitionName, partitionColumnHandles, constraintSummary);
-    }
-
-    @Override
-    public String getComparingKey()
-    {
-        return hivePartitionName;
     }
 
     @Override

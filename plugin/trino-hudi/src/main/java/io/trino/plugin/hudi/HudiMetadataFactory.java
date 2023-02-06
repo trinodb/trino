@@ -15,13 +15,14 @@ package io.trino.plugin.hudi;
 
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
 import java.util.Optional;
 
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static java.util.Objects.requireNonNull;
 
 public class HudiMetadataFactory
@@ -29,18 +30,23 @@ public class HudiMetadataFactory
     private final HiveMetastoreFactory metastoreFactory;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
+    private final long perTransactionMetastoreCacheMaximumSize;
 
     @Inject
-    public HudiMetadataFactory(HiveMetastoreFactory metastoreFactory, TrinoFileSystemFactory fileSystemFactory, TypeManager typeManager)
+    public HudiMetadataFactory(HiveMetastoreFactory metastoreFactory, TrinoFileSystemFactory fileSystemFactory, TypeManager typeManager, HudiConfig hudiConfig)
     {
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastore is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.perTransactionMetastoreCacheMaximumSize = hudiConfig.getPerTransactionMetastoreCacheMaximumSize();
     }
 
     public HudiMetadata create(ConnectorIdentity identity)
     {
-        HiveMetastore metastore = metastoreFactory.createMetastore(Optional.of(identity));
-        return new HudiMetadata(metastore, fileSystemFactory, typeManager);
+        // create per-transaction cache over hive metastore interface
+        CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(
+                metastoreFactory.createMetastore(Optional.of(identity)),
+                perTransactionMetastoreCacheMaximumSize);
+        return new HudiMetadata(cachingHiveMetastore, fileSystemFactory, typeManager);
     }
 }
