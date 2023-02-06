@@ -28,11 +28,16 @@ import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class HudiSplit
         implements ConnectorSplit
 {
+    private static final int INSTANCE_SIZE = toIntExact(instanceSize(HudiSplit.class));
+
     private final String location;
     private final long start;
     private final long length;
@@ -142,6 +147,17 @@ public class HudiSplit
     public List<HivePartitionKey> getPartitionKeys()
     {
         return partitionKeys;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(location)
+                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
+                + splitWeight.getRetainedSizeInBytes()
+                + predicate.getRetainedSizeInBytes(HiveColumnHandle::getRetainedSizeInBytes)
+                + estimatedSizeOf(partitionKeys, HivePartitionKey::getEstimatedSizeInBytes);
     }
 
     @Override

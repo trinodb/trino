@@ -34,12 +34,15 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiFunction;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HudiModule
@@ -64,22 +67,43 @@ public class HudiModule
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
 
+        binder.bind(HudiPartitionManager.class).in(Scopes.SINGLETON);
         binder.bind(HudiMetadataFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
     }
 
-    @ForHudiSplitManager
-    @Singleton
     @Provides
+    @Singleton
+    @ForHudiSplitManager
     public ExecutorService createExecutorService()
     {
-        return newCachedThreadPool(daemonThreadsNamed("hudi-split-manager-%d"));
+        return newCachedThreadPool(daemonThreadsNamed("hudi-split-manager-%s"));
     }
 
-    @Singleton
     @Provides
+    @Singleton
+    @ForHudiSplitSource
+    public ScheduledExecutorService createSplitLoaderExecutor(HudiConfig hudiConfig)
+    {
+        return newScheduledThreadPool(
+                hudiConfig.getSplitLoaderParallelism(),
+                daemonThreadsNamed("hudi-split-loader-%s"));
+    }
+
+    @Provides
+    @Singleton
+    @ForHudiBackgroundSplitLoader
+    public ExecutorService createSplitGeneratorExecutor(HudiConfig hudiConfig)
+    {
+        return newFixedThreadPool(
+                hudiConfig.getSplitGeneratorParallelism(),
+                daemonThreadsNamed("hudi-split-generator-%s"));
+    }
+
+    @Provides
+    @Singleton
     public BiFunction<ConnectorIdentity, HiveTransactionHandle, HiveMetastore> createHiveMetastoreGetter(HudiTransactionManager transactionManager)
     {
         return (identity, transactionHandle) ->
