@@ -13,6 +13,8 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.microsoft.sqlserver.jdbc.SQLServerException;
 import com.starburstdata.presto.license.LicenseManager;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
@@ -29,8 +31,6 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.predicate.TupleDomain;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.JdbiException;
@@ -149,7 +149,7 @@ public class SqlServerSplitManager
     {
         // DDL operations can take out locks against system tables causing the `getTableDataCompression` query to deadlock
         final int maxAttemptCount = 3;
-        RetryPolicy<List<JdbcSplit>> retryPolicy = new RetryPolicy<List<JdbcSplit>>()
+        RetryPolicy<List<JdbcSplit>> retryPolicy = RetryPolicy.<List<JdbcSplit>>builder()
                 .withMaxAttempts(maxAttemptCount)
                 .handleIf(throwable ->
                 {
@@ -158,7 +158,8 @@ public class SqlServerSplitManager
                     return rootCause instanceof SQLServerException &&
                             ((SQLServerException) rootCause).getSQLServerError().getErrorNumber() == deadlockErrorCode;
                 })
-                .onFailedAttempt(event -> log.warn(event.getLastFailure(), "Attempt %d of %d: error when listing partitions and creating splits for '%s'", event.getAttemptCount(), maxAttemptCount, tableHandle));
+                .onFailedAttempt(event -> log.warn(event.getLastException(), "Attempt %d of %d: error when listing partitions and creating splits for '%s'", event.getAttemptCount(), maxAttemptCount, tableHandle))
+                .build();
 
         return Failsafe
                 .with(retryPolicy)
