@@ -11,11 +11,11 @@ package com.starburstdata.presto.plugin.saphana;
 
 import com.starburstdata.presto.testing.testcontainers.SapHanaDockerInitializer;
 import com.starburstdata.presto.testing.testcontainers.SapHanaJdbcContainer;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
+import dev.failsafe.Timeout;
 import io.airlift.log.Logger;
 import io.trino.testing.ResourcePresence;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
-import net.jodah.failsafe.Timeout;
 import org.testcontainers.containers.GenericContainer;
 
 import java.io.Closeable;
@@ -36,7 +36,7 @@ public final class TestingSapHanaServer
         implements Closeable
 {
     private static final Logger log = Logger.get(TestingSapHanaServer.class);
-    private static final RetryPolicy<TestingSapHanaServer> QUERY_EXECUTION_RETRY_POLICY = new RetryPolicy<TestingSapHanaServer>()
+    private static final RetryPolicy<TestingSapHanaServer> QUERY_EXECUTION_RETRY_POLICY = RetryPolicy.<TestingSapHanaServer>builder()
             .withBackoff(1, 5, ChronoUnit.SECONDS)
             .withMaxRetries(5)
             .handleIf(throwable -> getCausalChain(throwable).stream()
@@ -44,7 +44,8 @@ public final class TestingSapHanaServer
             .onRetry(event -> log.warn(
                     "Query failed on attempt %s, will retry. Exception: %s",
                     event.getAttemptCount(),
-                    event.getLastFailure().getMessage()));
+                    event.getLastException().getMessage()))
+            .build();
     private static final SapHanaDockerInitializer dockerInitializer = new SapHanaDockerInitializer(GenericContainer::addExposedPort);
 
     private final SapHanaJdbcContainer dockerContainer;
@@ -52,7 +53,7 @@ public final class TestingSapHanaServer
 
     public static TestingSapHanaServer create()
     {
-        return Failsafe.with(QUERY_EXECUTION_RETRY_POLICY.copy(), Timeout.of(Duration.of(12, MINUTES)))
+        return Failsafe.with(QUERY_EXECUTION_RETRY_POLICY, Timeout.of(Duration.of(12, MINUTES)))
                 .get(() -> {
                     TestingSapHanaServer server = new TestingSapHanaServer();
                     try {
@@ -100,7 +101,7 @@ public final class TestingSapHanaServer
 
     public void executeWithRetry(String sql)
     {
-        Failsafe.with(QUERY_EXECUTION_RETRY_POLICY.copy())
+        Failsafe.with(QUERY_EXECUTION_RETRY_POLICY)
                 .run(() -> execute(sql));
     }
 
