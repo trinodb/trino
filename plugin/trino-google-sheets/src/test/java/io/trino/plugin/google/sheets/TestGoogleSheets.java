@@ -188,6 +188,18 @@ public class TestGoogleSheets
     }
 
     @Test
+    public void testSheetQueryWithNoDataInRangeFails()
+    {
+        assertThatThrownBy(() -> query(
+                "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s', range => '%s'))".formatted(DATA_SHEET_ID, "number_text!D1:D1")))
+                .hasMessageContaining("No non-empty cells found in sheet: %s#number_text!D1:D1".formatted(DATA_SHEET_ID));
+
+        assertThatThrownBy(() -> query(
+                "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s', range => '%s'))".formatted(DATA_SHEET_ID, "number_text!D12:E13")))
+                .hasMessageContaining("No non-empty cells found in sheet: %s#number_text!D12:E13".formatted(DATA_SHEET_ID));
+    }
+
+    @Test
     public void testSheetQueryWithInvalidSheetId()
     {
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(gsheets.system.sheet(id => 'DOESNOTEXIST'))"))

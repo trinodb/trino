@@ -278,7 +278,11 @@ public class SheetsClient
                 defaultRange = tableOptions[1];
             }
             log.debug("Accessing sheet id [%s] with range [%s]", sheetId, defaultRange);
-            return sheetsService.spreadsheets().values().get(sheetId, defaultRange).execute().getValues();
+            List<List<Object>> values = sheetsService.spreadsheets().values().get(sheetId, defaultRange).execute().getValues();
+            if (values == null) {
+                throw new TrinoException(SHEETS_TABLE_LOAD_ERROR, "No non-empty cells found in sheet: " + sheetExpression);
+            }
+            return values;
         }
         catch (IOException e) {
             // TODO: improve error to a {Table|Sheet}NotFoundException
