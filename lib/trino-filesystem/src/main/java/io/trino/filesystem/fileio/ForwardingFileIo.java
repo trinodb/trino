@@ -13,19 +13,27 @@
  */
 package io.trino.filesystem.fileio;
 
+import com.google.common.collect.Iterables;
 import io.trino.filesystem.TrinoFileSystem;
-import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.io.BulkDeletionFailureException;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.OutputFile;
+import org.apache.iceberg.io.SupportsBulkOperations;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.List;
+import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class ForwardingFileIo
-        implements FileIO
+        implements SupportsBulkOperations
 {
+    private static final int DELETE_BATCH_SIZE = 1000;
+    private static final int BATCH_DELETE_PATHS_MESSAGE_LIMIT = 5;
+
     private final TrinoFileSystem fileSystem;
 
     public ForwardingFileIo(TrinoFileSystem fileSystem)
@@ -59,6 +67,31 @@ public class ForwardingFileIo
         }
         catch (IOException e) {
             throw new UncheckedIOException("Failed to delete file: " + path, e);
+        }
+    }
+
+    @Override
+    public void deleteFiles(Iterable<String> pathsToDelete)
+            throws BulkDeletionFailureException
+    {
+        Iterable<List<String>> partitions = Iterables.partition(pathsToDelete, DELETE_BATCH_SIZE);
+        partitions.forEach(this::deleteBatch);
+    }
+
+    private void deleteBatch(List<String> filesToDelete)
+    {
+        try {
+            fileSystem.deleteFiles(filesToDelete);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(
+                    "Failed to delete some or all of files: " +
+                            Stream.concat(
+                                            filesToDelete.stream()
+                                                    .limit(BATCH_DELETE_PATHS_MESSAGE_LIMIT),
+                                            filesToDelete.size() > BATCH_DELETE_PATHS_MESSAGE_LIMIT ? Stream.of("...") : Stream.of())
+                                    .collect(joining(", ", "[", "]")),
+                    e);
         }
     }
 }
