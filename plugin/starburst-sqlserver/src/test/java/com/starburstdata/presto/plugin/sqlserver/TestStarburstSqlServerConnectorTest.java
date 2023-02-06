@@ -15,6 +15,8 @@ import io.trino.Session;
 import io.trino.plugin.sqlserver.TestSqlServerConnectorTest;
 import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.testing.QueryRunner;
+import io.trino.testng.services.Flaky;
+import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,6 +32,15 @@ public class TestStarburstSqlServerConnectorTest
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
         return createStarburstSqlServerQueryRunner(sqlServer, false, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+    }
+
+    @Override
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/12535", match = ".*but the following elements were unexpected.*")
+    @Test(timeOut = 60_000)
+    public void testAddColumnConcurrently()
+            throws Exception
+    {
+        super.testAddColumnConcurrently();
     }
 
     @Override
