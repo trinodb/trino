@@ -48,7 +48,7 @@ public class JdbcRecordSetProvider
     public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
     {
         JdbcSplit jdbcSplit = (JdbcSplit) split;
-        JdbcTableHandle jdbcTable = (JdbcTableHandle) table;
+        BaseJdbcConnectorTableHandle jdbcTable = (BaseJdbcConnectorTableHandle) table;
 
         // In the current API, the columns (and order) needed by the engine are provided via an argument to this method. Make sure we can
         // satisfy the requirements using columns which were recorded in the table handle.
@@ -56,6 +56,10 @@ public class JdbcRecordSetProvider
         // table columns should be returned. TODO: this is something that should be addressed once the getRecordSet API is revamped
         jdbcTable.getColumns()
                 .ifPresent(tableColumns -> verify(ImmutableSet.copyOf(tableColumns).containsAll(columns)));
+
+        if (jdbcTable instanceof JdbcTableHandle jdbcTableHandle) {
+            jdbcTable = jdbcTableHandle.intersectedWithConstraint(jdbcSplit.getDynamicFilter().transformKeys(ColumnHandle.class::cast));
+        }
 
         ImmutableList.Builder<JdbcColumnHandle> handles = ImmutableList.builderWithExpectedSize(columns.size());
         for (ColumnHandle handle : columns) {
@@ -67,7 +71,7 @@ public class JdbcRecordSetProvider
                 executor,
                 session,
                 jdbcSplit,
-                jdbcTable.intersectedWithConstraint(jdbcSplit.getDynamicFilter().transformKeys(ColumnHandle.class::cast)),
+                jdbcTable,
                 handles.build());
     }
 }
