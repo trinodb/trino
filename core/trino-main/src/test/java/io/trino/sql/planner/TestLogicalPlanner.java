@@ -2301,6 +2301,14 @@ public class TestLogicalPlanner
                                 ImmutableList.of(new LongLiteral("3"), new LongLiteral("9"))))));
     }
 
+    @Test
+    public void testPruneWindow()
+    {
+        assertPlan("SELECT count() OVER() c FROM (SELECT 1 WHERE false)",
+                output(
+                        values("c")));
+    }
+
     private Session noJoinReordering()
     {
         return Session.builder(getQueryRunner().getDefaultSession())
