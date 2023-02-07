@@ -40,7 +40,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -154,7 +153,7 @@ public class TestParquetReaderMemoryUsage
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(null, positions);
         for (int i = 0; i < positions; i++) {
-            writeNativeValue(type, blockBuilder, ThreadLocalRandom.current().nextLong(0, 1000));
+            writeNativeValue(type, blockBuilder, (long) i);
         }
         return blockBuilder.build();
     }
