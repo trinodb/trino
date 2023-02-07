@@ -22,7 +22,7 @@ import java.util.List;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-record DFA(int start, int failed, IntArrayList acceptStates, List<List<Transition>> transitions)
+record DFA(int start, IntArrayList acceptStates, List<List<Transition>> transitions)
 {
     DFA
     {
@@ -43,7 +43,6 @@ record DFA(int start, int failed, IntArrayList acceptStates, List<List<Transitio
     {
         private int nextId;
         private int start;
-        private int failed;
         private final IntArrayList acceptStates = new IntArrayList();
         private final List<List<Transition>> transitions = new ArrayList<>();
 
@@ -63,12 +62,6 @@ record DFA(int start, int failed, IntArrayList acceptStates, List<List<Transitio
             return start;
         }
 
-        public int addFailState()
-        {
-            failed = addState(false);
-            return failed;
-        }
-
         public void addTransition(int from, int value, int to)
         {
             transitions.get(from).add(new Transition(value, to));
@@ -76,7 +69,7 @@ record DFA(int start, int failed, IntArrayList acceptStates, List<List<Transitio
 
         public DFA build()
         {
-            return new DFA(start, failed, acceptStates, transitions);
+            return new DFA(start, acceptStates, transitions);
         }
     }
 }
