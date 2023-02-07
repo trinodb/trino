@@ -22,6 +22,8 @@ import com.google.common.io.BaseEncoding;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.expression.ConnectorExpressions;
+import io.trino.plugin.elasticsearch.aggregation.MetricAggregation;
+import io.trino.plugin.elasticsearch.aggregation.TermAggregation;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.DateTimeType;
@@ -42,8 +44,12 @@ import io.trino.plugin.elasticsearch.decoders.TimestampDecoder;
 import io.trino.plugin.elasticsearch.decoders.TinyintDecoder;
 import io.trino.plugin.elasticsearch.decoders.VarbinaryDecoder;
 import io.trino.plugin.elasticsearch.decoders.VarcharDecoder;
+import io.trino.plugin.elasticsearch.expression.TopN;
 import io.trino.plugin.elasticsearch.ptf.RawQuery.RawQueryFunctionHandle;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.AggregationApplicationResult;
+import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
@@ -58,8 +64,9 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
-import io.trino.spi.connector.TableColumnsMetadata;
+import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.TableFunctionApplicationResult;
+import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -78,21 +85,21 @@ import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterators.singletonIterator;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;
+import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.AGGREGATION;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
@@ -111,7 +118,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Collections.emptyIterator;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -119,6 +125,7 @@ public class ElasticsearchMetadata
         implements ConnectorMetadata
 {
     private static final ObjectMapper JSON_PARSER = new ObjectMapperProvider().get();
+    private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_efgnrtd_";
 
     private static final String PASSTHROUGH_QUERY_SUFFIX = "$query";
     private static final String PASSTHROUGH_QUERY_RESULT_COLUMN_NAME = "result";
@@ -474,25 +481,18 @@ public class ElasticsearchMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        throw new UnsupportedOperationException("The deprecated listTableColumns is not supported because streamTableColumns is implemented instead");
-    }
-
-    @Override
-    public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
-    {
         if (prefix.getSchema().isPresent() && !prefix.getSchema().get().equals(schemaName)) {
-            return emptyIterator();
+            return ImmutableMap.of();
         }
 
         if (prefix.getSchema().isPresent() && prefix.getTable().isPresent()) {
             ConnectorTableMetadata metadata = getTableMetadata(prefix.getSchema().get(), prefix.getTable().get());
-            return singletonIterator(TableColumnsMetadata.forTable(metadata.getTable(), metadata.getColumns()));
+            return ImmutableMap.of(metadata.getTable(), metadata.getColumns());
         }
 
         return listTables(session, prefix.getSchema()).stream()
                 .map(name -> getTableMetadata(name.getSchemaName(), name.getTableName()))
-                .map(tableMetadata -> TableColumnsMetadata.forTable(tableMetadata.getTable(), tableMetadata.getColumns()))
-                .iterator();
+                .collect(toImmutableMap(ConnectorTableMetadata::getTable, ConnectorTableMetadata::getColumns));
     }
 
     @Override
@@ -518,9 +518,11 @@ public class ElasticsearchMetadata
             return Optional.empty();
         }
 
-        if (handle.getLimit().isPresent() && handle.getLimit().getAsLong() <= limit) {
+        if (handle.getTopN().isPresent() && handle.getTopN().get().getLimit() <= limit) {
             return Optional.empty();
         }
+
+        TopN topN = TopN.fromLimit(limit);
 
         handle = new ElasticsearchTableHandle(
                 handle.getType(),
@@ -529,7 +531,9 @@ public class ElasticsearchMetadata
                 handle.getConstraint(),
                 handle.getRegexes(),
                 handle.getQuery(),
-                OptionalLong.of(limit));
+                handle.getTermAggregations(),
+                handle.getMetricAggregations(),
+                Optional.of(topN));
 
         return Optional.of(new LimitApplicationResult<>(handle, false, false));
     }
@@ -582,8 +586,8 @@ public class ElasticsearchMetadata
                     if (!newRegexes.containsKey(columnName) && pattern instanceof Slice) {
                         IndexMetadata metadata = client.getIndexMetadata(handle.getIndex());
                         if (metadata.getSchema()
-                                    .getFields().stream()
-                                    .anyMatch(field -> columnName.equals(field.getName()) && field.getType() instanceof PrimitiveType && "keyword".equals(((PrimitiveType) field.getType()).getName()))) {
+                                .getFields().stream()
+                                .anyMatch(field -> columnName.equals(field.getName()) && field.getType() instanceof PrimitiveType && "keyword".equals(((PrimitiveType) field.getType()).getName()))) {
                             newRegexes.put(columnName, likeToRegexp(((Slice) pattern), escape));
                             continue;
                         }
@@ -605,7 +609,9 @@ public class ElasticsearchMetadata
                 newDomain,
                 newRegexes,
                 handle.getQuery(),
-                handle.getLimit());
+                handle.getTermAggregations(),
+                handle.getMetricAggregations(),
+                handle.getTopN());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported), newExpression, false));
     }
@@ -765,5 +771,149 @@ public class ElasticsearchMetadata
         {
             return decoderDescriptor;
         }
+    }
+
+    @Override
+    public Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            long topNCount,
+            List<SortItem> sortItems,
+            Map<String, ColumnHandle> assignments)
+    {
+        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+
+        if (isPassthroughQuery(handle)) {
+            // topN pushdown currently not supported passthrough query
+            return Optional.empty();
+        }
+        if (handle.getTopN().isPresent()) {
+            return Optional.empty();
+        }
+
+        TopN topN = TopN.fromLimit(topNCount);
+        for (SortItem sortItem : sortItems) {
+            ElasticsearchColumnHandle ch = (ElasticsearchColumnHandle) assignments.get(sortItem.getName());
+            if (!ch.isSupportsPredicates()) {
+                return Optional.empty();
+            }
+            topN.addSortItem(TopN.TopNSortItem.sortBy(ch.getName(), sortItem.getSortOrder()));
+        }
+
+        ElasticsearchTableHandle newHandle = new ElasticsearchTableHandle(
+                handle.getType(),
+                handle.getSchema(),
+                handle.getIndex(),
+                handle.getConstraint(),
+                handle.getRegexes(),
+                handle.getQuery(),
+                handle.getTermAggregations(),
+                handle.getMetricAggregations(),
+                Optional.of(topN));
+
+        return Optional.of(new TopNApplicationResult<>(newHandle, false, false));
+    }
+
+    @Override
+    public Optional<AggregationApplicationResult<ConnectorTableHandle>> applyAggregation(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            List<AggregateFunction> aggregates,
+            Map<String, ColumnHandle> assignments,
+            List<List<ColumnHandle>> groupingSets)
+    {
+        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+        if (isPassthroughQuery(handle)) {
+            // aggregation pushdown currently not supported passthrough query
+            return Optional.empty();
+        }
+        // Global aggregation is represented by [[]]
+        verify(!groupingSets.isEmpty(), "No grouping sets provided");
+        if (!handle.getTermAggregations().isEmpty()) {
+            /*
+             applyAggregation may be called multiple times if an aggregation is done over the results of another aggregation
+             for example
+
+              SELECT sum(DISTINCT regionkey) FROM nation
+
+              SELECT max(x)
+                FROM (
+                  SELECT k, sum(v) AS x
+                    FROM t
+                  GROUP BY k)
+             We skip the second one, but the first group by will be still applied
+             */
+            return Optional.empty();
+        }
+
+        ImmutableList.Builder<ConnectorExpression> projections = ImmutableList.builder();
+        ImmutableList.Builder<Assignment> resultAssignments = ImmutableList.builder();
+        ImmutableList.Builder<MetricAggregation> metricAggregations = ImmutableList.builder();
+        ImmutableList.Builder<TermAggregation> termAggregations = ImmutableList.builder();
+        for (int i = 0; i < aggregates.size(); i++) {
+            AggregateFunction aggregationFunction = aggregates.get(i);
+            String colName = SYNTHETIC_COLUMN_NAME_PREFIX + i;
+            Optional<MetricAggregation> metricAggregation =
+                    MetricAggregation.handleAggregation(aggregationFunction, assignments, colName);
+            if (metricAggregation.isEmpty()) {
+                return Optional.empty();
+            }
+            DecoderDescriptor descriptor = getAggregateOutputDecoderDescriptor(colName, aggregationFunction.getOutputType());
+            if (descriptor == null) {
+                return Optional.empty();
+            }
+            ElasticsearchColumnHandle newColumn = new ElasticsearchColumnHandle(
+                    colName,
+                    aggregationFunction.getOutputType(),
+                    descriptor,
+                    // new column never support predicates
+                    false);
+            projections.add(new Variable(colName, aggregationFunction.getOutputType()));
+            resultAssignments.add(new Assignment(colName, newColumn, aggregationFunction.getOutputType()));
+            metricAggregations.add(metricAggregation.get());
+        }
+        for (ColumnHandle columnHandle : groupingSets.get(0)) {
+            Optional<TermAggregation> termAggregation = TermAggregation.fromColumnHandle(columnHandle);
+            if (termAggregation.isEmpty()) {
+                return Optional.empty();
+            }
+            termAggregations.add(termAggregation.get());
+        }
+        List<MetricAggregation> aggregationList = metricAggregations.build();
+        List<TermAggregation> termAggregationList = termAggregations.build();
+        ElasticsearchTableHandle tableHandle = new ElasticsearchTableHandle(
+                AGGREGATION,
+                handle.getSchema(),
+                handle.getIndex(),
+                handle.getConstraint(),
+                handle.getRegexes(),
+                handle.getQuery(),
+                termAggregationList,
+                aggregationList,
+                handle.getTopN());
+        return Optional.of(new AggregationApplicationResult<>(tableHandle, projections.build(), resultAssignments.build(), ImmutableMap.of(), false));
+    }
+
+    private DecoderDescriptor getAggregateOutputDecoderDescriptor(String name, Type type)
+    {
+        switch (type.getBaseName()) {
+            case StandardTypes.REAL:
+                return new RealDecoder.Descriptor(name);
+            case StandardTypes.DOUBLE:
+                return new DoubleDecoder.Descriptor(name);
+            case StandardTypes.TINYINT:
+                return new TinyintDecoder.Descriptor(name);
+            case StandardTypes.SMALLINT:
+                return new SmallintDecoder.Descriptor(name);
+            case StandardTypes.INTEGER:
+                return new IntegerDecoder.Descriptor(name);
+            case StandardTypes.BIGINT:
+                return new BigintDecoder.Descriptor(name);
+            case StandardTypes.VARCHAR:
+                return new VarcharDecoder.Descriptor(name);
+            case StandardTypes.BOOLEAN:
+                return new BooleanDecoder.Descriptor(name);
+        }
+        return null;
     }
 }

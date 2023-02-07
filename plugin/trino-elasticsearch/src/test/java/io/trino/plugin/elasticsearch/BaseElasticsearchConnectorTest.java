@@ -104,7 +104,8 @@ public abstract class BaseElasticsearchConnectorTest
         switch (connectorBehavior) {
             case SUPPORTS_LIMIT_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN:
-                return false;
+            case SUPPORTS_AGGREGATION_PUSHDOWN:
+                return true;
 
             case SUPPORTS_CREATE_SCHEMA:
                 return false;

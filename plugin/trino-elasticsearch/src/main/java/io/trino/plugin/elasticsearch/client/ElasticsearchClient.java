@@ -35,6 +35,7 @@ import io.airlift.units.Duration;
 import io.trino.plugin.elasticsearch.AwsSecurityConfig;
 import io.trino.plugin.elasticsearch.ElasticsearchConfig;
 import io.trino.plugin.elasticsearch.PasswordConfig;
+import io.trino.plugin.elasticsearch.expression.TopN;
 import io.trino.spi.TrinoException;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
@@ -61,6 +62,7 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -78,7 +80,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -97,6 +98,7 @@ import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_INVALID_RESPONSE;
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_QUERY_FAILURE;
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_SSL_INITIALIZATION_FAILURE;
+import static io.trino.plugin.elasticsearch.expression.TopN.NO_LIMIT;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -565,20 +567,27 @@ public class ElasticsearchClient
         return body;
     }
 
-    public SearchResponse beginSearch(String index, int shard, QueryBuilder query, Optional<List<String>> fields, List<String> documentFields, Optional<String> sort, OptionalLong limit)
+    public SearchResponse beginSearch(String index, int shard, QueryBuilder query, Optional<List<AggregationBuilder>> aggregations, Optional<List<String>> fields, List<String> documentFields, Optional<TopN> topN)
     {
         SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
                 .query(query);
 
-        if (limit.isPresent() && limit.getAsLong() < scrollSize) {
+        if (aggregations.isPresent()) {
+            aggregations.get().forEach(sourceBuilder::aggregation);
+            sourceBuilder.size(0);
+        }
+
+        if (topN.isPresent() &&
+                topN.get().getLimit() != NO_LIMIT &&
+                topN.get().getLimit() < scrollSize) {
             // Safe to cast it to int because scrollSize is int.
-            sourceBuilder.size(toIntExact(limit.getAsLong()));
+            sourceBuilder.size(toIntExact(topN.get().getLimit()));
         }
         else {
             sourceBuilder.size(scrollSize);
         }
 
-        sort.ifPresent(sourceBuilder::sort);
+        topN.ifPresent(n -> n.getTopNSortItems().forEach(it -> sourceBuilder.sort(it.toSortBuilder())));
 
         fields.ifPresent(values -> {
             if (values.isEmpty()) {
@@ -594,9 +603,12 @@ public class ElasticsearchClient
 
         SearchRequest request = new SearchRequest(index)
                 .searchType(QUERY_THEN_FETCH)
-                .preference("_shards:" + shard)
-                .scroll(new TimeValue(scrollTimeout.toMillis()))
                 .source(sourceBuilder);
+
+        if (aggregations.isEmpty()) {
+            request.preference("_shards:" + shard)
+                    .scroll(new TimeValue(scrollTimeout.toMillis()));
+        }
 
         long start = System.nanoTime();
         try {
