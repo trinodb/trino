@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 class DenseDfaMatcher
+        implements Matcher
 {
     public static final int FAIL_STATE = -1;
 
@@ -69,6 +70,7 @@ class DenseDfaMatcher
         this.exact = exact;
     }
 
+    @Override
     public boolean match(byte[] input, int offset, int length)
     {
         if (exact) {
