@@ -32,7 +32,7 @@ public class LikeMatcher
     private final OptionalInt maxSize;
     private final byte[] prefix;
     private final byte[] suffix;
-    private final Optional<DenseDfaMatcher> matcher;
+    private final Optional<Matcher> matcher;
 
     private LikeMatcher(
             String pattern,
@@ -41,7 +41,7 @@ public class LikeMatcher
             OptionalInt maxSize,
             byte[] prefix,
             byte[] suffix,
-            Optional<DenseDfaMatcher> matcher)
+            Optional<Matcher> matcher)
     {
         this.pattern = pattern;
         this.escape = escape;
@@ -64,10 +64,15 @@ public class LikeMatcher
 
     public static LikeMatcher compile(String pattern)
     {
-        return compile(pattern, Optional.empty());
+        return compile(pattern, Optional.empty(), true);
     }
 
     public static LikeMatcher compile(String pattern, Optional<Character> escape)
+    {
+        return compile(pattern, escape, true);
+    }
+
+    public static LikeMatcher compile(String pattern, Optional<Character> escape, boolean optimize)
     {
         List<Pattern> parsed = parse(pattern, escape);
         List<Pattern> optimized = optimize(parsed);
@@ -143,9 +148,14 @@ public class LikeMatcher
             }
         }
 
-        Optional<DenseDfaMatcher> matcher = Optional.empty();
+        Optional<Matcher> matcher = Optional.empty();
         if (!middle.isEmpty()) {
-            matcher = Optional.of(DenseDfaMatcher.newInstance(middle, exact));
+            if (optimize) {
+                matcher = Optional.of(DenseDfaMatcher.newInstance(middle, exact));
+            }
+            else {
+                matcher = Optional.of(new NfaMatcher(middle, exact));
+            }
         }
 
         return new LikeMatcher(

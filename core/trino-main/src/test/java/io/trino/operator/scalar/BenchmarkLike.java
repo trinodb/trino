@@ -93,7 +93,8 @@ public class BenchmarkLike
         private Slice data;
         private byte[] bytes;
         private JoniRegexp joniPattern;
-        private LikeMatcher matcher;
+        private LikeMatcher dfaMatcher;
+        private LikeMatcher nfaMatcher;
 
         @Setup
         public void setup()
@@ -112,7 +113,8 @@ public class BenchmarkLike
                         default -> throw new IllegalArgumentException("Unknown pattern: " + pattern);
                     });
 
-            matcher = LikeMatcher.compile(pattern, Optional.empty());
+            dfaMatcher = LikeMatcher.compile(pattern, Optional.empty(), true);
+            nfaMatcher = LikeMatcher.compile(pattern, Optional.empty(), false);
             joniPattern = compileJoni(Slices.utf8Slice(pattern).toStringUtf8(), '0', false);
 
             bytes = data.getBytes();
@@ -120,15 +122,21 @@ public class BenchmarkLike
     }
 
     @Benchmark
-    public boolean benchmarkJoni(Data data)
+    public boolean matchJoni(Data data)
     {
         return likeVarchar(data.data, data.joniPattern);
     }
 
     @Benchmark
-    public boolean benchmarkCurrent(Data data)
+    public boolean matchDfa(Data data)
     {
-        return data.matcher.match(data.bytes, 0, data.bytes.length);
+        return data.dfaMatcher.match(data.bytes, 0, data.bytes.length);
+    }
+
+    @Benchmark
+    public boolean matchNfa(Data data)
+    {
+        return data.nfaMatcher.match(data.bytes, 0, data.bytes.length);
     }
 
     @Benchmark
@@ -138,9 +146,35 @@ public class BenchmarkLike
     }
 
     @Benchmark
-    public LikeMatcher compile(Data data)
+    public LikeMatcher compileDfa(Data data)
     {
-        return LikeMatcher.compile(data.pattern, Optional.empty());
+        return LikeMatcher.compile(data.pattern, Optional.empty(), true);
+    }
+
+    @Benchmark
+    public LikeMatcher compileNfa(Data data)
+    {
+        return LikeMatcher.compile(data.pattern, Optional.empty(), false);
+    }
+
+    @Benchmark
+    public boolean allJoni(Data data)
+    {
+        return likeVarchar(data.data, compileJoni(Slices.utf8Slice(data.pattern).toStringUtf8(), '0', false));
+    }
+
+    @Benchmark
+    public boolean allDfa(Data data)
+    {
+        return LikeMatcher.compile(data.pattern, Optional.empty(), true)
+                .match(data.bytes, 0, data.bytes.length);
+    }
+
+    @Benchmark
+    public boolean allNfa(Data data)
+    {
+        return LikeMatcher.compile(data.pattern, Optional.empty(), false)
+                .match(data.bytes, 0, data.bytes.length);
     }
 
     public static boolean likeVarchar(Slice value, JoniRegexp pattern)
