@@ -44,20 +44,20 @@ class DenseDfaMatcher
     {
         DFA dfa = makeNfa(pattern).toDfa();
 
-        int[] transitions = new int[dfa.states().size() * 256];
-        boolean[] accept = new boolean[dfa.states().size()];
+        int[] transitions = new int[dfa.transitions().size() * 256];
 
-        for (DFA.State state : dfa.states()) {
-            for (DFA.Transition transition : dfa.transitions(state)) {
-                transitions[state.id() * 256 + transition.value()] = transition.target().id() * 256;
-            }
-
-            if (state.accept()) {
-                accept[state.id()] = true;
+        for (int state = 0; state < dfa.transitions().size(); state++) {
+            for (DFA.Transition transition : dfa.transitions().get(state)) {
+                transitions[state * 256 + transition.value()] = transition.target() * 256;
             }
         }
 
-        return new DenseDfaMatcher(transitions, dfa.start().id(), accept, 0, exact);
+        boolean[] accept = new boolean[dfa.transitions().size()];
+        for (int state : dfa.acceptStates()) {
+            accept[state] = true;
+        }
+
+        return new DenseDfaMatcher(transitions, dfa.start(), accept, 0, exact);
     }
 
     private DenseDfaMatcher(int[] transitions, int start, boolean[] accept, int fail, boolean exact)
@@ -125,7 +125,7 @@ class DenseDfaMatcher
 
         NFA.Builder builder = new NFA.Builder();
 
-        NFA.State state = builder.addStartState();
+        int state = builder.addStartState();
 
         for (Pattern item : pattern) {
             if (item instanceof Pattern.Literal literal) {
@@ -135,7 +135,7 @@ class DenseDfaMatcher
             }
             else if (item instanceof Pattern.Any any) {
                 for (int i = 0; i < any.min(); i++) {
-                    NFA.State next = builder.addState();
+                    int next = builder.addState();
                     matchSingleUtf8(builder, state, next);
                     state = next;
                 }
@@ -154,14 +154,14 @@ class DenseDfaMatcher
         return builder.build();
     }
 
-    private static NFA.State matchByte(NFA.Builder builder, NFA.State state, byte value)
+    private static int matchByte(NFA.Builder builder, int state, byte value)
     {
-        NFA.State next = builder.addState();
+        int next = builder.addState();
         builder.addTransition(state, new NFA.Value(value), next);
         return next;
     }
 
-    private static void matchSingleUtf8(NFA.Builder builder, NFA.State from, NFA.State to)
+    private static void matchSingleUtf8(NFA.Builder builder, int from, int to)
     {
         /*
             Implements a state machine to recognize UTF-8 characters.
@@ -181,9 +181,9 @@ class DenseDfaMatcher
 
         builder.addTransition(from, new NFA.Prefix(0, 1), to);
 
-        NFA.State state1 = builder.addState();
-        NFA.State state2 = builder.addState();
-        NFA.State state3 = builder.addState();
+        int state1 = builder.addState();
+        int state2 = builder.addState();
+        int state3 = builder.addState();
 
         builder.addTransition(from, new NFA.Prefix(0b11110, 5), state1);
         builder.addTransition(from, new NFA.Prefix(0b1110, 4), state2);
