@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class LikeMatcher
@@ -146,7 +145,7 @@ public class LikeMatcher
 
         Optional<DenseDfaMatcher> matcher = Optional.empty();
         if (!middle.isEmpty()) {
-            matcher = Optional.of(DenseDfaMatcher.newInstance(makeNfa(middle).toDfa(), exact));
+            matcher = Optional.of(DenseDfaMatcher.newInstance(middle, exact));
         }
 
         return new LikeMatcher(
@@ -296,80 +295,5 @@ public class LikeMatcher
         }
 
         return new Any(min, unbounded);
-    }
-
-    private static NFA makeNfa(List<Pattern> pattern)
-    {
-        checkArgument(!pattern.isEmpty(), "pattern is empty");
-
-        NFA.Builder builder = new NFA.Builder();
-
-        NFA.State state = builder.addStartState();
-
-        for (Pattern item : pattern) {
-            if (item instanceof Literal literal) {
-                for (byte current : literal.value().getBytes(UTF_8)) {
-                    state = matchByte(builder, state, current);
-                }
-            }
-            else if (item instanceof Any any) {
-                for (int i = 0; i < any.min(); i++) {
-                    NFA.State next = builder.addState();
-                    matchSingleUtf8(builder, state, next);
-                    state = next;
-                }
-
-                if (any.unbounded()) {
-                    matchSingleUtf8(builder, state, state);
-                }
-            }
-            else {
-                throw new UnsupportedOperationException("Not supported: " + item.getClass().getName());
-            }
-        }
-
-        builder.setAccept(state);
-
-        return builder.build();
-    }
-
-    private static NFA.State matchByte(NFA.Builder builder, NFA.State state, byte value)
-    {
-        NFA.State next = builder.addState();
-        builder.addTransition(state, new NFA.Value(value), next);
-        return next;
-    }
-
-    private static void matchSingleUtf8(NFA.Builder builder, NFA.State from, NFA.State to)
-    {
-        /*
-            Implements a state machine to recognize UTF-8 characters.
-
-                  11110xxx       10xxxxxx       10xxxxxx       10xxxxxx
-              O ───────────► O ───────────► O ───────────► O ───────────► O
-              │                             ▲              ▲              ▲
-              ├─────────────────────────────┘              │              │
-              │          1110xxxx                          │              │
-              │                                            │              │
-              ├────────────────────────────────────────────┘              │
-              │                   110xxxxx                                │
-              │                                                           │
-              └───────────────────────────────────────────────────────────┘
-                                        0xxxxxxx
-        */
-
-        builder.addTransition(from, new NFA.Prefix(0, 1), to);
-
-        NFA.State state1 = builder.addState();
-        NFA.State state2 = builder.addState();
-        NFA.State state3 = builder.addState();
-
-        builder.addTransition(from, new NFA.Prefix(0b11110, 5), state1);
-        builder.addTransition(from, new NFA.Prefix(0b1110, 4), state2);
-        builder.addTransition(from, new NFA.Prefix(0b110, 3), state3);
-
-        builder.addTransition(state1, new NFA.Prefix(0b10, 2), state2);
-        builder.addTransition(state2, new NFA.Prefix(0b10, 2), state3);
-        builder.addTransition(state3, new NFA.Prefix(0b10, 2), to);
     }
 }
