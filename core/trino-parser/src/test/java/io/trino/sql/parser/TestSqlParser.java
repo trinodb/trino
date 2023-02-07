@@ -4350,6 +4350,71 @@ public class TestSqlParser
                         ImmutableList.of())));
     }
 
+    @Test
+    public void testCopartitionInTableArgumentAlias()
+    {
+        // table argument 'input' is aliased. The alias "copartition" is illegal in this context.
+        assertThatThrownBy(() -> SQL_PARSER.createStatement(
+                "SELECT * " +
+                        "FROM TABLE(some_ptf( " +
+                        "input => TABLE(orders) copartition(a, b, c)))",
+                new ParsingOptions()))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageMatching("line 1:54: The word \"COPARTITION\" is ambiguous in this context. " +
+                        "To alias an argument, precede the alias with \"AS\". " +
+                        "To specify co-partitioning, change the argument order so that the last argument cannot be aliased.");
+
+        // table argument 'input' contains an aliased relation with the alias "copartition". The alias is enclosed in the 'TABLE(...)' clause, and the argument itself is not aliased.
+        // The alias "copartition" is legal in this context.
+        assertThat(statement(
+                "SELECT * " +
+                        "FROM TABLE(some_ptf( " +
+                        "                   input => TABLE(SELECT * FROM orders copartition(a, b, c))))"))
+                .isInstanceOf(Query.class);
+
+        // table argument 'input' is aliased. The alias "COPARTITION" is delimited, so it can cause no ambiguity with the COPARTITION clause, and is considered legal in this context.
+        assertThat(statement(
+                "SELECT * " +
+                        "FROM TABLE(some_ptf( " +
+                        "input => TABLE(orders) \"COPARTITION\"(a, b, c)))"))
+                .isInstanceOf(Query.class);
+
+        // table argument 'input' is aliased. The alias "copartition" is preceded with the keyword "AS", so it can cause no ambiguity with the COPARTITION clause, and is considered legal in this context.
+        assertThat(statement(
+                "SELECT * " +
+                        "FROM TABLE(some_ptf( " +
+                        "input => TABLE(orders) AS copartition(a, b, c)))"))
+                .isInstanceOf(Query.class);
+
+        // the COPARTITION word can be either the alias for argument 'input3', or part of the COPARTITION clause.
+        // It is parsed as the argument alias, and then fails as illegal in this context.
+        assertThatThrownBy(() -> SQL_PARSER.createStatement(
+                "SELECT * " +
+                        "FROM TABLE(some_ptf( " +
+                        "input1 => TABLE(customers) PARTITION BY nationkey, " +
+                        "input2 => TABLE(nation) PARTITION BY nationkey, " +
+                        "input3 => TABLE(lineitem) " +
+                        "COPARTITION(customers, nation))) ",
+                new ParsingOptions()))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageMatching("line 1:156: The word \"COPARTITION\" is ambiguous in this context. " +
+                        "To alias an argument, precede the alias with \"AS\". " +
+                        "To specify co-partitioning, change the argument order so that the last argument cannot be aliased.");
+
+        // the above query does not fail if we change the order of arguments so that the last argument before the COPARTITION clause has specified partitioning.
+        // In such case, the COPARTITION word cannot be mistaken for alias.
+        // Note that this transformation of the query is always available. If the table function invocation contains the COPARTITION clause,
+        // at least two table arguments must have partitioning specified.
+        assertThat(statement(
+                "SELECT * " +
+                        "FROM TABLE(some_ptf( " +
+                        "input1 => TABLE(customers) PARTITION BY nationkey, " +
+                        "input3 => TABLE(lineitem), " +
+                        "input2 => TABLE(nation) PARTITION BY nationkey " +
+                        "COPARTITION(customers, nation))) "))
+                .isInstanceOf(Query.class);
+    }
+
     private static Query selectAllFrom(Relation relation)
     {
         return new Query(
