@@ -101,7 +101,7 @@ public class TestJsonRepresentation
                                 ImmutableList.of(),
                                 ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 90, 0, 0)),
                                 ImmutableList.of(new JsonRenderedNode(
-                                        "147",
+                                        "149",
                                         "LocalExchange",
                                         ImmutableMap.of(
                                                 "partitioning", "SINGLE",
@@ -144,7 +144,7 @@ public class TestJsonRepresentation
                         ImmutableList.of(),
                         ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 90, 0, 0)),
                         ImmutableList.of(new JsonRenderedNode(
-                                "147",
+                                "149",
                                 "LocalExchange",
                                 ImmutableMap.of(
                                         "partitioning", "SINGLE",
