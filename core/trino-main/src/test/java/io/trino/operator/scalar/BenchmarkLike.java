@@ -85,6 +85,8 @@ public class BenchmarkLike
                 "_____",
                 "abc%def%ghi",
                 "%abc%def%",
+                "%a%a%a%a%",
+                "%aaaaaaaaaaaaaaaaaaaaaaaaaa%"
         })
         private String pattern;
 
@@ -105,6 +107,8 @@ public class BenchmarkLike
                         case "_____" -> "abcde";
                         case "abc%def%ghi" -> "abc qeroighqeorhgqerhb2eriuyerqiubgier def ubgleuqrbgilquebriuqebryqebrhqerhqsnajkbcowuhet ghi";
                         case "%abc%def%" -> "fdnbqerbfklerqbgqjerbgkr abc qeroighqeorhgqerhb2eriuyerqiubgier def ubgleuqrbgilquebriuqebryqebrhqerhqsnajkbcowuhet";
+                        case "%a%a%a%a%" -> "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+                        case "%aaaaaaaaaaaaaaaaaaaaaaaaaa%" -> "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
                         default -> throw new IllegalArgumentException("Unknown pattern: " + pattern);
                     });
 
@@ -125,6 +129,18 @@ public class BenchmarkLike
     public boolean benchmarkCurrent(Data data)
     {
         return data.matcher.match(data.bytes, 0, data.bytes.length);
+    }
+
+    @Benchmark
+    public JoniRegexp compileJoni(Data data)
+    {
+        return compileJoni(data.pattern, (char) 0, false);
+    }
+
+    @Benchmark
+    public LikeMatcher compile(Data data)
+    {
+        return LikeMatcher.compile(data.pattern, Optional.empty());
     }
 
     public static boolean likeVarchar(Slice value, JoniRegexp pattern)
