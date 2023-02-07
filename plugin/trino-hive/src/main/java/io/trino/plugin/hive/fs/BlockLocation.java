@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.fs;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.filesystem.FileEntry;
 
 import javax.annotation.Nullable;
 
@@ -42,6 +43,13 @@ public class BlockLocation
         return Arrays.stream(blockLocations)
                 .map(BlockLocation::new)
                 .collect(toImmutableList());
+    }
+
+    public BlockLocation(FileEntry.BlockLocation blockLocation)
+    {
+        this.hosts = ImmutableList.copyOf(blockLocation.hosts());
+        this.offset = blockLocation.offset();
+        this.length = blockLocation.length();
     }
 
     public BlockLocation(org.apache.hadoop.fs.BlockLocation blockLocation)
