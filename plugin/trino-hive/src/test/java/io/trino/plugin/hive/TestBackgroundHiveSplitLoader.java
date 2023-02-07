@@ -23,6 +23,7 @@ import com.google.common.collect.ListMultimap;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfigurationInitializer;
@@ -517,6 +518,7 @@ public class TestBackgroundHiveSplitLoader
     {
         AtomicBoolean iteratorUsedAfterException = new AtomicBoolean();
 
+        HdfsEnvironment hdfsEnvironment = new TestingHdfsEnvironment(TEST_FILES);
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
                 new Iterator<>()
@@ -547,7 +549,8 @@ public class TestBackgroundHiveSplitLoader
                 TESTING_TYPE_MANAGER,
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 SESSION,
-                new TestingHdfsEnvironment(TEST_FILES),
+                new HdfsFileSystemFactory(hdfsEnvironment),
+                hdfsEnvironment,
                 new NamenodeStats(),
                 new CachingDirectoryLister(new HiveConfig()),
                 executor,
@@ -1168,6 +1171,7 @@ public class TestBackgroundHiveSplitLoader
                 TESTING_TYPE_MANAGER,
                 createBucketSplitInfo(bucketHandle, hiveBucketFilter),
                 SESSION,
+                new HdfsFileSystemFactory(hdfsEnvironment),
                 hdfsEnvironment,
                 new NamenodeStats(),
                 new CachingDirectoryLister(new HiveConfig()),
@@ -1202,6 +1206,7 @@ public class TestBackgroundHiveSplitLoader
         ConnectorSession connectorSession = getHiveSession(new HiveConfig()
                 .setMaxSplitSize(DataSize.of(1, GIGABYTE)));
 
+        HdfsEnvironment hdfsEnvironment = new TestingHdfsEnvironment(files);
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
                 partitions.iterator(),
@@ -1211,7 +1216,8 @@ public class TestBackgroundHiveSplitLoader
                 TESTING_TYPE_MANAGER,
                 Optional.empty(),
                 connectorSession,
-                new TestingHdfsEnvironment(files),
+                new HdfsFileSystemFactory(hdfsEnvironment),
+                hdfsEnvironment,
                 new NamenodeStats(),
                 directoryLister,
                 executor,
@@ -1229,6 +1235,7 @@ public class TestBackgroundHiveSplitLoader
         ConnectorSession connectorSession = getHiveSession(new HiveConfig()
                 .setMaxSplitSize(DataSize.of(1, GIGABYTE)));
 
+        HdfsEnvironment hdfsEnvironment = new TestingHdfsEnvironment(TEST_FILES);
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
                 createPartitionMetadataWithOfflinePartitions(),
@@ -1238,7 +1245,8 @@ public class TestBackgroundHiveSplitLoader
                 TESTING_TYPE_MANAGER,
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 connectorSession,
-                new TestingHdfsEnvironment(TEST_FILES),
+                new HdfsFileSystemFactory(hdfsEnvironment),
+                hdfsEnvironment,
                 new NamenodeStats(),
                 new CachingDirectoryLister(new HiveConfig()),
                 executor,

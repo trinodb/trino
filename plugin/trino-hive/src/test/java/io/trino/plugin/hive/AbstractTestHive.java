@@ -820,6 +820,7 @@ public abstract class AbstractTestHive
         metadataFactory = new HiveMetadataFactory(
                 new CatalogName("hive"),
                 HiveMetastoreFactory.ofInstance(metastoreClient),
+                new HdfsFileSystemFactory(hdfsEnvironment),
                 hdfsEnvironment,
                 partitionManager,
                 10,
@@ -883,6 +884,7 @@ public abstract class AbstractTestHive
         splitManager = new HiveSplitManager(
                 transactionManager,
                 partitionManager,
+                new HdfsFileSystemFactory(hdfsEnvironment),
                 new NamenodeStats(),
                 hdfsEnvironment,
                 executor,
