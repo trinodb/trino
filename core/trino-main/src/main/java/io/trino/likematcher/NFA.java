@@ -13,8 +13,6 @@
  */
 package io.trino.likematcher;
 
-import com.google.common.collect.ImmutableList;
-
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -28,18 +26,24 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-record NFA(State start, State accept, List<State> states, List<List<Transition>> transitions)
+final class NFA
 {
-    NFA {
-        requireNonNull(start, "start is null");
-        requireNonNull(accept, "accept is null");
-        states = ImmutableList.copyOf(states);
-        transitions = ImmutableList.copyOf(transitions);
+    private final State start;
+    private final State accept;
+    private final List<State> states;
+    private final List<List<Transition>> transitions;
+
+    private NFA(State start, State accept, List<State> states, List<List<Transition>> transitions)
+    {
+        this.start = requireNonNull(start, "start is null");
+        this.accept = requireNonNull(accept, "accept is null");
+        this.states = requireNonNull(states, "states is null");
+        this.transitions = requireNonNull(transitions, "transitions is null");
     }
 
     public DFA toDfa()
     {
-        Map<Set<NFA.State>, DFA.State> activeStates = new HashMap<>();
+        Map<Set<State>, DFA.State> activeStates = new HashMap<>();
 
         DFA.Builder builder = new DFA.Builder();
         DFA.State failed = builder.addFailState();
@@ -47,16 +51,16 @@ record NFA(State start, State accept, List<State> states, List<List<Transition>>
             builder.addTransition(failed, i, failed);
         }
 
-        Set<NFA.State> initial = Set.of(this.start);
-        Queue<Set<NFA.State>> queue = new ArrayDeque<>();
+        Set<State> initial = Set.of(this.start);
+        Queue<Set<State>> queue = new ArrayDeque<>();
         queue.add(initial);
 
         DFA.State dfaStartState = builder.addStartState(makeLabel(initial), initial.contains(accept));
         activeStates.put(initial, dfaStartState);
 
-        Set<Set<NFA.State>> visited = new HashSet<>();
+        Set<Set<State>> visited = new HashSet<>();
         while (!queue.isEmpty()) {
-            Set<NFA.State> current = queue.poll();
+            Set<State> current = queue.poll();
 
             if (!visited.add(current)) {
                 continue;
@@ -64,8 +68,8 @@ record NFA(State start, State accept, List<State> states, List<List<Transition>>
 
             // For each possible byte value...
             for (int byteValue = 0; byteValue < 256; byteValue++) {
-                Set<NFA.State> next = new HashSet<>();
-                for (NFA.State nfaState : current) {
+                Set<State> next = new HashSet<>();
+                for (State nfaState : current) {
                     for (Transition transition : transitions(nfaState)) {
                         Condition condition = transition.condition();
                         State target = states.get(transition.target());
@@ -99,10 +103,10 @@ record NFA(State start, State accept, List<State> states, List<List<Transition>>
         return transitions.get(state.id());
     }
 
-    private String makeLabel(Set<NFA.State> states)
+    private String makeLabel(Set<State> states)
     {
         return "{" + states.stream()
-                .map(NFA.State::id)
+                .map(State::id)
                 .map(Object::toString)
                 .sorted()
                 .collect(Collectors.joining(",")) + "}";
