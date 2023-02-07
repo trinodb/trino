@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class ProtocolHeaders
@@ -190,8 +191,9 @@ public final class ProtocolHeaders
         requireNonNull(headerNames, "headerNames is null");
 
         if (alternateHeaderName.isPresent() && !alternateHeaderName.get().equalsIgnoreCase("Trino")) {
-            if (headerNames.contains("X-" + alternateHeaderName.get() + "-User")) {
-                if (headerNames.contains("X-Trino-User")) {
+            String headerPrefix = "x-" + alternateHeaderName.get().toLowerCase(ENGLISH);
+            if (headerNames.stream().anyMatch(header -> header.toLowerCase(ENGLISH).startsWith(headerPrefix))) {
+                if (headerNames.stream().anyMatch(header -> header.toLowerCase(ENGLISH).startsWith("x-trino-"))) {
                     throw new ProtocolDetectionException("Both Trino and " + alternateHeaderName.get() + " headers detected");
                 }
                 return createProtocolHeaders(alternateHeaderName.get());
