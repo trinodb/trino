@@ -42,6 +42,7 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACCESS_KEY;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_CONNECT_TIMEOUT;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_CONNECT_TTL;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_CREDENTIALS_PROVIDER;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENDPOINT;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_ERROR_RETRIES;
@@ -103,6 +104,11 @@ public class TrinoS3ClientFactory
                 .withMaxConnections(maxConnections)
                 .withUserAgentPrefix(userAgentPrefix)
                 .withUserAgentSuffix(enabled ? "Trino-select" : "Trino");
+
+        String connectTtlValue = config.get(S3_CONNECT_TTL);
+        if (!isNullOrEmpty(connectTtlValue)) {
+            clientConfiguration.setConnectionTTL(Duration.valueOf(connectTtlValue).toMillis());
+        }
 
         AWSCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(config);
         AmazonS3Builder<? extends AmazonS3Builder<?, ?>, ? extends AmazonS3> clientBuilder = AmazonS3Client.builder()
