@@ -210,6 +210,7 @@ public class VacuumProcedure
         long retainedKnownFiles = 0;
         long retainedUnknownFiles = 0;
         long removedFiles = 0;
+        long failedToDelete = 0;
 
         List<String> filesToDelete = new ArrayList<>();
         FileIterator listing = fileSystem.listFiles(tableLocation.toString());
@@ -259,19 +260,20 @@ public class VacuumProcedure
                     modificationInstant);
             filesToDelete.add(path);
             if (filesToDelete.size() == DELETE_BATCH_SIZE) {
-                fileSystem.deleteFiles(filesToDelete);
+                failedToDelete += fileSystem.deleteFiles(filesToDelete);
                 removedFiles += filesToDelete.size();
                 filesToDelete.clear();
             }
         }
 
         if (!filesToDelete.isEmpty()) {
-            fileSystem.deleteFiles(filesToDelete);
+            failedToDelete += fileSystem.deleteFiles(filesToDelete);
             removedFiles += filesToDelete.size();
         }
 
         log.info(
-                "[%s] finished vacuuming table %s [%s]: files checked: %s; metadata files: %s; retained known files: %s; retained unknown files: %s; removed files: %s",
+                "[%s] finished vacuuming table %s [%s]: files checked: %s; metadata files: %s; retained known files: %s;" +
+                        " retained unknown files: %s; removed files: %s; failed to delete files: %s",
                 queryId,
                 tableName,
                 tableLocation,
@@ -279,6 +281,7 @@ public class VacuumProcedure
                 transactionLogFiles,
                 retainedKnownFiles,
                 retainedUnknownFiles,
-                removedFiles);
+                removedFiles,
+                failedToDelete);
     }
 }
