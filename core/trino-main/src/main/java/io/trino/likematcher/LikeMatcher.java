@@ -313,21 +313,14 @@ public class LikeMatcher
                 }
             }
             else if (item instanceof Any any) {
-                NFA.State previous;
-                int i = 0;
-                do {
-                    previous = state;
-                    state = matchSingleUtf8(builder, state);
-                    i++;
-                }
-                while (i < any.min());
-
-                if (any.min() == 0) {
-                    builder.addTransition(previous, new NFA.Epsilon(), state);
+                for (int i = 0; i < any.min(); i++) {
+                    NFA.State next = builder.addState();
+                    matchSingleUtf8(builder, state, next);
+                    state = next;
                 }
 
                 if (any.unbounded()) {
-                    builder.addTransition(state, new NFA.Epsilon(), previous);
+                    matchSingleUtf8(builder, state, state);
                 }
             }
             else {
@@ -347,7 +340,7 @@ public class LikeMatcher
         return next;
     }
 
-    private static NFA.State matchSingleUtf8(NFA.Builder builder, NFA.State start)
+    private static void matchSingleUtf8(NFA.Builder builder, NFA.State from, NFA.State to)
     {
         /*
             Implements a state machine to recognize UTF-8 characters.
@@ -365,22 +358,18 @@ public class LikeMatcher
                                         0xxxxxxx
         */
 
-        NFA.State next = builder.addState();
-
-        builder.addTransition(start, new NFA.Prefix(0, 1), next);
+        builder.addTransition(from, new NFA.Prefix(0, 1), to);
 
         NFA.State state1 = builder.addState();
         NFA.State state2 = builder.addState();
         NFA.State state3 = builder.addState();
 
-        builder.addTransition(start, new NFA.Prefix(0b11110, 5), state1);
-        builder.addTransition(start, new NFA.Prefix(0b1110, 4), state2);
-        builder.addTransition(start, new NFA.Prefix(0b110, 3), state3);
+        builder.addTransition(from, new NFA.Prefix(0b11110, 5), state1);
+        builder.addTransition(from, new NFA.Prefix(0b1110, 4), state2);
+        builder.addTransition(from, new NFA.Prefix(0b110, 3), state3);
 
         builder.addTransition(state1, new NFA.Prefix(0b10, 2), state2);
         builder.addTransition(state2, new NFA.Prefix(0b10, 2), state3);
-        builder.addTransition(state3, new NFA.Prefix(0b10, 2), next);
-
-        return next;
+        builder.addTransition(state3, new NFA.Prefix(0b10, 2), to);
     }
 }

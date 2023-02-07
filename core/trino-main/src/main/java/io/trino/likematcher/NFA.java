@@ -48,7 +48,7 @@ record NFA(State start, State accept, List<State> states, Map<Integer, List<Tran
             builder.addTransition(failed, i, failed);
         }
 
-        Set<NFA.State> initial = transitiveClosure(Set.of(this.start));
+        Set<NFA.State> initial = Set.of(this.start);
         Queue<Set<NFA.State>> queue = new ArrayDeque<>();
         queue.add(initial);
 
@@ -85,9 +85,8 @@ record NFA(State start, State accept, List<State> states, Map<Integer, List<Tran
                 DFA.State from = activeStates.get(current);
                 DFA.State to = failed;
                 if (!next.isEmpty()) {
-                    Set<NFA.State> closure = transitiveClosure(next);
-                    to = activeStates.computeIfAbsent(closure, nfaStates -> builder.addState(makeLabel(nfaStates), nfaStates.contains(accept)));
-                    queue.add(closure);
+                    to = activeStates.computeIfAbsent(next, nfaStates -> builder.addState(makeLabel(nfaStates), nfaStates.contains(accept)));
+                    queue.add(next);
                 }
                 builder.addTransition(from, byteValue, to);
             }
@@ -99,35 +98,6 @@ record NFA(State start, State accept, List<State> states, Map<Integer, List<Tran
     private List<Transition> transitions(State state)
     {
         return transitions.getOrDefault(state.id(), ImmutableList.of());
-    }
-
-    /**
-     * Traverse epsilon transitions to compute the reachable set of states
-     */
-    private Set<State> transitiveClosure(Set<State> states)
-    {
-        Set<State> result = new HashSet<>();
-
-        Queue<State> queue = new ArrayDeque<>(states);
-        while (!queue.isEmpty()) {
-            State state = queue.poll();
-
-            if (result.contains(state)) {
-                continue;
-            }
-
-            transitions(state).stream()
-                    .filter(transition -> transition.condition() instanceof Epsilon)
-                    .forEach(transition -> {
-                        State target = this.states.get(transition.target());
-                        result.add(target);
-                        queue.add(target);
-                    });
-        }
-
-        result.addAll(states);
-
-        return result;
     }
 
     private String makeLabel(Set<NFA.State> states)
@@ -191,12 +161,9 @@ record NFA(State start, State accept, List<State> states, Map<Integer, List<Tran
     record Transition(int target, Condition condition) {}
 
     sealed interface Condition
-            permits Epsilon, Value, Prefix
+            permits Value, Prefix
     {
     }
-
-    record Epsilon()
-            implements Condition {}
 
     record Value(byte value)
             implements Condition {}
