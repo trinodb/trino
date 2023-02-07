@@ -33,9 +33,10 @@ public interface TrinoFileSystem
      * Delete paths in batches, it is not guaranteed to be atomic.
      *
      * @param paths collection of paths to be deleted
+     * @return number of files that failed to delete
      * @throws IOException when there is a problem with deletion of one or more specific paths
      */
-    void deleteFiles(Collection<String> paths)
+    int deleteFiles(Collection<String> paths)
             throws IOException;
 
     void deleteDirectory(String path)

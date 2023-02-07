@@ -31,6 +31,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.trino.filesystem.FileSystemUtils.getRawFileSystem;
 import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
@@ -85,27 +86,29 @@ class HdfsFileSystem
     }
 
     @Override
-    public void deleteFiles(Collection<String> paths)
+    public int deleteFiles(Collection<String> paths)
             throws IOException
     {
         Map<Path, List<Path>> pathsGroupedByDirectory = paths.stream().collect(
                 groupingBy(
                         path -> hadoopPath(path.replaceFirst("/[^/]*$", "")),
                         mapping(HadoopPaths::hadoopPath, toList())));
+        AtomicInteger failedToDelete = new AtomicInteger();
         for (Entry<Path, List<Path>> directoryWithPaths : pathsGroupedByDirectory.entrySet()) {
             FileSystem rawFileSystem = getRawFileSystem(environment.getFileSystem(context, directoryWithPaths.getKey()));
             environment.doAs(context.getIdentity(), () -> {
                 if (rawFileSystem instanceof FileSystemWithBatchDelete fileSystemWithBatchDelete) {
-                    fileSystemWithBatchDelete.deleteFiles(directoryWithPaths.getValue());
+                    failedToDelete.addAndGet(fileSystemWithBatchDelete.deleteFiles(directoryWithPaths.getValue()));
                 }
                 else {
                     for (Path path : directoryWithPaths.getValue()) {
-                        rawFileSystem.delete(path, false);
+                        failedToDelete.addAndGet(rawFileSystem.delete(path, false) == true ? 0 : 1);
                     }
                 }
                 return null;
             });
         }
+        return failedToDelete.get();
     }
 
     @Override

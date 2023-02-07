@@ -135,10 +135,10 @@ public class TrackingFileSystemFactory
         }
 
         @Override
-        public void deleteFiles(Collection<String> paths)
+        public int deleteFiles(Collection<String> paths)
                 throws IOException
         {
-            delegate.deleteFiles(paths);
+            return delegate.deleteFiles(paths);
         }
 
         @Override

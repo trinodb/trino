@@ -100,7 +100,7 @@ public final class AccessTrackingFileSystemFactory
         }
 
         @Override
-        public void deleteFiles(Collection<String> paths)
+        public int deleteFiles(Collection<String> paths)
         {
             throw new UnsupportedOperationException();
         }
