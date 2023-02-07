@@ -15,6 +15,7 @@ package io.trino.sql.query;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBundle;
@@ -505,9 +506,10 @@ public class QueryAssertions
          */
         @SafeVarargs
         @CanIgnoreReturnValue
-        public final QueryAssert isNotFullyPushedDown(Class<? extends PlanNode>... retainedNodes)
+        public final QueryAssert isNotFullyPushedDown(Class<? extends PlanNode> firstRetainedNode, Class<? extends PlanNode>... moreRetainedNodes)
         {
             PlanMatchPattern expectedPlan = PlanMatchPattern.node(TableScanNode.class);
+            List<Class<? extends PlanNode>> retainedNodes = Lists.asList(firstRetainedNode, moreRetainedNodes);
             for (Class<? extends PlanNode> retainedNode : ImmutableList.copyOf(retainedNodes).reverse()) {
                 expectedPlan = PlanMatchPattern.node(retainedNode, expectedPlan);
             }
