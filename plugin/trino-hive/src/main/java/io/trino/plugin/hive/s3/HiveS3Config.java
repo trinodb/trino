@@ -31,6 +31,7 @@ import javax.validation.constraints.NotNull;
 
 import java.io.File;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -60,6 +61,7 @@ public class HiveS3Config
     private Duration s3MaxBackoffTime = new Duration(10, TimeUnit.MINUTES);
     private Duration s3MaxRetryTime = new Duration(10, TimeUnit.MINUTES);
     private Duration s3ConnectTimeout = new Duration(5, TimeUnit.SECONDS);
+    private Optional<Duration> s3ConnectTtl = Optional.empty();
     private Duration s3SocketTimeout = new Duration(5, TimeUnit.SECONDS);
     private int s3MaxConnections = 500;
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
@@ -351,6 +353,20 @@ public class HiveS3Config
     public HiveS3Config setS3ConnectTimeout(Duration s3ConnectTimeout)
     {
         this.s3ConnectTimeout = s3ConnectTimeout;
+        return this;
+    }
+
+    @NotNull
+    public Optional<Duration> getS3ConnectTtl()
+    {
+        return s3ConnectTtl;
+    }
+
+    @Config("hive.s3.connect-ttl")
+    @ConfigDescription("TCP connect TTL in the client side, which affects connection reusage")
+    public HiveS3Config setS3ConnectTtl(Duration s3ConnectTtl)
+    {
+        this.s3ConnectTtl = Optional.ofNullable(s3ConnectTtl);
         return this;
     }
 

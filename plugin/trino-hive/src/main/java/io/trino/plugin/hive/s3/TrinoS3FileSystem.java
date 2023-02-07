@@ -197,6 +197,7 @@ public class TrinoS3FileSystem
     public static final String S3_MAX_CONNECTIONS = "trino.s3.max-connections";
     public static final String S3_SOCKET_TIMEOUT = "trino.s3.socket-timeout";
     public static final String S3_CONNECT_TIMEOUT = "trino.s3.connect-timeout";
+    public static final String S3_CONNECT_TTL = "trino.s3.connect-ttl";
     public static final String S3_MAX_RETRY_TIME = "trino.s3.max-retry-time";
     public static final String S3_MAX_BACKOFF_TIME = "trino.s3.max-backoff-time";
     public static final String S3_MAX_CLIENT_RETRIES = "trino.s3.max-client-retries";
@@ -327,6 +328,11 @@ public class TrinoS3FileSystem
                 .withMaxConnections(maxConnections)
                 .withUserAgentPrefix(userAgentPrefix)
                 .withUserAgentSuffix("Trino");
+
+        String connectTtlValue = conf.get(S3_CONNECT_TTL);
+        if (!isNullOrEmpty(connectTtlValue)) {
+            configuration.setConnectionTTL(Duration.valueOf(connectTtlValue).toMillis());
+        }
 
         String proxyHost = conf.get(S3_PROXY_HOST);
         if (nonNull(proxyHost)) {
