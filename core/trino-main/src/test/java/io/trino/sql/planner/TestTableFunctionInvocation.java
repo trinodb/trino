@@ -28,7 +28,9 @@ import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.ptf.Descriptor;
 import io.trino.spi.ptf.Descriptor.Field;
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.trino.sql.planner.optimizations.AddLocalExchanges;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
 import org.testng.annotations.BeforeClass;
@@ -43,7 +45,10 @@ import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictOutput;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -225,6 +230,66 @@ public class TestTableFunctionInvocation
                                                 .requiredSymbols(ImmutableList.of(ImmutableList.of("a")))
                                                 .specification(specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of())),
                                         values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))))),
+                optimizer -> !(optimizer instanceof AddLocalExchanges)); // TODO remove the optimizer filter when TableFunctionProcessorNode is supported in StreamPropertyDerivations
+    }
+
+    @Test
+    public void testRemoveRedundantTableFunction()
+    {
+        assertPlan("SELECT * FROM TABLE(mock.system.pass_through_function(input => TABLE(SELECT 1, true WHERE false) t(a, b) PRUNE WHEN EMPTY))",
+                output(values(ImmutableList.of("x", "a", "b"))));
+
+        assertPlan("""
+                        SELECT *
+                        FROM TABLE(mock.system.two_table_arguments_function(
+                                        input1 => TABLE(SELECT 1, true WHERE false) t1(a, b) PRUNE WHEN EMPTY,
+                                        input2 => TABLE(SELECT 2, false) t2(c, d) KEEP WHEN EMPTY))
+                        """,
+                output(values(ImmutableList.of("column"))));
+
+        assertPlan("""
+                        SELECT *
+                        FROM TABLE(mock.system.two_table_arguments_function(
+                                        input1 => TABLE(SELECT 1, true WHERE false) t1(a, b) PRUNE WHEN EMPTY,
+                                        input2 => TABLE(SELECT 2, false WHERE false) t2(c, d) PRUNE WHEN EMPTY))
+                        """,
+                output(values(ImmutableList.of("column"))));
+
+        assertPlan("""
+                        SELECT *
+                        FROM TABLE(mock.system.two_table_arguments_function(
+                                        input1 => TABLE(SELECT 1, true WHERE false) t1(a, b) PRUNE WHEN EMPTY,
+                                        input2 => TABLE(SELECT 2, false WHERE false) t2(c, d) KEEP WHEN EMPTY))
+                        """,
+                output(values(ImmutableList.of("column"))));
+
+        assertPlan("""
+                        SELECT *
+                        FROM TABLE(mock.system.two_table_arguments_function(
+                                        input1 => TABLE(SELECT 1, true WHERE false) t1(a, b) KEEP WHEN EMPTY,
+                                        input2 => TABLE(SELECT 2, false WHERE false) t2(c, d) KEEP WHEN EMPTY))
+                        """,
+                OPTIMIZED,
+                output(
+                        node(TableFunctionProcessorNode.class,
+                                values(ImmutableList.of("a", "marker_1", "c", "marker_2", "row_number")))),
+                optimizer -> !(optimizer instanceof AddLocalExchanges)); // TODO remove the optimizer filter when TableFunctionProcessorNode is supported in StreamPropertyDerivations
+
+        assertPlan("""
+                        SELECT *
+                        FROM TABLE(mock.system.two_table_arguments_function(
+                                        input1 => TABLE(SELECT 1, true WHERE false) t1(a, b) KEEP WHEN EMPTY,
+                                        input2 => TABLE(SELECT 2, false) t2(c, d) PRUNE WHEN EMPTY))
+                        """,
+                OPTIMIZED,
+                output(
+                        node(TableFunctionProcessorNode.class,
+                                project(
+                                        project(
+                                                rowNumber(
+                                                        builder -> builder.partitionBy(ImmutableList.of()),
+                                                        values(ImmutableList.of("c"), ImmutableList.of(ImmutableList.of(new LongLiteral("2")))))
+                                                        .withAlias("input_2_row_number", new RowNumberSymbolMatcher()))))),
                 optimizer -> !(optimizer instanceof AddLocalExchanges)); // TODO remove the optimizer filter when TableFunctionProcessorNode is supported in StreamPropertyDerivations
     }
 }
