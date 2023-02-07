@@ -1,0 +1,17 @@
+{
+    "catalogs":[
+        {
+            "user":"datapipes@cldcvr.com",
+            "catalog":"snowflake",
+            "allow":"read-only"
+        },
+        {
+            "catalog":"system",
+            "allow":"none"
+        },
+        {
+            "catalog":"tpch",
+            "allow":"none"
+        }
+    ]
+}

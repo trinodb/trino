@@ -1,0 +1,49 @@
+{
+    "catalogs":[
+        {
+            "user":"datapipes@cldcvr.com",
+            "catalog":"snowflake",
+            "allow":"read-only"
+        },
+        {
+            "user":"dev@cldcvr.com",
+            "catalog":"snowflake",
+            "allow":"read-only"
+        },
+        {
+            "catalog":"system",
+            "allow":"none"
+        },
+        {
+            "catalog":"tpch",
+            "allow":"none"
+        }
+    ],
+    "schemas":[
+        {
+            "catalog": "snowflake",
+            "schema": "junit",
+            "user": "datapipes@cldcvr.com"
+        }
+    ],
+    "tables": [
+        {
+            "catalog": "snowflake",
+            "schema": "junit",
+            "table": "testing_suite",
+            "privileges": ["SELECT"],
+            "user": "datapipes@cldcvr.com"
+        },
+        {
+            "catalog": "snowflake",
+            "schema": "junit",
+            "table": "testing_suite",
+            "privileges": ["SELECT"],
+            "filter": " id > 5 and id <=10",
+            "filter_environment": {
+                "user": "dev@cldcvr.com"
+            },
+            "user": "dev@cldcvr.com"
+        }
+    ]
+}

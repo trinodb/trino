@@ -1,0 +1,41 @@
+{
+    "catalogs":[
+        {
+            "user":"datapipes@cldcvr.com",
+            "catalog":"snowflake",
+            "allow":"read-only"
+        },
+        {
+            "catalog":"system",
+            "allow":"none"
+        },
+        {
+            "user":"datapipes@cldcvr.com",
+            "catalog":"tpch",
+            "allow":"read-only"
+        }
+    ],
+    "schemas":[
+        {
+            "catalog": "snowflake",
+            "schema": "junit",
+            "user": "datapipes@cldcvr.com"
+        },
+        {
+            "catalog": "tpch",
+            "schema": "sf1000",
+            "user": "datapipes@cldcvr.com"
+        }
+    ],
+    "tables": [
+        {
+            "catalog": "snowflake",
+            "schema": "junit",
+            "table": ".*",
+            "privileges": [
+                "SELECT"
+            ],
+            "user":"datapipes@cldcvr.com"
+        }
+    ]
+}

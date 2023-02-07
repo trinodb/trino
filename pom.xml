@@ -196,6 +196,7 @@
         <module>testing/trino-testing-resources</module>
         <module>testing/trino-testing-services</module>
         <module>testing/trino-tests</module>
+        <module>plugin/trino-snowflake</module>
     </modules>
 
     <dependencyManagement>

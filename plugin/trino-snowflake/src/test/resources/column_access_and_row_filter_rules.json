@@ -1,0 +1,62 @@
+{
+    "catalogs":[
+        {
+            "user":"datapipes@cldcvr.com",
+            "catalog":"snowflake",
+            "allow":"read-only"
+        },
+        {
+            "user":"dev@cldcvr.com",
+            "catalog":"snowflake",
+            "allow":"read-only"
+        },
+        {
+            "catalog":"system",
+            "allow":"none"
+        },
+        {
+            "catalog":"tpch",
+            "allow":"none"
+        }
+    ],
+    "schemas":[
+        {
+            "catalog": "snowflake",
+            "schema": "junit",
+            "user": "datapipes@cldcvr.com"
+        }
+    ],
+    "tables": [
+        {
+            "catalog": "snowflake",
+            "schema": "junit",
+            "table": "testing_suite",
+            "privileges": ["SELECT"],
+            "user": "datapipes@cldcvr.com"
+        },
+        {
+            "catalog": "snowflake",
+            "schema": "public",
+            "table": "testing_suite_1",
+            "privileges": ["SELECT"],
+            "filter": "id <=50",
+            "filter_environment": {
+                "user": "dev@cldcvr.com"
+            },
+            "columns" : [
+                {
+                    "name": "name",
+                    "allow": false
+                },
+                {
+                    "name": "country",
+                    "mask": "if(country='NZ' or country='AU','XX',country)",
+                    "mask_environment": {
+                        "user": "dev@cldcvr.com"
+                    }
+                }
+            ],
+            "user": "dev@cldcvr.com"
+        }
+    ]
+}
