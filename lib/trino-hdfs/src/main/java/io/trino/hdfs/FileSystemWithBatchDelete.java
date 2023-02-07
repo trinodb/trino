@@ -20,6 +20,9 @@ import java.util.Collection;
 
 public interface FileSystemWithBatchDelete
 {
-    void deleteFiles(Collection<Path> paths)
+    /**
+     * @return number of files that failed to delete
+     */
+    int deleteFiles(Collection<Path> paths)
             throws IOException;
 }

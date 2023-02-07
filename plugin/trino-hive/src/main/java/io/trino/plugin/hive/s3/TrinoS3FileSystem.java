@@ -51,6 +51,7 @@ import com.amazonaws.services.s3.model.CryptoConfiguration;
 import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest.KeyVersion;
+import com.amazonaws.services.s3.model.DeleteObjectsResult;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
@@ -721,21 +722,17 @@ public class TrinoS3FileSystem
     }
 
     @Override
-    public void deleteFiles(Collection<Path> paths)
-            throws IOException
+    public int deleteFiles(Collection<Path> paths)
     {
-        try {
-            Iterable<List<Path>> partitions = Iterables.partition(paths, DELETE_BATCH_SIZE);
-            for (List<Path> currentBatch : partitions) {
-                deletePaths(currentBatch);
-            }
+        int failedToDelete = 0;
+        Iterable<List<Path>> partitions = Iterables.partition(paths, DELETE_BATCH_SIZE);
+        for (List<Path> currentBatch : partitions) {
+            failedToDelete += deletePaths(currentBatch);
         }
-        catch (AmazonClientException e) {
-            throw new IOException("Exception while batch deleting paths", e);
-        }
+        return failedToDelete;
     }
 
-    private void deletePaths(List<Path> paths)
+    private int deletePaths(List<Path> paths)
     {
         List<KeyVersion> keys = paths.stream()
                 .map(TrinoS3FileSystem::keyFromPath)
@@ -745,8 +742,16 @@ public class TrinoS3FileSystem
                 .withRequesterPays(requesterPaysEnabled)
                 .withKeys(keys)
                 .withQuiet(true);
-
-        s3.deleteObjects(deleteObjectsRequest);
+        int failedToDelete;
+        try {
+            DeleteObjectsResult deleteObjectsResult = s3.deleteObjects(deleteObjectsRequest);
+            failedToDelete = keys.size() - deleteObjectsResult.getDeletedObjects().size();
+        }
+        catch (AmazonClientException e) {
+            failedToDelete = keys.size();
+            log.warn(e, "Exception while batch deleting paths");
+        }
+        return failedToDelete;
     }
 
     @Override
