@@ -31,8 +31,11 @@ import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
+import io.trino.sql.planner.iterative.IterativeOptimizer;
+import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.trino.sql.planner.optimizations.AddLocalExchanges;
 import io.trino.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
+import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
@@ -1030,7 +1033,24 @@ public class TestLogicalPlanner
                                                 project(
                                                         any(
                                                                 tableScan("lineitem", ImmutableMap.of("L", "orderkey")))))))),
-                optimizer -> !(optimizer instanceof AddLocalExchanges || optimizer instanceof CheckSubqueryNodesAreRewritten));
+                optimizer -> !
+                        (optimizer instanceof AddLocalExchanges
+                                || optimizer instanceof CheckSubqueryNodesAreRewritten
+                                || isPushPredicateIntoTableScanWithPrunePredicateOperation(optimizer)));
+    }
+
+    private boolean isPushPredicateIntoTableScanWithPrunePredicateOperation(PlanOptimizer optimizer)
+    {
+        if (optimizer instanceof IterativeOptimizer iterativeOptimizer) {
+            return iterativeOptimizer.getRules().stream().anyMatch(rule -> {
+                if (rule instanceof PushPredicateIntoTableScan pushPredicateIntoTableScan) {
+                    return pushPredicateIntoTableScan.getPruneWithPredicateExpression();
+                }
+                return false;
+            });
+        }
+
+        return false;
     }
 
     @Test
