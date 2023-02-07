@@ -14,7 +14,6 @@
 package io.trino.likematcher;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -29,13 +28,13 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-record NFA(State start, State accept, List<State> states, Map<Integer, List<Transition>> transitions)
+record NFA(State start, State accept, List<State> states, List<List<Transition>> transitions)
 {
     NFA {
         requireNonNull(start, "start is null");
         requireNonNull(accept, "accept is null");
         states = ImmutableList.copyOf(states);
-        transitions = ImmutableMap.copyOf(transitions);
+        transitions = ImmutableList.copyOf(transitions);
     }
 
     public DFA toDfa()
@@ -97,7 +96,7 @@ record NFA(State start, State accept, List<State> states, Map<Integer, List<Tran
 
     private List<Transition> transitions(State state)
     {
-        return transitions.getOrDefault(state.id(), ImmutableList.of());
+        return transitions.get(state.id());
     }
 
     private String makeLabel(Set<NFA.State> states)
@@ -115,12 +114,13 @@ record NFA(State start, State accept, List<State> states, Map<Integer, List<Tran
         private State start;
         private State accept;
         private final List<State> states = new ArrayList<>();
-        private final Map<Integer, List<Transition>> transitions = new HashMap<>();
+        private final List<List<Transition>> transitions = new ArrayList<>();
 
         public State addState()
         {
             State state = new State(nextId++);
             states.add(state);
+            transitions.add(new ArrayList<>());
             return state;
         }
 
@@ -139,8 +139,7 @@ record NFA(State start, State accept, List<State> states, Map<Integer, List<Tran
 
         public void addTransition(State from, Condition condition, State to)
         {
-            transitions.computeIfAbsent(from.id(), key -> new ArrayList<>())
-                    .add(new Transition(to.id(), condition));
+            transitions.get(from.id()).add(new Transition(to.id(), condition));
         }
 
         public NFA build()
