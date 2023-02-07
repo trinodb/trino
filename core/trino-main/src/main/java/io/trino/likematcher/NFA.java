@@ -45,10 +45,6 @@ final class NFA
         Map<IntSet, Integer> activeStates = new HashMap<>();
 
         DFA.Builder builder = new DFA.Builder();
-        int failed = builder.addFailState();
-        for (int i = 0; i < 256; i++) {
-            builder.addTransition(failed, i, failed);
-        }
 
         IntSet initial = new IntArraySet();
         initial.add(start);
@@ -85,13 +81,13 @@ final class NFA
                     }
                 }
 
-                int from = activeStates.get(current);
-                int to = failed;
                 if (!next.isEmpty()) {
-                    to = activeStates.computeIfAbsent(next, nfaStates -> builder.addState(nfaStates.contains(accept)));
+                    int from = activeStates.get(current);
+                    int to = activeStates.computeIfAbsent(next, nfaStates -> builder.addState(nfaStates.contains(accept)));
+                    builder.addTransition(from, byteValue, to);
+
                     queue.add(next);
                 }
-                builder.addTransition(from, byteValue, to);
             }
         }
 
