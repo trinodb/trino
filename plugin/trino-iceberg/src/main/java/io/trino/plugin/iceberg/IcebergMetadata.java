@@ -157,6 +157,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -884,6 +885,7 @@ public class IcebergMetadata
             ImmutableList.Builder<String> deletedFilesBuilder = ImmutableList.builder();
             Iterator<String> filesToDeleteIterator = filesToDelete.iterator();
             List<String> deleteBatch = new ArrayList<>();
+            long failedToDelete = 0;
             while (filesToDeleteIterator.hasNext()) {
                 String fileName = filesToDeleteIterator.next();
                 deletedFilesBuilder.add(fileName);
@@ -892,19 +894,22 @@ public class IcebergMetadata
                 deleteBatch.add(location + "/" + fileName);
                 if (deleteBatch.size() >= DELETE_BATCH_SIZE) {
                     log.debug("Deleting failed attempt files %s for query %s", deleteBatch, queryId);
-                    fileSystem.deleteFiles(deleteBatch);
+                    failedToDelete += fileSystem.deleteFiles(deleteBatch);
                     deleteBatch.clear();
                 }
             }
 
             if (!deleteBatch.isEmpty()) {
                 log.debug("Deleting failed attempt files %s for query %s", deleteBatch, queryId);
-                fileSystem.deleteFiles(deleteBatch);
+                failedToDelete += fileSystem.deleteFiles(deleteBatch);
             }
 
             List<String> deletedFiles = deletedFilesBuilder.build();
             if (!deletedFiles.isEmpty()) {
                 log.info("Deleted failed attempt files %s from %s for query %s", deletedFiles, location, queryId);
+            }
+            if (failedToDelete > 0) {
+                log.warn("Failed to delete " + failedToDelete + " files");
             }
         }
         catch (IOException e) {
@@ -1231,12 +1236,13 @@ public class IcebergMetadata
         long expireTimestampMillis = session.getStart().toEpochMilli() - retention.toMillis();
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         List<String> pathsToDelete = new ArrayList<>();
+        AtomicLong failedToDelete = new AtomicLong();
         // deleteFunction is not accessed from multiple threads unless .executeDeleteWith() is used
         Consumer<String> deleteFunction = path -> {
             pathsToDelete.add(path);
             if (pathsToDelete.size() == DELETE_BATCH_SIZE) {
                 try {
-                    fileSystem.deleteFiles(pathsToDelete);
+                    failedToDelete.addAndGet(fileSystem.deleteFiles(pathsToDelete));
                     pathsToDelete.clear();
                 }
                 catch (IOException e) {
@@ -1250,10 +1256,14 @@ public class IcebergMetadata
                 .deleteWith(deleteFunction)
                 .commit();
         try {
-            fileSystem.deleteFiles(pathsToDelete);
+            failedToDelete.addAndGet(fileSystem.deleteFiles(pathsToDelete));
         }
         catch (IOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete files during snapshot expiration", e);
+        }
+
+        if (failedToDelete.get() > 0) {
+            log.warn("Failed to delete " + failedToDelete + " files");
         }
     }
 
@@ -1373,13 +1383,14 @@ public class IcebergMetadata
             List<String> filesToDelete = new ArrayList<>();
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             FileIterator allFiles = fileSystem.listFiles(table.location() + "/" + subfolder);
+            long failedToDelete = 0;
             while (allFiles.hasNext()) {
                 FileEntry entry = allFiles.next();
                 if (entry.lastModified() < expireTimestamp && !validFiles.contains(fileName(entry.path()))) {
                     filesToDelete.add(entry.path());
                     if (filesToDelete.size() >= DELETE_BATCH_SIZE) {
                         log.debug("Deleting files while removing orphan files for table %s [%s]", schemaTableName, filesToDelete);
-                        fileSystem.deleteFiles(filesToDelete);
+                        failedToDelete += fileSystem.deleteFiles(filesToDelete);
                         filesToDelete.clear();
                     }
                 }
@@ -1389,7 +1400,10 @@ public class IcebergMetadata
             }
             if (!filesToDelete.isEmpty()) {
                 log.debug("Deleting files while removing orphan files for table %s %s", schemaTableName, filesToDelete);
-                fileSystem.deleteFiles(filesToDelete);
+                failedToDelete += fileSystem.deleteFiles(filesToDelete);
+            }
+            if (failedToDelete > 0) {
+                log.warn("Failed to delete " + failedToDelete + " files");
             }
         }
         catch (IOException e) {
@@ -1999,10 +2013,13 @@ public class IcebergMetadata
         if (!fullyDeletedFiles.isEmpty()) {
             try {
                 TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-                fileSystem.deleteFiles(fullyDeletedFiles.values().stream()
+                long failedToDelete = fileSystem.deleteFiles(fullyDeletedFiles.values().stream()
                         .flatMap(Collection::stream)
                         .map(CommitTaskData::getPath)
                         .collect(toImmutableSet()));
+                if (failedToDelete > 0) {
+                    log.warn("Failed to delete " + failedToDelete + " files");
+                }
             }
             catch (IOException e) {
                 log.warn(e, "Failed to clean up uncommitted position delete files");
