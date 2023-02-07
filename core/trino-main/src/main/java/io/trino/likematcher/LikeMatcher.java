@@ -151,7 +151,7 @@ public class LikeMatcher
         Optional<Matcher> matcher = Optional.empty();
         if (!middle.isEmpty()) {
             if (optimize) {
-                matcher = Optional.of(DenseDfaMatcher.newInstance(middle, exact));
+                matcher = Optional.of(new DenseDfaMatcher(middle, exact));
             }
             else {
                 matcher = Optional.of(new NfaMatcher(middle, exact));
