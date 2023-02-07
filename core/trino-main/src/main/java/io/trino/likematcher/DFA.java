@@ -14,25 +14,22 @@
 package io.trino.likematcher;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-record DFA(State start, State failed, List<State> states, Map<Integer, List<Transition>> transitions)
+record DFA(State start, State failed, List<State> states, List<List<Transition>> transitions)
 {
     DFA
     {
         requireNonNull(start, "start is null");
         requireNonNull(failed, "failed is null");
         states = ImmutableList.copyOf(states);
-        transitions = ImmutableMap.copyOf(transitions);
+        transitions = ImmutableList.copyOf(transitions);
     }
 
     public List<Transition> transitions(State state)
@@ -67,12 +64,13 @@ record DFA(State start, State failed, List<State> states, Map<Integer, List<Tran
         private State start;
         private State failed;
         private final List<State> states = new ArrayList<>();
-        private final Map<Integer, List<Transition>> transitions = new HashMap<>();
+        private final List<List<Transition>> transitions = new ArrayList<>();
 
         public State addState(String label, boolean accept)
         {
             State state = new State(nextId++, label, accept);
             states.add(state);
+            transitions.add(new ArrayList<>());
             return state;
         }
 
@@ -94,8 +92,7 @@ record DFA(State start, State failed, List<State> states, Map<Integer, List<Tran
 
         public void addTransition(State from, int value, State to)
         {
-            transitions.computeIfAbsent(from.id(), key -> new ArrayList<>())
-                    .add(new Transition(value, to));
+            transitions.get(from.id()).add(new Transition(value, to));
         }
 
         public DFA build()
