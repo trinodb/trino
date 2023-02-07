@@ -22,10 +22,12 @@ import javax.inject.Inject;
 
 import java.io.File;
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACCESS_KEY;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACL_TYPE;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_CONNECT_TIMEOUT;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_CONNECT_TTL;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENDPOINT;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_EXTERNAL_ID;
@@ -90,6 +92,7 @@ public class TrinoS3ConfigurationInitializer
     private final Duration maxBackoffTime;
     private final Duration maxRetryTime;
     private final Duration connectTimeout;
+    private final Optional<Duration> connectTtl;
     private final Duration socketTimeout;
     private final int maxConnections;
     private final DataSize multipartMinFileSize;
@@ -137,6 +140,7 @@ public class TrinoS3ConfigurationInitializer
         this.maxBackoffTime = config.getS3MaxBackoffTime();
         this.maxRetryTime = config.getS3MaxRetryTime();
         this.connectTimeout = config.getS3ConnectTimeout();
+        this.connectTtl = config.getS3ConnectTtl();
         this.socketTimeout = config.getS3SocketTimeout();
         this.maxConnections = config.getS3MaxConnections();
         this.multipartMinFileSize = config.getS3MultipartMinFileSize();
@@ -211,6 +215,7 @@ public class TrinoS3ConfigurationInitializer
         config.set(S3_MAX_BACKOFF_TIME, maxBackoffTime.toString());
         config.set(S3_MAX_RETRY_TIME, maxRetryTime.toString());
         config.set(S3_CONNECT_TIMEOUT, connectTimeout.toString());
+        connectTtl.ifPresent(duration -> config.set(S3_CONNECT_TTL, duration.toString()));
         config.set(S3_SOCKET_TIMEOUT, socketTimeout.toString());
         config.set(S3_STAGING_DIRECTORY, stagingDirectory.getPath());
         config.setInt(S3_MAX_CONNECTIONS, maxConnections);
