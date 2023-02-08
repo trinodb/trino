@@ -1131,20 +1131,23 @@ public class IcebergMetadata
                 .toArray(Type[]::new);
 
         Set<DataFile> newFiles = new HashSet<>();
+        long maxScannedFileSize = optimizeHandle.getMaxScannedFileSize().toBytes();
         for (CommitTaskData task : commitTasks) {
-            DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
-                    .withPath(task.getPath())
-                    .withFileSizeInBytes(task.getFileSizeInBytes())
-                    .withFormat(optimizeHandle.getFileFormat().toIceberg())
-                    .withMetrics(task.getMetrics().metrics());
+            if (maxScannedFileSize >= task.getFileSizeInBytes()) {
+                DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
+                        .withPath(task.getPath())
+                        .withFileSizeInBytes(task.getFileSizeInBytes())
+                        .withFormat(optimizeHandle.getFileFormat().toIceberg())
+                        .withMetrics(task.getMetrics().metrics());
 
-            if (!icebergTable.spec().fields().isEmpty()) {
-                String partitionDataJson = task.getPartitionDataJson()
-                        .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
-                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+                if (!icebergTable.spec().fields().isEmpty()) {
+                    String partitionDataJson = task.getPartitionDataJson()
+                            .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
+                    builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+                }
+
+                newFiles.add(builder.build());
             }
-
-            newFiles.add(builder.build());
         }
 
         if (optimizeHandle.getSnapshotId().isEmpty() || scannedDataFiles.isEmpty() && fullyAppliedDeleteFiles.isEmpty() && newFiles.isEmpty()) {
