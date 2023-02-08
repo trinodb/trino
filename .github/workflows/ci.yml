@@ -662,6 +662,9 @@ jobs:
           AWS_REGION: us-east-2
           S3_BUCKET: trino-ci-test
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
+          ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
+          ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
+          ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
         if: >-
           contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests') &&
           (env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
@@ -669,7 +672,10 @@ jobs:
           $MAVEN test ${MAVEN_TEST} -pl :trino-iceberg ${{ format('-P {0}', matrix.profile) }} \
             -Ds3.bucket=${S3_BUCKET} \
             -Dtesting.gcp-storage-bucket="trino-ci-test-us-east" \
-            -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}"
+            -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}" \
+            -Dhive.hadoop2.azure-abfs-container="${ABFS_CONTAINER}" \
+            -Dhive.hadoop2.azure-abfs-account="${ABFS_ACCOUNT}" \
+            -Dhive.hadoop2.azure-abfs-access-key="${ABFS_ACCESS_KEY}"
       - name: Sanitize artifact name
         if: always()
         run: |
