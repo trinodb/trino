@@ -15,8 +15,10 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.log.Logger;
+import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -27,9 +29,13 @@ import org.assertj.core.util.Files;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -37,6 +43,7 @@ import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendC
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public final class IcebergQueryRunner
@@ -233,6 +240,62 @@ public final class IcebergQueryRunner
 
             Thread.sleep(10);
             Logger log = Logger.get(IcebergQueryRunner.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
+    public static final class IcebergAzureQueryRunnerMain
+    {
+        private IcebergAzureQueryRunnerMain() {}
+
+        public static void main(String[] args)
+                throws Exception
+        {
+            String azureContainer = requireNonNull(
+                    System.getProperty("hive.hadoop2.azure-abfs-container"),
+                    "System property hive.hadoop2.azure-abfs-container must be provided");
+            String azureAccount = requireNonNull(
+                    System.getProperty("hive.hadoop2.azure-abfs-account"),
+                    "System property hive.hadoop2.azure-abfs-account must be provided");
+            String azureAccessKey = requireNonNull(
+                    System.getProperty("hive.hadoop2.azure-abfs-access-key"),
+                    "System property hive.hadoop2.azure-abfs-access-key must be provided");
+
+            String abfsSpecificCoreSiteXmlContent = Resources.toString(Resources.getResource("hdp3.1-core-site.xml.abfs-template"), UTF_8)
+                    .replace("%ABFS_ACCESS_KEY%", azureAccessKey)
+                    .replace("%ABFS_ACCOUNT%", azureAccount);
+
+            FileAttribute<Set<PosixFilePermission>> posixFilePermissions = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
+            Path hadoopCoreSiteXmlTempFile = java.nio.file.Files.createTempFile("core-site", ".xml", posixFilePermissions);
+            hadoopCoreSiteXmlTempFile.toFile().deleteOnExit();
+            java.nio.file.Files.writeString(hadoopCoreSiteXmlTempFile, abfsSpecificCoreSiteXmlContent);
+
+            @SuppressWarnings("resource")
+            HiveHadoop hiveHadoop = HiveHadoop.builder()
+                    .withImage(HiveHadoop.HIVE3_IMAGE)
+                    .withFilesToMount(ImmutableMap.of("/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString()))
+                    .build();
+            hiveHadoop.start();
+
+            DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
+                    .setCoordinatorProperties(Map.of(
+                            "http-server.http.port", "8080"))
+                    .setIcebergProperties(Map.of(
+                            "iceberg.catalog.type", "HIVE_METASTORE",
+                            "hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint(),
+                            "hive.azure.abfs-storage-account", azureAccount,
+                            "hive.azure.abfs-access-key", azureAccessKey))
+                    .setSchemaInitializer(
+                            SchemaInitializer.builder()
+                                    .withSchemaName("tpch")
+                                    .withClonedTpchTables(TpchTable.getTables())
+                                    .withSchemaProperties(Map.of("location", "'abfs://%s@%s.dfs.core.windows.net/test-bucket/'".formatted(azureContainer, azureAccount)))
+                                    .build())
+                    .build();
+
+            Thread.sleep(10);
+            Logger log = Logger.get(IcebergAzureQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
