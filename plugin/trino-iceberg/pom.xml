@@ -549,6 +549,7 @@
                                 <exclude>**/TestIcebergGlueTableOperationsInsertFailure.java</exclude>
                                 <exclude>**/TestIcebergGlueCatalogSkipArchive.java</exclude>
                                 <exclude>**/TestIcebergGcsConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestIcebergAbfsConnectorSmokeTest.java</exclude>
                                 <exclude>io/trino/plugin/iceberg/catalog/jdbc/Test*.java</exclude>
                                 <exclude>io/trino/plugin/iceberg/catalog/rest/Test*.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
@@ -611,6 +612,7 @@
                                 <include>**/TestIcebergGlueTableOperationsInsertFailure.java</include>
                                 <include>**/TestIcebergGlueCatalogSkipArchive.java</include>
                                 <include>**/TestIcebergGcsConnectorSmokeTest.java</include>
+                                <include>**/TestIcebergAbfsConnectorSmokeTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>
