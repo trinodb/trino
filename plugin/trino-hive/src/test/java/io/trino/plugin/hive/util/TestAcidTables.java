@@ -30,7 +30,6 @@ import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.common.ValidReaderWriteIdList;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -122,7 +121,7 @@ public class TestAcidTables
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
                 new MockPath(fs, "mock:/tbl/part1").toString(),
-                new ValidReaderWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
+                new ValidWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
 
         assertThat(state.baseDirectory()).isEmpty();
         assertThat(state.deltas()).isEmpty();
@@ -157,7 +156,7 @@ public class TestAcidTables
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
                 new MockPath(fs, "mock:/tbl/part1").toString(),
-                new ValidReaderWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
+                new ValidWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
 
         assertThat(state.baseDirectory()).isEmpty();
 
@@ -197,7 +196,7 @@ public class TestAcidTables
         AcidState dir = getAcidState(
                 testingTrinoFileSystem(fs),
                 new MockPath(fs, "mock:/tbl/part1").toString(),
-                new ValidReaderWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
+                new ValidWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
 
         assertThat(dir.baseDirectory()).contains("mock:/tbl/part1/base_49");
         assertEquals(dir.originalFiles().size(), 0);
@@ -222,7 +221,7 @@ public class TestAcidTables
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
                 new MockPath(fs, "mock:/tbl/part1").toString(),
-                new ValidReaderWriteIdList("tbl:150:%d:".formatted(Long.MAX_VALUE)));
+                new ValidWriteIdList("tbl:150:%d:".formatted(Long.MAX_VALUE)));
 
         assertThat(state.baseDirectory()).contains("mock:/tbl/part1/base_10");
     }
@@ -242,7 +241,7 @@ public class TestAcidTables
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
                 new MockPath(fs, "mock:/tbl/part1").toString(),
-                new ValidReaderWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
+                new ValidWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
 
         assertThat(state.baseDirectory()).contains("mock:/tbl/part1/base_50");
 
@@ -273,7 +272,7 @@ public class TestAcidTables
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
                 new MockPath(fs, "mock:/tbl/part1").toString(),
-                new ValidReaderWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
+                new ValidWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
 
         assertThat(state.baseDirectory()).contains("mock:/tbl/part1/base_50");
 
@@ -296,7 +295,7 @@ public class TestAcidTables
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
                 new MockPath(fs, "mock:/tbl/part1").toString(),
-                new ValidReaderWriteIdList("tbl:100:4:4"));
+                new ValidWriteIdList("tbl:100:4:4"));
 
         List<ParsedDelta> deltas = state.deltas();
         assertEquals(deltas.size(), 2);
@@ -317,7 +316,7 @@ public class TestAcidTables
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
                 new MockPath(fs, "mock:/tbl/part1").toString(),
-                new ValidReaderWriteIdList("tbl:100:4:4"));
+                new ValidWriteIdList("tbl:100:4:4"));
 
         List<ParsedDelta> deltas = state.deltas();
         assertEquals(deltas.size(), 2);
@@ -344,7 +343,7 @@ public class TestAcidTables
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
                 new MockPath(fs, "mock:/tbl/part1").toString(),
-                new ValidReaderWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
+                new ValidWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
 
         assertThat(state.baseDirectory()).contains("mock:/tbl/part1/base_49");
         assertThat(state.originalFiles()).isEmpty();
@@ -374,7 +373,7 @@ public class TestAcidTables
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
                 new MockPath(fs, "mock:/tbl/part1").toString(),
-                new ValidReaderWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
+                new ValidWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
 
         assertThat(state.baseDirectory()).contains("mock:/tbl/part1/base_50");
 
@@ -400,7 +399,7 @@ public class TestAcidTables
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
                 new MockPath(fs, "mock:/tbl/part1").toString(),
-                new ValidReaderWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
+                new ValidWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
 
         List<ParsedDelta> deltas = state.deltas();
         assertEquals(deltas.size(), 1);
@@ -422,7 +421,7 @@ public class TestAcidTables
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
                 new MockPath(fs, "mock:/tbl/part1").toString(),
-                new ValidReaderWriteIdList("tbl:100:4:4"));
+                new ValidWriteIdList("tbl:100:4:4"));
 
         List<ParsedDelta> deltas = state.deltas();
         assertEquals(deltas.size(), 3);
