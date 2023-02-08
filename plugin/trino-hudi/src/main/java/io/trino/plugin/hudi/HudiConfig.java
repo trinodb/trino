@@ -22,7 +22,6 @@ import io.airlift.units.DataSize;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -40,8 +39,6 @@ public class HudiConfig
     private List<String> columnsToHide = ImmutableList.of();
     private boolean metadataEnabled;
     private boolean shouldUseParquetColumnNames = true;
-    private int minPartitionBatchSize = 10;
-    private int maxPartitionBatchSize = 100;
     private boolean sizeBasedSplitWeightsEnabled = true;
     private DataSize standardSplitWeightSize = DataSize.of(128, MEGABYTE);
     private double minimumAssignedSplitWeight = 0.05;
@@ -49,8 +46,7 @@ public class HudiConfig
     private int maxOutstandingSplits = 1000;
     private int splitLoaderParallelism = 2;
     private int splitGeneratorParallelism = 16;
-    private int partitionScannerParallelism = 16;
-    private long perTransactionMetastoreCacheMaximumSize = 1000;
+    private long perTransactionMetastoreCacheMaximumSize = 2000;
 
     public List<String> getColumnsToHide()
     {
@@ -93,36 +89,6 @@ public class HudiConfig
     public boolean getUseParquetColumnNames()
     {
         return this.shouldUseParquetColumnNames;
-    }
-
-    @Config("hudi.min-partition-batch-size")
-    @ConfigDescription("Minimum number of partitions returned in a single batch.")
-    public HudiConfig setMinPartitionBatchSize(int minPartitionBatchSize)
-    {
-        this.minPartitionBatchSize = minPartitionBatchSize;
-        return this;
-    }
-
-    @Min(1)
-    @Max(100)
-    public int getMinPartitionBatchSize()
-    {
-        return minPartitionBatchSize;
-    }
-
-    @Config("hudi.max-partition-batch-size")
-    @ConfigDescription("Maximum number of partitions returned in a single batch.")
-    public HudiConfig setMaxPartitionBatchSize(int maxPartitionBatchSize)
-    {
-        this.maxPartitionBatchSize = maxPartitionBatchSize;
-        return this;
-    }
-
-    @Min(1)
-    @Max(1000)
-    public int getMaxPartitionBatchSize()
-    {
-        return maxPartitionBatchSize;
     }
 
     @Config("hudi.size-based-split-weights-enabled")
@@ -226,28 +192,14 @@ public class HudiConfig
         return this;
     }
 
-    @Config("hudi.partition-scanner-parallelism")
-    @ConfigDescription("Number of threads to use for partition scanners")
-    public HudiConfig setPartitionScannerParallelism(int partitionScannerParallelism)
-    {
-        this.partitionScannerParallelism = partitionScannerParallelism;
-        return this;
-    }
-
-    @Min(1)
-    public int getPartitionScannerParallelism()
-    {
-        return partitionScannerParallelism;
-    }
-
     @Min(1)
     public long getPerTransactionMetastoreCacheMaximumSize()
     {
         return perTransactionMetastoreCacheMaximumSize;
     }
 
-    @LegacyConfig("hudi.per-transaction-metastore-cache-maximum-size")
-    @Config("delta.per-transaction-metastore-cache-maximum-size")
+    @LegacyConfig("hive.per-transaction-metastore-cache-maximum-size")
+    @Config("hudi.per-transaction-metastore-cache-maximum-size")
     public HudiConfig setPerTransactionMetastoreCacheMaximumSize(long perTransactionMetastoreCacheMaximumSize)
     {
         this.perTransactionMetastoreCacheMaximumSize = perTransactionMetastoreCacheMaximumSize;

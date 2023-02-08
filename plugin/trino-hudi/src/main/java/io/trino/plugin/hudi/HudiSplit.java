@@ -23,16 +23,21 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.predicate.TupleDomain;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class HudiSplit
         implements ConnectorSplit
 {
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(HudiSplit.class).instanceSize());
+
     private final String path;
     private final long start;
     private final long length;
@@ -142,6 +147,17 @@ public class HudiSplit
     public List<HivePartitionKey> getPartitionKeys()
     {
         return partitionKeys;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(path)
+                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
+                + splitWeight.getRetainedSizeInBytes()
+                + predicate.getRetainedSizeInBytes(HiveColumnHandle::getRetainedSizeInBytes)
+                + estimatedSizeOf(partitionKeys, HivePartitionKey::getEstimatedSizeInBytes);
     }
 
     @Override

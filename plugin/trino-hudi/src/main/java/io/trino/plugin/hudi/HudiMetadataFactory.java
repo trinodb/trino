@@ -31,13 +31,15 @@ public class HudiMetadataFactory
     private final HiveMetastoreFactory metastoreFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
+    private final long perTransactionMetastoreCacheMaximumSize;
 
     @Inject
-    public HudiMetadataFactory(HiveMetastoreFactory metastoreFactory, HdfsEnvironment hdfsEnvironment, TypeManager typeManager)
+    public HudiMetadataFactory(HiveMetastoreFactory metastoreFactory, HdfsEnvironment hdfsEnvironment, TypeManager typeManager, HudiConfig hudiConfig)
     {
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.perTransactionMetastoreCacheMaximumSize = hudiConfig.getPerTransactionMetastoreCacheMaximumSize();
     }
 
     public HudiMetadata create(ConnectorIdentity identity)
@@ -45,7 +47,7 @@ public class HudiMetadataFactory
         // create per-transaction cache over hive metastore interface
         CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(
                 metastoreFactory.createMetastore(Optional.of(identity)),
-                2000);
+                perTransactionMetastoreCacheMaximumSize);
         return new HudiMetadata(cachingHiveMetastore, hdfsEnvironment, typeManager);
     }
 }

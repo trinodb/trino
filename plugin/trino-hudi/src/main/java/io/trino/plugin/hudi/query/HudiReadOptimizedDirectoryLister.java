@@ -16,7 +16,6 @@ package io.trino.plugin.hudi.query;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.hudi.partition.HiveHudiPartitionInfo;
@@ -24,12 +23,14 @@ import io.trino.plugin.hudi.partition.HudiPartitionInfo;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieEngineContext;
+import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.common.table.timeline.HoodieInstant;
 import org.apache.hudi.common.table.view.FileSystemViewManager;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
+import org.apache.hudi.common.util.Option;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -39,11 +40,10 @@ import static io.trino.plugin.hudi.HudiUtil.getFileStatus;
 public class HudiReadOptimizedDirectoryLister
         implements HudiDirectoryLister
 {
-    private final HiveMetastore hiveMetastore;
-    private final Table hiveTable;
     private final HoodieTableFileSystemView fileSystemView;
     private final List<Column> partitionColumns;
     private final List<HudiPartitionInfo> allPartitionInfoList;
+    private final String latestInstant;
 
     public HudiReadOptimizedDirectoryLister(
             HoodieMetadataConfig metadataConfig,
@@ -55,9 +55,8 @@ public class HudiReadOptimizedDirectoryLister
             List<HiveColumnHandle> partitionColumnHandles,
             List<String> hivePartitionNames)
     {
-        this.hiveMetastore = hiveMetastore;
-        this.hiveTable = hiveTable;
         this.fileSystemView = FileSystemViewManager.createInMemoryFileSystemView(engineContext, metaClient, metadataConfig);
+        this.latestInstant = metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants().lastInstant().map(HoodieInstant::getTimestamp).orElse(null);
         this.partitionColumns = hiveTable.getPartitionColumns();
         this.allPartitionInfoList = hivePartitionNames.stream()
                 .map(hivePartitionName -> new HiveHudiPartitionInfo(
@@ -71,25 +70,18 @@ public class HudiReadOptimizedDirectoryLister
     }
 
     @Override
-    public List<HudiPartitionInfo> getPartitionsToScan()
-    {
-        return allPartitionInfoList.stream()
-                .filter(partitionInfo -> partitionInfo.getHivePartitionKeys().isEmpty() || partitionInfo.doesMatchPredicates())
-                .collect(Collectors.toList());
-    }
-
-    @Override
     public List<FileStatus> listStatus(HudiPartitionInfo partitionInfo)
     {
+        if (latestInstant != null) {
+            return fileSystemView.getLatestFileSlicesBeforeOrOn(partitionInfo.getRelativePartitionPath(), latestInstant, false)
+                    .map(FileSlice::getBaseFile)
+                    .filter(Option::isPresent)
+                    .map(baseFile -> getFileStatus(baseFile.get()))
+                    .collect(toImmutableList());
+        }
         return fileSystemView.getLatestBaseFiles(partitionInfo.getRelativePartitionPath())
                 .map(baseFile -> getFileStatus(baseFile))
                 .collect(toImmutableList());
-    }
-
-    @Override
-    public Map<String, Optional<Partition>> getPartitions(List<String> partitionNames)
-    {
-        return hiveMetastore.getPartitionsByNames(hiveTable, partitionNames);
     }
 
     @Override

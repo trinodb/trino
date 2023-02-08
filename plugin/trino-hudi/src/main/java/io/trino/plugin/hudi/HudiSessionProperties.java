@@ -44,15 +44,12 @@ public class HudiSessionProperties
     private static final String METADATA_ENABLED = "metadata_enabled";
     private static final String USE_PARQUET_COLUMN_NAMES = "use_parquet_column_names";
     private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
-    private static final String MIN_PARTITION_BATCH_SIZE = "min_partition_batch_size";
-    private static final String MAX_PARTITION_BATCH_SIZE = "max_partition_batch_size";
     private static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
     private static final String STANDARD_SPLIT_WEIGHT_SIZE = "standard_split_weight_size";
     private static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     private static final String MAX_SPLITS_PER_SECOND = "max_splits_per_second";
     private static final String MAX_OUTSTANDING_SPLITS = "max_outstanding_splits";
     private static final String SPLIT_GENERATOR_PARALLELISM = "split_generator_parallelism";
-    private static final String PARTITION_SCANNER_PARALLELISM = "partition_scanner_parallelism";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -85,16 +82,6 @@ public class HudiSessionProperties
                         PARQUET_OPTIMIZED_READER_ENABLED,
                         "Use optimized Parquet reader",
                         parquetReaderConfig.isOptimizedReaderEnabled(),
-                        false),
-                integerProperty(
-                        MIN_PARTITION_BATCH_SIZE,
-                        "Minimum number of partitions returned in a single batch.",
-                        hudiConfig.getMinPartitionBatchSize(),
-                        false),
-                integerProperty(
-                        MAX_PARTITION_BATCH_SIZE,
-                        "Maximum number of partitions returned in a single batch.",
-                        hudiConfig.getMaxPartitionBatchSize(),
                         false),
                 booleanProperty(
                         SIZE_BASED_SPLIT_WEIGHTS_ENABLED,
@@ -130,11 +117,6 @@ public class HudiSessionProperties
                         SPLIT_GENERATOR_PARALLELISM,
                         "Number of threads to generate splits from partitions",
                         hudiConfig.getSplitGeneratorParallelism(),
-                        false),
-                integerProperty(
-                        PARTITION_SCANNER_PARALLELISM,
-                        "Number of threads to use for partition scanners",
-                        hudiConfig.getPartitionScannerParallelism(),
                         false));
     }
 
@@ -165,16 +147,6 @@ public class HudiSessionProperties
         return session.getProperty(PARQUET_OPTIMIZED_READER_ENABLED, Boolean.class);
     }
 
-    public static int getMinPartitionBatchSize(ConnectorSession session)
-    {
-        return session.getProperty(MIN_PARTITION_BATCH_SIZE, Integer.class);
-    }
-
-    public static int getMaxPartitionBatchSize(ConnectorSession session)
-    {
-        return session.getProperty(MAX_PARTITION_BATCH_SIZE, Integer.class);
-    }
-
     public static boolean isSizeBasedSplitWeightsEnabled(ConnectorSession session)
     {
         return session.getProperty(SIZE_BASED_SPLIT_WEIGHTS_ENABLED, Boolean.class);
@@ -203,10 +175,5 @@ public class HudiSessionProperties
     public static int getSplitGeneratorParallelism(ConnectorSession session)
     {
         return session.getProperty(SPLIT_GENERATOR_PARALLELISM, Integer.class);
-    }
-
-    public static int getPartitionScannerParallelism(ConnectorSession session)
-    {
-        return session.getProperty(PARTITION_SCANNER_PARALLELISM, Integer.class);
     }
 }
