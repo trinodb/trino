@@ -27,7 +27,6 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.common.ValidWriteIdList;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -172,7 +171,7 @@ public final class AcidTables
             else {
                 String deltaPrefix = name.startsWith("delta_") ? "delta_" : "delete_delta_";
                 ParsedDelta delta = parseDelta(baseDir, deltaPrefix, files);
-                if (writeIdList.isWriteIdRangeValid(delta.min(), delta.max()) != ValidWriteIdList.RangeResponse.NONE) {
+                if (writeIdList.isWriteIdRangeValid(delta.min(), delta.max())) {
                     workingDeltas.add(delta);
                 }
             }
@@ -198,7 +197,7 @@ public final class AcidTables
         ParsedDelta prev = null;
         for (ParsedDelta next : workingDeltas) {
             if (next.max() > current) {
-                if (writeIdList.isWriteIdRangeValid(current + 1, next.max()) != ValidWriteIdList.RangeResponse.NONE) {
+                if (writeIdList.isWriteIdRangeValid(current + 1, next.max())) {
                     deltas.add(next);
                     current = next.max();
                     lastStatementId = next.statementId();
