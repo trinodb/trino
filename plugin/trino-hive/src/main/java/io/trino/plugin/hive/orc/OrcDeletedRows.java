@@ -21,6 +21,7 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.plugin.hive.AcidInfo;
+import io.trino.plugin.hive.util.AcidBucketCodec;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -29,7 +30,6 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.BucketCodec;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -223,7 +223,7 @@ public class OrcDeletedRows
             else {
                 originalTransaction = BIGINT.getLong(sourcePage.getBlock(ORIGINAL_TRANSACTION_INDEX), position);
                 int encodedBucketValue = toIntExact(INTEGER.getLong(sourcePage.getBlock(BUCKET_ID_INDEX), position));
-                BucketCodec bucketCodec = BucketCodec.determineVersion(encodedBucketValue);
+                AcidBucketCodec bucketCodec = AcidBucketCodec.forBucket(encodedBucketValue);
                 bucket = bucketCodec.decodeWriterId(encodedBucketValue);
                 statementId = bucketCodec.decodeStatementId(encodedBucketValue);
                 row = BIGINT.getLong(sourcePage.getBlock(ROW_ID_INDEX), position);
@@ -334,7 +334,7 @@ public class OrcDeletedRows
                             while (currentPagePosition < currentPage.getPositionCount()) {
                                 long originalTransaction = BIGINT.getLong(currentPage.getBlock(ORIGINAL_TRANSACTION_INDEX), currentPagePosition);
                                 int encodedBucketValue = toIntExact(INTEGER.getLong(currentPage.getBlock(BUCKET_ID_INDEX), currentPagePosition));
-                                BucketCodec bucketCodec = BucketCodec.determineVersion(encodedBucketValue);
+                                AcidBucketCodec bucketCodec = AcidBucketCodec.forBucket(encodedBucketValue);
                                 int bucket = bucketCodec.decodeWriterId(encodedBucketValue);
                                 int statement = bucketCodec.decodeStatementId(encodedBucketValue);
                                 long row = BIGINT.getLong(currentPage.getBlock(ROW_ID_INDEX), currentPagePosition);
