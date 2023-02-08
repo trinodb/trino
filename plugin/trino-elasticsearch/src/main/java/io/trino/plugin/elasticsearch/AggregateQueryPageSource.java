@@ -14,7 +14,6 @@
 package io.trino.plugin.elasticsearch;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.plugin.elasticsearch.decoders.Decoder;
 import io.trino.spi.Page;
@@ -49,7 +48,6 @@ import static java.util.Objects.requireNonNull;
 public class AggregateQueryPageSource
         implements ConnectorPageSource
 {
-    private static final Logger LOG = Logger.get(AggregateQueryPageSource.class);
     private static final SearchHit NO_HIT = new SearchHit(0);
     private final List<Decoder> decoders;
 
