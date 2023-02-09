@@ -89,7 +89,7 @@ public abstract class BaseIcebergMaterializedViewTest
     {
         String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
-        String materializedViewName = format("test_materialized_view_%s", randomNameSuffix());
+        String materializedViewName = "test_materialized_view_" + randomNameSuffix();
 
         computeActual("CREATE TABLE small_region AS SELECT * FROM tpch.tiny.region LIMIT 1");
         computeActual(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM small_region LIMIT 1", materializedViewName));
@@ -122,7 +122,7 @@ public abstract class BaseIcebergMaterializedViewTest
                 "VALUES 'FRESH'");
 
         assertUpdate("DROP TABLE small_region");
-        assertUpdate(format("DROP MATERIALIZED VIEW %s", materializedViewName));
+        assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
     }
 
     @Test
