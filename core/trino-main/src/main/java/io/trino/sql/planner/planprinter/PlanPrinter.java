@@ -584,7 +584,7 @@ public class PlanPrinter
                     hashColumn));
         }
 
-        partitioningScheme.getPartitionCount().ifPresent(partitionCount -> builder.append(format("Partition count: %s\n", partitionCount)));
+        fragment.getPartitionCount().ifPresent(partitionCount -> builder.append(format("Partition count: %s\n", partitionCount)));
 
         builder.append(
                         new PlanPrinter(
@@ -633,6 +633,7 @@ public class PlanPrinter
                 plan,
                 types.allTypes(),
                 SINGLE_DISTRIBUTION,
+                Optional.empty(),
                 ImmutableList.of(plan.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
                 StatsAndCosts.empty(),
