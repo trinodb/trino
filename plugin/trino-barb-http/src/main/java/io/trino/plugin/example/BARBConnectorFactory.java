@@ -47,13 +47,14 @@ public class BARBConnectorFactory
                 new JsonModule(),
                 new TypeDeserializerModule(context.getTypeManager()),
                 new ExampleModule());
-        requiredConfig = new HashMap<String, String>() {{ put("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjc1OTc1OTg4LCJpYXQiOjE2NzU5MzI3ODgsImp0aSI6IjFjMGY0NzMyNzUwMDQ4OTdhZTc3Zjg5ZWJlNjJmZDYyIiwidXNlcl9pZCI6IjljMTAzNmI2LTM1NTAtNDhhYS05YjkzLTBjNjU1NGVmMjcwZCJ9.jRN7ugUbopVfkqZA2yAOZnk1n07a4OR6HZcnSQHDYWA");
-                                                       }};
+        requiredConfig = new HashMap<String, String>() {{
+                put("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjc1OTc1OTg4LCJpYXQiOjE2NzU5MzI3ODgsImp0aSI6IjFjMGY0NzMyNzUwMDQ4OTdhZTc3Zjg5ZWJlNjJmZDYyIiwidXNlcl9pZCI6IjljMTAzNmI2LTM1NTAtNDhhYS05YjkzLTBjNjU1NGVmMjcwZCJ9.jRN7ugUbopVfkqZA2yAOZnk1n07a4OR6HZcnSQHDYWA");
+            }};
         Injector injector = app
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(requiredConfig)
                 .initialize();
 
-        return injector.getInstance(ExampleConnector.class);
+        return injector.getInstance(BARBConnector.class);
     }
 }

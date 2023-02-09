@@ -27,7 +27,7 @@ import javax.inject.Inject;
 import static io.trino.plugin.example.ExampleTransactionHandle.INSTANCE;
 import static java.util.Objects.requireNonNull;
 
-public class ExampleConnector
+public class BARBConnector
         implements Connector
 {
     private final LifeCycleManager lifeCycleManager;
@@ -36,7 +36,7 @@ public class ExampleConnector
     private final ExampleRecordSetProvider recordSetProvider;
 
     @Inject
-    public ExampleConnector(
+    public BARBConnector(
             LifeCycleManager lifeCycleManager,
             ExampleMetadata metadata,
             ExampleSplitManager splitManager,

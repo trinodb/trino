@@ -19,10 +19,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-//import static com.google.common.base.Preconditions.checkArgument;
-//import static com.google.common.base.Strings.isNullOrEmpty;
-//import static java.util.Objects.requireNonNull;
-
 public final class BARBColumn
 {
     private final int stationCode;
