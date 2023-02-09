@@ -195,6 +195,18 @@ public class TrinoGlueCatalog
         }
     }
 
+    private List<String> listNamespaces(ConnectorSession session, Optional<String> namespace)
+    {
+        if (namespace.isPresent()) {
+            if (isHiveSystemSchema(namespace.get())) {
+                // TODO https://github.com/trinodb/trino/issues/1559 information_schema should be handled by the engine fully
+                return ImmutableList.of();
+            }
+            return ImmutableList.of(namespace.get());
+        }
+        return listNamespaces(session);
+    }
+
     @Override
     public void dropNamespace(ConnectorSession session, String namespace)
     {
@@ -289,7 +301,7 @@ public class TrinoGlueCatalog
     {
         ImmutableList.Builder<SchemaTableName> tables = ImmutableList.builder();
         try {
-            List<String> namespaces = namespace.map(List::of).orElseGet(() -> listNamespaces(session));
+            List<String> namespaces = listNamespaces(session, namespace);
             for (String glueNamespace : namespaces) {
                 try {
                     // Add all tables from a namespace together, in case it is removed while fetching paginated results
@@ -663,7 +675,7 @@ public class TrinoGlueCatalog
     {
         ImmutableList.Builder<SchemaTableName> views = ImmutableList.builder();
         try {
-            List<String> namespaces = namespace.map(List::of).orElseGet(() -> listNamespaces(session));
+            List<String> namespaces = listNamespaces(session, namespace);
             for (String glueNamespace : namespaces) {
                 try {
                     views.addAll(getPaginatedResults(
@@ -775,7 +787,7 @@ public class TrinoGlueCatalog
     {
         ImmutableList.Builder<SchemaTableName> materializedViews = ImmutableList.builder();
         try {
-            List<String> namespaces = namespace.map(List::of).orElseGet(() -> listNamespaces(session));
+            List<String> namespaces = listNamespaces(session, namespace);
             for (String glueNamespace : namespaces) {
                 try {
                     materializedViews.addAll(getPaginatedResults(
