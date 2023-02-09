@@ -19,7 +19,6 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import io.trino.hdfs.authentication.HadoopAuthentication;
 import io.trino.plugin.hive.ForHiveMetastore;
-import org.apache.hadoop.security.SaslRpcServer;
 import org.apache.thrift.transport.TSaslClientTransport;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
@@ -42,8 +41,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.hive.formats.ReadWriteUtils.readVInt;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.security.SaslRpcServer.AuthMethod.KERBEROS;
-import static org.apache.hadoop.security.SaslRpcServer.AuthMethod.TOKEN;
 import static org.apache.hadoop.security.SecurityUtil.getServerPrincipal;
 
 public class KerberosHiveMetastoreAuthentication
@@ -71,7 +68,7 @@ public class KerberosHiveMetastoreAuthentication
     {
         try {
             String serverPrincipal = getServerPrincipal(hiveMetastoreServicePrincipal, hiveMetastoreHost);
-            String[] names = SaslRpcServer.splitKerberosName(serverPrincipal);
+            String[] names = serverPrincipal.split("[/@]");
             checkState(names.length == 3,
                     "Kerberos principal name does NOT have the expected hostname part: %s", serverPrincipal);
 
@@ -82,7 +79,7 @@ public class KerberosHiveMetastoreAuthentication
             TTransport saslTransport;
             if (delegationToken.isPresent()) {
                 saslTransport = new TSaslClientTransport(
-                        TOKEN.getMechanismName(),
+                        "DIGEST-MD5", // SaslRpcServer.AuthMethod.TOKEN
                         null,
                         null,
                         "default",
@@ -92,7 +89,7 @@ public class KerberosHiveMetastoreAuthentication
             }
             else {
                 saslTransport = new TSaslClientTransport(
-                        KERBEROS.getMechanismName(),
+                        "GSSAPI", // SaslRpcServer.AuthMethod.KERBEROS
                         null,
                         names[0],
                         names[1],
