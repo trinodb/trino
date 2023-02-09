@@ -107,6 +107,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.trino.SystemSessionProperties.getMaxWriterNodesCount;
 import static io.trino.SystemSessionProperties.getQueryRetryAttempts;
 import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
 import static io.trino.SystemSessionProperties.getRetryInitialDelay;
@@ -1081,7 +1082,8 @@ public class PipelinedQueryScheduler
                         writerTasksProvider,
                         nodeScheduler.createNodeSelector(session, Optional.empty()),
                         executor,
-                        getWriterMinSize(session));
+                        getWriterMinSize(session),
+                        getMaxWriterNodesCount(session));
 
                 whenAllStages(childStageExecutions, StageExecution.State::isDone)
                         .addListener(scheduler::finish, directExecutor());

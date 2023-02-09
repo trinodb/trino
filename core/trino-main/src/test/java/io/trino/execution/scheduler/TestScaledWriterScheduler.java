@@ -148,10 +148,32 @@ public class TestScaledWriterScheduler
         assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 0);
     }
 
+    @Test
+    public void testNewTaskCountWhenNodesUpperLimitIsNotExceeded()
+    {
+        TaskStatus taskStatus = buildTaskStatus(true, 123456L);
+        AtomicReference<List<TaskStatus>> taskStatusProvider = new AtomicReference<>(ImmutableList.of(taskStatus));
+        ScaledWriterScheduler scaledWriterScheduler = buildScaledWriterScheduler(taskStatusProvider, 2);
+
+        scaledWriterScheduler.schedule();
+        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 1);
+    }
+
+    @Test
+    public void testNewTaskCountWhenNodesUpperLimitIsExceeded()
+    {
+        TaskStatus taskStatus = buildTaskStatus(true, 123456L);
+        AtomicReference<List<TaskStatus>> taskStatusProvider = new AtomicReference<>(ImmutableList.of(taskStatus));
+        ScaledWriterScheduler scaledWriterScheduler = buildScaledWriterScheduler(taskStatusProvider, 1);
+
+        scaledWriterScheduler.schedule();
+        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 0);
+    }
+
     private ScaledWriterScheduler buildScaleWriterSchedulerWithInitialTasks(TaskStatus taskStatus1, TaskStatus taskStatus2, TaskStatus taskStatus3)
     {
         AtomicReference<List<TaskStatus>> taskStatusProvider = new AtomicReference<>(ImmutableList.of());
-        ScaledWriterScheduler scaledWriterScheduler = buildScaledWriterScheduler(taskStatusProvider);
+        ScaledWriterScheduler scaledWriterScheduler = buildScaledWriterScheduler(taskStatusProvider, 100);
 
         assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 1);
         taskStatusProvider.set(ImmutableList.of(taskStatus1));
@@ -165,7 +187,7 @@ public class TestScaledWriterScheduler
         return scaledWriterScheduler;
     }
 
-    private ScaledWriterScheduler buildScaledWriterScheduler(AtomicReference<List<TaskStatus>> taskStatusProvider)
+    private ScaledWriterScheduler buildScaledWriterScheduler(AtomicReference<List<TaskStatus>> taskStatusProvider, int maxWritersNodesCount)
     {
         return new ScaledWriterScheduler(
                 new TestingStageExecution(createFragment()),
@@ -176,7 +198,8 @@ public class TestScaledWriterScheduler
                         new NodeSchedulerConfig().setIncludeCoordinator(true),
                         new NodeTaskMap(new FinalizerService())).createNodeSelector(testSessionBuilder().build(), Optional.empty()),
                 newScheduledThreadPool(10, threadsNamed("task-notification-%s")),
-                DataSize.of(32, DataSize.Unit.MEGABYTE));
+                DataSize.of(32, DataSize.Unit.MEGABYTE),
+                maxWritersNodesCount);
     }
 
     private static TaskStatus buildTaskStatus(boolean isOutputBufferOverUtilized, long outputDataSize)
