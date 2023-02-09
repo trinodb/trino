@@ -61,6 +61,7 @@ import java.util.OptionalInt;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.rcfile.text.TextRcFileEncoding.DEFAULT_NULL_SEQUENCE;
@@ -85,8 +86,6 @@ import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_NULL_FORMAT
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.serde2.lazy.LazySerDeParameters.SERIALIZATION_EXTEND_NESTING_LEVELS;
-import static org.apache.hadoop.hive.serde2.lazy.LazyUtils.getByte;
 
 public class RcFilePageSourceFactory
         implements HivePageSourceFactory
@@ -229,7 +228,7 @@ public class RcFilePageSourceFactory
     {
         // separators
         int nestingLevels;
-        if (!"true".equalsIgnoreCase(schema.getProperty(SERIALIZATION_EXTEND_NESTING_LEVELS))) {
+        if (!"true".equalsIgnoreCase(schema.getProperty("hive.serialization.extend.nesting.levels"))) {
             nestingLevels = TEXT_LEGACY_NESTING_LEVELS;
         }
         else {
@@ -270,5 +269,19 @@ public class RcFilePageSourceFactory
                 separators,
                 escapeByte,
                 lastColumnTakesRest);
+    }
+
+    @SuppressWarnings("NumericCastThatLosesPrecision")
+    private static byte getByte(String value, byte defaultValue)
+    {
+        if (isNullOrEmpty(value)) {
+            return defaultValue;
+        }
+        try {
+            return Byte.parseByte(value);
+        }
+        catch (NumberFormatException e) {
+            return (byte) value.charAt(0);
+        }
     }
 }
