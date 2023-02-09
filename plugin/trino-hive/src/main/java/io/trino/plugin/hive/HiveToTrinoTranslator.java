@@ -19,7 +19,7 @@ import io.trino.spi.TrinoException;
 
 import static com.google.common.collect.Iterators.peekingIterator;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
-import static org.apache.hadoop.hive.ql.parse.BaseSemanticAnalyzer.unescapeSQLString;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * Translate statements in Hive QL to Trino SQL.
@@ -85,7 +85,7 @@ public final class HiveToTrinoTranslator
 
             if (c == delimiter) {
                 string.append(delimiter);
-                String unescaped = unescapeSQLString(string.toString());
+                String unescaped = unescapeSqlString(string.toString());
                 output.append("'");
                 output.append(unescaped.replace("'", "''"));
                 output.append("'");
@@ -135,5 +135,73 @@ public final class HiveToTrinoTranslator
     private static TrinoException hiveViewParseError(String message)
     {
         return new TrinoException(HIVE_VIEW_TRANSLATION_ERROR, "Error translating Hive view to Trino: " + message);
+    }
+
+    // copied from org.apache.hadoop.hive.ql.parse.BaseSemanticAnalyzer#unescapeSQLString
+    public static String unescapeSqlString(String b)
+    {
+        Character enclosure = null;
+        StringBuilder sb = new StringBuilder(b.length());
+        for (int i = 0; i < b.length(); i++) {
+            char currentChar = b.charAt(i);
+            if (enclosure == null) {
+                if ((currentChar == '\'') || (b.charAt(i) == '\"')) {
+                    enclosure = currentChar;
+                }
+                continue;
+            }
+
+            if (enclosure.equals(currentChar)) {
+                enclosure = null;
+                continue;
+            }
+
+            if ((currentChar == '\\') && ((i + 6) < b.length()) && (b.charAt(i + 1) == 'u')) {
+                int code = 0;
+                int base = i + 2;
+                for (int j = 0; j < 4; j++) {
+                    int digit = Character.digit(b.charAt(j + base), 16);
+                    code = (code << 4) + digit;
+                }
+                sb.append((char) code);
+                i += 5;
+                continue;
+            }
+
+            if ((currentChar == '\\') && ((i + 4) < b.length())) {
+                char i1 = b.charAt(i + 1);
+                char i2 = b.charAt(i + 2);
+                char i3 = b.charAt(i + 3);
+                if ((i1 >= '0' && i1 <= '1') && (i2 >= '0' && i2 <= '7') && (i3 >= '0' && i3 <= '7')) {
+                    byte value = (byte) ((i3 - '0') + ((i2 - '0') * 8) + ((i1 - '0') * 8 * 8));
+                    sb.append(new String(new byte[] {value}, UTF_8));
+                    i += 3;
+                    continue;
+                }
+            }
+
+            if ((currentChar == '\\') && ((i + 2) < b.length())) {
+                char n = b.charAt(i + 1);
+                switch (n) {
+                    case '0' -> sb.append("\0");
+                    case '\'' -> sb.append("'");
+                    case '"' -> sb.append("\"");
+                    case 'b' -> sb.append("\b");
+                    case 'n' -> sb.append("\n");
+                    case 'r' -> sb.append("\r");
+                    case 't' -> sb.append("\t");
+                    case 'Z' -> sb.append("\u001A");
+                    case '\\' -> sb.append("\\");
+                    case '%' -> sb.append("\\%");
+                    case '_' -> sb.append("\\_");
+                    default -> sb.append(n);
+                }
+                i++;
+            }
+            else {
+                sb.append(currentChar);
+            }
+        }
+        return sb.toString();
     }
 }
