@@ -946,7 +946,7 @@ public class PipelinedQueryScheduler
                         partitioningCache,
                         fragment.getRoot(),
                         fragment.getRemoteSourceNodes(),
-                        fragment.getOutputPartitioningScheme().getPartitionCount());
+                        fragment.getPartitionCount());
                 for (SqlStage childStage : stageManager.getChildren(stage.getStageId())) {
                     result.put(childStage.getFragment().getId(), bucketToPartition);
                 }
@@ -1026,7 +1026,7 @@ public class PipelinedQueryScheduler
             Session session = queryStateMachine.getSession();
             PlanFragment fragment = stageExecution.getFragment();
             PartitioningHandle partitioningHandle = fragment.getPartitioning();
-            Optional<Integer> partitionCount = fragment.getOutputPartitioningScheme().getPartitionCount();
+            Optional<Integer> partitionCount = fragment.getPartitionCount();
             Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(session, fragment);
             if (!splitSources.isEmpty()) {
                 queryStateMachine.addStateChangeListener(new StateChangeListener<>()
