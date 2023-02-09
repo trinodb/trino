@@ -139,7 +139,9 @@ When using any database besides PostgreSQL, a JDBC driver jar file must be place
     connector.name=iceberg
     iceberg.catalog.type=jdbc
     iceberg.jdbc-catalog.catalog-name=test
-    iceberg.jdbc-catalog.connection-url=jdbc:postgresql://example.net:5432/database?user=admin&password=test
+    iceberg.jdbc-catalog.connection-url=jdbc:postgresql://example.net:5432/database
+    iceberg.jdbc-catalog.connection-user=admin
+    iceberg.jdbc-catalog.connection-password=test
     iceberg.jdbc-catalog.default-warehouse-dir=s3://bucket
 
 

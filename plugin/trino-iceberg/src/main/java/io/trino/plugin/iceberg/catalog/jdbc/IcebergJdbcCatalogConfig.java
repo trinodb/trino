@@ -18,10 +18,15 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 
 import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
+
+import java.util.Optional;
 
 public class IcebergJdbcCatalogConfig
 {
     private String connectionUrl;
+    private String connectionUser;
+    private String connectionPassword;
     private String catalogName;
     private String defaultWarehouseDir;
 
@@ -36,6 +41,35 @@ public class IcebergJdbcCatalogConfig
     public IcebergJdbcCatalogConfig setConnectionUrl(String connectionUrl)
     {
         this.connectionUrl = connectionUrl;
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getConnectionUser()
+    {
+        return Optional.ofNullable(connectionUser);
+    }
+
+    @Config("iceberg.jdbc-catalog.connection-user")
+    @ConfigDescription("User name for JDBC client")
+    public IcebergJdbcCatalogConfig setConnectionUser(String connectionUser)
+    {
+        this.connectionUser = connectionUser;
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getConnectionPassword()
+    {
+        return Optional.ofNullable(connectionPassword);
+    }
+
+    @Config("iceberg.jdbc-catalog.connection-password")
+    @ConfigDescription("Password for JDBC client")
+    @ConfigSecuritySensitive
+    public IcebergJdbcCatalogConfig setConnectionPassword(String connectionPassword)
+    {
+        this.connectionPassword = connectionPassword;
         return this;
     }
 
