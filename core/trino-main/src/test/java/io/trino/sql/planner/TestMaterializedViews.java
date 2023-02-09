@@ -33,20 +33,28 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.tree.GenericLiteral;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata;
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableWriter;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
@@ -164,6 +172,16 @@ public class TestMaterializedViews
         });
         testingConnectorMetadata.markMaterializedViewIsFresh(materializedViewWithCasts.asSchemaTableName());
 
+        queryRunner.inTransaction(session -> {
+            metadata.createMaterializedView(
+                    session,
+                    new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "stale_materialized_view_with_casts"),
+                    materializedViewDefinitionWithCasts,
+                    false,
+                    false);
+            return null;
+        });
+
         return queryRunner;
     }
 
@@ -199,6 +217,22 @@ public class TestMaterializedViews
                                         "A_CAST", expression("CAST(A as BIGINT) + BIGINT '1'"),
                                         "B_CAST", expression("CAST(B as BIGINT)")),
                                 tableScan("storage_table_with_casts", ImmutableMap.of("A", "a", "B", "b")))));
+    }
+
+    @Test
+    public void testRefreshMaterializedViewWithCasts()
+    {
+        assertPlan("REFRESH MATERIALIZED VIEW stale_materialized_view_with_casts",
+                anyTree(
+                        tableWriter(List.of("A_CAST", "B_CAST"), List.of("a", "b"),
+                                exchange(LOCAL,
+                                        project(Map.of("A_CAST", expression("CAST(A AS tinyint)"), "B_CAST", expression("CAST(B AS varchar)")),
+                                                tableScan("test_table", Map.of("A", "a", "B", "b")))))));
+
+        // No-op REFRESH
+        assertPlan("REFRESH MATERIALIZED VIEW materialized_view_with_casts",
+                output(
+                        values(List.of("rows"), List.of(List.of(new GenericLiteral("BIGINT", "0"))))));
     }
 
     private static class TestMaterializedViewConnector

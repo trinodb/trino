@@ -1228,6 +1228,9 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE MATERIALIZED VIEW %s AS %s".formatted(viewName, values));
         assertThat(query("TABLE " + viewName))
                 .matches(values);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
+        assertThat(query("TABLE " + viewName))
+                .matches(values);
 
         assertUpdate("DROP MATERIALIZED VIEW " + viewName);
     }
