@@ -8,8 +8,8 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>trino-example-http</artifactId>
-    <description>Trino - Example HTTP Connector</description>
+    <artifactId>trino-barb-http</artifactId>
+    <description>Trino - BARB HTTP Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>

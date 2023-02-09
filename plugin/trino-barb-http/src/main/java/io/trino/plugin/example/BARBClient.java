@@ -18,7 +18,7 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+//import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import io.airlift.json.JsonCodec;
 
@@ -28,9 +28,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URL;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Maps.transformValues;
@@ -38,7 +36,7 @@ import static com.google.common.collect.Maps.uniqueIndex;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
-public class ExampleClient
+public class BARBClient
 {
     /**
      * SchemaName -> (TableName -> TableMetadata)
@@ -46,7 +44,7 @@ public class ExampleClient
     private final Supplier<Map<String, Map<String, ExampleTable>>> schemas;
 
     @Inject
-    public ExampleClient(ExampleConfig config, JsonCodec<Map<String, List<ExampleTable>>> catalogCodec)
+    public BARBClient(BARBConfig config, JsonCodec<Map<String, List<ExampleTable>>> catalogCodec)
     {
         requireNonNull(catalogCodec, "catalogCodec is null");
         schemas = Suppliers.memoize(schemasSupplier(catalogCodec, config.getMetadata()));
@@ -54,7 +52,6 @@ public class ExampleClient
 
     public Set<String> getSchemaNames()
     {
-
         String[] array = {"BARB"};
         Set<String> schemaSet = new HashSet<String>(Arrays.asList(array));
         return schemaSet;

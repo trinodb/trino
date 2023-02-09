@@ -21,12 +21,13 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static io.trino.plugin.base.Versions.checkSpiVersion;
 import static java.util.Objects.requireNonNull;
 
-public class ExampleConnectorFactory
+public class BARBConnectorFactory
         implements ConnectorFactory
 {
     @Override
@@ -46,7 +47,8 @@ public class ExampleConnectorFactory
                 new JsonModule(),
                 new TypeDeserializerModule(context.getTypeManager()),
                 new ExampleModule());
-
+        requiredConfig = new HashMap<String, String>() {{ put("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjc1OTc1OTg4LCJpYXQiOjE2NzU5MzI3ODgsImp0aSI6IjFjMGY0NzMyNzUwMDQ4OTdhZTc3Zjg5ZWJlNjJmZDYyIiwidXNlcl9pZCI6IjljMTAzNmI2LTM1NTAtNDhhYS05YjkzLTBjNjU1NGVmMjcwZCJ9.jRN7ugUbopVfkqZA2yAOZnk1n07a4OR6HZcnSQHDYWA");
+                                                       }};
         Injector injector = app
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(requiredConfig)

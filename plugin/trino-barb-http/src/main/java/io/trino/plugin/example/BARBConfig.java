@@ -18,8 +18,9 @@ import io.airlift.configuration.Config;
 import javax.validation.constraints.NotNull;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 
-public class ExampleConfig
+public class BARBConfig
 {
     private URI metadata;
 
@@ -30,7 +31,7 @@ public class ExampleConfig
     }
 
     @Config("metadata-uri")
-    public ExampleConfig setMetadata(URI metadata)
+    public BARBConfig setMetadata(URI metadata) throws URISyntaxException
     {
         this.metadata = new URI("https://dev.barb-api.co.uk/api/v1/stations");
         return this;

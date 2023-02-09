@@ -22,7 +22,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public final class ExampleTableHandle
+public final class BARBTableHandle
         implements ConnectorTableHandle
 {
     private final String schemaName;
@@ -70,7 +70,7 @@ public final class ExampleTableHandle
             return false;
         }
 
-        ExampleTableHandle other = (ExampleTableHandle) obj;
+        BARBTableHandle other = (BARBTableHandle) obj;
         return Objects.equals(this.schemaName, other.schemaName) &&
                 Objects.equals(this.tableName, other.tableName);
     }

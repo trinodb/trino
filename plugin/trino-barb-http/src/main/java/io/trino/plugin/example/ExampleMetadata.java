@@ -38,10 +38,10 @@ import static java.util.Objects.requireNonNull;
 public class ExampleMetadata
         implements ConnectorMetadata
 {
-    private final ExampleClient exampleClient;
+    private final BARBClient exampleClient;
 
     @Inject
-    public ExampleMetadata(ExampleClient exampleClient)
+    public ExampleMetadata(BARBClient exampleClient)
     {
         this.exampleClient = requireNonNull(exampleClient, "exampleClient is null");
     }
@@ -58,7 +58,7 @@ public class ExampleMetadata
     }
 
     @Override
-    public ExampleTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public BARBTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         if (!listSchemaNames(session).contains(tableName.getSchemaName())) {
             return null;
@@ -69,13 +69,13 @@ public class ExampleMetadata
             return null;
         }
 
-        return new ExampleTableHandle(tableName.getSchemaName(), tableName.getTableName());
+        return new BARBTableHandle(tableName.getSchemaName(), tableName.getTableName());
     }
 
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        return getTableMetadata(((ExampleTableHandle) table).toSchemaTableName());
+        return getTableMetadata(((BARBTableHandle) table).toSchemaTableName());
     }
 
     @Override
@@ -96,7 +96,7 @@ public class ExampleMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        ExampleTableHandle exampleTableHandle = (ExampleTableHandle) tableHandle;
+        BARBTableHandle exampleTableHandle = (BARBTableHandle) tableHandle;
 
         ExampleTable table = exampleClient.getTable(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName());
         if (table == null) {

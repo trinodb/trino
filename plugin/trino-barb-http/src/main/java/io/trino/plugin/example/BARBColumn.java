@@ -15,45 +15,45 @@ package io.trino.plugin.example;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.spi.type.Type;
+//import io.trino.spi.type.Type;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
-import static java.util.Objects.requireNonNull;
+//import static com.google.common.base.Preconditions.checkArgument;
+//import static com.google.common.base.Strings.isNullOrEmpty;
+//import static java.util.Objects.requireNonNull;
 
-public final class ExampleColumn
+public final class BARBColumn
 {
-    private final int station_code;
-    private final String station_name;
+    private final int stationCode;
+    private final String stationName;
 
     @JsonCreator
-    public ExampleColumn(
-            @JsonProperty("station_code") String station_code,
-            @JsonProperty("station_name") String station_name)
+    public BARBColumn(
+            @JsonProperty("stationCode") int stationCode,
+            @JsonProperty("stationName") String stationName)
     {
         //checkArgument(!isNullOrEmpty(name), "name is null or is empty");
-        this.station_code = station_code;
-        this.type = requireNonNull(type, "type is null");
+        this.stationCode = stationCode;
+        this.stationName = stationName;
     }
 
     @JsonProperty
     public int getStationCode()
     {
-        return station_code;
+        return stationCode;
     }
 
     @JsonProperty
     public String getStationName()
     {
-        return station_name;
+        return stationName;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(station_code, station_name);
+        return Objects.hash(stationCode, stationName);
     }
 
     @Override
@@ -66,14 +66,14 @@ public final class ExampleColumn
             return false;
         }
 
-        ExampleColumn other = (ExampleColumn) obj;
-        return Objects.equals(this.station_code, other.station_code) &&
-                Objects.equals(this.station_name, other.station_name);
+        BARBColumn other = (BARBColumn) obj;
+        return Objects.equals(this.stationCode, other.stationCode) &&
+                Objects.equals(this.stationName, other.stationName);
     }
 
     @Override
     public String toString()
     {
-        return station_code + ":" + station_name;
+        return stationCode + ":" + stationName;
     }
 }
