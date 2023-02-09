@@ -240,6 +240,7 @@ import io.trino.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import io.trino.sql.planner.optimizations.DeterminePartitionCount;
 import io.trino.sql.planner.optimizations.HashGenerationOptimizer;
 import io.trino.sql.planner.optimizations.IndexJoinOptimizer;
+import io.trino.sql.planner.optimizations.LimitMaxWriterNodesCount;
 import io.trino.sql.planner.optimizations.LimitPushDown;
 import io.trino.sql.planner.optimizations.MetadataQueryOptimizer;
 import io.trino.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
@@ -849,6 +850,7 @@ public class PlanOptimizers
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(plannerContext, typeAnalyzer, statsCalculator)));
             // It can only run after AddExchanges since it estimates the hash partition count for all remote exchanges
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new DeterminePartitionCount(statsCalculator)));
+            builder.add(new LimitMaxWriterNodesCount());
         }
 
         // use cost calculator without estimated exchanges after AddExchanges
