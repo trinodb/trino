@@ -2199,6 +2199,14 @@ public class TestSqlParser
         assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, false));
         assertStatement("ALTER TABLE foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), false, true));
         assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, true));
+
+        assertStatement("ALTER TABLE foo.t DROP COLUMN \"c.d\"", new DropColumn(QualifiedName.of("foo", "t"), quotedIdentifier("c.d"), false, false));
+        assertThatThrownBy(() -> assertStatement("ALTER TABLE foo.t DROP COLUMN c.d", new DropColumn(QualifiedName.of("foo", "t"), identifier("c.d"), false, false)))
+                .hasMessageContaining("not yet implemented");
+        assertThatThrownBy(() -> assertStatement("ALTER TABLE foo.t DROP COLUMN b.\"c.d\"", new DropColumn(QualifiedName.of("foo", "t"), identifier("b.c.d"), false, false)))
+                .hasMessageContaining("not yet implemented");
+        assertThatThrownBy(() -> assertStatement("ALTER TABLE foo.t DROP COLUMN \"b.c\".d", new DropColumn(QualifiedName.of("foo", "t"), identifier("b.c.d"), false, false)))
+                .hasMessageContaining("not yet implemented");
     }
 
     @Test
