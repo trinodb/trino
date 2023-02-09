@@ -89,6 +89,7 @@ public class TestMongoConnectorTest
             case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
+            case SUPPORTS_DROP_FIELD:
             case SUPPORTS_RENAME_COLUMN:
                 return false;
 

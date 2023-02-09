@@ -177,6 +177,9 @@ public abstract class BaseIcebergConnectorTest
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
+            case SUPPORTS_DROP_FIELD:
+                return false;
+
             case SUPPORTS_COMMENT_ON_VIEW:
             case SUPPORTS_COMMENT_ON_VIEW_COLUMN:
                 return true;

@@ -466,6 +466,17 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Drop the specified field, potentially nested, from a row.
+     *
+     * @param fieldPath path to a field within the column, without leading column name.
+     */
+    @Experimental(eta = "2023-05-01") // TODO add support for rows inside arrays and maps and for anonymous row fields
+    default void dropField(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping fields");
+    }
+
+    /**
      * Get the physical layout for a new table.
      */
     default Optional<ConnectorTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
