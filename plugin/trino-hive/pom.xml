@@ -39,11 +39,6 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-hadoop-toolkit</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
             <artifactId>trino-hdfs</artifactId>
         </dependency>
 
@@ -281,6 +276,12 @@
         </dependency>
 
         <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hadoop-toolkit</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
