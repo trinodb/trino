@@ -64,7 +64,7 @@ public class TestingIcebergJdbcServer
     public String getJdbcUrl()
     {
         return format(
-                "jdbc:postgresql://%s:%s/%s?currentSchema=tpch,public",
+                "jdbc:postgresql://%s:%s/%s",
                 dockerContainer.getHost(),
                 dockerContainer.getMappedPort(POSTGRESQL_PORT),
                 DATABASE);
