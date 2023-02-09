@@ -50,6 +50,7 @@ public final class EvictableCacheBuilder<K, V>
 
     private Optional<Ticker> ticker = Optional.empty();
     private Optional<Duration> expireAfterWrite = Optional.empty();
+    private Optional<Duration> expireAfterAccess = Optional.empty();
     private Optional<Duration> refreshAfterWrite = Optional.empty();
     private Optional<Long> maximumSize = Optional.empty();
     private Optional<Long> maximumWeight = Optional.empty();
@@ -80,6 +81,20 @@ public final class EvictableCacheBuilder<K, V>
     {
         checkState(!this.expireAfterWrite.isPresent(), "expireAfterWrite already set");
         this.expireAfterWrite = Optional.of(duration);
+        return this;
+    }
+
+    @CanIgnoreReturnValue
+    public EvictableCacheBuilder<K, V> expireAfterAccess(long duration, TimeUnit unit)
+    {
+        return expireAfterAccess(toDuration(duration, unit));
+    }
+
+    @CanIgnoreReturnValue
+    public EvictableCacheBuilder<K, V> expireAfterAccess(Duration duration)
+    {
+        checkState(!this.expireAfterAccess.isPresent(), "expireAfterAccess already set");
+        this.expireAfterAccess = Optional.of(duration);
         return this;
     }
 
@@ -201,6 +216,7 @@ public final class EvictableCacheBuilder<K, V>
         CacheBuilder<Object, ? super V> cacheBuilder = CacheBuilder.newBuilder();
         ticker.ifPresent(cacheBuilder::ticker);
         expireAfterWrite.ifPresent(cacheBuilder::expireAfterWrite);
+        expireAfterAccess.ifPresent(cacheBuilder::expireAfterAccess);
         refreshAfterWrite.ifPresent(cacheBuilder::refreshAfterWrite);
         maximumSize.ifPresent(cacheBuilder::maximumSize);
         maximumWeight.ifPresent(cacheBuilder::maximumWeight);
@@ -214,7 +230,8 @@ public final class EvictableCacheBuilder<K, V>
     private boolean cacheDisabled()
     {
         return (maximumSize.isPresent() && maximumSize.get() == 0) ||
-                (expireAfterWrite.isPresent() && expireAfterWrite.get().isZero());
+                (expireAfterWrite.isPresent() && expireAfterWrite.get().isZero()) ||
+                (expireAfterAccess.isPresent() && expireAfterAccess.get().isZero());
     }
 
     @SuppressModernizer // CacheBuilder.build(CacheLoader) is forbidden, advising to use this class as a safety-adding wrapper.
