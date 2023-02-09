@@ -69,6 +69,7 @@ public class SymmetricKey
     /**
      * Creates a SymmetricKey with the specified key identifier and
      * a random key with DefaultKeySize bits.
+     *
      * @param kid
      *      The key identifier to use.
      */
@@ -80,6 +81,7 @@ public class SymmetricKey
     /**
      * Creates a SymmetricKey with the specified key identifier and
      * a random key with the specified size.
+     *
      * @param kid
      *      The key identifier to use.
      * @param keySizeInBytes
@@ -93,6 +95,7 @@ public class SymmetricKey
     /**
      * Creates a SymmetricKey with the specified key identifier and
      * a random key with the specified size that uses the specified provider.
+     *
      * @param kid
      *      The key identifier to use.
      * @param keySizeInBytes
@@ -120,6 +123,7 @@ public class SymmetricKey
 
     /**
      * Creates a SymmetricKey with the specified key identifier and key material.
+     *
      * @param kid
      *      The key identifier to use.
      * @param keyBytes
@@ -133,6 +137,7 @@ public class SymmetricKey
     /**
      * Creates a SymmetricKey with the specified key identifier and key material
      * that uses the specified Provider.
+     *
      * @param kid
      *      The key identifier to use.
      * @param keyBytes

@@ -15,6 +15,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeClient;
+import dev.failsafe.Failsafe;
+import dev.failsafe.FailsafeException;
+import dev.failsafe.RetryPolicy;
+import dev.failsafe.event.ExecutionAttemptedEvent;
+import dev.failsafe.function.CheckedSupplier;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
@@ -50,11 +55,6 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TypeManager;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.FailsafeException;
-import net.jodah.failsafe.RetryPolicy;
-import net.jodah.failsafe.event.ExecutionAttemptedEvent;
-import net.jodah.failsafe.function.CheckedSupplier;
 import net.snowflake.client.core.SFStatement;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.SnowflakeFileTransferAgent;
@@ -156,11 +156,12 @@ public class SnowflakeSplitSource
         this.connectionManager = requireNonNull(connectionManager, "connection is null");
         this.snowflakeConfig = requireNonNull(snowflakeConfig, "snowflakeConfig is null");
         this.exportStats = requireNonNull(exportStats, "exportStats is null");
-        this.retryPolicy = new RetryPolicy<ConnectorSplitBatch>()
+        this.retryPolicy = RetryPolicy.<ConnectorSplitBatch>builder()
                 .withMaxAttempts(snowflakeConfig.getMaxExportRetries())
                 .onRetry(this::closeSnowflakeConnection)
                 .onFailure(event -> exportStats.getTotalFailures().update(1))
-                .handleIf(this::isIntermittentIssue);
+                .handleIf(this::isIntermittentIssue)
+                .build();
         if (retryCanceledQueries(session)) {
             retryableErrorCodes = Sets.union(INTERMITTENT_SQL_STATES, ImmutableSet.of(QUERY_CANCELED));
         }
@@ -287,7 +288,7 @@ public class SnowflakeSplitSource
 
     private void closeSnowflakeConnection(ExecutionAttemptedEvent<?> executionAttemptedEvent)
     {
-        Throwable lastFailure = executionAttemptedEvent.getLastFailure();
+        Throwable lastFailure = executionAttemptedEvent.getLastException();
         String snowflakeQueryId = "unknown";
         if (lastFailure instanceof SnowflakeSQLException) {
             snowflakeQueryId = ((SnowflakeSQLException) lastFailure).getQueryId();

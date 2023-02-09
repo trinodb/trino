@@ -543,7 +543,7 @@ public class DecryptingAzureNativeFileSystemStore
     }
 
     /**
-     * Helper to format a string for log output from Set<String>
+     * Helper to format a string for log output from Set&lt;String&gt;
      */
     private String setToString(Set<String> set)
     {
@@ -825,6 +825,7 @@ public class DecryptingAzureNativeFileSystemStore
 
     /**
      * Method to set up the Storage Interaction layer in Secure mode.
+     *
      * @param accountName - Storage account provided in the initializer
      * @param containerName - Container name provided in the initializer
      */
@@ -2344,9 +2345,9 @@ public class DecryptingAzureNativeFileSystemStore
      * blob-not-found exception upon retrying the operation, we just
      * swallow the error since what most probably happened is that
      * the first operation succeeded on the server.
+     *
      * @param blob The blob to delete.
      * @param lease Azure blob lease, or null if no lease is to be used.
-     * @throws StorageException
      */
     private void safeDelete(CloudBlobWrapper blob, SelfRenewingLease lease)
             throws StorageException
