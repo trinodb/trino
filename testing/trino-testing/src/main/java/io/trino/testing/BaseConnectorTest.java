@@ -1173,6 +1173,61 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testMaterializedViewAllTypes()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
+
+        String viewName = "test_mv_all_types_" + randomNameSuffix();
+
+        String values = """
+                SELECT
+                    true a_boolean,
+                    TINYINT '67' a_tinyint,
+                    SMALLINT '35' a_smallint,
+                    INTEGER '-1546831166' an_integer,
+                    1544323431676534245 a_bigint,
+                    REAL '12345.67' a_real,
+                    DOUBLE '12345.678901234' a_double,
+                    CAST('1234567.8901' AS decimal(11, 4)) a_short_decimal,
+                    CAST('1234567890123456789.0123456' AS decimal(26, 7)) a_long_decimal,
+                    CHAR 'few chars  ' a_char,
+                    CAST('some string' AS varchar(33)) a_bounded_varchar,
+                    CAST('some longer string' AS varchar) an_unbounded_varchar,
+                    X'65683F' a_varbinary,
+                    DATE '2005-09-10' a_date,
+                    TIME '13:00:00' a_time_seconds,
+                    TIME '13:00:00.123' a_time_millis,
+                    TIME '13:00:00.123456' a_time_micros,
+                    TIME '13:00:00.123456789' a_time_nanos,
+                    TIME '13:00:00 +02:00' a_time_tz__seconds,
+                    TIME '13:00:00.123 +02:00' a_time_tz__millis,
+                    TIME '13:00:00.123456 +02:00' a_time_tz__micros,
+                    TIME '13:00:00.123456789 +02:00' a_time_tz__nanos,
+                    TIMESTAMP '2005-09-10 13:00:00' a_timestamp_seconds,
+                    TIMESTAMP '2005-09-10 13:00:00.123' a_timestamp_millis,
+                    TIMESTAMP '2005-09-10 13:00:00.123456' a_timestamp_micros,
+                    TIMESTAMP '2005-09-10 13:00:00.123456789' a_timestamp_nanos,
+                    TIMESTAMP '2005-09-10 13:00:00 Europe/Warsaw' a_timestamp_tz_seconds,
+                    TIMESTAMP '2005-09-10 13:00:00.123 Europe/Warsaw' a_timestamp_tz_millis,
+                    TIMESTAMP '2005-09-10 13:00:00.123456 Europe/Warsaw' a_timestamp_tz_micros,
+                    TIMESTAMP '2005-09-10 13:00:00.123456789 Europe/Warsaw' a_timestamp_tz_nanos,
+                    UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59' a_uuid,
+                    ARRAY[TIMESTAMP '2005-09-10 13:00:00.123456789'] an_array_of_timestamp_nanos,
+                    map(ARRAY['key'], ARRAY[TIMESTAMP '2005-09-10 13:00:00.123456789']) a_map_with_timestamp_nanos,
+                    CAST(ROW(TIMESTAMP '2005-09-10 13:00:00.123456789') AS ROW(key timestamp(9))) a_row_with_timestamp_nanos,
+                """ +
+                // TODO JSON (requires json_format & json_parse instead of CASTs for the conversion)
+                // TODO interval, IPAddress, Geo types?
+                "  'a dummy' a_dummy";
+
+        assertUpdate("CREATE MATERIALIZED VIEW %s AS %s".formatted(viewName, values));
+        assertThat(query("TABLE " + viewName))
+                .matches(values);
+
+        assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+    }
+
+    @Test
     public void testFederatedMaterializedView()
     {
         String viewName = "test_federated_mv_" + randomNameSuffix();
