@@ -181,7 +181,7 @@ public class Server
             message.append("\n");
             message.append("==========");
             log.error("%s", message);
-            System.exit(1);
+            System.exit(2);
         }
         catch (Throwable e) {
             log.error(e);
