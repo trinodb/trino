@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
@@ -31,6 +32,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_MATERIALIZED_VIEW;
@@ -581,6 +584,57 @@ public abstract class BaseIcebergMaterializedViewTest
                 .hasMessageContaining("non_existent not found");
         assertThatThrownBy(() -> query("DESCRIBE " + viewName))
                 .hasMessageContaining(format("'iceberg.%s.%s' does not exist", schemaName, viewName));
+    }
+
+    @Test
+    public void testDayTransformDate()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String schemaName = getSession().getSchema().orElseThrow();
+
+        String baseValues = " SELECT * FROM (VALUES ('value', '2005-09-10'), ('same', '2005-09-10'), ('next', '2005-09-11'), ('null', NULL)) t(id, x)";
+        String conversion = "SELECT id, CAST(x AS date) d FROM (%s)";
+        String values = conversion.formatted(baseValues);
+
+        // An Iceberg materialized view defined on just VALUES is always "stale", so a real base table is needed. TODO prohibit or support proper materialization.
+        assertUpdate("CREATE TABLE mv_day_of_date_storage AS " + baseValues, 4);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_day_of_date WITH (partitioning = ARRAY['day(d)']) AS "+conversion.formatted("mv_day_of_date_storage"));
+        assertThat(query("TABLE mv_day_of_date"))
+                .matches(values);
+
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_day_of_date", 4);
+        String storageTable = getStorageTable(catalogName, schemaName, "mv_day_of_date").getTableName();
+        assertThat(query("TABLE mv_day_of_date"))
+                .matches(values)
+                .hasPlan(anyTree(tableScan(storageTable)));
+
+        // date comparison
+        assertThat(query("SELECT * FROM mv_day_of_date WHERE d >= DATE '2005-09-10'"))
+                .isFullyPushedDown();
+
+        // timestamp comparison
+        assertThat(query("SELECT * FROM mv_day_of_date WHERE d >= TIMESTAMP '2005-09-10 13:00:00'"))
+                .isFullyPushedDown();
+
+        // date_trunc
+        assertThat(query("SELECT * FROM mv_day_of_date WHERE date_trunc('day', d) = DATE '2015-01-13'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM mv_day_of_date WHERE date_trunc('month', d) = DATE '2015-01-01'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM mv_day_of_date WHERE date_trunc('year', d) = DATE '2015-01-01'"))
+                .isFullyPushedDown();
+
+        // date
+        assertThat(query("SELECT * FROM mv_day_of_date WHERE date(d) = DATE '2005-09-10'"))
+                .isFullyPushedDown();
+
+        // year
+        assertThat(query("SELECT * FROM mv_day_of_date WHERE year(d) = 2005"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+
+        assertUpdate("DROP MATERIALIZED VIEW mv_day_of_date");
+        assertUpdate("DROP TABLE mv_day_of_date_storage");
     }
 
     private SchemaTableName getStorageTable(String catalogName, String schemaName, String objectName)
