@@ -75,7 +75,7 @@ public class DropColumnTask
         }
         TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
 
-        String column = statement.getColumn().getValue().toLowerCase(ENGLISH);
+        String column = statement.getField().toString().toLowerCase(ENGLISH);
 
         accessControl.checkCanDropColumn(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(tableName));
 
