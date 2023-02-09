@@ -154,17 +154,17 @@ public abstract class BaseIcebergMaterializedViewTest
     {
         String schema = getSession().getSchema().orElseThrow();
 
-        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_with_property " +
+        assertUpdate("CREATE MATERIALIZED VIEW test_mv_show_create " +
                 "WITH (\n" +
                 "   partitioning = ARRAY['_date'],\n" +
                 "   orc_bloom_filter_columns = ARRAY['_date'],\n" +
                 "   orc_bloom_filter_fpp = 0.1) AS " +
                 "SELECT _bigint, _date FROM base_table1");
-        assertQuery("SELECT COUNT(*) FROM materialized_view_with_property", "VALUES 6");
+        assertQuery("SELECT COUNT(*) FROM test_mv_show_create", "VALUES 6");
 
-        assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW materialized_view_with_property"))
+        assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW test_mv_show_create"))
                 .matches(
-                        "\\QCREATE MATERIALIZED VIEW iceberg." + schema + ".materialized_view_with_property\n" +
+                        "\\QCREATE MATERIALIZED VIEW iceberg." + schema + ".test_mv_show_create\n" +
                                 "WITH (\n" +
                                 "   format = 'ORC',\n" +
                                 "   format_version = 2,\n" +
@@ -179,7 +179,7 @@ public abstract class BaseIcebergMaterializedViewTest
                                 ", _date\n" +
                                 "FROM\n" +
                                 "  base_table1");
-        assertUpdate("DROP MATERIALIZED VIEW materialized_view_with_property");
+        assertUpdate("DROP MATERIALIZED VIEW test_mv_show_create");
     }
 
     @Test
