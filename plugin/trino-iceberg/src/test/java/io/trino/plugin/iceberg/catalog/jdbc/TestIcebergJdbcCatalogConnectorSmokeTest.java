@@ -20,6 +20,8 @@ import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 
+import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.PASSWORD;
+import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.USER;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergJdbcCatalogConnectorSmokeTest
@@ -53,6 +55,8 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
                                 .put("iceberg.file-format", format.name())
                                 .put("iceberg.catalog.type", "jdbc")
                                 .put("iceberg.jdbc-catalog.connection-url", server.getJdbcUrl())
+                                .put("iceberg.jdbc-catalog.connection-user", USER)
+                                .put("iceberg.jdbc-catalog.connection-password", PASSWORD)
                                 .put("iceberg.jdbc-catalog.catalog-name", "tpch")
                                 .put("iceberg.register-table-procedure.enabled", "true")
                                 .buildOrThrow())

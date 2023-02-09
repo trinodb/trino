@@ -25,6 +25,8 @@ import org.testng.annotations.Test;
 
 import java.util.OptionalInt;
 
+import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.PASSWORD;
+import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.USER;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -48,6 +50,8 @@ public class TestIcebergJdbcConnectorTest
                                 .put("iceberg.file-format", format.name())
                                 .put("iceberg.catalog.type", "jdbc")
                                 .put("iceberg.jdbc-catalog.connection-url", server.getJdbcUrl())
+                                .put("iceberg.jdbc-catalog.connection-user", USER)
+                                .put("iceberg.jdbc-catalog.connection-password", PASSWORD)
                                 .put("iceberg.jdbc-catalog.catalog-name", "tpch")
                                 .buildOrThrow())
                 .setInitialTables(ImmutableList.<TpchTable<?>>builder()

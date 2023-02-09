@@ -43,7 +43,7 @@ public class IcebergJdbcCatalogModule
     public static IcebergJdbcClient createIcebergJdbcClient(IcebergJdbcCatalogConfig config)
     {
         return new IcebergJdbcClient(
-                new IcebergJdbcConnectionFactory(config.getConnectionUrl()),
+                new IcebergJdbcConnectionFactory(config.getConnectionUrl(), config.getConnectionUser(), config.getConnectionPassword()),
                 config.getCatalogName());
     }
 }

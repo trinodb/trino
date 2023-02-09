@@ -27,9 +27,12 @@ import org.apache.iceberg.jdbc.JdbcCatalog;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogProperties.URI;
 import static org.apache.iceberg.CatalogProperties.WAREHOUSE_LOCATION;
+import static org.apache.iceberg.jdbc.JdbcCatalog.PROPERTY_PREFIX;
 
 public class TrinoJdbcCatalogFactory
         implements TrinoCatalogFactory
@@ -40,6 +43,8 @@ public class TrinoJdbcCatalogFactory
     private final TrinoFileSystemFactory fileSystemFactory;
     private final String jdbcCatalogName;
     private final String connectionUrl;
+    private final Optional<String> connectionUser;
+    private final Optional<String> connectionPassword;
     private final String defaultWarehouseDir;
     private final boolean isUniqueTableLocation;
 
@@ -62,6 +67,8 @@ public class TrinoJdbcCatalogFactory
         this.isUniqueTableLocation = requireNonNull(icebergConfig, "icebergConfig is null").isUniqueTableLocation();
         this.jdbcCatalogName = jdbcConfig.getCatalogName();
         this.connectionUrl = jdbcConfig.getConnectionUrl();
+        this.connectionUser = jdbcConfig.getConnectionUser();
+        this.connectionPassword = jdbcConfig.getConnectionPassword();
         this.defaultWarehouseDir = jdbcConfig.getDefaultWarehouseDir();
     }
 
@@ -85,10 +92,12 @@ public class TrinoJdbcCatalogFactory
     private JdbcCatalog createJdbcCatalog()
     {
         JdbcCatalog jdbcCatalog = new JdbcCatalog();
-        jdbcCatalog.initialize(jdbcCatalogName, ImmutableMap.<String, String>builder()
-                .put(URI, connectionUrl)
-                .put(WAREHOUSE_LOCATION, defaultWarehouseDir)
-                .buildOrThrow());
+        ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
+        properties.put(URI, connectionUrl);
+        properties.put(WAREHOUSE_LOCATION, defaultWarehouseDir);
+        connectionUser.ifPresent(user -> properties.put(PROPERTY_PREFIX + "user", user));
+        connectionPassword.ifPresent(password -> properties.put(PROPERTY_PREFIX + "password", password));
+        jdbcCatalog.initialize(jdbcCatalogName, properties.buildOrThrow());
         return jdbcCatalog;
     }
 }
