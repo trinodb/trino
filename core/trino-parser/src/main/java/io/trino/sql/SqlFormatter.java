@@ -1592,7 +1592,7 @@ public final class SqlFormatter
             if (node.isColumnExists()) {
                 builder.append("IF EXISTS ");
             }
-            builder.append(formatName(node.getColumn()));
+            builder.append(formatName(node.getField()));
 
             return null;
         }
