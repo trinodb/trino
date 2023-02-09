@@ -776,6 +776,14 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testShowInformationSchemaTables()
+    {
+        assertThat(query("SHOW TABLES FROM information_schema"))
+                .skippingTypesCheck()
+                .containsAll("VALUES 'applicable_roles', 'columns', 'enabled_roles', 'roles', 'schemata', 'table_privileges', 'tables', 'views'");
+    }
+
+    @Test
     public void testView()
     {
         if (!hasBehavior(SUPPORTS_CREATE_VIEW)) {
