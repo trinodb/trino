@@ -30,6 +30,12 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.PartitionSpec;
@@ -61,6 +67,12 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERT
 import static io.trino.plugin.iceberg.IcebergUtil.commit;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.TIME_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -201,7 +213,39 @@ public abstract class AbstractTrinoCatalog
         String storageSchema = getStorageSchema(definition.getProperties()).orElse(viewName.getSchemaName());
         SchemaTableName storageTable = new SchemaTableName(storageSchema, storageTableName);
         List<ColumnMetadata> columns = definition.getColumns().stream()
-                .map(column -> new ColumnMetadata(column.getName(), typeManager.getType(column.getType())))
+                .map(column -> {
+                    Type type = typeManager.getType(column.getType());
+                    // Substitute types not supported by Iceberg.
+                    // Upon reading, the types will be coerced back to those requested by the user.
+                    if (type == TINYINT || type == SMALLINT) {
+                        type = INTEGER;
+                    }
+                    if (type instanceof CharType) {
+                        type = VARCHAR;
+                    }
+                    if (type instanceof TimeType timeType) {
+                        // Iceberg supports microsecond precision only
+                        type = timeType.getPrecision() <= 6
+                                ? TIME_MICROS
+                                : VARCHAR;
+                    }
+                    if (type instanceof TimeWithTimeZoneType) {
+                        type = VARCHAR;
+                    }
+                    if (type instanceof TimestampType timestampType) {
+                        // Iceberg supports microsecond precision only
+                        type = timestampType.getPrecision() <= 6
+                                ? TIMESTAMP_MICROS
+                                : VARCHAR;
+                    }
+                    if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+                        // Iceberg does not store the time zone
+                        // TODO allow temporal partitioning on these columns, or MV property to
+                        //  drop zone info and use timestamptz directly
+                        type = VARCHAR;
+                    }
+                    return new ColumnMetadata(column.getName(), type);
+                })
                 .collect(toImmutableList());
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, storageTableProperties, Optional.empty());
