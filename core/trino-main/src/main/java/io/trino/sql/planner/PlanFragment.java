@@ -49,7 +49,7 @@ public class PlanFragment
     private final List<Type> types;
     private final Set<PlanNode> partitionedSourceNodes;
     private final List<RemoteSourceNode> remoteSourceNodes;
-    private final PartitioningScheme partitioningScheme;
+    private final PartitioningScheme outputPartitioningScheme;
     private final StatsAndCosts statsAndCosts;
     private final List<CatalogProperties> activeCatalogs;
     private final Optional<String> jsonRepresentation;
@@ -65,7 +65,7 @@ public class PlanFragment
             List<Type> types,
             Set<PlanNode> partitionedSourceNodes,
             List<RemoteSourceNode> remoteSourceNodes,
-            PartitioningScheme partitioningScheme,
+            PartitioningScheme outputPartitioningScheme,
             StatsAndCosts statsAndCosts,
             List<CatalogProperties> activeCatalogs)
     {
@@ -78,7 +78,7 @@ public class PlanFragment
         this.types = requireNonNull(types, "types is null");
         this.partitionedSourceNodes = requireNonNull(partitionedSourceNodes, "partitionedSourceNodes is null");
         this.remoteSourceNodes = requireNonNull(remoteSourceNodes, "remoteSourceNodes is null");
-        this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
+        this.outputPartitioningScheme = requireNonNull(outputPartitioningScheme, "outputPartitioningScheme is null");
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
         this.jsonRepresentation = Optional.empty();
@@ -91,7 +91,7 @@ public class PlanFragment
             @JsonProperty("symbols") Map<Symbol, Type> symbols,
             @JsonProperty("partitioning") PartitioningHandle partitioning,
             @JsonProperty("partitionedSources") List<PlanNodeId> partitionedSources,
-            @JsonProperty("partitioningScheme") PartitioningScheme partitioningScheme,
+            @JsonProperty("outputPartitioningScheme") PartitioningScheme outputPartitioningScheme,
             @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
             @JsonProperty("activeCatalogs") List<CatalogProperties> activeCatalogs,
             @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
@@ -107,10 +107,10 @@ public class PlanFragment
         this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
 
         checkArgument(partitionedSourcesSet.size() == partitionedSources.size(), "partitionedSources contains duplicates");
-        checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(partitioningScheme.getOutputLayout()),
-                "Root node outputs (%s) does not include all fragment outputs (%s)", root.getOutputSymbols(), partitioningScheme.getOutputLayout());
+        checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(outputPartitioningScheme.getOutputLayout()),
+                "Root node outputs (%s) does not include all fragment outputs (%s)", root.getOutputSymbols(), outputPartitioningScheme.getOutputLayout());
 
-        types = partitioningScheme.getOutputLayout().stream()
+        types = outputPartitioningScheme.getOutputLayout().stream()
                 .map(symbols::get)
                 .collect(toImmutableList());
 
@@ -120,7 +120,7 @@ public class PlanFragment
         findRemoteSourceNodes(root, remoteSourceNodes);
         this.remoteSourceNodes = remoteSourceNodes.build();
 
-        this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
+        this.outputPartitioningScheme = requireNonNull(outputPartitioningScheme, "partitioningScheme is null");
     }
 
     @JsonProperty
@@ -159,9 +159,9 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public PartitioningScheme getPartitioningScheme()
+    public PartitioningScheme getOutputPartitioningScheme()
     {
-        return partitioningScheme;
+        return outputPartitioningScheme;
     }
 
     @JsonProperty
@@ -199,7 +199,7 @@ public class PlanFragment
                 this.types,
                 this.partitionedSourceNodes,
                 this.remoteSourceNodes,
-                this.partitioningScheme,
+                this.outputPartitioningScheme,
                 this.statsAndCosts,
                 this.activeCatalogs);
     }
@@ -255,7 +255,7 @@ public class PlanFragment
 
     public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme.withBucketToPartition(bucketToPartition), statsAndCosts, activeCatalogs, jsonRepresentation);
+        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, outputPartitioningScheme.withBucketToPartition(bucketToPartition), statsAndCosts, activeCatalogs, jsonRepresentation);
     }
 
     @Override
@@ -265,7 +265,7 @@ public class PlanFragment
                 .add("id", id)
                 .add("partitioning", partitioning)
                 .add("partitionedSource", partitionedSources)
-                .add("partitionFunction", partitioningScheme)
+                .add("outputPartitioningScheme", outputPartitioningScheme)
                 .toString();
     }
 }

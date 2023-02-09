@@ -550,7 +550,7 @@ public class PlanPrinter
             }
         }
 
-        PartitioningScheme partitioningScheme = fragment.getPartitioningScheme();
+        PartitioningScheme partitioningScheme = fragment.getOutputPartitioningScheme();
         List<String> layout = partitioningScheme.getOutputLayout().stream()
                 .map(anonymizer::anonymize)
                 .collect(toImmutableList());
