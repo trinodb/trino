@@ -14,11 +14,12 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.BasicSliceInput;
+import io.airlift.slice.SliceInput;
+import io.airlift.slice.Slices;
 import io.trino.hdfs.authentication.HadoopAuthentication;
 import io.trino.plugin.hive.ForHiveMetastore;
-import org.apache.hadoop.hive.metastore.security.DelegationTokenIdentifier;
 import org.apache.hadoop.security.SaslRpcServer;
-import org.apache.hadoop.security.token.Token;
 import org.apache.thrift.transport.TSaslClientTransport;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
@@ -38,6 +39,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.hive.formats.ReadWriteUtils.readVInt;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.security.SaslRpcServer.AuthMethod.KERBEROS;
 import static org.apache.hadoop.security.SaslRpcServer.AuthMethod.TOKEN;
@@ -84,7 +87,7 @@ public class KerberosHiveMetastoreAuthentication
                         null,
                         "default",
                         saslProps,
-                        new SaslClientCallbackHandler(decodeDelegationToken(delegationToken.get())),
+                        new SaslClientCallbackHandler(delegationToken.get()),
                         rawTransport);
             }
             else {
@@ -108,24 +111,26 @@ public class KerberosHiveMetastoreAuthentication
         }
     }
 
-    private static Token<DelegationTokenIdentifier> decodeDelegationToken(String tokenValue)
-            throws IOException
-    {
-        Token<DelegationTokenIdentifier> token = new Token<>();
-        token.decodeFromUrlString(tokenValue);
-        return token;
-    }
-
     private static class SaslClientCallbackHandler
             implements CallbackHandler
     {
         private final String username;
         private final String password;
 
-        SaslClientCallbackHandler(Token<DelegationTokenIdentifier> token)
+        public SaslClientCallbackHandler(String token)
         {
-            this.username = Base64.getEncoder().encodeToString(token.getIdentifier());
-            this.password = Base64.getEncoder().encodeToString(token.getPassword());
+            // see org.apache.hadoop.security.token.Token#decodeFromUrlString
+            byte[] decoded = Base64.getUrlDecoder().decode(token);
+            SliceInput in = new BasicSliceInput(Slices.wrappedBuffer(decoded));
+
+            byte[] username = new byte[toIntExact(readVInt(in))];
+            in.readFully(username);
+
+            byte[] password = new byte[toIntExact(readVInt(in))];
+            in.readFully(password);
+
+            this.username = Base64.getEncoder().encodeToString(username);
+            this.password = Base64.getEncoder().encodeToString(password);
         }
 
         @Override
