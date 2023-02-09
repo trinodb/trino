@@ -581,7 +581,7 @@ public class PipelinedQueryScheduler
 
         private static PipelinedOutputBufferManager createSingleStreamOutputBuffer(SqlStage stage)
         {
-            PartitioningHandle partitioningHandle = stage.getFragment().getPartitioningScheme().getPartitioning().getHandle();
+            PartitioningHandle partitioningHandle = stage.getFragment().getOutputPartitioningScheme().getPartitioning().getHandle();
             checkArgument(partitioningHandle.isSingleNode(), "partitioning is expected to be single node: " + partitioningHandle);
             return new PartitionedPipelinedOutputBufferManager(partitioningHandle, 1);
         }
@@ -946,7 +946,7 @@ public class PipelinedQueryScheduler
                         partitioningCache,
                         fragment.getRoot(),
                         fragment.getRemoteSourceNodes(),
-                        fragment.getPartitioningScheme().getPartitionCount());
+                        fragment.getOutputPartitioningScheme().getPartitionCount());
                 for (SqlStage childStage : stageManager.getChildren(stage.getStageId())) {
                     result.put(childStage.getFragment().getId(), bucketToPartition);
                 }
@@ -989,7 +989,7 @@ public class PipelinedQueryScheduler
             for (SqlStage parentStage : stageManager.getDistributedStagesInTopologicalOrder()) {
                 for (SqlStage childStage : stageManager.getChildren(parentStage.getStageId())) {
                     PlanFragmentId fragmentId = childStage.getFragment().getId();
-                    PartitioningHandle partitioningHandle = childStage.getFragment().getPartitioningScheme().getPartitioning().getHandle();
+                    PartitioningHandle partitioningHandle = childStage.getFragment().getOutputPartitioningScheme().getPartitioning().getHandle();
 
                     PipelinedOutputBufferManager outputBufferManager;
                     if (partitioningHandle.equals(FIXED_BROADCAST_DISTRIBUTION)) {
@@ -1026,7 +1026,7 @@ public class PipelinedQueryScheduler
             Session session = queryStateMachine.getSession();
             PlanFragment fragment = stageExecution.getFragment();
             PartitioningHandle partitioningHandle = fragment.getPartitioning();
-            Optional<Integer> partitionCount = fragment.getPartitioningScheme().getPartitionCount();
+            Optional<Integer> partitionCount = fragment.getOutputPartitioningScheme().getPartitionCount();
             Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(session, fragment);
             if (!splitSources.isEmpty()) {
                 queryStateMachine.addStateChangeListener(new StateChangeListener<>()
