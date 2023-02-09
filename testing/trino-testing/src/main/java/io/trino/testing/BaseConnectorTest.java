@@ -111,6 +111,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WI
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_COLUMN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_FIELD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MULTI_STATEMENT_WRITES;
@@ -2168,6 +2169,121 @@ public abstract class BaseConnectorTest
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " DROP COLUMN notExistColumn");
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
+    public void testDropRowField()
+    {
+        if (!hasBehavior(SUPPORTS_DROP_FIELD)) {
+            if (!hasBehavior(SUPPORTS_DROP_COLUMN) || !hasBehavior(SUPPORTS_ROW_TYPE)) {
+                return;
+            }
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_field_", "AS SELECT CAST(row(1, 2) AS row(x integer, y integer)) AS col")) {
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " DROP COLUMN col.x",
+                        "This connector does not support dropping fields");
+            }
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute,
+                "test_drop_field_",
+                "AS SELECT CAST(row(1, 2, row(10, 20)) AS row(a integer, b integer, c row(x integer, y integer))) AS col")) {
+            assertEquals(getColumnType(table.getName(), "col"), "row(a integer, b integer, c row(x integer, y integer))");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.b");
+            assertEquals(getColumnType(table.getName(), "col"), "row(a integer, c row(x integer, y integer))");
+            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10, 20)) AS row(a integer, c row(x integer, y integer)))");
+
+            // Drop a nested field
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.c.y");
+            assertEquals(getColumnType(table.getName(), "col"), "row(a integer, c row(x integer))");
+            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10)) AS row(a integer, c row(x integer)))");
+
+            // Verify failure when trying to drop unique field in nested row type
+            assertQueryFails("ALTER TABLE " + table.getName() + " DROP COLUMN col.c.x", ".* Cannot drop the only field in a row type");
+
+            // Verify failure when trying to drop non-existing fields
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " DROP COLUMN col.c.non_existing",
+                    "\\Qline 1:1: Cannot resolve field 'non_existing' within row(x integer) type when dropping [c, non_existing] in row(a integer, c row(x integer))");
+
+            // Drop a row having fields
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.c");
+            assertEquals(getColumnType(table.getName(), "col"), "row(a integer)");
+            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1) AS row(a integer))");
+
+            // Specify non-existing fields with IF EXISTS option
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN IF EXISTS non_existing.a");
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN IF EXISTS col.non_existing");
+            assertEquals(getColumnType(table.getName(), "col"), "row(a integer)");
+        }
+    }
+
+    @Test
+    public void testDropRowFieldWhenDuplicates()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_DROP_FIELD));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute,
+                "test_drop_duplicated_field_",
+                "AS SELECT CAST(row(1, 2, 3) AS row(a integer, a integer, b integer)) AS col")) {
+            assertEquals(getColumnType(table.getName(), "col"), "row(a integer, a integer, b integer)");
+
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " DROP COLUMN col.a",
+                    "\\QField path [a] within row(a integer, a integer, b integer) is ambiguous");
+            assertEquals(getColumnType(table.getName(), "col"), "row(a integer, a integer, b integer)");
+        }
+    }
+
+    @Test
+    public void testDropRowFieldCaseSensitivity()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_DROP_FIELD));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute,
+                "test_drop_row_field_case_sensitivity_",
+                "AS SELECT CAST(row(1, 2) AS row(lower integer, \"UPPER\" integer)) AS col")) {
+            assertEquals(getColumnType(table.getName(), "col"), "row(lower integer, UPPER integer)");
+
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " DROP COLUMN col.LOWER",
+                    "\\Qline 1:1: Cannot resolve field 'LOWER' within row(lower integer, UPPER integer) type when dropping [LOWER] in row(lower integer, UPPER integer)");
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " DROP COLUMN col.upper",
+                    "\\Qline 1:1: Cannot resolve field 'upper' within row(lower integer, UPPER integer) type when dropping [upper] in row(lower integer, UPPER integer)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.\"UPPER\"");
+            assertEquals(getColumnType(table.getName(), "col"), "row(lower integer)");
+            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1) AS row(lower integer))");
+        }
+    }
+
+    @Test
+    public void testDropAmbiguousRowFieldCaseSensitivity()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_DROP_FIELD));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute,
+                "test_drop_row_field_case_sensitivity_",
+                """
+                        AS SELECT CAST(row(1, 2, 3, 4, 5) AS
+                        row("sOME_FIELd" integer, "some_field" integer, "SomE_Field" integer, "SOME_FIELD" integer, "sOME_FieLd" integer)) AS col
+                        """)) {
+            assertEquals(getColumnType(table.getName(), "col"), "row(sOME_FIELd integer, some_field integer, SomE_Field integer, SOME_FIELD integer, sOME_FieLd integer)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.some_field");
+            assertEquals(getColumnType(table.getName(), "col"), "row(sOME_FIELd integer, SomE_Field integer, SOME_FIELD integer, sOME_FieLd integer)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.\"SomE_Field\"");
+            assertEquals(getColumnType(table.getName(), "col"), "row(sOME_FIELd integer, SOME_FIELD integer, sOME_FieLd integer)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.\"SOME_FIELD\"");
+            assertEquals(getColumnType(table.getName(), "col"), "row(sOME_FIELd integer, sOME_FieLd integer)");
+
+            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, 5) AS row(\"sOME_FIELd\" integer, \"sOME_FieLd\" integer))");
+        }
     }
 
     @Test
