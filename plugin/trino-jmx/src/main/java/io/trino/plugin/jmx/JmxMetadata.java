@@ -152,7 +152,7 @@ public class JmxMetadata
                     .sorted(comparing(JmxColumnHandle::getColumnName))
                     .collect(toImmutableList());
 
-            return new JmxTableHandle(tableName, objectNames.stream().map(ObjectName::toString).collect(toImmutableList()), columns, true, TupleDomain.all());
+            return new JmxTableHandle(tableName, objectNames.stream().map(ObjectName::getCanonicalName).collect(toImmutableList()), columns, true, TupleDomain.all());
         }
         catch (JMException | TrinoException e) {
             return null;

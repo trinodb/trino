@@ -15,20 +15,40 @@ package io.trino.plugin.jmx;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.EquivalenceTester;
+import io.trino.client.NodeVersion;
+import io.trino.metadata.InternalNode;
+import io.trino.spi.Node;
+import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.testing.TestingNodeManager;
 import org.testng.annotations.Test;
+import org.weakref.jmx.MBeanExporter;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.ObjectNameBuilder;
 
+import java.lang.management.ManagementFactory;
+import java.net.URI;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
 import static io.trino.plugin.jmx.MetadataUtil.TABLE_CODEC;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.testing.TestingConnectorSession.SESSION;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestJmxTableHandle
 {
@@ -77,5 +97,60 @@ public class TestJmxTableHandle
                         new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), singleColumn, false, nodeTupleDomain),
                         new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), singleColumn, false, nodeTupleDomain))
                 .check();
+    }
+
+    @Test
+    public void testObjectNamesInTableHandle()
+    {
+        TestMBean testMBean = new TestMBean();
+        Node localNode = new InternalNode("host1", URI.create(format("http://%s:8080", "host1")), NodeVersion.UNKNOWN, false);
+        Set<Node> nodes = ImmutableSet.of(localNode,
+                new InternalNode("host2", URI.create(format("http://%s:8080", "host2")), NodeVersion.UNKNOWN, false),
+                new InternalNode("host3", URI.create(format("http://%s:8080", "host3")), NodeVersion.UNKNOWN, false));
+        NodeManager nodeManager = new TestingNodeManager(localNode, nodes);
+        String testMBeanName = new ObjectNameBuilder("trino.plugin.hive.metastore.thrift").withProperties(ImmutableMap.<String, String>builder()
+                        .put("type", "thrifthivemetastore")
+                        .put("name", "hive")
+                        .buildOrThrow())
+                .build();
+        MBeanExporter mBeanExporter = new MBeanExporter(ManagementFactory.getPlatformMBeanServer());
+        mBeanExporter.export(testMBeanName, testMBean);
+        JmxConnector jmxConnector = (JmxConnector) new JmxConnectorFactory()
+                .create("test-id", ImmutableMap.of(
+                                "jmx.dump-tables", "trino.plugin.hive.metastore.thrift:name=hive\\,type=thrifthivemetastore",
+                                "jmx.dump-period", format("%dms", 100L),
+                                "jmx.max-entries", "1000"),
+                        new ConnectorContext()
+                        {
+                            @Override
+                            public NodeManager getNodeManager()
+                            {
+                                return nodeManager;
+                            }
+                        });
+        JmxMetadata metadata = jmxConnector.getMetadata(SESSION, new ConnectorTransactionHandle() {});
+        SchemaTableName schemaTableName = SchemaTableName.schemaTableName(HISTORY_SCHEMA_NAME, "trino.plugin.hive.metastore.thrift:name=hive,type=thrifthivemetastore");
+        JmxTableHandle tableHandle = metadata.getTableHandle(SESSION, schemaTableName);
+        List<SchemaTableName> schemaTableNameList = metadata.listTables(SESSION, Optional.of(HISTORY_SCHEMA_NAME));
+        List<String> tableNameList = schemaTableNameList.stream().map(SchemaTableName::getTableName).toList();
+        assertNotNull(tableHandle);
+        assertTrue(tableHandle.getObjectNames().stream().anyMatch(tableNameList::contains));
+    }
+
+    public static class TestMBean
+    {
+        private String value;
+
+        @Managed
+        public String getValue()
+        {
+            return value;
+        }
+
+        @Managed
+        public void setValue(String value)
+        {
+            this.value = value;
+        }
     }
 }
