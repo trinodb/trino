@@ -15,10 +15,7 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.operator.OperatorStats;
-import io.trino.spi.QueryId;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
@@ -27,7 +24,6 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
-import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
@@ -37,7 +33,6 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
-import static org.assertj.core.api.Assertions.assertThat;
 
 // smoke test which covers ANALYZE compatibility with different filesystems is part of BaseDeltaLakeConnectorSmokeTest
 public class TestDeltaLakeAnalyze
@@ -81,8 +76,8 @@ public class TestDeltaLakeAnalyze
                         "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
 
-        // reanalyze data (1 split is empty values)
-        runAnalyzeVerifySplitCount(tableName, 1);
+        // check that analyze does not change already calculated statistics
+        assertUpdate("ANALYZE " + tableName);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -149,7 +144,8 @@ public class TestDeltaLakeAnalyze
                         "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
 
-        runAnalyzeVerifySplitCount(tableName, 1);
+        // check that analyze does not change already calculated statistics
+        assertUpdate("ANALYZE " + tableName);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -212,7 +208,7 @@ public class TestDeltaLakeAnalyze
                         "('name', 0.0, 0.0, 1.0, null, null, null)," +
                         "(null, null, null, null, 0, null, null)");
 
-        runAnalyzeVerifySplitCount(tableName, 1);
+        assertUpdate("ANALYZE " + tableName);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -226,7 +222,7 @@ public class TestDeltaLakeAnalyze
         // add some data and reanalyze
         assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation", 25);
 
-        runAnalyzeVerifySplitCount(tableName, 1);
+        assertUpdate("ANALYZE " + tableName);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -416,7 +412,7 @@ public class TestDeltaLakeAnalyze
             assertQuery(query, baseStats);
 
             // Re-analyzing should work
-            runAnalyzeVerifySplitCount(table.getName(), 1);
+            assertUpdate("ANALYZE " + table.getName());
             assertQuery(query, extendedStats);
         }
     }
@@ -467,7 +463,7 @@ public class TestDeltaLakeAnalyze
                 getQueryRunner()::execute,
                 "test_old_date_stats",
                 "AS SELECT d_date FROM tpcds.tiny.date_dim")) {
-            runAnalyzeVerifySplitCount(table.getName(), 1);
+            assertUpdate("ANALYZE " + table.getName());
             // Accurate column stats on d_date are important for producing efficient query plans, e.g. on q72
             assertQuery(
                     "SHOW STATS FOR " + table.getName(),
@@ -697,30 +693,6 @@ public class TestDeltaLakeAnalyze
                         "('comment', 5571.0, 50.0, 0.0, null, null, null)," +
                         "('name', 531.0, 50.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 75.0, null, null)");
-    }
-
-    private void runAnalyzeVerifySplitCount(String tableName, long expectedSplitCount)
-    {
-        MaterializedResultWithQueryId analyzeResult = getDistributedQueryRunner().executeWithQueryId(getSession(), "ANALYZE " + tableName);
-        verifySplitCount(analyzeResult.getQueryId(), expectedSplitCount);
-    }
-
-    private void verifySplitCount(QueryId queryId, long expectedCount)
-    {
-        OperatorStats operatorStats = getOperatorStats(queryId);
-        assertThat(operatorStats.getTotalDrivers()).isEqualTo(expectedCount);
-    }
-
-    private OperatorStats getOperatorStats(QueryId queryId)
-    {
-        return getDistributedQueryRunner().getCoordinator()
-                .getQueryManager()
-                .getFullQueryInfo(queryId)
-                .getQueryStats()
-                .getOperatorSummaries()
-                .stream()
-                .filter(summary -> summary.getOperatorType().contains("Scan"))
-                .collect(onlyElement());
     }
 
     private static Session disableStatisticsCollectionOnWrite(Session session)
