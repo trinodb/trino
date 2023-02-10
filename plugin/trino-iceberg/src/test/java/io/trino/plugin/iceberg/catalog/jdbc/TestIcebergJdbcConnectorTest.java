@@ -23,8 +23,13 @@ import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.nio.file.Files;
+import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.PASSWORD;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.USER;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
@@ -34,6 +39,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestIcebergJdbcConnectorTest
         extends BaseIcebergConnectorTest
 {
+    private File warehouseLocation;
+
     public TestIcebergJdbcConnectorTest()
     {
         super(new IcebergConfig().getFileFormat());
@@ -43,8 +50,11 @@ public class TestIcebergJdbcConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        warehouseLocation = Files.createTempDirectory("test_iceberg_jdbc_connector_test").toFile();
+        closeAfterClass(() -> deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE));
         TestingIcebergJdbcServer server = closeAfterClass(new TestingIcebergJdbcServer());
         return IcebergQueryRunner.builder()
+                .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
@@ -53,6 +63,7 @@ public class TestIcebergJdbcConnectorTest
                                 .put("iceberg.jdbc-catalog.connection-user", USER)
                                 .put("iceberg.jdbc-catalog.connection-password", PASSWORD)
                                 .put("iceberg.jdbc-catalog.catalog-name", "tpch")
+                                .put("iceberg.jdbc-catalog.default-warehouse-dir", warehouseLocation.toPath().resolve("iceberg_data").toFile().getAbsolutePath())
                                 .buildOrThrow())
                 .setInitialTables(ImmutableList.<TpchTable<?>>builder()
                         .addAll(REQUIRED_TPCH_TABLES)
