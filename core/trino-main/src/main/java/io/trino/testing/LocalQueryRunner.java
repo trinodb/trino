@@ -481,7 +481,8 @@ public class LocalQueryRunner
                 typeRegistry,
                 blockEncodingManager,
                 handleResolver,
-                exchangeManagerRegistry);
+                exchangeManagerRegistry,
+                ImmutableSet.of());
 
         catalogManager.registerGlobalSystemConnector(globalSystemConnector);
 
