@@ -29,6 +29,7 @@ public class CassandraRecordSet
     private final CassandraSession cassandraSession;
     private final CassandraTypeManager cassandraTypeManager;
     private final String cql;
+    private final List<String> cassandraNames;
     private final List<CassandraType> cassandraTypes;
     private final List<Type> columnTypes;
 
@@ -39,6 +40,7 @@ public class CassandraRecordSet
         this.cql = requireNonNull(cql, "cql is null");
 
         requireNonNull(cassandraColumns, "cassandraColumns is null");
+        this.cassandraNames = transformList(cassandraColumns, CassandraColumnHandle::getName);
         this.cassandraTypes = transformList(cassandraColumns, CassandraColumnHandle::getCassandraType);
         this.columnTypes = transformList(cassandraColumns, CassandraColumnHandle::getType);
     }
@@ -52,7 +54,7 @@ public class CassandraRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new CassandraRecordCursor(cassandraSession, cassandraTypeManager, cassandraTypes, cql);
+        return new CassandraRecordCursor(cassandraSession, cassandraTypeManager, cassandraNames, cassandraTypes, cql);
     }
 
     private static <T, R> List<R> transformList(List<T> list, Function<T, R> function)
