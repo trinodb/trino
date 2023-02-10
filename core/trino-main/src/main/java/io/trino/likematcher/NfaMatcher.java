@@ -30,11 +30,11 @@ final class NfaMatcher
     private final int acceptState;
     private final int stateCount;
 
-    public NfaMatcher(List<Pattern> pattern, boolean exact)
+    public NfaMatcher(List<Pattern> pattern, int start, int end, boolean exact)
     {
         this.exact = exact;
 
-        stateCount = calculateStateCount(pattern);
+        stateCount = calculateStateCount(pattern, start, end);
 
         loopback = new boolean[stateCount];
         match = new int[stateCount];
@@ -42,33 +42,34 @@ final class NfaMatcher
         acceptState = stateCount - 1;
 
         int state = 0;
-        for (Pattern element : pattern) {
+        for (int j = start; j <= end; j++) {
+            Pattern element = pattern.get(j);
             if (element instanceof Pattern.Literal literal) {
                 for (int i = 0; i < literal.value().length(); i++) {
                     match[state++] = literal.value().charAt(i);
                 }
             }
             else if (element instanceof Pattern.Any any) {
-                for (int i = 0; i < any.min(); i++) {
+                for (int i = 0; i < any.length(); i++) {
                     match[state++] = ANY;
                 }
-
-                if (any.unbounded()) {
-                    loopback[state] = true;
-                }
+            }
+            else if (element instanceof Pattern.ZeroOrMore) {
+                loopback[state] = true;
             }
         }
     }
 
-    private static int calculateStateCount(List<Pattern> pattern)
+    private static int calculateStateCount(List<Pattern> pattern, int start, int end)
     {
         int states = 1;
-        for (Pattern element : pattern) {
+        for (int i = start; i <= end; i++) {
+            Pattern element = pattern.get(i);
             if (element instanceof Pattern.Literal literal) {
                 states += literal.value().length();
             }
             else if (element instanceof Pattern.Any any) {
-                states += any.min();
+                states += any.length();
             }
         }
         return states;

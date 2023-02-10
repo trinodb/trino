@@ -26,13 +26,17 @@ class DenseDfaMatcher
     public static final int FAIL_STATE = -1;
 
     private final List<Pattern> pattern;
+    private final int start;
+    private final int end;
     private final boolean exact;
 
     private volatile DenseDfa matcher;
 
-    public DenseDfaMatcher(List<Pattern> pattern, boolean exact)
+    public DenseDfaMatcher(List<Pattern> pattern, int start, int end, boolean exact)
     {
         this.pattern = requireNonNull(pattern, "pattern is null");
+        this.start = start;
+        this.end = end;
         this.exact = exact;
     }
 
@@ -41,7 +45,7 @@ class DenseDfaMatcher
     {
         DenseDfa matcher = this.matcher;
         if (matcher == null) {
-            matcher = DenseDfa.newInstance(pattern);
+            matcher = DenseDfa.newInstance(pattern, start, end);
             this.matcher = matcher;
         }
 
@@ -66,9 +70,9 @@ class DenseDfaMatcher
         // For each state, whether it's an accepting state
         private final boolean[] accept;
 
-        public static DenseDfa newInstance(List<Pattern> pattern)
+        public static DenseDfa newInstance(List<Pattern> pattern, int start, int end)
         {
-            DFA dfa = makeNfa(pattern).toDfa();
+            DFA dfa = makeNfa(pattern, start, end).toDfa();
 
             int[] transitions = new int[dfa.transitions().size() * 256];
             Arrays.fill(transitions, FAIL_STATE);
@@ -134,7 +138,7 @@ class DenseDfaMatcher
             return accept[state >>> 8];
         }
 
-        private static NFA makeNfa(List<Pattern> pattern)
+        private static NFA makeNfa(List<Pattern> pattern, int start, int end)
         {
             checkArgument(!pattern.isEmpty(), "pattern is empty");
 
@@ -142,22 +146,22 @@ class DenseDfaMatcher
 
             int state = builder.addStartState();
 
-            for (Pattern item : pattern) {
+            for (int e = start; e <= end; e++) {
+                Pattern item = pattern.get(e);
                 if (item instanceof Pattern.Literal literal) {
                     for (byte current : literal.value().getBytes(UTF_8)) {
                         state = matchByte(builder, state, current);
                     }
                 }
                 else if (item instanceof Pattern.Any any) {
-                    for (int i = 0; i < any.min(); i++) {
+                    for (int i = 0; i < any.length(); i++) {
                         int next = builder.addState();
                         matchSingleUtf8(builder, state, next);
                         state = next;
                     }
-
-                    if (any.unbounded()) {
-                        matchSingleUtf8(builder, state, state);
-                    }
+                }
+                else if (item instanceof Pattern.ZeroOrMore) {
+                    matchSingleUtf8(builder, state, state);
                 }
                 else {
                     throw new UnsupportedOperationException("Not supported: " + item.getClass().getName());
