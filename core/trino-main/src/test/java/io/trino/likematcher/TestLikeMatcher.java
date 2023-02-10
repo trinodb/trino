@@ -101,6 +101,8 @@ public class TestLikeMatcher
         assertTrue(match("-%", "%", '-'));
         assertTrue(match("-_", "_", '-'));
         assertTrue(match("--", "-", '-'));
+
+        assertTrue(match("%$_%", "xxxxx_xxxxx", '$'));
     }
 
     private static boolean match(String pattern, String value)
