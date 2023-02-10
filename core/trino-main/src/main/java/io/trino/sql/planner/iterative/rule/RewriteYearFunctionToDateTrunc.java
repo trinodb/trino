@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.math.LongMath;
 import io.trino.Session;
 import io.trino.spi.type.LongTimestamp;
@@ -21,21 +22,22 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonExpression.Operator;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.StringLiteral;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -48,19 +50,10 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
-import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
-import static io.trino.sql.ExpressionUtils.or;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
-import static io.trino.type.DateTimes.scaleFactor;
 import static java.lang.Math.toIntExact;
 import static java.math.RoundingMode.UNNECESSARY;
-import static java.time.temporal.TemporalAdjusters.firstDayOfYear;
-import static java.time.temporal.TemporalAdjusters.lastDayOfYear;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -71,16 +64,16 @@ import static java.util.Objects.requireNonNull;
  * <p>
  * into
  * <pre>
- *     date_time BETWEEN (beginning of the year t) AND (end of the year t)
+ *     date_trunc('year', date_time) = (beginning of the year t)
  * </pre>
  * <p>
  *
- * @see UnwrapCastInComparison
+ * @see UnwrapDateTruncInComparison
  */
-public class UnwrapYearInComparison
+public class RewriteYearFunctionToDateTrunc
         extends ExpressionRewriteRuleSet
 {
-    public UnwrapYearInComparison(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    public RewriteYearFunctionToDateTrunc(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
     {
         super(createRewrite(plannerContext, typeAnalyzer));
     }
@@ -90,10 +83,10 @@ public class UnwrapYearInComparison
         requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
-        return (expression, context) -> unwrapYear(context.getSession(), plannerContext, typeAnalyzer, context.getSymbolAllocator().getTypes(), expression);
+        return (expression, context) -> rewriteYearFunctionToDateTrunc(context.getSession(), plannerContext, typeAnalyzer, context.getSymbolAllocator().getTypes(), expression);
     }
 
-    private static Expression unwrapYear(Session session,
+    private static Expression rewriteYearFunctionToDateTrunc(Session session,
             PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
@@ -124,11 +117,10 @@ public class UnwrapYearInComparison
         public Expression rewriteComparisonExpression(ComparisonExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             ComparisonExpression expression = (ComparisonExpression) treeRewriter.defaultRewrite((Expression) node, null);
-            return unwrapYear(expression);
+            return rewriteYearFunctionToDateTrunc(expression);
         }
 
-        // Simplify `year(d) ? value`
-        private Expression unwrapYear(ComparisonExpression expression)
+        private Expression rewriteYearFunctionToDateTrunc(ComparisonExpression expression)
         {
             // Expect year on the left side and value on the right side of the comparison.
             // This is provided by CanonicalizeExpressionRewriter.
@@ -161,33 +153,27 @@ public class UnwrapYearInComparison
                 // I.e. unwrapping is possible only when values are all of some fixed zone and the zone is known.
                 return expression;
             }
+            if (argumentType != DATE && !(argumentType instanceof TimestampType)) {
+                // e.g. year(INTERVAL) not handled here
+                return expression;
+            }
 
-            return switch (expression.getOperator()) {
-                case EQUAL -> between(argument, argumentType, calculateRangeStartInclusive(right, argumentType), calculateRangeEndInclusive(right, argumentType));
-                case NOT_EQUAL -> new NotExpression(between(argument, argumentType, calculateRangeStartInclusive(right, argumentType), calculateRangeEndInclusive(right, argumentType)));
-                case IS_DISTINCT_FROM -> or(
-                        new IsNullPredicate(argument),
-                        new NotExpression(between(argument, argumentType, calculateRangeStartInclusive(right, argumentType), calculateRangeEndInclusive(right, argumentType))));
-                case LESS_THAN -> new ComparisonExpression(LESS_THAN, argument, toExpression(calculateRangeStartInclusive(right, argumentType), argumentType));
-                case LESS_THAN_OR_EQUAL -> new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, toExpression(calculateRangeEndInclusive(right, argumentType), argumentType));
-                case GREATER_THAN -> new ComparisonExpression(GREATER_THAN, argument, toExpression(calculateRangeEndInclusive(right, argumentType), argumentType));
-                case GREATER_THAN_OR_EQUAL -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, argument, toExpression(calculateRangeStartInclusive(right, argumentType), argumentType));
-            };
+            int year = toIntExact((Long) right);
+            return dateTruncExpression(expression.getOperator(), argument, argumentType, toExpression(firstDayOfYear(year, argumentType), argumentType));
         }
 
-        private Object calculateRangeStartInclusive(Object yearVariable, Type type)
+        private Object firstDayOfYear(int year, Type type)
         {
-            int year = toIntExact((Long) yearVariable);
             if (type == DATE) {
-                LocalDate firstDay = LocalDate.ofYearDay(year, 1).with(firstDayOfYear());
+                LocalDate firstDay = LocalDate.ofYearDay(year, 1);
                 return firstDay.toEpochDay();
             }
             if (type instanceof TimestampType timestampType) {
                 if (timestampType.isShort()) {
-                    LocalDateTime dateTime = LocalDateTime.MIN.withYear(year).with(firstDayOfYear());
+                    LocalDateTime dateTime = LocalDateTime.of(year, 1, 1, 0, 0);
                     return dateTime.toEpochSecond(ZoneOffset.UTC) * MICROSECONDS_PER_SECOND + LongMath.divide(dateTime.getNano(), NANOSECONDS_PER_MICROSECOND, UNNECESSARY);
                 }
-                LocalDateTime dateTime = LocalDateTime.MIN.withYear(year).with(firstDayOfYear());
+                LocalDateTime dateTime = LocalDateTime.of(year, 1, 1, 0, 0);
                 long endInclusiveMicros = dateTime.toEpochSecond(ZoneOffset.UTC) * MICROSECONDS_PER_SECOND
                         + LongMath.divide(dateTime.getNano(), NANOSECONDS_PER_MICROSECOND, UNNECESSARY);
                 return new LongTimestamp(endInclusiveMicros, 0);
@@ -195,32 +181,16 @@ public class UnwrapYearInComparison
             throw new UnsupportedOperationException("Unsupported type: " + type);
         }
 
-        private Object calculateRangeEndInclusive(Object yearVariable, Type type)
+        private ComparisonExpression dateTruncExpression(Operator operator, Expression argument, Type type, Expression right)
         {
-            int year = toIntExact((Long) yearVariable);
-            if (type == DATE) {
-                LocalDate lastDay = LocalDate.ofYearDay(year, 1).with(lastDayOfYear());
-                return lastDay.toEpochDay();
-            }
-            if (type instanceof TimestampType timestampType) {
-                if (timestampType.isShort()) {
-                    LocalDateTime dateTime = LocalDateTime.MAX.withYear(year).with(lastDayOfYear());
-                    return dateTime.toEpochSecond(ZoneOffset.UTC) * MICROSECONDS_PER_SECOND + toIntExact(NANOSECONDS_PER_MILLISECOND - scaleFactor(timestampType.getPrecision(), 6));
-                }
-                LocalDateTime dateTime = LocalDateTime.MAX.withYear(year).with(lastDayOfYear());
-                long epochMicros = dateTime.toEpochSecond(ZoneOffset.UTC) * MICROSECONDS_PER_SECOND + toIntExact(NANOSECONDS_PER_MILLISECOND - 1);
-                int picosOfMicro = toIntExact(PICOSECONDS_PER_MICROSECOND - scaleFactor(timestampType.getPrecision(), 12));
-                return new LongTimestamp(epochMicros, picosOfMicro);
-            }
-            throw new UnsupportedOperationException("Unsupported type: " + type);
-        }
+            FunctionCall functionCall = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                    .setName(QualifiedName.of("date_trunc"))
+                    .setArguments(
+                            ImmutableList.of(VARCHAR, type),
+                            ImmutableList.of(new StringLiteral("year"), argument))
+                    .build();
 
-        private BetweenPredicate between(Expression argument, Type type, Object minInclusive, Object maxInclusive)
-        {
-            return new BetweenPredicate(
-                    argument,
-                    toExpression(minInclusive, type),
-                    toExpression(maxInclusive, type));
+            return new ComparisonExpression(operator, functionCall, right);
         }
 
         private Expression toExpression(Object value, Type type)

@@ -33,9 +33,9 @@ import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.iterative.rule.RewriteYearFunctionToDateTrunc;
 import io.trino.sql.planner.iterative.rule.UnwrapCastInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapDateTruncInComparison;
-import io.trino.sql.planner.iterative.rule.UnwrapYearInComparison;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
@@ -260,7 +260,7 @@ public class TestConstraintExtractor
     }
 
     /**
-     * Test equivalent of {@link UnwrapYearInComparison} for {@link TimestampWithTimeZoneType}.
+     * Test equivalent of {@link RewriteYearFunctionToDateTrunc} for {@link TimestampWithTimeZoneType}.
      * {@link UnwrapCastInComparison} handles {@link DateType} and {@link TimestampType}, but cannot handle
      * {@link TimestampWithTimeZoneType}. Such unwrap would not be monotonic. Within Iceberg, we know
      * that {@link TimestampWithTimeZoneType} is always in UTC zone (point in time, with no time zone information),

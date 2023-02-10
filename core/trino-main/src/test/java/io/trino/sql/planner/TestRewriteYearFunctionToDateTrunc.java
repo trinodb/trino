@@ -23,7 +23,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 
-public class TestUnwrapYearInComparison
+public class TestRewriteYearFunctionToDateTrunc
         extends BasePlanTest
 {
     @Test
@@ -270,12 +270,12 @@ public class TestUnwrapYearInComparison
 
     private void testUnwrap(Session session, String inputType, String inputPredicate, String expectedPredicate)
     {
-        String sql = format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s", inputType, inputPredicate);
+        String sql = format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s OR rand() = 42", inputType, inputPredicate);
         try {
             assertPlan(sql,
                     session,
                     output(
-                            filter(expectedPredicate,
+                            filter(expectedPredicate + " OR rand() = 42e0",
                                     values("a"))));
         }
         catch (Throwable e) {
