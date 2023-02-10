@@ -380,6 +380,7 @@ public class SymbolMapper
                                 .collect(toImmutableList())))
                 .collect(toImmutableList());
 
+        // rewrite required symbols without deduplication. the table function expects specific input layout
         List<List<Symbol>> newRequiredSymbols = node.getRequiredSymbols().stream()
                 .map(this::map)
                 .collect(toImmutableList());
@@ -395,6 +396,7 @@ public class SymbolMapper
                                     return first;
                                 })));
 
+        // rewrite and deduplicate specification
         Optional<SpecificationWithPreSortedPrefix> newSpecification = node.getSpecification().map(specification -> mapAndDistinct(specification, node.getPreSorted()));
 
         return new TableFunctionProcessorNode(
