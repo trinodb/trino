@@ -21,10 +21,6 @@ public interface Node
 
     HostAddress getHostAndPort();
 
-    /**
-     * @deprecated Connectors should not access the HTTP endpoints of other nodes.
-     */
-    @Deprecated
     URI getHttpUri();
 
     String getNodeIdentifier();
