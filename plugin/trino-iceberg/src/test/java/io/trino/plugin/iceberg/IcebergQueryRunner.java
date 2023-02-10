@@ -135,9 +135,6 @@ public final class IcebergQueryRunner
                     icebergProperties.put("iceberg.catalog.type", "TESTING_FILE_METASTORE");
                     icebergProperties.put("hive.metastore.catalog.dir", dataDir.toString());
                 }
-                if ("jdbc".equalsIgnoreCase(catalogType) && !icebergProperties.containsKey("iceberg.jdbc-catalog.default-warehouse-dir")) {
-                    icebergProperties.put("iceberg.jdbc-catalog.default-warehouse-dir", dataDir.toString());
-                }
 
                 queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
                 schemaInitializer.orElseGet(() -> SchemaInitializer.builder().build()).accept(queryRunner);
