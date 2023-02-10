@@ -48,8 +48,6 @@ import static java.util.Objects.requireNonNull;
 
 public final class IcebergQueryRunner
 {
-    private static final Logger log = Logger.get(IcebergQueryRunner.class);
-
     public static final String ICEBERG_CATALOG = "iceberg";
 
     private IcebergQueryRunner() {}
@@ -181,7 +179,7 @@ public final class IcebergQueryRunner
                     .setInitialTables(TpchTable.getTables())
                     .build();
 
-            Logger log = Logger.get(IcebergQueryRunner.class);
+            Logger log = Logger.get(IcebergRestQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
@@ -201,7 +199,7 @@ public final class IcebergQueryRunner
                     .setIcebergProperties(ImmutableMap.of("iceberg.catalog.type", "glue"))
                     .build();
 
-            Logger log = Logger.get(IcebergQueryRunner.class);
+            Logger log = Logger.get(IcebergGlueQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
@@ -239,7 +237,7 @@ public final class IcebergQueryRunner
                     .build();
 
             Thread.sleep(10);
-            Logger log = Logger.get(IcebergQueryRunner.class);
+            Logger log = Logger.get(IcebergMinIoHiveMetastoreQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
@@ -308,6 +306,7 @@ public final class IcebergQueryRunner
         public static void main(String[] args)
                 throws Exception
         {
+            Logger log = Logger.get(DefaultIcebergQueryRunnerMain.class);
             DistributedQueryRunner queryRunner = null;
             try {
                 queryRunner = IcebergQueryRunner.builder()
@@ -320,7 +319,6 @@ public final class IcebergQueryRunner
                 System.exit(1);
             }
             Thread.sleep(10);
-            Logger log = Logger.get(IcebergQueryRunner.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
