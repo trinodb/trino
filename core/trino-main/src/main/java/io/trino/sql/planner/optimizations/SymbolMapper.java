@@ -362,6 +362,13 @@ public class SymbolMapper
 
     public TableFunctionProcessorNode map(TableFunctionProcessorNode node, PlanNode source)
     {
+        // rewrite and deduplicate pass-through specifications
+        // note: Potentially, pass-through symbols from different sources might be recognized as semantically identical, and rewritten
+        // to the same symbol. Currently, we retrieve the first occurrence of a symbol, and skip all the following occurrences.
+        // For better performance, we could pick the occurrence with "isPartitioningColumn" property, since the pass-through mechanism
+        // is more efficient for partitioning columns which are guaranteed to be constant within partition.
+        // TODO choose a partitioning column to be retrieved while deduplicating
+        Set<Symbol> newPassThroughSymbols = new HashSet<>();
         List<PassThroughSpecification> newPassThroughSpecifications = node.getPassThroughSpecifications().stream()
                 .map(specification -> new PassThroughSpecification(
                         specification.declaredAsPassThrough(),
@@ -369,6 +376,7 @@ public class SymbolMapper
                                 .map(column -> new PassThroughColumn(
                                         map(column.symbol()),
                                         column.isPartitioningColumn()))
+                                .filter(column -> newPassThroughSymbols.add(column.symbol()))
                                 .collect(toImmutableList())))
                 .collect(toImmutableList());
 
