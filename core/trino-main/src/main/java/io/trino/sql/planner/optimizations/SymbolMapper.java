@@ -63,12 +63,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.planner.plan.AggregationNode.groupingSets;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toMap;
 
 public class SymbolMapper
 {
@@ -376,9 +376,16 @@ public class SymbolMapper
                 .map(this::map)
                 .collect(toImmutableList());
 
+        // rewrite and deduplicate marker mapping
         Optional<Map<Symbol, Symbol>> newMarkerSymbols = node.getMarkerSymbols()
                 .map(mapping -> mapping.entrySet().stream()
-                        .collect(toMap(entry -> map(entry.getKey()), entry -> map(entry.getValue()))));
+                        .collect(toImmutableMap(
+                                entry -> map(entry.getKey()),
+                                entry -> map(entry.getValue()),
+                                (first, second) -> {
+                                    checkState(first.equals(second), "Ambiguous marker symbols: %s and %s", first, second);
+                                    return first;
+                                })));
 
         Optional<SpecificationWithPreSortedPrefix> newSpecification = node.getSpecification().map(specification -> mapAndDistinct(specification, node.getPreSorted()));
 
