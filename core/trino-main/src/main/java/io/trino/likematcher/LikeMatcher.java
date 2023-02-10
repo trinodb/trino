@@ -88,12 +88,13 @@ public class LikeMatcher
                 minSize += length;
                 maxSize += length;
             }
+            else if (expression instanceof Pattern.ZeroOrMore) {
+                unbounded = true;
+            }
             else if (expression instanceof Any any) {
-                int length = any.min();
+                int length = any.length();
                 minSize += length;
                 maxSize += length * 4; // at most 4 bytes for a single UTF-8 codepoint
-
-                unbounded = unbounded || any.unbounded();
             }
             else {
                 throw new UnsupportedOperationException("Not supported: " + expression.getClass().getName());
@@ -105,24 +106,17 @@ public class LikeMatcher
         // exact match to short-circuit DFA evaluation
         byte[] prefix = new byte[0];
         byte[] suffix = new byte[0];
-        List<Pattern> middle = new ArrayList<>();
-        for (int i = 0; i < parsed.size(); i++) {
-            Pattern expression = parsed.get(i);
 
-            if (i == 0) {
-                if (expression instanceof Literal literal) {
-                    prefix = literal.value().getBytes(UTF_8);
-                    continue;
-                }
-            }
-            else if (i == parsed.size() - 1) {
-                if (expression instanceof Literal literal) {
-                    suffix = literal.value().getBytes(UTF_8);
-                    continue;
-                }
-            }
+        int patternStart = 0;
+        int patternEnd = parsed.size() - 1;
+        if (parsed.size() > 0 && parsed.get(0) instanceof Literal literal) {
+            prefix = literal.value().getBytes(UTF_8);
+            patternStart++;
+        }
 
-            middle.add(expression);
+        if (parsed.size() > 1 && parsed.get(parsed.size() - 1) instanceof Literal literal) {
+            suffix = literal.value().getBytes(UTF_8);
+            patternEnd--;
         }
 
         // If the pattern (after excluding constant prefix/suffixes) ends with an unbounded match (i.e., %)
@@ -130,30 +124,19 @@ public class LikeMatcher
         // is no need to consume the remaining input
         // This section determines whether the pattern is a candidate for non-exact match.
         boolean exact = true; // whether to match to the end of the input
-        if (!middle.isEmpty()) {
-            // guaranteed to be Any because any Literal would've been turned into a suffix above
-            Any last = (Any) middle.get(middle.size() - 1);
-            if (last.unbounded()) {
-                exact = false;
-
-                // Since the matcher will stop early, no need for an unbounded matcher (it produces a simpler DFA)
-                if (last.min() == 0) {
-                    // We'd end up with an empty string match at the end, so just remove it
-                    middle.remove(middle.size() - 1);
-                }
-                else {
-                    middle.set(middle.size() - 1, new Any(last.min(), false));
-                }
-            }
+        if (patternStart <= patternEnd && parsed.get(patternEnd) instanceof Pattern.ZeroOrMore) {
+            // guaranteed to be Any or ZeroOrMore because any Literal would've been turned into a suffix above
+            exact = false;
+            patternEnd--;
         }
 
         Optional<Matcher> matcher = Optional.empty();
-        if (!middle.isEmpty()) {
+        if (patternStart <= patternEnd) {
             if (optimize) {
-                matcher = Optional.of(new DenseDfaMatcher(middle, exact));
+                matcher = Optional.of(new DenseDfaMatcher(parsed, patternStart, patternEnd, exact));
             }
             else {
-                matcher = Optional.of(new NfaMatcher(middle, exact));
+                matcher = Optional.of(new NfaMatcher(parsed, patternStart, patternEnd, exact));
             }
         }
 
@@ -230,9 +213,13 @@ public class LikeMatcher
             else if (escape.isPresent() && character == escape.get()) {
                 inEscape = true;
 
-                if (anyUnbounded || anyCount != 0) {
-                    result.add(new Any(anyCount, anyUnbounded));
+                if (anyCount != 0) {
+                    result.add(new Any(anyCount));
                     anyCount = 0;
+                }
+
+                if (anyUnbounded) {
+                    result.add(new Pattern.ZeroOrMore());
                     anyUnbounded = false;
                 }
             }
@@ -250,9 +237,13 @@ public class LikeMatcher
                 }
             }
             else {
-                if (anyUnbounded || anyCount != 0) {
-                    result.add(new Any(anyCount, anyUnbounded));
+                if (anyCount != 0) {
+                    result.add(new Any(anyCount));
                     anyCount = 0;
+                }
+
+                if (anyUnbounded) {
+                    result.add(new Pattern.ZeroOrMore());
                     anyUnbounded = false;
                 }
 
@@ -267,8 +258,14 @@ public class LikeMatcher
         if (literal.length() != 0) {
             result.add(new Literal(literal.toString()));
         }
-        else if (anyUnbounded || anyCount != 0) {
-            result.add(new Any(anyCount, anyUnbounded));
+        else {
+            if (anyCount != 0) {
+                result.add(new Any(anyCount));
+            }
+
+            if (anyUnbounded) {
+                result.add(new Pattern.ZeroOrMore());
+            }
         }
 
         return result;
