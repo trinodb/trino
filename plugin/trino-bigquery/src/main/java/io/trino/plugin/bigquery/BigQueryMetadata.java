@@ -32,6 +32,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.common.io.Closer;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.bigquery.BigQueryClient.RemoteDatabaseObject;
@@ -71,14 +73,16 @@ import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
-import javax.inject.Inject;
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -88,6 +92,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.util.concurrent.Futures.allAsList;
 import static io.trino.plugin.base.TemporaryTables.generateTemporaryTableName;
 import static io.trino.plugin.bigquery.BigQueryClient.buildColumnHandles;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
@@ -119,11 +124,12 @@ public class BigQueryMetadata
 
     private final BigQueryClientFactory bigQueryClientFactory;
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
+    private final ListeningExecutorService executorService;
 
-    @Inject
-    public BigQueryMetadata(BigQueryClientFactory bigQueryClientFactory)
+    public BigQueryMetadata(BigQueryClientFactory bigQueryClientFactory, ListeningExecutorService executorService)
     {
         this.bigQueryClientFactory = requireNonNull(bigQueryClientFactory, "bigQueryClientFactory is null");
+        this.executorService = requireNonNull(executorService, "executorService is null");
     }
 
     @Override
@@ -184,27 +190,32 @@ public class BigQueryMetadata
         Set<String> remoteSchemaNames = remoteSchema.map(ImmutableSet::of)
                 .orElseGet(() -> ImmutableSet.copyOf(listRemoteSchemaNames(session)));
 
+        return processInParallel(remoteSchemaNames.stream().toList(), remoteSchemaName -> listTablesInRemoteSchema(client, projectId, remoteSchemaName))
+                .flatMap(Collection::stream)
+                .collect(toImmutableList());
+    }
+
+    private List<SchemaTableName> listTablesInRemoteSchema(BigQueryClient client, String projectId, String remoteSchemaName)
+    {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
-        for (String remoteSchemaName : remoteSchemaNames) {
-            try {
-                Iterable<Table> tables = client.listTables(DatasetId.of(projectId, remoteSchemaName));
-                for (Table table : tables) {
-                    // filter ambiguous tables
-                    client.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH), tables)
-                            .filter(RemoteDatabaseObject::isAmbiguous)
-                            .ifPresentOrElse(
-                                    remoteTable -> log.debug("Filtered out [%s.%s] from list of tables due to ambiguous name", remoteSchemaName, table.getTableId().getTable()),
-                                    () -> tableNames.add(new SchemaTableName(table.getTableId().getDataset(), table.getTableId().getTable())));
-                }
+        try {
+            Iterable<Table> tables = client.listTables(DatasetId.of(projectId, remoteSchemaName));
+            for (Table table : tables) {
+                // filter ambiguous tables
+                client.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH), tables)
+                        .filter(RemoteDatabaseObject::isAmbiguous)
+                        .ifPresentOrElse(
+                                remoteTable -> log.debug("Filtered out [%s.%s] from list of tables due to ambiguous name", remoteSchemaName, table.getTableId().getTable()),
+                                () -> tableNames.add(new SchemaTableName(table.getTableId().getDataset(), table.getTableId().getTable())));
             }
-            catch (BigQueryException e) {
-                if (e.getCode() == 404 && e.getMessage().contains("Not found: Dataset")) {
-                    // Dataset not found error is ignored because listTables is used for metadata queries (SELECT FROM information_schema)
-                    log.debug("Dataset disappeared during listing operation: %s", remoteSchemaName);
-                }
-                else {
-                    throw new TrinoException(BIGQUERY_LISTING_DATASET_ERROR, "Exception happened during listing BigQuery dataset: " + remoteSchemaName, e);
-                }
+        }
+        catch (BigQueryException e) {
+            if (e.getCode() == 404 && e.getMessage().contains("Not found: Dataset")) {
+                // Dataset not found error is ignored because listTables is used for metadata queries (SELECT FROM information_schema)
+                log.debug("Dataset disappeared during listing operation: %s", remoteSchemaName);
+            }
+            else {
+                throw new TrinoException(BIGQUERY_LISTING_DATASET_ERROR, "Exception happened during listing BigQuery dataset: " + remoteSchemaName, e);
             }
         }
         return tableNames.build();
@@ -354,20 +365,51 @@ public class BigQueryMetadata
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         log.debug("listTableColumns(session=%s, prefix=%s)", session, prefix);
-        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         List<SchemaTableName> tables = prefix.toOptionalSchemaTableName()
                 .<List<SchemaTableName>>map(ImmutableList::of)
                 .orElseGet(() -> listTables(session, prefix.getSchema()));
-        for (SchemaTableName tableName : tables) {
-            try {
-                Optional.ofNullable(getTableHandleIgnoringConflicts(session, tableName))
-                        .ifPresent(tableHandle -> columns.put(tableName, getTableMetadata(session, tableHandle).getColumns()));
-            }
-            catch (TableNotFoundException e) {
-                // table disappeared during listing operation
-            }
+
+        List<BigQueryTableHandle> tableHandles = processInParallel(tables, table -> getTableHandleIgnoringConflicts(session, table))
+                .filter(Objects::nonNull)
+                .map(BigQueryTableHandle.class::cast)
+                .collect(toImmutableList());
+
+        return processInParallel(tableHandles, tableHandle -> safeGetTableMetadata(session, tableHandle))
+                .filter(Objects::nonNull)
+                .collect(toImmutableMap(ConnectorTableMetadata::getTable, ConnectorTableMetadata::getColumns));
+    }
+
+    @Nullable
+    private ConnectorTableMetadata safeGetTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        try {
+            return getTableMetadata(session, tableHandle);
         }
-        return columns.buildOrThrow();
+        catch (TableNotFoundException e) {
+            // table disappeared during listing operation
+            return null;
+        }
+    }
+
+    protected <T, R> Stream<R> processInParallel(List<T> list, Function<T, R> function)
+    {
+        if (list.size() == 1) {
+            return Stream.of(function.apply(list.get(0)));
+        }
+
+        List<ListenableFuture<R>> futures = list.stream()
+                .map(element -> executorService.submit(() -> function.apply(element)))
+                .collect(toImmutableList());
+        try {
+            return allAsList(futures).get().stream();
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e.getCause());
+        }
     }
 
     @Override
