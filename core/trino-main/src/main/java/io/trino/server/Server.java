@@ -36,6 +36,7 @@ import io.airlift.json.JsonModule;
 import io.airlift.log.LogJmxModule;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeModule;
+import io.airlift.openmetrics.JmxOpenMetricsModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogManagerConfig;
@@ -107,6 +108,7 @@ public class Server
                 new PrefixObjectNameGeneratorModule("io.trino"),
                 new JmxModule(),
                 new JmxHttpModule(),
+                new JmxOpenMetricsModule(),
                 new LogJmxModule(),
                 new TraceTokenModule(),
                 new EventModule(),
