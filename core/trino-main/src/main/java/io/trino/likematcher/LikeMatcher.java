@@ -75,7 +75,6 @@ public class LikeMatcher
     public static LikeMatcher compile(String pattern, Optional<Character> escape, boolean optimize)
     {
         List<Pattern> parsed = parse(pattern, escape);
-        List<Pattern> optimized = optimize(parsed);
 
         // Calculate minimum and maximum size for candidate strings
         // This is used for short-circuiting the match if the size of
@@ -83,7 +82,7 @@ public class LikeMatcher
         int minSize = 0;
         int maxSize = 0;
         boolean unbounded = false;
-        for (Pattern expression : optimized) {
+        for (Pattern expression : parsed) {
             if (expression instanceof Literal literal) {
                 int length = literal.value().getBytes(UTF_8).length;
                 minSize += length;
@@ -107,8 +106,8 @@ public class LikeMatcher
         byte[] prefix = new byte[0];
         byte[] suffix = new byte[0];
         List<Pattern> middle = new ArrayList<>();
-        for (int i = 0; i < optimized.size(); i++) {
-            Pattern expression = optimized.get(i);
+        for (int i = 0; i < parsed.size(); i++) {
+            Pattern expression = parsed.get(i);
 
             if (i == 0) {
                 if (expression instanceof Literal literal) {
@@ -116,7 +115,7 @@ public class LikeMatcher
                     continue;
                 }
             }
-            else if (i == optimized.size() - 1) {
+            else if (i == parsed.size() - 1) {
                 if (expression instanceof Literal literal) {
                     suffix = literal.value().getBytes(UTF_8);
                     continue;
@@ -209,11 +208,13 @@ public class LikeMatcher
         return true;
     }
 
-    private static List<Pattern> parse(String pattern, Optional<Character> escape)
+    static List<Pattern> parse(String pattern, Optional<Character> escape)
     {
         List<Pattern> result = new ArrayList<>();
 
         StringBuilder literal = new StringBuilder();
+        int anyCount = 0;
+        boolean anyUnbounded = false;
         boolean inEscape = false;
         for (int i = 0; i < pattern.length(); i++) {
             char character = pattern.charAt(i);
@@ -222,26 +223,39 @@ public class LikeMatcher
                 if (character != '%' && character != '_' && character != escape.get()) {
                     throw new IllegalArgumentException("Escape character must be followed by '%', '_' or the escape character itself");
                 }
+
                 literal.append(character);
                 inEscape = false;
             }
             else if (escape.isPresent() && character == escape.get()) {
                 inEscape = true;
+
+                if (anyUnbounded || anyCount != 0) {
+                    result.add(new Any(anyCount, anyUnbounded));
+                    anyCount = 0;
+                    anyUnbounded = false;
+                }
             }
             else if (character == '%' || character == '_') {
                 if (literal.length() != 0) {
                     result.add(new Literal(literal.toString()));
-                    literal = new StringBuilder();
+                    literal.setLength(0);
                 }
 
                 if (character == '%') {
-                    result.add(new Any(0, true));
+                    anyUnbounded = true;
                 }
                 else {
-                    result.add(new Any(1, false));
+                    anyCount++;
                 }
             }
             else {
+                if (anyUnbounded || anyCount != 0) {
+                    result.add(new Any(anyCount, anyUnbounded));
+                    anyCount = 0;
+                    anyUnbounded = false;
+                }
+
                 literal.append(character);
             }
         }
@@ -253,57 +267,10 @@ public class LikeMatcher
         if (literal.length() != 0) {
             result.add(new Literal(literal.toString()));
         }
-
-        return result;
-    }
-
-    private static List<Pattern> optimize(List<Pattern> pattern)
-    {
-        if (pattern.isEmpty()) {
-            return pattern;
-        }
-
-        List<Pattern> result = new ArrayList<>();
-
-        int anyPatternStart = -1;
-        for (int i = 0; i < pattern.size(); i++) {
-            Pattern current = pattern.get(i);
-
-            if (anyPatternStart == -1 && current instanceof Any) {
-                anyPatternStart = i;
-            }
-            else if (current instanceof Literal) {
-                if (anyPatternStart != -1) {
-                    result.add(collapse(pattern, anyPatternStart, i));
-                }
-
-                result.add(current);
-                anyPatternStart = -1;
-            }
-        }
-
-        if (anyPatternStart != -1) {
-            result.add(collapse(pattern, anyPatternStart, pattern.size()));
+        else if (anyUnbounded || anyCount != 0) {
+            result.add(new Any(anyCount, anyUnbounded));
         }
 
         return result;
-    }
-
-    /**
-     * Collapses a sequence of consecutive Any items
-     */
-    private static Any collapse(List<Pattern> pattern, int start, int end)
-    {
-        int min = 0;
-        boolean unbounded = false;
-
-        for (int i = start; i < end; i++) {
-            Any any = (Any) pattern.get(i);
-
-            min += any.min();
-            unbounded = unbounded || any.unbounded();
-        }
-
-        return new Any(min, unbounded);
     }
 }
