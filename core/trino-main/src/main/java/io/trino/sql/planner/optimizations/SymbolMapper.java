@@ -362,15 +362,24 @@ public class SymbolMapper
 
     public TableFunctionProcessorNode map(TableFunctionProcessorNode node, PlanNode source)
     {
-        List<PassThroughSpecification> newPassThroughSpecifications = node.getPassThroughSpecifications().stream()
-                .map(specification -> new PassThroughSpecification(
-                        specification.declaredAsPassThrough(),
-                        specification.columns().stream()
-                                .map(column -> new PassThroughColumn(
-                                        map(column.symbol()),
-                                        column.isPartitioningColumn()))
-                                .collect(toImmutableList())))
-                .collect(toImmutableList());
+        // rewrite and deduplicate pass-through specifications
+        // note: Potentially, pass-through symbols from different sources might be recognized as semantically identical, and rewritten
+        // to the same symbol. Currently, we retrieve the first occurrence of a symbol, and skip all the following occurrences.
+        // For better performance, we could pick the occurrence with "isPartitioningColumn" property, since the pass-through mechanism
+        // is more efficient for partitioning columns which are guaranteed to be constant within partition.
+        // TODO choose a partitioning column to be retrieved while deduplicating
+        ImmutableList.Builder<PassThroughSpecification> newPassThroughSpecifications = ImmutableList.builder();
+        Set<Symbol> newPassThroughSymbols = new HashSet<>();
+        for (PassThroughSpecification specification : node.getPassThroughSpecifications()) {
+            ImmutableList.Builder<PassThroughColumn> newColumns = ImmutableList.builder();
+            for (PassThroughColumn column : specification.columns()) {
+                Symbol newSymbol = map(column.symbol());
+                if (newPassThroughSymbols.add(newSymbol)) {
+                    newColumns.add(new PassThroughColumn(newSymbol, column.isPartitioningColumn()));
+                }
+            }
+            newPassThroughSpecifications.add(new PassThroughSpecification(specification.declaredAsPassThrough(), newColumns.build()));
+        }
 
         List<List<Symbol>> newRequiredSymbols = node.getRequiredSymbols().stream()
                 .map(this::map)
@@ -395,7 +404,7 @@ public class SymbolMapper
                 map(node.getProperOutputs()),
                 Optional.of(source),
                 node.isPruneWhenEmpty(),
-                newPassThroughSpecifications,
+                newPassThroughSpecifications.build(),
                 newRequiredSymbols,
                 newMarkerSymbols,
                 newSpecification.map(SpecificationWithPreSortedPrefix::specification),
