@@ -20,6 +20,11 @@ import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 
+import java.io.File;
+import java.nio.file.Files;
+
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.PASSWORD;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.USER;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -27,6 +32,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestIcebergJdbcCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
+    private File warehouseLocation;
+
     public TestIcebergJdbcCatalogConnectorSmokeTest()
     {
         super(new IcebergConfig().getFileFormat().toIceberg());
@@ -48,6 +55,8 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        warehouseLocation = Files.createTempDirectory("test_iceberg_jdbc_catalog_smoke_test").toFile();
+        closeAfterClass(() -> deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE));
         TestingIcebergJdbcServer server = closeAfterClass(new TestingIcebergJdbcServer());
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
@@ -59,6 +68,7 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
                                 .put("iceberg.jdbc-catalog.connection-password", PASSWORD)
                                 .put("iceberg.jdbc-catalog.catalog-name", "tpch")
                                 .put("iceberg.register-table-procedure.enabled", "true")
+                                .put("iceberg.jdbc-catalog.default-warehouse-dir", warehouseLocation.getAbsolutePath())
                                 .buildOrThrow())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
