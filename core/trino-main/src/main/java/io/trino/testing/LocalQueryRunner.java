@@ -124,6 +124,7 @@ import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.PluginManager;
 import io.trino.server.SessionPropertyDefaults;
+import io.trino.server.TrinoPluginManager;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.HeaderAuthenticatorConfig;
 import io.trino.server.security.HeaderAuthenticatorManager;
@@ -466,7 +467,7 @@ public class LocalQueryRunner
                 ImmutableSet.of());
 
         exchangeManagerRegistry = new ExchangeManagerRegistry();
-        this.pluginManager = new PluginManager(
+        this.pluginManager = new TrinoPluginManager(
                 (loader, createClassLoader) -> {},
                 catalogFactory,
                 globalFunctionCatalog,
