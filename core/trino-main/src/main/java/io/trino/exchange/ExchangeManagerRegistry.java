@@ -13,7 +13,10 @@
  */
 package io.trino.exchange;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.log.Logger;
+import io.trino.server.PluginManager.PluginInstaller;
+import io.trino.spi.Plugin;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.exchange.ExchangeManager;
@@ -37,6 +40,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ExchangeManagerRegistry
+    implements PluginInstaller
 {
     private static final Logger log = Logger.get(ExchangeManagerRegistry.class);
 
@@ -47,6 +51,16 @@ public class ExchangeManagerRegistry
 
     private volatile ExchangeManager exchangeManager;
 
+    @Override
+    public void installPlugin(Plugin plugin)
+    {
+        for (ExchangeManagerFactory exchangeManagerFactory : plugin.getExchangeManagerFactories()) {
+            log.info("Registering exchange manager %s", exchangeManagerFactory.getName());
+            addExchangeManagerFactory(exchangeManagerFactory);
+        }
+    }
+
+    @VisibleForTesting
     public void addExchangeManagerFactory(ExchangeManagerFactory factory)
     {
         requireNonNull(factory, "factory is null");

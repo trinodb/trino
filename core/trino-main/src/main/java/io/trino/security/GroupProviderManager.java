@@ -17,6 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import io.trino.server.PluginManager.PluginInstaller;
+import io.trino.spi.Plugin;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.GroupProviderFactory;
@@ -38,7 +40,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class GroupProviderManager
-        implements GroupProvider
+        implements GroupProvider, PluginInstaller
 {
     private static final Logger log = Logger.get(GroupProviderManager.class);
     private static final File GROUP_PROVIDER_CONFIGURATION = new File("etc/group-provider.properties");
@@ -46,7 +48,17 @@ public class GroupProviderManager
     private final Map<String, GroupProviderFactory> groupProviderFactories = new ConcurrentHashMap<>();
     private final AtomicReference<Optional<GroupProvider>> configuredGroupProvider = new AtomicReference<>(Optional.empty());
 
-    public void addGroupProviderFactory(GroupProviderFactory groupProviderFactory)
+    @Override
+    public void installPlugin(Plugin plugin)
+    {
+        for (GroupProviderFactory groupProviderFactory : plugin.getGroupProviderFactories()) {
+            log.info("Registering group provider %s", groupProviderFactory.getName());
+            addGroupProviderFactory(groupProviderFactory);
+        }
+    }
+
+    @VisibleForTesting
+    void addGroupProviderFactory(GroupProviderFactory groupProviderFactory)
     {
         requireNonNull(groupProviderFactory, "groupProviderFactory is null");
 

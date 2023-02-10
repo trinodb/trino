@@ -22,9 +22,11 @@ import com.google.inject.Singleton;
 import io.airlift.log.Logger;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.plugin.base.util.LoggingInvocationHandler;
+import io.trino.server.PluginManager.PluginInstaller;
 import io.trino.spi.security.GroupProvider;
 
 import static com.google.common.reflect.Reflection.newProxy;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -40,6 +42,7 @@ public class AccessControlModule
         binder.bind(AccessControlManager.class).in(Scopes.SINGLETON);
         binder.bind(GroupProviderManager.class).in(Scopes.SINGLETON);
         binder.bind(GroupProvider.class).to(GroupProviderManager.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, PluginInstaller.class).addBinding().to(GroupProviderManager.class);
         newExporter(binder).export(AccessControlManager.class).withGeneratedName();
     }
 

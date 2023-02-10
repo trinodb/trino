@@ -123,6 +123,7 @@ import io.trino.operator.scalar.json.JsonValueFunction;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.PluginManager;
+import io.trino.server.PluginManager.PluginInstaller;
 import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.HeaderAuthenticatorConfig;
@@ -466,6 +467,10 @@ public class LocalQueryRunner
                 ImmutableSet.of());
 
         exchangeManagerRegistry = new ExchangeManagerRegistry();
+        Set<PluginInstaller> installers = ImmutableSet.<PluginInstaller>builder()
+                .add(exchangeManagerRegistry)
+                .add(new GroupProviderManager())
+                .build();
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
                 catalogFactory,
@@ -476,13 +481,11 @@ public class LocalQueryRunner
                 new CertificateAuthenticatorManager(),
                 Optional.of(new HeaderAuthenticatorManager(new HeaderAuthenticatorConfig())),
                 eventListenerManager,
-                new GroupProviderManager(),
                 new SessionPropertyDefaults(nodeInfo, accessControl),
                 typeRegistry,
                 blockEncodingManager,
                 handleResolver,
-                exchangeManagerRegistry,
-                ImmutableSet.of());
+                installers);
 
         catalogManager.registerGlobalSystemConnector(globalSystemConnector);
 

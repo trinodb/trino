@@ -14,8 +14,12 @@
 package io.trino.exchange;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.trino.server.PluginManager;
+
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 
 public class ExchangeManagerModule
         implements Module
@@ -24,5 +28,6 @@ public class ExchangeManagerModule
     public void configure(Binder binder)
     {
         binder.bind(ExchangeManagerRegistry.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, PluginManager.PluginInstaller.class).addBinding().to(ExchangeManagerRegistry.class);
     }
 }

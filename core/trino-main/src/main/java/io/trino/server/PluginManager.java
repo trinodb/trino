@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.trino.connector.CatalogFactory;
 import io.trino.eventlistener.EventListenerManager;
-import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.GlobalFunctionCatalog;
@@ -26,7 +25,6 @@ import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.InternalFunctionBundle.InternalFunctionBundleBuilder;
 import io.trino.metadata.TypeRegistry;
 import io.trino.security.AccessControlManager;
-import io.trino.security.GroupProviderManager;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
@@ -36,10 +34,8 @@ import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.eventlistener.EventListenerFactory;
-import io.trino.spi.exchange.ExchangeManagerFactory;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.trino.spi.security.CertificateAuthenticatorFactory;
-import io.trino.spi.security.GroupProviderFactory;
 import io.trino.spi.security.HeaderAuthenticatorFactory;
 import io.trino.spi.security.PasswordAuthenticatorFactory;
 import io.trino.spi.security.SystemAccessControlFactory;
@@ -84,8 +80,6 @@ public class PluginManager
     private final CertificateAuthenticatorManager certificateAuthenticatorManager;
     private final Optional<HeaderAuthenticatorManager> headerAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
-    private final GroupProviderManager groupProviderManager;
-    private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final TypeRegistry typeRegistry;
     private final BlockEncodingManager blockEncodingManager;
@@ -104,12 +98,10 @@ public class PluginManager
             CertificateAuthenticatorManager certificateAuthenticatorManager,
             Optional<HeaderAuthenticatorManager> headerAuthenticatorManager,
             EventListenerManager eventListenerManager,
-            GroupProviderManager groupProviderManager,
             SessionPropertyDefaults sessionPropertyDefaults,
             TypeRegistry typeRegistry,
             BlockEncodingManager blockEncodingManager,
             HandleResolver handleResolver,
-            ExchangeManagerRegistry exchangeManagerRegistry,
             Set<PluginInstaller> pluginInstallers)
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
@@ -121,12 +113,10 @@ public class PluginManager
         this.certificateAuthenticatorManager = requireNonNull(certificateAuthenticatorManager, "certificateAuthenticatorManager is null");
         this.headerAuthenticatorManager = requireNonNull(headerAuthenticatorManager, "headerAuthenticatorManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
-        this.groupProviderManager = requireNonNull(groupProviderManager, "groupProviderManager is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
-        this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.pluginInstallers = requireNonNull(pluginInstallers, "pluginInstallers is null");
     }
 
@@ -245,16 +235,6 @@ public class PluginManager
         for (EventListenerFactory eventListenerFactory : plugin.getEventListenerFactories()) {
             log.info("Registering event listener %s", eventListenerFactory.getName());
             eventListenerManager.addEventListenerFactory(eventListenerFactory);
-        }
-
-        for (GroupProviderFactory groupProviderFactory : plugin.getGroupProviderFactories()) {
-            log.info("Registering group provider %s", groupProviderFactory.getName());
-            groupProviderManager.addGroupProviderFactory(groupProviderFactory);
-        }
-
-        for (ExchangeManagerFactory exchangeManagerFactory : plugin.getExchangeManagerFactories()) {
-            log.info("Registering exchange manager %s", exchangeManagerFactory.getName());
-            exchangeManagerRegistry.addExchangeManagerFactory(exchangeManagerFactory);
         }
 
         for (PluginInstaller pluginInstaller : pluginInstallers) {
