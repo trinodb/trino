@@ -29,7 +29,6 @@ import io.trino.spi.ptf.Descriptor;
 import io.trino.spi.ptf.Descriptor.Field;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
-import io.trino.sql.planner.optimizations.AddLocalExchanges;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
@@ -42,7 +41,6 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
-import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -202,7 +200,6 @@ public class TestTableFunctionInvocation
     {
         // all table function outputs are referenced with SELECT *, no pruning
         assertPlan("SELECT * FROM TABLE(mock.system.pass_through_function(input => TABLE(SELECT 1, true) t(a, b)))",
-                OPTIMIZED,
                 strictOutput(
                         ImmutableList.of("x", "a", "b"),
                         tableFunctionProcessor(
@@ -212,12 +209,10 @@ public class TestTableFunctionInvocation
                                         .passThroughSymbols(ImmutableList.of(ImmutableList.of("a", "b")))
                                         .requiredSymbols(ImmutableList.of(ImmutableList.of("a")))
                                         .specification(specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of())),
-                                values(ImmutableList.of("a", "b"), ImmutableList.of(ImmutableList.of(new LongLiteral("1"), TRUE_LITERAL))))),
-                optimizer -> !(optimizer instanceof AddLocalExchanges)); // TODO remove the optimizer filter when TableFunctionProcessorNode is supported in StreamPropertyDerivations
+                                values(ImmutableList.of("a", "b"), ImmutableList.of(ImmutableList.of(new LongLiteral("1"), TRUE_LITERAL))))));
 
         // no table function outputs are referenced. All pass-through symbols are pruned from the TableFunctionProcessorNode. The unused symbol "b" is pruned from the source values node.
         assertPlan("SELECT 'constant' c FROM TABLE(mock.system.pass_through_function(input => TABLE(SELECT 1, true) t(a, b)))",
-                OPTIMIZED,
                 strictOutput(
                         ImmutableList.of("c"),
                         strictProject(
@@ -229,8 +224,7 @@ public class TestTableFunctionInvocation
                                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of()))
                                                 .requiredSymbols(ImmutableList.of(ImmutableList.of("a")))
                                                 .specification(specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of())),
-                                        values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))))),
-                optimizer -> !(optimizer instanceof AddLocalExchanges)); // TODO remove the optimizer filter when TableFunctionProcessorNode is supported in StreamPropertyDerivations
+                                        values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))))));
     }
 
     @Test
@@ -269,11 +263,9 @@ public class TestTableFunctionInvocation
                                         input1 => TABLE(SELECT 1, true WHERE false) t1(a, b) KEEP WHEN EMPTY,
                                         input2 => TABLE(SELECT 2, false WHERE false) t2(c, d) KEEP WHEN EMPTY))
                         """,
-                OPTIMIZED,
                 output(
                         node(TableFunctionProcessorNode.class,
-                                values(ImmutableList.of("a", "marker_1", "c", "marker_2", "row_number")))),
-                optimizer -> !(optimizer instanceof AddLocalExchanges)); // TODO remove the optimizer filter when TableFunctionProcessorNode is supported in StreamPropertyDerivations
+                                values(ImmutableList.of("a", "marker_1", "c", "marker_2", "row_number")))));
 
         assertPlan("""
                         SELECT *
@@ -281,7 +273,6 @@ public class TestTableFunctionInvocation
                                         input1 => TABLE(SELECT 1, true WHERE false) t1(a, b) KEEP WHEN EMPTY,
                                         input2 => TABLE(SELECT 2, false) t2(c, d) PRUNE WHEN EMPTY))
                         """,
-                OPTIMIZED,
                 output(
                         node(TableFunctionProcessorNode.class,
                                 project(
@@ -289,7 +280,6 @@ public class TestTableFunctionInvocation
                                                 rowNumber(
                                                         builder -> builder.partitionBy(ImmutableList.of()),
                                                         values(ImmutableList.of("c"), ImmutableList.of(ImmutableList.of(new LongLiteral("2")))))
-                                                        .withAlias("input_2_row_number", new RowNumberSymbolMatcher()))))),
-                optimizer -> !(optimizer instanceof AddLocalExchanges)); // TODO remove the optimizer filter when TableFunctionProcessorNode is supported in StreamPropertyDerivations
+                                                        .withAlias("input_2_row_number", new RowNumberSymbolMatcher()))))));
     }
 }
