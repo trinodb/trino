@@ -15,6 +15,7 @@ package io.trino.plugin.bigquery;
 
 import com.google.api.gax.rpc.FixedHeaderProvider;
 import com.google.api.gax.rpc.HeaderProvider;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -28,16 +29,24 @@ import io.trino.plugin.bigquery.ptf.Query;
 import io.trino.spi.NodeManager;
 import io.trino.spi.ptf.ConnectorTableFunction;
 
+import java.lang.annotation.Target;
 import java.lang.management.ManagementFactory;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.bigquery.BigQueryConfig.EXPERIMENTAL_ARROW_SERIALIZATION_ENABLED;
+import static java.lang.annotation.ElementType.CONSTRUCTOR;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.toSet;
 
 public class BigQueryConnectorModule
@@ -105,6 +114,13 @@ public class BigQueryConnectorModule
             return new BigQueryLabelFactory(config.getQueryLabelName(), new FormatInterpolator<>(config.getQueryLabelFormat(), SessionInterpolatedValues.values()));
         }
 
+        @Provides
+        @ForBigQuery
+        public ListeningExecutorService provideListeningExecutor(BigQueryConfig config)
+        {
+            return listeningDecorator(newFixedThreadPool(config.getMetadataParallelism(), daemonThreadsNamed("big-query-%s"))); // limit parallelism
+        }
+
         /**
          * Apache Arrow requires reflective access to certain Java internals prohibited since Java 17.
          * Adds an error to the {@code binder} if required --add-opens is not passed to the JVM.
@@ -153,5 +169,10 @@ public class BigQueryConnectorModule
                     .to(StaticBigQueryCredentialsSupplier.class)
                     .in(Scopes.SINGLETON);
         }
+    }
+
+    @Target({PARAMETER, FIELD, METHOD, CONSTRUCTOR})
+    public @interface ForBigQuery
+    {
     }
 }
