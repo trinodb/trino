@@ -130,7 +130,7 @@
         <module>plugin/trino-accumulo</module>
         <module>plugin/trino-accumulo-iterators</module>
         <module>plugin/trino-atop</module>
-        <module>plugin/trino-barb-http</module>
+        <module>plugin/trino-barb</module>
         <module>plugin/trino-base-jdbc</module>
         <module>plugin/trino-bigquery</module>
         <module>plugin/trino-blackhole</module>
@@ -211,7 +211,7 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
-                <artifactId>trino-barb-http</artifactId>
+                <artifactId>trino-barb</artifactId>
                 <type>zip</type>
                 <version>${project.version}</version>
             </dependency>
