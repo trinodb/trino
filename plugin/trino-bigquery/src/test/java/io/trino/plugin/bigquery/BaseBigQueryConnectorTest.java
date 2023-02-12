@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
@@ -41,6 +42,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public abstract class BaseBigQueryConnectorTest
         extends BaseConnectorTest
@@ -707,6 +709,14 @@ public abstract class BaseBigQueryConnectorTest
         assertQuery(
                 "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT 1'))",
                 "VALUES 1");
+    }
+
+    @Test
+    public void testNativeQuerySelectForCaseSensitiveColumnNames()
+    {
+        MaterializedResult result = computeActual
+                ("SELECT * FROM TABLE(bigquery.system.query(query => 'select 1 as lower, 2 as UPPER, 3 as miXED'))");
+        assertTrue(result.getColumnNames().containsAll(ImmutableList.of("lower", "UPPER", "miXED")));
     }
 
     @Test
