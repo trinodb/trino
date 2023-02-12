@@ -109,15 +109,12 @@ jobs:
       - name: Set matrix (dispatch commit checks)
         id: set-matrix
         run: |
-          # The output from python ends with a newline, so we have to filter out index -1 in jq since it's an empty string
-          JQ_PIPELINE='split("\n") | .[0:-1] | map({commit: .}) | select(length > 0) | {include: .}'
-
           # Make sure the PR branch contains the compile-commit composite job
           if git merge-base --is-ancestor $( git rev-list HEAD -- .github/actions/compile-commit/action.yml | tail -n 1 ) ${{ github.event.pull_request.head.sha }}
           then
             # The HEAD commit of the PR can be safely ignored since it's already compiled in other jobs
             # This is achieved by adding a tilde (~) after the HEAD sha
-            git log --reverse --pretty=format:'%H,%T,"%s"' refs/remotes/origin/${{ github.event.pull_request.base.ref }}..${{ github.event.pull_request.head.sha }}~ | ./.github/bin/filter-commits-to-compile.py | jq --raw-input --slurp "$JQ_PIPELINE" > commit-matrix.json
+            git log --reverse --pretty=format:'%H,%T,"%s"' refs/remotes/origin/${{ github.event.pull_request.base.ref }}..${{ github.event.pull_request.head.sha }}~ | ./.github/bin/prepare-check-commits-matrix.py > commit-matrix.json
           else
             echo -n '' > commit-matrix.json
           fi
