@@ -24,13 +24,17 @@ import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Maps.transformValues;
@@ -94,6 +98,20 @@ public class ExampleClient
             throws IOException
     {
         URL result = metadataUri.toURL();
+//
+////        URL url = new URL("https://dev.barb-api.co.uk/api/v1/stations");
+//        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+//
+//        conn.setRequestProperty("Authorization","Bearer yJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjc2MzQ3NjY3LCJpYXQiOjE2NzYzMDQ0NjcsImp0aSI6ImRkYzc1MGFhY2NkOTRmOTk4NzQ5M2Q4YWJiOWQ2NDBkIiwidXNlcl9pZCI6IjljMTAzNmI2LTM1NTAtNDhhYS05YjkzLTBjNjU1NGVmMjcwZCJ9.fxXZbY2mVryyZ0TjZw4-8e6vVpJmHM0sjZJ61tXlIJI");
+//
+//        conn.setRequestProperty("Content-Type","application/json");
+//        conn.setRequestMethod("GET");
+//
+//
+//        BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+//        String json = in.lines().collect(Collectors.joining());
+
+
         String json = Resources.toString(result, UTF_8);
         Map<String, List<ExampleTable>> catalog = catalogCodec.fromJson(json);
 

@@ -42,9 +42,7 @@ public class ExampleConnectorFactory
         requireNonNull(requiredConfig, "requiredConfig is null");
         checkSpiVersion(context, this);
 
-        requiredConfig = new HashMap<String, String>() {{
-                put("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjc2MTY3OTk1LCJpYXQiOjE2NzYxMjQ3OTUsImp0aSI6ImU3MmRiZWRhYjU4MTQ5ZDliZTIzNTRlM2EyMjUwYzJiIiwidXNlcl9pZCI6IjljMTAzNmI2LTM1NTAtNDhhYS05YjkzLTBjNjU1NGVmMjcwZCJ9.FmQQQFwz3-pMNIV-Q4QOBNy9O9z5zoUOvDRGPKiq158");
-            }};
+        requiredConfig.put("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjc2MzQ2NDU4LCJpYXQiOjE2NzYzMDMyNTgsImp0aSI6IjllZTQ5MTc3NWQ0ZDQxMDhiNjEwNTI3ZjhiODk0MTFhIiwidXNlcl9pZCI6IjljMTAzNmI2LTM1NTAtNDhhYS05YjkzLTBjNjU1NGVmMjcwZCJ9.12-kyQbYSL9J7RBnTRRP7ZgHe7JrrWoDT0WXyTcsRXg");
 
         // A plugin is not required to use Guice; it is just very convenient
         Bootstrap app = new Bootstrap(
