@@ -1410,9 +1410,9 @@ public class QueryStateMachine
                 outputTaskFailureListeners.add(listener);
                 failures = ImmutableMap.copyOf(outputTaskFailures);
             }
-            executor.execute(() -> {
-                failures.forEach(listener::onTaskFailed);
-            });
+            if (!failures.isEmpty()) {
+                executor.execute(() -> failures.forEach(listener::onTaskFailed));
+            }
         }
 
         public void outputTaskFailed(TaskId taskId, Throwable failure)
@@ -1422,11 +1422,13 @@ public class QueryStateMachine
                 outputTaskFailures.putIfAbsent(taskId, failure);
                 listeners = ImmutableList.copyOf(outputTaskFailureListeners);
             }
-            executor.execute(() -> {
-                for (TaskFailureListener listener : listeners) {
-                    listener.onTaskFailed(taskId, failure);
-                }
-            });
+            if (!listeners.isEmpty()) {
+                executor.execute(() -> {
+                    for (TaskFailureListener listener : listeners) {
+                        listener.onTaskFailed(taskId, failure);
+                    }
+                });
+            }
         }
 
         private synchronized Optional<QueryOutputInfo> getQueryOutputInfo()
