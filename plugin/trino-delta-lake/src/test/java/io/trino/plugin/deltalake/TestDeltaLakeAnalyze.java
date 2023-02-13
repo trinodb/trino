@@ -321,11 +321,11 @@ public class TestDeltaLakeAnalyze
 
         // we should not be able to analyze for more columns
         assertQueryFails(format("ANALYZE %s WITH(columns = ARRAY['nationkey', 'regionkey', 'name'])", tableName),
-                "List of columns to be analyzed must be a subset of previously used. To extend list of analyzed columns drop table statistics");
+                "List of columns to be analyzed must be a subset of previously used: \\[nationkey, regionkey\\]. To extend list of analyzed columns drop table statistics");
 
         // we should not be able to analyze for all columns
         assertQueryFails("ANALYZE " + tableName,
-                "List of columns to be analyzed must be a subset of previously used. To extend list of analyzed columns drop table statistics");
+                "List of columns to be analyzed must be a subset of previously used: \\[nationkey, regionkey\\]. To extend list of analyzed columns drop table statistics");
 
         // insert modified rows
         assertUpdate("INSERT INTO " + tableName + " SELECT nationkey + 25, concat(name, '1'), regionkey + 5, concat(comment, '21') FROM tpch.sf1.nation", 25);
