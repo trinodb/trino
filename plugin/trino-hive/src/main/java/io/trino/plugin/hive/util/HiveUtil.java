@@ -1099,8 +1099,7 @@ public final class HiveUtil
     public static boolean isHiveSystemSchema(String schemaName)
     {
         if ("information_schema".equals(schemaName)) {
-            // For things like listing columns in information_schema.columns table, we need to explicitly filter out Hive's own information_schema.
-            // TODO https://github.com/trinodb/trino/issues/1559 this should be filtered out in engine.
+            // `information_schema` is filtered within engine. This condition exists for internal handling in Hive connector.
             return true;
         }
         if ("sys".equals(schemaName)) {

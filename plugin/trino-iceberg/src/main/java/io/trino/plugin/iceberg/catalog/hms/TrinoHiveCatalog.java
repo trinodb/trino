@@ -605,7 +605,6 @@ public class TrinoHiveCatalog
     {
         if (namespace.isPresent()) {
             if (isHiveSystemSchema(namespace.get())) {
-                // TODO https://github.com/trinodb/trino/issues/1559 information_schema should be handled by the engine fully
                 return ImmutableList.of();
             }
             return ImmutableList.of(namespace.get());
