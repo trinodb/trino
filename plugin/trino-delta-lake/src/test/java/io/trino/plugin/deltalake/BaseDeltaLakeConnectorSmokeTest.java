@@ -1362,14 +1362,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testAnalyze()
     {
         String tableName = "test_analyze_" + randomNameSuffix();
-        Session sessionWithDisabledStatisticsOnWrite = Session.builder(getSession())
-                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), EXTENDED_STATISTICS_COLLECT_ON_WRITE, "false")
-                .build();
-        assertUpdate(sessionWithDisabledStatisticsOnWrite, "CREATE TABLE " + tableName
-                + " WITH ("
-                + "location = '" + getLocationForTable(bucketName, tableName) + "'"
-                + ")"
-                + " AS SELECT * FROM tpch.sf1.nation", 25);
+        assertUpdate(
+                disableStatisticsCollectionOnWrite(getSession()),
+                "CREATE TABLE " + tableName
+                        + " WITH ("
+                        + "location = '" + getLocationForTable(bucketName, tableName) + "'"
+                        + ")"
+                        + " AS SELECT * FROM tpch.sf1.nation", 25);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -1949,5 +1948,12 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             return location;
         }
         throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
+    }
+
+    private static Session disableStatisticsCollectionOnWrite(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), EXTENDED_STATISTICS_COLLECT_ON_WRITE, "false")
+                .build();
     }
 }
