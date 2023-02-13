@@ -15,6 +15,11 @@ FROM eclipse-temurin:17-jdk AS builder
 
 RUN \
     set -xeu && \
+    index=0 && \
+    for dst in http://mirror.kumi.systems/ubuntu-ports/ http://mirrors.ocf.berkeley.edu/ubuntu-ports/; do \
+    sed "s,http://ports.ubuntu.com/ubuntu-ports/,$dst," /etc/apt/sources.list > /etc/apt/sources.list.d/mirror-$index.list; \
+    index=$((index+1)); \
+    done && \
     echo 'Acquire::Retries "3";' > /etc/apt/apt.conf.d/80-retries && \
     echo 'Acquire::http::Timeout "15";' > /etc/apt/apt.conf.d/80-timeouts && \
     apt-get update -q && \
@@ -26,6 +31,11 @@ FROM eclipse-temurin:17-jdk
 
 RUN \
     set -xeu && \
+    index=0 && \
+    for dst in http://mirror.kumi.systems/ubuntu-ports/ http://mirrors.ocf.berkeley.edu/ubuntu-ports/; do \
+    sed "s,http://ports.ubuntu.com/ubuntu-ports/,$dst," /etc/apt/sources.list > /etc/apt/sources.list.d/mirror-$index.list; \
+    index=$((index+1)); \
+    done && \
     echo 'Acquire::Retries "3";' > /etc/apt/apt.conf.d/80-retries && \
     echo 'Acquire::http::Timeout "15";' > /etc/apt/apt.conf.d/80-timeouts && \
     apt-get update -q && \
