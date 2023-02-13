@@ -62,7 +62,10 @@ public interface RemoteTask
 
     PartitionedSplitsInfo getPartitionedSplitsInfo();
 
-    void fail(Throwable cause);
+    /**
+     * Fails task from the coordinator perspective immediately, without waiting for acknowledgement from the remote task
+     */
+    void failLocallyImmediately(Throwable cause);
 
     /**
      * Fails task remotely; only transitions to failed state when we receive confirmation that remote operation is completed
