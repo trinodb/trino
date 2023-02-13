@@ -176,14 +176,9 @@ public abstract class BaseConnectorTest
     {
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                 .withListSchemaNames(session -> ImmutableList.copyOf(mockTableListings.keySet()))
-                .withListTables((session, schemaName) -> {
-                    if (schemaName.equals("information_schema")) {
-                        // TODO (https://github.com/trinodb/trino/issues/1559) connector should not be asked about information_schema
-                        return List.of();
-                    }
-                    return verifyNotNull(mockTableListings.get(schemaName), "No listing function registered for [%s]", schemaName)
-                            .apply(session);
-                })
+                .withListTables((session, schemaName) ->
+                    verifyNotNull(mockTableListings.get(schemaName), "No listing function registered for [%s]", schemaName)
+                            .apply(session))
                 .build();
         return new MockConnectorPlugin(connectorFactory);
     }
