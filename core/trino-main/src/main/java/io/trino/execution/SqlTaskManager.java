@@ -823,10 +823,10 @@ public class SqlTaskManager
             return task.getTaskInstanceId();
         }
 
-        public boolean isTaskFailed()
+        public boolean isTaskFailedOrFailing()
         {
             return switch (task.getTaskState()) {
-                case ABORTED, FAILED -> true;
+                case ABORTED, ABORTING, FAILED, FAILING -> true;
                 default -> false;
             };
         }

@@ -170,6 +170,7 @@ public class TestSqlTaskManager
 
     @Test
     public void testCancel()
+            throws InterruptedException, ExecutionException, TimeoutException
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
@@ -181,7 +182,7 @@ public class TestSqlTaskManager
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
             assertNull(taskInfo.getStats().getEndTime());
 
-            taskInfo = sqlTaskManager.cancelTask(taskId);
+            taskInfo = pollTerminatingTaskInfoUntilDone(sqlTaskManager, sqlTaskManager.cancelTask(taskId));
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.CANCELED);
             assertNotNull(taskInfo.getStats().getEndTime());
 
@@ -193,6 +194,7 @@ public class TestSqlTaskManager
 
     @Test
     public void testAbort()
+            throws InterruptedException, ExecutionException, TimeoutException
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
@@ -204,7 +206,7 @@ public class TestSqlTaskManager
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
             assertNull(taskInfo.getStats().getEndTime());
 
-            taskInfo = sqlTaskManager.abortTask(taskId);
+            taskInfo = pollTerminatingTaskInfoUntilDone(sqlTaskManager, sqlTaskManager.abortTask(taskId));
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.ABORTED);
             assertNotNull(taskInfo.getStats().getEndTime());
 
@@ -237,7 +239,7 @@ public class TestSqlTaskManager
 
     @Test
     public void testRemoveOldTasks()
-            throws Exception
+            throws InterruptedException, ExecutionException, TimeoutException
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig().setInfoMaxAge(new Duration(5, TimeUnit.MILLISECONDS)))) {
             TaskId taskId = TASK_ID;
@@ -245,7 +247,7 @@ public class TestSqlTaskManager
             TaskInfo taskInfo = createTask(sqlTaskManager, taskId, PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
-            taskInfo = sqlTaskManager.cancelTask(taskId);
+            taskInfo = pollTerminatingTaskInfoUntilDone(sqlTaskManager, sqlTaskManager.cancelTask(taskId));
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.CANCELED);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
@@ -291,7 +293,7 @@ public class TestSqlTaskManager
 
             try (SqlTaskManager sqlTaskManager = createSqlTaskManager(taskManagerConfig, new NodeMemoryConfig(), taskExecutor, stackTraceElements -> true)) {
                 sqlTaskManager.addStateChangeListener(TASK_ID, (state) -> {
-                    if (state.isDone()) {
+                    if (state.isTerminatingOrDone() && !taskHandle.isDestroyed()) {
                         taskExecutor.removeTask(taskHandle);
                     }
                 });
@@ -300,8 +302,11 @@ public class TestSqlTaskManager
                 sqlTaskManager.failStuckSplitTasks();
 
                 mockSplitRunner.waitForFinish();
-                assertEquals(sqlTaskManager.getAllTaskInfo().size(), 1);
-                assertEquals(sqlTaskManager.getAllTaskInfo().get(0).getTaskStatus().getState(), TaskState.FAILED);
+                List<TaskInfo> taskInfos = sqlTaskManager.getAllTaskInfo();
+                assertEquals(taskInfos.size(), 1);
+
+                TaskInfo taskInfo = pollTerminatingTaskInfoUntilDone(sqlTaskManager, taskInfos.get(0));
+                assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FAILED);
             }
         }
         finally {
@@ -427,6 +432,18 @@ public class TestSqlTaskManager
                 ImmutableList.of(),
                 outputBuffers,
                 ImmutableMap.of());
+    }
+
+    private static TaskInfo pollTerminatingTaskInfoUntilDone(SqlTaskManager taskManager, TaskInfo taskInfo)
+            throws InterruptedException, ExecutionException, TimeoutException
+    {
+        assertTrue(taskInfo.getTaskStatus().getState().isTerminatingOrDone());
+        int attempts = 3;
+        while (attempts > 0 && taskInfo.getTaskStatus().getState().isTerminating()) {
+            taskInfo = taskManager.getTaskInfo(taskInfo.getTaskStatus().getTaskId(), taskInfo.getTaskStatus().getVersion()).get(5, SECONDS);
+            attempts--;
+        }
+        return taskInfo;
     }
 
     public static class MockDirectExchangeClientSupplier
