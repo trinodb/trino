@@ -977,6 +977,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           cache: false
+          download_dependencies: false
       - name: Product tests artifact
         uses: actions/download-artifact@v3
         with:
