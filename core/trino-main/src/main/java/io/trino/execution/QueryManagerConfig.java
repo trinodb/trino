@@ -65,6 +65,7 @@ public class QueryManagerConfig
 
     private int queryManagerExecutorPoolSize = 5;
     private int queryExecutorPoolSize = 1000;
+    private int maxStateMachineCallbackThreads = 5;
 
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}
@@ -295,6 +296,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryExecutorPoolSize(int queryExecutorPoolSize)
     {
         this.queryExecutorPoolSize = queryExecutorPoolSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxStateMachineCallbackThreads()
+    {
+        return maxStateMachineCallbackThreads;
+    }
+
+    @Config("query.max-state-machine-callback-threads")
+    @ConfigDescription("The maximum number of threads allowed to run query and stage state machine listener callbacks concurrently for each query")
+    public QueryManagerConfig setMaxStateMachineCallbackThreads(int maxStateMachineCallbackThreads)
+    {
+        this.maxStateMachineCallbackThreads = maxStateMachineCallbackThreads;
         return this;
     }
 

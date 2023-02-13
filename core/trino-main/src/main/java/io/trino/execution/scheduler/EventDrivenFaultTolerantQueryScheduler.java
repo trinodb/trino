@@ -766,7 +766,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         session,
                         summarizeTaskInfo,
                         nodeTaskMap,
-                        queryExecutor,
+                        queryStateMachine.getStateMachineExecutor(),
                         schedulerStats);
                 closer.register(stage::abort);
                 stageRegistry.add(stage);
