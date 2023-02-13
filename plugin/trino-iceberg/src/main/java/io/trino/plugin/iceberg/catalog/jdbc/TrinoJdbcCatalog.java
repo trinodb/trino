@@ -163,10 +163,6 @@ public class TrinoJdbcCatalog
     private List<String> listNamespaces(ConnectorSession session, Optional<String> namespace)
     {
         if (namespace.isPresent() && namespaceExists(session, namespace.get())) {
-            if ("information_schema".equals(namespace.get())) {
-                // TODO https://github.com/trinodb/trino/issues/1559 this should be filtered out in engine.
-                return ImmutableList.of();
-            }
             return ImmutableList.of(namespace.get());
         }
         return listNamespaces(session);
