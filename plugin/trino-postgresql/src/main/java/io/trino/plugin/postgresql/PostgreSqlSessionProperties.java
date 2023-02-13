@@ -22,15 +22,21 @@ import io.trino.spi.session.PropertyMetadata;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
 
 public final class PostgreSqlSessionProperties
         implements SessionPropertiesProvider
 {
     public static final String ARRAY_MAPPING = "array_mapping";
     public static final String ENABLE_STRING_PUSHDOWN_WITH_COLLATE = "enable_string_pushdown_with_collate";
+    public static final String AS_OF_SYSTEM_TIME = "as_of_system_time";
+    public static final String AUTO_COMMIT = "auto_commit";
+    public static final String FETCH_SIZE = "fetch_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -48,7 +54,10 @@ public final class PostgreSqlSessionProperties
                         ENABLE_STRING_PUSHDOWN_WITH_COLLATE,
                         "Enable string pushdown with collate (experimental)",
                         postgreSqlConfig.isEnableStringPushdownWithCollate(),
-                        false));
+                        false),
+                stringProperty(AS_OF_SYSTEM_TIME, "System time for crdb session", postgreSqlConfig.getAsOfSystemTime().orElse(null), false),
+                integerProperty(FETCH_SIZE, "Fetch size for jdbc cursors", postgreSqlConfig.getFetchSize(), false),
+                booleanProperty(AUTO_COMMIT, "Auto commit for jdbc connections", postgreSqlConfig.isAutoCommit(), false));
     }
 
     @Override
@@ -65,5 +74,20 @@ public final class PostgreSqlSessionProperties
     public static boolean isEnableStringPushdownWithCollate(ConnectorSession session)
     {
         return session.getProperty(ENABLE_STRING_PUSHDOWN_WITH_COLLATE, Boolean.class);
+    }
+
+    public static Optional<String> getAsOfSystemTime(ConnectorSession session)
+    {
+        return Optional.ofNullable(session.getProperty(AS_OF_SYSTEM_TIME, String.class));
+    }
+
+    public static boolean getAutoCommit(ConnectorSession session)
+    {
+        return session.getProperty(AUTO_COMMIT, Boolean.class);
+    }
+
+    public static int getFetchSize(ConnectorSession session)
+    {
+        return session.getProperty(FETCH_SIZE, Integer.class);
     }
 }

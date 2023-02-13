@@ -320,10 +320,10 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
             throws SQLException
     {
-        return stats.getGetPreparedStatement().wrap(() -> delegate().getPreparedStatement(connection, sql));
+        return stats.getGetPreparedStatement().wrap(() -> delegate().getPreparedStatement(session, connection, sql));
     }
 
     @Override
@@ -420,5 +420,29 @@ public final class StatisticsAwareJdbcClient
     public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
     {
         stats.getTruncateTable().wrap(() -> delegate().truncateTable(session, handle));
+    }
+
+    @Override
+    public long getMaxRowsPerResultSet()
+    {
+        return delegate().getMaxRowsPerResultSet();
+    }
+
+    @Override
+    public boolean supportsTimeTravel()
+    {
+        return delegate().supportsTimeTravel();
+    }
+
+    @Override
+    public Optional<String> getTxnTimeTravelStatement(ConnectorSession session)
+    {
+        return delegate().getTxnTimeTravelStatement(session);
+    }
+
+    @Override
+    public Optional<String> getTimeTravelClause(ConnectorSession session)
+    {
+        return delegate().getTimeTravelClause(session);
     }
 }

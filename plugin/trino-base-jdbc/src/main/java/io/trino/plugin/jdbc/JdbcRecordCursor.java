@@ -29,6 +29,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -38,6 +39,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcRecordCursor
@@ -54,6 +56,8 @@ public class JdbcRecordCursor
     private final LongReadFunction[] longReadFunctions;
     private final SliceReadFunction[] sliceReadFunctions;
     private final ObjectReadFunction[] objectReadFunctions;
+    private final Optional<String> txnTimeTravelStatement;
+    private final AtomicLong currentRowCount = new AtomicLong();
 
     private final JdbcClient jdbcClient;
     private final Connection connection;
@@ -76,6 +80,7 @@ public class JdbcRecordCursor
         longReadFunctions = new LongReadFunction[columnHandles.size()];
         sliceReadFunctions = new SliceReadFunction[columnHandles.size()];
         objectReadFunctions = new ObjectReadFunction[columnHandles.size()];
+        txnTimeTravelStatement = jdbcClient.getTxnTimeTravelStatement(session);
 
         try {
             connection = jdbcClient.getConnection(session, split, table);
@@ -143,9 +148,14 @@ public class JdbcRecordCursor
 
         try {
             if (resultSet == null) {
+                currentRowCount.set(0L);
                 long start = System.nanoTime();
                 Future<ResultSet> resultSetFuture = executor.submit(() -> {
                     log.debug("Executing: %s", statement);
+                    if (jdbcClient.supportsTimeTravel() && txnTimeTravelStatement.isPresent()) {
+                        //ex. connection.createStatement().execute("SET TRANSACTION AS OF SYSTEM TIME '-30s'");
+                        connection.createStatement().execute(txnTimeTravelStatement.get());
+                    }
                     return statement.executeQuery();
                 });
                 try {
@@ -171,6 +181,9 @@ public class JdbcRecordCursor
                 finally {
                     readTimeNanos.addAndGet(System.nanoTime() - start);
                 }
+            }
+            if (jdbcClient.getMaxRowsPerResultSet() > 0 && currentRowCount.incrementAndGet() > jdbcClient.getMaxRowsPerResultSet()) {
+                throw new RuntimeException(format("Too many rows returned: Resultset cannot exceed '%s' rows per query. Check your joins, filters and subqueries. Add a LIMIT clause where applicable. Ask for help in #ask-sql channel", jdbcClient.getMaxRowsPerResultSet()));
             }
             return resultSet.next();
         }

@@ -89,7 +89,7 @@ public class DefaultQueryBuilder
         ImmutableList.Builder<QueryParameter> accumulator = ImmutableList.builder();
 
         String sql = "SELECT " + getProjection(client, columns, columnExpressions);
-        sql += getFrom(client, baseRelation, accumulator::add);
+        sql += getFrom(session, client, baseRelation, accumulator::add);
 
         toConjuncts(client, session, connection, tupleDomain, conjuncts, accumulator::add);
         additionalPredicate.ifPresent(conjuncts::add);
@@ -176,7 +176,7 @@ public class DefaultQueryBuilder
     {
         String modifiedQuery = queryModifier.apply(session, preparedQuery.getQuery());
         log.debug("Preparing query: %s", modifiedQuery);
-        PreparedStatement statement = client.getPreparedStatement(connection, modifiedQuery);
+        PreparedStatement statement = client.getPreparedStatement(session, connection, modifiedQuery);
 
         List<QueryParameter> parameters = preparedQuery.getParameters();
         for (int i = 0; i < parameters.size(); i++) {
@@ -268,9 +268,12 @@ public class DefaultQueryBuilder
                 .collect(joining(", "));
     }
 
-    private String getFrom(JdbcClient client, JdbcRelationHandle baseRelation, Consumer<QueryParameter> accumulator)
+    private String getFrom(ConnectorSession session, JdbcClient client, JdbcRelationHandle baseRelation, Consumer<QueryParameter> accumulator)
     {
         if (baseRelation instanceof JdbcNamedRelationHandle) {
+            if (client.supportsTimeTravel() && client.getTimeTravelClause(session).isPresent()) {
+                return " FROM " + getRelation(client, ((JdbcNamedRelationHandle) baseRelation).getRemoteTableName()) + " " + client.getTimeTravelClause(session).get();
+            }
             return " FROM " + getRelation(client, ((JdbcNamedRelationHandle) baseRelation).getRemoteTableName());
         }
         if (baseRelation instanceof JdbcQueryRelationHandle) {

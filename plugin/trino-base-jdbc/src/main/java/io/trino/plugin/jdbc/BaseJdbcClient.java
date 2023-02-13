@@ -1058,7 +1058,7 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
             throws SQLException
     {
         return connection.prepareStatement(sql);
@@ -1404,5 +1404,29 @@ public abstract class BaseJdbcClient
             suffix++;
         }
         return new ColumnMetadata(columnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE);
+    }
+
+    @Override
+    public long getMaxRowsPerResultSet()
+    {
+        return 0L;
+    }
+
+    @Override
+    public boolean supportsTimeTravel()
+    {
+        return false;
+    }
+
+    @Override
+    public Optional<String> getTxnTimeTravelStatement(ConnectorSession session)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<String> getTimeTravelClause(ConnectorSession session)
+    {
+        return Optional.empty();
     }
 }

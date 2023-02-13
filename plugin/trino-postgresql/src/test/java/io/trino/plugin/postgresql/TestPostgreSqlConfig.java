@@ -30,7 +30,11 @@ public class TestPostgreSqlConfig
         assertRecordedDefaults(recordDefaults(PostgreSqlConfig.class)
                 .setArrayMapping(PostgreSqlConfig.ArrayMapping.DISABLED)
                 .setIncludeSystemTables(false)
-                .setEnableStringPushdownWithCollate(false));
+                .setEnableStringPushdownWithCollate(false)
+                .setAutoCommit(false)
+                .setAsOfSystemTime(null)
+                .setMaxRowsPerResultSet(0)
+                .setFetchSize(1000));
     }
 
     @Test

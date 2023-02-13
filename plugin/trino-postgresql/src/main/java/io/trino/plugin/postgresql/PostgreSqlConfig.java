@@ -18,11 +18,17 @@ import io.airlift.configuration.LegacyConfig;
 
 import javax.validation.constraints.NotNull;
 
+import java.util.Optional;
+
 public class PostgreSqlConfig
 {
     private ArrayMapping arrayMapping = ArrayMapping.DISABLED;
     private boolean includeSystemTables;
     private boolean enableStringPushdownWithCollate;
+    private boolean autoCommit;
+    private Optional<String> asOfSystemTime = Optional.empty();
+    private long maxRowsPerResultSet;
+    private int fetchSize = 1000;
 
     public enum ArrayMapping
     {
@@ -66,6 +72,54 @@ public class PostgreSqlConfig
     public PostgreSqlConfig setEnableStringPushdownWithCollate(boolean enableStringPushdownWithCollate)
     {
         this.enableStringPushdownWithCollate = enableStringPushdownWithCollate;
+        return this;
+    }
+
+    public boolean isAutoCommit()
+    {
+        return autoCommit;
+    }
+
+    @Config("auto-commit")
+    public PostgreSqlConfig setAutoCommit(boolean autoCommit)
+    {
+        this.autoCommit = autoCommit;
+        return this;
+    }
+
+    public Optional<String> getAsOfSystemTime()
+    {
+        return asOfSystemTime;
+    }
+
+    @Config("as-of-system-time")
+    public PostgreSqlConfig setAsOfSystemTime(String asOfSystemTime)
+    {
+        this.asOfSystemTime = Optional.ofNullable(asOfSystemTime);
+        return this;
+    }
+
+    public long getMaxRowsPerResultSet()
+    {
+        return maxRowsPerResultSet;
+    }
+
+    @Config("max-rows-per-result-set")
+    public PostgreSqlConfig setMaxRowsPerResultSet(long maxRowsPerResultSet)
+    {
+        this.maxRowsPerResultSet = maxRowsPerResultSet;
+        return this;
+    }
+
+    public int getFetchSize()
+    {
+        return fetchSize;
+    }
+
+    @Config("fetch-size")
+    public PostgreSqlConfig setFetchSize(int fetchSize)
+    {
+        this.fetchSize = fetchSize;
         return this;
     }
 }

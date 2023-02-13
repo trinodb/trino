@@ -177,7 +177,7 @@ public interface JdbcClient
     Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException;
 
-    PreparedStatement getPreparedStatement(Connection connection, String sql)
+    PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
             throws SQLException;
 
     /**
@@ -216,4 +216,12 @@ public interface JdbcClient
     OptionalLong delete(ConnectorSession session, JdbcTableHandle handle);
 
     void truncateTable(ConnectorSession session, JdbcTableHandle handle);
+
+    long getMaxRowsPerResultSet();
+
+    boolean supportsTimeTravel();
+
+    Optional<String> getTxnTimeTravelStatement(ConnectorSession session);
+
+    Optional<String> getTimeTravelClause(ConnectorSession session);
 }

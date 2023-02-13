@@ -184,6 +184,9 @@ import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_JSON;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.DISABLED;
 import static io.trino.plugin.postgresql.PostgreSqlSessionProperties.getArrayMapping;
+import static io.trino.plugin.postgresql.PostgreSqlSessionProperties.getAsOfSystemTime;
+import static io.trino.plugin.postgresql.PostgreSqlSessionProperties.getAutoCommit;
+import static io.trino.plugin.postgresql.PostgreSqlSessionProperties.getFetchSize;
 import static io.trino.plugin.postgresql.PostgreSqlSessionProperties.isEnableStringPushdownWithCollate;
 import static io.trino.plugin.postgresql.TypeUtils.arrayDepth;
 import static io.trino.plugin.postgresql.TypeUtils.getArrayElementPgTypeName;
@@ -246,6 +249,8 @@ public class PostgreSqlClient
     private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
     private static final int POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION = 6;
     private static final int PRECISION_OF_UNSPECIFIED_DECIMAL = 0;
+    private static final String AS_OF_SYSTEM_TIME_CLAUSE_FORMAT_STRING = "AS OF SYSTEM TIME '%s'";
+    private static final String TXN_TIME_TRAVEL_STATEMENT_FORMAT_STRING = "SET TRANSACTION AS OF SYSTEM TIME '%s'";
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
 
@@ -274,6 +279,7 @@ public class PostgreSqlClient
     private final boolean statisticsEnabled;
     private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
+    private final long maxRowsPerResultSet;
 
     @Inject
     public PostgreSqlClient(
@@ -342,6 +348,7 @@ public class PostgreSqlClient
                         .add(new ImplementRegrIntercept())
                         .add(new ImplementRegrSlope())
                         .build());
+        this.maxRowsPerResultSet = postgreSqlConfig.getMaxRowsPerResultSet();
     }
 
     @Override
@@ -378,13 +385,13 @@ public class PostgreSqlClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
             throws SQLException
     {
         // fetch-size is ignored when connection is in auto-commit
-        connection.setAutoCommit(false);
+        connection.setAutoCommit(getAutoCommit(session));
         PreparedStatement statement = connection.prepareStatement(sql);
-        statement.setFetchSize(1000);
+        statement.setFetchSize(getFetchSize(session));
         return statement;
     }
 
@@ -1150,6 +1157,36 @@ public class PostgreSqlClient
                 quoted(column.getColumnName()),
                 comment.map(BaseJdbcClient::varcharLiteral).orElse("NULL"));
         execute(session, sql);
+    }
+
+    @Override
+    public long getMaxRowsPerResultSet()
+    {
+        return this.maxRowsPerResultSet;
+    }
+
+    @Override
+    public boolean supportsTimeTravel()
+    {
+        return true;
+    }
+
+    @Override
+    public Optional<String> getTimeTravelClause(ConnectorSession session)
+    {
+        if (!getAutoCommit(session)) {
+            return Optional.empty();
+        }
+        return getAsOfSystemTime(session).map(asOfSystemTime -> format(AS_OF_SYSTEM_TIME_CLAUSE_FORMAT_STRING, asOfSystemTime));
+    }
+
+    @Override
+    public Optional<String> getTxnTimeTravelStatement(ConnectorSession session)
+    {
+        if (getAutoCommit(session)) {
+            return Optional.empty();
+        }
+        return getAsOfSystemTime(session).map(asOfSystemTime -> format(TXN_TIME_TRAVEL_STATEMENT_FORMAT_STRING, asOfSystemTime));
     }
 
     private static ColumnMapping timestampWithTimeZoneColumnMapping(int precision)

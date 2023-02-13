@@ -350,10 +350,10 @@ public class CachingJdbcClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
             throws SQLException
     {
-        return delegate.getPreparedStatement(connection, sql);
+        return delegate.getPreparedStatement(session, connection, sql);
     }
 
     @Override
@@ -534,6 +534,30 @@ public class CachingJdbcClient
     {
         delegate.truncateTable(session, handle);
         onDataChanged(handle.getRequiredNamedRelation().getSchemaTableName());
+    }
+
+    @Override
+    public long getMaxRowsPerResultSet()
+    {
+        return delegate.getMaxRowsPerResultSet();
+    }
+
+    @Override
+    public boolean supportsTimeTravel()
+    {
+        return delegate.supportsTimeTravel();
+    }
+
+    @Override
+    public Optional<String> getTxnTimeTravelStatement(ConnectorSession session)
+    {
+        return delegate.getTxnTimeTravelStatement(session);
+    }
+
+    @Override
+    public Optional<String> getTimeTravelClause(ConnectorSession session)
+    {
+        return delegate.getTimeTravelClause(session);
     }
 
     @Managed
