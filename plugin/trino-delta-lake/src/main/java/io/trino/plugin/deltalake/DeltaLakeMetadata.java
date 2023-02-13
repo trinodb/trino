@@ -2154,8 +2154,9 @@ public class DeltaLakeMetadata
         Optional<Set<String>> oldAnalyzeColumnNames = statistics.flatMap(ExtendedStatistics::getAnalyzedColumns);
         if (oldAnalyzeColumnNames.isPresent()) {
             if (analyzeColumnNames.isEmpty() || !oldAnalyzeColumnNames.get().containsAll(analyzeColumnNames.get())) {
-                throw new TrinoException(INVALID_ANALYZE_PROPERTY,
-                        "List of columns to be analyzed must be a subset of previously used. To extend list of analyzed columns drop table statistics");
+                throw new TrinoException(INVALID_ANALYZE_PROPERTY, format(
+                        "List of columns to be analyzed must be a subset of previously used: %s. To extend list of analyzed columns drop table statistics",
+                        oldAnalyzeColumnNames.get()));
             }
         }
 
