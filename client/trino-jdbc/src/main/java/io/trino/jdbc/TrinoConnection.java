@@ -269,6 +269,8 @@ public class TrinoConnection
             }
         }
         finally {
+            httpClient.dispatcher().executorService().shutdown();
+            httpClient.connectionPool().evictAll();
             closed.set(true);
         }
     }
