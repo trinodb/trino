@@ -42,6 +42,7 @@ import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CdfFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry.Format;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -155,6 +156,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.plugin.deltalake.DataFileInfo.DataFileType.DATA;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
@@ -277,6 +279,7 @@ public class DeltaLakeMetadata
     private static final int WRITER_VERSION = 2;
     // The highest writer version Trino supports writing to
     private static final int MAX_WRITER_VERSION = 4;
+    private static final int MAX_DML_WRITER_VERSION = 5;
     // This constant should be used only for a new table
     private static final ProtocolEntry DEFAULT_PROTOCOL = new ProtocolEntry(READER_VERSION, WRITER_VERSION);
     // Matches the dummy column Databricks stores in the metastore
@@ -1297,7 +1300,8 @@ public class DeltaLakeMetadata
             throw new TrinoException(NOT_SUPPORTED, "Inserts are not supported for tables with delta invariants");
         }
         checkUnsupportedGeneratedColumns(table.getMetadataEntry());
-        checkSupportedWriterVersion(session, table.getSchemaTableName());
+        checkUnsupportedColumnMapping(table.getMetadataEntry());
+        checkSupportedDmlWriterVersion(session, table);
 
         List<DeltaLakeColumnHandle> inputColumns = columns.stream()
                 .map(handle -> (DeltaLakeColumnHandle) handle)
@@ -1391,8 +1395,7 @@ public class DeltaLakeMetadata
                             ISOLATION_LEVEL,
                             true));
 
-            // Note: during writes we want to preserve original case of partition columns
-            List<String> partitionColumns = handle.getMetadataEntry().getOriginalPartitionColumns();
+            List<String> partitionColumns = getWritePartitionColumnNames(handle.getMetadataEntry().getOriginalPartitionColumns(), handle.getInputColumns());
             appendAddFileEntries(transactionLogWriter, dataFileInfos, partitionColumns, true);
 
             transactionLogWriter.flush();
@@ -1408,6 +1411,22 @@ public class DeltaLakeMetadata
         }
 
         return Optional.empty();
+    }
+
+    private static List<String> getWritePartitionColumnNames(List<String> originalPartitionColumns, List<DeltaLakeColumnHandle> dataColumns)
+    {
+        return originalPartitionColumns.stream()
+                .map(columnName -> {
+                    DeltaLakeColumnHandle dataColumn = dataColumns.stream()
+                            .filter(column -> columnName.equalsIgnoreCase(column.getName()))
+                            .collect(onlyElement());
+                    // Note: during writes we want to preserve original case of partition columns, if the column's name is not differ of column's physical name
+                    if (dataColumn.getPhysicalName().equalsIgnoreCase(columnName)) {
+                        return columnName;
+                    }
+                    return dataColumn.getPhysicalName();
+                })
+                .collect(toImmutableList());
     }
 
     @Override
@@ -1449,7 +1468,8 @@ public class DeltaLakeMetadata
             throw new TrinoException(NOT_SUPPORTED, "Writing to tables with CHECK constraints is not supported");
         }
         checkUnsupportedGeneratedColumns(handle.getMetadataEntry());
-        checkSupportedWriterVersion(session, handle.getSchemaTableName());
+        checkUnsupportedColumnMapping(handle.getMetadataEntry());
+        checkSupportedDmlWriterVersion(session, handle);
 
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle);
 
@@ -1536,7 +1556,9 @@ public class DeltaLakeMetadata
                 transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(file, writeTimestamp, true));
             }
 
-            List<String> partitionColumns = handle.getMetadataEntry().getOriginalPartitionColumns();
+            List<String> partitionColumns = getWritePartitionColumnNames(
+                    handle.getMetadataEntry().getOriginalPartitionColumns(),
+                    ((DeltaLakeMergeTableHandle) tableHandle).getInsertTableHandle().getInputColumns());
             appendAddFileEntries(transactionLogWriter, newFiles, partitionColumns, true);
 
             transactionLogWriter.flush();
@@ -1785,6 +1807,25 @@ public class DeltaLakeMetadata
         if (!columnGeneratedExpressions.isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Writing to tables with generated columns is not supported");
         }
+    }
+
+    private void checkUnsupportedColumnMapping(MetadataEntry metadataEntry)
+    {
+        ColumnMappingMode columnMappingMode = getColumnMappingMode(metadataEntry);
+        if (!(columnMappingMode == ColumnMappingMode.NONE || columnMappingMode == ColumnMappingMode.NAME)) {
+            throw new TrinoException(NOT_SUPPORTED, "Writing with column mapping id is not supported");
+        }
+    }
+
+    private void checkSupportedDmlWriterVersion(ConnectorSession session, DeltaLakeTableHandle table)
+    {
+        SchemaTableName schemaTableName = table.getSchemaTableName();
+        int requiredWriterVersion = getProtocolEntry(session, schemaTableName).getMinWriterVersion();
+        ColumnMappingMode columnMappingMode = getColumnMappingMode(table.getMetadataEntry());
+        if (requiredWriterVersion == MAX_DML_WRITER_VERSION && (columnMappingMode == ColumnMappingMode.NONE || columnMappingMode == ColumnMappingMode.NAME)) {
+            return;
+        }
+        checkSupportedWriterVersion(session, schemaTableName);
     }
 
     private void checkSupportedWriterVersion(ConnectorSession session, SchemaTableName schemaTableName)

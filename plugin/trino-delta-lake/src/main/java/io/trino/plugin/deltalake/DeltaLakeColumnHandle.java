@@ -190,7 +190,7 @@ public class DeltaLakeColumnHandle
 
     public Type getSupportedType()
     {
-        Type supportedType = getType();
+        Type supportedType = getPhysicalType();
         if (supportedType instanceof TimestampWithTimeZoneType timestamp) {
             verify(timestamp.getPrecision() == 3, "Unsupported type: %s", supportedType);
             supportedType = TIMESTAMP_MILLIS;
