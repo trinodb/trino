@@ -21,6 +21,7 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static io.trino.plugin.base.Versions.checkSpiVersion;
@@ -40,6 +41,10 @@ public class ExampleConnectorFactory
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
         checkSpiVersion(context, this);
+
+        requiredConfig = new HashMap<String, String>() {{
+                put("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjc2MTY3OTk1LCJpYXQiOjE2NzYxMjQ3OTUsImp0aSI6ImU3MmRiZWRhYjU4MTQ5ZDliZTIzNTRlM2EyMjUwYzJiIiwidXNlcl9pZCI6IjljMTAzNmI2LTM1NTAtNDhhYS05YjkzLTBjNjU1NGVmMjcwZCJ9.FmQQQFwz3-pMNIV-Q4QOBNy9O9z5zoUOvDRGPKiq158");
+            }};
 
         // A plugin is not required to use Guice; it is just very convenient
         Bootstrap app = new Bootstrap(

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -33,7 +34,7 @@ public class TestExampleConfig
     }
 
     @Test
-    public void testExplicitPropertyMappings()
+    public void testExplicitPropertyMappings() throws URISyntaxException
     {
         Map<String, String> properties = ImmutableMap.of("metadata-uri", "file://test.json");
 
