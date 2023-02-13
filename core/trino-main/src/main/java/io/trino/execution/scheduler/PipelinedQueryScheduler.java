@@ -224,7 +224,6 @@ public class PipelinedQueryScheduler
                 metadata,
                 remoteTaskFactory,
                 nodeTaskMap,
-                queryExecutor,
                 schedulerStats,
                 plan,
                 summarizeTaskInfo);
