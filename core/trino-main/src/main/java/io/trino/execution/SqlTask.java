@@ -68,9 +68,15 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTER_DOMAINS;
 import static io.trino.execution.TaskState.ABORTED;
+import static io.trino.execution.TaskState.ABORTING;
+import static io.trino.execution.TaskState.CANCELED;
+import static io.trino.execution.TaskState.CANCELING;
 import static io.trino.execution.TaskState.FAILED;
+import static io.trino.execution.TaskState.FAILING;
+import static io.trino.execution.TaskState.FINISHED;
 import static io.trino.execution.TaskState.RUNNING;
 import static io.trino.util.Failures.toFailures;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -157,54 +163,66 @@ public class SqlTask
     {
         requireNonNull(onDone, "onDone is null");
         requireNonNull(failedTasks, "failedTasks is null");
+
+        AtomicBoolean outputBufferCleanedUp = new AtomicBoolean();
         taskStateMachine.addStateChangeListener(newState -> {
-            if (!newState.isDone()) {
-                if (newState != RUNNING) {
-                    // notify that task state changed (apart from initial RUNNING state notification)
-                    notifyStatusChanged();
+            if (newState.isTerminatingOrDone()) {
+                if (newState.isTerminating()) {
+                    // This section must be synchronized to lock out any threads that might be attempting to create a SqlTaskExecution
+                    synchronized (taskHolderLock) {
+                        // If a SqlTaskExecution exists, it decides when termination is complete. Otherwise, we can mark termination completed immediately
+                        if (taskHolderReference.get().getTaskExecution() == null) {
+                            taskStateMachine.terminationComplete();
+                        }
+                    }
                 }
-                return;
-            }
-
-            // Update failed tasks counter
-            if (newState == FAILED) {
-                failedTasks.update(1);
-            }
-
-            // store final task info
-            synchronized (taskHolderLock) {
-                TaskHolder taskHolder = taskHolderReference.get();
-                if (taskHolder.isFinished()) {
-                    // another concurrent worker already set the final state
-                    return;
+                else if (newState.isDone()) {
+                    // Update failed tasks counter
+                    if (newState == FAILED) {
+                        failedTasks.update(1);
+                    }
+                    // store final task info
+                    boolean finished = false;
+                    synchronized (taskHolderLock) {
+                        TaskHolder taskHolder = taskHolderReference.get();
+                        if (!taskHolder.isFinished()) {
+                            TaskHolder newHolder = new TaskHolder(
+                                    createTaskInfo(taskHolder),
+                                    taskHolder.getIoStats(),
+                                    taskHolder.getDynamicFilterDomains());
+                            checkState(taskHolderReference.compareAndSet(taskHolder, newHolder), "unsynchronized concurrent task holder update");
+                            finished = true;
+                        }
+                    }
+                    // Successfully set the final task info, cleanup the output buffer and call the completion handler
+                    if (finished) {
+                        try {
+                            onDone.accept(this);
+                        }
+                        catch (Exception e) {
+                            log.warn(e, "Error running task cleanup callback %s", SqlTask.this.taskId);
+                        }
+                    }
                 }
-
-                TaskHolder newHolder = new TaskHolder(
-                        createTaskInfo(taskHolder),
-                        taskHolder.getIoStats(),
-                        taskHolder.getDynamicFilterDomains());
-                checkState(taskHolderReference.compareAndSet(taskHolder, newHolder), "unsynchronized concurrent task holder update");
+                // make sure buffers are cleaned up
+                if (outputBufferCleanedUp.compareAndSet(false, true)) {
+                    switch (newState) {
+                        // don't close buffers for a failed query
+                        // closed buffers signal to upstream tasks that everything finished cleanly
+                        case FAILED, FAILING, ABORTED, ABORTING ->
+                                outputBuffer.abort();
+                        case FINISHED, CANCELED, CANCELING ->
+                                outputBuffer.destroy();
+                        default ->
+                                throw new IllegalStateException(format("Invalid state for output buffer destruction: %s", newState));
+                    }
+                }
             }
 
-            // make sure buffers are cleaned up
-            if (newState == FAILED || newState == ABORTED) {
-                // don't close buffers for a failed query
-                // closed buffers signal to upstream tasks that everything finished cleanly
-                outputBuffer.abort();
+            // notify that task state changed (apart from initial RUNNING state notification)
+            if (newState != RUNNING) {
+                notifyStatusChanged();
             }
-            else {
-                outputBuffer.destroy();
-            }
-
-            try {
-                onDone.accept(this);
-            }
-            catch (Exception e) {
-                log.warn(e, "Error running task cleanup callback %s", SqlTask.this.taskId);
-            }
-
-            // notify that task is finished
-            notifyStatusChanged();
         });
     }
 
@@ -283,7 +301,7 @@ public class SqlTask
 
         TaskState state = taskStateMachine.getState();
         List<ExecutionFailureInfo> failures = ImmutableList.of();
-        if (state == FAILED) {
+        if (state == FAILED || state == FAILING) {
             failures = toFailures(taskStateMachine.getFailureCauses());
         }
 
@@ -490,8 +508,8 @@ public class SqlTask
                 return execution;
             }
 
-            // Don't create a new execution if the task is already done
-            if (taskStateMachine.getState().isDone()) {
+            // Don't create SqlTaskExecution once termination has started
+            if (taskStateMachine.getState().isTerminatingOrDone()) {
                 return null;
             }
 

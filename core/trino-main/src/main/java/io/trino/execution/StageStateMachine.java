@@ -274,7 +274,9 @@ public class StageStateMachine
             TaskState taskState = taskInfo.getTaskStatus().getState();
             TaskStats taskStats = taskInfo.getStats();
 
-            if (taskState == TaskState.FAILED) {
+            boolean taskFailedOrFailing = taskState == TaskState.FAILED || taskState == TaskState.FAILING;
+
+            if (taskFailedOrFailing) {
                 failedTasks++;
             }
 
@@ -284,7 +286,7 @@ public class StageStateMachine
             completedDrivers += taskStats.getCompletedDrivers();
 
             cumulativeUserMemory += taskStats.getCumulativeUserMemory();
-            if (taskState == TaskState.FAILED) {
+            if (taskFailedOrFailing) {
                 failedCumulativeUserMemory += taskStats.getCumulativeUserMemory();
             }
 
@@ -295,7 +297,7 @@ public class StageStateMachine
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
-            if (taskState == TaskState.FAILED) {
+            if (taskFailedOrFailing) {
                 failedScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
                 failedCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
             }
@@ -454,8 +456,9 @@ public class StageStateMachine
             else {
                 runningTasks++;
             }
+            boolean taskFailedOrFailing = taskState == TaskState.FAILED || taskState == TaskState.FAILING;
 
-            if (taskState == TaskState.FAILED) {
+            if (taskFailedOrFailing) {
                 failedTasks++;
             }
 
@@ -468,14 +471,14 @@ public class StageStateMachine
             completedDrivers += taskStats.getCompletedDrivers();
 
             cumulativeUserMemory += taskStats.getCumulativeUserMemory();
-            if (taskState == TaskState.FAILED) {
+            if (taskFailedOrFailing) {
                 failedCumulativeUserMemory += taskStats.getCumulativeUserMemory();
             }
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
             totalBlockedTime += taskStats.getTotalBlockedTime().roundTo(NANOSECONDS);
-            if (taskState == TaskState.FAILED) {
+            if (taskFailedOrFailing) {
                 failedScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
                 failedCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
             }
@@ -508,7 +511,7 @@ public class StageStateMachine
 
             physicalWrittenDataSize += taskStats.getPhysicalWrittenDataSize().toBytes();
 
-            if (taskState == TaskState.FAILED) {
+            if (taskFailedOrFailing) {
                 failedPhysicalInputDataSize += taskStats.getPhysicalInputDataSize().toBytes();
                 failedPhysicalInputPositions += taskStats.getPhysicalInputPositions();
                 failedPhysicalInputReadTime += taskStats.getPhysicalInputReadTime().roundTo(NANOSECONDS);
