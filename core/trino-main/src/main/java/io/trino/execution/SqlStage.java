@@ -81,7 +81,7 @@ public final class SqlStage
             Session session,
             boolean summarizeTaskInfo,
             NodeTaskMap nodeTaskMap,
-            Executor executor,
+            Executor stateMachineExecutor,
             SplitSchedulerStats schedulerStats)
     {
         requireNonNull(stageId, "stageId is null");
@@ -91,12 +91,12 @@ public final class SqlStage
         requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         requireNonNull(session, "session is null");
         requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-        requireNonNull(executor, "executor is null");
+        requireNonNull(stateMachineExecutor, "stateMachineExecutor is null");
         requireNonNull(schedulerStats, "schedulerStats is null");
 
         SqlStage sqlStage = new SqlStage(
                 session,
-                new StageStateMachine(stageId, fragment, tables, executor, schedulerStats),
+                new StageStateMachine(stageId, fragment, tables, stateMachineExecutor, schedulerStats),
                 remoteTaskFactory,
                 nodeTaskMap,
                 summarizeTaskInfo);

@@ -37,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -66,7 +65,6 @@ class StageManager
             Metadata metadata,
             RemoteTaskFactory taskFactory,
             NodeTaskMap nodeTaskMap,
-            ExecutorService executor,
             SplitSchedulerStats schedulerStats,
             SubPlan planTree,
             boolean summarizeTaskInfo)
@@ -89,7 +87,7 @@ class StageManager
                     session,
                     summarizeTaskInfo,
                     nodeTaskMap,
-                    executor,
+                    queryStateMachine.getStateMachineExecutor(),
                     schedulerStats);
             StageId stageId = stage.getStageId();
             stages.put(stageId, stage);
