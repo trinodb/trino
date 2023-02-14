@@ -25,6 +25,7 @@ import io.trino.spi.security.Identity;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
+import org.testcontainers.containers.JdbcDatabaseContainer;
 
 import java.util.Map;
 import java.util.Set;
@@ -153,7 +154,7 @@ public final class OracleQueryRunner
 
         public Builder withConnectorProperties(Map<String, String> connectorProperties)
         {
-            this.connectorProperties = requireNonNull(connectorProperties, "connectorProperties is null");
+            this.connectorProperties = updateProperties(this.connectorProperties, connectorProperties);
             return this;
         }
 
@@ -178,8 +179,24 @@ public final class OracleQueryRunner
 
         public Builder withCoordinatorProperties(Map<String, String> coordinatorProperties)
         {
-            this.coordinatorProperties = requireNonNull(coordinatorProperties, "coordinatorProperties is null");
+            this.coordinatorProperties = updateProperties(this.coordinatorProperties, coordinatorProperties);
             return this;
+        }
+
+        public Builder withStarburstStorage(JdbcDatabaseContainer<?> starburstStorage)
+        {
+            return withCoordinatorProperties(ImmutableMap.of(
+                    "insights.jdbc.url", starburstStorage.getJdbcUrl(),
+                    "insights.jdbc.user", starburstStorage.getUsername(),
+                    "insights.jdbc.password", starburstStorage.getPassword()));
+        }
+
+        public Builder withManagedStatistics()
+        {
+            return withCoordinatorProperties(ImmutableMap.of("starburst.managed-statistics.enabled", "true"))
+                    .withConnectorProperties(ImmutableMap.of(
+                            "internal-communication.shared-secret", "internal-shared-secret", // This is required for the internal communication in the managed statistics
+                            "managed-statistics.enabled", "true"));
         }
 
         public Builder withCreateUsers(Runnable runnable)
@@ -199,6 +216,14 @@ public final class OracleQueryRunner
         {
             return createOracleQueryRunner(unlockEnterpriseFeatures, connectorProperties, sessionModifier, tables, nodesCount, coordinatorProperties, createUsers, provisionTables);
         }
+    }
+
+    private static Map<String, String> updateProperties(Map<String, String> properties, Map<String, String> update)
+    {
+        return ImmutableMap.<String, String>builder()
+                .putAll(requireNonNull(properties, "properties is null"))
+                .putAll(requireNonNull(update, "update is null"))
+                .buildOrThrow();
     }
 
     public static void main(String[] args)

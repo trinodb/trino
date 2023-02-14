@@ -12,8 +12,10 @@ package com.starburstdata.presto.plugin.oracle;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
+import com.starburstdata.managed.statistics.connector.ConnectorStatisticsProvider;
 import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
+import com.starburstdata.presto.plugin.jdbc.statistics.JdbcManagedStatisticsModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.ForJdbcDynamicFiltering;
@@ -68,6 +70,8 @@ public class OracleClientModule
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
 
         install(new OracleAuthenticationModule());
+        install(new JdbcManagedStatisticsModule());
+        newOptionalBinder(binder, ConnectorStatisticsProvider.class).setBinding().to(OracleCollectingStatisticsProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setAggregationPushdownEnabled(licenseManager.hasFeature(ORACLE_EXTENSIONS)));
 

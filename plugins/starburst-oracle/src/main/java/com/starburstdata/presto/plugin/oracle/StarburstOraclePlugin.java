@@ -14,12 +14,14 @@ import com.starburstdata.presto.license.LicenseManagerProvider;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
+import static com.starburstdata.presto.plugin.jdbc.statistics.ManagedStatisticsJdbcConnector.withManagedStatistics;
+
 public class StarburstOraclePlugin
         implements Plugin
 {
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(OracleConnectorFactory.create(new LicenseManagerProvider().get()));
+        return ImmutableList.of(withManagedStatistics(OracleConnectorFactory.create(new LicenseManagerProvider().get())));
     }
 }

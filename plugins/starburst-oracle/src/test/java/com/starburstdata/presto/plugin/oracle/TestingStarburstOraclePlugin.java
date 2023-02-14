@@ -13,12 +13,14 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
+import static com.starburstdata.presto.plugin.jdbc.statistics.ManagedStatisticsJdbcConnector.withManagedStatistics;
+
 public class TestingStarburstOraclePlugin
         implements Plugin
 {
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new TestingOracleConnectorFactory());
+        return ImmutableList.of(withManagedStatistics(new TestingOracleConnectorFactory()));
     }
 }
