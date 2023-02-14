@@ -13,10 +13,13 @@
  */
 package io.trino.server.security;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.server.PluginInstaller;
+import io.trino.spi.Plugin;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.HeaderAuthenticator;
 import io.trino.spi.security.HeaderAuthenticatorFactory;
@@ -37,6 +40,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 
 public class HeaderAuthenticatorManager
+        implements PluginInstaller
 {
     private static final Logger log = Logger.get(HeaderAuthenticatorManager.class);
     private static final String NAME_PROPERTY = "header-authenticator.name";
@@ -53,13 +57,23 @@ public class HeaderAuthenticatorManager
         checkArgument(!configFiles.isEmpty(), "header authenticator files list is empty");
     }
 
+    @Override
+    public void installPlugin(Plugin plugin)
+    {
+        for (HeaderAuthenticatorFactory authenticatorFactory : plugin.getHeaderAuthenticatorFactories()) {
+            log.info("Registering header authenticator %s", authenticatorFactory.getName());
+            addHeaderAuthenticatorFactory(authenticatorFactory);
+        }
+    }
+
     public List<HeaderAuthenticator> getAuthenticators()
     {
         checkState(isLoaded(), "authenticators were not loaded");
         return this.authenticators.get();
     }
 
-    public void addHeaderAuthenticatorFactory(HeaderAuthenticatorFactory factory)
+    @VisibleForTesting
+    void addHeaderAuthenticatorFactory(HeaderAuthenticatorFactory factory)
     {
         checkArgument(this.factories.putIfAbsent(factory.getName(), factory) == null,
                 "Header authenticator '%s' is already registered", factory.getName());

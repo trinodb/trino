@@ -16,43 +16,18 @@ package io.trino.server;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.trino.connector.CatalogFactory;
-import io.trino.eventlistener.EventListenerManager;
-import io.trino.exchange.ExchangeManagerRegistry;
-import io.trino.execution.resourcegroups.ResourceGroupManager;
-import io.trino.metadata.BlockEncodingManager;
-import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.HandleResolver;
-import io.trino.metadata.InternalFunctionBundle;
-import io.trino.metadata.InternalFunctionBundle.InternalFunctionBundleBuilder;
 import io.trino.metadata.TypeRegistry;
-import io.trino.security.AccessControlManager;
-import io.trino.security.GroupProviderManager;
-import io.trino.server.security.CertificateAuthenticatorManager;
-import io.trino.server.security.HeaderAuthenticatorManager;
-import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.spi.Plugin;
-import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.eventlistener.EventListenerFactory;
-import io.trino.spi.exchange.ExchangeManagerFactory;
-import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
-import io.trino.spi.security.CertificateAuthenticatorFactory;
-import io.trino.spi.security.GroupProviderFactory;
-import io.trino.spi.security.HeaderAuthenticatorFactory;
-import io.trino.spi.security.PasswordAuthenticatorFactory;
-import io.trino.spi.security.SystemAccessControlFactory;
-import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
-import io.trino.spi.type.ParametricType;
-import io.trino.spi.type.Type;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.net.URL;
 import java.util.List;
-import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -77,18 +52,7 @@ public class PluginManager
 
     private final PluginsProvider pluginsProvider;
     private final CatalogFactory connectorFactory;
-    private final GlobalFunctionCatalog globalFunctionCatalog;
-    private final ResourceGroupManager<?> resourceGroupManager;
-    private final AccessControlManager accessControlManager;
-    private final Optional<PasswordAuthenticatorManager> passwordAuthenticatorManager;
-    private final CertificateAuthenticatorManager certificateAuthenticatorManager;
-    private final Optional<HeaderAuthenticatorManager> headerAuthenticatorManager;
-    private final EventListenerManager eventListenerManager;
-    private final GroupProviderManager groupProviderManager;
-    private final ExchangeManagerRegistry exchangeManagerRegistry;
-    private final SessionPropertyDefaults sessionPropertyDefaults;
     private final TypeRegistry typeRegistry;
-    private final BlockEncodingManager blockEncodingManager;
     private final HandleResolver handleResolver;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
     private final Set<PluginInstaller> pluginInstallers;
@@ -97,36 +61,14 @@ public class PluginManager
     public PluginManager(
             PluginsProvider pluginsProvider,
             CatalogFactory connectorFactory,
-            GlobalFunctionCatalog globalFunctionCatalog,
-            ResourceGroupManager<?> resourceGroupManager,
-            AccessControlManager accessControlManager,
-            Optional<PasswordAuthenticatorManager> passwordAuthenticatorManager,
-            CertificateAuthenticatorManager certificateAuthenticatorManager,
-            Optional<HeaderAuthenticatorManager> headerAuthenticatorManager,
-            EventListenerManager eventListenerManager,
-            GroupProviderManager groupProviderManager,
-            SessionPropertyDefaults sessionPropertyDefaults,
             TypeRegistry typeRegistry,
-            BlockEncodingManager blockEncodingManager,
             HandleResolver handleResolver,
-            ExchangeManagerRegistry exchangeManagerRegistry,
             Set<PluginInstaller> pluginInstallers)
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
         this.connectorFactory = requireNonNull(connectorFactory, "connectorFactory is null");
-        this.globalFunctionCatalog = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
-        this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
-        this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
-        this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
-        this.certificateAuthenticatorManager = requireNonNull(certificateAuthenticatorManager, "certificateAuthenticatorManager is null");
-        this.headerAuthenticatorManager = requireNonNull(headerAuthenticatorManager, "headerAuthenticatorManager is null");
-        this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
-        this.groupProviderManager = requireNonNull(groupProviderManager, "groupProviderManager is null");
-        this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
-        this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
-        this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.pluginInstallers = requireNonNull(pluginInstallers, "pluginInstallers is null");
     }
 
@@ -180,81 +122,9 @@ public class PluginManager
 
     private void installPluginInternal(Plugin plugin, Function<CatalogHandle, ClassLoader> duplicatePluginClassLoaderFactory)
     {
-        for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
-            log.info("Registering block encoding %s", blockEncoding.getName());
-            blockEncodingManager.addBlockEncoding(blockEncoding);
-        }
-
-        for (Type type : plugin.getTypes()) {
-            log.info("Registering type %s", type.getTypeSignature());
-            typeRegistry.addType(type);
-        }
-
-        for (ParametricType parametricType : plugin.getParametricTypes()) {
-            log.info("Registering parametric type %s", parametricType.getName());
-            typeRegistry.addParametricType(parametricType);
-        }
-
         for (ConnectorFactory connectorFactory : plugin.getConnectorFactories()) {
             log.info("Registering connector %s", connectorFactory.getName());
             this.connectorFactory.addConnectorFactory(connectorFactory, duplicatePluginClassLoaderFactory);
-        }
-
-        Set<Class<?>> functions = plugin.getFunctions();
-        if (!functions.isEmpty()) {
-            log.info("Registering functions from %s", plugin.getClass().getSimpleName());
-            InternalFunctionBundleBuilder builder = InternalFunctionBundle.builder();
-            functions.forEach(builder::functions);
-            globalFunctionCatalog.addFunctions(builder.build());
-        }
-
-        for (SessionPropertyConfigurationManagerFactory sessionConfigFactory : plugin.getSessionPropertyConfigurationManagerFactories()) {
-            log.info("Registering session property configuration manager %s", sessionConfigFactory.getName());
-            sessionPropertyDefaults.addConfigurationManagerFactory(sessionConfigFactory);
-        }
-
-        for (ResourceGroupConfigurationManagerFactory configurationManagerFactory : plugin.getResourceGroupConfigurationManagerFactories()) {
-            log.info("Registering resource group configuration manager %s", configurationManagerFactory.getName());
-            resourceGroupManager.addConfigurationManagerFactory(configurationManagerFactory);
-        }
-
-        for (SystemAccessControlFactory accessControlFactory : plugin.getSystemAccessControlFactories()) {
-            log.info("Registering system access control %s", accessControlFactory.getName());
-            accessControlManager.addSystemAccessControlFactory(accessControlFactory);
-        }
-
-        passwordAuthenticatorManager.ifPresent(authenticationManager -> {
-            for (PasswordAuthenticatorFactory authenticatorFactory : plugin.getPasswordAuthenticatorFactories()) {
-                log.info("Registering password authenticator %s", authenticatorFactory.getName());
-                authenticationManager.addPasswordAuthenticatorFactory(authenticatorFactory);
-            }
-        });
-
-        for (CertificateAuthenticatorFactory authenticatorFactory : plugin.getCertificateAuthenticatorFactories()) {
-            log.info("Registering certificate authenticator %s", authenticatorFactory.getName());
-            certificateAuthenticatorManager.addCertificateAuthenticatorFactory(authenticatorFactory);
-        }
-
-        headerAuthenticatorManager.ifPresent(authenticationManager -> {
-            for (HeaderAuthenticatorFactory authenticatorFactory : plugin.getHeaderAuthenticatorFactories()) {
-                log.info("Registering header authenticator %s", authenticatorFactory.getName());
-                authenticationManager.addHeaderAuthenticatorFactory(authenticatorFactory);
-            }
-        });
-
-        for (EventListenerFactory eventListenerFactory : plugin.getEventListenerFactories()) {
-            log.info("Registering event listener %s", eventListenerFactory.getName());
-            eventListenerManager.addEventListenerFactory(eventListenerFactory);
-        }
-
-        for (GroupProviderFactory groupProviderFactory : plugin.getGroupProviderFactories()) {
-            log.info("Registering group provider %s", groupProviderFactory.getName());
-            groupProviderManager.addGroupProviderFactory(groupProviderFactory);
-        }
-
-        for (ExchangeManagerFactory exchangeManagerFactory : plugin.getExchangeManagerFactories()) {
-            log.info("Registering exchange manager %s", exchangeManagerFactory.getName());
-            exchangeManagerRegistry.addExchangeManagerFactory(exchangeManagerFactory);
         }
 
         for (PluginInstaller pluginInstaller : pluginInstallers) {

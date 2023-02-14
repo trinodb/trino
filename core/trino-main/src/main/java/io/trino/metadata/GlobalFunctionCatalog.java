@@ -17,6 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
+import io.airlift.log.Logger;
+import io.trino.server.PluginInstaller;
+import io.trino.spi.Plugin;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
@@ -39,6 +42,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -54,10 +58,24 @@ import static java.util.Locale.ENGLISH;
 
 @ThreadSafe
 public class GlobalFunctionCatalog
-        implements FunctionProvider
+        implements FunctionProvider, PluginInstaller
 {
+    private static final Logger log = Logger.get(GlobalFunctionCatalog.class);
+
     public static final String BUILTIN_SCHEMA = "builtin";
     private volatile FunctionMap functions = new FunctionMap();
+
+    @Override
+    public void installPlugin(Plugin plugin)
+    {
+        Set<Class<?>> functions = plugin.getFunctions();
+        if (!functions.isEmpty()) {
+            log.info("Registering functions from %s", plugin.getClass().getSimpleName());
+            InternalFunctionBundle.InternalFunctionBundleBuilder builder = InternalFunctionBundle.builder();
+            functions.forEach(builder::functions);
+            addFunctions(builder.build());
+        }
+    }
 
     public final synchronized void addFunctions(FunctionBundle functionBundle)
     {

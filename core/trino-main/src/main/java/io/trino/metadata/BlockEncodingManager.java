@@ -13,6 +13,9 @@
  */
 package io.trino.metadata;
 
+import io.airlift.log.Logger;
+import io.trino.server.PluginInstaller;
+import io.trino.spi.Plugin;
 import io.trino.spi.block.ArrayBlockEncoding;
 import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.block.ByteArrayBlockEncoding;
@@ -37,7 +40,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class BlockEncodingManager
+        implements PluginInstaller
 {
+    private static final Logger log = Logger.get(BlockEncodingManager.class);
+
     private final Map<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
 
     public BlockEncodingManager()
@@ -60,6 +66,15 @@ public final class BlockEncodingManager
         addBlockEncoding(new LazyBlockEncoding());
     }
 
+    @Override
+    public void installPlugin(Plugin plugin)
+    {
+        for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
+            log.info("Registering block encoding %s", blockEncoding.getName());
+            addBlockEncoding(blockEncoding);
+        }
+    }
+
     public BlockEncoding getBlockEncoding(String encodingName)
     {
         BlockEncoding blockEncoding = blockEncodings.get(encodingName);
@@ -67,7 +82,7 @@ public final class BlockEncodingManager
         return blockEncoding;
     }
 
-    public void addBlockEncoding(BlockEncoding blockEncoding)
+    private void addBlockEncoding(BlockEncoding blockEncoding)
     {
         requireNonNull(blockEncoding, "blockEncoding is null");
         BlockEncoding existingEntry = blockEncodings.putIfAbsent(blockEncoding.getName(), blockEncoding);

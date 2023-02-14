@@ -27,6 +27,8 @@ import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.plugin.base.security.FileBasedSystemAccessControl;
 import io.trino.plugin.base.security.ForwardingSystemAccessControl;
 import io.trino.plugin.base.security.ReadOnlySystemAccessControl;
+import io.trino.server.PluginInstaller;
+import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -79,7 +81,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AccessControlManager
-        implements AccessControl
+        implements AccessControl, PluginInstaller
 {
     private static final Logger log = Logger.get(AccessControlManager.class);
 
@@ -115,7 +117,17 @@ public class AccessControlManager
         addSystemAccessControlFactory(new FileBasedSystemAccessControl.Factory());
     }
 
-    public final void addSystemAccessControlFactory(SystemAccessControlFactory accessControlFactory)
+    @Override
+    public void installPlugin(Plugin plugin)
+    {
+        for (SystemAccessControlFactory accessControlFactory : plugin.getSystemAccessControlFactories()) {
+            log.info("Registering system access control %s", accessControlFactory.getName());
+            addSystemAccessControlFactory(accessControlFactory);
+        }
+    }
+
+    @VisibleForTesting
+    final void addSystemAccessControlFactory(SystemAccessControlFactory accessControlFactory)
     {
         requireNonNull(accessControlFactory, "accessControlFactory is null");
 

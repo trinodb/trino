@@ -469,20 +469,21 @@ public class LocalQueryRunner
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
                 catalogFactory,
-                globalFunctionCatalog,
-                new NoOpResourceGroupManager(),
-                accessControl,
-                Optional.of(new PasswordAuthenticatorManager(new PasswordAuthenticatorConfig())),
-                new CertificateAuthenticatorManager(),
-                Optional.of(new HeaderAuthenticatorManager(new HeaderAuthenticatorConfig())),
-                eventListenerManager,
-                new GroupProviderManager(),
-                new SessionPropertyDefaults(nodeInfo, accessControl),
                 typeRegistry,
-                blockEncodingManager,
                 handleResolver,
-                exchangeManagerRegistry,
-                ImmutableSet.of());
+                ImmutableSet.of(
+                        blockEncodingManager,
+                        typeRegistry,
+                        globalFunctionCatalog,
+                        new SessionPropertyDefaults(nodeInfo, accessControl),
+                        new NoOpResourceGroupManager(),
+                        accessControl,
+                        new PasswordAuthenticatorManager(new PasswordAuthenticatorConfig()),
+                        new HeaderAuthenticatorManager(new HeaderAuthenticatorConfig()),
+                        new CertificateAuthenticatorManager(),
+                        eventListenerManager,
+                        new GroupProviderManager(),
+                        exchangeManagerRegistry));
 
         catalogManager.registerGlobalSystemConnector(globalSystemConnector);
 

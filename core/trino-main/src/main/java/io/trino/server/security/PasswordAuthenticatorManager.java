@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.server.PluginInstaller;
+import io.trino.spi.Plugin;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.PasswordAuthenticator;
 import io.trino.spi.security.PasswordAuthenticatorFactory;
@@ -38,6 +40,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 
 public class PasswordAuthenticatorManager
+        implements PluginInstaller
 {
     private static final Logger log = Logger.get(PasswordAuthenticatorManager.class);
 
@@ -55,12 +58,22 @@ public class PasswordAuthenticatorManager
         checkArgument(!configFiles.isEmpty(), "password authenticator files list is empty");
     }
 
+    @Override
+    public void installPlugin(Plugin plugin)
+    {
+        for (PasswordAuthenticatorFactory authenticatorFactory : plugin.getPasswordAuthenticatorFactories()) {
+            log.info("Registering password authenticator %s", authenticatorFactory.getName());
+            addPasswordAuthenticatorFactory(authenticatorFactory);
+        }
+    }
+
     public void setRequired()
     {
         required.set(true);
     }
 
-    public void addPasswordAuthenticatorFactory(PasswordAuthenticatorFactory factory)
+    @VisibleForTesting
+    void addPasswordAuthenticatorFactory(PasswordAuthenticatorFactory factory)
     {
         checkArgument(factories.putIfAbsent(factory.getName(), factory) == null,
                 "Password authenticator '%s' is already registered", factory.getName());

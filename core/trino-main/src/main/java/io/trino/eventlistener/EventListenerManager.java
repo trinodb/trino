@@ -17,6 +17,8 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.server.PluginInstaller;
+import io.trino.spi.Plugin;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
@@ -45,6 +47,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class EventListenerManager
+        implements PluginInstaller
 {
     private static final Logger log = Logger.get(EventListenerManager.class);
     private static final File CONFIG_FILE = new File("etc/event-listener.properties");
@@ -61,7 +64,16 @@ public class EventListenerManager
         this.configFiles = ImmutableList.copyOf(config.getEventListenerFiles());
     }
 
-    public void addEventListenerFactory(EventListenerFactory eventListenerFactory)
+    @Override
+    public void installPlugin(Plugin plugin)
+    {
+        for (EventListenerFactory eventListenerFactory : plugin.getEventListenerFactories()) {
+            log.info("Registering event listener %s", eventListenerFactory.getName());
+            addEventListenerFactory(eventListenerFactory);
+        }
+    }
+
+    protected void addEventListenerFactory(EventListenerFactory eventListenerFactory)
     {
         requireNonNull(eventListenerFactory, "eventListenerFactory is null");
 

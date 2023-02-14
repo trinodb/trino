@@ -19,8 +19,11 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.airlift.log.Logger;
 import io.trino.FeaturesConfig;
 import io.trino.collect.cache.NonEvictableCache;
+import io.trino.server.PluginInstaller;
+import io.trino.spi.Plugin;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
@@ -108,7 +111,9 @@ import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public final class TypeRegistry
+        implements PluginInstaller
 {
+    private static final Logger log = Logger.get(TypeRegistry.class);
     private static final SqlParser SQL_PARSER = new SqlParser();
 
     private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
@@ -172,6 +177,20 @@ public final class TypeRegistry
         typeManager = new InternalTypeManager(this, typeOperators);
 
         verifyTypes();
+    }
+
+    @Override
+    public void installPlugin(Plugin plugin)
+    {
+        for (Type type : plugin.getTypes()) {
+            log.info("Registering type %s", type.getTypeSignature());
+            addType(type);
+        }
+
+        for (ParametricType parametricType : plugin.getParametricTypes()) {
+            log.info("Registering parametric type %s", parametricType.getName());
+            addParametricType(parametricType);
+        }
     }
 
     public Type getType(TypeSignature signature)

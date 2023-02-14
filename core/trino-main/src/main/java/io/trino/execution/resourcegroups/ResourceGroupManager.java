@@ -13,8 +13,11 @@
  */
 package io.trino.execution.resourcegroups;
 
+import io.airlift.log.Logger;
 import io.trino.execution.ManagedQueryExecution;
+import io.trino.server.PluginInstaller;
 import io.trino.server.ResourceGroupInfo;
+import io.trino.spi.Plugin;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.SelectionContext;
@@ -32,7 +35,10 @@ import java.util.concurrent.Executor;
  */
 @ThreadSafe
 public interface ResourceGroupManager<C>
+        extends PluginInstaller
 {
+    Logger log = Logger.get(ResourceGroupManager.class);
+
     void submit(ManagedQueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor);
 
     SelectionContext<C> selectGroup(SelectionCriteria criteria);
@@ -45,4 +51,13 @@ public interface ResourceGroupManager<C>
 
     void loadConfigurationManager()
             throws Exception;
+
+    @Override
+    default void installPlugin(Plugin plugin)
+    {
+        for (ResourceGroupConfigurationManagerFactory configurationManagerFactory : plugin.getResourceGroupConfigurationManagerFactories()) {
+            log.info("Registering resource group configuration manager %s", configurationManagerFactory.getName());
+            addConfigurationManagerFactory(configurationManagerFactory);
+        }
+    }
 }

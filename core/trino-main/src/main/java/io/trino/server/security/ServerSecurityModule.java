@@ -26,6 +26,7 @@ import io.airlift.discovery.store.StoreResource;
 import io.airlift.http.server.HttpServer.ClientCertificate;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.jmx.MBeanResource;
+import io.trino.server.PluginInstaller;
 import io.trino.server.security.jwt.JwtAuthenticator;
 import io.trino.server.security.jwt.JwtAuthenticatorSupportModule;
 import io.trino.server.security.oauth2.OAuth2AuthenticationSupportModule;
@@ -38,6 +39,7 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -77,10 +79,12 @@ public class ServerSecurityModule
         install(authenticatorModule("password", PasswordAuthenticator.class, used -> {
             configBinder(binder).bindConfig(PasswordAuthenticatorConfig.class);
             binder.bind(PasswordAuthenticatorManager.class).in(Scopes.SINGLETON);
+            newSetBinder(binder, PluginInstaller.class).addBinding().to(PasswordAuthenticatorManager.class);
         }));
         install(authenticatorModule("header", HeaderAuthenticator.class, headerBinder -> {
             configBinder(headerBinder).bindConfig(HeaderAuthenticatorConfig.class);
             headerBinder.bind(HeaderAuthenticatorManager.class).in(Scopes.SINGLETON);
+            newSetBinder(binder, PluginInstaller.class).addBinding().to(HeaderAuthenticatorManager.class);
         }));
         install(authenticatorModule("jwt", JwtAuthenticator.class, new JwtAuthenticatorSupportModule()));
         install(authenticatorModule("oauth2", OAuth2Authenticator.class, new OAuth2AuthenticationSupportModule()));

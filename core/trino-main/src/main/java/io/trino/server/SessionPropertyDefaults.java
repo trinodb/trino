@@ -18,6 +18,7 @@ import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.Session;
 import io.trino.security.AccessControl;
+import io.trino.spi.Plugin;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
@@ -42,6 +43,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SessionPropertyDefaults
+        implements PluginInstaller
 {
     private static final Logger log = Logger.get(SessionPropertyDefaults.class);
 
@@ -61,7 +63,17 @@ public class SessionPropertyDefaults
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
-    public void addConfigurationManagerFactory(SessionPropertyConfigurationManagerFactory sessionConfigFactory)
+    @Override
+    public void installPlugin(Plugin plugin)
+    {
+        for (SessionPropertyConfigurationManagerFactory sessionConfigFactory : plugin.getSessionPropertyConfigurationManagerFactories()) {
+            log.info("Registering session property configuration manager %s", sessionConfigFactory.getName());
+            addConfigurationManagerFactory(sessionConfigFactory);
+        }
+    }
+
+    @VisibleForTesting
+    void addConfigurationManagerFactory(SessionPropertyConfigurationManagerFactory sessionConfigFactory)
     {
         if (factories.putIfAbsent(sessionConfigFactory.getName(), sessionConfigFactory) != null) {
             throw new IllegalArgumentException(format("Session property configuration manager '%s' is already registered", sessionConfigFactory.getName()));

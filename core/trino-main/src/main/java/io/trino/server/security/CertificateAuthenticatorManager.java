@@ -15,6 +15,8 @@ package io.trino.server.security;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.trino.server.PluginInstaller;
+import io.trino.spi.Plugin;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.CertificateAuthenticator;
 import io.trino.spi.security.CertificateAuthenticatorFactory;
@@ -33,6 +35,7 @@ import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static java.util.Objects.requireNonNull;
 
 public class CertificateAuthenticatorManager
+        implements PluginInstaller
 {
     private static final Logger log = Logger.get(CertificateAuthenticatorManager.class);
 
@@ -43,12 +46,21 @@ public class CertificateAuthenticatorManager
     private final Map<String, CertificateAuthenticatorFactory> factories = new ConcurrentHashMap<>();
     private final AtomicReference<CertificateAuthenticator> authenticator = new AtomicReference<>();
 
+    @Override
+    public void installPlugin(Plugin plugin)
+    {
+        for (CertificateAuthenticatorFactory authenticatorFactory : plugin.getCertificateAuthenticatorFactories()) {
+            log.info("Registering certificate authenticator %s", authenticatorFactory.getName());
+            addCertificateAuthenticatorFactory(authenticatorFactory);
+        }
+    }
+
     public void setRequired()
     {
         required.set(true);
     }
 
-    public void addCertificateAuthenticatorFactory(CertificateAuthenticatorFactory factory)
+    private void addCertificateAuthenticatorFactory(CertificateAuthenticatorFactory factory)
     {
         checkArgument(factories.putIfAbsent(factory.getName(), factory) == null,
                 "Certificate authenticator '%s' is already registered", factory.getName());
