@@ -458,7 +458,24 @@ public class DynamicFilterSourceOperator
         private Domain getDomain()
         {
             return switch (state) {
-                case SET -> convertToDomain();
+                case SET -> {
+                    Block block = blockBuilder.build();
+                    ImmutableList.Builder<Object> values = ImmutableList.builder();
+                    for (int position = 0; position < block.getPositionCount(); ++position) {
+                        Object value = readNativeValue(type, block, position);
+                        if (value != null) {
+                            // join doesn't match rows with NaN values.
+                            if (!isFloatingPointNaN(type, value)) {
+                                values.add(value);
+                            }
+                        }
+                    }
+                    // Drop references to collected values
+                    valueSet = null;
+                    blockBuilder = null;
+                    // Inner and right join doesn't match rows with null key column values.
+                    yield Domain.create(ValueSet.copyOf(type, values.build()), false);
+                }
                 case MIN_MAX -> {
                     if (minValues == null) {
                         // all values were null
@@ -466,6 +483,9 @@ public class DynamicFilterSourceOperator
                     }
                     Object min = blockToNativeValue(type, minValues);
                     Object max = blockToNativeValue(type, maxValues);
+                    // Drop references to collected values
+                    minValues = null;
+                    maxValues = null;
                     yield Domain.create(ValueSet.ofRanges(range(type, min, true, max, true)), false);
                 }
                 case NONE -> Domain.all(type);
@@ -481,26 +501,6 @@ public class DynamicFilterSourceOperator
             // Drop references to collected values.
             minValues = null;
             maxValues = null;
-        }
-
-        private Domain convertToDomain()
-        {
-            Block block = blockBuilder.build();
-            ImmutableList.Builder<Object> values = ImmutableList.builder();
-            for (int position = 0; position < block.getPositionCount(); ++position) {
-                Object value = readNativeValue(type, block, position);
-                if (value != null) {
-                    // join doesn't match rows with NaN values.
-                    if (!isFloatingPointNaN(type, value)) {
-                        values.add(value);
-                    }
-                }
-            }
-
-            valueSet = null;
-            blockBuilder = null;
-            // Inner and right join doesn't match rows with null key column values.
-            return Domain.create(ValueSet.copyOf(type, values.build()), false);
         }
 
         private void updateMinMaxValues(Block block, BlockPositionComparison comparison)
