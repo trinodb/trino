@@ -2167,7 +2167,6 @@ public class DeltaLakeMetadata
                 false);
 
         TableStatisticsMetadata statisticsMetadata = getStatisticsCollectionMetadata(
-                statistics,
                 columnsMetadata,
                 analyzeColumnNames.orElse(allColumnNames),
                 true);
@@ -2186,16 +2185,14 @@ public class DeltaLakeMetadata
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableSet());
 
-        Optional<ExtendedStatistics> existingStatistics = Optional.empty();
         Optional<Set<String>> analyzeColumnNames = Optional.empty();
         String tableLocation = getLocation(tableMetadata.getProperties());
         if (tableLocation != null) {
-            existingStatistics = statisticsAccess.readExtendedStatistics(session, tableLocation);
-            analyzeColumnNames = existingStatistics.flatMap(ExtendedStatistics::getAnalyzedColumns);
+            analyzeColumnNames = statisticsAccess.readExtendedStatistics(session, tableLocation)
+                    .flatMap(ExtendedStatistics::getAnalyzedColumns);
         }
 
         return getStatisticsCollectionMetadata(
-                existingStatistics,
                 tableMetadata.getColumns(),
                 analyzeColumnNames.orElse(allColumnNames),
                 // File modified time does not need to be collected as a statistics because it gets derived directly from files being written
@@ -2203,7 +2200,6 @@ public class DeltaLakeMetadata
     }
 
     private TableStatisticsMetadata getStatisticsCollectionMetadata(
-            Optional<ExtendedStatistics> existingStatistics,
             List<ColumnMetadata> tableColumns,
             Set<String> analyzeColumnNames,
             boolean includeMaxFileModifiedTime)
@@ -2214,9 +2210,7 @@ public class DeltaLakeMetadata
                 .filter(columnMetadata -> analyzeColumnNames.contains(columnMetadata.getName()))
                 .forEach(columnMetadata -> {
                     if (!(columnMetadata.getType() instanceof FixedWidthType)) {
-                        if (existingStatistics.isEmpty() || totalSizeStatisticsExists(existingStatistics.get().getColumnStatistics(), columnMetadata.getName())) {
-                            columnStatistics.add(new ColumnStatisticMetadata(columnMetadata.getName(), TOTAL_SIZE_IN_BYTES));
-                        }
+                        columnStatistics.add(new ColumnStatisticMetadata(columnMetadata.getName(), TOTAL_SIZE_IN_BYTES));
                     }
                     columnStatistics.add(new ColumnStatisticMetadata(columnMetadata.getName(), NUMBER_OF_DISTINCT_VALUES_SUMMARY));
                 });
@@ -2242,11 +2236,6 @@ public class DeltaLakeMetadata
             return false;
         }
         return true;
-    }
-
-    private static boolean totalSizeStatisticsExists(Map<String, DeltaLakeColumnStatistics> statistics, String columnName)
-    {
-        return statistics.containsKey(columnName) && statistics.get(columnName).getTotalSizeInBytes().isPresent();
     }
 
     @Override
