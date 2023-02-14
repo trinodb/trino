@@ -16,6 +16,7 @@ package io.trino.sql.query;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.TestingTableFunctions.SimpleTableFunction;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.testing.LocalQueryRunner;
 import org.junit.jupiter.api.AfterAll;
@@ -61,6 +62,7 @@ public class TestShowQueries
                                                 .build()))
                         .withListSchemaNames(session -> ImmutableList.of("mockschema"))
                         .withListTables((session, schemaName) -> ImmutableList.of("mockTable"))
+                        .withTableFunctions(ImmutableList.of(new SimpleTableFunction()))
                         .build(),
                 ImmutableMap.of());
         queryRunner.createCatalog("testing_catalog", "mock", ImmutableMap.of());
@@ -106,6 +108,16 @@ public class TestShowQueries
                 .matches("VALUES " +
                         "('split_to_map', 'map(varchar,varchar)', 'varchar, varchar, varchar', 'scalar', true, 'Creates a map using entryDelimiter and keyValueDelimiter')," +
                         "('split_to_multimap', 'map(varchar,array(varchar))', 'varchar, varchar, varchar', 'scalar', true, 'Creates a multimap by splitting a string into key/value pairs')");
+    }
+
+    @Test
+    void testShowFunctionsWithTableFunction()
+    {
+        assertThat(assertions.query("SHOW FUNCTIONS LIKE 'simple$_table$_function' ESCAPE '$'"))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, 'A table function in ''testing_catalog'' catalog with ''mock'' connector')," +
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, 'A table function in ''mock'' catalog with ''mock'' connector')");
     }
 
     @Test

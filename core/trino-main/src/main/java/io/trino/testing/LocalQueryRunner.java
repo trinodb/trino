@@ -375,10 +375,12 @@ public class LocalQueryRunner
         this.globalFunctionCatalog = new GlobalFunctionCatalog();
         globalFunctionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(blockEncodingSerde)));
         globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion()));
+        TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(createTableFunctionProvider(catalogManager));
         Metadata metadata = metadataProvider.getMetadata(
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
                 globalFunctionCatalog,
+                tableFunctionRegistry,
                 typeManager);
         typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
         this.joinCompiler = new JoinCompiler(typeOperators);
@@ -411,7 +413,6 @@ public class LocalQueryRunner
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators, createNodePartitioningProvider(catalogManager));
         TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry(createTableProceduresProvider(catalogManager));
         this.functionManager = new FunctionManager(createFunctionProvider(catalogManager), globalFunctionCatalog);
-        TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(createTableFunctionProvider(catalogManager));
         this.schemaPropertyManager = createSchemaPropertyManager(catalogManager);
         this.columnPropertyManager = createColumnPropertyManager(catalogManager);
         this.tablePropertyManager = createTablePropertyManager(catalogManager);
@@ -1171,6 +1172,7 @@ public class LocalQueryRunner
                 SystemSecurityMetadata systemSecurityMetadata,
                 TransactionManager transactionManager,
                 GlobalFunctionCatalog globalFunctionCatalog,
+                TableFunctionRegistry tableFunctions,
                 TypeManager typeManager);
     }
 

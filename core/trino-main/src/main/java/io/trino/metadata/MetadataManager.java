@@ -88,8 +88,11 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.QualifiedFunctionName;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.Signature;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.ptf.ScalarArgumentSpecification;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
@@ -111,6 +114,7 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
+import io.trino.type.UnknownType;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -179,6 +183,7 @@ public final class MetadataManager
     public static final int MAX_TABLE_REDIRECTIONS = 10;
 
     private final GlobalFunctionCatalog functions;
+    private final TableFunctionRegistry tableFunctionRegistry;
     private final FunctionResolver functionResolver;
     private final SystemSecurityMetadata systemSecurityMetadata;
     private final TransactionManager transactionManager;
@@ -196,10 +201,12 @@ public final class MetadataManager
             SystemSecurityMetadata systemSecurityMetadata,
             TransactionManager transactionManager,
             GlobalFunctionCatalog globalFunctionCatalog,
+            TableFunctionRegistry tableFunctionRegistry,
             TypeManager typeManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         functions = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
+        this.tableFunctionRegistry = requireNonNull(tableFunctionRegistry, "tableFunctionRegistry is null");
         functionResolver = new FunctionResolver(this, typeManager);
 
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
@@ -2030,7 +2037,38 @@ public final class MetadataManager
                 functions.addAll(metadata.getMetadata(session).listFunctions(connectorSession, sqlPathElement.getSchema().getValue().toLowerCase(ENGLISH)));
             });
         }
+        for (CatalogInfo catalog : listCatalogs(session)) {
+            for (Entry<SchemaFunctionName, ConnectorTableFunction> tableFunction : tableFunctionRegistry.listTableFunctions(catalog.getCatalogHandle()).entrySet()) {
+                functions.add(toFunctionMetadata(catalog, tableFunction.getKey(), tableFunction.getValue()));
+            }
+        }
         return functions.build();
+    }
+
+    private FunctionMetadata toFunctionMetadata(CatalogInfo catalog, SchemaFunctionName functionName, ConnectorTableFunction tableFunction)
+    {
+        return FunctionMetadata.tableBuilder()
+                .signature(Signature.builder()
+                        .name(functionName.getFunctionName())
+                        .argumentTypes(toArgumentTypes(tableFunction))
+                        .returnType(UnknownType.UNKNOWN)
+                        .build())
+                // TODO: Add a new field to SHOW FUNCTIONS result and move this catalog/connector information to there
+                .description("A table function in '%s' catalog with '%s' connector".formatted(catalog.getCatalogName(), catalog.getConnectorName()))
+                .nondeterministic()
+                .build();
+    }
+
+    private List<TypeSignature> toArgumentTypes(ConnectorTableFunction tableFunction)
+    {
+        return tableFunction.getArguments().stream()
+                .map(function -> {
+                    if (function instanceof ScalarArgumentSpecification scalarArgument) {
+                        return scalarArgument.getType().getTypeSignature();
+                    }
+                    return UnknownType.UNKNOWN.getTypeSignature();
+                })
+                .collect(toImmutableList());
     }
 
     @Override
@@ -2593,6 +2631,7 @@ public final class MetadataManager
         private TransactionManager transactionManager;
         private TypeManager typeManager = TESTING_TYPE_MANAGER;
         private GlobalFunctionCatalog globalFunctionCatalog;
+        private TableFunctionRegistry tableFunctionRegistry;
 
         private TestMetadataManagerBuilder() {}
 
@@ -2614,6 +2653,12 @@ public final class MetadataManager
             return this;
         }
 
+        public TestMetadataManagerBuilder withTableFunctionRegistry(TableFunctionRegistry tableFunctionRegistry)
+        {
+            this.tableFunctionRegistry = tableFunctionRegistry;
+            return this;
+        }
+
         public MetadataManager build()
         {
             TransactionManager transactionManager = this.transactionManager;
@@ -2628,11 +2673,16 @@ public final class MetadataManager
                 globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN));
                 globalFunctionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager))));
             }
+            TableFunctionRegistry tableFunctionRegistry = this.tableFunctionRegistry;
+            if (tableFunctionRegistry == null) {
+                tableFunctionRegistry = new TableFunctionRegistry(catalogHandle -> new CatalogTableFunctions(ImmutableList.of()));
+            }
 
             return new MetadataManager(
                     new DisabledSystemSecurityMetadata(),
                     transactionManager,
                     globalFunctionCatalog,
+                    tableFunctionRegistry,
                     typeManager);
         }
     }

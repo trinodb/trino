@@ -21,6 +21,7 @@ import java.util.List;
 
 import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.spi.function.FunctionKind.SCALAR;
+import static io.trino.spi.function.FunctionKind.TABLE;
 import static io.trino.spi.function.FunctionKind.WINDOW;
 import static java.util.Objects.requireNonNull;
 
@@ -138,6 +139,11 @@ public class FunctionMetadata
     public static Builder windowBuilder()
     {
         return builder(WINDOW);
+    }
+
+    public static Builder tableBuilder()
+    {
+        return builder(TABLE);
     }
 
     public static Builder builder(FunctionKind functionKind)

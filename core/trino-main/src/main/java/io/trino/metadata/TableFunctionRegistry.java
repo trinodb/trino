@@ -21,6 +21,7 @@ import io.trino.spi.ptf.ConnectorTableFunction;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -34,6 +35,12 @@ public class TableFunctionRegistry
     public TableFunctionRegistry(CatalogServiceProvider<CatalogTableFunctions> tableFunctionsProvider)
     {
         this.tableFunctionsProvider = requireNonNull(tableFunctionsProvider, "tableFunctionsProvider is null");
+    }
+
+    public Map<SchemaFunctionName, ConnectorTableFunction> listTableFunctions(CatalogHandle catalogHandle)
+    {
+        return tableFunctionsProvider.getService(catalogHandle)
+                .listTableFunctions();
     }
 
     /**
