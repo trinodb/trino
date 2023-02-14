@@ -418,12 +418,6 @@ public class HiveConfig
         return this;
     }
 
-    @AssertTrue(message = "The value of hive.max-partitions-for-eager-load is expected to be less than or equal to hive.max-partitions-per-scan")
-    public boolean isMaxPartitionsForEagerLoadValid()
-    {
-        return maxPartitionsForEagerLoad <= maxPartitionsPerScan;
-    }
-
     @Min(1)
     public int getMaxOutstandingSplits()
     {
