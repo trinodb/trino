@@ -25,6 +25,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Thread.sleep;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.fail;
 
 public class TestReusableConnectionFactory
 {
@@ -153,6 +154,27 @@ public class TestReusableConnectionFactory
         }
     }
 
+    @Test
+    public void testCachedConnectionWillRefreshWhenItsClosed()
+            throws Exception
+    {
+        MockConnectionFactory mockConnectionFactory = new MockConnectionFactory();
+        ReusableConnectionFactory connectionFactory = new ReusableConnectionFactory(mockConnectionFactory, FOREVER, HUGE_SIZE);
+        Connection connection = connectionFactory.openConnection(ALICE);
+
+        if (connection instanceof ReusableConnectionFactory.CachedConnection cachedConnection) {
+            cachedConnection.delegate().close();
+            assertThat(cachedConnection.isClosed()).isFalse();
+            assertThat(cachedConnection.delegate().isClosed()).isFalse();
+            connectionFactory.openConnection(ALICE);
+        }
+        else {
+            fail("Acquired connection is not cached");
+        }
+        assertThat(mockConnectionFactory.openedConnections).isEqualTo(3);
+        assertThat(mockConnectionFactory.closedConnections).isEqualTo(1);
+    }
+
     private static final class MockConnectionFactory
             implements ConnectionFactory
     {
@@ -195,6 +217,12 @@ public class TestReusableConnectionFactory
 
         @Override
         public void setReadOnly(boolean readOnly) {}
+
+        @Override
+        public boolean isClosed()
+        {
+            return closed;
+        }
 
         @Override
         public void close()

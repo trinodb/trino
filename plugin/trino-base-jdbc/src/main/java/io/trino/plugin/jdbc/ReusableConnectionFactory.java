@@ -27,6 +27,8 @@ import javax.inject.Inject;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.cache.RemovalCause.EXPLICIT;
@@ -86,18 +88,21 @@ public final class ReusableConnectionFactory
             throws SQLException
     {
         String queryId = session.getQueryId();
-        Connection connection = getConnection(session, queryId);
-        return new CachedConnection(queryId, connection);
+        return new CachedConnection(queryId, new ActiveMemoizingConnectionSupplier(() -> getConnection(session, queryId)));
     }
 
     private Connection getConnection(ConnectorSession session, String queryId)
-            throws SQLException
     {
-        Connection connection = connections.asMap().remove(queryId);
-        if (connection != null) {
-            return connection;
+        try {
+            Connection connection = connections.asMap().remove(queryId);
+            if (connection != null) {
+                return connection;
+            }
+            return delegate.openConnection(session);
         }
-        return delegate.openConnection(session);
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
@@ -128,15 +133,15 @@ public final class ReusableConnectionFactory
         delegate.close();
     }
 
-    private final class CachedConnection
+    final class CachedConnection
             extends ForwardingConnection
     {
         private final String queryId;
-        private final Connection delegate;
+        private final Supplier<Connection> delegate;
         private volatile boolean closed;
         private volatile boolean dirty;
 
-        private CachedConnection(String queryId, Connection delegate)
+        private CachedConnection(String queryId, Supplier<Connection> delegate)
         {
             this.queryId = requireNonNull(queryId, "queryId is null");
             this.delegate = requireNonNull(delegate, "delegate is null");
@@ -146,7 +151,7 @@ public final class ReusableConnectionFactory
         protected Connection delegate()
         {
             checkState(!closed, "Connection is already closed");
-            return delegate;
+            return delegate.get();
         }
 
         @Override
@@ -174,11 +179,39 @@ public final class ReusableConnectionFactory
             }
             closed = true;
             if (dirty) {
-                delegate.close();
+                delegate.get().close();
             }
             else {
-                connections.put(queryId, delegate);
+                connections.put(queryId, delegate.get());
             }
+        }
+    }
+
+    public static class ActiveMemoizingConnectionSupplier
+            implements Supplier<Connection>
+    {
+        private final Supplier<Connection> connectionSupplier;
+        private final AtomicReference<Connection> currentConnection;
+
+        public ActiveMemoizingConnectionSupplier(Supplier<Connection> connectionSupplier)
+        {
+            this.connectionSupplier = requireNonNull(connectionSupplier, "connectionSupplier is null");
+            this.currentConnection = new AtomicReference<>(connectionSupplier.get());
+        }
+
+        @Override
+        public Connection get()
+        {
+            try {
+                if (currentConnection.get().isClosed()) {
+                    currentConnection.set(connectionSupplier.get());
+                }
+            }
+            catch (Exception e) {
+                throw new TrinoException(JDBC_ERROR, e);
+            }
+
+            return currentConnection.get();
         }
     }
 }
