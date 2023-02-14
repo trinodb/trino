@@ -484,17 +484,7 @@ public class DistributedQueryRunner
     @Override
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
-        lock.readLock().lock();
-        try {
-            return trinoClient.execute(session, sql).getResult();
-        }
-        catch (Throwable e) {
-            e.addSuppressed(new Exception("SQL: " + sql));
-            throw e;
-        }
-        finally {
-            lock.readLock().unlock();
-        }
+        return executeWithQueryId(session, sql).getResult();
     }
 
     public MaterializedResultWithQueryId executeWithQueryId(Session session, @Language("SQL") String sql)
@@ -503,6 +493,10 @@ public class DistributedQueryRunner
         try {
             ResultWithQueryId<MaterializedResult> result = trinoClient.execute(session, sql);
             return new MaterializedResultWithQueryId(result.getQueryId(), result.getResult());
+        }
+        catch (Throwable e) {
+            e.addSuppressed(new Exception("SQL: " + sql));
+            throw e;
         }
         finally {
             lock.readLock().unlock();
