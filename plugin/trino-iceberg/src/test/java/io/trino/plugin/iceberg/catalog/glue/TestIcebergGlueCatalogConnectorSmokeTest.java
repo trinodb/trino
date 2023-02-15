@@ -24,10 +24,12 @@ import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.plugin.hive.aws.AwsApiCallStats;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
+import io.trino.spi.security.Identity;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestView;
 import org.apache.iceberg.FileFormat;
@@ -171,6 +173,20 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
             assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS NULL");
             assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo(null);
         }
+    }
+
+    @Test
+    public void testCreateSchemaWithUppercaseOwnerName()
+    {
+        Session newSession = Session.builder(getSession())
+                .setIdentity(Identity.ofUser("User"))
+                .build();
+        String schemaName = "test_schema_create_uppercase_owner_name_" + randomNameSuffix();
+        assertUpdate(newSession, createSchemaSql(schemaName));
+        assertThat(query(newSession, "SHOW SCHEMAS"))
+                .skippingTypesCheck()
+                .containsAll(format("VALUES '%s'", schemaName));
+        assertUpdate(newSession, "DROP SCHEMA " + schemaName);
     }
 
     @Override
