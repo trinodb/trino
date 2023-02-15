@@ -11,12 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.catalog.glue;
+package io.trino.plugin.hive.metastore.glue;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.services.glue.AWSGlueAsync;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -26,30 +25,30 @@ import java.util.Optional;
 import static io.trino.plugin.hive.metastore.glue.GlueClientUtil.createAsyncGlueClient;
 import static java.util.Objects.requireNonNull;
 
-public class GlueClientProvider
+public class HiveGlueClientProvider
         implements Provider<AWSGlueAsync>
 {
     private final GlueMetastoreStats stats;
     private final AWSCredentialsProvider credentialsProvider;
     private final GlueHiveMetastoreConfig glueConfig; // TODO do not keep mutable config instance on a field
-    private final boolean skipArchive;
+    private final Optional<RequestHandler2> requestHandler;
 
     @Inject
-    public GlueClientProvider(
-            GlueMetastoreStats stats,
+    public HiveGlueClientProvider(
+            @ForGlueHiveMetastore GlueMetastoreStats stats,
             AWSCredentialsProvider credentialsProvider,
-            GlueHiveMetastoreConfig glueConfig,
-            IcebergGlueCatalogConfig icebergGlueConfig)
+            @ForGlueHiveMetastore Optional<RequestHandler2> requestHandler,
+            GlueHiveMetastoreConfig glueConfig)
     {
         this.stats = requireNonNull(stats, "stats is null");
         this.credentialsProvider = requireNonNull(credentialsProvider, "credentialsProvider is null");
+        this.requestHandler = requireNonNull(requestHandler, "requestHandler is null");
         this.glueConfig = glueConfig;
-        this.skipArchive = icebergGlueConfig.isSkipArchive();
     }
 
     @Override
     public AWSGlueAsync get()
     {
-        return createAsyncGlueClient(glueConfig, credentialsProvider, Optional.of(new SkipArchiveRequestHandler(skipArchive)), stats.newRequestMetricsCollector());
+        return createAsyncGlueClient(glueConfig, credentialsProvider, requestHandler, stats.newRequestMetricsCollector());
     }
 }

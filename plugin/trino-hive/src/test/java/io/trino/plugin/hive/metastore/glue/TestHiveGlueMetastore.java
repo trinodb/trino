@@ -95,6 +95,7 @@ import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
+import static io.trino.plugin.hive.metastore.glue.GlueClientUtil.createAsyncGlueClient;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.DECIMAL_TYPE;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.decimalOf;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
@@ -223,13 +224,14 @@ public class TestHiveGlueMetastore
         glueConfig.setAssumeCanonicalPartitionKeys(true);
 
         Executor executor = new BoundedExecutor(this.executor, 10);
+        GlueMetastoreStats stats = new GlueMetastoreStats();
         return new GlueHiveMetastore(
                 HDFS_ENVIRONMENT,
                 glueConfig,
-                DefaultAWSCredentialsProviderChain.getInstance(),
                 executor,
                 new DefaultGlueColumnStatisticsProviderFactory(executor, executor),
-                Optional.empty(),
+                createAsyncGlueClient(glueConfig, DefaultAWSCredentialsProviderChain.getInstance(), Optional.empty(), stats.newRequestMetricsCollector()),
+                stats,
                 new DefaultGlueMetastoreTableFilterProvider(true).get());
     }
 
