@@ -375,7 +375,7 @@ public class TestDeltaLakeColumnMappingMode
                 " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
                 " TBLPROPERTIES (" +
                 " 'delta.columnMapping.mode' = '" + mode + "'," +
-                " 'checkpointInterval' = 3" +
+                " 'delta.checkpointInterval' = 3" +
                 ")");
 
         try {
@@ -468,7 +468,7 @@ public class TestDeltaLakeColumnMappingMode
                 " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
                 " TBLPROPERTIES (" +
                 " 'delta.columnMapping.mode' = '" + mode + "'," +
-                " 'checkpointInterval' = 3" +
+                " 'delta.checkpointInterval' = 3" +
                 ")");
 
         try {
