@@ -380,6 +380,67 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    public void testMergeMixedDeleteAndUpdateIntoTableWithCdfEnabled()
+    {
+        String targetTableName = "test_merge_mixed_delete_and_update_into_table_with_cdf_" + randomNameSuffix();
+        String sourceTableName = "test_merge_mixed_delete_and_update_into_table_with_cdf_data_table_" + randomNameSuffix();
+        try {
+            onDelta().executeQuery("CREATE TABLE default." + targetTableName + " (page_id INT, page_url STRING, views INT) " +
+                    "USING DELTA " +
+                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + targetTableName + "'" +
+                    "TBLPROPERTIES (delta.enableChangeDataFeed = true)");
+            onDelta().executeQuery("CREATE TABLE default." + sourceTableName + " (page_id INT, page_url STRING, views INT) " +
+                    "USING DELTA " +
+                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + sourceTableName + "'");
+
+            onDelta().executeQuery("INSERT INTO default." + targetTableName + " VALUES (1, 'pageUrl1', 100)");
+            onDelta().executeQuery("INSERT INTO default." + targetTableName + " VALUES (2, 'pageUrl2', 200)");
+            onDelta().executeQuery("INSERT INTO default." + targetTableName + " VALUES (3, 'pageUrl3', 300)");
+            onDelta().executeQuery("INSERT INTO default." + targetTableName + " VALUES (4, 'pageUrl4', 400)");
+
+            onDelta().executeQuery("INSERT INTO default." + sourceTableName + " VALUES (1000, 'pageUrl1000', 1000)");
+            onDelta().executeQuery("INSERT INTO default." + sourceTableName + " VALUES (2, 'pageUrl2', 20000)");
+            onDelta().executeQuery("INSERT INTO default." + sourceTableName + " VALUES (3000, 'pageUrl3000', 3000)");
+            onDelta().executeQuery("INSERT INTO default." + sourceTableName + " VALUES (4, 'pageUrl4000', 4000)");
+
+            onTrino().executeQuery("MERGE INTO delta.default." + targetTableName + " targetTable USING delta.default." + sourceTableName + " sourceTable " +
+                    "ON (targetTable.page_id = sourceTable.page_id) " +
+                    "WHEN MATCHED AND targetTable.page_id = 2 " +
+                    "THEN DELETE " +
+                    "WHEN MATCHED AND targetTable.page_id > 2 " +
+                    "THEN UPDATE SET views = (targetTable.views + sourceTable.views) " +
+                    "WHEN NOT MATCHED " +
+                    "THEN INSERT (page_id, page_url, views) VALUES (sourceTable.page_id, sourceTable.page_url, sourceTable.views)");
+
+            assertThat(onDelta().executeQuery("SELECT * FROM " + targetTableName))
+                    .containsOnly(
+                            row(1000, "pageUrl1000", 1000),
+                            row(3000, "pageUrl3000", 3000),
+                            row(4, "pageUrl4", 4400),
+                            row(1, "pageUrl1", 100),
+                            row(3, "pageUrl3", 300));
+
+            assertThat(onDelta().executeQuery(
+                    "SELECT page_id, page_url, views, _change_type, _commit_version " +
+                            "FROM table_changes('default." + targetTableName + "', 0)"))
+                    .containsOnly(
+                            row(1, "pageUrl1", 100, "insert", 1),
+                            row(2, "pageUrl2", 200, "insert", 2),
+                            row(3, "pageUrl3", 300, "insert", 3),
+                            row(4, "pageUrl4", 400, "insert", 4),
+                            row(1000, "pageUrl1000", 1000, "insert", 5),
+                            row(3000, "pageUrl3000", 3000, "insert", 5),
+                            row(2, "pageUrl2", 200, "delete", 5),
+                            row(4, "pageUrl4", 4400, "update_postimage", 5),
+                            row(4, "pageUrl4", 400, "update_preimage", 5));
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE IF EXISTS default." + targetTableName);
+            onDelta().executeQuery("DROP TABLE IF EXISTS default." + sourceTableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
     public void testDeleteFromNullPartitionWithCdfEnabled()
     {
         String tableName = "test_delete_from_null_partition_with_cdf_enabled" + randomNameSuffix();
