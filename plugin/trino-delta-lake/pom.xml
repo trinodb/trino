@@ -478,6 +478,7 @@
                                 <exclude>**/TestDeltaLakeViewsGlueMetastore.java</exclude>
                                 <exclude>**/TestDeltaLakeGcsConnectorSmokeTest.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
+                                <exclude>**/TestDeltaLakeConcurrentModificationGlueMetastore.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -505,6 +506,7 @@
                                 <include>**/TestDeltaLakeRenameToWithGlueMetastore.java</include>
                                 <include>**/TestDeltaLakeRegisterTableProcedureWithGlue.java</include>
                                 <include>**/TestDeltaLakeViewsGlueMetastore.java</include>
+                                <include>**/TestDeltaLakeConcurrentModificationGlueMetastore.java</include>
                             </includes>
                         </configuration>
                     </plugin>
