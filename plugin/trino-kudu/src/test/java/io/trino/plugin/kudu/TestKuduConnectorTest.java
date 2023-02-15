@@ -140,6 +140,13 @@ public class TestKuduConnectorTest
     }
 
     @Override
+    public void testCreateSchemaWithNonLowercaseOwnerName()
+    {
+        assertThatThrownBy(super::testCreateSchemaWithNonLowercaseOwnerName)
+                .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
+    }
+
+    @Override
     public void testCreateSchemaWithLongName()
     {
         // TODO: Add a test to BaseKuduConnectorSmokeTest

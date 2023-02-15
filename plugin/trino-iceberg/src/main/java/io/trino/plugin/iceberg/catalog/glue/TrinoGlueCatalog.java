@@ -253,7 +253,7 @@ public class TrinoGlueCatalog
     public void createNamespace(ConnectorSession session, String namespace, Map<String, Object> properties, TrinoPrincipal owner)
     {
         checkArgument(owner.getType() == PrincipalType.USER, "Owner type must be USER");
-        checkArgument(owner.getName().equals(session.getUser()), "Explicit schema owner is not supported");
+        checkArgument(owner.getName().equals(session.getUser().toLowerCase(ENGLISH)), "Explicit schema owner is not supported");
 
         try {
             stats.getCreateDatabase().call(() ->

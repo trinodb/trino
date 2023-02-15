@@ -96,4 +96,13 @@ public class TestHiveConnectorSmokeTest
                         "   format = 'ORC'\n" +
                         ")");
     }
+
+    @Override
+    public void testCreateSchemaWithNonLowercaseOwnerName()
+    {
+        // Override because HivePrincipal's username is case-sensitive unlike TrinoPrincipal
+        assertThatThrownBy(super::testCreateSchemaWithNonLowercaseOwnerName)
+                .hasMessageContaining("Access Denied: Cannot create schema")
+                .hasStackTraceContaining("CREATE SCHEMA");
+    }
 }
