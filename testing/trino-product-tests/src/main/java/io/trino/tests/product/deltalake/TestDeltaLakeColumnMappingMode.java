@@ -16,6 +16,7 @@ package io.trino.tests.product.deltalake;
 import com.google.common.collect.ImmutableList;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.testng.services.Flaky;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -66,21 +67,9 @@ public class TestDeltaLakeColumnMappingMode
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testColumnMappingModeId()
-    {
-        testColumnMappingMode("id");
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testColumnMappingModeName()
-    {
-        testColumnMappingMode("name");
-    }
-
-    private void testColumnMappingMode(String mode)
+    public void testColumnMappingMode(String mode)
     {
         String tableName = "test_dl_column_mapping_mode_name_" + randomNameSuffix();
 
@@ -137,21 +126,9 @@ public class TestDeltaLakeColumnMappingMode
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testColumnMappingModeNameWithNonLowerCaseColumnId()
-    {
-        testColumnMappingModeNameWithNonLowerCaseColumn("id");
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testColumnMappingModeNameWithNonLowerCaseColumnName()
-    {
-        testColumnMappingModeNameWithNonLowerCaseColumn("name");
-    }
-
-    private void testColumnMappingModeNameWithNonLowerCaseColumn(String mode)
+    public void testColumnMappingModeNameWithNonLowerCaseColumn(String mode)
     {
         String tableName = "test_dl_column_mapping_mode_name_non_loewr_case_" + randomNameSuffix();
 
@@ -185,21 +162,9 @@ public class TestDeltaLakeColumnMappingMode
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testColumnMappingModeIdAddColumn()
-    {
-        testColumnMappingModeAddColumn("id");
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testColumnMappingModeNameAddColumn()
-    {
-        testColumnMappingModeAddColumn("name");
-    }
-
-    private void testColumnMappingModeAddColumn(String mode)
+    public void testColumnMappingModeAddColumn(String mode)
     {
         String tableName = "test_dl_column_mapping_mode_add_column_" + randomNameSuffix();
 
@@ -256,21 +221,9 @@ public class TestDeltaLakeColumnMappingMode
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testShowStatsFromJsonForColumnMappingModeId()
-    {
-        testShowStatsFromJsonForColumnMappingMode("id");
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testShowStatsFromJsonForColumnMappingModeName()
-    {
-        testShowStatsFromJsonForColumnMappingMode("name");
-    }
-
-    private void testShowStatsFromJsonForColumnMappingMode(String mode)
+    public void testShowStatsFromJsonForColumnMappingMode(String mode)
     {
         String tableName = "test_dl_show_stats_json_for_column_mapping_mode_" + randomNameSuffix();
 
@@ -301,21 +254,9 @@ public class TestDeltaLakeColumnMappingMode
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testShowStatsFromParquetForColumnMappingModeId()
-    {
-        testShowStatsFromParquetForColumnMappingMode("id");
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testShowStatsFromParquetForColumnMappingModeName()
-    {
-        testShowStatsFromParquetForColumnMappingMode("name");
-    }
-
-    private void testShowStatsFromParquetForColumnMappingMode(String mode)
+    public void testShowStatsFromParquetForColumnMappingMode(String mode)
     {
         String tableName = "test_dl_show_parquet_stats_parquet_for_column_mapping_mode_" + randomNameSuffix();
 
@@ -349,21 +290,9 @@ public class TestDeltaLakeColumnMappingMode
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testShowStatsOnPartitionedForColumnMappingModeId()
-    {
-        testShowStatsOnPartitionedForColumnMappingMode("id");
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testShowStatsOnPartitionedForColumnMappingModeName()
-    {
-        testShowStatsOnPartitionedForColumnMappingMode("name");
-    }
-
-    private void testShowStatsOnPartitionedForColumnMappingMode(String mode)
+    public void testShowStatsOnPartitionedForColumnMappingMode(String mode)
     {
         String tableName = "test_dl_show_stats_partitioned_for_column_mapping_mode_" + randomNameSuffix();
 
@@ -394,21 +323,9 @@ public class TestDeltaLakeColumnMappingMode
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testUnsupportedOperationsColumnMappingModeId()
-    {
-        testUnsupportedOperationsColumnMappingModeName("id");
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testUnsupportedOperationsColumnMappingModeName()
-    {
-        testUnsupportedOperationsColumnMappingModeName("name");
-    }
-
-    private void testUnsupportedOperationsColumnMappingModeName(String mode)
+    public void testUnsupportedOperationsColumnMappingModeName(String mode)
     {
         String tableName = "test_dl_unsupported_column_mapping_mode_" + randomNameSuffix();
 
@@ -443,21 +360,9 @@ public class TestDeltaLakeColumnMappingMode
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testSpecialCharacterColumnNamesWithColumnMappingModeId()
-    {
-        testSpecialCharacterColumnNamesWithColumnMappingMode("id");
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testSpecialCharacterColumnNamesWithColumnMappingModeName()
-    {
-        testSpecialCharacterColumnNamesWithColumnMappingMode("name");
-    }
-
-    private void testSpecialCharacterColumnNamesWithColumnMappingMode(String mode)
+    public void testSpecialCharacterColumnNamesWithColumnMappingMode(String mode)
     {
         String tableName = "test_dl_special_character_column_mapping_mode_" + randomNameSuffix();
 
@@ -484,5 +389,14 @@ public class TestDeltaLakeColumnMappingMode
         finally {
             onDelta().executeQuery("DROP TABLE default." + tableName);
         }
+    }
+
+    @DataProvider
+    public Object[][] columnMappingDataProvider()
+    {
+        return new Object[][] {
+                {"id"},
+                {"name"},
+        };
     }
 }
