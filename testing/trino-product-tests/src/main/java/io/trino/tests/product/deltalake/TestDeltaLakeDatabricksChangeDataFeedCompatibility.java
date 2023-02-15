@@ -22,6 +22,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -59,7 +60,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
                             row("testValue4", 4, "update_postimage", 5L));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -90,7 +91,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
                             row("testValue5", 3, "partition3", "update_postimage", 4L));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -117,7 +118,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
                             row("testValue3", 5, "update_postimage", 2L));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -149,7 +150,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
                             row("testValue5", 3, "partition3", "update_postimage", 2L));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -186,7 +187,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
                             row("testValue4", 4, "partition2", "update_postimage", 3L));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -237,7 +238,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
                             row("testValue6", 6, "insert", 7L));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -265,7 +266,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
                             row("testValue3", 3, "delete", 4L));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -320,8 +321,8 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
                             row(20004, "nation2", 200, "update_postimage", 4));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName1);
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName2);
+            dropDeltaTableWithRetry("default." + tableName1);
+            dropDeltaTableWithRetry("default." + tableName2);
         }
     }
 
@@ -374,8 +375,8 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
                             row(2, "nation2", 200, "delete", 4));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName1);
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName2);
+            dropDeltaTableWithRetry("default." + tableName1);
+            dropDeltaTableWithRetry("default." + tableName2);
         }
     }
 
@@ -474,7 +475,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
                             row("testValue3", 3, null, "delete", 2L));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 }
