@@ -8,8 +8,8 @@ local exchange (GATHER, SINGLE, [])
                             join (LEFT, PARTITIONED):
                                 final aggregation over (commitdate, name, name_12, nationkey, orderkey, orderstatus, receiptdate, suppkey_0, unique_62)
                                     local exchange (GATHER, SINGLE, [])
-                                        partial aggregation over (commitdate, name, name_12, nationkey, orderkey, orderstatus, receiptdate, suppkey_0, unique_62)
-                                            join (INNER, PARTITIONED):
+                                        join (INNER, PARTITIONED):
+                                            partial aggregation over (commitdate, name, name_12, nationkey, orderkey, orderstatus, receiptdate, suppkey_0, unique_62)
                                                 join (INNER, PARTITIONED):
                                                     remote exchange (REPARTITION, HASH, ["orderkey"])
                                                         join (INNER, REPLICATED):
@@ -24,9 +24,9 @@ local exchange (GATHER, SINGLE, [])
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, ["orderkey_5"])
                                                             scan orders
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, ["orderkey_17"])
-                                                        scan lineitem
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPARTITION, HASH, ["orderkey_17"])
+                                                    scan lineitem
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["orderkey_38"])
                                         scan lineitem

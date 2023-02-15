@@ -7,12 +7,12 @@ final aggregation over ()
                         final aggregation over (cs_item_sk_18)
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["cs_item_sk_18"])
-                                    partial aggregation over (cs_item_sk_18)
-                                        join (INNER, REPLICATED):
+                                    join (INNER, REPLICATED):
+                                        partial aggregation over (cs_item_sk_18, cs_sold_date_sk_37)
                                             scan catalog_sales
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan date_dim
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan date_dim
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["cs_item_sk"])
                                 join (INNER, REPLICATED):

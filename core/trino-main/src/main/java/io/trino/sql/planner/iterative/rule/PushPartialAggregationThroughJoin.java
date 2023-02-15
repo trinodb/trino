@@ -53,7 +53,7 @@ public class PushPartialAggregationThroughJoin
             .matching(PushPartialAggregationThroughJoin::isSupportedAggregationNode)
             .with(source().matching(join().capturedAs(JOIN_NODE)));
 
-    private static boolean isSupportedAggregationNode(AggregationNode aggregationNode)
+    public static boolean isSupportedAggregationNode(AggregationNode aggregationNode)
     {
         // Don't split streaming aggregations
         if (aggregationNode.isStreamable()) {
@@ -124,14 +124,15 @@ public class PushPartialAggregationThroughJoin
         return pushPartialToJoin(node, child, child.getLeft(), pushedAggregation, context);
     }
 
-    private Set<Symbol> getJoinRequiredSymbols(JoinNode node)
+    public static Set<Symbol> getJoinRequiredSymbols(JoinNode node)
     {
         return Streams.concat(
                         node.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft),
                         node.getCriteria().stream().map(JoinNode.EquiJoinClause::getRight),
                         node.getFilter().map(SymbolsExtractor::extractUnique).orElse(ImmutableSet.of()).stream(),
                         node.getLeftHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream(),
-                        node.getRightHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream())
+                        node.getRightHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream(),
+                        node.getDynamicFilters().values().stream())
                 .collect(toImmutableSet());
     }
 

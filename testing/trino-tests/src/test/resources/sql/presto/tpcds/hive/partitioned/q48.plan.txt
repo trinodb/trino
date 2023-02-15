@@ -1,12 +1,12 @@
 final aggregation over ()
     local exchange (GATHER, SINGLE, [])
         remote exchange (GATHER, SINGLE, [])
-            partial aggregation over ()
-                join (INNER, REPLICATED):
-                    join (INNER, PARTITIONED):
-                        remote exchange (REPARTITION, HASH, ["ca_address_sk"])
-                            scan customer_address
-                        local exchange (GATHER, SINGLE, [])
+            join (INNER, REPLICATED):
+                join (INNER, PARTITIONED):
+                    remote exchange (REPARTITION, HASH, ["ca_address_sk"])
+                        scan customer_address
+                    local exchange (GATHER, SINGLE, [])
+                        partial aggregation over (ss_addr_sk, ss_net_profit, ss_store_sk)
                             remote exchange (REPARTITION, HASH, ["ss_addr_sk"])
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
@@ -17,6 +17,6 @@ final aggregation over ()
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             scan customer_demographics
-                    local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPLICATE, BROADCAST, [])
-                            scan store
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPLICATE, BROADCAST, [])
+                        scan store

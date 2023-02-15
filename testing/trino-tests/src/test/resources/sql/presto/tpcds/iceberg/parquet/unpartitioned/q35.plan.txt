@@ -20,30 +20,30 @@ local exchange (GATHER, SINGLE, [])
                                                 final aggregation over (ss_customer_sk)
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, ["ss_customer_sk"])
-                                                            partial aggregation over (ss_customer_sk)
-                                                                join (INNER, REPLICATED, can skip output duplicates):
+                                                            join (INNER, REPLICATED, can skip output duplicates):
+                                                                partial aggregation over (ss_customer_sk, ss_sold_date_sk)
                                                                     scan store_sales
-                                                                    local exchange (GATHER, SINGLE, [])
-                                                                        remote exchange (REPLICATE, BROADCAST, [])
-                                                                            scan date_dim
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                        scan date_dim
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["cd_demo_sk"])
                                                 scan customer_demographics
                                 final aggregation over (ws_bill_customer_sk)
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["ws_bill_customer_sk"])
-                                            partial aggregation over (ws_bill_customer_sk)
-                                                join (INNER, REPLICATED, can skip output duplicates):
-                                                    scan web_sales
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan date_dim
-                            final aggregation over (cs_ship_customer_sk)
-                                local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["cs_ship_customer_sk"])
-                                        partial aggregation over (cs_ship_customer_sk)
                                             join (INNER, REPLICATED, can skip output duplicates):
-                                                scan catalog_sales
+                                                partial aggregation over (ws_bill_customer_sk, ws_sold_date_sk)
+                                                    scan web_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         scan date_dim
+                            final aggregation over (cs_ship_customer_sk)
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["cs_ship_customer_sk"])
+                                        join (INNER, REPLICATED, can skip output duplicates):
+                                            partial aggregation over (cs_ship_customer_sk, cs_sold_date_sk)
+                                                scan catalog_sales
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    scan date_dim

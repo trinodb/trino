@@ -160,6 +160,7 @@ import io.trino.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
 import io.trino.sql.planner.iterative.rule.PushLimitThroughUnion;
 import io.trino.sql.planner.iterative.rule.PushMergeWriterDeleteIntoConnector;
 import io.trino.sql.planner.iterative.rule.PushOffsetThroughProject;
+import io.trino.sql.planner.iterative.rule.PushPartialAggregationProjectionThroughJoin;
 import io.trino.sql.planner.iterative.rule.PushPartialAggregationThroughExchange;
 import io.trino.sql.planner.iterative.rule.PushPartialAggregationThroughJoin;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
@@ -932,11 +933,16 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 costCalculator,
-                ImmutableSet.of(
-                        new PushPartialAggregationThroughJoin(),
-                        new PushPartialAggregationThroughExchange(plannerContext),
-                        new PruneJoinColumns(),
-                        new PruneJoinChildrenColumns())));
+                ImmutableSet.<Rule<?>>builder()
+                        .add(new PushPartialAggregationProjectionThroughJoin())
+                        .addAll(projectionPushdownRules)
+                        .add(new PushPartialAggregationThroughJoin())
+                        .add(new PushPartialAggregationThroughExchange(plannerContext))
+                        .add(new PruneJoinColumns())
+                        .add(new PruneJoinChildrenColumns())
+                        .build()));
+        builder.add(new UnaliasSymbolReferences(metadata));
+
         builder.add(new IterativeOptimizer(
                 plannerContext,
                 ruleStats,

@@ -4,9 +4,9 @@ remote exchange (GATHER, SINGLE, [])
             final aggregation over (name_18)
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["name_18"])
-                        partial aggregation over (name_18)
-                            join (INNER, PARTITIONED):
-                                remote exchange (REPARTITION, HASH, ["nationkey", "suppkey"])
+                        join (INNER, PARTITIONED):
+                            remote exchange (REPARTITION, HASH, ["nationkey", "suppkey"])
+                                partial aggregation over (name_18, nationkey, suppkey)
                                     join (INNER, PARTITIONED):
                                         remote exchange (REPARTITION, HASH, ["orderkey_4"])
                                             scan lineitem
@@ -26,6 +26,6 @@ remote exchange (GATHER, SINGLE, [])
                                                                             local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                                     scan region
-                                local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["nationkey_11", "suppkey_8"])
-                                        scan supplier
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["nationkey_11", "suppkey_8"])
+                                    scan supplier

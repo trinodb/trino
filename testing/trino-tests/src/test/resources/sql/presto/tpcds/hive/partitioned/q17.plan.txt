@@ -3,10 +3,10 @@ local exchange (GATHER, SINGLE, [])
         final aggregation over (i_item_desc, i_item_id, s_state)
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPARTITION, HASH, ["i_item_desc", "i_item_id", "s_state"])
-                    partial aggregation over (i_item_desc, i_item_id, s_state)
-                        join (INNER, REPLICATED):
-                            scan item
-                            local exchange (GATHER, SINGLE, [])
+                    join (INNER, REPLICATED):
+                        scan item
+                        local exchange (GATHER, SINGLE, [])
+                            partial aggregation over (cs_item_sk, s_state)
                                 remote exchange (REPLICATE, BROADCAST, [])
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):

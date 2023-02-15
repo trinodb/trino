@@ -8,17 +8,17 @@ remote exchange (GATHER, SINGLE, [])
                         final aggregation over (ss_customer_sk, ss_ticket_number)
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["ss_customer_sk", "ss_ticket_number"])
-                                    partial aggregation over (ss_customer_sk, ss_ticket_number)
+                                    join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                join (INNER, REPLICATED):
+                                                partial aggregation over (ss_customer_sk, ss_hdemo_sk, ss_sold_date_sk, ss_store_sk, ss_ticket_number)
                                                     scan store_sales
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan store
+                                                        scan date_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan household_demographics
+                                                    scan store
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan household_demographics

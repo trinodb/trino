@@ -3,11 +3,11 @@ local exchange (GATHER, SINGLE, [])
         final aggregation over (r_reason_desc)
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPARTITION, HASH, ["r_reason_desc"])
-                    partial aggregation over (r_reason_desc)
+                    join (INNER, REPLICATED):
                         join (INNER, REPLICATED):
-                            join (INNER, REPLICATED):
-                                scan customer_demographics
-                                local exchange (GATHER, SINGLE, [])
+                            scan customer_demographics
+                            local exchange (GATHER, SINGLE, [])
+                                partial aggregation over (cd_education_status, cd_marital_status, wr_reason_sk, wr_returning_cdemo_sk)
                                     remote exchange (REPLICATE, BROADCAST, [])
                                         join (INNER, REPLICATED):
                                             join (INNER, PARTITIONED):
@@ -33,6 +33,6 @@ local exchange (GATHER, SINGLE, [])
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan web_page
-                            local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPLICATE, BROADCAST, [])
-                                    scan reason
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPLICATE, BROADCAST, [])
+                                scan reason
