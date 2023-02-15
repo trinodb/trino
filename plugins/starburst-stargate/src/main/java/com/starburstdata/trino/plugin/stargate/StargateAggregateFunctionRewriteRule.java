@@ -120,7 +120,7 @@ class StargateAggregateFunctionRewriteRule
         return Optional.of(new JdbcExpression(call, outputTypeHandle.get()));
     }
 
-    private Optional<String> toSql(RewriteContext context, ConnectorExpression expression)
+    private Optional<String> toSql(RewriteContext<?> context, ConnectorExpression expression)
     {
         if (!(expression instanceof Variable)) {
             // TODO support complex ConnectorExpressions
@@ -144,7 +144,7 @@ class StargateAggregateFunctionRewriteRule
     }
 
     // TODO simplify with https://github.com/trinodb/trino/pull/6125
-    private static JdbcColumnHandle getAssignment(RewriteContext context, String name)
+    private static JdbcColumnHandle getAssignment(RewriteContext<?> context, String name)
     {
         requireNonNull(name, "name is null");
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignments().get(name);
