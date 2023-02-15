@@ -1187,6 +1187,46 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testTransactionLogCreation()
+    {
+        String transactionLogDir = "/_delta_log";
+        String tableName = "test_transaction_log_creation_" + randomNameSuffix();
+        assertUpdate(
+                format("CREATE TABLE %s (col integer) WITH (location = '%s')",
+                        tableName,
+                        getLocationForTable(bucketName, tableName)));
+        String tableLocation = getTableLocation(tableName);
+
+        assertThat(getTableFiles(tableName + transactionLogDir))
+                .containsExactly(tableLocation + transactionLogDir + "/00000000000000000000.json");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1) ", 1);
+
+        assertThat(getTableFiles(tableName + transactionLogDir))
+                .containsExactlyInAnyOrder(
+                        tableLocation + transactionLogDir + "/00000000000000000000.json",
+                        tableLocation + transactionLogDir + "/00000000000000000001.json");
+
+        // Simulate empty insert. This should not create transaction log entry
+        assertUpdate("INSERT INTO " + tableName + " SELECT 0 WHERE 1=0", 0);
+
+        assertThat(getTableFiles(tableName + transactionLogDir))
+                .containsExactlyInAnyOrder(
+                        tableLocation + transactionLogDir + "/00000000000000000000.json",
+                        tableLocation + transactionLogDir + "/00000000000000000001.json");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2) ", 1);
+
+        assertThat(getTableFiles(tableName + transactionLogDir))
+                .containsExactlyInAnyOrder(
+                        tableLocation + transactionLogDir + "/00000000000000000000.json",
+                        tableLocation + transactionLogDir + "/00000000000000000001.json",
+                        tableLocation + transactionLogDir + "/00000000000000000002.json");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @DataProvider
     public Object[][] testCheckpointWriteStatsAsStructDataProvider()
     {

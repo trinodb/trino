@@ -1369,6 +1369,10 @@ public class DeltaLakeMetadata
                 .map(dataFileInfoCodec::fromJson)
                 .collect(toImmutableList());
 
+        if (dataFileInfos.isEmpty()) {
+            return Optional.empty();
+        }
+
         if (handle.isRetriesEnabled()) {
             cleanExtraOutputFiles(session, handle.getLocation(), dataFileInfos);
         }
