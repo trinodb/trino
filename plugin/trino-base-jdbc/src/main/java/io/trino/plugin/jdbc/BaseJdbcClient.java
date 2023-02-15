@@ -650,8 +650,9 @@ public abstract class BaseJdbcClient
             }
 
             RemoteTableName remoteTableName = new RemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), remoteTargetTableName);
-            String sql = createTableSql(remoteTableName, columnList.build(), tableMetadata);
-            execute(session, connection, sql);
+            for (String sql : createTableSqls(remoteTableName, columnList.build(), tableMetadata)) {
+                execute(session, connection, sql);
+            }
 
             return new JdbcOutputTableHandle(
                     catalog,
@@ -665,6 +666,12 @@ public abstract class BaseJdbcClient
         }
     }
 
+    protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
+    {
+        return ImmutableList.of(createTableSql(remoteTableName, columns, tableMetadata));
+    }
+
+    @Deprecated
     protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
         if (tableMetadata.getComment().isPresent()) {
