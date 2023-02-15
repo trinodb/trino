@@ -133,6 +133,32 @@
         </dependency>
 
         <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-protobuf-provider</artifactId>
+            <!-- This is under Confluent Community License and we use it under runtime scope only for tests -->
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-protobuf-types</artifactId>
+            <!-- This is under Confluent Community License and we use it under runtime scope only for tests -->
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-jdbc</artifactId>
             <scope>test</scope>
@@ -204,6 +230,12 @@
                                 <artifactItem>
                                     <groupId>io.confluent</groupId>
                                     <artifactId>kafka-protobuf-provider</artifactId>
+                                    <type>jar</type>
+                                    <outputDirectory>${project.build.directory}</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>io.confluent</groupId>
+                                    <artifactId>kafka-protobuf-types</artifactId>
                                     <type>jar</type>
                                     <outputDirectory>${project.build.directory}</outputDirectory>
                                 </artifactItem>
