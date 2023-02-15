@@ -270,7 +270,7 @@ public class CassandraSession
                 .sorted(comparing(CassandraColumnHandle::getOrdinalPosition))
                 .collect(toList());
 
-        CassandraTableHandle tableHandle = new CassandraTableHandle(tableMeta.getKeyspace().asInternal(), tableMeta.getName().asInternal());
+        CassandraNamedRelationHandle tableHandle = new CassandraNamedRelationHandle(tableMeta.getKeyspace().asInternal(), tableMeta.getName().asInternal());
         return new CassandraTable(tableHandle, sortedColumnHandles);
     }
 
@@ -464,7 +464,7 @@ public class CassandraSession
 
     private Iterable<Row> queryPartitionKeysWithInClauses(CassandraTable table, List<Set<Object>> filterPrefixes)
     {
-        CassandraTableHandle tableHandle = table.getTableHandle();
+        CassandraNamedRelationHandle tableHandle = table.getTableHandle();
         List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
 
         Select partitionKeys = selectDistinctFrom(tableHandle, partitionKeyColumns)
@@ -476,7 +476,7 @@ public class CassandraSession
 
     private Iterable<Row> queryPartitionKeysLegacyWithMultipleQueries(CassandraTable table, List<Set<Object>> filterPrefixes)
     {
-        CassandraTableHandle tableHandle = table.getTableHandle();
+        CassandraNamedRelationHandle tableHandle = table.getTableHandle();
         List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
 
         Set<List<Object>> filterCombinations = Sets.cartesianProduct(filterPrefixes);
