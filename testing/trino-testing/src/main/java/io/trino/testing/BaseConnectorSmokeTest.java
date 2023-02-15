@@ -14,6 +14,8 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
+import io.trino.spi.security.Identity;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
 import org.testng.SkipException;
@@ -313,6 +315,22 @@ public abstract class BaseConnectorSmokeTest
                 .skippingTypesCheck()
                 .containsAll(format("VALUES '%s', '%s'", getSession().getSchema().orElseThrow(), schemaName));
         assertUpdate("DROP SCHEMA " + schemaName);
+    }
+
+    @Test
+    public void testCreateSchemaWithNonLowercaseOwnerName()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_SCHEMA));
+
+        Session newSession = Session.builder(getSession())
+                .setIdentity(Identity.ofUser("ADMIN"))
+                .build();
+        String schemaName = "test_schema_create_uppercase_owner_name_" + randomNameSuffix();
+        assertUpdate(newSession, createSchemaSql(schemaName));
+        assertThat(query(newSession, "SHOW SCHEMAS"))
+                .skippingTypesCheck()
+                .containsAll(format("VALUES '%s'", schemaName));
+        assertUpdate(newSession, "DROP SCHEMA " + schemaName);
     }
 
     @Test
