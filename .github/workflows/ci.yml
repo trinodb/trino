@@ -682,7 +682,7 @@ jobs:
           # Generate a valid artifact name and make it available to next steps as
           # an environment variable ARTIFACT_NAME
           # ", :, <, >, |, *, ?, \, / are not allowed in artifact names, replace it with an underscore
-          name=$(echo -n "${{ matrix.modules }}" | sed -e 's/[":<>|\*\?\\\/]/_/g')
+          name=$(echo -n "${{ matrix.modules }}, ${{ matrix.profile }}, ${{ matrix.jdk }}" | sed -e 's/[":<>|\*\?\\\/]/_/g')
           echo "ARTIFACT_NAME=$name" >> $GITHUB_ENV
       - name: Upload test results
         uses: actions/upload-artifact@v3
