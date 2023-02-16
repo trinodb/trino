@@ -155,6 +155,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxRead
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetOptimizedNestedReaderEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetOptimizedReaderEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
@@ -510,7 +511,8 @@ public class IcebergPageSourceProvider
                         parquetReaderOptions
                                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
                                 .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
-                                .withBatchColumnReaders(isParquetOptimizedReaderEnabled(session)),
+                                .withBatchColumnReaders(isParquetOptimizedReaderEnabled(session))
+                                .withBatchNestedColumnReaders(isParquetOptimizedNestedReaderEnabled(session)),
                         predicate,
                         fileFormatDataSourceStats,
                         nameMapping,

@@ -13,12 +13,16 @@
  */
 package io.trino.parquet.reader;
 
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.reader.decoders.ValueDecoders;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.schema.PrimitiveType;
 
 import java.util.function.Supplier;
 
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.parquet.reader.flat.IntColumnAdapter.INT_ADAPTER;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
@@ -37,12 +41,15 @@ public class TestNestedColumnReaderRowRanges
      * -NULLABLE - field with `required` property set to false
      * -REPEATED - field with higher than 0 repetition level
      */
+    private static final PrimitiveField FLAT_FIELD = createField(true, 0, 0);
+    private static final PrimitiveField NULLABLE_FLAT_FIELD = createField(false, 0, 1);
     private static final PrimitiveField NESTED_FIELD = createField(true, 0, 1);
     private static final PrimitiveField NULLABLE_NESTED_FIELD = createField(false, 0, 2);
     private static final PrimitiveField REPEATED_FLAT_FIELD = createField(true, 1, 0);
     private static final PrimitiveField REPEATED_NESTED_FIELD = createField(true, 1, 1);
     private static final PrimitiveField REPEATED_NULLABLE_FIELD = createField(false, 1, 1);
     private static final PrimitiveField REPEATED_NULLABLE_NESTED_FIELD = createField(false, 1, 2);
+    private static final LocalMemoryContext MEMORY_CONTEXT = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
 
     private static PrimitiveField createField(boolean required, int maxRep, int maxDef)
     {
@@ -59,11 +66,14 @@ public class TestNestedColumnReaderRowRanges
     private enum NestedColumnReaderProvider
             implements ColumnReaderProvider
     {
-        NESTED_NO_NULLS(() -> new IntColumnReader(NESTED_FIELD), NESTED_FIELD),
-        NESTED_NULLABLE(() -> new IntColumnReader(NULLABLE_NESTED_FIELD), NULLABLE_NESTED_FIELD),
-        REPEATABLE_NO_NULLS(() -> new IntColumnReader(REPEATED_FLAT_FIELD), REPEATED_FLAT_FIELD),
-        REPEATABLE_NULLABLE(() -> new IntColumnReader(REPEATED_NULLABLE_FIELD), REPEATED_NULLABLE_FIELD),
-        REPEATABLE_NESTED_NO_NULLS(() -> new IntColumnReader(REPEATED_NESTED_FIELD), REPEATED_NESTED_FIELD),
+        NESTED_READER_NO_NULLS(() -> new NestedColumnReader<>(FLAT_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), FLAT_FIELD),
+        NESTED_READER_NULLABLE(() -> new NestedColumnReader<>(NULLABLE_FLAT_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), NULLABLE_FLAT_FIELD),
+        NESTED_READER_NESTED_NO_NULLS(() -> new NestedColumnReader<>(NESTED_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), NESTED_FIELD),
+        NESTED_READER_NESTED_NULLABLE(() -> new NestedColumnReader<>(NULLABLE_NESTED_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), NULLABLE_NESTED_FIELD),
+        NESTED_READER_REPEATABLE_NO_NULLS(() -> new NestedColumnReader<>(REPEATED_FLAT_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), REPEATED_FLAT_FIELD),
+        NESTED_READER_REPEATABLE_NULLABLE(() -> new NestedColumnReader<>(REPEATED_NULLABLE_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), REPEATED_NULLABLE_FIELD),
+        NESTED_READER_REPEATABLE_NESTED_NO_NULLS(() -> new NestedColumnReader<>(REPEATED_NESTED_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), REPEATED_NESTED_FIELD),
+        NESTED_READER_REPEATABLE_NESTED_NULLABLE(() -> new NestedColumnReader<>(REPEATED_NULLABLE_NESTED_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), REPEATED_NULLABLE_NESTED_FIELD),
         REPEATABLE_NESTED_NULLABLE(() -> new IntColumnReader(REPEATED_NULLABLE_NESTED_FIELD), REPEATED_NULLABLE_NESTED_FIELD),
         /**/;
 
