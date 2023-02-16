@@ -116,8 +116,8 @@ def load_available_features_for_config(config, suites, ptl_binary_path):
             key = (config, suite.get("name"))
             value = set()
             for testRun in suite.get("testRuns", []):
-                for connector in testRun["environment"].get("features", []):
-                    value.add(connector)
+                for features in testRun["environment"].get("features", []):
+                    value.add(features)
             config_features[key] = value
 
         logging.debug("config_features: %s", config_features)
@@ -127,16 +127,16 @@ def load_available_features_for_config(config, suites, ptl_binary_path):
 
 
 def load_available_features(configToSuiteMap, ptl_binary_path):
-    available_connectors = {}
+    available_features = {}
     for config, suites in configToSuiteMap.items():
-        available_connectors.update(
+        available_features.update(
             load_available_features_for_config(config, suites, ptl_binary_path)
         )
-    return available_connectors
+    return available_features
 
 
-def tested_features(available_connectors, config, suite):
-    return available_connectors.get((config, suite), [])
+def tested_features(available_features, config, suite):
+    return available_features.get((config, suite), [])
 
 
 def build(matrix_file, impacted_file, output_file, ptl_binary_path):
@@ -167,7 +167,7 @@ def build(matrix_file, impacted_file, output_file, ptl_binary_path):
                 available_features, item.get("config"), item.get("suite")
             )
             logging.debug("matrix item features: %s", features)
-            if not any(connector in impacted_features for connector in features):
+            if not any(feature in impacted_features for feature in features):
                 logging.info("Excluding matrix entry due to features: %s", item)
                 result.setdefault("exclude", []).append(item)
                 if "include" in result and item in result["include"]:
