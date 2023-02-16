@@ -27,6 +27,7 @@ import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_104;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
@@ -71,7 +72,7 @@ public class TestDeltaLakeAlterTableCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testAddColumnUnsupportedWriterVersion()
     {
@@ -81,14 +82,14 @@ public class TestDeltaLakeAlterTableCompatibility
         onDelta().executeQuery(format("" +
                         "CREATE TABLE default.%s (col int) " +
                         "USING DELTA LOCATION 's3://%s/%s'" +
-                        "TBLPROPERTIES ('delta.minWriterVersion'='5')",
+                        "TBLPROPERTIES ('delta.minWriterVersion'='6')",
                 tableName,
                 bucketName,
                 tableDirectory));
 
         try {
             assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_col int"))
-                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 5 which is not supported");
+                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 6 which is not supported");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
@@ -196,14 +197,14 @@ public class TestDeltaLakeAlterTableCompatibility
         onDelta().executeQuery(format("" +
                         "CREATE TABLE default.%s (col int) " +
                         "USING DELTA LOCATION 's3://%s/%s'" +
-                        "TBLPROPERTIES ('delta.minWriterVersion'='5')",
+                        "TBLPROPERTIES ('delta.minWriterVersion'='6')",
                 tableName,
                 bucketName,
                 tableDirectory));
 
         try {
             assertQueryFailure(() -> onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'test comment'"))
-                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 5 which is not supported");
+                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 6 which is not supported");
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
@@ -242,17 +243,41 @@ public class TestDeltaLakeAlterTableCompatibility
         onDelta().executeQuery(format("" +
                         "CREATE TABLE default.%s (col int) " +
                         "USING DELTA LOCATION 's3://%s/%s'" +
-                        "TBLPROPERTIES ('delta.minWriterVersion'='5')",
+                        "TBLPROPERTIES ('delta.minWriterVersion'='6')",
                 tableName,
                 bucketName,
                 tableDirectory));
 
         try {
             assertQueryFailure(() -> onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".col IS 'test column comment'"))
-                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 5 which is not supported");
+                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 6 which is not supported");
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testOptimizeUnsupportedWriterVersion()
+    {
+        String tableName = "test_dl_optimize_unsupported_writer_" + randomNameSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        onDelta().executeQuery(format("" +
+                        "CREATE TABLE default.%s (col int) " +
+                        "USING DELTA LOCATION 's3://%s/%s'" +
+                        "TBLPROPERTIES ('delta.minWriterVersion'='6')",
+                tableName,
+                bucketName,
+                tableDirectory));
+
+        try {
+            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " EXECUTE OPTIMIZE"))
+                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 6 which is not supported");
+        }
+        finally {
+            dropDeltaTableWithRetry(tableName);
         }
     }
 
