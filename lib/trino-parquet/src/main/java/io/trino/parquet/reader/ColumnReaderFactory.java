@@ -48,7 +48,6 @@ import static io.trino.parquet.ParquetTypeUtils.createDecimalType;
 import static io.trino.parquet.reader.decoders.TransformingValueDecoders.getInt96ToLongTimestampDecoder;
 import static io.trino.parquet.reader.decoders.TransformingValueDecoders.getInt96ToShortTimestampDecoder;
 import static io.trino.parquet.reader.flat.BinaryColumnAdapter.BINARY_ADAPTER;
-import static io.trino.parquet.reader.flat.BooleanColumnAdapter.BOOLEAN_ADAPTER;
 import static io.trino.parquet.reader.flat.ByteColumnAdapter.BYTE_ADAPTER;
 import static io.trino.parquet.reader.flat.Int128ColumnAdapter.INT128_ADAPTER;
 import static io.trino.parquet.reader.flat.Int96ColumnAdapter.INT96_ADAPTER;
@@ -91,7 +90,7 @@ public final class ColumnReaderFactory
         LocalMemoryContext memoryContext = aggregatedMemoryContext.newLocalMemoryContext(ColumnReader.class.getSimpleName());
         if (useBatchedColumnReaders && field.getDescriptor().getPath().length == 1) {
             if (BOOLEAN.equals(type) && primitiveType == PrimitiveTypeName.BOOLEAN) {
-                return new FlatColumnReader<>(field, ValueDecoders::getBooleanDecoder, BOOLEAN_ADAPTER, memoryContext);
+                return new FlatColumnReader<>(field, ValueDecoders::getBooleanDecoder, BYTE_ADAPTER, memoryContext);
             }
             if (TINYINT.equals(type) && isIntegerOrDecimalPrimitive(primitiveType)) {
                 if (isZeroScaleShortDecimalAnnotation(annotation)) {
