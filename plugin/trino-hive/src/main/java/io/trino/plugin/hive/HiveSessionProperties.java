@@ -89,6 +89,7 @@ public final class HiveSessionProperties
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet_max_read_block_row_count";
     private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
+    private static final String PARQUET_OPTIMIZED_NESTED_READER_ENABLED = "parquet_optimized_nested_reader_enabled";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String PARQUET_WRITER_BATCH_SIZE = "parquet_writer_batch_size";
@@ -349,6 +350,11 @@ public final class HiveSessionProperties
                         PARQUET_OPTIMIZED_READER_ENABLED,
                         "Use optimized Parquet reader",
                         parquetReaderConfig.isOptimizedReaderEnabled(),
+                        false),
+                booleanProperty(
+                        PARQUET_OPTIMIZED_NESTED_READER_ENABLED,
+                        "Use optimized Parquet reader for nested columns",
+                        parquetReaderConfig.isOptimizedNestedReaderEnabled(),
                         false),
                 dataSizeProperty(
                         PARQUET_WRITER_BLOCK_SIZE,
@@ -734,6 +740,11 @@ public final class HiveSessionProperties
     public static boolean isParquetOptimizedReaderEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_OPTIMIZED_READER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isParquetOptimizedNestedReaderEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_OPTIMIZED_NESTED_READER_ENABLED, Boolean.class);
     }
 
     public static DataSize getParquetWriterBlockSize(ConnectorSession session)
