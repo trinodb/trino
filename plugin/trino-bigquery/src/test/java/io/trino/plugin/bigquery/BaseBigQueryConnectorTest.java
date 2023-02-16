@@ -223,8 +223,6 @@ public abstract class BaseBigQueryConnectorTest
         switch (dataMappingTestSetup.getTrinoTypeName()) {
             case "real":
             case "char(3)":
-            case "decimal(5,3)":
-            case "decimal(15,3)":
             case "time":
             case "time(3)":
             case "time(6)":
