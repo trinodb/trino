@@ -259,6 +259,13 @@ to the following table:
     - ``INT64``
     - ``INT``, ``SMALLINT``, ``INTEGER``, ``BIGINT``, ``TINYINT``, and
       ``BYTEINT`` are aliases for ``INT64`` in BigQuery.
+  * - ``DECIMAL(P,S)``
+    - ``NUMERIC``
+    - The default precision and scale of ``NUMERIC`` is ``(38, 9)``.
+  * - ``DECIMAL(P,S)``
+    - ``BIGNUMERIC``
+    - Precision > 38 is not supported. The default precision and scale of
+      ``BIGNUMERIC`` is ``(77, 38)``.
   * - ``VARCHAR``
     - ``STRING``
     -
