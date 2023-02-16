@@ -68,15 +68,15 @@ public class InMemoryRecordSet
         return new InMemoryRecordCursor(types, records.iterator());
     }
 
-    private static class InMemoryRecordCursor
+    public static class InMemoryRecordCursor<T extends Iterator<? extends List<?>>>
             implements RecordCursor
     {
         private final List<Type> types;
-        private final Iterator<? extends List<?>> records;
+        protected T records;
         private List<?> record;
         private long completedBytes;
 
-        private InMemoryRecordCursor(List<Type> types, Iterator<? extends List<?>> records)
+        protected InMemoryRecordCursor(List<Type> types, T records)
         {
             this.types = types;
             this.records = records;
