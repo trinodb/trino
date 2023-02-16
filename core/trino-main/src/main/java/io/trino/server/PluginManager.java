@@ -91,7 +91,6 @@ public class PluginManager
     private final BlockEncodingManager blockEncodingManager;
     private final HandleResolver handleResolver;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
-    private final Set<PluginInstaller> pluginInstallers;
 
     @Inject
     public PluginManager(
@@ -109,8 +108,7 @@ public class PluginManager
             TypeRegistry typeRegistry,
             BlockEncodingManager blockEncodingManager,
             HandleResolver handleResolver,
-            ExchangeManagerRegistry exchangeManagerRegistry,
-            Set<PluginInstaller> pluginInstallers)
+            ExchangeManagerRegistry exchangeManagerRegistry)
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
         this.connectorFactory = requireNonNull(connectorFactory, "connectorFactory is null");
@@ -127,7 +125,6 @@ public class PluginManager
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
-        this.pluginInstallers = requireNonNull(pluginInstallers, "pluginInstallers is null");
     }
 
     public void loadPlugins()
@@ -255,10 +252,6 @@ public class PluginManager
         for (ExchangeManagerFactory exchangeManagerFactory : plugin.getExchangeManagerFactories()) {
             log.info("Registering exchange manager %s", exchangeManagerFactory.getName());
             exchangeManagerRegistry.addExchangeManagerFactory(exchangeManagerFactory);
-        }
-
-        for (PluginInstaller pluginInstaller : pluginInstallers) {
-            pluginInstaller.installPlugin(plugin);
         }
     }
 
