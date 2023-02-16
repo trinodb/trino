@@ -59,7 +59,8 @@ public class BigQueryConnectorModule
 
             // Connector implementation
             binder.bind(BigQueryConnector.class).in(Scopes.SINGLETON);
-            binder.bind(BigQueryMetadata.class).in(Scopes.SINGLETON);
+            binder.bind(BigQueryMetadataFactory.class).to(DefaultBigQueryMetadataFactory.class).in(Scopes.SINGLETON);
+            binder.bind(BigQueryTransactionManager.class).in(Scopes.SINGLETON);
             binder.bind(BigQuerySplitManager.class).in(Scopes.SINGLETON);
             binder.bind(BigQueryPageSourceProvider.class).in(Scopes.SINGLETON);
             binder.bind(BigQueryPageSinkProvider.class).in(Scopes.SINGLETON);
