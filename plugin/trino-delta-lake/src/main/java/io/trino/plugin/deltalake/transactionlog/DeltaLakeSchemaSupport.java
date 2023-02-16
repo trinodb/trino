@@ -421,8 +421,8 @@ public final class DeltaLakeSchemaSupport
     @Nullable
     private static String getGeneratedColumnExpressions(JsonNode node)
     {
-        JsonNode invariants = node.get("metadata").get("delta.generationExpression");
-        return invariants == null ? null : invariants.asText();
+        JsonNode generationExpression = node.get("metadata").get("delta.generationExpression");
+        return generationExpression == null ? null : generationExpression.asText();
     }
 
     public static Map<String, String> getCheckConstraints(MetadataEntry metadataEntry)
