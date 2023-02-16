@@ -160,13 +160,22 @@ public class TestDeltaLakeConnectorSmokeTest
     }
 
     @Test
-    public void testReadingTableWithDeltaColumnInvariant()
+    public void testDeltaColumnInvariant()
     {
-        assertThat(getQueryRunner().execute("SELECT * FROM invariants").getRowCount()).isEqualTo(1);
-        assertThatThrownBy(() -> query("INSERT INTO invariants VALUES(2)"))
-                .hasMessageContaining("Inserts are not supported for tables with delta invariants");
-        assertThatThrownBy(() -> query("UPDATE invariants SET dummy = 3 WHERE dummy = 1"))
-                .hasMessageContaining("Updates are not supported for tables with delta invariants");
+        String tableName = "test_invariants_" + randomNameSuffix();
+        hiveMinioDataLake.copyResources("databricks/invariants", tableName);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(SCHEMA, tableName, getLocationForTable(bucketName, tableName)));
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1");
+        assertUpdate("INSERT INTO " + tableName + " VALUES(2)", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1), (2)");
+
+        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(3)"))
+                .hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
+        assertThatThrownBy(() -> query("UPDATE " + tableName + " SET dummy = 3 WHERE dummy = 1"))
+                .hasMessageContaining("Updating a table with a check constraint is not supported");
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1), (2)");
     }
 
     @Test
@@ -180,15 +189,18 @@ public class TestDeltaLakeConnectorSmokeTest
                 tableName,
                 getLocationForTable(bucketName, tableName)));
 
-        assertThatThrownBy(() -> query("INSERT INTO invariants VALUES(2)"))
-                .hasMessageContaining("Inserts are not supported for tables with delta invariants");
+        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(3)"))
+                .hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
 
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c INT");
         assertUpdate("COMMENT ON COLUMN " + tableName + ".c IS 'example column comment'");
         assertUpdate("COMMENT ON TABLE " + tableName + " IS 'example table comment'");
 
-        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(2, 2)"))
-                .hasMessageContaining("Inserts are not supported for tables with delta invariants");
+        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(3, 30)"))
+                .hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES(2, 20)", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL), (2, 20)");
     }
 
     @DataProvider

@@ -410,7 +410,17 @@ public final class DeltaLakeSchemaSupport
     private static String getInvariants(JsonNode node)
     {
         JsonNode invariants = node.get("metadata").get("delta.invariants");
-        return invariants == null ? null : invariants.asText();
+        return invariants == null ? null : extractInvariantsExpression(invariants.asText());
+    }
+
+    private static String extractInvariantsExpression(String invariants)
+    {
+        try {
+            return OBJECT_MAPPER.readTree(invariants).get("expression").get("expression").asText();
+        }
+        catch (JsonProcessingException e) {
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, getLocation(e), "Failed to parse invariants expression: " + invariants, e);
+        }
     }
 
     public static Map<String, String> getGeneratedColumnExpressions(MetadataEntry metadataEntry)
