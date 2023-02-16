@@ -534,6 +534,13 @@ with Parquet files performed by the Hive connector.
         optimized parquet reader by default. The equivalent catalog session
         property is ``parquet_optimized_reader_enabled``.
       - ``true``
+    * - ``parquet.optimized-nested-reader.enabled``
+      - Whether batched column readers should be used when reading ARRAY, MAP
+        and ROW types from Parquet files for improved performance. Set this
+        property to ``false`` to disable the optimized parquet reader by default
+        for structural data types. The equivalent catalog session property is
+        ``parquet_optimized_nested_reader_enabled``.
+      - ``true``
     * - ``parquet.use-bloom-filter``
       - Whether bloom filters are used for predicate pushdown when reading
         Parquet files. Set this property to ``false`` to disable the usage of
