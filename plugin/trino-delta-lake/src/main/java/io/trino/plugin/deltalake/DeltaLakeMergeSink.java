@@ -364,11 +364,10 @@ public class DeltaLakeMergeSink
             Closeable rollbackAction = () -> fileSystem.deleteFile(path);
 
             List<Type> parquetTypes = dataColumns.stream()
-                    .map(column -> toParquetType(typeOperators, column.getType()))
+                    .map(column -> toParquetType(typeOperators, column.getPhysicalType()))
                     .collect(toImmutableList());
-
             List<String> dataColumnNames = dataColumns.stream()
-                    .map(DeltaLakeColumnHandle::getName)
+                    .map(DeltaLakeColumnHandle::getPhysicalName)
                     .collect(toImmutableList());
             ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
                     parquetTypes,

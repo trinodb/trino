@@ -185,8 +185,8 @@ public class DeltaLakeWriter
     public DataFileInfo getDataFileInfo()
             throws IOException
     {
-        List<String> dataColumnNames = columnHandles.stream().map(DeltaLakeColumnHandle::getName).collect(toImmutableList());
-        List<Type> dataColumnTypes = columnHandles.stream().map(DeltaLakeColumnHandle::getType).collect(toImmutableList());
+        List<String> dataColumnNames = columnHandles.stream().map(DeltaLakeColumnHandle::getPhysicalName).collect(toImmutableList());
+        List<Type> dataColumnTypes = columnHandles.stream().map(DeltaLakeColumnHandle::getPhysicalType).collect(toImmutableList());
         return new DataFileInfo(
                 relativeFilePath,
                 getWrittenBytes(),
