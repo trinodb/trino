@@ -162,8 +162,8 @@ public abstract class AbstractDeltaLakePageSink
                 case REGULAR:
                     dataColumnHandles.add(column);
                     dataColumnsInputIndex.add(inputIndex);
-                    dataColumnNames.add(column.getName());
-                    dataColumnTypes.add(column.getType());
+                    dataColumnNames.add(column.getPhysicalName());
+                    dataColumnTypes.add(column.getPhysicalType());
                     break;
                 case SYNTHESIZED:
                     processSynthesizedColumn(column);

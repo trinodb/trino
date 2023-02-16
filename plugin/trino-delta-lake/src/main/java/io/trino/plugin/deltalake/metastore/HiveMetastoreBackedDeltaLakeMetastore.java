@@ -375,7 +375,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
                 columnStatsBuilder.setDistinctValuesCount(Estimate.of(partitioningColumnsDistinctValues.get(column).size()));
             }
             if (statistics.isPresent()) {
-                DeltaLakeColumnStatistics deltaLakeColumnStatistics = statistics.get().getColumnStatistics().get(column.getName());
+                DeltaLakeColumnStatistics deltaLakeColumnStatistics = statistics.get().getColumnStatistics().get(column.getPhysicalName());
                 if (deltaLakeColumnStatistics != null && column.getColumnType() != PARTITION_KEY) {
                     deltaLakeColumnStatistics.getTotalSizeInBytes().ifPresent(size -> columnStatsBuilder.setDataSize(Estimate.of(size)));
                     columnStatsBuilder.setDistinctValuesCount(Estimate.of(deltaLakeColumnStatistics.getNdvSummary().cardinality()));
