@@ -452,9 +452,10 @@ public class DeltaLakeMetadata
         String location = metastore.getTableLocation(tableHandle.getSchemaTableName(), session);
         Map<String, String> columnComments = getColumnComments(tableHandle.getMetadataEntry());
         Map<String, Boolean> columnsNullability = getColumnsNullability(tableHandle.getMetadataEntry());
-        List<String> checkConstraints = getCheckConstraints(tableHandle.getMetadataEntry()).values().stream()
-                .map(SparkExpressionParser::toTrinoExpression)
-                .collect(toImmutableList());
+        List<String> constraints = ImmutableList.<String>builder()
+                .addAll(getCheckConstraints(tableHandle.getMetadataEntry()).values())
+                .addAll(getColumnInvariants(tableHandle.getMetadataEntry()).values()) // The internal logic for column invariants in Delta Lake is same as check constraints
+                .build();
         List<ColumnMetadata> columns = getColumns(tableHandle.getMetadataEntry()).stream()
                 .map(column -> getColumnMetadata(column, columnComments.get(column.getName()), columnsNullability.getOrDefault(column.getName(), true)))
                 .collect(toImmutableList());
@@ -474,7 +475,9 @@ public class DeltaLakeMetadata
                 columns,
                 properties.buildOrThrow(),
                 Optional.ofNullable(tableHandle.getMetadataEntry().getDescription()),
-                checkConstraints);
+                constraints.stream()
+                        .map(SparkExpressionParser::toTrinoExpression)
+                        .collect(toImmutableList()));
     }
 
     @Override
@@ -1211,10 +1214,6 @@ public class DeltaLakeMetadata
                     NOT_SUPPORTED,
                     format("Inserts are not enabled on the %1$s filesystem in order to avoid eventual data corruption which may be caused by concurrent data modifications on the table. " +
                             "Writes to the %1$s filesystem can be however enabled with the '%2$s' configuration property.", fileSystem, ENABLE_NON_CONCURRENT_WRITES_CONFIGURATION_KEY));
-        }
-        Map<String, String> columnInvariants = getColumnInvariants(table.getMetadataEntry());
-        if (!columnInvariants.isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, "Inserts are not supported for tables with delta invariants");
         }
         checkUnsupportedGeneratedColumns(table.getMetadataEntry());
         checkSupportedWriterVersion(session, table.getSchemaTableName());
