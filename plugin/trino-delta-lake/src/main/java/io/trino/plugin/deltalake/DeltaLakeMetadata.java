@@ -181,10 +181,14 @@ import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHANGE_DATA_FEE
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHECKPOINT_INTERVAL_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.PARTITIONED_BY_PROPERTY;
+import static io.trino.plugin.deltalake.DeltaLakeTableProperties.READER_VERSION_PROPERTY;
+import static io.trino.plugin.deltalake.DeltaLakeTableProperties.WRITER_VERSION_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getChangeDataFeedEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getCheckpointInterval;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getLocation;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getPartitionedBy;
+import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getReaderVersion;
+import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getWriterVersion;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_PROPERTY;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_VALUE;
 import static io.trino.plugin.deltalake.procedure.DeltaLakeTableProcedureId.OPTIMIZE;
@@ -280,13 +284,14 @@ public class DeltaLakeMetadata
     public static final String SET_TBLPROPERTIES_OPERATION = "SET TBLPROPERTIES";
     public static final String CHANGE_COLUMN_OPERATION = "CHANGE COLUMN";
     public static final String ISOLATION_LEVEL = "WriteSerializable";
-    private static final int READER_VERSION = 1;
-    // The required writer version used by tables created by Trino
-    private static final int WRITER_VERSION = 2;
-    // The highest writer version Trino supports writing to
-    private static final int MAX_WRITER_VERSION = 4;
-    // This constant should be used only for a new table
-    private static final ProtocolEntry DEFAULT_PROTOCOL = new ProtocolEntry(READER_VERSION, WRITER_VERSION);
+
+    // The required reader and writer versions used by tables created by Trino
+    public static final int MIN_READER_VERSION = 1;
+    public static final int MIN_WRITER_VERSION = 2;
+    // The highest reader and writer versions Trino supports writing to
+    public static final int MAX_READER_VERSION = 2;
+    public static final int MAX_WRITER_VERSION = 4;
+
     // Matches the dummy column Databricks stores in the metastore
     private static final List<Column> DUMMY_DATA_COLUMNS = ImmutableList.of(
             new Column("col", HiveType.toHiveType(new ArrayType(VarcharType.createUnboundedVarcharType())), Optional.empty()));
@@ -478,6 +483,10 @@ public class DeltaLakeMetadata
 
         Optional<Boolean> changeDataFeedEnabled = tableHandle.getMetadataEntry().isChangeDataFeedEnabled();
         changeDataFeedEnabled.ifPresent(value -> properties.put(CHANGE_DATA_FEED_ENABLED_PROPERTY, value));
+
+        ProtocolEntry protocolEntry = getProtocolEntry(session, tableHandle.getSchemaTableName());
+        properties.put(READER_VERSION_PROPERTY, protocolEntry.getMinReaderVersion());
+        properties.put(WRITER_VERSION_PROPERTY, protocolEntry.getMinWriterVersion());
 
         return new ConnectorTableMetadata(
                 tableHandle.getSchemaTableName(),
@@ -747,7 +756,7 @@ public class DeltaLakeMetadata
                         nodeVersion,
                         nodeId,
                         tableMetadata.getComment(),
-                        DEFAULT_PROTOCOL);
+                        getProtocolEntry(tableMetadata.getProperties()));
 
                 setRollback(() -> deleteRecursivelyIfExists(fileSystem, deltaLogDirectory));
                 transactionLogWriter.flush();
@@ -871,7 +880,8 @@ public class DeltaLakeMetadata
                 getCheckpointInterval(tableMetadata.getProperties()),
                 external,
                 tableMetadata.getComment(),
-                getChangeDataFeedEnabled(tableMetadata.getProperties()));
+                getChangeDataFeedEnabled(tableMetadata.getProperties()),
+                getProtocolEntry(tableMetadata.getProperties()));
     }
 
     private Optional<String> getSchemaLocation(Database database)
@@ -989,7 +999,7 @@ public class DeltaLakeMetadata
                     nodeVersion,
                     nodeId,
                     handle.getComment(),
-                    DEFAULT_PROTOCOL);
+                    handle.getProtocolEntry());
             appendAddFileEntries(transactionLogWriter, dataFileInfos, handle.getPartitionedBy(), true);
             transactionLogWriter.flush();
 
@@ -1803,6 +1813,16 @@ public class DeltaLakeMetadata
     private ProtocolEntry getProtocolEntry(ConnectorSession session, SchemaTableName schemaTableName)
     {
         return metastore.getProtocol(session, metastore.getSnapshot(schemaTableName, session));
+    }
+
+    private ProtocolEntry getProtocolEntry(Map<String, Object> properties)
+    {
+        Optional<Integer> readerVersion = getReaderVersion(properties);
+        Optional<Integer> writerVersion = getWriterVersion(properties);
+
+        return new ProtocolEntry(
+                readerVersion.orElse(MIN_READER_VERSION),
+                writerVersion.orElse(MIN_WRITER_VERSION));
     }
 
     private void writeCheckpointIfNeeded(ConnectorSession session, SchemaTableName table, Optional<Long> checkpointInterval, long newVersion)
