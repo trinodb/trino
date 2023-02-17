@@ -3127,9 +3127,10 @@ public class ExpressionAnalyzer
             if (!actualType.equals(expectedType)) {
                 if (!typeCoercion.canCoerce(actualType, expectedType)) {
                     if (expression.getLocation().isPresent()) {
-                        NodeLocation location =  expression.getLocation().get();
+                        NodeLocation location = expression.getLocation().get();
                         throw semanticException(TYPE_MISMATCH, expression, "%s must evaluate to a %s (actual: %s) line: %s column: %s", message, expectedType, actualType, location.getLineNumber(), location.getColumnNumber());
-                    } else {
+                    }
+                    else {
                         throw semanticException(TYPE_MISMATCH, expression, "%s must evaluate to a %s (actual: %s)", message, expectedType, actualType);
                     }
                 }
