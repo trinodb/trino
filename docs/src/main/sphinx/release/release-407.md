@@ -67,7 +67,7 @@
 * Reduce server errors in high-load scenarios. This can be enabled with the
   `hive.s3.connect-ttl` configuration property. ({issue}`16005`)
 * Allow setting the `hive.max-partitions-per-scan` configuration property to a
-  value lover than the value set in the `hive.max-partitions-for-eager-load`. ({issue}`16111`)
+  value lower than the value set in `hive.max-partitions-for-eager-load`. ({issue}`16111`)
 * Fix query failure when reading Parquet files written by Apache Impala. ({issue}`15942`)
 * Fix listing relations failure when a Glue table has no table type set. ({issue}`15909`)
 
