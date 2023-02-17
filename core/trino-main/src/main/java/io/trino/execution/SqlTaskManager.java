@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -27,6 +28,7 @@ import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.event.SplitMonitor;
@@ -121,7 +123,7 @@ public class SqlTaskManager
     private final Duration clientTimeout;
 
     private final NonEvictableLoadingCache<QueryId, QueryContext> queryContexts;
-    private final NonEvictableLoadingCache<TaskId, SqlTask> tasks;
+    private final LoadingCache<TaskId, SqlTask> tasks;
 
     private final SqlTaskIoStats cachedStats = new SqlTaskIoStats();
     private final SqlTaskIoStats finishedTaskStats = new SqlTaskIoStats();
@@ -212,7 +214,7 @@ public class SqlTaskManager
         queryContexts = buildNonEvictableCache(CacheBuilder.newBuilder().weakValues(), CacheLoader.from(
                 queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryMemoryPerNode, maxQuerySpillPerNode)));
 
-        tasks = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(
+        tasks = EvictableCacheBuilder.newBuilder().build(CacheLoader.from(
                 taskId -> createSqlTask(
                         taskId,
                         locationFactory.createLocalTaskLocation(taskId),
@@ -582,9 +584,7 @@ public class SqlTaskManager
                     try {
                         DateTime endTime = taskInfo.getStats().getEndTime();
                         if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
-                            // The removal here is concurrency safe with respect to any concurrent loads: the cache has no expiration,
-                            // the taskId is in the cache, so there mustn't be an ongoing load.
-                            tasks.unsafeInvalidate(taskId);
+                            tasks.invalidate(taskId);
                         }
                     }
                     catch (RuntimeException e) {
