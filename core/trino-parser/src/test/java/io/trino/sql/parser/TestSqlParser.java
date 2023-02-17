@@ -38,6 +38,7 @@ import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
@@ -56,6 +57,7 @@ import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.Descriptor;
 import io.trino.sql.tree.DescriptorField;
 import io.trino.sql.tree.DoubleLiteral;
+import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropRole;
@@ -135,6 +137,7 @@ import io.trino.sql.tree.PatternSearchMode;
 import io.trino.sql.tree.PatternVariable;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.PrincipalSpecification;
+import io.trino.sql.tree.PrincipalSpecification.Type;
 import io.trino.sql.tree.ProcessingMode;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
@@ -1499,6 +1502,55 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));
+    }
+
+    @Test
+    public void testCreateCatalog()
+    {
+        assertStatement("CREATE CATALOG test USING conn",
+                new CreateCatalog(new Identifier("test"), false, new Identifier("conn"), ImmutableList.of(), Optional.empty(), Optional.empty()));
+
+        assertStatement("CREATE CATALOG IF NOT EXISTS test USING conn",
+                new CreateCatalog(new Identifier("test"), true, new Identifier("conn"), ImmutableList.of(), Optional.empty(), Optional.empty()));
+
+        assertStatement("CREATE CATALOG test USING conn COMMENT 'awesome' AUTHORIZATION ROLE dragon WITH (\"a\" = 'apple', \"b\" = 123)",
+                new CreateCatalog(
+                        new Identifier("test"),
+                        false,
+                        new Identifier("conn"),
+                        ImmutableList.of(
+                                new Property(new Identifier("a"), new StringLiteral("apple")),
+                                new Property(new Identifier("b"), new LongLiteral("123"))),
+                        Optional.of(new PrincipalSpecification(Type.ROLE, new Identifier("dragon"))),
+                        Optional.of("awesome")));
+
+        assertStatement("CREATE CATALOG \"some name that contains space\" USING \"conn-with-dash\"",
+                new CreateCatalog(
+                        new Identifier("some name that contains space"),
+                        false,
+                        new Identifier("conn-with-dash"),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testDropCatalog()
+    {
+        assertStatement("DROP CATALOG test",
+                new DropCatalog(new Identifier("test"), false, false));
+
+        assertStatement("DROP CATALOG test CASCADE",
+                new DropCatalog(new Identifier("test"), false, true));
+
+        assertStatement("DROP CATALOG IF EXISTS test",
+                new DropCatalog(new Identifier("test"), true, false));
+
+        assertStatement("DROP CATALOG IF EXISTS test RESTRICT",
+                new DropCatalog(new Identifier("test"), true, false));
+
+        assertStatement("DROP CATALOG \"some catalog that contains space\"",
+                new DropCatalog(new Identifier("some catalog that contains space"), false, false));
     }
 
     @Test
