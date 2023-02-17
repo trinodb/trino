@@ -115,6 +115,7 @@ import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Node;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
@@ -3125,7 +3126,12 @@ public class ExpressionAnalyzer
         {
             if (!actualType.equals(expectedType)) {
                 if (!typeCoercion.canCoerce(actualType, expectedType)) {
-                    throw semanticException(TYPE_MISMATCH, expression, "%s must evaluate to a %s (actual: %s)", message, expectedType, actualType);
+                    if (expression.getLocation().isPresent()) {
+                        NodeLocation location =  expression.getLocation().get();
+                        throw semanticException(TYPE_MISMATCH, expression, "%s must evaluate to a %s (actual: %s) line: %s column: %s", message, expectedType, actualType, location.getLineNumber(), location.getColumnNumber());
+                    } else {
+                        throw semanticException(TYPE_MISMATCH, expression, "%s must evaluate to a %s (actual: %s)", message, expectedType, actualType);
+                    }
                 }
                 addOrReplaceExpressionCoercion(expression, actualType, expectedType);
             }
