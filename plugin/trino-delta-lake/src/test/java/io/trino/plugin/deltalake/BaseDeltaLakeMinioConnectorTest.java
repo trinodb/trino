@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -260,7 +261,9 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                         ")\n" +
                         "WITH (\n" +
                         "   location = \\E'.*/test_schema/orders',\n\\Q" +
-                        "   partitioned_by = ARRAY[]\n" +
+                        "   partitioned_by = ARRAY[],\n" +
+                        "   reader_version = 1,\n" +
+                        "   writer_version = 2\n" +
                         ")");
     }
 
@@ -862,6 +865,80 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                 .contains("change_data_feed_enabled = true");
     }
 
+    @Test
+    public void testCreateTableWithInvalidReaderWriterVersion()
+    {
+        String tableName = "test_create_table_with_invalid_reader_writer_version_fails_" + randomNameSuffix();
+
+        assertQueryFails("CREATE TABLE " + tableName + " (a_number INT) WITH (reader_version = 0)",
+                "Unable to set catalog 'delta_lake' table property 'reader_version' to \\[0]: reader_version must be between 1 and 2");
+        assertQueryFails("CREATE TABLE " + tableName + " (a_number INT) WITH (reader_version = 3)",
+                "Unable to set catalog 'delta_lake' table property 'reader_version' to \\[3]: reader_version must be between 1 and 2");
+        assertQueryFails("CREATE TABLE " + tableName + " (a_number INT) WITH (writer_version = 1)",
+                "Unable to set catalog 'delta_lake' table property 'writer_version' to \\[1]: writer_version must be between 2 and 4");
+        assertQueryFails("CREATE TABLE " + tableName + " (a_number INT) WITH (writer_version = 5)",
+                "Unable to set catalog 'delta_lake' table property 'writer_version' to \\[5]: writer_version must be between 2 and 4");
+    }
+
+    @Test
+    public void testCreateTableWithValidReaderWriterVersion()
+    {
+        String tableName = "test_create_table_with_valid_reader_writer_version_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT)");
+        assertThatShowCreateTable(tableName, ".*(reader_version = 1,(.*)writer_version = 2).*"); // default reader and writer version
+        assertUpdate("DROP TABLE " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT) WITH (reader_version = 2)");
+        assertThatShowCreateTable(tableName, ".*reader_version = 2.*");
+        assertUpdate("DROP TABLE " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT) WITH (writer_version = 4)");
+        assertThatShowCreateTable(tableName, ".*writer_version = 4.*");
+        assertUpdate("DROP TABLE " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT) WITH (reader_version = 2, writer_version = 3)");
+        assertThatShowCreateTable(tableName, ".*(reader_version = 2,(.*)writer_version = 3).*");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateTableAsWithInvalidReaderWriterVersion()
+    {
+        String tableName = "test_create_table_as_with_invalid_reader_writer_version_fails_" + randomNameSuffix();
+
+        assertQueryFails("CREATE TABLE " + tableName + " (a_number) WITH (reader_version = 0) AS VALUES (1), (2)",
+                "Unable to set catalog 'delta_lake' table property 'reader_version' to \\[0]: reader_version must be between 1 and 2");
+        assertQueryFails("CREATE TABLE " + tableName + " (a_number) WITH (reader_version = 3) AS VALUES (1), (2)",
+                "Unable to set catalog 'delta_lake' table property 'reader_version' to \\[3]: reader_version must be between 1 and 2");
+        assertQueryFails("CREATE TABLE " + tableName + " (a_number) WITH (writer_version = 1) AS VALUES (1), (2)",
+                "Unable to set catalog 'delta_lake' table property 'writer_version' to \\[1]: writer_version must be between 2 and 4");
+        assertQueryFails("CREATE TABLE " + tableName + " (a_number) WITH (writer_version = 5) AS VALUES (1), (2)",
+                "Unable to set catalog 'delta_lake' table property 'writer_version' to \\[5]: writer_version must be between 2 and 4");
+    }
+
+    @Test
+    public void testCreateTableAsWithValidReaderWriterVersion()
+    {
+        String tableName = "test_create_table_as_with_valid_reader_writer_version_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number) AS VALUES (1), (2)", 2);
+        assertThatShowCreateTable(tableName, ".*(reader_version = 1,(.*)writer_version = 2).*"); // default reader and writer version
+        assertUpdate("DROP TABLE " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number) WITH (reader_version = 2) AS VALUES (1), (2)", 2);
+        assertThatShowCreateTable(tableName, ".*reader_version = 2.*");
+        assertUpdate("DROP TABLE " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number) WITH (writer_version = 4) AS VALUES (1), (2)", 2);
+        assertThatShowCreateTable(tableName, ".*writer_version = 4.*");
+        assertUpdate("DROP TABLE " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number) WITH (reader_version = 2, writer_version = 3) AS VALUES (1), (2)", 2);
+        assertThatShowCreateTable(tableName, ".*(reader_version = 2,(.*)writer_version = 3).*");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Override
     protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
     {
@@ -922,5 +999,11 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         return hiveMinioDataLake.listFiles(format("%s/%s", SCHEMA, tableName)).stream()
                 .map(path -> format("s3://%s/%s", bucketName, path))
                 .collect(toImmutableList());
+    }
+
+    private void assertThatShowCreateTable(String tableName, String expectedRegex)
+    {
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .matches(Pattern.compile(expectedRegex, Pattern.DOTALL));
     }
 }

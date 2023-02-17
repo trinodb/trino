@@ -563,15 +563,21 @@ The following properties are available for use:
     - Set the checkpoint interval in seconds.
   * - ``change_data_feed_enabled``
     - Enables storing change data feed entries.
+  * - ``reader_version``
+    - Set reader version.
+  * - ``writer_version``
+    - Set writer version.
 
-The following example uses all four table properties::
+The following example uses all six table properties::
 
   CREATE TABLE example.default.example_partitioned_table
   WITH (
     location = 's3://my-bucket/a/path',
     partitioned_by = ARRAY['regionkey'],
     checkpoint_interval = 5,
-    change_data_feed_enabled = true
+    change_data_feed_enabled = true,
+    reader_version = 2,
+    writer_version = 4
   )
   AS SELECT name, comment, regionkey FROM tpch.tiny.nation;
 
