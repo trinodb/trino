@@ -27,6 +27,7 @@ import io.trino.SystemSessionPropertiesProvider;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogServiceProviderModule;
+import io.trino.connector.ConnectorName;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.connector.CoordinatorDynamicCatalogManager;
 import io.trino.connector.DefaultCatalogFactory;
@@ -735,7 +736,7 @@ public class LocalQueryRunner
     public void createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
         catalogFactory.addConnectorFactory(connectorFactory, ignored -> connectorFactory.getClass().getClassLoader());
-        catalogManager.createCatalog(catalogName, connectorFactory.getName(), properties);
+        catalogManager.createCatalog(catalogName, new ConnectorName(connectorFactory.getName()), properties);
     }
 
     @Override
@@ -753,7 +754,7 @@ public class LocalQueryRunner
     @Override
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        catalogManager.createCatalog(catalogName, connectorName, properties);
+        catalogManager.createCatalog(catalogName, new ConnectorName(connectorName), properties);
     }
 
     public CatalogManager getCatalogManager()

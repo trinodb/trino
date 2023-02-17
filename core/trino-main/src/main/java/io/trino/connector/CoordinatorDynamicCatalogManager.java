@@ -128,12 +128,13 @@ public class CoordinatorDynamicCatalogManager
             executeUntilFailure(
                     executor,
                     catalogStore.getCatalogs().stream()
-                            .map(catalog -> (Callable<?>) () -> {
-                                log.info("-- Loading catalog %s --", catalog.getCatalogHandle().getCatalogName());
+                            .map(storedCatalog -> (Callable<?>) () -> {
+                                log.info("-- Loading catalog %s --", storedCatalog.getName());
+                                CatalogProperties catalog = storedCatalog.loadProperties();
                                 CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
                                 activeCatalogs.put(catalog.getCatalogHandle().getCatalogName(), newCatalog);
                                 allCatalogs.put(catalog.getCatalogHandle(), newCatalog);
-                                log.info("-- Added catalog %s using connector %s --", catalog.getCatalogHandle().getCatalogName(), catalog.getConnectorName());
+                                log.info("-- Added catalog %s using connector %s --", storedCatalog.getName(), catalog.getConnectorName());
                                 return null;
                             })
                             .collect(toImmutableList()));
@@ -184,7 +185,7 @@ public class CoordinatorDynamicCatalogManager
     }
 
     @Override
-    public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
+    public void createCatalog(String catalogName, ConnectorName connectorName, Map<String, String> properties)
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(connectorName, "connectorName is null");
@@ -219,7 +220,7 @@ public class CoordinatorDynamicCatalogManager
                 return;
             }
 
-            CatalogConnector catalog = catalogFactory.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, GlobalSystemConnector.NAME, connector);
+            CatalogConnector catalog = catalogFactory.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, new ConnectorName(GlobalSystemConnector.NAME), connector);
             if (activeCatalogs.putIfAbsent(GlobalSystemConnector.NAME, catalog) != null) {
                 throw new IllegalStateException("Global system catalog already registered");
             }
@@ -230,12 +231,12 @@ public class CoordinatorDynamicCatalogManager
         }
     }
 
-    static CatalogVersion computeCatalogVersion(String catalogName, String connectorName, Map<String, String> properties)
+    static CatalogVersion computeCatalogVersion(String catalogName, ConnectorName connectorName, Map<String, String> properties)
     {
         Hasher hasher = Hashing.sha256().newHasher();
         hasher.putUnencodedChars("catalog-hash");
         hashLengthPrefixedString(hasher, catalogName);
-        hashLengthPrefixedString(hasher, connectorName);
+        hashLengthPrefixedString(hasher, connectorName.toString());
         hasher.putInt(properties.size());
         ImmutableSortedMap.copyOf(properties).forEach((key, value) -> {
             hashLengthPrefixedString(hasher, key);

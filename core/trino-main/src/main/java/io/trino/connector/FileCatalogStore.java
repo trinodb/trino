@@ -38,20 +38,21 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.connector.CoordinatorDynamicCatalogManager.computeCatalogVersion;
 import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
+import static java.util.Objects.requireNonNull;
 
 public class FileCatalogStore
         implements CatalogStore
 {
     private static final Logger log = Logger.get(FileCatalogStore.class);
 
-    private final List<CatalogProperties> catalogs;
+    private final List<StoredCatalog> catalogs;
 
     @Inject
     public FileCatalogStore(StaticCatalogManagerConfig config)
     {
         List<String> disabledCatalogs = firstNonNull(config.getDisabledCatalogs(), ImmutableList.of());
 
-        ImmutableList.Builder<CatalogProperties> catalogProperties = ImmutableList.builder();
+        ImmutableList.Builder<StoredCatalog> storedCatalogs = ImmutableList.builder();
         for (File file : listCatalogFiles(config.getCatalogConfigurationDir())) {
             String catalogName = Files.getNameWithoutExtension(file.getName());
             checkArgument(!catalogName.equals(GlobalSystemConnector.NAME), "Catalog name SYSTEM is reserved for internal usage");
@@ -59,31 +60,13 @@ public class FileCatalogStore
                 log.info("Skipping disabled catalog %s", catalogName);
                 continue;
             }
-
-            Map<String, String> properties;
-            try {
-                properties = new HashMap<>(loadPropertiesFrom(file.getPath()));
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException("Error reading catalog property file " + file, e);
-            }
-
-            String connectorName = properties.remove("connector.name");
-            checkState(connectorName != null, "Catalog configuration %s does not contain 'connector.name'", file.getAbsoluteFile());
-            if (connectorName.indexOf('-') >= 0) {
-                String deprecatedConnectorName = connectorName;
-                connectorName = connectorName.replace('-', '_');
-                log.warn("Catalog '%s' is using the deprecated connector name '%s'. The correct connector name is '%s'", catalogName, deprecatedConnectorName, connectorName);
-            }
-
-            CatalogHandle catalogHandle = createRootCatalogHandle(catalogName, computeCatalogVersion(catalogName, connectorName, properties));
-            catalogProperties.add(new CatalogProperties(catalogHandle, connectorName, ImmutableMap.copyOf(properties)));
+            storedCatalogs.add(new FileStoredCatalog(catalogName, file));
         }
-        this.catalogs = catalogProperties.build();
+        this.catalogs = storedCatalogs.build();
     }
 
     @Override
-    public Collection<CatalogProperties> getCatalogs()
+    public Collection<StoredCatalog> getCatalogs()
     {
         return catalogs;
     }
@@ -102,5 +85,48 @@ public class FileCatalogStore
                 .filter(File::isFile)
                 .filter(file -> file.getName().endsWith(".properties"))
                 .collect(toImmutableList());
+    }
+
+    private static class FileStoredCatalog
+            implements StoredCatalog
+    {
+        private final String name;
+        private final File file;
+
+        public FileStoredCatalog(String name, File file)
+        {
+            this.name = requireNonNull(name, "name is null");
+            this.file = requireNonNull(file, "file is null");
+        }
+
+        @Override
+        public String getName()
+        {
+            return name;
+        }
+
+        @Override
+        public CatalogProperties loadProperties()
+        {
+            Map<String, String> properties;
+            try {
+                properties = new HashMap<>(loadPropertiesFrom(file.getPath()));
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException("Error reading catalog property file " + file, e);
+            }
+
+            String connectorNameValue = properties.remove("connector.name");
+            checkState(connectorNameValue != null, "Catalog configuration %s does not contain 'connector.name'", file.getAbsoluteFile());
+            if (connectorNameValue.indexOf('-') >= 0) {
+                String deprecatedConnectorName = connectorNameValue;
+                connectorNameValue = connectorNameValue.replace('-', '_');
+                log.warn("Catalog '%s' is using the deprecated connector name '%s'. The correct connector name is '%s'", name, deprecatedConnectorName, connectorNameValue);
+            }
+            ConnectorName connectorName = new ConnectorName(connectorNameValue);
+
+            CatalogHandle catalogHandle = createRootCatalogHandle(name, computeCatalogVersion(name, connectorName, properties));
+            return new CatalogProperties(catalogHandle, connectorName, ImmutableMap.copyOf(properties));
+        }
     }
 }
