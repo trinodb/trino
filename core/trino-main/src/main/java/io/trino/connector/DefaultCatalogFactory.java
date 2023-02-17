@@ -71,7 +71,7 @@ public class DefaultCatalogFactory
 
     private final boolean schedulerIncludeCoordinator;
 
-    private final ConcurrentMap<String, InternalConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConnectorName, InternalConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
 
     @Inject
     public DefaultCatalogFactory(
@@ -104,7 +104,7 @@ public class DefaultCatalogFactory
     public synchronized void addConnectorFactory(ConnectorFactory connectorFactory, Function<CatalogHandle, ClassLoader> duplicatePluginClassLoaderFactory)
     {
         InternalConnectorFactory existingConnectorFactory = connectorFactories.putIfAbsent(
-                connectorFactory.getName(),
+                new ConnectorName(connectorFactory.getName()),
                 new InternalConnectorFactory(connectorFactory, duplicatePluginClassLoaderFactory));
         checkArgument(existingConnectorFactory == null, "Connector '%s' is already registered", connectorFactory.getName());
     }
@@ -129,19 +129,19 @@ public class DefaultCatalogFactory
                 catalogProperties.getProperties());
         return createCatalog(
                 catalogProperties.getCatalogHandle(),
-                factory.getConnectorFactory().getName(),
+                catalogProperties.getConnectorName(),
                 connector,
                 duplicatePluginClassLoaderFactory::destroy,
                 Optional.of(catalogProperties));
     }
 
     @Override
-    public CatalogConnector createCatalog(CatalogHandle catalogHandle, String connectorName, Connector connector)
+    public CatalogConnector createCatalog(CatalogHandle catalogHandle, ConnectorName connectorName, Connector connector)
     {
         return createCatalog(catalogHandle, connectorName, connector, () -> {}, Optional.empty());
     }
 
-    private CatalogConnector createCatalog(CatalogHandle catalogHandle, String connectorName, Connector connector, Runnable destroy, Optional<CatalogProperties> catalogProperties)
+    private CatalogConnector createCatalog(CatalogHandle catalogHandle, ConnectorName connectorName, Connector connector, Runnable destroy, Optional<CatalogProperties> catalogProperties)
     {
         ConnectorServices catalogConnector = new ConnectorServices(
                 catalogHandle,

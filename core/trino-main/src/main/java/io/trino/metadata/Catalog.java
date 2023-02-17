@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import io.trino.connector.ConnectorName;
 import io.trino.connector.ConnectorServices;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
@@ -29,7 +30,7 @@ public class Catalog
 {
     private final String catalogName;
     private final CatalogHandle catalogHandle;
-    private final String connectorName;
+    private final ConnectorName connectorName;
     private final ConnectorServices catalogConnector;
     private final ConnectorServices informationSchemaConnector;
     private final ConnectorServices systemConnector;
@@ -37,7 +38,7 @@ public class Catalog
     public Catalog(
             String catalogName,
             CatalogHandle catalogHandle,
-            String connectorName,
+            ConnectorName connectorName,
             ConnectorServices catalogConnector,
             ConnectorServices informationSchemaConnector,
             ConnectorServices systemConnector)
@@ -61,7 +62,7 @@ public class Catalog
         return catalogHandle;
     }
 
-    public String getConnectorName()
+    public ConnectorName getConnectorName()
     {
         return connectorName;
     }

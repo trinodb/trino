@@ -104,7 +104,10 @@ public class StaticCatalogManager
                 log.warn("Catalog '%s' is using the deprecated connector name '%s'. The correct connector name is '%s'", catalogName, deprecatedConnectorName, connectorName);
             }
 
-            catalogProperties.add(new CatalogProperties(createRootCatalogHandle(catalogName, new CatalogVersion("default")), connectorName, ImmutableMap.copyOf(properties)));
+            catalogProperties.add(new CatalogProperties(
+                    createRootCatalogHandle(catalogName, new CatalogVersion("default")),
+                    new ConnectorName(connectorName),
+                    ImmutableMap.copyOf(properties)));
         }
         this.catalogProperties = catalogProperties.build();
         this.executor = requireNonNull(executor, "executor is null");
@@ -204,14 +207,14 @@ public class StaticCatalogManager
     {
         requireNonNull(connector, "connector is null");
 
-        CatalogConnector catalog = catalogFactory.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, GlobalSystemConnector.NAME, connector);
+        CatalogConnector catalog = catalogFactory.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, new ConnectorName(GlobalSystemConnector.NAME), connector);
         if (catalogs.putIfAbsent(GlobalSystemConnector.NAME, catalog) != null) {
             throw new IllegalStateException("Global system catalog already registered");
         }
     }
 
     @Override
-    public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
+    public void createCatalog(String catalogName, ConnectorName connectorName, Map<String, String> properties)
     {
         throw new TrinoException(NOT_SUPPORTED, "Create catalog is not supported by the static catalog manager");
     }

@@ -77,7 +77,7 @@ public class CatalogSystemTable
             table.addRow(
                     catalogInfo.getCatalogName(),
                     catalogInfo.getCatalogName(),
-                    catalogInfo.getConnectorName());
+                    catalogInfo.getConnectorName().toString());
         }
         return table.build().cursor();
     }
