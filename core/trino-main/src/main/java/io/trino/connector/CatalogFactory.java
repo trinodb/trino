@@ -28,5 +28,5 @@ public interface CatalogFactory
 
     CatalogConnector createCatalog(CatalogProperties catalogProperties);
 
-    CatalogConnector createCatalog(CatalogHandle catalogHandle, String connectorName, Connector connector);
+    CatalogConnector createCatalog(CatalogHandle catalogHandle, ConnectorName connectorName, Connector connector);
 }

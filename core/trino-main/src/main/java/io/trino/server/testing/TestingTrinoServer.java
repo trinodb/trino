@@ -36,6 +36,7 @@ import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.connector.CatalogManagerModule;
+import io.trino.connector.ConnectorName;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.dispatcher.DispatchManager;
@@ -431,7 +432,7 @@ public class TestingTrinoServer
             // this is a worker so catalogs are dynamically registered
             return;
         }
-        catalogManager.get().createCatalog(catalogName, connectorName, properties);
+        catalogManager.get().createCatalog(catalogName, new ConnectorName(connectorName), properties);
     }
 
     public void loadExchangeManager(String name, Map<String, String> properties)

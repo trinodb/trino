@@ -139,7 +139,7 @@ public abstract class BaseCostBasedPlanTest
     private String getQueryPlanResourcePath(String queryResourcePath)
     {
         Path queryPath = Paths.get(queryResourcePath);
-        String connectorName = getQueryRunner().getCatalogManager().getCatalog(CATALOG_NAME).orElseThrow().getConnectorName();
+        String connectorName = getQueryRunner().getCatalogManager().getCatalog(CATALOG_NAME).orElseThrow().getConnectorName().toString();
         Path directory = queryPath.getParent();
         directory = directory.resolve(connectorName);
         if (fileFormatName.isPresent()) {

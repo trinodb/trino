@@ -24,5 +24,12 @@ public interface CatalogStore
     /**
      * Get all catalogs
      */
-    Collection<CatalogProperties> getCatalogs();
+    Collection<StoredCatalog> getCatalogs();
+
+    interface StoredCatalog
+    {
+        String getName();
+
+        CatalogProperties loadProperties();
+    }
 }
