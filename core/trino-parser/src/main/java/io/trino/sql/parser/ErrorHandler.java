@@ -211,14 +211,12 @@ class ErrorHandler
             }
 
             Set<Integer> endTokens = process(new ParsingState(currentState, tokenIndex, false, parser), 0);
-            Set<Integer> nextTokens = new HashSet<>();
             while (!endTokens.isEmpty() && context.invokingState != -1) {
-                for (int endToken : endTokens) {
-                    ATNState nextState = ((RuleTransition) atn.states.get(context.invokingState).transition(0)).followState;
-                    nextTokens.addAll(process(new ParsingState(nextState, endToken, false, parser), 0));
-                }
+                ATNState nextState = ((RuleTransition) atn.states.get(context.invokingState).transition(0)).followState;
+                endTokens = endTokens.stream()
+                    .flatMap(endToken -> process(new ParsingState(nextState, endToken, false, parser), 0).stream())
+                    .collect(Collectors.toSet());
                 context = context.parent;
-                endTokens = nextTokens;
             }
 
             return new Result(furthestTokenIndex, candidates);

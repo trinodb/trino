@@ -11,16 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.hdfs.authentication;
+package io.trino.plugin.cassandra;
 
-import io.trino.spi.security.ConnectorIdentity;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
-public class SimpleUserNameProvider
-        implements UserNameProvider
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        property = "@type")
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = CassandraNamedRelationHandle.class, name = "named"),
+        @JsonSubTypes.Type(value = CassandraQueryRelationHandle.class, name = "query"),
+})
+public abstract class CassandraRelationHandle
 {
     @Override
-    public String get(ConnectorIdentity identity)
-    {
-        return identity.getUser();
-    }
+    public abstract String toString();
 }

@@ -18,34 +18,31 @@ import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
-import java.time.Duration;
-
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
-public final class EnvSinglenodeCassandra
+public final class EnvMultinodeMysql
         extends EnvironmentProvider
 {
+    // Use non-default MySQL port to avoid conflicts with locally installed MySQL if any.
+    public static final int MYSQL_PORT = 13306;
+
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
 
-    public static final String CONTAINER_TRINO_CASSANDRA_PROPERTIES = CONTAINER_TRINO_ETC + "/catalog/cassandra.properties";
-    public static final int CASSANDRA_PORT = 9042;
-
     @Inject
-    protected EnvSinglenodeCassandra(DockerFiles dockerFiles, PortBinder portBinder, Standard standard)
+    public EnvMultinodeMysql(StandardMultinode standardMultinode, DockerFiles dockerFiles, PortBinder portBinder)
     {
-        super(ImmutableList.of(standard));
+        super(ImmutableList.of(standardMultinode));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
     }
@@ -53,24 +50,23 @@ public final class EnvSinglenodeCassandra
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addContainer(createCassandra());
-        builder.addConnector("cassandra", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-cassandra/cassandra.properties")));
+        builder.addConnector("mysql", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-mysql/mysql.properties")));
+        builder.addContainer(createMySql());
     }
 
-    private DockerContainer createCassandra()
+    @SuppressWarnings("resource")
+    private DockerContainer createMySql()
     {
-        DockerContainer container = new DockerContainer("cassandra:3.9", "cassandra")
-                .withEnv("HEAP_NEWSIZE", "128M")
-                .withEnv("MAX_HEAP_SIZE", "512M")
-                .withCommand(
-                        "bash",
-                        "-cxeu",
-                        "ln -snf /usr/share/zoneinfo/Asia/Kathmandu /etc/localtime && echo Asia/Kathmandu > /etc/timezone && /docker-entrypoint.sh cassandra -f")
+        DockerContainer container = new DockerContainer("mysql:5.7", "mysql")
+                .withEnv("MYSQL_USER", "test")
+                .withEnv("MYSQL_PASSWORD", "test")
+                .withEnv("MYSQL_ROOT_PASSWORD", "test")
+                .withEnv("MYSQL_DATABASE", "test")
+                .withCommand("mysqld", "--port", Integer.toString(MYSQL_PORT))
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(forSelectedPorts(CASSANDRA_PORT))
-                .withStartupTimeout(Duration.ofMinutes(5));
+                .waitingFor(forSelectedPorts(MYSQL_PORT));
 
-        portBinder.exposePort(container, CASSANDRA_PORT);
+        portBinder.exposePort(container, MYSQL_PORT);
 
         return container;
     }

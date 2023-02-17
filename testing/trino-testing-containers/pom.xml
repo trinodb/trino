@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>407-SNAPSHOT</version>
+        <version>408-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -38,6 +38,11 @@
         </dependency>
 
         <dependency>
+            <groupId>dev.failsafe</groupId>
+            <artifactId>failsafe</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.minio</groupId>
             <artifactId>minio</artifactId>
             <exclusions>
@@ -50,11 +55,6 @@
                     <artifactId>jcip-annotations</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>net.jodah</groupId>
-            <artifactId>failsafe</artifactId>
         </dependency>
 
         <dependency>

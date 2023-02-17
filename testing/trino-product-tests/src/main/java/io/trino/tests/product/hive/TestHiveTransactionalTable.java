@@ -16,6 +16,8 @@ package io.trino.tests.product.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
@@ -25,8 +27,6 @@ import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.hive.util.TemporaryHiveTable;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 import org.assertj.core.api.Assertions;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
@@ -2146,11 +2146,12 @@ public class TestHiveTransactionalTable
         log.info("Running %s compaction on %s", compactMode, tableName);
 
         Failsafe.with(
-                new RetryPolicy<>()
+                RetryPolicy.builder()
                         .withMaxDuration(java.time.Duration.ofMillis(timeout.toMillis()))
-                        .withMaxAttempts(Integer.MAX_VALUE))  // limited by MaxDuration
+                        .withMaxAttempts(Integer.MAX_VALUE) // limited by MaxDuration
+                        .build())
                 .onFailure(event -> {
-                    throw new IllegalStateException(format("Could not compact table %s in %d retries", tableName, event.getAttemptCount()), event.getFailure());
+                    throw new IllegalStateException(format("Could not compact table %s in %d retries", tableName, event.getAttemptCount()), event.getException());
                 })
                 .onSuccess(event -> log.info("Finished %s compaction on %s in %s (%d tries)", compactMode, tableName, event.getElapsedTime(), event.getAttemptCount()))
                 .run(() -> tryCompactingTable(compactMode, tableName, partitionString, new Duration(2, MINUTES)));

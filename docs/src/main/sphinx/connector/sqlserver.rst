@@ -34,7 +34,7 @@ appropriate for your setup:
 .. code-block:: properties
 
     connector.name=sqlserver
-    connection-url=jdbc:sqlserver://<host>:<port>;database=<database>;encrypt=false
+    connection-url=jdbc:sqlserver://<host>:<port>;databaseName=<databaseName>;encrypt=false
     connection-user=root
     connection-password=secret
 
@@ -62,7 +62,7 @@ encryption in the connection string with the ``encrypt`` property:
 
 .. code-block:: properties
 
-  connection-url=jdbc:sqlserver://<host>:<port>;database=<database>;encrypt=false
+  connection-url=jdbc:sqlserver://<host>:<port>;databaseName=<databaseName>;encrypt=false
 
 Further parameters like ``trustServerCertificate``, ``hostNameInCertificate``,
 ``trustStore``, and ``trustStorePassword`` are details in the `TLS section of

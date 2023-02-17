@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>407-SNAPSHOT</version>
+        <version>408-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -155,6 +155,11 @@
         </dependency>
 
         <dependency>
+            <groupId>dev.failsafe</groupId>
+            <artifactId>failsafe</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
         </dependency>
@@ -182,11 +187,6 @@
         <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>net.jodah</groupId>
-            <artifactId>failsafe</artifactId>
         </dependency>
 
         <dependency>
@@ -546,9 +546,11 @@
                                 <exclude>**/TestSharedGlueMetastore.java</exclude>
                                 <exclude>**/TestIcebergGlueCatalogAccessOperations.java</exclude>
                                 <exclude>**/TestIcebergGlueCatalogMaterializedView.java</exclude>
+                                <exclude>**/TestIcebergGlueCreateTableFailure.java</exclude>
                                 <exclude>**/TestIcebergGlueTableOperationsInsertFailure.java</exclude>
                                 <exclude>**/TestIcebergGlueCatalogSkipArchive.java</exclude>
                                 <exclude>**/TestIcebergGcsConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestIcebergAbfsConnectorSmokeTest.java</exclude>
                                 <exclude>io/trino/plugin/iceberg/catalog/jdbc/Test*.java</exclude>
                                 <exclude>io/trino/plugin/iceberg/catalog/rest/Test*.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
@@ -608,9 +610,11 @@
                                 <include>**/TestSharedGlueMetastore.java</include>
                                 <include>**/TestIcebergGlueCatalogAccessOperations.java</include>
                                 <include>**/TestIcebergGlueCatalogMaterializedView.java</include>
+                                <include>**/TestIcebergGlueCreateTableFailure.java</include>
                                 <include>**/TestIcebergGlueTableOperationsInsertFailure.java</include>
                                 <include>**/TestIcebergGlueCatalogSkipArchive.java</include>
                                 <include>**/TestIcebergGcsConnectorSmokeTest.java</include>
+                                <include>**/TestIcebergAbfsConnectorSmokeTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>

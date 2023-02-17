@@ -395,6 +395,25 @@ public abstract class BaseIcebergConnectorSmokeTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testCreateTableWithNonExistingSchemaVerifyLocation()
+    {
+        String schemaName = "non_existing_schema_" + randomNameSuffix();
+        String tableName = "test_create_table_in_non_existent_schema_" + randomNameSuffix();
+        String tableLocation = schemaPath() + "/" + tableName;
+        assertQueryFails(
+                "CREATE TABLE " + schemaName + "." + tableName + " (a int, b int) WITH (location = '" + tableLocation + "')",
+                "Schema (.*) not found");
+        assertThat(locationExists(tableLocation))
+                .as("location should not exist").isFalse();
+
+        assertQueryFails(
+                "CREATE TABLE " + schemaName + "." + tableName + " (a, b) WITH (location = '" + tableLocation + "') AS VALUES (1, 2), (3, 4)",
+                "Schema (.*) not found");
+        assertThat(locationExists(tableLocation))
+                .as("location should not exist").isFalse();
+    }
+
     private String getTableLocation(String tableName)
     {
         return (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*/[^/]*$', '') FROM " + tableName);
@@ -413,4 +432,8 @@ public abstract class BaseIcebergConnectorSmokeTest
     protected abstract void dropTableFromMetastore(String tableName);
 
     protected abstract String getMetadataLocation(String tableName);
+
+    protected abstract String schemaPath();
+
+    protected abstract boolean locationExists(String location);
 }

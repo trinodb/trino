@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.cassandra.CassandraClusteringPredicatesExtractor;
 import io.trino.plugin.cassandra.CassandraColumnHandle;
+import io.trino.plugin.cassandra.CassandraNamedRelationHandle;
 import io.trino.plugin.cassandra.CassandraTable;
-import io.trino.plugin.cassandra.CassandraTableHandle;
 import io.trino.plugin.cassandra.CassandraTypes;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
@@ -49,7 +49,7 @@ public class TestCassandraClusteringPredicatesExtractor
         col4 = new CassandraColumnHandle("clusteringKe3", 4, CassandraTypes.BIGINT, false, true, false, false);
 
         cassandraTable = new CassandraTable(
-                new CassandraTableHandle("test", "records"), ImmutableList.of(col1, col2, col3, col4));
+                new CassandraNamedRelationHandle("test", "records"), ImmutableList.of(col1, col2, col3, col4));
 
         cassandraVersion = Version.parse("2.1.5");
     }

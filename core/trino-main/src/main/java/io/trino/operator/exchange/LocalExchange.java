@@ -285,7 +285,7 @@ public class LocalExchange
         // The same bucket function (with the same bucket count) as for node
         // partitioning must be used. This way rows within a single bucket
         // will be being processed by single thread.
-        int bucketCount = nodePartitioningManager.getBucketCount(session, partitioning);
+        int bucketCount = getBucketCount(session, nodePartitioningManager, partitioning);
         int[] bucketToPartition = new int[bucketCount];
 
         for (int bucket = 0; bucket < bucketCount; bucket++) {
@@ -304,6 +304,15 @@ public class LocalExchange
         return new BucketPartitionFunction(
                 nodePartitioningManager.getBucketFunction(session, partitioning, partitionChannelTypes, bucketCount),
                 bucketToPartition);
+    }
+
+    public static int getBucketCount(Session session, NodePartitioningManager nodePartitioningManager, PartitioningHandle partitioning)
+    {
+        if (partitioning.getConnectorHandle() instanceof MergePartitioningHandle) {
+            // TODO: can we always use this code path?
+            return nodePartitioningManager.getNodePartitioningMap(session, partitioning).getBucketToPartition().length;
+        }
+        return nodePartitioningManager.getBucketNodeMap(session, partitioning).getBucketCount();
     }
 
     private static boolean isSystemPartitioning(PartitioningHandle partitioning)

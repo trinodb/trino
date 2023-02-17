@@ -86,7 +86,7 @@ public final class SqlStage
     {
         requireNonNull(stageId, "stageId is null");
         requireNonNull(fragment, "fragment is null");
-        checkArgument(fragment.getPartitioningScheme().getBucketToPartition().isEmpty(), "bucket to partition is not expected to be set at this point");
+        checkArgument(fragment.getOutputPartitioningScheme().getBucketToPartition().isEmpty(), "bucket to partition is not expected to be set at this point");
         requireNonNull(tables, "tables is null");
         requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         requireNonNull(session, "session is null");

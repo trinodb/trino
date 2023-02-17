@@ -29,6 +29,8 @@ public class TestIcebergJdbcCatalogConfig
     {
         assertRecordedDefaults(recordDefaults(IcebergJdbcCatalogConfig.class)
                 .setConnectionUrl(null)
+                .setConnectionUser(null)
+                .setConnectionPassword(null)
                 .setCatalogName(null)
                 .setDefaultWarehouseDir(null));
     }
@@ -38,12 +40,16 @@ public class TestIcebergJdbcCatalogConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("iceberg.jdbc-catalog.connection-url", "jdbc:postgresql://localhost:5432/test")
+                .put("iceberg.jdbc-catalog.connection-user", "foo")
+                .put("iceberg.jdbc-catalog.connection-password", "bar")
                 .put("iceberg.jdbc-catalog.catalog-name", "test")
                 .put("iceberg.jdbc-catalog.default-warehouse-dir", "s3://bucket")
                 .buildOrThrow();
 
         IcebergJdbcCatalogConfig expected = new IcebergJdbcCatalogConfig()
                 .setConnectionUrl("jdbc:postgresql://localhost:5432/test")
+                .setConnectionUser("foo")
+                .setConnectionPassword("bar")
                 .setCatalogName("test")
                 .setDefaultWarehouseDir("s3://bucket");
 

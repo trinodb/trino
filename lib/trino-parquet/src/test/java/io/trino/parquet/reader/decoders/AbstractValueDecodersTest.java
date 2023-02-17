@@ -38,6 +38,7 @@ import org.apache.parquet.column.values.deltastrings.DeltaByteArrayWriter;
 import org.apache.parquet.column.values.plain.BooleanPlainValuesWriter;
 import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
+import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridValuesWriter;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
@@ -87,6 +88,7 @@ import static org.apache.parquet.column.values.dictionary.DictionaryValuesWriter
 import static org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainLongDictionaryValuesWriter;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 
 public abstract class AbstractValueDecodersTest
@@ -358,12 +360,18 @@ public abstract class AbstractValueDecodersTest
 
     private static ValuesWriter getValuesWriter(ParquetEncoding encoding, PrimitiveTypeName typeName, OptionalInt typeLength)
     {
+        if (encoding.equals(ParquetEncoding.RLE)) {
+            if (typeName.equals(BOOLEAN)) {
+                return new RunLengthBitPackingHybridValuesWriter(1, MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
+            }
+            throw new IllegalArgumentException("RLE encoding writer is not supported for type " + typeName);
+        }
         if (encoding.equals(PLAIN)) {
             return switch (typeName) {
                 case BOOLEAN -> new BooleanPlainValuesWriter();
                 case FIXED_LEN_BYTE_ARRAY -> new FixedLenByteArrayPlainValuesWriter(typeLength.orElseThrow(), MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
                 case BINARY, INT32, INT64, DOUBLE, FLOAT -> new PlainValuesWriter(MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
-                default -> throw new IllegalArgumentException("PLAIN encoding writer is not supported for type " + typeName);
+                case INT96 -> new FixedLenByteArrayPlainValuesWriter(12, MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
             };
         }
         if (encoding.equals(RLE_DICTIONARY) || encoding.equals(PLAIN_DICTIONARY)) {
@@ -374,6 +382,7 @@ public abstract class AbstractValueDecodersTest
                 case INT64 -> new PlainLongDictionaryValuesWriter(MAX_VALUE, RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
                 case FLOAT -> new PlainFloatDictionaryValuesWriter(MAX_VALUE, RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
                 case DOUBLE -> new PlainDoubleDictionaryValuesWriter(MAX_VALUE, RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
+                case INT96 -> new PlainFixedLenArrayDictionaryValuesWriter(MAX_VALUE, 12, RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
                 default -> throw new IllegalArgumentException("Dictionary encoding writer is not supported for type " + typeName);
             };
         }

@@ -20,12 +20,12 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.RecursiveDeleteOption;
+import dev.failsafe.Failsafe;
+import dev.failsafe.FailsafeExecutor;
+import dev.failsafe.Timeout;
+import dev.failsafe.function.CheckedRunnable;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.FailsafeExecutor;
-import net.jodah.failsafe.Timeout;
-import net.jodah.failsafe.function.CheckedRunnable;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.SelinuxContext;
@@ -69,8 +69,9 @@ public class DockerContainer
     private static final Logger log = Logger.get(DockerContainer.class);
     private static final long NANOSECONDS_PER_SECOND = 1_000 * 1_000 * 1_000L;
 
-    private static final Timeout<ExecResult> asyncTimeout = Timeout.<ExecResult>of(ofSeconds(30))
-            .withCancel(true);
+    private static final Timeout<ExecResult> asyncTimeout = Timeout.<ExecResult>builder(ofSeconds(30))
+            .withInterrupt()
+            .build();
 
     private static final FailsafeExecutor<ExecResult> executor = Failsafe
             .with(asyncTimeout)

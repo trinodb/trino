@@ -19,7 +19,7 @@ import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
@@ -31,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
-public final class EnvSinglenodePostgresql
+public final class EnvMultinodePostgresql
         extends EnvironmentProvider
 {
     // Use non-default PostgreSQL port to avoid conflicts with locally installed PostgreSQL if any.
@@ -41,9 +41,9 @@ public final class EnvSinglenodePostgresql
     private final PortBinder portBinder;
 
     @Inject
-    public EnvSinglenodePostgresql(Standard standard, DockerFiles dockerFiles, PortBinder portBinder)
+    public EnvMultinodePostgresql(StandardMultinode standardMultinode, DockerFiles dockerFiles, PortBinder portBinder)
     {
-        super(ImmutableList.of(standard));
+        super(ImmutableList.of(standardMultinode));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
     }
@@ -53,7 +53,7 @@ public final class EnvSinglenodePostgresql
     {
         builder.addConnector(
                 "postgresql",
-                forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-postgresql/postgresql.properties")));
+                forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-postgresql/postgresql.properties")));
         builder.addContainer(createPostgreSql());
     }
 

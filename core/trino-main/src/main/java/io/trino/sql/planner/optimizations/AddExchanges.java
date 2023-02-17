@@ -982,6 +982,7 @@ public class AddExchanges
                                         filteringSource.getNode().getOutputSymbols(),
                                         Optional.empty(),
                                         true,
+                                        Optional.empty(),
                                         Optional.empty())),
                                 filteringSource.getProperties());
                     }
@@ -1016,6 +1017,7 @@ public class AddExchanges
                                     filteringSource.getNode().getOutputSymbols(),
                                     Optional.empty(),
                                     true,
+                                    Optional.empty(),
                                     Optional.empty())),
                             filteringSource.getProperties());
                 }
@@ -1186,6 +1188,7 @@ public class AddExchanges
                                                 source.getNode().getOutputSymbols(),
                                                 Optional.empty(),
                                                 nullsAndAnyReplicated,
+                                                Optional.empty(),
                                                 Optional.empty())),
                                 source.getProperties());
                     }

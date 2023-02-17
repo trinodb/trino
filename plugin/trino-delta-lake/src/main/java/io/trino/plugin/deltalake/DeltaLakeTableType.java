@@ -11,11 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.hdfs.authentication;
+package io.trino.plugin.deltalake;
 
-import io.trino.spi.security.ConnectorIdentity;
-
-public interface UserNameProvider
+public enum DeltaLakeTableType
 {
-    String get(ConnectorIdentity identity);
+    DATA,
+    HISTORY,
 }

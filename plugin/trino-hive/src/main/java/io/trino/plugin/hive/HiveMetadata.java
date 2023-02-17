@@ -816,9 +816,9 @@ public class HiveMetadata
         // If partitions are not loaded, then don't generate table statistics.
         // Note that the computation is not persisted in the table handle, so can be redone many times
         // TODO: https://github.com/trinodb/trino/issues/10980.
-        if (partitionManager.canPartitionsBeLoaded(partitionResult)) {
-            List<HivePartition> partitions = ImmutableList.copyOf(partitionResult.getPartitions());
-            return hiveStatisticsProvider.getTableStatistics(session, hiveTableHandle.getSchemaTableName(), columns, columnTypes, partitions);
+        Optional<List<HivePartition>> partitions = partitionManager.tryLoadPartitions(partitionResult);
+        if (partitions.isPresent()) {
+            return hiveStatisticsProvider.getTableStatistics(session, hiveTableHandle.getSchemaTableName(), columns, columnTypes, partitions.get());
         }
         return TableStatistics.empty();
     }
@@ -2696,10 +2696,7 @@ public class HiveMetadata
                         // Note that the computation is not persisted in the table handle, so can be redone many times
                         // TODO: https://github.com/trinodb/trino/issues/10980.
                         HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, table, new Constraint(hiveTable.getEnforcedConstraint()));
-                        if (partitionManager.canPartitionsBeLoaded(partitionResult)) {
-                            return Optional.of(ImmutableList.copyOf(partitionResult.getPartitions()));
-                        }
-                        return Optional.empty();
+                        return partitionManager.tryLoadPartitions(partitionResult);
                     });
 
             if (partitions.isPresent()) {
@@ -3231,7 +3228,7 @@ public class HiveMetadata
             return TableStatisticsMetadata.empty();
         }
         if (isTransactional(tableMetadata.getProperties()).orElse(false)) {
-            // TODO(https://github.com/trinodb/trino/issues/1956) updating table statistics for trasactional not supported right now.
+            // TODO(https://github.com/trinodb/trino/issues/1956) updating table statistics for transactional not supported right now.
             return TableStatisticsMetadata.empty();
         }
         List<String> partitionedBy = firstNonNull(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());

@@ -27,6 +27,7 @@ import java.nio.file.Path;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static java.lang.String.format;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -77,6 +78,18 @@ public class TestIcebergConnectorSmokeTest
         return metastore
                 .getTable(getSession().getSchema().orElseThrow(), tableName).orElseThrow()
                 .getParameters().get("metadata_location");
+    }
+
+    @Override
+    protected String schemaPath()
+    {
+        return format("%s/%s", metastoreDir, getSession().getSchema().orElseThrow());
+    }
+
+    @Override
+    protected boolean locationExists(String location)
+    {
+        return Files.exists(Path.of(location));
     }
 
     @Override

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.concurrent.MoreFutures;
 import io.trino.hdfs.authentication.ImpersonatingHdfsAuthentication;
 import io.trino.hdfs.authentication.SimpleHadoopAuthentication;
-import io.trino.hdfs.authentication.SimpleUserNameProvider;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -36,6 +35,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
+import static io.trino.plugin.base.security.UserNameProvider.SIMPLE_USER_NAME_PROVIDER;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -60,7 +60,7 @@ public class TestFileSystemCache
         HdfsEnvironment environment = new HdfsEnvironment(
                 new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig()), ImmutableSet.of()),
                 new HdfsConfig(),
-                new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication(), new SimpleUserNameProvider()));
+                new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication(), SIMPLE_USER_NAME_PROVIDER));
         ConnectorIdentity userId = ConnectorIdentity.ofUser("user");
         ConnectorIdentity otherUserId = ConnectorIdentity.ofUser("other_user");
         FileSystem fs1 = getFileSystem(environment, userId);
@@ -85,7 +85,7 @@ public class TestFileSystemCache
         HdfsEnvironment environment = new HdfsEnvironment(
                 new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig()), ImmutableSet.of()),
                 new HdfsConfig(),
-                new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication(), new SimpleUserNameProvider()));
+                new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication(), SIMPLE_USER_NAME_PROVIDER));
 
         int maxCacheSize = 1000;
         for (int i = 0; i < maxCacheSize; i++) {
@@ -153,7 +153,7 @@ public class TestFileSystemCache
         private static final HdfsEnvironment environment = new HdfsEnvironment(
                 new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig()), ImmutableSet.of()),
                 new HdfsConfig(),
-                new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication(), new SimpleUserNameProvider()));
+                new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication(), SIMPLE_USER_NAME_PROVIDER));
 
         CreateFileSystemsAndConsume(SplittableRandom random, int numUsers, int numGetCallsPerInvocation, FileSystemConsumer consumer)
         {

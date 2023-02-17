@@ -248,8 +248,10 @@ public class PipelinedStageExecution
     @Override
     public synchronized void cancel()
     {
-        stateMachine.transitionToCanceled();
-        getAllTasks().forEach(RemoteTask::cancel);
+        // Only send tasks a cancel command if the stage is successfully cancelled and not already failed
+        if (stateMachine.transitionToCanceled()) {
+            getAllTasks().forEach(RemoteTask::cancel);
+        }
     }
 
     @Override

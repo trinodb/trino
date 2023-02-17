@@ -16,6 +16,7 @@ package io.trino.plugin.exchange.filesystem.s3;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
@@ -244,7 +245,7 @@ public class ExchangeS3Config
         return this;
     }
 
-    public Optional<String> getGcsJsonKeyFilePath()
+    public Optional<@FileExists String> getGcsJsonKeyFilePath()
     {
         return gcsJsonKeyFilePath;
     }

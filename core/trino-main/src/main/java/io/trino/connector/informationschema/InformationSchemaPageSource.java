@@ -54,7 +54,6 @@ import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.trino.connector.informationschema.InformationSchemaMetadata.defaultPrefixes;
 import static io.trino.connector.informationschema.InformationSchemaMetadata.isTablesEnumeratingTable;
 import static io.trino.metadata.MetadataListing.getViews;
-import static io.trino.metadata.MetadataListing.listMaterializedViews;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataListing.listTableColumns;
 import static io.trino.metadata.MetadataListing.listTablePrivileges;
@@ -272,18 +271,12 @@ public class InformationSchemaPageSource
     private void addTablesRecords(QualifiedTablePrefix prefix)
     {
         Set<SchemaTableName> tables = listTables(session, metadata, accessControl, prefix);
-        Set<SchemaTableName> materializedViews = listMaterializedViews(session, metadata, accessControl, prefix);
         Set<SchemaTableName> views = listViews(session, metadata, accessControl, prefix);
+        // TODO (https://github.com/trinodb/trino/issues/8207) define a type for materialized views
 
-        for (SchemaTableName name : union(union(tables, materializedViews), views)) {
+        for (SchemaTableName name : union(tables, views)) {
             // if table and view names overlap, the view wins
-            String type = "BASE TABLE";
-            if (materializedViews.contains(name)) {
-                type = "MATERIALIZED VIEW";
-            }
-            else if (views.contains(name)) {
-                type = "VIEW";
-            }
+            String type = views.contains(name) ? "VIEW" : "BASE TABLE";
             addRecord(
                     prefix.getCatalogName(),
                     name.getSchemaName(),

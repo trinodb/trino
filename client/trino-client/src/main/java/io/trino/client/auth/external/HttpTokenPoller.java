@@ -15,11 +15,11 @@ package io.trino.client.auth.external;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import dev.failsafe.Failsafe;
+import dev.failsafe.FailsafeException;
+import dev.failsafe.RetryPolicy;
 import io.trino.client.JsonCodec;
 import io.trino.client.JsonResponse;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.FailsafeException;
-import net.jodah.failsafe.RetryPolicy;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -75,11 +75,12 @@ public class HttpTokenPoller
     public TokenPollResult pollForToken(URI tokenUri, Duration timeout)
     {
         try {
-            return Failsafe.with(new RetryPolicy<TokenPollResult>()
+            return Failsafe.with(RetryPolicy.builder()
                     .withMaxAttempts(-1)
                     .withMaxDuration(timeout)
                     .withBackoff(100, 500, MILLIS)
-                    .handle(IOException.class))
+                    .handle(IOException.class)
+                    .build())
                     .get(() -> executePoll(prepareRequestBuilder(tokenUri).build()));
         }
         catch (FailsafeException e) {
@@ -94,11 +95,12 @@ public class HttpTokenPoller
     public void tokenReceived(URI tokenUri)
     {
         try {
-            Failsafe.with(new RetryPolicy<Integer>()
+            Failsafe.with(RetryPolicy.<Integer>builder()
                     .withMaxAttempts(-1)
                     .withMaxDuration(Duration.ofSeconds(4))
                     .withBackoff(100, 500, MILLIS)
-                    .handleResultIf(code -> code >= HTTP_INTERNAL_ERROR))
+                    .handleResultIf(code -> code >= HTTP_INTERNAL_ERROR)
+                    .build())
                     .get(() -> {
                         Request request = prepareRequestBuilder(tokenUri)
                                 .delete()

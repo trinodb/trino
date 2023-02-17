@@ -21,7 +21,7 @@ import java.util.OptionalLong;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class DataPageV2
+public final class DataPageV2
         extends DataPage
 {
     private final int rowCount;

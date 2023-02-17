@@ -102,7 +102,7 @@ public abstract class AbstractColumnReaderBenchmark<VALUES>
             throws IOException
     {
         ColumnReader columnReader = ColumnReaderFactory.create(field, UTC, newSimpleAggregatedMemoryContext(), true);
-        columnReader.setPageReader(new PageReader(UNCOMPRESSED, dataPages.iterator(), false, false, false), Optional.empty());
+        columnReader.setPageReader(new PageReader(UNCOMPRESSED, dataPages.iterator(), false, false), Optional.empty());
         int rowsRead = 0;
         while (rowsRead < dataPositions) {
             int remaining = dataPositions - rowsRead;

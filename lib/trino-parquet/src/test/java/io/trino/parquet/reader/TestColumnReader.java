@@ -378,7 +378,6 @@ public class TestColumnReader
         return new PageReader(
                 UNCOMPRESSED,
                 inputPages.iterator(),
-                dictionaryEncoding != DictionaryEncoding.NONE,
                 dictionaryEncoding == DictionaryEncoding.ALL || (dictionaryEncoding == DictionaryEncoding.MIXED && testingPages.size() == 1),
                 false);
     }

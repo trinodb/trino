@@ -550,7 +550,7 @@ public class PlanPrinter
             }
         }
 
-        PartitioningScheme partitioningScheme = fragment.getPartitioningScheme();
+        PartitioningScheme partitioningScheme = fragment.getOutputPartitioningScheme();
         List<String> layout = partitioningScheme.getOutputLayout().stream()
                 .map(anonymizer::anonymize)
                 .collect(toImmutableList());
@@ -583,6 +583,8 @@ public class PlanPrinter
                     Joiner.on(", ").join(arguments),
                     hashColumn));
         }
+
+        fragment.getPartitionCount().ifPresent(partitionCount -> builder.append(format("Partition count: %s\n", partitionCount)));
 
         builder.append(
                         new PlanPrinter(
@@ -631,6 +633,7 @@ public class PlanPrinter
                 plan,
                 types.allTypes(),
                 SINGLE_DISTRIBUTION,
+                Optional.empty(),
                 ImmutableList.of(plan.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
                 StatsAndCosts.empty(),
@@ -1638,6 +1641,7 @@ public class PlanPrinter
                 addNode(node,
                         format("%sExchange", UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, node.getScope().toString())),
                         ImmutableMap.of(
+                                "partitionCount", node.getPartitioningScheme().getPartitionCount().map(String::valueOf).orElse(""),
                                 "type", node.getType().name(),
                                 "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().isReplicateNullsAndAny()),
                                 "hashColumn", formatHash(node.getPartitioningScheme().getHashColumn())),

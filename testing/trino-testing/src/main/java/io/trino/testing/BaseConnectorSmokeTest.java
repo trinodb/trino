@@ -437,6 +437,19 @@ public abstract class BaseConnectorSmokeTest
         assertUpdate("DROP SCHEMA " + schemaName);
     }
 
+    /**
+     * This seemingly duplicate test of {@link BaseConnectorTest#testShowInformationSchemaTables()}
+     * is used in the context of this class in order to be able to test
+     * against a wider range of connector configurations.
+     */
+    @Test
+    public void testShowInformationSchemaTables()
+    {
+        assertThat(query("SHOW TABLES FROM information_schema"))
+                .skippingTypesCheck()
+                .containsAll("VALUES 'applicable_roles', 'columns', 'enabled_roles', 'roles', 'schemata', 'table_privileges', 'tables', 'views'");
+    }
+
     @Test
     public void testSelectInformationSchemaTables()
     {

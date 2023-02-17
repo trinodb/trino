@@ -76,6 +76,7 @@ import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
+import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
@@ -700,6 +701,10 @@ public class IcebergMetadata
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
         verify(transaction == null, "transaction already set");
+        String schemaName = tableMetadata.getTable().getSchemaName();
+        if (!schemaExists(session, schemaName)) {
+            throw new SchemaNotFoundException(schemaName);
+        }
         transaction = newCreateTableTransaction(catalog, tableMetadata, session);
         String location = transaction.table().location();
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
@@ -1310,7 +1315,7 @@ public class IcebergMetadata
                 IcebergSessionProperties.REMOVE_ORPHAN_FILES_MIN_RETENTION);
 
         if (table.currentSnapshot() == null) {
-            log.debug("Skipping remove_orphan_files procedure for empty table " + table);
+            log.debug("Skipping remove_orphan_files procedure for empty table %s", table);
             return;
         }
 

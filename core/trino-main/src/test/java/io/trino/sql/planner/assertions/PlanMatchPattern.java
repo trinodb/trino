@@ -617,7 +617,12 @@ public final class PlanMatchPattern
             Optional<List<List<String>>> inputs,
             PlanMatchPattern... sources)
     {
-        return exchange(scope, type, partitioningHandle, orderBy, partitionedBy, inputs, ImmutableList.of(), sources);
+        return exchange(scope, type, partitioningHandle, orderBy, partitionedBy, inputs, ImmutableList.of(), Optional.empty(), sources);
+    }
+
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, Optional<Integer> partitionCount, PlanMatchPattern... sources)
+    {
+        return exchange(scope, Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), ImmutableList.of(), Optional.of(partitionCount), sources);
     }
 
     public static PlanMatchPattern exchange(
@@ -628,10 +633,11 @@ public final class PlanMatchPattern
             Set<String> partitionedBy,
             Optional<List<List<String>>> inputs,
             List<String> outputSymbolAliases,
+            Optional<Optional<Integer>> partitionCount,
             PlanMatchPattern... sources)
     {
         PlanMatchPattern result = node(ExchangeNode.class, sources)
-                .with(new ExchangeMatcher(scope, type, partitioningHandle, orderBy, partitionedBy, inputs));
+                .with(new ExchangeMatcher(scope, type, partitioningHandle, orderBy, partitionedBy, inputs, partitionCount));
 
         for (int i = 0; i < outputSymbolAliases.size(); i++) {
             String outputSymbol = outputSymbolAliases.get(i);
