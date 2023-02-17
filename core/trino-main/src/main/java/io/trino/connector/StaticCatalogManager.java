@@ -98,6 +98,11 @@ public class StaticCatalogManager
 
             String connectorName = properties.remove("connector.name");
             checkState(connectorName != null, "Catalog configuration %s does not contain connector.name", file.getAbsoluteFile());
+            if (connectorName.indexOf('-') >= 0) {
+                String deprecatedConnectorName = connectorName;
+                connectorName = connectorName.replace('-', '_');
+                log.warn("Catalog '%s' is using the deprecated connector name '%s'. The correct connector name is '%s'", catalogName, deprecatedConnectorName, connectorName);
+            }
 
             catalogProperties.add(new CatalogProperties(createRootCatalogHandle(catalogName, new CatalogVersion("default")), connectorName, ImmutableMap.copyOf(properties)));
         }
