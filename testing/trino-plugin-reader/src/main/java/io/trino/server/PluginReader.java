@@ -41,7 +41,6 @@ import java.util.ServiceLoader;
 import java.util.concurrent.Callable;
 import java.util.function.BiPredicate;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipFile;
 
@@ -52,9 +51,9 @@ import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
-import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.function.Function.identity;
+import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toMap;
 
 @Command(name = "modulesToConnectors", mixinStandardHelpOptions = true,
@@ -103,12 +102,12 @@ public class PluginReader
             }
         }
         Map<String, String> modulesToPlugins = mapModulesToPlugins(rootPom);
-        Map<String, Plugin> plugins = loadPlugins(pluginDir).stream()
-                .collect(toMap(plugin -> plugin.getClass().getName(), identity()));
-        Stream<Map.Entry<String, String>> modulesStream = requireNonNull(modulesToPlugins).entrySet().stream();
+        Stream<Map.Entry<String, String>> modulesStream = modulesToPlugins.entrySet().stream();
         if (impactedModules.isPresent()) {
-            List<String> nonPluginModules = impactedModules.get().stream().filter(module -> !modulesToPlugins.containsKey(module)).collect(Collectors.toList());
-            if (nonPluginModules.size() != 0) {
+            List<String> nonPluginModules = impactedModules.get().stream()
+                    .filter(not(modulesToPlugins::containsKey))
+                    .toList();
+            if (!nonPluginModules.isEmpty()) {
                 log.warn("Impacted modules list includes non-plugin modules, ignoring it: %s", nonPluginModules);
             }
             else {
@@ -117,6 +116,8 @@ public class PluginReader
             }
         }
 
+        Map<String, Plugin> plugins = loadPlugins(pluginDir).stream()
+                .collect(toMap(plugin -> plugin.getClass().getName(), identity()));
         modulesStream.forEach(entry -> {
             if (!plugins.containsKey(entry.getValue())) {
                 log.warn("Plugin without any connectors: %s", entry.getValue());
