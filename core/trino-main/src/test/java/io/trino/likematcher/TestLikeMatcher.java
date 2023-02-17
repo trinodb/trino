@@ -13,6 +13,7 @@
  */
 package io.trino.likematcher;
 
+import com.google.common.base.Strings;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -79,6 +80,17 @@ public class TestLikeMatcher
         assertTrue(match("%a%b%a%b%a%b%", "aabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabb"));
         assertTrue(match("%aaaa%bbbb%aaaa%bbbb%aaaa%bbbb%", "aaaabbbbaaaabbbbaaaabbbb"));
         assertTrue(match("%aaaaaaaaaaaaaaaaaaaaaaaaaa%", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+
+        assertTrue(match("%aab%bba%aab%bba%", "aaaabbbbaaaabbbbaaaa"));
+        assertFalse(match("%aab%bba%aab%bba%", "aaaabbbbaaaabbbbcccc"));
+        assertTrue(match("%abaca%", "abababababacabababa"));
+        assertFalse(match("%bcccccccca%", "bbbbbbbbxax"));
+        assertFalse(match("%bbxxxxxa%", "bbbxxxxaz"));
+        assertFalse(match("%aaaaaaxaaaaaa%", Strings.repeat("a", 20) +
+                                          Strings.repeat("b", 20) +
+                                          Strings.repeat("a", 20) +
+                                          Strings.repeat("b", 20) +
+                                          "the quick brown fox jumps over the lazy dog"));
 
         // utf-8
         LikeMatcher singleOptimized = LikeMatcher.compile("_", Optional.empty(), true);

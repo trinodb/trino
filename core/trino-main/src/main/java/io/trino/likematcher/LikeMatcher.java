@@ -132,11 +132,24 @@ public class LikeMatcher
 
         Optional<Matcher> matcher = Optional.empty();
         if (patternStart <= patternEnd) {
-            if (optimize) {
-                matcher = Optional.of(new DenseDfaMatcher(parsed, patternStart, patternEnd, exact));
+            boolean hasAny = false;
+            for (int i = patternStart; i <= patternEnd; i++) {
+                if (parsed.get(i) instanceof Any) {
+                    hasAny = true;
+                    break;
+                }
+            }
+
+            if (hasAny) {
+                if (optimize) {
+                    matcher = Optional.of(new DenseDfaMatcher(parsed, patternStart, patternEnd, exact));
+                }
+                else {
+                    matcher = Optional.of(new NfaMatcher(parsed, patternStart, patternEnd, exact));
+                }
             }
             else {
-                matcher = Optional.of(new NfaMatcher(parsed, patternStart, patternEnd, exact));
+                matcher = Optional.of(new FjsMatcher(parsed, patternStart, patternEnd, exact));
             }
         }
 
