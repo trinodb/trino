@@ -26,8 +26,13 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.deltalake.DeltaLakeMetadata.MAX_READER_VERSION;
+import static io.trino.plugin.deltalake.DeltaLakeMetadata.MAX_WRITER_VERSION;
+import static io.trino.plugin.deltalake.DeltaLakeMetadata.MIN_READER_VERSION;
+import static io.trino.plugin.deltalake.DeltaLakeMetadata.MIN_WRITER_VERSION;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -40,6 +45,8 @@ public class DeltaLakeTableProperties
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
     public static final String CHECKPOINT_INTERVAL_PROPERTY = "checkpoint_interval";
     public static final String CHANGE_DATA_FEED_ENABLED_PROPERTY = "change_data_feed_enabled";
+    public static final String READER_VERSION_PROPERTY = "reader_version";
+    public static final String WRITER_VERSION_PROPERTY = "writer_version";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -73,6 +80,18 @@ public class DeltaLakeTableProperties
                         CHANGE_DATA_FEED_ENABLED_PROPERTY,
                         "Enables storing change data feed entries",
                         null,
+                        false))
+                .add(integerProperty(
+                        READER_VERSION_PROPERTY,
+                        "Reader version",
+                        null,
+                        value -> validateVersion(READER_VERSION_PROPERTY, value, MIN_READER_VERSION, MAX_READER_VERSION),
+                        false))
+                .add(integerProperty(
+                        WRITER_VERSION_PROPERTY,
+                        "Writer version",
+                        null,
+                        value -> validateVersion(WRITER_VERSION_PROPERTY, value, MIN_WRITER_VERSION, MAX_WRITER_VERSION),
                         false))
                 .build();
     }
@@ -108,5 +127,24 @@ public class DeltaLakeTableProperties
     public static Optional<Boolean> getChangeDataFeedEnabled(Map<String, Object> tableProperties)
     {
         return Optional.ofNullable((Boolean) tableProperties.get(CHANGE_DATA_FEED_ENABLED_PROPERTY));
+    }
+
+    public static Optional<Integer> getReaderVersion(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Integer) tableProperties.get(READER_VERSION_PROPERTY));
+    }
+
+    public static Optional<Integer> getWriterVersion(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Integer) tableProperties.get(WRITER_VERSION_PROPERTY));
+    }
+
+    private static void validateVersion(String propertyName, Object value, int minSupportedVersion, int maxSupportedVersion)
+    {
+        int version = (int) value;
+        if (version < minSupportedVersion || version > maxSupportedVersion) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format(
+                    "%s must be between %d and %d", propertyName, minSupportedVersion, maxSupportedVersion));
+        }
     }
 }
