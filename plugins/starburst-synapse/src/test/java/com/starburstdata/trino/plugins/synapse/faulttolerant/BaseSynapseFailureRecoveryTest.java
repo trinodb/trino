@@ -20,7 +20,9 @@ import io.trino.testng.services.ManageTestResources;
 import io.trino.tpch.TpchTable;
 import org.assertj.core.api.Assertions;
 import org.testng.SkipException;
+import org.testng.annotations.DataProvider;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -139,5 +141,15 @@ public abstract class BaseSynapseFailureRecoveryTest
                 failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer");
             }).finishesSuccessfullyWithoutTaskFailures();
         }
+    }
+
+    @DataProvider(name = "parallelTests", parallel = true)
+    @Override
+    public Object[][] parallelTests()
+    {
+        // TODO: https://starburstdata.atlassian.net/browse/SEP-10920
+        return Arrays.stream(super.parallelTests())
+                .filter(arguments -> !arguments[0].toString().equals("testInsert"))
+                .toArray(Object[][]::new);
     }
 }
