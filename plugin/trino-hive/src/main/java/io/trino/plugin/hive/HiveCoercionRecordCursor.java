@@ -17,6 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping;
+import io.trino.plugin.hive.type.ListTypeInfo;
+import io.trino.plugin.hive.type.MapTypeInfo;
 import io.trino.plugin.hive.util.ForwardingRecordCursor;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -26,8 +28,6 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
-import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 
 import java.util.List;
 

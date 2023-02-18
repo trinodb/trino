@@ -51,6 +51,8 @@ import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.type.PrimitiveTypeInfo;
+import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrincipalType;
@@ -65,8 +67,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import javax.annotation.Nullable;
 
@@ -125,6 +125,7 @@ import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.INS
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
+import static io.trino.plugin.hive.type.Category.PRIMITIVE;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -140,7 +141,6 @@ import static java.lang.Math.round;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.PRIMITIVE;
 
 public final class ThriftMetastoreUtil
 {

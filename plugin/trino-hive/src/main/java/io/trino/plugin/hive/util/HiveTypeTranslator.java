@@ -17,6 +17,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import io.trino.plugin.hive.HiveErrorCode;
 import io.trino.plugin.hive.HiveTimestampPrecision;
+import io.trino.plugin.hive.type.CharTypeInfo;
+import io.trino.plugin.hive.type.DecimalTypeInfo;
+import io.trino.plugin.hive.type.ListTypeInfo;
+import io.trino.plugin.hive.type.MapTypeInfo;
+import io.trino.plugin.hive.type.PrimitiveTypeInfo;
+import io.trino.plugin.hive.type.StructTypeInfo;
+import io.trino.plugin.hive.type.TypeInfo;
+import io.trino.plugin.hive.type.UnionTypeInfo;
+import io.trino.plugin.hive.type.VarcharTypeInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -27,15 +36,6 @@ import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
-import org.apache.hadoop.hive.serde2.typeinfo.CharTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.UnionTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo;
 
 import javax.annotation.Nullable;
 
@@ -56,6 +56,11 @@ import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_SHORT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.HiveType.HIVE_TIMESTAMP;
+import static io.trino.plugin.hive.type.TypeInfoFactory.getCharTypeInfo;
+import static io.trino.plugin.hive.type.TypeInfoFactory.getListTypeInfo;
+import static io.trino.plugin.hive.type.TypeInfoFactory.getMapTypeInfo;
+import static io.trino.plugin.hive.type.TypeInfoFactory.getStructTypeInfo;
+import static io.trino.plugin.hive.type.TypeInfoFactory.getVarcharTypeInfo;
 import static io.trino.plugin.hive.util.HiveUtil.isArrayType;
 import static io.trino.plugin.hive.util.HiveUtil.isMapType;
 import static io.trino.plugin.hive.util.HiveUtil.isRowType;
@@ -81,11 +86,6 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
-import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getListTypeInfo;
-import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getMapTypeInfo;
-import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getStructTypeInfo;
-import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getVarcharTypeInfo;
 
 public final class HiveTypeTranslator
 {

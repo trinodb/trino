@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -30,8 +31,6 @@ import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveVarcharObjectInspector;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -42,6 +41,7 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.newArrayList;
 import static io.trino.plugin.hive.HiveTestUtils.toNativeContainerValue;
+import static io.trino.plugin.hive.HiveType.HIVE_TIMESTAMP;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBuckets;
@@ -52,7 +52,8 @@ import static java.lang.Double.longBitsToDouble;
 import static java.lang.Float.intBitsToFloat;
 import static java.util.Arrays.asList;
 import static java.util.Map.Entry;
-import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.timestampTypeInfo;
+import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getStandardJavaObjectInspectorFromTypeInfo;
+import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfoFromTypeString;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
@@ -129,7 +130,7 @@ public class TestHiveBucketing
         assertBucketEquals("date", Date.valueOf("1950-11-19"), -6983, -431619185);
 
         for (BucketingVersion version : BucketingVersion.values()) {
-            List<TypeInfo> typeInfos = ImmutableList.of(timestampTypeInfo);
+            List<TypeInfo> typeInfos = ImmutableList.of(HIVE_TIMESTAMP.getTypeInfo());
 
             assertThatThrownBy(() -> version.getBucketHashCode(typeInfos, new Object[] {0}))
                     .hasMessage("Computation of Hive bucket hashCode is not supported for Hive primitive category: TIMESTAMP");
@@ -290,9 +291,10 @@ public class TestHiveBucketing
         ImmutableList.Builder<Entry<ObjectInspector, Object>> columnBindingsBuilder = ImmutableList.builder();
         for (int i = 0; i < hiveTypeStrings.size(); i++) {
             Object javaValue = hiveValues.get(i);
+            var hiveTypeInfo = getTypeInfoFromTypeString(hiveTypeInfos.get(i).getTypeName());
 
             columnBindingsBuilder.add(Maps.immutableEntry(
-                    TypeInfoUtils.getStandardJavaObjectInspectorFromTypeInfo(hiveTypeInfos.get(i)),
+                    getStandardJavaObjectInspectorFromTypeInfo(hiveTypeInfo),
                     javaValue));
         }
         return getHiveBucketHashCode(bucketingVersion, columnBindingsBuilder.build());
