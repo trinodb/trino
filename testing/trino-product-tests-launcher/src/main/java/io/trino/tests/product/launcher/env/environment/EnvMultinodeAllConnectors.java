@@ -53,7 +53,7 @@ public final class EnvMultinodeAllConnectors
                         "cassandra",
                         "clickhouse",
                         "druid",
-                        "delta-lake",
+                        "delta_lake",
                         "elasticsearch",
                         "gsheets",
                         "hive",
