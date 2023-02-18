@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class DeltaLakeConnectorFactory
         implements ConnectorFactory
 {
-    public static final String CONNECTOR_NAME = "delta-lake";
+    public static final String CONNECTOR_NAME = "delta_lake";
 
     private final Class<? extends Module> module;
 

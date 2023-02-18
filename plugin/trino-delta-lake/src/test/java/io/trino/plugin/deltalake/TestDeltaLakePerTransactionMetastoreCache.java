@@ -172,7 +172,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
             deltaLakeProperties.put("delta.per-transaction-metastore-cache-maximum-size", "1");
         }
 
-        queryRunner.createCatalog(DELTA_CATALOG, "delta-lake", deltaLakeProperties.buildOrThrow());
+        queryRunner.createCatalog(DELTA_CATALOG, "delta_lake", deltaLakeProperties.buildOrThrow());
 
         if (createdDeltaLake) {
             List<TpchTable<? extends TpchEntity>> tpchTables = List.of(TpchTable.NATION, TpchTable.REGION);

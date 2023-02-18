@@ -36,13 +36,13 @@ runtime. If non-Delta tables are present in the metastore, as well, they are not
 visible to the connector.
 
 To configure the Delta Lake connector, create a catalog properties file
-``etc/catalog/example.properties`` that references the ``delta-lake``
+``etc/catalog/example.properties`` that references the ``delta_lake``
 connector. Update the ``hive.metastore.uri`` with the URI of your Hive metastore
 Thrift service:
 
 .. code-block:: properties
 
-    connector.name=delta-lake
+    connector.name=delta_lake
     hive.metastore.uri=thrift://example.net:9083
 
 If you are using AWS Glue as Hive metastore, you can simply set the metastore to
@@ -50,7 +50,7 @@ If you are using AWS Glue as Hive metastore, you can simply set the metastore to
 
 .. code-block:: properties
 
-    connector.name=delta-lake
+    connector.name=delta_lake
     hive.metastore=glue
 
 The Delta Lake connector reuses certain functionalities from the Hive connector,
