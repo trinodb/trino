@@ -136,7 +136,7 @@ public class Server
             logLocation(log, "Working directory", Paths.get("."));
             logLocation(log, "Etc directory", Paths.get("etc"));
 
-            injector.getInstance(PluginManager.class).loadPlugins();
+            injector.getInstance(PluginInstaller.class).loadPlugins();
 
             ConnectorServicesProvider connectorServicesProvider = injector.getInstance(ConnectorServicesProvider.class);
             connectorServicesProvider.loadInitialCatalogs();
