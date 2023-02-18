@@ -22,6 +22,10 @@ import io.trino.plugin.hive.coercions.IntegerNumberToVarcharCoercer;
 import io.trino.plugin.hive.coercions.IntegerNumberUpscaleCoercer;
 import io.trino.plugin.hive.coercions.VarcharCoercer;
 import io.trino.plugin.hive.coercions.VarcharToIntegerNumberCoercer;
+import io.trino.plugin.hive.type.Category;
+import io.trino.plugin.hive.type.ListTypeInfo;
+import io.trino.plugin.hive.type.MapTypeInfo;
+import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -45,10 +49,6 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import javax.annotation.Nullable;
 
@@ -354,8 +354,8 @@ public class HivePageSource
             return Optional.of(new MapCoercer(typeManager, fromHiveType, toHiveType));
         }
         if (isRowType(fromType) && isRowType(toType)) {
-            HiveType fromHiveTypeStruct = (fromHiveType.getCategory() == ObjectInspector.Category.UNION) ? HiveType.toHiveType(fromType) : fromHiveType;
-            HiveType toHiveTypeStruct = (toHiveType.getCategory() == ObjectInspector.Category.UNION) ? HiveType.toHiveType(toType) : toHiveType;
+            HiveType fromHiveTypeStruct = (fromHiveType.getCategory() == Category.UNION) ? HiveType.toHiveType(fromType) : fromHiveType;
+            HiveType toHiveTypeStruct = (toHiveType.getCategory() == Category.UNION) ? HiveType.toHiveType(toType) : toHiveType;
 
             return Optional.of(new StructCoercer(typeManager, fromHiveTypeStruct, toHiveTypeStruct));
         }

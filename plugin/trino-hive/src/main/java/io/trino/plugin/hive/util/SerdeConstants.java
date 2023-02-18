@@ -36,5 +36,29 @@ public final class SerdeConstants
 
     public static final String COLUMN_NAME_DELIMITER = "column.name.delimiter";
 
+    public static final String VOID_TYPE_NAME = "void";
+    public static final String BOOLEAN_TYPE_NAME = "boolean";
+    public static final String TINYINT_TYPE_NAME = "tinyint";
+    public static final String SMALLINT_TYPE_NAME = "smallint";
+    public static final String INT_TYPE_NAME = "int";
+    public static final String BIGINT_TYPE_NAME = "bigint";
+    public static final String FLOAT_TYPE_NAME = "float";
+    public static final String DOUBLE_TYPE_NAME = "double";
+    public static final String STRING_TYPE_NAME = "string";
+    public static final String CHAR_TYPE_NAME = "char";
+    public static final String VARCHAR_TYPE_NAME = "varchar";
+    public static final String DATE_TYPE_NAME = "date";
+    public static final String TIMESTAMP_TYPE_NAME = "timestamp";
+    public static final String TIMESTAMPLOCALTZ_TYPE_NAME = "timestamp with local time zone";
+    public static final String DECIMAL_TYPE_NAME = "decimal";
+    public static final String BINARY_TYPE_NAME = "binary";
+    public static final String INTERVAL_YEAR_MONTH_TYPE_NAME = "interval_year_month";
+    public static final String INTERVAL_DAY_TIME_TYPE_NAME = "interval_day_time";
+
+    public static final String LIST_TYPE_NAME = "array";
+    public static final String MAP_TYPE_NAME = "map";
+    public static final String STRUCT_TYPE_NAME = "struct";
+    public static final String UNION_TYPE_NAME = "uniontype";
+
     private SerdeConstants() {}
 }
