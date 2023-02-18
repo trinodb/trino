@@ -162,6 +162,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.plugin.deltalake.DataFileInfo.DataFileType.DATA;
+import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.getColumnNames;
+import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.getFilesModifiedAfterProperty;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.MERGE_ROW_ID_TYPE;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.ROW_ID_COLUMN_NAME;
@@ -173,6 +175,7 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getHiveCatalogName;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isCollectExtendedStatisticsColumnStatisticsOnWrite;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isLegacyCreateTableWithExistingLocationEnabled;
@@ -180,6 +183,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isTableStatis
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHECKPOINT_INTERVAL_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.PARTITIONED_BY_PROPERTY;
+import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getCheckpointInterval;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getLocation;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getPartitionedBy;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_PROPERTY;
@@ -379,7 +383,7 @@ public class DeltaLakeMetadata
     {
         requireNonNull(session, "session is null");
         requireNonNull(tableName, "tableName is null");
-        Optional<String> targetCatalogName = DeltaLakeSessionProperties.getHiveCatalogName(session);
+        Optional<String> targetCatalogName = getHiveCatalogName(session);
         if (targetCatalogName.isEmpty()) {
             return Optional.empty();
         }
@@ -708,7 +712,7 @@ public class DeltaLakeMetadata
         Path targetPath = new Path(location);
         ensurePathExists(session, targetPath);
         Path deltaLogDirectory = getTransactionLogDir(targetPath);
-        Optional<Long> checkpointInterval = DeltaLakeTableProperties.getCheckpointInterval(tableMetadata.getProperties());
+        Optional<Long> checkpointInterval = getCheckpointInterval(tableMetadata.getProperties());
 
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsContext(session), targetPath);
@@ -862,7 +866,7 @@ public class DeltaLakeMetadata
                 tableName,
                 tableMetadata.getColumns().stream().map(column -> toColumnHandle(column, column.getName(), column.getType(), partitionedBy)).collect(toImmutableList()),
                 location,
-                DeltaLakeTableProperties.getCheckpointInterval(tableMetadata.getProperties()),
+                getCheckpointInterval(tableMetadata.getProperties()),
                 external,
                 tableMetadata.getComment());
     }
@@ -2142,7 +2146,7 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
         MetadataEntry metadata = handle.getMetadataEntry();
 
-        Optional<Instant> filesModifiedAfterFromProperties = DeltaLakeAnalyzeProperties.getFilesModifiedAfterProperty(analyzeProperties);
+        Optional<Instant> filesModifiedAfterFromProperties = getFilesModifiedAfterProperty(analyzeProperties);
 
         Optional<ExtendedStatistics> statistics = statisticsAccess.readExtendedStatistics(session, handle.getLocation());
 
@@ -2160,7 +2164,7 @@ public class DeltaLakeMetadata
         Set<String> allColumnNames = columnsMetadata.stream()
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableSet());
-        Optional<Set<String>> analyzeColumnNames = DeltaLakeAnalyzeProperties.getColumnNames(analyzeProperties);
+        Optional<Set<String>> analyzeColumnNames = getColumnNames(analyzeProperties);
         if (analyzeColumnNames.isPresent()) {
             Set<String> columnNames = analyzeColumnNames.get();
             // validate that proper column names are passed via `columns` analyze property
