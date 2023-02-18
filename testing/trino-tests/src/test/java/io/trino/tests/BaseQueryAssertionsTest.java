@@ -60,9 +60,9 @@ public abstract class BaseQueryAssertionsTest
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
 
-        queryRunner.installPlugin(new JdbcPlugin("base-jdbc", new TestingH2JdbcModule()));
+        queryRunner.installPlugin(new JdbcPlugin("base_jdbc", new TestingH2JdbcModule()));
         Map<String, String> jdbcConfigurationProperties = TestingH2JdbcModule.createProperties();
-        queryRunner.createCatalog("jdbc", "base-jdbc", jdbcConfigurationProperties);
+        queryRunner.createCatalog("jdbc", "base_jdbc", jdbcConfigurationProperties);
 
         try (Connection connection = DriverManager.getConnection(jdbcConfigurationProperties.get("connection-url"));
                 Statement statement = connection.createStatement()) {
@@ -78,7 +78,7 @@ public abstract class BaseQueryAssertionsTest
                 .putAll(jdbcConfigurationProperties)
                 .put("aggregation-pushdown.enabled", "false")
                 .buildOrThrow();
-        queryRunner.createCatalog("jdbc_with_aggregation_pushdown_disabled", "base-jdbc", jdbcWithAggregationPushdownDisabledConfigurationProperties);
+        queryRunner.createCatalog("jdbc_with_aggregation_pushdown_disabled", "base_jdbc", jdbcWithAggregationPushdownDisabledConfigurationProperties);
     }
 
     @Test
