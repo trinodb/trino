@@ -434,7 +434,8 @@ public class ServerMainModule
         jaxrsBinder(binder).bind(StatusResource.class);
 
         // plugin manager
-        binder.bind(PluginManager.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, PluginInstaller.class).setDefault()
+                .to(PluginManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, PluginsProvider.class).setDefault()
                 .to(ServerPluginsProvider.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(ServerPluginsProviderConfig.class);
