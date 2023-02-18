@@ -73,7 +73,7 @@ public final class EnvMultinodeAllConnectors
                         "pinot",
                         "postgresql",
                         "prometheus",
-                        "raptor-legacy",
+                        "raptor_legacy",
                         "redis",
                         "redshift",
                         "sqlserver",
