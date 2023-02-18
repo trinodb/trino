@@ -1002,6 +1002,77 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                 "Unable to set catalog 'delta_lake' table property 'writer_version' to \\[5]: writer_version must be between 2 and 4");
     }
 
+    @Test
+    public void testAlterTableWithInvalidReaderWriterVersion()
+    {
+        String tableName = "test_alter_table_with_invalid_reader_writer_version_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT)");
+
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES reader_version = 0",
+                "Unable to set catalog 'delta_lake' table property 'reader_version' to \\[0]: reader_version must be between 1 and 2");
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES reader_version = 3",
+                "Unable to set catalog 'delta_lake' table property 'reader_version' to \\[3]: reader_version must be between 1 and 2");
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES writer_version = 1",
+                "Unable to set catalog 'delta_lake' table property 'writer_version' to \\[1]: writer_version must be between 2 and 4");
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES writer_version = 5",
+                "Unable to set catalog 'delta_lake' table property 'writer_version' to \\[5]: writer_version must be between 2 and 4");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testAlterTableUpgradeReaderWriterVersion()
+    {
+        String tableName = "test_alter_table_upgrade_reader_writer_version_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT)");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES reader_version = 2");
+        assertThatShowCreateTable(tableName, ".*reader_version = 2.*");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES writer_version = 3");
+        assertThatShowCreateTable(tableName, ".*writer_version = 3.*");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES reader_version = 2, writer_version = 4");
+        assertThatShowCreateTable(tableName, ".*(reader_version = 2,(.*)writer_version = 4).*");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testAlterTableDowngradeReaderWriterVersion()
+    {
+        String tableName = "test_alter_table_downgrade_reader_writer_version_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT) WITH (reader_version = 2, writer_version = 3)");
+
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES reader_version = 1",
+                "reader_version cannot be downgraded from 2 to 1");
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES writer_version = 2",
+                "writer_version cannot be downgraded from 3 to 2");
+        assertThatShowCreateTable(tableName, ".*(reader_version = 2,(.*)writer_version = 3).*");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testAlterTableWithUnsupportedProperties()
+    {
+        String tableName = "test_alter_table_with_unsupported_properties_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT)");
+
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true",
+                "The following properties cannot be updated: change_data_feed_enabled");
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true, checkpoint_interval = 10",
+                "The following properties cannot be updated: change_data_feed_enabled, checkpoint_interval");
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES writer_version = 4, partitioned_by = ARRAY['a']",
+                "The following properties cannot be updated: partitioned_by");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Override
     protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
     {

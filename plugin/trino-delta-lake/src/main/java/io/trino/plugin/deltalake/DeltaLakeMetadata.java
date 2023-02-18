@@ -158,6 +158,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.toOptional;
+import static com.google.common.collect.Sets.difference;
 import static io.trino.plugin.deltalake.DataFileInfo.DataFileType.DATA;
 import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.getColumnNames;
 import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.getFilesModifiedAfterProperty;
@@ -302,6 +303,7 @@ public class DeltaLakeMetadata
             .add(NUMBER_OF_DISTINCT_VALUES_SUMMARY)
             .build();
     private static final String ENABLE_NON_CONCURRENT_WRITES_CONFIGURATION_KEY = "delta.enable-non-concurrent-writes";
+    public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.of(READER_VERSION_PROPERTY, WRITER_VERSION_PROPERTY);
 
     private final DeltaLakeMetastore metastore;
     private final TrinoFileSystemFactory fileSystemFactory;
@@ -1874,6 +1876,58 @@ public class DeltaLakeMetadata
                 readVersion,
                 ISOLATION_LEVEL,
                 Optional.of(true));
+    }
+
+    @Override
+    public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Optional<Object>> properties)
+    {
+        Set<String> unsupportedProperties = difference(properties.keySet(), UPDATABLE_TABLE_PROPERTIES);
+        if (!unsupportedProperties.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "The following properties cannot be updated: " + String.join(", ", unsupportedProperties));
+        }
+
+        DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
+        ProtocolEntry currentProtocolEntry = getProtocolEntry(session, handle.getSchemaTableName());
+
+        Optional<Integer> readerVersion = Optional.empty();
+        if (properties.containsKey(READER_VERSION_PROPERTY)) {
+            readerVersion = Optional.of((int) properties.get(READER_VERSION_PROPERTY)
+                    .orElseThrow(() -> new IllegalArgumentException("The " + READER_VERSION_PROPERTY + " property cannot be empty")));
+            if (readerVersion.get() < currentProtocolEntry.getMinReaderVersion()) {
+                throw new TrinoException(INVALID_TABLE_PROPERTY, format(
+                        "%s cannot be downgraded from %d to %d", READER_VERSION_PROPERTY, currentProtocolEntry.getMinReaderVersion(), readerVersion.get()));
+            }
+        }
+
+        Optional<Integer> writerVersion = Optional.empty();
+        if (properties.containsKey(WRITER_VERSION_PROPERTY)) {
+            writerVersion = Optional.of((int) properties.get(WRITER_VERSION_PROPERTY)
+                    .orElseThrow(() -> new IllegalArgumentException("The " + WRITER_VERSION_PROPERTY + " property cannot be empty")));
+            if (writerVersion.get() < currentProtocolEntry.getMinWriterVersion()) {
+                throw new TrinoException(INVALID_TABLE_PROPERTY, format(
+                        "%s cannot be downgraded from %d to %d", WRITER_VERSION_PROPERTY, currentProtocolEntry.getMinWriterVersion(), writerVersion.get()));
+            }
+        }
+
+        long readVersion = handle.getReadVersion();
+        long commitVersion = readVersion + 1;
+
+        ProtocolEntry protocolEntry = new ProtocolEntry(
+                readerVersion.orElse(currentProtocolEntry.getMinReaderVersion()),
+                writerVersion.orElse(currentProtocolEntry.getMinWriterVersion()));
+
+        try {
+            TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, handle.getLocation());
+
+            long createdTime = Instant.now().toEpochMilli();
+            transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, commitVersion, createdTime, SET_TBLPROPERTIES_OPERATION, readVersion));
+            transactionLogWriter.appendProtocolEntry(protocolEntry);
+
+            transactionLogWriter.flush();
+        }
+        catch (IOException e) {
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
+        }
     }
 
     @Override
