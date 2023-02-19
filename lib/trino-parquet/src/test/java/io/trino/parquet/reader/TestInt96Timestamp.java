@@ -53,7 +53,7 @@ import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.time.ZoneOffset.UTC;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
-import static org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
+import static org.apache.parquet.format.CompressionCodec.UNCOMPRESSED;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 import static org.assertj.core.api.Assertions.assertThat;
 
