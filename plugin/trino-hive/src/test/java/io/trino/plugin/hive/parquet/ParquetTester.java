@@ -115,9 +115,6 @@ import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockS
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
-import static io.trino.plugin.hive.util.HiveUtil.isArrayType;
-import static io.trino.plugin.hive.util.HiveUtil.isMapType;
-import static io.trino.plugin.hive.util.HiveUtil.isRowType;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -551,15 +548,13 @@ public class ParquetTester
         }
         if (isStructuralType(type)) {
             Block block = (Block) fieldFromCursor;
-            if (isArrayType(type)) {
-                Type elementType = ((ArrayType) type).getElementType();
-                return toArrayValue(block, elementType);
+            if (type instanceof ArrayType arrayType) {
+                return toArrayValue(block, arrayType.getElementType());
             }
-            if (isMapType(type)) {
-                MapType mapType = (MapType) type;
+            if (type instanceof MapType mapType) {
                 return toMapValue(block, mapType.getKeyType(), mapType.getValueType());
             }
-            if (isRowType(type)) {
+            if (type instanceof RowType) {
                 return toRowValue(block, type.getTypeParameters());
             }
         }
