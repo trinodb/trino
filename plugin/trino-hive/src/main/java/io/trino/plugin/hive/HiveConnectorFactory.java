@@ -22,8 +22,6 @@ import io.trino.spi.connector.ConnectorFactory;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.trino.plugin.base.Versions.checkSpiVersion;
 import static java.util.Objects.requireNonNull;
@@ -31,25 +29,22 @@ import static java.util.Objects.requireNonNull;
 public class HiveConnectorFactory
         implements ConnectorFactory
 {
-    private final String name;
     private final Class<? extends Module> module;
 
-    public HiveConnectorFactory(String name)
+    public HiveConnectorFactory()
     {
-        this(name, EmptyModule.class);
+        this(EmptyModule.class);
     }
 
-    public HiveConnectorFactory(String name, Class<? extends Module> module)
+    public HiveConnectorFactory(Class<? extends Module> module)
     {
-        checkArgument(!isNullOrEmpty(name), "name is null or empty");
-        this.name = name;
         this.module = requireNonNull(module, "module is null");
     }
 
     @Override
     public String getName()
     {
-        return name;
+        return "hive";
     }
 
     @Override
