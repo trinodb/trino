@@ -26,7 +26,7 @@ public class HivePlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new HiveConnectorFactory("hive"));
+        return ImmutableList.of(new HiveConnectorFactory());
     }
 
     @Override
