@@ -41,7 +41,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.format.CompressionCodec;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -452,7 +452,7 @@ public abstract class AbstractDeltaLakePageSink
                 .setMaxBlockSize(getParquetWriterBlockSize(session))
                 .setMaxPageSize(getParquetWriterPageSize(session))
                 .build();
-        CompressionCodecName compressionCodecName = getCompressionCodec(session).getParquetCompressionCodec();
+        CompressionCodec compressionCodec = getCompressionCodec(session).getParquetCompressionCodec();
 
         try {
             Closeable rollbackAction = () -> fileSystem.deleteFile(path);
@@ -484,7 +484,7 @@ public abstract class AbstractDeltaLakePageSink
                     schemaConverter.getPrimitiveTypes(),
                     parquetWriterOptions,
                     identityMapping,
-                    compressionCodecName,
+                    compressionCodec,
                     trinoVersion,
                     false,
                     Optional.empty(),

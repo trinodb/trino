@@ -21,7 +21,7 @@ import io.trino.spi.type.Type;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.io.InputFile;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.MessageType;
 
 import java.io.Closeable;
@@ -51,7 +51,7 @@ public class IcebergParquetFileWriter
             Map<List<String>, Type> primitiveTypes,
             ParquetWriterOptions parquetWriterOptions,
             int[] fileInputColumnIndexes,
-            CompressionCodecName compressionCodecName,
+            CompressionCodec compressionCodec,
             String trinoVersion,
             String outputPath,
             TrinoFileSystem fileSystem)
@@ -65,7 +65,7 @@ public class IcebergParquetFileWriter
                 primitiveTypes,
                 parquetWriterOptions,
                 fileInputColumnIndexes,
-                compressionCodecName,
+                compressionCodec,
                 trinoVersion,
                 false,
                 Optional.empty(),

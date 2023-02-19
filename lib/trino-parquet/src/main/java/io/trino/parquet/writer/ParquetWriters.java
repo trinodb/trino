@@ -44,7 +44,7 @@ import io.trino.spi.type.VarcharType;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.column.values.ValuesWriter;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimeLogicalTypeAnnotation;
@@ -88,10 +88,10 @@ final class ParquetWriters
             MessageType messageType,
             Map<List<String>, Type> trinoTypes,
             ParquetProperties parquetProperties,
-            CompressionCodecName compressionCodecName,
+            CompressionCodec compressionCodec,
             Optional<DateTimeZone> parquetTimeZone)
     {
-        WriteBuilder writeBuilder = new WriteBuilder(messageType, trinoTypes, parquetProperties, compressionCodecName, parquetTimeZone);
+        WriteBuilder writeBuilder = new WriteBuilder(messageType, trinoTypes, parquetProperties, compressionCodec, parquetTimeZone);
         ParquetTypeVisitor.visit(messageType, writeBuilder);
         return writeBuilder.build();
     }
@@ -102,7 +102,7 @@ final class ParquetWriters
         private final MessageType type;
         private final Map<List<String>, Type> trinoTypes;
         private final ParquetProperties parquetProperties;
-        private final CompressionCodecName compressionCodecName;
+        private final CompressionCodec compressionCodec;
         private final Optional<DateTimeZone> parquetTimeZone;
         private final ImmutableList.Builder<ColumnWriter> builder = ImmutableList.builder();
 
@@ -110,13 +110,13 @@ final class ParquetWriters
                 MessageType messageType,
                 Map<List<String>, Type> trinoTypes,
                 ParquetProperties parquetProperties,
-                CompressionCodecName compressionCodecName,
+                CompressionCodec compressionCodec,
                 Optional<DateTimeZone> parquetTimeZone)
         {
             this.type = requireNonNull(messageType, "messageType is null");
             this.trinoTypes = requireNonNull(trinoTypes, "trinoTypes is null");
             this.parquetProperties = requireNonNull(parquetProperties, "parquetProperties is null");
-            this.compressionCodecName = requireNonNull(compressionCodecName, "compressionCodecName is null");
+            this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
             this.parquetTimeZone = requireNonNull(parquetTimeZone, "parquetTimeZone is null");
         }
 
@@ -171,7 +171,7 @@ final class ParquetWriters
                     getValueWriter(parquetProperties.newValuesWriter(columnDescriptor), trinoType, columnDescriptor.getPrimitiveType(), parquetTimeZone),
                     parquetProperties.newDefinitionLevelWriter(columnDescriptor),
                     parquetProperties.newRepetitionLevelWriter(columnDescriptor),
-                    compressionCodecName,
+                    compressionCodec,
                     parquetProperties.getPageSizeThreshold());
         }
 

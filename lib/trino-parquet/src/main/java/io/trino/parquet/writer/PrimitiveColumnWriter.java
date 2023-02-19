@@ -27,10 +27,10 @@ import org.apache.parquet.column.page.DictionaryPage;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.format.ColumnMetaData;
+import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.PageEncodingStats;
 import org.apache.parquet.format.PageType;
 import org.apache.parquet.format.converter.ParquetMetadataConverter;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -60,7 +60,7 @@ public class PrimitiveColumnWriter
     private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PrimitiveColumnWriter.class).instanceSize());
 
     private final ColumnDescriptor columnDescriptor;
-    private final CompressionCodecName compressionCodec;
+    private final CompressionCodec compressionCodec;
 
     private final PrimitiveValueWriter primitiveValueWriter;
     private final ValuesWriter definitionLevelWriter;
@@ -96,15 +96,15 @@ public class PrimitiveColumnWriter
     private long bufferedBytes;
     private long pageBufferedBytes;
 
-    public PrimitiveColumnWriter(ColumnDescriptor columnDescriptor, PrimitiveValueWriter primitiveValueWriter, ValuesWriter definitionLevelWriter, ValuesWriter repetitionLevelWriter, CompressionCodecName compressionCodecName, int pageSizeThreshold)
+    public PrimitiveColumnWriter(ColumnDescriptor columnDescriptor, PrimitiveValueWriter primitiveValueWriter, ValuesWriter definitionLevelWriter, ValuesWriter repetitionLevelWriter, CompressionCodec compressionCodec, int pageSizeThreshold)
     {
         this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor is null");
         this.maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();
         this.definitionLevelWriter = requireNonNull(definitionLevelWriter, "definitionLevelWriter is null");
         this.repetitionLevelWriter = requireNonNull(repetitionLevelWriter, "repetitionLevelWriter is null");
         this.primitiveValueWriter = requireNonNull(primitiveValueWriter, "primitiveValueWriter is null");
-        this.compressionCodec = requireNonNull(compressionCodecName, "compressionCodecName is null");
-        this.compressor = getCompressor(compressionCodecName);
+        this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
+        this.compressor = getCompressor(compressionCodec);
         this.pageSizeThreshold = pageSizeThreshold;
         this.columnStatistics = Statistics.createStats(columnDescriptor.getPrimitiveType());
     }
@@ -168,7 +168,7 @@ public class PrimitiveColumnWriter
                 ParquetTypeConverter.getType(columnDescriptor.getPrimitiveType().getPrimitiveTypeName()),
                 encodings.stream().map(parquetMetadataConverter::getEncoding).collect(toImmutableList()),
                 ImmutableList.copyOf(columnDescriptor.getPath()),
-                compressionCodec.getParquetCompressionCodec(),
+                compressionCodec,
                 totalValues,
                 totalUnCompressedSize,
                 totalCompressedSize,
