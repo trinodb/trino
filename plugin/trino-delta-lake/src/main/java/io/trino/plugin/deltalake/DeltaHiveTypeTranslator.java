@@ -25,8 +25,6 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
-import org.apache.hadoop.hive.common.type.HiveChar;
-import org.apache.hadoop.hive.common.type.HiveVarchar;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -41,11 +39,13 @@ import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_SHORT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.HiveType.HIVE_TIMESTAMP;
+import static io.trino.plugin.hive.type.CharTypeInfo.MAX_CHAR_LENGTH;
 import static io.trino.plugin.hive.type.TypeInfoFactory.getCharTypeInfo;
 import static io.trino.plugin.hive.type.TypeInfoFactory.getListTypeInfo;
 import static io.trino.plugin.hive.type.TypeInfoFactory.getMapTypeInfo;
 import static io.trino.plugin.hive.type.TypeInfoFactory.getStructTypeInfo;
 import static io.trino.plugin.hive.type.TypeInfoFactory.getVarcharTypeInfo;
+import static io.trino.plugin.hive.type.VarcharTypeInfo.MAX_VARCHAR_LENGTH;
 import static io.trino.plugin.hive.util.HiveUtil.isArrayType;
 import static io.trino.plugin.hive.util.HiveUtil.isMapType;
 import static io.trino.plugin.hive.util.HiveUtil.isRowType;
@@ -100,18 +100,17 @@ public class DeltaHiveTypeTranslator
             if (varcharType.isUnbounded()) {
                 return HIVE_STRING.getTypeInfo();
             }
-            if (varcharType.getBoundedLength() <= HiveVarchar.MAX_VARCHAR_LENGTH) {
+            if (varcharType.getBoundedLength() <= MAX_VARCHAR_LENGTH) {
                 return getVarcharTypeInfo(varcharType.getBoundedLength());
             }
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported VARCHAR types: VARCHAR(<=%d), VARCHAR.", type, HiveVarchar.MAX_VARCHAR_LENGTH));
+            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported VARCHAR types: VARCHAR(<=%d), VARCHAR.", type, MAX_VARCHAR_LENGTH));
         }
         if (type instanceof CharType charType) {
             int charLength = charType.getLength();
-            if (charLength <= HiveChar.MAX_CHAR_LENGTH) {
+            if (charLength <= MAX_CHAR_LENGTH) {
                 return getCharTypeInfo(charLength);
             }
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported CHAR types: CHAR(<=%d).",
-                    type, HiveChar.MAX_CHAR_LENGTH));
+            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported CHAR types: CHAR(<=%d).", type, MAX_CHAR_LENGTH));
         }
         if (VARBINARY.equals(type)) {
             return HIVE_BINARY.getTypeInfo();
