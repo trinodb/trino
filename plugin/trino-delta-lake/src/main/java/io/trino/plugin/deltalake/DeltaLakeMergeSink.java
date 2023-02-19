@@ -42,7 +42,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.format.CompressionCodec;
 import org.joda.time.DateTimeZone;
 import org.roaringbitmap.longlong.LongBitmapDataProvider;
 import org.roaringbitmap.longlong.Roaring64Bitmap;
@@ -355,7 +355,7 @@ public class DeltaLakeMergeSink
                 .setMaxBlockSize(getParquetWriterBlockSize(session))
                 .setMaxPageSize(getParquetWriterPageSize(session))
                 .build();
-        CompressionCodecName compressionCodecName = getCompressionCodec(session).getParquetCompressionCodec();
+        CompressionCodec compressionCodec = getCompressionCodec(session).getParquetCompressionCodec();
 
         try {
             Closeable rollbackAction = () -> fileSystem.deleteFile(path);
@@ -389,7 +389,7 @@ public class DeltaLakeMergeSink
                     schemaConverter.getPrimitiveTypes(),
                     parquetWriterOptions,
                     IntStream.range(0, dataColumns.size()).toArray(),
-                    compressionCodecName,
+                    compressionCodec,
                     trinoVersion,
                     false,
                     Optional.empty(),

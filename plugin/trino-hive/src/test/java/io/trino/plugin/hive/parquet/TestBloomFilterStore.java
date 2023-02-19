@@ -35,8 +35,8 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
+import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
@@ -305,7 +305,7 @@ public class TestBloomFilterStore
         ParquetTester.writeParquetColumn(
                 jobConf,
                 tempFile.getFile(),
-                CompressionCodecName.SNAPPY,
+                CompressionCodec.SNAPPY,
                 ParquetTester.createTableProperties(columnNames, objectInspectors),
                 getStandardStructObjectInspector(columnNames, objectInspectors),
                 new Iterator<?>[] {testValues.iterator()},
