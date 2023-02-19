@@ -38,7 +38,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.format.CompressionCodec;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
@@ -122,7 +122,7 @@ public class CheckpointWriter
                 schemaConverter.getMessageType(),
                 schemaConverter.getPrimitiveTypes(),
                 ParquetWriterOptions.builder().build(),
-                CompressionCodecName.SNAPPY,
+                CompressionCodec.SNAPPY,
                 trinoVersion,
                 false,
                 Optional.of(DateTimeZone.UTC),
