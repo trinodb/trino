@@ -109,9 +109,7 @@ import static io.trino.plugin.hive.util.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FO
 import static io.trino.plugin.hive.util.HiveClassNames.HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
-import static io.trino.plugin.hive.util.HiveUtil.isArrayType;
-import static io.trino.plugin.hive.util.HiveUtil.isMapType;
-import static io.trino.plugin.hive.util.HiveUtil.isRowType;
+import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -257,15 +255,15 @@ public final class HiveWriteUtils
         if (type instanceof DecimalType decimalType) {
             return getPrimitiveJavaObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
         }
-        if (isArrayType(type)) {
-            return ObjectInspectorFactory.getStandardListObjectInspector(getJavaObjectInspector(type.getTypeParameters().get(0)));
+        if (type instanceof ArrayType arrayType) {
+            return ObjectInspectorFactory.getStandardListObjectInspector(getJavaObjectInspector(arrayType.getElementType()));
         }
-        if (isMapType(type)) {
-            ObjectInspector keyObjectInspector = getJavaObjectInspector(type.getTypeParameters().get(0));
-            ObjectInspector valueObjectInspector = getJavaObjectInspector(type.getTypeParameters().get(1));
+        if (type instanceof MapType mapType) {
+            ObjectInspector keyObjectInspector = getJavaObjectInspector(mapType.getKeyType());
+            ObjectInspector valueObjectInspector = getJavaObjectInspector(mapType.getValueType());
             return ObjectInspectorFactory.getStandardMapObjectInspector(keyObjectInspector, valueObjectInspector);
         }
-        if (isRowType(type)) {
+        if (type instanceof RowType) {
             return ObjectInspectorFactory.getStandardStructObjectInspector(
                     type.getTypeSignature().getParameters().stream()
                             .map(parameter -> parameter.getNamedTypeSignature().getName().get())
@@ -734,7 +732,7 @@ public final class HiveWriteUtils
             return getPrimitiveWritableObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
         }
 
-        if (isArrayType(type) || isMapType(type) || isRowType(type)) {
+        if (isStructuralType(type)) {
             return getJavaObjectInspector(type);
         }
 
