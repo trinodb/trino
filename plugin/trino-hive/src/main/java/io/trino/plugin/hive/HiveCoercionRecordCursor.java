@@ -25,6 +25,9 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
@@ -39,9 +42,6 @@ import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_SHORT;
 import static io.trino.plugin.hive.util.HiveUtil.extractStructFieldTypes;
-import static io.trino.plugin.hive.util.HiveUtil.isArrayType;
-import static io.trino.plugin.hive.util.HiveUtil.isMapType;
-import static io.trino.plugin.hive.util.HiveUtil.isRowType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.min;
@@ -277,13 +277,13 @@ public class HiveCoercionRecordCursor
         if (fromHiveType.equals(HIVE_FLOAT) && toHiveType.equals(HIVE_DOUBLE)) {
             return new FloatToDoubleCoercer();
         }
-        if (isArrayType(fromType) && isArrayType(toType)) {
+        if ((fromType instanceof ArrayType) && (toType instanceof ArrayType)) {
             return new ListCoercer(typeManager, fromHiveType, toHiveType, bridgingRecordCursor);
         }
-        if (isMapType(fromType) && isMapType(toType)) {
+        if ((fromType instanceof MapType) && (toType instanceof MapType)) {
             return new MapCoercer(typeManager, fromHiveType, toHiveType, bridgingRecordCursor);
         }
-        if (isRowType(fromType) && isRowType(toType)) {
+        if ((fromType instanceof RowType) && (toType instanceof RowType)) {
             return new StructCoercer(typeManager, fromHiveType, toHiveType, bridgingRecordCursor);
         }
 

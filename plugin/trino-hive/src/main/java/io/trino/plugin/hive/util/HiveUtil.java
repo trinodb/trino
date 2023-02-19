@@ -683,36 +683,9 @@ public final class HiveUtil
         throw new VerifyException(format("Unhandled type [%s] for partition: %s", type, partitionName));
     }
 
-    /**
-     * @deprecated Use {@code instanceof} directly, as that allows variable assignment.
-     */
-    @Deprecated
-    public static boolean isArrayType(Type type)
-    {
-        return type instanceof ArrayType;
-    }
-
-    /**
-     * @deprecated Use {@code instanceof} directly, as that allows variable assignment.
-     */
-    @Deprecated
-    public static boolean isMapType(Type type)
-    {
-        return type instanceof MapType;
-    }
-
-    /**
-     * @deprecated Use {@code instanceof} directly, as that allows variable assignment.
-     */
-    @Deprecated
-    public static boolean isRowType(Type type)
-    {
-        return type instanceof RowType;
-    }
-
     public static boolean isStructuralType(Type type)
     {
-        return isArrayType(type) || isMapType(type) || isRowType(type);
+        return (type instanceof ArrayType) || (type instanceof MapType) || (type instanceof RowType);
     }
 
     public static boolean isStructuralType(HiveType hiveType)
