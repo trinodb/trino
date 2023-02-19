@@ -170,3 +170,52 @@ Here are some sample queries:
     ------------+--------+
      2018-08-31 |  99  |
     (1 rows)
+
+.. _hudi-metadata-tables:
+
+Metadata tables
+---------------
+
+The connector exposes a metadata table for each Hudi table.
+The metadata table contains information about the internal structure
+of the Hudi table. You can query each metadata table by appending the
+metadata table name to the table name::
+
+   SELECT * FROM "test_table$timeline"
+
+``$timeline`` table
+^^^^^^^^^^^^^^^^^^^^
+
+The ``$timeline`` table provides a detailed view of meta-data instants
+in the Hudi table. Instants are specific points in time.
+
+You can retrieve the information about the timeline of the Hudi table
+``test_table`` by using the following query::
+
+    SELECT * FROM "test_table$timeline"
+
+.. code-block:: text
+
+     timestamp          | action  | state
+    --------------------+---------+-----------
+    8667764846443717831 | commit  | COMPLETED
+    7860805980949777961 | commit  | COMPLETED
+
+The output of the query has the following columns:
+
+.. list-table:: Timeline columns
+  :widths: 20, 30, 50
+  :header-rows: 1
+
+  * - Name
+    - Type
+    - Description
+  * - ``timestamp``
+    - ``varchar``
+    - Instant time is typically a timestamp when the actions performed
+  * - ``action``
+    - ``varchar``
+    - `Type of action <https://hudi.apache.org/docs/concepts/#timeline>`_ performed on the table
+  * - ``state``
+    - ``varchar``
+    - Current state of the instant
