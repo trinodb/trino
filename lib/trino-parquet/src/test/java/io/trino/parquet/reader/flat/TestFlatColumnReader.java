@@ -64,7 +64,7 @@ import static io.trino.parquet.reader.TestingColumnReader.DataPageVersion.V1;
 import static io.trino.parquet.reader.TestingColumnReader.PLAIN_WRITER;
 import static io.trino.parquet.reader.TestingColumnReader.getDictionaryPage;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
+import static org.apache.parquet.format.CompressionCodec.UNCOMPRESSED;
 import static org.apache.parquet.internal.filter2.columnindex.TestingRowRanges.toRowRange;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;

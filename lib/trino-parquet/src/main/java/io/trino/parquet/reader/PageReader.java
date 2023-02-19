@@ -23,8 +23,8 @@ import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.Page;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 
 import javax.annotation.Nullable;
@@ -40,7 +40,7 @@ import static io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages;
 
 public final class PageReader
 {
-    private final CompressionCodecName codec;
+    private final CompressionCodec codec;
     private final boolean hasOnlyDictionaryEncodedPages;
     private final boolean hasNoNulls;
     private final PeekingIterator<Page> compressedPages;
@@ -67,12 +67,12 @@ public final class PageReader
                 metadata,
                 columnChunk,
                 offsetIndex);
-        return new PageReader(metadata.getCodec(), compressedPages, hasOnlyDictionaryEncodedPages, hasNoNulls);
+        return new PageReader(metadata.getCodec().getParquetCompressionCodec(), compressedPages, hasOnlyDictionaryEncodedPages, hasNoNulls);
     }
 
     @VisibleForTesting
     public PageReader(
-            CompressionCodecName codec,
+            CompressionCodec codec,
             Iterator<? extends Page> compressedPages,
             boolean hasOnlyDictionaryEncodedPages,
             boolean hasNoNulls)
@@ -177,7 +177,7 @@ public final class PageReader
 
     public boolean arePagesCompressed()
     {
-        return codec != CompressionCodecName.UNCOMPRESSED;
+        return codec != CompressionCodec.UNCOMPRESSED;
     }
 
     private void verifyDictionaryPageRead()

@@ -65,7 +65,7 @@ import static io.trino.testing.DataProviders.toDataProvider;
 import static java.lang.Math.toIntExact;
 import static org.apache.parquet.bytes.BytesUtils.getWidthFromMaxInt;
 import static org.apache.parquet.column.Encoding.RLE_DICTIONARY;
-import static org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
+import static org.apache.parquet.format.CompressionCodec.UNCOMPRESSED;
 import static org.apache.parquet.internal.filter2.columnindex.TestingRowRanges.toRowRange;
 import static org.apache.parquet.internal.filter2.columnindex.TestingRowRanges.toRowRanges;
 import static org.assertj.core.api.Assertions.assertThat;
