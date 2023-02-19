@@ -302,7 +302,7 @@ public final class PredicateUtils
 
         Slice compressedData = pageHeaderWithData.compressedData();
         try {
-            return new DictionaryPage(decompress(chunkMetaData.getCodec(), compressedData, pageHeader.getUncompressed_page_size()), dictionarySize, encoding);
+            return new DictionaryPage(decompress(chunkMetaData.getCodec().getParquetCompressionCodec(), compressedData, pageHeader.getUncompressed_page_size()), dictionarySize, encoding);
         }
         catch (IOException e) {
             throw new ParquetDecodingException("Could not decode the dictionary for " + chunkMetaData.getPath(), e);
