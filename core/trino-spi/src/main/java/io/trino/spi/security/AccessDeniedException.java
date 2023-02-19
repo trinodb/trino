@@ -435,6 +435,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot set authorization for view %s to %s%s", viewName, principal, formatExtraInfo(extraInfo)));
     }
 
+    public static void denySetViewComment(String viewName)
+    {
+        denySetViewComment(viewName, null);
+    }
+
+    public static void denySetViewComment(String viewName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot set comment for view %s%s", viewName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyDropView(String viewName)
     {
         denyDropView(viewName, null);
