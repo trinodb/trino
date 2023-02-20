@@ -19,8 +19,10 @@ import io.airlift.configuration.ConfigHidden;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
+import io.trino.plugin.base.logging.SessionInterpolatedValues;
 
 import javax.annotation.PostConstruct;
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -28,6 +30,7 @@ import javax.validation.constraints.NotNull;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.base.logging.FormatInterpolator.hasValidPlaceholders;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -56,6 +59,9 @@ public class BigQueryConfig
     private Duration serviceCacheTtl = new Duration(3, MINUTES);
     private Duration metadataCacheTtl = new Duration(0, MILLISECONDS);
     private boolean queryResultsCacheEnabled;
+
+    private String queryLabelName;
+    private String queryLabelFormat;
 
     private int rpcInitialChannelCount = 1;
     private int rpcMinChannelCount = 1;
@@ -263,6 +269,38 @@ public class BigQueryConfig
     public BigQueryConfig setQueryResultsCacheEnabled(boolean queryResultsCacheEnabled)
     {
         this.queryResultsCacheEnabled = queryResultsCacheEnabled;
+        return this;
+    }
+
+    public String getQueryLabelFormat()
+    {
+        return queryLabelFormat;
+    }
+
+    @Config("bigquery.job.label-format")
+    @ConfigDescription("Adds `bigquery.job.label-name` label to the BigQuery job with provided value format")
+    public BigQueryConfig setQueryLabelFormat(String queryLabelFormat)
+    {
+        this.queryLabelFormat = queryLabelFormat;
+        return this;
+    }
+
+    @AssertTrue(message = "Incorrect bigquery.job.label-format may consist of only letters, digits, underscores, commas, spaces, equal signs and predefined values")
+    boolean isQueryLabelFormatValid()
+    {
+        return queryLabelFormat == null || hasValidPlaceholders(queryLabelFormat, SessionInterpolatedValues.values());
+    }
+
+    public String getQueryLabelName()
+    {
+        return queryLabelName;
+    }
+
+    @Config("bigquery.job.label-name")
+    @ConfigDescription("Adds label with the given name to the BigQuery job")
+    public BigQueryConfig setQueryLabelName(String queryLabelName)
+    {
+        this.queryLabelName = queryLabelName;
         return this;
     }
 
