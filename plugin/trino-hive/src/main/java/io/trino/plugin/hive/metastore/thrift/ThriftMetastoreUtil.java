@@ -17,7 +17,6 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
-import com.google.common.primitives.Longs;
 import com.google.common.primitives.Shorts;
 import io.trino.hive.thrift.metastore.BinaryColumnStatsData;
 import io.trino.hive.thrift.metastore.BooleanColumnStatsData;
@@ -125,6 +124,7 @@ import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.INS
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreParameterParserUtils.toLong;
 import static io.trino.plugin.hive.type.Category.PRIMITIVE;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -742,23 +742,11 @@ public final class ThriftMetastoreUtil
 
     public static HiveBasicStatistics getHiveBasicStatistics(Map<String, String> parameters)
     {
-        OptionalLong numFiles = parse(parameters.get(NUM_FILES));
-        OptionalLong numRows = parse(parameters.get(NUM_ROWS));
-        OptionalLong inMemoryDataSizeInBytes = parse(parameters.get(RAW_DATA_SIZE));
-        OptionalLong onDiskDataSizeInBytes = parse(parameters.get(TOTAL_SIZE));
+        OptionalLong numFiles = toLong(parameters.get(NUM_FILES));
+        OptionalLong numRows = toLong(parameters.get(NUM_ROWS));
+        OptionalLong inMemoryDataSizeInBytes = toLong(parameters.get(RAW_DATA_SIZE));
+        OptionalLong onDiskDataSizeInBytes = toLong(parameters.get(TOTAL_SIZE));
         return new HiveBasicStatistics(numFiles, numRows, inMemoryDataSizeInBytes, onDiskDataSizeInBytes);
-    }
-
-    private static OptionalLong parse(@Nullable String parameterValue)
-    {
-        if (parameterValue == null) {
-            return OptionalLong.empty();
-        }
-        Long longValue = Longs.tryParse(parameterValue);
-        if (longValue == null || longValue < 0) {
-            return OptionalLong.empty();
-        }
-        return OptionalLong.of(longValue);
     }
 
     public static Map<String, String> updateStatisticsParameters(Map<String, String> parameters, HiveBasicStatistics statistics)
