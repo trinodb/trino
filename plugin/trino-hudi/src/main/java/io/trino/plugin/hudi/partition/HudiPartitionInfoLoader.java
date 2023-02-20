@@ -20,7 +20,7 @@ import io.trino.plugin.hive.util.AsyncQueue;
 import io.trino.plugin.hudi.query.HudiDirectoryLister;
 import io.trino.plugin.hudi.split.HudiSplitFactory;
 import io.trino.spi.connector.ConnectorSplit;
-import org.apache.hadoop.fs.FileStatus;
+import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.util.HoodieTimer;
 
 import java.util.Deque;
@@ -36,6 +36,7 @@ public class HudiPartitionInfoLoader
     private final HudiSplitFactory hudiSplitFactory;
     private final AsyncQueue<ConnectorSplit> asyncQueue;
     private final Deque<String> partitionQueue;
+    private final String commitTime;
 
     private boolean isRunning;
 
@@ -43,12 +44,14 @@ public class HudiPartitionInfoLoader
             HudiDirectoryLister hudiDirectoryLister,
             HudiSplitFactory hudiSplitFactory,
             AsyncQueue<ConnectorSplit> asyncQueue,
-            Deque<String> partitionQueue)
+            Deque<String> partitionQueue,
+            String commitTime)
     {
         this.hudiDirectoryLister = hudiDirectoryLister;
         this.hudiSplitFactory = hudiSplitFactory;
         this.asyncQueue = asyncQueue;
         this.partitionQueue = partitionQueue;
+        this.commitTime = commitTime;
         this.isRunning = true;
     }
 
@@ -72,9 +75,9 @@ public class HudiPartitionInfoLoader
         Optional<HudiPartitionInfo> partitionInfo = hudiDirectoryLister.getPartitionInfo(partitionName);
         if (partitionInfo.isPresent()) {
             List<HivePartitionKey> partitionKeys = partitionInfo.get().getHivePartitionKeys();
-            List<FileStatus> partitionFiles = hudiDirectoryLister.listStatus(partitionInfo.get());
-            partitionFiles.stream()
-                    .flatMap(fileStatus -> hudiSplitFactory.createSplits(partitionKeys, fileStatus))
+            List<FileSlice> fileSlices = hudiDirectoryLister.listFileSlice(partitionInfo.get(), commitTime);
+            fileSlices.stream()
+                    .flatMap(fileSlice -> hudiSplitFactory.createSplits(partitionKeys, fileSlice, commitTime))
                     .map(asyncQueue::offer)
                     .forEachOrdered(MoreFutures::getFutureValue);
         }

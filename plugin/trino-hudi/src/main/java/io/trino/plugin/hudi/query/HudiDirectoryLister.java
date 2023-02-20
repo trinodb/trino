@@ -15,6 +15,7 @@ package io.trino.plugin.hudi.query;
 
 import io.trino.plugin.hudi.partition.HudiPartitionInfo;
 import org.apache.hadoop.fs.FileStatus;
+import org.apache.hudi.common.model.FileSlice;
 
 import java.io.Closeable;
 import java.util.List;
@@ -23,7 +24,9 @@ import java.util.Optional;
 public interface HudiDirectoryLister
         extends Closeable
 {
-    List<FileStatus> listStatus(HudiPartitionInfo partitionInfo);
+    List<FileStatus> listStatus(HudiPartitionInfo partitionInfo, String commitTime);
+
+    List<FileSlice> listFileSlice(HudiPartitionInfo partitionInfo, String commitTime);
 
     Optional<HudiPartitionInfo> getPartitionInfo(String partition);
 }

@@ -25,7 +25,6 @@ import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieEngineContext;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
-import org.apache.hudi.common.table.timeline.HoodieInstant;
 import org.apache.hudi.common.table.view.FileSystemViewManager;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.Option;
@@ -43,7 +42,6 @@ public class HudiReadOptimizedDirectoryLister
     private final HoodieTableFileSystemView fileSystemView;
     private final List<Column> partitionColumns;
     private final List<HudiPartitionInfo> allPartitionInfoList;
-    private final String latestInstant;
 
     public HudiReadOptimizedDirectoryLister(
             HoodieMetadataConfig metadataConfig,
@@ -56,7 +54,6 @@ public class HudiReadOptimizedDirectoryLister
             List<String> hivePartitionNames)
     {
         this.fileSystemView = FileSystemViewManager.createInMemoryFileSystemView(engineContext, metaClient, metadataConfig);
-        this.latestInstant = metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants().lastInstant().map(HoodieInstant::getTimestamp).orElse(null);
         this.partitionColumns = hiveTable.getPartitionColumns();
         this.allPartitionInfoList = hivePartitionNames.stream()
                 .map(hivePartitionName -> new HiveHudiPartitionInfo(
@@ -70,17 +67,25 @@ public class HudiReadOptimizedDirectoryLister
     }
 
     @Override
-    public List<FileStatus> listStatus(HudiPartitionInfo partitionInfo)
+    public List<FileStatus> listStatus(HudiPartitionInfo partitionInfo, String commitTime)
     {
-        if (latestInstant != null) {
-            return fileSystemView.getLatestFileSlicesBeforeOrOn(partitionInfo.getRelativePartitionPath(), latestInstant, false)
-                    .map(FileSlice::getBaseFile)
-                    .filter(Option::isPresent)
-                    .map(baseFile -> getFileStatus(baseFile.get()))
-                    .collect(toImmutableList());
-        }
-        return fileSystemView.getLatestBaseFiles(partitionInfo.getRelativePartitionPath())
-                .map(baseFile -> getFileStatus(baseFile))
+        return fileSystemView.getLatestFileSlicesBeforeOrOn(
+                        partitionInfo.getRelativePartitionPath(),
+                        commitTime,
+                        false)
+                .map(FileSlice::getBaseFile)
+                .filter(Option::isPresent)
+                .map(baseFile -> getFileStatus(baseFile.get()))
+                .collect(toImmutableList());
+    }
+
+    @Override
+    public List<FileSlice> listFileSlice(HudiPartitionInfo partitionInfo, String commitTime)
+    {
+        return fileSystemView.getLatestFileSlicesBeforeOrOn(
+                        partitionInfo.getRelativePartitionPath(),
+                        commitTime,
+                        false)
                 .collect(toImmutableList());
     }
 

@@ -34,6 +34,7 @@ import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieEngineContext;
 import org.apache.hudi.common.engine.HoodieLocalEngineContext;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.common.table.timeline.HoodieInstant;
 
 import java.util.List;
 import java.util.Map;
@@ -81,6 +82,12 @@ public class HudiSplitSource
                 .build();
         List<HiveColumnHandle> partitionColumnHandles = table.getPartitionColumns().stream()
                 .map(column -> partitionColumnHandleMap.get(column.getName())).collect(toList());
+        String latestCommitTime = metaClient.getActiveTimeline()
+                .getCommitsTimeline()
+                .filterCompletedInstants()
+                .lastInstant()
+                .map(HoodieInstant::getTimestamp)
+                .orElseThrow(() -> new TrinoException(HudiErrorCode.HUDI_NO_VALID_COMMIT, "Table has no valid commits"));
 
         HudiDirectoryLister hudiDirectoryLister = new HudiReadOptimizedDirectoryLister(
                 metadataConfig,
@@ -100,7 +107,8 @@ public class HudiSplitSource
                 queue,
                 splitGeneratorExecutorService,
                 createSplitWeightProvider(session),
-                partitions);
+                partitions,
+                latestCommitTime);
         this.splitLoaderFuture = splitLoaderExecutorService.schedule(splitLoader, 0, TimeUnit.MILLISECONDS);
     }
 

@@ -21,6 +21,8 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.hudi.common.model.HoodieTableType;
 
+import java.util.Properties;
+
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.util.Objects.requireNonNull;
 
@@ -33,6 +35,7 @@ public class HudiTableHandle
     private final HoodieTableType tableType;
     private final TupleDomain<HiveColumnHandle> partitionPredicates;
     private final TupleDomain<HiveColumnHandle> regularPredicates;
+    private final Properties schema;
 
     @JsonCreator
     public HudiTableHandle(
@@ -41,7 +44,8 @@ public class HudiTableHandle
             @JsonProperty("basePath") String basePath,
             @JsonProperty("tableType") HoodieTableType tableType,
             @JsonProperty("partitionPredicates") TupleDomain<HiveColumnHandle> partitionPredicates,
-            @JsonProperty("regularPredicates") TupleDomain<HiveColumnHandle> regularPredicates)
+            @JsonProperty("regularPredicates") TupleDomain<HiveColumnHandle> regularPredicates,
+            @JsonProperty("properties") Properties schema)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -49,6 +53,7 @@ public class HudiTableHandle
         this.tableType = requireNonNull(tableType, "tableType is null");
         this.partitionPredicates = requireNonNull(partitionPredicates, "partitionPredicates is null");
         this.regularPredicates = requireNonNull(regularPredicates, "regularPredicates is null");
+        this.schema = requireNonNull(schema, "schema is null");
     }
 
     @JsonProperty
@@ -87,6 +92,12 @@ public class HudiTableHandle
         return regularPredicates;
     }
 
+    @JsonProperty
+    public Properties getSchema()
+    {
+        return schema;
+    }
+
     public SchemaTableName getSchemaTableName()
     {
         return schemaTableName(schemaName, tableName);
@@ -102,7 +113,8 @@ public class HudiTableHandle
                 basePath,
                 tableType,
                 partitionPredicates.intersect(partitionTupleDomain),
-                regularPredicates.intersect(regularTupleDomain));
+                regularPredicates.intersect(regularTupleDomain),
+                schema);
     }
 
     @Override
