@@ -67,6 +67,7 @@ public interface QueryDao
             "  failed_input_blocked_time_millis BIGINT NOT NULL,\n" +
             "  output_blocked_time_millis BIGINT NOT NULL,\n" +
             "  failed_output_blocked_time_millis BIGINT NOT NULL,\n" +
+            "  physical_input_read_time_millis BIGINT NOT NULL,\n" +
             "  peak_memory_bytes BIGINT NOT NULL,\n" +
             "  peak_task_memory_bytes BIGINT NOT NULL,\n" +
             "  physical_input_bytes BIGINT NOT NULL,\n" +
@@ -135,6 +136,7 @@ public interface QueryDao
             "  failed_input_blocked_time_millis,\n" +
             "  output_blocked_time_millis,\n" +
             "  failed_output_blocked_time_millis,\n" +
+            "  physical_input_read_time_millis,\n" +
             "  peak_memory_bytes,\n" +
             "  peak_task_memory_bytes,\n" +
             "  physical_input_bytes,\n" +
@@ -201,6 +203,7 @@ public interface QueryDao
             " :failedInputBlockedTimeMillis,\n" +
             " :outputBlockedTimeMillis,\n" +
             " :failedOutputBlockedTimeMillis,\n" +
+            " :physicalInputReadTimeMillis,\n" +
             " :peakMemoryBytes,\n" +
             " :peakTaskMemoryBytes,\n" +
             " :physicalInputBytes,\n" +
