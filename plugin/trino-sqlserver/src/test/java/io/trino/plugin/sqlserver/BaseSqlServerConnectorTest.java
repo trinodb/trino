@@ -52,9 +52,9 @@ public abstract class BaseSqlServerConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY:
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
                 return true;
-            case SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY:
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
                 return false;
 
@@ -351,9 +351,9 @@ public abstract class BaseSqlServerConnectorTest
             assertThat(query(joinPushdownEnabled, "SELECT c.name, n.name FROM customer c JOIN nation n ON c.custkey = n.nationkey WHERE n.name = 'POLAND'"))
                     .isFullyPushedDown();
 
-            // join on varchar columns is not pushed down
-            assertThat(query(joinPushdownEnabled, "SELECT c.name, n.name FROM customer c JOIN nation n ON c.address = n.name"))
-                    .joinIsNotFullyPushedDown();
+            // join on varchar columns
+            assertThat(query(joinPushdownEnabled, "SELECT n.name, n2.regionkey FROM nation n JOIN nation n2 ON n.name = n2.name"))
+                    .isFullyPushedDown();
         }
     }
 
@@ -382,6 +382,36 @@ public abstract class BaseSqlServerConnectorTest
                     .matches("VALUES " +
                             "(CAST('collation' AS varchar(25)))")
                     .isNotFullyPushedDown(FilterNode.class);
+        }
+    }
+
+    @Test
+    public void testNoJoinPushdownOnCaseInsensitiveVarcharColumn()
+    {
+        // if collation on column is caseinsensitive we should not apply join pushdown
+        try (TestTable testTable = new TestTable(
+                onRemoteDatabase(),
+                "test_join_collate",
+                "(collate_column_1 varchar(25) COLLATE Latin1_General_CI_AS, collate_column_2 varchar(25) COLLATE Latin1_General_CI_AS)",
+                List.of("'Collation', 'Collation'", "'collation', 'collation'"))) {
+            assertThat(query(format("SELECT n.collate_column_1, n2.collate_column_2 FROM %1$s n JOIN %1$s n2 ON n.collate_column_1 = n2.collate_column_2", testTable.getName())))
+                    .matches("VALUES " +
+                            "((CAST('Collation' AS varchar(25))), (CAST('Collation' AS varchar(25)))), " +
+                            "((CAST('collation' AS varchar(25))), (CAST('collation' AS varchar(25))))")
+                    .joinIsNotFullyPushedDown();
+            assertThat(query(format("SELECT n.collate_column_1, n2.collate_column_2 FROM %1$s n JOIN %1$s n2 ON n.collate_column_1 != n2.collate_column_2", testTable.getName())))
+                    .matches("VALUES " +
+                            "((CAST('collation' AS varchar(25))), (CAST('Collation' AS varchar(25)))), " +
+                            "((CAST('Collation' AS varchar(25))), (CAST('collation' AS varchar(25))))")
+                    .joinIsNotFullyPushedDown();
+            assertThat(query(format("SELECT n.collate_column_1, n2.collate_column_2 FROM %1$s n JOIN %1$s n2 ON n.collate_column_1 = n2.collate_column_2 WHERE n.collate_column_1 = 'Collation'", testTable.getName())))
+                    .matches("VALUES " +
+                            "((CAST('Collation' AS varchar(25))), (CAST('Collation' AS varchar(25))))")
+                    .joinIsNotFullyPushedDown();
+            assertThat(query(format("SELECT n.collate_column_1, n2.collate_column_2 FROM %1$s n JOIN %1$s n2 ON n.collate_column_1 != n2.collate_column_2 WHERE n.collate_column_1 != 'collation'", testTable.getName())))
+                    .matches("VALUES " +
+                            "((CAST('Collation' AS varchar(25))), (CAST('collation' AS varchar(25))))")
+                    .joinIsNotFullyPushedDown();
         }
     }
 
