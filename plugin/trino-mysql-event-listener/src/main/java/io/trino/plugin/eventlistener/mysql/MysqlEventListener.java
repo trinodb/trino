@@ -136,6 +136,7 @@ public class MysqlEventListener
                 stats.getFailedInputBlockedTime().map(Duration::toMillis).orElse(0L),
                 stats.getOutputBlockedTime().map(Duration::toMillis).orElse(0L),
                 stats.getFailedOutputBlockedTime().map(Duration::toMillis).orElse(0L),
+                stats.getPhysicalInputReadTime().map(Duration::toMillis).orElse(0L),
                 stats.getPeakUserMemoryBytes(),
                 stats.getPeakTaskTotalMemory(),
                 stats.getPhysicalInputBytes(),

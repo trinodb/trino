@@ -42,6 +42,7 @@ public class QueryStatistics
     private final Optional<Duration> failedInputBlockedTime;
     private final Optional<Duration> outputBlockedTime;
     private final Optional<Duration> failedOutputBlockedTime;
+    private final Optional<Duration> physicalInputReadTime;
 
     private final long peakUserMemoryBytes;
     private final long peakTaskUserMemory;
@@ -98,6 +99,7 @@ public class QueryStatistics
             Optional<Duration> failedInputBlockedTime,
             Optional<Duration> outputBlockedTime,
             Optional<Duration> failedOutputBlockedTime,
+            Optional<Duration> physicalInputReadTime,
             long peakUserMemoryBytes,
             long peakTaskUserMemory,
             long peakTaskTotalMemory,
@@ -137,6 +139,7 @@ public class QueryStatistics
         this.failedInputBlockedTime = requireNonNull(failedInputBlockedTime, "failedInputBlockedTime is null");
         this.outputBlockedTime = requireNonNull(outputBlockedTime, "outputBlockedTime is null");
         this.failedOutputBlockedTime = requireNonNull(failedOutputBlockedTime, "failedOutputBlockedTime is null");
+        this.physicalInputReadTime = requireNonNull(physicalInputReadTime, "physicalInputReadTime is null");
         this.peakUserMemoryBytes = peakUserMemoryBytes;
         this.peakTaskUserMemory = peakTaskUserMemory;
         this.peakTaskTotalMemory = peakTaskTotalMemory;
@@ -245,6 +248,12 @@ public class QueryStatistics
     public Optional<Duration> getFailedOutputBlockedTime()
     {
         return failedOutputBlockedTime;
+    }
+
+    @JsonProperty
+    public Optional<Duration> getPhysicalInputReadTime()
+    {
+        return physicalInputReadTime;
     }
 
     @JsonProperty

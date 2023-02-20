@@ -94,6 +94,7 @@ public class TestMysqlEventListener
             Optional.of(ofMillis(112)),
             Optional.of(ofMillis(113)),
             Optional.of(ofMillis(114)),
+            Optional.of(ofMillis(115)),
             115L,
             116L,
             117L,
@@ -230,6 +231,7 @@ public class TestMysqlEventListener
             ofMillis(102),
             ofMillis(103),
             ofMillis(104),
+            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -402,6 +404,7 @@ public class TestMysqlEventListener
                     assertEquals(resultSet.getLong("failed_input_blocked_time_millis"), 112);
                     assertEquals(resultSet.getLong("output_blocked_time_millis"), 113);
                     assertEquals(resultSet.getLong("failed_output_blocked_time_millis"), 114);
+                    assertEquals(resultSet.getLong("physical_input_read_time_millis"), 115);
                     assertEquals(resultSet.getLong("peak_memory_bytes"), 115);
                     assertEquals(resultSet.getLong("peak_task_memory_bytes"), 117);
                     assertEquals(resultSet.getLong("physical_input_bytes"), 118);
@@ -483,6 +486,7 @@ public class TestMysqlEventListener
                     assertEquals(resultSet.getLong("failed_input_blocked_time_millis"), 0);
                     assertEquals(resultSet.getLong("output_blocked_time_millis"), 0);
                     assertEquals(resultSet.getLong("failed_output_blocked_time_millis"), 0);
+                    assertEquals(resultSet.getLong("physical_input_read_time_millis"), 0);
                     assertEquals(resultSet.getLong("peak_memory_bytes"), 115);
                     assertEquals(resultSet.getLong("peak_task_memory_bytes"), 117);
                     assertEquals(resultSet.getLong("physical_input_bytes"), 118);

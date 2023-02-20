@@ -78,6 +78,7 @@ public class QueryEntity
     private final long failedInputBlockedTimeMillis;
     private final long outputBlockedTimeMillis;
     private final long failedOutputBlockedTimeMillis;
+    private final long physicalInputReadTimeMillis;
 
     private final long peakMemoryBytes;
     private final long peakTaskMemoryBytes;
@@ -148,6 +149,7 @@ public class QueryEntity
             long failedInputBlockedTimeMillis,
             long outputBlockedTimeMillis,
             long failedOutputBlockedTimeMillis,
+            long physicalInputReadTimeMillis,
             long peakMemoryBytes,
             long peakTaskMemoryBytes,
             long physicalInputBytes,
@@ -213,6 +215,7 @@ public class QueryEntity
         this.failedInputBlockedTimeMillis = failedInputBlockedTimeMillis;
         this.outputBlockedTimeMillis = outputBlockedTimeMillis;
         this.failedOutputBlockedTimeMillis = failedOutputBlockedTimeMillis;
+        this.physicalInputReadTimeMillis = physicalInputReadTimeMillis;
         this.peakMemoryBytes = peakMemoryBytes;
         this.peakTaskMemoryBytes = peakTaskMemoryBytes;
         this.physicalInputBytes = physicalInputBytes;
@@ -469,6 +472,11 @@ public class QueryEntity
     public long getFailedOutputBlockedTimeMillis()
     {
         return failedOutputBlockedTimeMillis;
+    }
+
+    public long getPhysicalInputReadTimeMillis()
+    {
+        return physicalInputReadTimeMillis;
     }
 
     public long getPeakMemoryBytes()
