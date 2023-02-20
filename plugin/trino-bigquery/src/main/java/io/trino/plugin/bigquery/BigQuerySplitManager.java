@@ -50,8 +50,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.bigquery.BigQueryClient.TABLE_TYPES;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
-import static io.trino.plugin.bigquery.BigQuerySessionProperties.createDisposition;
-import static io.trino.plugin.bigquery.BigQuerySessionProperties.isQueryResultsCacheEnabled;
 import static io.trino.plugin.bigquery.BigQuerySessionProperties.isSkipViewMaterialization;
 import static io.trino.plugin.bigquery.BigQueryUtil.isWildcardTable;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -160,7 +158,7 @@ public class BigQuerySplitManager
             if (filter.isPresent()) {
                 // count the rows based on the filter
                 String sql = client.selectSql(remoteTableId, "COUNT(*)");
-                TableResult result = client.query(sql, isQueryResultsCacheEnabled(session), createDisposition(session));
+                TableResult result = client.executeQuery(session, sql);
                 numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
             }
             else {
@@ -170,7 +168,7 @@ public class BigQuerySplitManager
                 // (and there's no mechanism to trigger an on-demand flush). This can lead to incorrect results for queries with empty projections.
                 if (TABLE_TYPES.contains(tableInfo.getDefinition().getType())) {
                     String sql = client.selectSql(remoteTableId, "COUNT(*)");
-                    TableResult result = client.query(sql, isQueryResultsCacheEnabled(session), createDisposition(session));
+                    TableResult result = client.executeQuery(session, sql);
                     numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
                 }
                 else {

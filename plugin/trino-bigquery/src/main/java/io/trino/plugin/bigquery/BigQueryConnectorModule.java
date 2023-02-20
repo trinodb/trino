@@ -20,6 +20,8 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.logging.FormatInterpolator;
+import io.trino.plugin.base.logging.SessionInterpolatedValues;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.bigquery.ptf.Query;
 import io.trino.spi.NodeManager;
@@ -79,6 +81,13 @@ public class BigQueryConnectorModule
         public static HeaderProvider createHeaderProvider(NodeManager nodeManager)
         {
             return FixedHeaderProvider.create("user-agent", "Trino/" + nodeManager.getCurrentNode().getVersion());
+        }
+
+        @Provides
+        @Singleton
+        public static BigQueryLabelFactory labelFactory(BigQueryConfig config)
+        {
+            return new BigQueryLabelFactory(config.getQueryLabelName(), new FormatInterpolator<>(config.getQueryLabelFormat(), SessionInterpolatedValues.values()));
         }
 
         /**

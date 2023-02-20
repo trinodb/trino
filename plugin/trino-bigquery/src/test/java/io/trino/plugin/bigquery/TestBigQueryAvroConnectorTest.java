@@ -46,7 +46,7 @@ public class TestBigQueryAvroConnectorTest
     {
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
-                ImmutableMap.of(),
+                ImmutableMap.of("bigquery.job.label-name", "trino_query", "bigquery.job.label-format", "q_$QUERY_ID__t_$TRACE_TOKEN"),
                 REQUIRED_TPCH_TABLES);
     }
 

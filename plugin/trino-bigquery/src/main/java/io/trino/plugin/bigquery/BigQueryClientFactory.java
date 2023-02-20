@@ -41,6 +41,7 @@ public class BigQueryClientFactory
     private final boolean caseInsensitiveNameMatching;
     private final ViewMaterializationCache materializationCache;
     private final HeaderProvider headerProvider;
+    private final BigQueryLabelFactory labelFactory;
     private final NonEvictableCache<IdentityCacheMapping.IdentityCacheKey, BigQueryClient> clientCache;
     private final Duration metadataCacheTtl;
 
@@ -50,7 +51,8 @@ public class BigQueryClientFactory
             BigQueryCredentialsSupplier credentialsSupplier,
             BigQueryConfig bigQueryConfig,
             ViewMaterializationCache materializationCache,
-            HeaderProvider headerProvider)
+            HeaderProvider headerProvider,
+            BigQueryLabelFactory labelFactory)
     {
         this.identityCacheMapping = requireNonNull(identityCacheMapping, "identityCacheMapping is null");
         this.credentialsSupplier = requireNonNull(credentialsSupplier, "credentialsSupplier is null");
@@ -60,6 +62,7 @@ public class BigQueryClientFactory
         this.caseInsensitiveNameMatching = bigQueryConfig.isCaseInsensitiveNameMatching();
         this.materializationCache = requireNonNull(materializationCache, "materializationCache is null");
         this.headerProvider = requireNonNull(headerProvider, "headerProvider is null");
+        this.labelFactory = requireNonNull(labelFactory, "labelFactory is null");
         this.metadataCacheTtl = bigQueryConfig.getMetadataCacheTtl();
 
         CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
@@ -77,7 +80,7 @@ public class BigQueryClientFactory
 
     protected BigQueryClient createBigQueryClient(ConnectorSession session)
     {
-        return new BigQueryClient(createBigQuery(session), caseInsensitiveNameMatching, materializationCache, metadataCacheTtl, projectId);
+        return new BigQueryClient(createBigQuery(session), labelFactory, caseInsensitiveNameMatching, materializationCache, metadataCacheTtl, projectId);
     }
 
     protected BigQuery createBigQuery(ConnectorSession session)

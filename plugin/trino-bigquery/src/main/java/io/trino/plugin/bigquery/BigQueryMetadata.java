@@ -521,7 +521,7 @@ public class BigQueryMetadata
                 quote(remoteTableName.getProjectId()),
                 quote(remoteTableName.getDatasetName()),
                 quote(remoteTableName.getTableName()));
-        client.executeUpdate(QueryJobConfiguration.of(sql));
+        client.executeUpdate(session, QueryJobConfiguration.of(sql));
     }
 
     @Override
@@ -603,7 +603,7 @@ public class BigQueryMetadata
                     quote(pageSinkIdColumnName),
                     quote(pageSinkIdColumnName));
 
-            client.executeUpdate(QueryJobConfiguration.of(insertSql));
+            client.executeUpdate(session, QueryJobConfiguration.of(insertSql));
         }
         finally {
             try {
@@ -636,8 +636,7 @@ public class BigQueryMetadata
                 quote(remoteTableName.getProjectId()),
                 quote(remoteTableName.getDatasetName()),
                 quote(remoteTableName.getTableName()));
-        client.executeUpdate(QueryJobConfiguration.newBuilder(sql)
-                .setQuery(sql)
+        client.executeUpdate(session, QueryJobConfiguration.newBuilder(sql)
                 .addPositionalParameter(QueryParameterValue.string(newComment.orElse(null)))
                 .build());
     }
@@ -656,8 +655,7 @@ public class BigQueryMetadata
                 quote(remoteTableName.getDatasetName()),
                 quote(remoteTableName.getTableName()),
                 quote(column.getName()));
-        client.executeUpdate(QueryJobConfiguration.newBuilder(sql)
-                .setQuery(sql)
+        client.executeUpdate(session, QueryJobConfiguration.newBuilder(sql)
                 .addPositionalParameter(QueryParameterValue.string(newComment.orElse(null)))
                 .build());
     }
