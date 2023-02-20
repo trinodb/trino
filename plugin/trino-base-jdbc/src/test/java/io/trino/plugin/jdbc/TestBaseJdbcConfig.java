@@ -19,11 +19,15 @@ import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import javax.validation.constraints.AssertTrue;
+
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
+import static io.airlift.testing.ValidationAssertions.assertValidates;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -81,19 +85,20 @@ public class TestBaseJdbcConfig
     @Test
     public void testCacheConfigValidation()
     {
-        BaseJdbcConfig explicitCacheSize = new BaseJdbcConfig()
+        assertValidates(new BaseJdbcConfig()
+                .setConnectionUrl("jdbc:h2:mem:config")
                 .setMetadataCacheTtl(new Duration(1, SECONDS))
-                .setCacheMaximumSize(5000);
-        explicitCacheSize.validate();
-        BaseJdbcConfig defaultCacheSize = new BaseJdbcConfig()
-                .setMetadataCacheTtl(new Duration(1, SECONDS));
-        defaultCacheSize.validate();
-        assertThatThrownBy(() -> new BaseJdbcConfig()
-                .setMetadataCacheTtl(ZERO)
-                .setCacheMaximumSize(100000)
-                .validate())
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageMatching("metadata.cache-ttl must be set to a non-zero value when metadata.cache-maximum-size is set");
+                .setCacheMaximumSize(5000));
+
+        assertValidates(new BaseJdbcConfig()
+                .setConnectionUrl("jdbc:h2:mem:config")
+                .setMetadataCacheTtl(new Duration(1, SECONDS)));
+
+        assertFailsValidation(new BaseJdbcConfig()
+                .setCacheMaximumSize(5000),
+                "cacheMaximumSizeConsistent",
+                "metadata.cache-ttl must be set to a non-zero value when metadata.cache-maximum-size is set",
+                AssertTrue.class);
     }
 
     private static void buildConfig(Map<String, String> properties)

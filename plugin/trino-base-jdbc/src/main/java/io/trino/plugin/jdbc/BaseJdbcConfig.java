@@ -20,7 +20,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
-import javax.annotation.PostConstruct;
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
@@ -28,7 +28,6 @@ import javax.validation.constraints.Pattern;
 import java.util.Set;
 
 import static com.google.common.base.Strings.nullToEmpty;
-import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static javax.validation.constraints.Pattern.Flag.CASE_INSENSITIVE;
 
@@ -114,12 +113,9 @@ public class BaseJdbcConfig
         return this;
     }
 
-    @PostConstruct
-    public void validate()
+    @AssertTrue(message = METADATA_CACHE_TTL + " must be set to a non-zero value when " + METADATA_CACHE_MAXIMUM_SIZE + " is set")
+    public boolean isCacheMaximumSizeConsistent()
     {
-        if (metadataCacheTtl.equals(CACHING_DISABLED) && cacheMaximumSize != BaseJdbcConfig.DEFAULT_METADATA_CACHE_SIZE) {
-            throw new IllegalArgumentException(
-                    format("%s must be set to a non-zero value when %s is set", METADATA_CACHE_TTL, METADATA_CACHE_MAXIMUM_SIZE));
-        }
+        return !metadataCacheTtl.equals(CACHING_DISABLED) || cacheMaximumSize == BaseJdbcConfig.DEFAULT_METADATA_CACHE_SIZE;
     }
 }
