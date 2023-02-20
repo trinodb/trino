@@ -42,7 +42,6 @@ import io.trino.plugin.hive.aws.athena.PartitionProjectionModule;
 import io.trino.plugin.hive.azure.HiveAzureModule;
 import io.trino.plugin.hive.cos.HiveCosModule;
 import io.trino.plugin.hive.fs.CachingDirectoryListerModule;
-import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.gcs.HiveGcsModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreModule;
@@ -85,7 +84,7 @@ public final class InternalHiveConnectorFactory
 
     public static Connector createConnector(String catalogName, Map<String, String> config, ConnectorContext context, Module module)
     {
-        return createConnector(catalogName, config, context, module, Optional.empty(), Optional.empty());
+        return createConnector(catalogName, config, context, module, Optional.empty());
     }
 
     public static Connector createConnector(
@@ -93,8 +92,7 @@ public final class InternalHiveConnectorFactory
             Map<String, String> config,
             ConnectorContext context,
             Module module,
-            Optional<HiveMetastore> metastore,
-            Optional<DirectoryLister> directoryLister)
+            Optional<HiveMetastore> metastore)
     {
         requireNonNull(config, "config is null");
 
@@ -109,7 +107,7 @@ public final class InternalHiveConnectorFactory
                     new TypeDeserializerModule(context.getTypeManager()),
                     new HiveModule(),
                     new PartitionProjectionModule(),
-                    new CachingDirectoryListerModule(directoryLister),
+                    new CachingDirectoryListerModule(),
                     new HdfsModule(),
                     new HiveS3Module(),
                     new HiveGcsModule(),

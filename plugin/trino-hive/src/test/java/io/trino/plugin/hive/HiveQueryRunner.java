@@ -45,7 +45,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
@@ -229,7 +231,15 @@ public final class HiveQueryRunner
                 }
 
                 HiveMetastore metastore = this.metastore.apply(queryRunner);
-                queryRunner.installPlugin(new TestingHivePlugin(Optional.of(metastore), module, directoryLister));
+                queryRunner.installPlugin(new TestingHivePlugin(
+                        Optional.of(metastore),
+                        directoryLister.map(directoryLister ->
+                                combine(
+                                        module,
+                                        binder -> newOptionalBinder(binder, DirectoryLister.class)
+                                                .setDefault()
+                                                .toInstance(directoryLister)))
+                                .orElseGet(() -> module)));
 
                 Map<String, String> hiveProperties = new HashMap<>();
                 if (!skipTimezoneSetup) {

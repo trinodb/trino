@@ -13,34 +13,20 @@
  */
 package io.trino.plugin.hive.fs;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
-import java.util.Optional;
-
-import static java.util.Objects.requireNonNull;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 
 public class CachingDirectoryListerModule
         implements Module
 {
-    private final Optional<DirectoryLister> directoryLister;
-
-    @VisibleForTesting
-    public CachingDirectoryListerModule(Optional<DirectoryLister> directoryLister)
-    {
-        this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
-    }
-
     @Override
     public void configure(Binder binder)
     {
-        if (directoryLister.isPresent()) {
-            binder.bind(DirectoryLister.class).toInstance(directoryLister.get());
-        }
-        else {
-            binder.bind(DirectoryLister.class).to(CachingDirectoryLister.class).in(Scopes.SINGLETON);
-        }
+        newOptionalBinder(binder, DirectoryLister.class)
+                .setDefault()
+                .to(CachingDirectoryLister.class).in(Scopes.SINGLETON);
     }
 }
