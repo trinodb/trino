@@ -16,8 +16,6 @@ package io.trino.hive.formats.compression;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.io.compress.CompressionCodec;
-import org.apache.hadoop.io.compress.CompressionInputStream;
-import org.apache.hadoop.io.compress.CompressionOutputStream;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -68,7 +66,7 @@ public class AircompressorCodec
                 throws IOException
         {
             buffer.reset();
-            try (CompressionOutputStream compressionStream = codec.createOutputStream(buffer, codec.createCompressor())) {
+            try (OutputStream compressionStream = codec.createOutputStream(buffer)) {
                 slice.getInput().transferTo(compressionStream);
             }
             return buffer.slice();
@@ -99,7 +97,7 @@ public class AircompressorCodec
         {
             try {
                 compressedOutput.reset();
-                CompressionOutputStream compressionStream = codec.createOutputStream(compressedOutput);
+                OutputStream compressionStream = codec.createOutputStream(compressedOutput);
                 return new MemoryCompressedSliceOutput(compressionStream, compressedOutput, this, () -> {});
             }
             catch (IOException e) {
@@ -135,7 +133,7 @@ public class AircompressorCodec
         public void decompress(Slice compressed, OutputStream uncompressed)
                 throws IOException
         {
-            try (CompressionInputStream decompressorStream = codec.createInputStream(compressed.getInput())) {
+            try (InputStream decompressorStream = codec.createInputStream(compressed.getInput())) {
                 decompressorStream.transferTo(uncompressed);
             }
             catch (IndexOutOfBoundsException | IOException e) {
@@ -147,7 +145,7 @@ public class AircompressorCodec
         public void decompress(Slice compressed, Slice uncompressed)
                 throws IOException
         {
-            try (CompressionInputStream decompressorStream = codec.createInputStream(compressed.getInput())) {
+            try (InputStream decompressorStream = codec.createInputStream(compressed.getInput())) {
                 uncompressed.setBytes(0, decompressorStream, uncompressed.length());
             }
             catch (IndexOutOfBoundsException | IOException e) {
