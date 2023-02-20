@@ -13,22 +13,22 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.iceberg.util.PageListBuilder;
-import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.connector.FixedPageSource;
+import io.trino.spi.connector.InMemoryRecordSet;
+import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
+import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.ManifestFile.PartitionFieldSummary;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -37,14 +37,18 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -73,7 +77,7 @@ public class ManifestsTable
                         .add(new ColumnMetadata("existing_rows_count", BIGINT))
                         .add(new ColumnMetadata("deleted_data_files_count", INTEGER))
                         .add(new ColumnMetadata("deleted_rows_count", BIGINT))
-                        .add(new ColumnMetadata("partitions", new ArrayType(RowType.rowType(
+                        .add(new ColumnMetadata("partitions", new ArrayType(rowType(
                                 RowType.field("contains_null", BOOLEAN),
                                 RowType.field("contains_nan", BOOLEAN),
                                 RowType.field("lower_bound", VARCHAR),
@@ -95,67 +99,111 @@ public class ManifestsTable
     }
 
     @Override
-    public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
+    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
+        List<io.trino.spi.type.Type> types = tableMetadata.getColumns().stream()
+                .map(ColumnMetadata::getType)
+                .collect(toImmutableList());
         if (snapshotId.isEmpty()) {
-            return new FixedPageSource(ImmutableList.of());
+            return InMemoryRecordSet.builder(types).build().cursor();
         }
-        return new FixedPageSource(buildPages(tableMetadata, icebergTable, snapshotId.get()));
-    }
-
-    private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, Table icebergTable, long snapshotId)
-    {
-        PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
-
-        Snapshot snapshot = icebergTable.snapshot(snapshotId);
+        Snapshot snapshot = icebergTable.snapshot(snapshotId.get());
         if (snapshot == null) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, format("Snapshot ID [%s] does not exist for table: %s", snapshotId, icebergTable));
         }
 
-        Map<Integer, PartitionSpec> partitionSpecsById = icebergTable.specs();
-
-        snapshot.allManifests(icebergTable.io()).forEach(file -> {
-            pagesBuilder.beginRow();
-            pagesBuilder.appendVarchar(file.path());
-            pagesBuilder.appendBigint(file.length());
-            pagesBuilder.appendInteger(file.partitionSpecId());
-            pagesBuilder.appendBigint(file.snapshotId());
-            pagesBuilder.appendInteger(file.addedFilesCount());
-            pagesBuilder.appendBigint(file.addedRowsCount());
-            pagesBuilder.appendInteger(file.existingFilesCount());
-            pagesBuilder.appendBigint(file.existingRowsCount());
-            pagesBuilder.appendInteger(file.deletedFilesCount());
-            pagesBuilder.appendBigint(file.deletedRowsCount());
-            writePartitionSummaries(pagesBuilder.nextColumn(), file.partitions(), partitionSpecsById.get(file.partitionSpecId()));
-            pagesBuilder.endRow();
-        });
-
-        return pagesBuilder.build();
+        ManifestFilesIterable manifestFilesIterable = new ManifestFilesIterable(snapshot.allManifests(icebergTable.io()), types);
+        return manifestFilesIterable.cursor();
     }
 
-    private static void writePartitionSummaries(BlockBuilder arrayBlockBuilder, List<PartitionFieldSummary> summaries, PartitionSpec partitionSpec)
+    private class ManifestFilesIterable
+            implements Iterable<List<Object>>
     {
-        BlockBuilder singleArrayWriter = arrayBlockBuilder.beginBlockEntry();
-        for (int i = 0; i < summaries.size(); i++) {
-            PartitionFieldSummary summary = summaries.get(i);
-            PartitionField field = partitionSpec.fields().get(i);
-            Type nestedType = partitionSpec.partitionType().fields().get(i).type();
+        private final List<ManifestFile> manifestFiles;
+        private final List<io.trino.spi.type.Type> types;
+        private final io.trino.spi.type.Type partitionsColumnType;
+        private final Map<Integer, PartitionSpec> partitionSpecsById;
 
-            BlockBuilder rowBuilder = singleArrayWriter.beginBlockEntry();
-            BOOLEAN.writeBoolean(rowBuilder, summary.containsNull());
-            Boolean containsNan = summary.containsNaN();
-            if (containsNan == null) {
-                rowBuilder.appendNull();
-            }
-            else {
-                BOOLEAN.writeBoolean(rowBuilder, containsNan);
-            }
-            VARCHAR.writeString(rowBuilder, field.transform().toHumanString(
-                    nestedType, Conversions.fromByteBuffer(nestedType, summary.lowerBound())));
-            VARCHAR.writeString(rowBuilder, field.transform().toHumanString(
-                    nestedType, Conversions.fromByteBuffer(nestedType, summary.upperBound())));
-            singleArrayWriter.closeEntry();
+        public ManifestFilesIterable(List<ManifestFile> manifestFiles, List<io.trino.spi.type.Type> types)
+        {
+            this.manifestFiles = requireNonNull(manifestFiles, "manifestFiles is null");
+            this.types = requireNonNull(types, "types is null");
+            this.partitionsColumnType = tableMetadata.getColumns().stream()
+                    .filter(column -> column.getName().equals("partitions"))
+                    .findAny()
+                    .orElseThrow(() -> new VerifyException("partitions field cannot be found"))
+                    .getType();
+            this.partitionSpecsById = icebergTable.specs();
         }
-        arrayBlockBuilder.closeEntry();
+
+        public RecordCursor cursor()
+        {
+            return new InMemoryRecordSet.InMemoryRecordCursor(types, this.iterator());
+        }
+
+        @Override
+        public Iterator<List<Object>> iterator()
+        {
+            Iterator<ManifestFile> manifestFileIterator = manifestFiles.iterator();
+
+            return new Iterator<>() {
+                @Override
+                public boolean hasNext()
+                {
+                    return manifestFileIterator.hasNext();
+                }
+
+                @Override
+                public List<Object> next()
+                {
+                    return getRecord(manifestFileIterator.next());
+                }
+            };
+        }
+
+        private List<Object> getRecord(ManifestFile file)
+        {
+            List<Object> columns = new ArrayList<>();
+            columns.add(file.path());
+            columns.add(file.length());
+            columns.add(file.partitionSpecId());
+            columns.add(file.snapshotId());
+            columns.add(file.addedFilesCount());
+            columns.add(file.addedRowsCount());
+            columns.add(file.existingFilesCount());
+            columns.add(file.existingRowsCount());
+            columns.add(file.deletedFilesCount());
+            columns.add(file.deletedRowsCount());
+            columns.add(getPartitionSummaries(file.partitions(), partitionSpecsById.get(file.partitionSpecId())));
+            return columns;
+        }
+
+        private Object getPartitionSummaries(List<PartitionFieldSummary> summaries, PartitionSpec partitionSpec)
+        {
+            BlockBuilder blockBuilder = partitionsColumnType.createBlockBuilder(null, 1);
+            BlockBuilder singleArrayWriter = blockBuilder.beginBlockEntry();
+            for (int i = 0; i < summaries.size(); i++) {
+                PartitionFieldSummary summary = summaries.get(i);
+                PartitionField field = partitionSpec.fields().get(i);
+                Type nestedType = partitionSpec.partitionType().fields().get(i).type();
+
+                BlockBuilder rowBuilder = singleArrayWriter.beginBlockEntry();
+                BOOLEAN.writeBoolean(rowBuilder, summary.containsNull());
+                Boolean containsNan = summary.containsNaN();
+                if (containsNan == null) {
+                    rowBuilder.appendNull();
+                }
+                else {
+                    BOOLEAN.writeBoolean(rowBuilder, containsNan);
+                }
+                VARCHAR.writeString(rowBuilder, field.transform().toHumanString(
+                        nestedType, Conversions.fromByteBuffer(nestedType, summary.lowerBound())));
+                VARCHAR.writeString(rowBuilder, field.transform().toHumanString(
+                        nestedType, Conversions.fromByteBuffer(nestedType, summary.upperBound())));
+                singleArrayWriter.closeEntry();
+            }
+            blockBuilder.closeEntry();
+            return partitionsColumnType.getObject(blockBuilder.build(), 0);
+        }
     }
 }
