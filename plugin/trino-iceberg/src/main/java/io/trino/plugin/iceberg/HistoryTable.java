@@ -25,14 +25,18 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.Type;
 import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.util.SnapshotUtil;
 
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -73,21 +77,60 @@ public class HistoryTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        InMemoryRecordSet.Builder table = InMemoryRecordSet.builder(COLUMNS);
+        List<Type> types = COLUMNS.stream()
+                .map(ColumnMetadata::getType)
+                .collect(toImmutableList());
+        return new HistoryTableIterable(icebergTable.history(), types, session.getTimeZoneKey()).cursor();
+    }
 
-        Set<Long> ancestorIds = ImmutableSet.copyOf(SnapshotUtil.currentAncestorIds(icebergTable));
-        TimeZoneKey timeZoneKey = session.getTimeZoneKey();
-        for (HistoryEntry historyEntry : icebergTable.history()) {
-            long snapshotId = historyEntry.snapshotId();
-            Snapshot snapshot = icebergTable.snapshot(snapshotId);
+    private class HistoryTableIterable
+            implements Iterable<List<Object>>
+    {
+        private final List<HistoryEntry> historyEntries;
+        private final List<Type> types;
+        private final TimeZoneKey timeZoneKey;
+        private final Set<Long> ancestorIds;
 
-            table.addRow(
-                    packDateTimeWithZone(historyEntry.timestampMillis(), timeZoneKey),
-                    snapshotId,
-                    snapshot != null ? snapshot.parentId() : null,
-                    ancestorIds.contains(snapshotId));
+        public HistoryTableIterable(List<HistoryEntry> historyEntries, List<Type> types, TimeZoneKey timeZoneKey)
+        {
+            this.historyEntries = requireNonNull(historyEntries, "historyEntries is null");
+            this.types = requireNonNull(types, "types is null");
+            this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
+            this.ancestorIds = ImmutableSet.copyOf(SnapshotUtil.currentAncestorIds(icebergTable));
         }
 
-        return table.build().cursor();
+        public RecordCursor cursor()
+        {
+            return new InMemoryRecordSet.InMemoryRecordCursor(types, this.iterator());
+        }
+
+        @Override
+        public Iterator<List<Object>> iterator()
+        {
+            Iterator<HistoryEntry> historyEntryIterator = historyEntries.iterator();
+
+            return new Iterator<>()
+            {
+                @Override
+                public boolean hasNext()
+                {
+                    return historyEntryIterator.hasNext();
+                }
+
+                @Override
+                public List<Object> next()
+                {
+                    HistoryEntry historyEntry = historyEntryIterator.next();
+                    long snapshotId = historyEntry.snapshotId();
+                    Snapshot snapshot = icebergTable.snapshot(snapshotId);
+                    List<Object> columns = new ArrayList<>();
+                    columns.add(packDateTimeWithZone(historyEntry.timestampMillis(), timeZoneKey));
+                    columns.add(snapshotId);
+                    columns.add(snapshot != null ? snapshot.parentId() : null);
+                    columns.add(ancestorIds.contains(snapshotId));
+                    return columns;
+                }
+            };
+        }
     }
 }
