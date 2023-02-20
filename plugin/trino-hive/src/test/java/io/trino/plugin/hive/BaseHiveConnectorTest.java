@@ -8421,7 +8421,7 @@ public abstract class BaseHiveConnectorTest
     {
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE SELECT * FROM nation a",
-                "Physical Input: .*B");
+                "Physical input: .*B");
     }
 
     @Test
@@ -8429,7 +8429,10 @@ public abstract class BaseHiveConnectorTest
     {
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation a",
-                "'Physical input read time' = \\{duration=.*}");
+                "Physical input time: .*s");
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation WHERE nationkey > 1",
+                "Physical input time: .*s");
     }
 
     @Test

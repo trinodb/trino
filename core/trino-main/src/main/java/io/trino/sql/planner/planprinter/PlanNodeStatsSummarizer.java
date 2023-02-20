@@ -35,6 +35,7 @@ import static com.google.common.collect.Lists.reverse;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.util.MoreMaps.mergeMaps;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.stream.Collectors.toList;
 
 public final class PlanNodeStatsSummarizer
@@ -78,6 +79,7 @@ public final class PlanNodeStatsSummarizer
         Map<PlanNodeId, Long> planNodeScheduledMillis = new HashMap<>();
         Map<PlanNodeId, Long> planNodeCpuMillis = new HashMap<>();
         Map<PlanNodeId, Long> planNodePhysicalInputDataSize = new HashMap<>();
+        Map<PlanNodeId, Double> planNodePhysicalInputReadNanos = new HashMap<>();
         Map<PlanNodeId, Long> planNodeBlockedMillis = new HashMap<>();
 
         Map<PlanNodeId, Map<String, BasicOperatorStats>> basicOperatorStats = new HashMap<>();
@@ -107,6 +109,7 @@ public final class PlanNodeStatsSummarizer
                 planNodeBlockedMillis.merge(planNodeId, operatorStats.getBlockedWall().toMillis(), Long::sum);
                 planNodeSpilledDataSize.merge(planNodeId, operatorStats.getSpilledDataSize().toBytes(), Long::sum);
                 planNodePhysicalInputDataSize.merge(planNodeId, operatorStats.getPhysicalInputDataSize().toBytes(), Long::sum);
+                planNodePhysicalInputReadNanos.merge(planNodeId, operatorStats.getPhysicalInputReadTime().getValue(NANOSECONDS), Double::sum);
                 // A plan node like LocalExchange consists of LocalExchangeSource which links to another pipeline containing LocalExchangeSink
                 if (operatorStats.getPlanNodeId().equals(inputPlanNode) && !pipelineStats.isInputPipeline()) {
                     continue;
@@ -202,6 +205,7 @@ public final class PlanNodeStatsSummarizer
                         planNodeInputPositions.get(planNodeId),
                         succinctBytes(planNodeInputBytes.get(planNodeId)),
                         succinctBytes(planNodePhysicalInputDataSize.getOrDefault(planNodeId, 0L)),
+                        new Duration(planNodePhysicalInputReadNanos.getOrDefault(planNodeId, 0.0), NANOSECONDS),
                         outputPositions,
                         succinctBytes(planNodeOutputBytes.getOrDefault(planNodeId, 0L)),
                         succinctBytes(planNodeSpilledDataSize.get(planNodeId)),
