@@ -998,10 +998,24 @@ public class SqlServerClient
             return false;
         }
 
-        // Remote database can be case insensitive.
-        return Stream.of(joinCondition.getLeftColumn(), joinCondition.getRightColumn())
+        boolean isVarcharJoinColumn = Stream.of(joinCondition.getLeftColumn(), joinCondition.getRightColumn())
                 .map(JdbcColumnHandle::getColumnType)
-                .noneMatch(type -> type instanceof CharType || type instanceof VarcharType);
+                .allMatch(type -> type instanceof CharType || type instanceof VarcharType);
+        if (isVarcharJoinColumn) {
+            JoinCondition.Operator operator = joinCondition.getOperator();
+            return switch (operator) {
+                case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> false;
+                case EQUAL, NOT_EQUAL -> isCaseSensitiveVarchar(joinCondition.getLeftColumn()) && isCaseSensitiveVarchar(joinCondition.getRightColumn());
+                default -> false;
+            };
+        }
+
+        return true;
+    }
+
+    private boolean isCaseSensitiveVarchar(JdbcColumnHandle columnHandle)
+    {
+        return columnHandle.getJdbcTypeHandle().getCaseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE;
     }
 
     @Override
