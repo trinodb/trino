@@ -29,6 +29,8 @@ import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
@@ -42,6 +44,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -55,6 +58,7 @@ import static java.util.Objects.requireNonNull;
 public class DeltaLakeHistoryTable
         implements SystemTable
 {
+    private static final int VERSION_COLUMN_INDEX = 0;
     private final SchemaTableName tableName;
     private final ConnectorTableMetadata tableMetadata;
     private final List<Type> types;
@@ -113,14 +117,15 @@ public class DeltaLakeHistoryTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
+        VersionRange versionRange = extractVersionRange(constraint);
         TimeZoneKey timeZoneKey = session.getTimeZoneKey();
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         Iterable<List<Object>> records = () ->
                 stream(new DeltaLakeTransactionLogIterator(
                         fileSystem,
                         new Path(metastore.getTableLocation(tableName, session)),
-                        Optional.empty(),
-                        Optional.empty()))
+                        versionRange.startVersion,
+                        versionRange.endVersion))
                         .flatMap(Collection::stream)
                         .map(DeltaLakeTransactionLogEntry::getCommitInfo)
                         .filter(Objects::nonNull)
@@ -162,5 +167,56 @@ public class DeltaLakeHistoryTable
         });
         blockBuilder.closeEntry();
         return varcharToVarcharMapType.getObject(blockBuilder, 0);
+    }
+
+    private static VersionRange extractVersionRange(TupleDomain<Integer> constraint)
+    {
+        Domain versionDomain = constraint.getDomains()
+                .map(map -> map.get(VERSION_COLUMN_INDEX))
+                .orElse(Domain.all(BIGINT));
+        Optional<Long> startVersion = Optional.empty();
+        Optional<Long> endVersion = Optional.empty();
+        if (versionDomain.isAll() || versionDomain.isNone()) {
+            return new VersionRange(startVersion, endVersion);
+        }
+        List<Range> orderedRanges = versionDomain.getValues().getRanges().getOrderedRanges();
+        if (orderedRanges.size() == 1) {
+            // Opt for a rather pragmatical choice of extracting the version range
+            // only when dealing with a single range
+            Range range = orderedRanges.get(0);
+            if (range.isSingleValue()) {
+                long version = (long) range.getLowBoundedValue();
+                startVersion = Optional.of(version);
+                endVersion = Optional.of(version);
+            }
+            else {
+                if (!range.isLowUnbounded()) {
+                    long version = (long) range.getLowBoundedValue();
+                    if (!range.isLowInclusive()) {
+                        version++;
+                    }
+                    startVersion = Optional.of(version);
+                }
+                if (!range.isHighUnbounded()) {
+                    long version = (long) range.getHighBoundedValue();
+                    if (!range.isHighInclusive()) {
+                        version--;
+                    }
+                    endVersion = Optional.of(version);
+                }
+            }
+        }
+        return new VersionRange(startVersion, endVersion);
+    }
+
+    private record VersionRange(Optional<Long> startVersion, Optional<Long> endVersion)
+    {
+        @SuppressWarnings("UnusedVariable") // TODO: Remove once https://github.com/google/error-prone/issues/2713 is fixed
+        private VersionRange
+        {
+            requireNonNull(startVersion, "startVersion is null");
+            requireNonNull(endVersion, "endVersion is null");
+            verify(startVersion.orElse(0L) <= endVersion.orElse(startVersion.orElse(0L)), "startVersion is greater than endVersion");
+        }
     }
 }

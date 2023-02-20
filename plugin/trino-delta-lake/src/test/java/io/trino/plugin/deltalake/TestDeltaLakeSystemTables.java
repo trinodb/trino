@@ -132,10 +132,10 @@ public class TestDeltaLakeSystemTables
 
         assertThat(query("SELECT version, operation, read_version, isolation_level, is_blind_append FROM \"" + tableName + "$history\""))
                 .matches("""
-                            VALUES
-                                (BIGINT '3', VARCHAR 'WRITE', BIGINT '2', VARCHAR 'WriteSerializable', true),
-                                (BIGINT '4', VARCHAR 'DELETE', BIGINT '3', VARCHAR 'WriteSerializable', false),
-                                (BIGINT '5', VARCHAR 'SET TBLPROPERTIES', BIGINT '4', VARCHAR 'WriteSerializable', true)
-                            """);
+                        VALUES
+                            (BIGINT '3', VARCHAR 'WRITE', BIGINT '2', VARCHAR 'WriteSerializable', true),
+                            (BIGINT '4', VARCHAR 'DELETE', BIGINT '3', VARCHAR 'WriteSerializable', false),
+                            (BIGINT '5', VARCHAR 'SET TBLPROPERTIES', BIGINT '4', VARCHAR 'WriteSerializable', true)
+                        """);
     }
 }

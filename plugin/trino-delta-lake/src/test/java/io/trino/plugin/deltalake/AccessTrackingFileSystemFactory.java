@@ -57,6 +57,11 @@ public final class AccessTrackingFileSystemFactory
         return map.buildOrThrow();
     }
 
+    public void resetOpenCount()
+    {
+        openedFiles.clear();
+    }
+
     private void incrementOpenCount(String path)
     {
         openedFiles.add(path.substring(path.lastIndexOf('/') + 1));
@@ -91,37 +96,42 @@ public final class AccessTrackingFileSystemFactory
         @Override
         public TrinoOutputFile newOutputFile(String location)
         {
-            throw new UnsupportedOperationException();
+            return delegate.newOutputFile(location);
         }
 
         @Override
         public void deleteFile(String location)
+                throws IOException
         {
-            throw new UnsupportedOperationException();
+            delegate.deleteFile(location);
         }
 
         @Override
         public void deleteFiles(Collection<String> locations)
+                throws IOException
         {
-            throw new UnsupportedOperationException();
+            delegate.deleteFiles(locations);
         }
 
         @Override
         public void deleteDirectory(String location)
+                throws IOException
         {
-            throw new UnsupportedOperationException();
+            delegate.deleteDirectory(location);
         }
 
         @Override
         public void renameFile(String source, String target)
+                throws IOException
         {
-            throw new UnsupportedOperationException();
+            delegate.renameFile(source, target);
         }
 
         @Override
         public FileIterator listFiles(String location)
+                throws IOException
         {
-            throw new UnsupportedOperationException();
+            return delegate.listFiles(location);
         }
     }
 
