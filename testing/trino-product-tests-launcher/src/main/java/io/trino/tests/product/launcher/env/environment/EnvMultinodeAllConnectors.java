@@ -65,7 +65,7 @@ public final class EnvMultinodeAllConnectors
                         "localfile",
                         "mariadb",
                         "memory",
-                        "memsql",
+                        "singlestore",
                         "mongodb",
                         "mysql",
                         "oracle",

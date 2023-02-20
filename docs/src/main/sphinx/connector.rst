@@ -37,7 +37,7 @@ from different data sources.
     Prometheus      <connector/prometheus>
     Redis           <connector/redis>
     Redshift        <connector/redshift>
-    SingleStore (MemSQL)          <connector/memsql>
+    SingleStore     <connector/memsql>
     SQL Server      <connector/sqlserver>
     System          <connector/system>
     Thrift          <connector/thrift>
