@@ -21,6 +21,7 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -65,6 +66,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -73,7 +75,7 @@ public class TestingTableFunctions
     private static final String SCHEMA_NAME = "system";
     private static final String TABLE_NAME = "table";
     private static final String COLUMN_NAME = "column";
-    private static final ConnectorTableFunctionHandle HANDLE = new TestingTableFunctionHandle();
+    private static final ConnectorTableFunctionHandle HANDLE = new TestingTableFunctionHandle(TEST_CATALOG_HANDLE);
     private static final TableFunctionAnalysis ANALYSIS = TableFunctionAnalysis.builder()
             .handle(HANDLE)
             .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(COLUMN_NAME, Optional.of(BOOLEAN)))))
@@ -114,13 +116,13 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             ScalarArgument argument = (ScalarArgument) arguments.get("COLUMN");
             String columnName = ((Slice) argument.getValue()).toStringUtf8();
 
             return TableFunctionAnalysis.builder()
-                    .handle(new SimpleTableFunctionHandle(getSchema(), TABLE_NAME, columnName))
+                    .handle(new SimpleTableFunctionHandle(getSchema(), catalogHandle, TABLE_NAME, columnName))
                     .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(columnName, Optional.of(BOOLEAN)))))
                     .build();
         }
@@ -128,14 +130,23 @@ public class TestingTableFunctions
         public static class SimpleTableFunctionHandle
                 implements ConnectorTableFunctionHandle
         {
+            private final CatalogHandle catalogHandle;
             private final MockConnectorTableHandle tableHandle;
 
-            public SimpleTableFunctionHandle(String schema, String table, String column)
+            public SimpleTableFunctionHandle(String schema, CatalogHandle catalogHandle, String table, String column)
             {
+                this.catalogHandle = catalogHandle;
                 this.tableHandle = new MockConnectorTableHandle(
                         new SchemaTableName(schema, table),
                         TupleDomain.all(),
                         Optional.of(ImmutableList.of(new MockConnectorColumnHandle(column, BOOLEAN))));
+            }
+
+            @Override
+            @JsonProperty
+            public CatalogHandle getCatalogHandle()
+            {
+                return catalogHandle;
             }
 
             public MockConnectorTableHandle getTableHandle()
@@ -167,7 +178,7 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return ANALYSIS;
         }
@@ -190,7 +201,7 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
                     .handle(HANDLE)
@@ -217,7 +228,7 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
                     .handle(HANDLE)
@@ -244,7 +255,7 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return ANALYSIS;
         }
@@ -271,7 +282,7 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
                     .handle(HANDLE)
@@ -300,7 +311,7 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return NO_DESCRIPTOR_ANALYSIS;
         }
@@ -321,7 +332,7 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
                     .handle(HANDLE)
@@ -347,7 +358,7 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return NO_DESCRIPTOR_ANALYSIS;
         }
@@ -372,7 +383,7 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return NO_DESCRIPTOR_ANALYSIS;
         }
@@ -412,7 +423,7 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
                     .handle(HANDLE)
@@ -441,7 +452,7 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
                     .handle(HANDLE)
@@ -454,14 +465,23 @@ public class TestingTableFunctions
     public static class TestingTableFunctionHandle
             implements ConnectorTableFunctionHandle
     {
+        private final CatalogHandle catalogHandle;
         private final MockConnectorTableHandle tableHandle;
 
-        public TestingTableFunctionHandle()
+        public TestingTableFunctionHandle(CatalogHandle catalogHandle)
         {
+            this.catalogHandle = catalogHandle;
             this.tableHandle = new MockConnectorTableHandle(
                     new SchemaTableName(SCHEMA_NAME, TABLE_NAME),
                     TupleDomain.all(),
                     Optional.of(ImmutableList.of(new MockConnectorColumnHandle(COLUMN_NAME, BOOLEAN))));
+        }
+
+        @Override
+        @JsonProperty
+        public CatalogHandle getCatalogHandle()
+        {
+            return catalogHandle;
         }
 
         public MockConnectorTableHandle getTableHandle()
@@ -489,7 +509,7 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             List<RowType.Field> inputColumns = ((TableArgument) arguments.get("INPUT")).getRowType().getFields();
             Descriptor returnedType = new Descriptor(inputColumns.stream()
@@ -537,7 +557,7 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
                     .handle(new EmptyTableFunctionHandle())
@@ -602,14 +622,14 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             ScalarArgument count = (ScalarArgument) arguments.get("N");
             requireNonNull(count.getValue(), "count value for function repeat() is null");
             checkArgument((long) count.getValue() > 0, "count value for function repeat() must be positive");
 
             return TableFunctionAnalysis.builder()
-                    .handle(new RepeatFunctionHandle((long) count.getValue()))
+                    .handle(new RepeatFunctionHandle(catalogHandle, (long) count.getValue()))
                     .requiredColumns("INPUT", ImmutableList.of(0)) // per spec, function must require at least one column
                     .build();
         }
@@ -617,12 +637,21 @@ public class TestingTableFunctions
         public static class RepeatFunctionHandle
                 implements ConnectorTableFunctionHandle
         {
+            private final CatalogHandle catalogHandle;
             private final long count;
 
             @JsonCreator
-            public RepeatFunctionHandle(@JsonProperty("count") long count)
+            public RepeatFunctionHandle(@JsonProperty("catalogHandle") CatalogHandle catalogHandle, @JsonProperty("count") long count)
             {
+                this.catalogHandle = catalogHandle;
                 this.count = count;
+            }
+
+            @Override
+            @JsonProperty
+            public CatalogHandle getCatalogHandle()
+            {
+                return catalogHandle;
             }
 
             @JsonProperty
@@ -726,7 +755,7 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
                     .handle(new EmptyTableFunctionHandle())
@@ -783,7 +812,7 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
                     .handle(new EmptyTableFunctionHandle())
@@ -881,7 +910,7 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
                     .handle(new EmptyTableFunctionHandle())
@@ -939,7 +968,7 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
                     .handle(new EmptyTableFunctionHandle())
@@ -991,28 +1020,37 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             ScalarArgument count = (ScalarArgument) arguments.get("N");
             requireNonNull(count.getValue(), "count value for function repeat() is null");
             checkArgument((long) count.getValue() > 0, "count value for function repeat() must be positive");
 
             return TableFunctionAnalysis.builder()
-                    .handle(new ConstantFunctionHandle((Long) ((ScalarArgument) arguments.get("VALUE")).getValue(), (long) count.getValue()))
+                    .handle(new ConstantFunctionHandle(catalogHandle, (Long) ((ScalarArgument) arguments.get("VALUE")).getValue(), (long) count.getValue()))
                     .build();
         }
 
         public static class ConstantFunctionHandle
                 implements ConnectorTableFunctionHandle
         {
+            private final CatalogHandle catalogHandle;
             private final Long value;
             private final long count;
 
             @JsonCreator
-            public ConstantFunctionHandle(@JsonProperty("value") Long value, @JsonProperty("count") long count)
+            public ConstantFunctionHandle(@JsonProperty("catalogHandle") CatalogHandle catalogHandle, @JsonProperty("value") Long value, @JsonProperty("count") long count)
             {
+                this.catalogHandle = catalogHandle;
                 this.value = value;
                 this.count = count;
+            }
+
+            @Override
+            @JsonProperty
+            public CatalogHandle getCatalogHandle()
+            {
+                return catalogHandle;
             }
 
             @JsonProperty
@@ -1173,5 +1211,11 @@ public class TestingTableFunctions
     public static class EmptyTableFunctionHandle
             implements ConnectorTableFunctionHandle
     {
+        @Override
+        @JsonProperty
+        public CatalogHandle getCatalogHandle()
+        {
+            return null;
+        }
     }
 }

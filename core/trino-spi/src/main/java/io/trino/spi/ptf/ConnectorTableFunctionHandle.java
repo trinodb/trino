@@ -14,6 +14,7 @@
 package io.trino.spi.ptf;
 
 import io.trino.spi.Experimental;
+import io.trino.spi.connector.CatalogHandle;
 
 /**
  * An area to store all information necessary to execute the table function, gathered at analysis time
@@ -21,4 +22,5 @@ import io.trino.spi.Experimental;
 @Experimental(eta = "2022-10-31")
 public interface ConnectorTableFunctionHandle
 {
+    CatalogHandle getCatalogHandle();
 }

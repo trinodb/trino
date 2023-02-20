@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.elasticsearch.ElasticsearchColumnHandle;
 import io.trino.plugin.elasticsearch.ElasticsearchMetadata;
 import io.trino.plugin.elasticsearch.ElasticsearchTableHandle;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorSession;
@@ -96,7 +97,7 @@ public class RawQuery
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             String schema = ((Slice) ((ScalarArgument) arguments.get("SCHEMA")).getValue()).toStringUtf8();
             String index = ((Slice) ((ScalarArgument) arguments.get("INDEX")).getValue()).toStringUtf8();
@@ -115,7 +116,7 @@ public class RawQuery
                     .map(column -> new Descriptor.Field(column.getName(), Optional.of(column.getType())))
                     .collect(toList()));
 
-            RawQueryFunctionHandle handle = new RawQueryFunctionHandle(tableHandle);
+            RawQueryFunctionHandle handle = new RawQueryFunctionHandle(catalogHandle, tableHandle);
 
             return TableFunctionAnalysis.builder()
                     .returnedType(returnedType)
@@ -127,12 +128,21 @@ public class RawQuery
     public static class RawQueryFunctionHandle
             implements ConnectorTableFunctionHandle
     {
+        private final CatalogHandle catalogHandle;
         private final ElasticsearchTableHandle tableHandle;
 
         @JsonCreator
-        public RawQueryFunctionHandle(@JsonProperty("tableHandle") ElasticsearchTableHandle tableHandle)
+        public RawQueryFunctionHandle(@JsonProperty("catalogHandle") CatalogHandle catalogHandle, @JsonProperty("tableHandle") ElasticsearchTableHandle tableHandle)
         {
+            this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
             this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+        }
+
+        @Override
+        @JsonProperty
+        public CatalogHandle getCatalogHandle()
+        {
+            return catalogHandle;
         }
 
         @JsonProperty

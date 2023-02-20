@@ -1579,7 +1579,11 @@ class StatementAnalyzer
             ArgumentsAnalysis argumentsAnalysis = analyzeArguments(function.getArguments(), node.getArguments(), scope, errorLocation);
 
             ConnectorTransactionHandle transactionHandle = transactionManager.getConnectorTransaction(session.getRequiredTransactionId(), catalogHandle);
-            TableFunctionAnalysis functionAnalysis = function.analyze(session.toConnectorSession(catalogHandle), transactionHandle, argumentsAnalysis.getPassedArguments());
+            TableFunctionAnalysis functionAnalysis = function.analyze(
+                    session.toConnectorSession(catalogHandle),
+                    catalogHandle,
+                    transactionHandle,
+                    argumentsAnalysis.getPassedArguments());
 
             List<List<String>> copartitioningLists = analyzeCopartitioning(node.getCopartitioning(), argumentsAnalysis.getTableArgumentAnalyses());
 

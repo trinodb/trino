@@ -23,6 +23,7 @@ import io.trino.plugin.mongodb.MongoSession;
 import io.trino.plugin.mongodb.MongoTableHandle;
 import io.trino.plugin.mongodb.RemoteTableName;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorSession;
@@ -108,7 +109,7 @@ public class Query
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(ConnectorSession session, CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             String database = ((Slice) ((ScalarArgument) arguments.get("DATABASE")).getValue()).toStringUtf8();
             String collection = ((Slice) ((ScalarArgument) arguments.get("COLLECTION")).getValue()).toStringUtf8();
@@ -135,7 +136,7 @@ public class Query
                     .map(column -> new Descriptor.Field(column.getName(), Optional.of(column.getType())))
                     .collect(toImmutableList()));
 
-            QueryFunctionHandle handle = new QueryFunctionHandle(tableHandle);
+            QueryFunctionHandle handle = new QueryFunctionHandle(catalogHandle, tableHandle);
 
             return TableFunctionAnalysis.builder()
                     .returnedType(returnedType)
@@ -157,12 +158,21 @@ public class Query
     public static class QueryFunctionHandle
             implements ConnectorTableFunctionHandle
     {
+        private final CatalogHandle catalogHandle;
         private final MongoTableHandle tableHandle;
 
         @JsonCreator
-        public QueryFunctionHandle(@JsonProperty("tableHandle") MongoTableHandle tableHandle)
+        public QueryFunctionHandle(@JsonProperty("catalogHandle") CatalogHandle catalogHandle, @JsonProperty("tableHandle") MongoTableHandle tableHandle)
         {
+            this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
             this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+        }
+
+        @Override
+        @JsonProperty
+        public CatalogHandle getCatalogHandle()
+        {
+            return catalogHandle;
         }
 
         @JsonProperty
