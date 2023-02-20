@@ -47,7 +47,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
-import static io.trino.operator.OperatorContext.getConnectorMetrics;
 import static io.trino.operator.OperatorContext.getOperatorMetrics;
 import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static io.trino.operator.WorkProcessor.ProcessState.Type.BLOCKED;
@@ -321,7 +320,7 @@ public class WorkProcessorPipelineSourceOperator
 
                         succinctBytes(context.physicalInputDataSize.get()),
                         context.physicalInputPositions.get(),
-                        new Duration(context.operatorTiming.getWallNanos(), NANOSECONDS),
+                        new Duration(context.readTimeNanos.get(), NANOSECONDS),
 
                         succinctBytes(context.internalNetworkInputDataSize.get()),
                         context.internalNetworkInputPositions.get(),
@@ -346,7 +345,7 @@ public class WorkProcessorPipelineSourceOperator
                                 new Duration(context.operatorTiming.getCpuNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
                                 new Duration(context.operatorTiming.getWallNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
                                 new Duration(context.blockedWallNanos.get(), NANOSECONDS).convertTo(SECONDS).getValue()),
-                        getConnectorMetrics(context.connectorMetrics.get(), context.readTimeNanos.get()),
+                        context.connectorMetrics.get(),
 
                         DataSize.ofBytes(0),
 

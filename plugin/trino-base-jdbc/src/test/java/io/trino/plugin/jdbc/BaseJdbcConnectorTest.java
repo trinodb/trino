@@ -1309,7 +1309,7 @@ public abstract class BaseJdbcConnectorTest
     {
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation a",
-                "'Physical input read time' = \\{duration=.*}");
+                "Physical input time: .*s");
     }
 
     protected QueryAssert assertConditionallyPushedDown(

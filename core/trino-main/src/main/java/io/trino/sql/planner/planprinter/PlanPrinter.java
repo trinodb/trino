@@ -1168,15 +1168,13 @@ public class PlanPrinter
             printTableScanInfo(nodeOutput, node, tableInfo);
             PlanNodeStats nodeStats = stats.map(s -> s.get(node.getId())).orElse(null);
             if (nodeStats != null) {
-                String inputDetail = "Input: %s (%s)";
-                if (nodeStats.getPlanNodePhysicalInputDataSize().toBytes() > 0) {
-                    inputDetail += ", Physical Input: %s";
-                }
-                nodeOutput.appendDetails(
-                        inputDetail,
+                StringBuilder inputDetailBuilder = new StringBuilder("Input: %s (%s)");
+                ImmutableList.Builder<String> argsBuilder = ImmutableList.builder();
+                argsBuilder.add(
                         formatPositions(nodeStats.getPlanNodeInputPositions()),
-                        nodeStats.getPlanNodeInputDataSize().toString(),
-                        nodeStats.getPlanNodePhysicalInputDataSize().toString());
+                        nodeStats.getPlanNodeInputDataSize().toString());
+                addPhysicalInputStats(nodeStats, inputDetailBuilder, argsBuilder);
+                nodeOutput.appendDetails(inputDetailBuilder.toString(), argsBuilder.build().toArray());
             }
             return null;
         }
@@ -1296,16 +1294,14 @@ public class PlanPrinter
                 if (nodeStats != null) {
                     // Add to 'details' rather than 'statistics', since these stats are node-specific
                     double filtered = 100.0d * (nodeStats.getPlanNodeInputPositions() - nodeStats.getPlanNodeOutputPositions()) / nodeStats.getPlanNodeInputPositions();
-                    String inputDetail = "Input: %s (%s), Filtered: %s%%";
-                    if (nodeStats.getPlanNodePhysicalInputDataSize().toBytes() > 0) {
-                        inputDetail += ", Physical Input: %s";
-                    }
-                    nodeOutput.appendDetails(
-                            inputDetail,
+                    StringBuilder inputDetailBuilder = new StringBuilder("Input: %s (%s), Filtered: %s%%");
+                    ImmutableList.Builder<String> argsBuilder = ImmutableList.builder();
+                    argsBuilder.add(
                             formatPositions(nodeStats.getPlanNodeInputPositions()),
                             nodeStats.getPlanNodeInputDataSize().toString(),
-                            formatDouble(filtered),
-                            nodeStats.getPlanNodePhysicalInputDataSize().toString());
+                            formatDouble(filtered));
+                    addPhysicalInputStats(nodeStats, inputDetailBuilder, argsBuilder);
+                    nodeOutput.appendDetails(inputDetailBuilder.toString(), argsBuilder.build().toArray());
                 }
                 List<DynamicFilterDomainStats> collectedDomainStats = dynamicFilters.stream()
                         .map(DynamicFilters.Descriptor::getId)
@@ -1333,6 +1329,21 @@ public class PlanPrinter
 
             sourceNode.accept(this, new Context());
             return null;
+        }
+
+        private static void addPhysicalInputStats(PlanNodeStats nodeStats, StringBuilder inputDetailBuilder, ImmutableList.Builder<String> argsBuilder)
+        {
+            if (nodeStats.getPlanNodePhysicalInputDataSize().toBytes() > 0) {
+                inputDetailBuilder.append(", Physical input: %s");
+                argsBuilder.add(nodeStats.getPlanNodePhysicalInputDataSize().toString());
+                inputDetailBuilder.append(", Physical input time: %s");
+                argsBuilder.add(nodeStats.getPlanNodePhysicalInputReadTime().toString());
+            }
+            // Some connectors may report physical input time but not physical input data size
+            else if (nodeStats.getPlanNodePhysicalInputReadTime().getValue() > 0) {
+                inputDetailBuilder.append(", Physical input time: %s");
+                argsBuilder.add(nodeStats.getPlanNodePhysicalInputReadTime().toString());
+            }
         }
 
         private String printDynamicFilters(Collection<DynamicFilters.Descriptor> filters)
