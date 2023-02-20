@@ -643,7 +643,6 @@ public class BigQueryMetadata
                 quote(remoteTableName.getDatasetName()),
                 quote(remoteTableName.getTableName()));
         client.executeUpdate(QueryJobConfiguration.newBuilder(sql)
-                .setQuery(sql)
                 .addPositionalParameter(QueryParameterValue.string(newComment.orElse(null)))
                 .build());
     }
@@ -663,7 +662,6 @@ public class BigQueryMetadata
                 quote(remoteTableName.getTableName()),
                 quote(column.getName()));
         client.executeUpdate(QueryJobConfiguration.newBuilder(sql)
-                .setQuery(sql)
                 .addPositionalParameter(QueryParameterValue.string(newComment.orElse(null)))
                 .build());
     }

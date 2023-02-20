@@ -77,7 +77,7 @@ public class BigQueryClientFactory
 
     protected BigQueryClient createBigQueryClient(ConnectorSession session)
     {
-        return new BigQueryClient(createBigQuery(session), caseInsensitiveNameMatching, materializationCache, metadataCacheTtl, projectId);
+        return new BigQueryClient(session, createBigQuery(session), caseInsensitiveNameMatching, materializationCache, metadataCacheTtl, projectId);
     }
 
     protected BigQuery createBigQuery(ConnectorSession session)

@@ -22,7 +22,6 @@ import com.google.cloud.bigquery.InsertAllRequest;
 import com.google.cloud.bigquery.InsertAllResponse;
 import com.google.cloud.bigquery.Job;
 import com.google.cloud.bigquery.JobInfo;
-import com.google.cloud.bigquery.JobInfo.CreateDisposition;
 import com.google.cloud.bigquery.JobStatistics;
 import com.google.cloud.bigquery.JobStatistics.QueryStatistics;
 import com.google.cloud.bigquery.QueryJobConfiguration;
@@ -35,11 +34,13 @@ import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.http.BaseHttpServiceException;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 
@@ -65,6 +66,8 @@ import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_AMBIGUOUS_OBJE
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_INVALID_STATEMENT;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_DATASET_ERROR;
+import static io.trino.plugin.bigquery.BigQuerySessionProperties.createDisposition;
+import static io.trino.plugin.bigquery.BigQuerySessionProperties.isQueryResultsCacheEnabled;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -75,6 +78,7 @@ public class BigQueryClient
 {
     private static final Logger log = Logger.get(BigQueryClient.class);
 
+    private final ConnectorSession session;
     private final BigQuery bigQuery;
     private final ViewMaterializationCache materializationCache;
     private final boolean caseInsensitiveNameMatching;
@@ -82,12 +86,14 @@ public class BigQueryClient
     private final Optional<String> configProjectId;
 
     public BigQueryClient(
+            ConnectorSession session,
             BigQuery bigQuery,
             boolean caseInsensitiveNameMatching,
             ViewMaterializationCache materializationCache,
             Duration metadataCacheTtl,
             Optional<String> configProjectId)
     {
+        this.session = requireNonNull(session, "session is null");
         this.bigQuery = requireNonNull(bigQuery, "bigQuery is null");
         this.materializationCache = requireNonNull(materializationCache, "materializationCache is null");
         this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
@@ -266,7 +272,7 @@ public class BigQueryClient
     {
         log.debug("Execute query: %s", job.getQuery());
         try {
-            bigQuery.query(job);
+            bigQuery.query(setQueryLabel(job));
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -274,19 +280,27 @@ public class BigQueryClient
         }
     }
 
-    public TableResult query(String sql, boolean useQueryResultsCache, CreateDisposition createDisposition)
+    public TableResult query(String sql)
     {
         log.debug("Execute query: %s", sql);
+        QueryJobConfiguration job = QueryJobConfiguration.newBuilder(sql)
+                .setUseQueryCache(isQueryResultsCacheEnabled(session))
+                .setCreateDisposition(createDisposition(session))
+                .build();
         try {
-            return bigQuery.query(QueryJobConfiguration.newBuilder(sql)
-                    .setUseQueryCache(useQueryResultsCache)
-                    .setCreateDisposition(createDisposition)
-                    .build());
+            return bigQuery.query(setQueryLabel(job));
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new BigQueryException(BaseHttpServiceException.UNKNOWN_CODE, format("Failed to run the query [%s]", sql), e);
         }
+    }
+
+    private QueryJobConfiguration setQueryLabel(QueryJobConfiguration job)
+    {
+        return job.toBuilder()
+                .setLabels(ImmutableMap.of("trino_query_id", session.getQueryId()))
+                .build();
     }
 
     public Schema getSchema(String sql)

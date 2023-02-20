@@ -30,8 +30,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.bigquery.BigQuerySessionProperties.createDisposition;
-import static io.trino.plugin.bigquery.BigQuerySessionProperties.isQueryResultsCacheEnabled;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryPageSourceProvider
@@ -116,8 +114,6 @@ public class BigQueryPageSourceProvider
                 table,
                 columnHandles.stream().map(BigQueryColumnHandle::getName).collect(toImmutableList()),
                 columnHandles.stream().map(BigQueryColumnHandle::getTrinoType).collect(toImmutableList()),
-                filter,
-                isQueryResultsCacheEnabled(session),
-                createDisposition(session));
+                filter);
     }
 }
