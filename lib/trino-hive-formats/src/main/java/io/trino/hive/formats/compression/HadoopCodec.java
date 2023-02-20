@@ -17,8 +17,6 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.io.compress.CodecPool;
 import org.apache.hadoop.io.compress.CompressionCodec;
-import org.apache.hadoop.io.compress.CompressionInputStream;
-import org.apache.hadoop.io.compress.CompressionOutputStream;
 import org.apache.hadoop.io.compress.Compressor;
 import org.apache.hadoop.io.compress.Decompressor;
 
@@ -74,7 +72,7 @@ public class HadoopCodec
         {
             compressor.reset();
             buffer.reset();
-            try (CompressionOutputStream compressionStream = codec.createOutputStream(buffer, compressor)) {
+            try (OutputStream compressionStream = codec.createOutputStream(buffer, compressor)) {
                 slice.getInput().transferTo(compressionStream);
             }
             return buffer.slice();
@@ -113,7 +111,7 @@ public class HadoopCodec
             try {
                 compressor.reset();
                 bufferedOutput.reset();
-                CompressionOutputStream compressionStream = codec.createOutputStream(bufferedOutput, compressor);
+                OutputStream compressionStream = codec.createOutputStream(bufferedOutput, compressor);
                 return new MemoryCompressedSliceOutput(compressionStream, bufferedOutput, this, () -> CodecPool.returnCompressor(compressor));
             }
             catch (IOException e) {
@@ -154,7 +152,7 @@ public class HadoopCodec
         {
             checkState(!closed, "Value decompressor has been closed");
             decompressor.reset();
-            try (CompressionInputStream decompressorStream = codec.createInputStream(compressed.getInput(), decompressor)) {
+            try (InputStream decompressorStream = codec.createInputStream(compressed.getInput(), decompressor)) {
                 decompressorStream.transferTo(uncompressed);
             }
             catch (IndexOutOfBoundsException | IOException e) {
@@ -168,7 +166,7 @@ public class HadoopCodec
         {
             checkState(!closed, "Value decompressor has been closed");
             decompressor.reset();
-            try (CompressionInputStream decompressorStream = codec.createInputStream(compressed.getInput(), decompressor)) {
+            try (InputStream decompressorStream = codec.createInputStream(compressed.getInput(), decompressor)) {
                 uncompressed.setBytes(0, decompressorStream, uncompressed.length());
             }
             catch (IndexOutOfBoundsException | IOException e) {
