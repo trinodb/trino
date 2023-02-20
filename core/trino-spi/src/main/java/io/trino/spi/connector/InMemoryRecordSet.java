@@ -76,7 +76,7 @@ public class InMemoryRecordSet
         private List<?> record;
         private long completedBytes;
 
-        protected InMemoryRecordCursor(List<Type> types, Iterator<? extends List<?>> records)
+        public InMemoryRecordCursor(List<Type> types, Iterator<? extends List<?>> records)
         {
             this.types = requireNonNull(types, "types is null");
             this.records = requireNonNull(records, "records is null");
