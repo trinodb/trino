@@ -54,9 +54,6 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.plugin.jdbc.TestCachingJdbcClient.CachingJdbcCache.STATISTICS_CACHE;
-import static io.trino.plugin.jdbc.TestCachingJdbcClient.CachingJdbcCache.TABLE_HANDLES_BY_NAME_CACHE;
-import static io.trino.plugin.jdbc.TestCachingJdbcClient.CachingJdbcCache.TABLE_HANDLES_BY_QUERY_CACHE;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -198,7 +195,7 @@ public class TestCachingJdbcClient
 
         createTable(phantomTable);
         PreparedQuery query = new PreparedQuery(format("SELECT * FROM %s.phantom_table", schema), ImmutableList.of());
-        JdbcTableHandle cachedTable = assertCacheStats(cachingJdbcClient, TABLE_HANDLES_BY_QUERY_CACHE)
+        JdbcTableHandle cachedTable = assertTableHandleByQueryCache(cachingJdbcClient)
                 .misses(1)
                 .loads(1)
                 .calling(() -> cachingJdbcClient.getTableHandle(SESSION, query));
@@ -218,7 +215,7 @@ public class TestCachingJdbcClient
         assertThatThrownBy(() -> jdbcClient.getTableHandle(SESSION, query))
                 .hasMessageContaining("Failed to get table handle for prepared query");
 
-        assertCacheStats(cachingJdbcClient, TABLE_HANDLES_BY_QUERY_CACHE)
+        assertTableHandleByQueryCache(cachingJdbcClient)
                 .hits(1)
                 .afterRunning(() -> {
                     assertThat(cachingJdbcClient.getTableHandle(SESSION, query))
@@ -240,7 +237,7 @@ public class TestCachingJdbcClient
 
         cachingJdbcClient.createTable(SESSION, new ConnectorTableMetadata(phantomTable, emptyList()));
 
-        assertCacheStats(cachingJdbcClient, TABLE_HANDLES_BY_QUERY_CACHE)
+        assertTableHandleByQueryCache(cachingJdbcClient)
                 .misses(1)
                 .loads(1)
                 .afterRunning(() -> {
@@ -264,7 +261,7 @@ public class TestCachingJdbcClient
 
         cachingJdbcClient.onDataChanged(phantomTable);
 
-        assertCacheStats(cachingJdbcClient, TABLE_HANDLES_BY_QUERY_CACHE)
+        assertTableHandleByQueryCache(cachingJdbcClient)
                 .hits(1)
                 .afterRunning(() -> {
                     assertThat(cachingJdbcClient.getTableHandle(SESSION, query))
@@ -312,10 +309,10 @@ public class TestCachingJdbcClient
     {
         SchemaTableName tableName = table.asPlainTable().getSchemaTableName();
 
-        assertCacheStats(cachingJdbcClient, TABLE_HANDLES_BY_NAME_CACHE).misses(1).loads(1).afterRunning(() -> {
+        assertTableHandleByNameCache(cachingJdbcClient).misses(1).loads(1).afterRunning(() -> {
             assertThat(cachingJdbcClient.getTableHandle(SESSION, tableName).orElseThrow()).isEqualTo(table);
         });
-        assertCacheStats(cachingJdbcClient, TABLE_HANDLES_BY_NAME_CACHE).hits(1).afterRunning(() -> {
+        assertTableHandleByNameCache(cachingJdbcClient).hits(1).afterRunning(() -> {
             assertThat(cachingJdbcClient.getTableHandle(SESSION, tableName).orElseThrow()).isEqualTo(table);
         });
     }
@@ -919,6 +916,16 @@ public class TestCachingJdbcClient
         return assertCacheStats(client, CachingJdbcCache.TABLE_NAMES_CACHE);
     }
 
+    private static SingleJdbcCacheStatsAssertions assertTableHandleByNameCache(CachingJdbcClient client)
+    {
+        return assertCacheStats(client, CachingJdbcCache.TABLE_HANDLES_BY_NAME_CACHE);
+    }
+
+    private static SingleJdbcCacheStatsAssertions assertTableHandleByQueryCache(CachingJdbcClient client)
+    {
+        return assertCacheStats(client, CachingJdbcCache.TABLE_HANDLES_BY_QUERY_CACHE);
+    }
+
     private static SingleJdbcCacheStatsAssertions assertColumnCacheStats(CachingJdbcClient client)
     {
         return assertCacheStats(client, CachingJdbcCache.COLUMNS_CACHE);
@@ -926,7 +933,7 @@ public class TestCachingJdbcClient
 
     private static SingleJdbcCacheStatsAssertions assertStatisticsCacheStats(CachingJdbcClient client)
     {
-        return assertCacheStats(client, STATISTICS_CACHE);
+        return assertCacheStats(client, CachingJdbcCache.STATISTICS_CACHE);
     }
 
     private static SingleJdbcCacheStatsAssertions assertCacheStats(CachingJdbcClient client, CachingJdbcCache cache)
