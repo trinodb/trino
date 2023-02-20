@@ -13,6 +13,7 @@
  */
 package io.trino.spi.ptf;
 
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 
 public interface TableFunctionSplitProcessor
@@ -24,5 +25,5 @@ public interface TableFunctionSplitProcessor
      * @return {@link TableFunctionProcessState} including the processor's state and optionally a portion of result.
      * After the returned state is {@code FINISHED}, the method will not be called again.
      */
-    TableFunctionProcessState process(ConnectorSplit split);
+    TableFunctionProcessState process(ConnectorSession session, ConnectorSplit split);
 }

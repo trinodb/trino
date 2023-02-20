@@ -1094,7 +1094,7 @@ public class TestingTableFunctions
             }
 
             @Override
-            public TableFunctionProcessState process(ConnectorSplit split)
+            public TableFunctionProcessState process(ConnectorSession session, ConnectorSplit split)
             {
                 boolean usedData = false;
 
