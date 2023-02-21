@@ -26,10 +26,10 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.deltalake.DeltaLakeMetadata.MAX_READER_VERSION;
-import static io.trino.plugin.deltalake.DeltaLakeMetadata.MAX_WRITER_VERSION;
-import static io.trino.plugin.deltalake.DeltaLakeMetadata.MIN_READER_VERSION;
-import static io.trino.plugin.deltalake.DeltaLakeMetadata.MIN_WRITER_VERSION;
+import static io.trino.plugin.deltalake.DeltaLakeConfig.MAX_READER_VERSION;
+import static io.trino.plugin.deltalake.DeltaLakeConfig.MAX_WRITER_VERSION;
+import static io.trino.plugin.deltalake.DeltaLakeConfig.MIN_READER_VERSION;
+import static io.trino.plugin.deltalake.DeltaLakeConfig.MIN_WRITER_VERSION;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
