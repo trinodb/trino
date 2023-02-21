@@ -113,8 +113,10 @@ import static java.util.Objects.requireNonNull;
  */
 class AggregationAnalyzer
 {
+    private final List<Expression> groupByExpressions;
     // fields and expressions in the group by clause
-    private final Set<FieldId> groupingFields;
+    @Nullable
+    private Set<FieldId> groupingFields;
     private final Set<ScopeAware<Expression>> expressions;
     private final Map<NodeRef<Expression>, ResolvedField> columnReferences;
 
@@ -137,6 +139,7 @@ class AggregationAnalyzer
         for (Expression expression : expressions) {
             analyzer.analyze(expression);
         }
+        analyzer.validate();
     }
 
     public static void verifyOrderByAggregations(
@@ -152,6 +155,7 @@ class AggregationAnalyzer
         for (Expression expression : expressions) {
             analyzer.analyze(expression);
         }
+        analyzer.validate();
     }
 
     private AggregationAnalyzer(
@@ -169,6 +173,7 @@ class AggregationAnalyzer
         requireNonNull(metadata, "metadata is null");
         requireNonNull(analysis, "analysis is null");
 
+        this.groupByExpressions = ImmutableList.copyOf(groupByExpressions);
         this.sourceScope = sourceScope;
         this.orderByScope = orderByScope;
         this.session = session;
@@ -185,21 +190,42 @@ class AggregationAnalyzer
         // No defensive copy here for performance reasons.
         // Copying this map may lead to quadratic time complexity
         this.columnReferences = analysis.getColumnReferenceFields();
+    }
 
-        // Normal iteration instead of stream for performance reasons
-        ImmutableSet.Builder<FieldId> groupingFieldsBuilder = ImmutableSet.builder();
-        for (Expression expression : groupByExpressions) {
-            ResolvedField resolvedField = columnReferences.get(NodeRef.of(expression));
-            if (resolvedField != null) {
-                groupingFieldsBuilder.add(resolvedField.getFieldId());
+    private Set<FieldId> getGroupingFields()
+    {
+        if (groupingFields == null) {
+            // Normal iteration instead of stream for performance reasons
+            ImmutableSet.Builder<FieldId> groupingFieldsBuilder = ImmutableSet.builder();
+            for (Expression expression : groupByExpressions) {
+                ResolvedField resolvedField = columnReferences.get(NodeRef.of(expression));
+                if (resolvedField != null) {
+                    groupingFieldsBuilder.add(resolvedField.getFieldId());
+                }
+            }
+            this.groupingFields = groupingFieldsBuilder.build();
+        }
+        return groupingFields;
+    }
+
+    private void validate()
+    {
+        if (groupingFields != null) {
+            groupingFields.forEach(fieldId -> checkState(isFieldFromScope(fieldId, sourceScope),
+                    "Grouping field %s should originate from %s", fieldId, sourceScope.getRelationType()));
+        }
+        else {
+            // This is the same code as in getGroupingFields method but without the construction of `groupingFields` set
+            // as its creation might be expensive
+            for (Expression expression : groupByExpressions) {
+                ResolvedField resolvedField = columnReferences.get(NodeRef.of(expression));
+                if (resolvedField != null) {
+                    FieldId fieldId = resolvedField.getFieldId();
+                    checkState(isFieldFromScope(fieldId, sourceScope),
+                            "Grouping field %s should originate from %s", fieldId, sourceScope.getRelationType());
+                }
             }
         }
-        this.groupingFields = groupingFieldsBuilder.build();
-
-        this.groupingFields.forEach(fieldId -> {
-            checkState(isFieldFromScope(fieldId, sourceScope),
-                    "Grouping field %s should originate from %s", fieldId, sourceScope.getRelationType());
-        });
     }
 
     private void analyze(Expression expression)
@@ -592,7 +618,7 @@ class AggregationAnalyzer
                 return true;
             }
 
-            return groupingFields.contains(fieldId);
+            return getGroupingFields().contains(fieldId);
         }
 
         @Override
@@ -603,7 +629,7 @@ class AggregationAnalyzer
             }
 
             FieldId fieldId = requireNonNull(columnReferences.get(NodeRef.of(node)), () -> "No field for " + node).getFieldId();
-            boolean inGroup = groupingFields.contains(fieldId);
+            boolean inGroup = getGroupingFields().contains(fieldId);
             if (!inGroup) {
                 Field field = sourceScope.getRelationType().getFieldByIndex(node.getFieldIndex());
 
