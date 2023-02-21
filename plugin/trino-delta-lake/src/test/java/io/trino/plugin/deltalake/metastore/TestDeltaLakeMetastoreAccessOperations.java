@@ -61,7 +61,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake").toFile();
         metastore = new CountingAccessHiveMetastore(createTestingFileHiveMetastore(baseDir));
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.empty(), new CountingAccessMetastoreModule(metastore)));
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.empty(), Optional.empty(), new CountingAccessMetastoreModule(metastore)));
         ImmutableMap.Builder<String, String> deltaLakeProperties = ImmutableMap.builder();
         deltaLakeProperties.put("hive.metastore", "test"); // use test value so we do not get clash with default bindings)
         queryRunner.createCatalog("delta_lake", "delta_lake", deltaLakeProperties.buildOrThrow());

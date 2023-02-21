@@ -79,7 +79,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
                         .setMetastoreTimeout(new Duration(1, MINUTES))) // read timed out sometimes happens with the default timeout
                 .build()));
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.empty(), new CountingAccessMetastoreModule(metastore)));
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.empty(), Optional.empty(), new CountingAccessMetastoreModule(metastore)));
 
         ImmutableMap.Builder<String, String> deltaLakeProperties = ImmutableMap.builder();
         deltaLakeProperties.put("hive.s3.aws-access-key", MINIO_ACCESS_KEY);
