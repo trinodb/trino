@@ -43,14 +43,12 @@ import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CdfFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
-import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry.Format;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
-import io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionConflictException;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriter;
@@ -140,7 +138,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -2480,12 +2477,12 @@ public class DeltaLakeMetadata
             return Optional.empty();
         }
         DeltaLakeTableName deltaLakeTableName = new DeltaLakeTableName(name, tableType.get());
-        SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), deltaLakeTableName.getTableNameWithType());
         return switch (deltaLakeTableName.getTableType()) {
             case DATA -> Optional.empty(); // Handled above
             case HISTORY -> Optional.of(new DeltaLakeHistoryTable(
-                    systemTableName,
-                    getCommitInfoEntries(tableHandle.getSchemaTableName(), session),
+                    tableHandle.getSchemaTableName(),
+                    fileSystemFactory,
+                    metastore,
                     typeManager));
         };
     }
@@ -2564,23 +2561,6 @@ public class DeltaLakeMetadata
     public DeltaLakeMetastore getMetastore()
     {
         return metastore;
-    }
-
-    private List<CommitInfoEntry> getCommitInfoEntries(SchemaTableName table, ConnectorSession session)
-    {
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        try {
-            return TransactionLogTail.loadNewTail(fileSystem, new Path(metastore.getTableLocation(table, session)), Optional.empty()).getFileEntries().stream()
-                    .map(DeltaLakeTransactionLogEntry::getCommitInfo)
-                    .filter(Objects::nonNull)
-                    .collect(toImmutableList());
-        }
-        catch (TrinoException e) {
-            throw e;
-        }
-        catch (IOException | RuntimeException e) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting commit info entries for " + table, e);
-        }
     }
 
     private static ColumnMetadata getColumnMetadata(DeltaLakeColumnHandle column, @Nullable String comment, boolean nullability)

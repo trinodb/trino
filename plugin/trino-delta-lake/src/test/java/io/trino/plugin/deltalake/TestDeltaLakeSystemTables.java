@@ -14,25 +14,38 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeSystemTables
         extends AbstractTestQueryFramework
 {
+    private static final String SCHEMA = "test_schema";
+    private static final String BUCKET_NAME = "deltalake-system-tables";
+    private HiveMinioDataLake hiveMinioDataLake;
+
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaLakeQueryRunner(
+        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(BUCKET_NAME));
+        hiveMinioDataLake.start();
+        DistributedQueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
-                ImmutableMap.of(),
-                ImmutableMap.of("delta.enable-non-concurrent-writes", "true"));
+                SCHEMA,
+                ImmutableMap.of(
+                        "delta.enable-non-concurrent-writes", "true",
+                        "delta.register-table-procedure.enabled", "true"),
+                hiveMinioDataLake.getMinio().getMinioAddress(),
+                hiveMinioDataLake.getHiveHadoop());
+        queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = 's3://" + BUCKET_NAME + "/" + SCHEMA + "')");
+        return queryRunner;
     }
 
     @Test
@@ -104,5 +117,25 @@ public class TestDeltaLakeSystemTables
             assertUpdate("DROP TABLE IF EXISTS test_simple_table");
             assertUpdate("DROP TABLE IF EXISTS test_checkpoint_table");
         }
+    }
+
+    @Test
+    public void testHistoryTableWithLogEntriesRemoved()
+    {
+        String tableName = "delta_log_retention";
+        hiveMinioDataLake.copyResources("databricks/delta_log_retention", tableName);
+        getQueryRunner().execute(format(
+                "CALL system.register_table('%s', '%s', '%s')",
+                SCHEMA,
+                tableName,
+                format("s3://%s/%s", BUCKET_NAME, tableName)));
+
+        assertThat(query("SELECT version, operation, read_version, isolation_level, is_blind_append FROM \"" + tableName + "$history\""))
+                .matches("""
+                            VALUES
+                                (BIGINT '3', VARCHAR 'WRITE', BIGINT '2', VARCHAR 'WriteSerializable', true),
+                                (BIGINT '4', VARCHAR 'DELETE', BIGINT '3', VARCHAR 'WriteSerializable', false),
+                                (BIGINT '5', VARCHAR 'SET TBLPROPERTIES', BIGINT '4', VARCHAR 'WriteSerializable', true)
+                            """);
     }
 }

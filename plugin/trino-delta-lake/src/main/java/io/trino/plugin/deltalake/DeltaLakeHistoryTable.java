@@ -14,8 +14,12 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogIterator;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -29,38 +33,52 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import org.apache.hadoop.fs.Path;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeHistoryTable
         implements SystemTable
 {
+    private final SchemaTableName tableName;
     private final ConnectorTableMetadata tableMetadata;
     private final List<Type> types;
-    private final Iterable<CommitInfoEntry> commitInfoEntries;
+    private final TrinoFileSystemFactory fileSystemFactory;
+    private final DeltaLakeMetastore metastore;
+
     private final Type varcharToVarcharMapType;
 
-    public DeltaLakeHistoryTable(SchemaTableName tableName, List<CommitInfoEntry> commitInfoEntries, TypeManager typeManager)
+    public DeltaLakeHistoryTable(
+            SchemaTableName tableName,
+            TrinoFileSystemFactory fileSystemFactory,
+            DeltaLakeMetastore metastore,
+            TypeManager typeManager)
     {
+        this.tableName = requireNonNull(tableName, "tableName is null");
         requireNonNull(typeManager, "typeManager is null");
-        this.commitInfoEntries = ImmutableList.copyOf(requireNonNull(commitInfoEntries, "commitInfoEntries is null")).stream()
-                .sorted(comparingLong(CommitInfoEntry::getVersion).reversed())
-                .collect(toImmutableList());
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.metastore = requireNonNull(metastore, "metastore is null");
 
+        SchemaTableName systemTableName = new SchemaTableName(
+                tableName.getSchemaName(),
+                new DeltaLakeTableName(tableName.getTableName(), DeltaLakeTableType.HISTORY).getTableNameWithType());
         tableMetadata = new ConnectorTableMetadata(
-                requireNonNull(tableName, "tableName is null"),
+                systemTableName,
                 ImmutableList.<ColumnMetadata>builder()
                         .add(new ColumnMetadata("version", BIGINT))
                         .add(new ColumnMetadata("timestamp", TIMESTAMP_TZ_MILLIS))
@@ -96,7 +114,18 @@ public class DeltaLakeHistoryTable
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         TimeZoneKey timeZoneKey = session.getTimeZoneKey();
-        Iterable<List<Object>> records = Iterables.transform(commitInfoEntries, commitInfoEntry -> getRecord(commitInfoEntry, timeZoneKey));
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        Iterable<List<Object>> records = () ->
+                stream(new DeltaLakeTransactionLogIterator(
+                        fileSystem,
+                        new Path(metastore.getTableLocation(tableName, session)),
+                        Optional.empty(),
+                        Optional.empty()))
+                        .flatMap(Collection::stream)
+                        .map(DeltaLakeTransactionLogEntry::getCommitInfo)
+                        .filter(Objects::nonNull)
+                        .map(commitInfoEntry -> getRecord(commitInfoEntry, timeZoneKey))
+                        .iterator();
 
         return new InMemoryRecordSet(types, records).cursor();
     }
