@@ -292,6 +292,8 @@ public class DeltaLakeMetadata
     public static final int MAX_READER_VERSION = 2;
     public static final int MAX_WRITER_VERSION = 4;
 
+    private static final int CDF_SUPPORTED_WRITER_VERSION = 4;
+
     // Matches the dummy column Databricks stores in the metastore
     private static final List<Column> DUMMY_DATA_COLUMNS = ImmutableList.of(
             new Column("col", HiveType.toHiveType(new ArrayType(VarcharType.createUnboundedVarcharType())), Optional.empty()));
@@ -1819,7 +1821,21 @@ public class DeltaLakeMetadata
     {
         Optional<Integer> readerVersion = getReaderVersion(properties);
         Optional<Integer> writerVersion = getWriterVersion(properties);
+        Optional<Boolean> changeDataFeedEnabled = getChangeDataFeedEnabled(properties);
 
+        if (changeDataFeedEnabled.isPresent() && changeDataFeedEnabled.get()) {
+            if (writerVersion.isPresent()) {
+                if (writerVersion.get() < CDF_SUPPORTED_WRITER_VERSION) {
+                    throw new TrinoException(
+                            INVALID_TABLE_PROPERTY,
+                            WRITER_VERSION_PROPERTY + " cannot be set less than " + CDF_SUPPORTED_WRITER_VERSION + " when cdf is enabled");
+                }
+            }
+            else {
+                // Enabling cdf (change data feed) requires setting the writer version to 4
+                writerVersion = Optional.of(CDF_SUPPORTED_WRITER_VERSION);
+            }
+        }
         return new ProtocolEntry(
                 readerVersion.orElse(MIN_READER_VERSION),
                 writerVersion.orElse(MIN_WRITER_VERSION));
