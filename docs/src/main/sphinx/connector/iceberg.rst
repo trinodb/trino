@@ -132,7 +132,7 @@ JDBC catalog
   The JDBC catalog may face the compatibility issue if Iceberg introduces breaking changes in the future.
   Consider the :ref:`REST catalog <iceberg-rest-catalog>` as an alternative solution.
 
-At a minimum, ``iceberg.jdbc-catalog.connection-url`` and
+At a minimum, ``iceberg.jdbc-catalog.driver-class``, ``iceberg.jdbc-catalog.connection-url`` and
 ``iceberg.jdbc-catalog.catalog-name`` must be configured.
 When using any database besides PostgreSQL, a JDBC driver jar file must be placed in the plugin directory.
 
@@ -141,6 +141,7 @@ When using any database besides PostgreSQL, a JDBC driver jar file must be place
     connector.name=iceberg
     iceberg.catalog.type=jdbc
     iceberg.jdbc-catalog.catalog-name=test
+    iceberg.jdbc-catalog.driver-class=org.postgresql.Driver
     iceberg.jdbc-catalog.connection-url=jdbc:postgresql://example.net:5432/database
     iceberg.jdbc-catalog.connection-user=admin
     iceberg.jdbc-catalog.connection-password=test

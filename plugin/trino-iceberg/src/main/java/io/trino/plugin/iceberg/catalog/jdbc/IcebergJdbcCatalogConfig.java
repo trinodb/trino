@@ -24,11 +24,26 @@ import java.util.Optional;
 
 public class IcebergJdbcCatalogConfig
 {
+    private String driverClass;
     private String connectionUrl;
     private String connectionUser;
     private String connectionPassword;
     private String catalogName;
     private String defaultWarehouseDir;
+
+    @NotNull
+    public String getDriverClass()
+    {
+        return driverClass;
+    }
+
+    @Config("iceberg.jdbc-catalog.driver-class")
+    @ConfigDescription("JDBC driver class name")
+    public IcebergJdbcCatalogConfig setDriverClass(String driverClass)
+    {
+        this.driverClass = driverClass;
+        return this;
+    }
 
     public String getConnectionUrl()
     {
