@@ -13,26 +13,28 @@
  */
 package io.trino.plugin.base.expression;
 
-import io.trino.spi.type.Type;
+import io.trino.spi.expression.ConnectorExpression;
 
-public class ConnectorExpressionIndex
+import static java.util.Objects.requireNonNull;
+
+public class ConnectorExpressionWithIndex
 {
-    private final Type type;
+    private final ConnectorExpression connectorExpression;
 
     private final int index;
 
     private final boolean isLast;
 
-    public ConnectorExpressionIndex(Type type, int index, boolean isLast)
+    public ConnectorExpressionWithIndex(ConnectorExpression connectorExpression, int index, boolean isLast)
     {
-        this.type = type;
+        this.connectorExpression = requireNonNull(connectorExpression, "connectorExpression is null");
         this.index = index;
         this.isLast = isLast;
     }
 
-    public Type getType()
+    public ConnectorExpression getConnectorExpression()
     {
-        return type;
+        return connectorExpression;
     }
 
     public int getIndex()

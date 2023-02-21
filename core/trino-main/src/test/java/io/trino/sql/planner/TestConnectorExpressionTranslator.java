@@ -15,7 +15,6 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.expression.Call;
@@ -64,6 +63,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
@@ -74,6 +74,7 @@ import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERA
 import static io.trino.spi.expression.StandardFunctions.NEGATE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NULLIF_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.SIMPLE_CASE_WHEN_CONDITION_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.SIMPLE_CASE_WHEN_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -348,7 +349,7 @@ public class TestConnectorExpressionTranslator
                     Call translated = new Call(BOOLEAN,
                             StandardFunctions.LIKE_FUNCTION_NAME,
                             List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
-                                    new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length()))));
+                                    new Constant(wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length()))));
 
                     assertTranslationToConnectorExpression(
                             transactionSession,
@@ -377,8 +378,8 @@ public class TestConnectorExpressionTranslator
                             StandardFunctions.LIKE_FUNCTION_NAME,
                             List.of(
                                     new Variable("varchar_symbol_1", VARCHAR_TYPE),
-                                    new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())),
-                                    new Constant(Slices.wrappedBuffer(escape.getBytes(UTF_8)), createVarcharType(escape.length()))));
+                                    new Constant(wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())),
+                                    new Constant(wrappedBuffer(escape.getBytes(UTF_8)), createVarcharType(escape.length()))));
 
                     assertTranslationToConnectorExpression(
                             transactionSession,
@@ -485,7 +486,7 @@ public class TestConnectorExpressionTranslator
                             new Call(VARCHAR_ARRAY_TYPE, ARRAY_CONSTRUCTOR_FUNCTION_NAME,
                                     List.of(
                                             new Variable("varchar_symbol_1", VARCHAR_TYPE),
-                                            new Constant(Slices.wrappedBuffer(value.getBytes(UTF_8)), createVarcharType(value.length())))))));
+                                            new Constant(wrappedBuffer(value.getBytes(UTF_8)), createVarcharType(value.length())))))));
 
         // IN (null) is not translated
         assertTranslationToConnectorExpression(
@@ -500,24 +501,35 @@ public class TestConnectorExpressionTranslator
     public void testTranslateSimpleCase()
     {
         double doubleValue = 50.0d;
-        String strValue1 = "abc";
-        String strValue2 = "def";
+        String stringValue1 = "abc";
+        String stringValue2 = "defg";
+        VarcharType varcharType1 = createVarcharType(stringValue1.length());
+        VarcharType varcharType = createVarcharType(stringValue2.length());
+
         Expression operand = new SymbolReference("double_symbol_1");
         List<WhenClause> whenClauses = ImmutableList.of(
                 new WhenClause(new SymbolReference("double_symbol_2"), new SymbolReference("varchar_symbol_1")),
-                new WhenClause(new DoubleLiteral(String.valueOf(doubleValue)), new StringLiteral(strValue1)));
-        Expression defaultValue = new StringLiteral(strValue2);
+                new WhenClause(new DoubleLiteral(String.valueOf(doubleValue)), new StringLiteral(stringValue1)));
+        Expression defaultValue = new StringLiteral(stringValue2);
 
         ConnectorExpression operandConnectorExpression = new Variable("double_symbol_1", DOUBLE);
 
-        List<ConnectorExpression> whenClauseConnectorExpressions = ImmutableList.of(
-                new Variable("double_symbol_2", DOUBLE),
-                new Variable("varchar_symbol_1", VARCHAR_TYPE),
-                new Constant(doubleValue, DOUBLE),
-                new Constant(Slices.wrappedBuffer(strValue1.getBytes(UTF_8)), createVarcharType(strValue1.length())));
+        Call whenCondition1 = new Call(VARCHAR_TYPE,
+                SIMPLE_CASE_WHEN_CONDITION_FUNCTION_NAME,
+                ImmutableList.of(new Variable("double_symbol_2", DOUBLE),
+                        new Variable("varchar_symbol_1", VARCHAR_TYPE)));
+
+        Call whenCondition2 = new Call(varcharType1,
+                SIMPLE_CASE_WHEN_CONDITION_FUNCTION_NAME,
+                ImmutableList.of(new Constant(doubleValue, DOUBLE),
+                        new Constant(wrappedBuffer(stringValue1.getBytes(UTF_8)), varcharType1)));
+
+        Call whenConditionArray = new Call(new ArrayType(VARCHAR_TYPE),
+                ARRAY_CONSTRUCTOR_FUNCTION_NAME,
+                ImmutableList.of(whenCondition1, whenCondition2));
 
         ConnectorExpression defaultValueConnectorExpression =
-                new Constant(Slices.wrappedBuffer(strValue2.getBytes(UTF_8)), createVarcharType(strValue2.length()));
+                new Constant(wrappedBuffer(stringValue2.getBytes(UTF_8)), varcharType);
 
         assertTranslationRoundTrips(
                 new SimpleCaseExpression(operand, whenClauses, Optional.of(defaultValue)),
@@ -525,7 +537,7 @@ public class TestConnectorExpressionTranslator
                         SIMPLE_CASE_WHEN_FUNCTION_NAME,
                         ImmutableList.<ConnectorExpression>builder()
                                 .add(operandConnectorExpression)
-                                .addAll(whenClauseConnectorExpressions)
+                                .add(whenConditionArray)
                                 .add(defaultValueConnectorExpression)
                                 .build()));
 
@@ -536,7 +548,7 @@ public class TestConnectorExpressionTranslator
                         SIMPLE_CASE_WHEN_FUNCTION_NAME,
                         ImmutableList.<ConnectorExpression>builder()
                                 .add(operandConnectorExpression)
-                                .addAll(whenClauseConnectorExpressions)
+                                .add(whenConditionArray)
                                 .build()));
     }
 

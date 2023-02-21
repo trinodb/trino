@@ -13,21 +13,26 @@
  */
 package io.trino.plugin.jdbc.expression;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.plugin.base.expression.ConnectorExpressionIndex;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
+import io.trino.plugin.base.expression.ConnectorExpressionWithIndex;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.type.Type;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 
-import static com.google.common.collect.MoreCollectors.toOptional;
+import static io.trino.plugin.jdbc.expression.TypePattern.getArrayTypePredicate;
+import static io.trino.plugin.jdbc.expression.TypePattern.getTypePredicate;
+import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.SIMPLE_CASE_WHEN_CONDITION_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.SIMPLE_CASE_WHEN_FUNCTION_NAME;
 import static java.lang.String.format;
 
@@ -36,7 +41,7 @@ public class RewriteSimpleCaseExpression
 {
     public static RewriteSimpleCaseExpression createRewrite()
     {
-        return createRewrite(Collections.emptyMap(), Optional.empty(), Optional.empty());
+        return createRewrite(ImmutableMap.of(), Optional.empty(), Optional.empty());
     }
 
     public static RewriteSimpleCaseExpression createRewrite(Map<String, Set<String>> typeClass,
@@ -54,26 +59,57 @@ public class RewriteSimpleCaseExpression
         Optional<TypePattern> operandTypePattern = operandType.map(parser::createTypePattern);
         Optional<TypePattern> resultTypePattern = resultType.map(parser::createTypePattern);
 
-        Predicate<ConnectorExpressionIndex> operandTypePredicate = connectorExpressionIndex -> {
-            int index = connectorExpressionIndex.getIndex();
-            if (index == 0 || (index % 2 != 0 && !connectorExpressionIndex.isLast())) {
-                return operandTypePattern.map(typePattern -> typePattern.getPattern()
-                                .match(connectorExpressionIndex.getType())
-                                .collect(toOptional()).isPresent()).orElse(true);
-            }
-            else {
-                return resultTypePattern.map(typePattern -> typePattern.getPattern()
-                        .match(connectorExpressionIndex.getType())
-                        .collect(toOptional()).isPresent()).orElse(true);
-            }
+        VariableLengthCallPattern whenClauseArrayCallPattern = createWhenClausesCallPattern(
+                operandTypePattern, resultTypePattern);
+
+        VariableLengthCallPattern simpleCaseWhenCallPattern = createSimpleCaseWhenCallPattern(
+                whenClauseArrayCallPattern, operandTypePattern, resultTypePattern);
+
+        return new RewriteSimpleCaseExpression(simpleCaseWhenCallPattern);
+    }
+
+    private static VariableLengthCallPattern createWhenClausesCallPattern(Optional<TypePattern> operandTypePattern,
+                                                                          Optional<TypePattern> resultTypePattern)
+    {
+        Predicate<ConnectorExpressionWithIndex> whenConditionsPredicate = connectorExpressionWithIndex -> {
+            ConnectorExpression connectorExpression = connectorExpressionWithIndex.getConnectorExpression();
+            CallPattern singleWhenClausePattern = new CallPattern(SIMPLE_CASE_WHEN_CONDITION_FUNCTION_NAME.getName(),
+                    ImmutableList.of(new ExpressionCapture("operand", operandTypePattern),
+                            new ExpressionCapture("result", resultTypePattern)),
+                    resultTypePattern);
+            return getTypePredicate(resultTypePattern).test(connectorExpression.getType())
+                    && singleWhenClausePattern.getPattern().match(connectorExpression).findFirst().isPresent();
         };
 
-        ExpressionListCapture expressionListCapture = new ExpressionListCapture("arguments", operandTypePredicate);
+        ExpressionListCapture whenConditionsCapture = new ExpressionListCapture("whenConditions", whenConditionsPredicate);
+        return new VariableLengthCallPattern(ARRAY_CONSTRUCTOR_FUNCTION_NAME.getName(), whenConditionsCapture, resultTypePattern);
+    }
 
-        VariableLengthCallPattern variableLengthCallPattern = new VariableLengthCallPattern(
-                SIMPLE_CASE_WHEN_FUNCTION_NAME.getName(), expressionListCapture, resultTypePattern);
+    private static VariableLengthCallPattern createSimpleCaseWhenCallPattern(VariableLengthCallPattern whenClauseArrayCallPattern,
+                                                                             Optional<TypePattern> operandTypePattern,
+                                                                             Optional<TypePattern> resultTypePattern)
+    {
+        Predicate<Type> operandTypePredicate = getTypePredicate(operandTypePattern);
 
-        return new RewriteSimpleCaseExpression(variableLengthCallPattern);
+        Predicate<Type> whenClauseArrayTypePredicate = getArrayTypePredicate(resultTypePattern);
+
+        Predicate<Type> resultTypePredicate = getTypePredicate(resultTypePattern);
+
+        Predicate<ConnectorExpressionWithIndex> argumentsPredicate = connectorExpressionWithIndex -> {
+            int index = connectorExpressionWithIndex.getIndex();
+            ConnectorExpression connectorExpression = connectorExpressionWithIndex.getConnectorExpression();
+            return switch (index) {
+                case 0 -> operandTypePredicate.test(connectorExpression.getType());
+                case 1 -> whenClauseArrayTypePredicate.test(connectorExpression.getType())
+                        && whenClauseArrayCallPattern.getPattern().match(connectorExpression).findFirst().isPresent();
+                case 2 -> resultTypePredicate.test(connectorExpression.getType());
+                default -> false;
+            };
+        };
+
+        ExpressionListCapture argumentsCapture = new ExpressionListCapture("arguments", argumentsPredicate);
+
+        return new VariableLengthCallPattern(SIMPLE_CASE_WHEN_FUNCTION_NAME.getName(), argumentsCapture, resultTypePattern);
     }
 
     private final VariableLengthCallPattern variableLengthCallPattern;
@@ -98,46 +134,78 @@ public class RewriteSimpleCaseExpression
 
         StringBuilder rewritten = new StringBuilder();
 
-        rewritten.append("(CASE ");
-
         Optional<Object> capture = matchContext.getIfPresent("arguments");
 
-        if (capture.isPresent()) {
-            Object value = capture.get();
-            if (value instanceof List<?> list) {
-                for (int i = 0; i < list.size(); i++) {
-                    Object arg = list.get(i);
-                    if (arg instanceof ConnectorExpression argExpression) {
-                        Optional<String> rewrittenExpression = context.defaultRewrite(argExpression);
-                        if (rewrittenExpression.isEmpty()) {
-                            return Optional.empty();
-                        }
-                        if (i == 0) {
-                            rewritten.append(rewrittenExpression.get());
-                        }
-                        else if (i % 2 != 0 && i != list.size() - 1) {
-                            rewritten.append(" WHEN ").append(rewrittenExpression.get());
-                        }
-                        else if (i % 2 == 0) {
-                            rewritten.append(" THEN ").append(rewrittenExpression.get());
-                        }
-                        else {
-                            rewritten.append(" ELSE ").append(rewrittenExpression.get());
-                        }
-                    }
-                    else {
-                        throw new UnsupportedOperationException(format("Unsupported value: %s (%s)", arg, arg.getClass()));
-                    }
-                }
-                rewritten.append(" END)");
-            }
-            else {
-                throw new UnsupportedOperationException(format("Unsupported value: %s (%s)", value, value.getClass()));
-            }
-
-            return Optional.of(rewritten.toString());
+        if (capture.isEmpty()) {
+            return Optional.empty();
         }
 
-        return Optional.empty();
+        Object value = capture.get();
+        if (!(value instanceof List<?> list)) {
+            throw new UnsupportedOperationException(format("Unsupported value: %s (%s)", value, value.getClass()));
+        }
+
+        rewritten.append("(CASE ");
+        for (int i = 0; i < list.size(); i++) {
+            Object arg = list.get(i);
+            if (!(arg instanceof ConnectorExpression argExpression)) {
+                throw new UnsupportedOperationException(format("Unsupported value: %s (%s)", arg, arg.getClass()));
+            }
+
+            if (i == 1) {
+                if (!rewriteWhenClauseArray(argExpression, rewritten, context)) {
+                    return Optional.empty();
+                }
+            }
+            else {
+                Optional<String> rewrittenExpression = context.defaultRewrite(argExpression);
+                if (rewrittenExpression.isEmpty()) {
+                    return Optional.empty();
+                }
+
+                if (i == 2) {
+                    rewritten.append(" ELSE ");
+                }
+                rewritten.append(rewrittenExpression.get());
+            }
+        }
+        rewritten.append(" END)");
+        return Optional.of(rewritten.toString());
+    }
+
+    private boolean rewriteWhenClauseArray(ConnectorExpression connectorExpression,
+                                           StringBuilder rewritten,
+                                           RewriteContext<String> context)
+    {
+        if (!(connectorExpression instanceof Call whenClauseArray)) {
+            return false;
+        }
+        for (ConnectorExpression whenClause : whenClauseArray.getArguments()) {
+            if (!rewriteWhenClause(whenClause, rewritten, context)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean rewriteWhenClause(ConnectorExpression connectorExpression,
+                                      StringBuilder rewritten,
+                                      RewriteContext<String> context)
+    {
+        if (!(connectorExpression instanceof Call whenClause) || whenClause.getArguments().size() != 2) {
+            return false;
+        }
+
+        Optional<String> operand = context.defaultRewrite(whenClause.getArguments().get(0));
+        if (operand.isEmpty()) {
+            return false;
+        }
+
+        Optional<String> result = context.defaultRewrite(whenClause.getArguments().get(1));
+        if (result.isEmpty()) {
+            return false;
+        }
+        rewritten.append(" WHEN ").append(operand.get()).append(" THEN ").append(result.get());
+        return true;
     }
 }

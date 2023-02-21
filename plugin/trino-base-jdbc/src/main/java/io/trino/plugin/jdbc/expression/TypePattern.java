@@ -15,10 +15,37 @@ package io.trino.plugin.jdbc.expression;
 
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
+
+import java.util.Optional;
+import java.util.function.Predicate;
 
 public interface TypePattern
 {
+    static Predicate<Type> getTypePredicate(Optional<TypePattern> optTypePattern)
+    {
+        return type -> optTypePattern
+                .map(typePattern -> typePattern.getPattern()
+                        .match(type)
+                        .findFirst()
+                        .isPresent())
+                .orElse(true);
+    }
+
+    static Predicate<Type> getArrayTypePredicate(Optional<TypePattern> optElementTypePattern)
+    {
+        return type -> {
+            if (type instanceof ArrayType arrayType) {
+                Type elementType = arrayType.getElementType();
+                return getTypePredicate(optElementTypePattern).test(elementType);
+            }
+            else {
+                return false;
+            }
+        };
+    }
+
     Pattern<Type> getPattern();
 
     void resolve(Captures captures, MatchContext matchContext);

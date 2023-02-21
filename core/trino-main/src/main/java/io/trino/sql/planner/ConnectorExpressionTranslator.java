@@ -100,6 +100,7 @@ import static io.trino.spi.expression.StandardFunctions.NOT_EQUAL_OPERATOR_FUNCT
 import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NULLIF_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.SIMPLE_CASE_WHEN_CONDITION_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.SIMPLE_CASE_WHEN_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.SUBTRACT_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -304,8 +305,12 @@ public final class ConnectorExpressionTranslator
                 return translateInPredicate(call.getArguments().get(0), call.getArguments().get(1));
             }
 
-            if (SIMPLE_CASE_WHEN_FUNCTION_NAME.equals(call.getFunctionName())) {
+            if (SIMPLE_CASE_WHEN_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() >= 2 && call.getArguments().size() <= 3) {
                 return translateSimpleCaseWhen(call.getArguments());
+            }
+
+            if (SIMPLE_CASE_WHEN_CONDITION_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 2) {
+                return translateWhenClause(call.getArguments());
             }
 
             QualifiedName name = QualifiedName.of(call.getFunctionName().getName());
@@ -508,7 +513,7 @@ public final class ConnectorExpressionTranslator
         protected Optional<Expression> translateSimpleCaseWhen(List<ConnectorExpression> arguments)
         {
             int argumentsSize = arguments.size();
-            if (argumentsSize < 3) {
+            if (argumentsSize < 2 || argumentsSize > 3) {
                 return Optional.empty();
             }
 
@@ -517,35 +522,38 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            ImmutableList.Builder<WhenClause> builder = ImmutableList.builder();
-            for (int i = 1; i < argumentsSize - 1; i += 2) {
-                Optional<WhenClause> whenClause = translateWhenClause(arguments.get(i), arguments.get(i + 1));
-                if (whenClause.isPresent()) {
-                    builder.add(whenClause.get());
-                }
-                else {
+            Optional<List<Expression>> translatedValues = extractExpressionsFromArrayCall(arguments.get(1));
+
+            if (translatedValues.isEmpty() || !translatedValues.get().stream().allMatch(e -> e instanceof WhenClause)) {
+                return Optional.empty();
+            }
+            List<WhenClause> whenClauses = translatedValues.get().stream()
+                    .map(WhenClause.class::cast)
+                    .collect(toImmutableList());
+
+            Optional<Expression> defaultValue = Optional.empty();
+            if (argumentsSize == 3) {
+                defaultValue = translate(arguments.get(2));
+                if (defaultValue.isEmpty()) {
                     return Optional.empty();
                 }
             }
-            List<WhenClause> whenClauses = builder.build();
-
-            Optional<Expression> defaultValue = argumentsSize % 2 == 0
-                    ? translate(arguments.get(argumentsSize - 1))
-                    : Optional.empty();
 
             return Optional.of(new SimpleCaseExpression(operand.get(), whenClauses, defaultValue));
         }
 
-        protected Optional<WhenClause> translateWhenClause(ConnectorExpression operandValue, ConnectorExpression resultValue)
+        protected Optional<Expression> translateWhenClause(List<ConnectorExpression> arguments)
         {
-            Optional<Expression> operand = translate(operandValue);
-            Optional<Expression> result = translate(resultValue);
+            if (arguments.size() != 2) {
+                return Optional.empty();
+            }
+
+            Optional<Expression> operand = translate(arguments.get(0));
+            Optional<Expression> result = translate(arguments.get(1));
             if (operand.isPresent() && result.isPresent()) {
                 return Optional.of(new WhenClause(operand.get(), result.get()));
             }
-            else {
-                return Optional.empty();
-            }
+            return Optional.empty();
         }
 
         protected Optional<List<Expression>> extractExpressionsFromArrayCall(ConnectorExpression expression)
@@ -716,6 +724,7 @@ public final class ConnectorExpressionTranslator
             }
             arguments.add(operand.get());
 
+            ImmutableList.Builder<ConnectorExpression> whenClauses = ImmutableList.builder();
             for (WhenClause whenClauseExpression : node.getWhenClauses()) {
                 Expression whenClauseOperandExpression = whenClauseExpression.getOperand();
                 Expression whenClauseResultExpression = whenClauseExpression.getResult();
@@ -724,14 +733,18 @@ public final class ConnectorExpressionTranslator
                 if (whenClauseOperand.isEmpty()) {
                     return Optional.empty();
                 }
-                arguments.add(whenClauseOperand.get());
 
                 Optional<ConnectorExpression> whenClauseResult = process(whenClauseResultExpression);
                 if (whenClauseResult.isEmpty()) {
                     return Optional.empty();
                 }
-                arguments.add(whenClauseResult.get());
+
+                Call call = new Call(typeOf(whenClauseExpression), SIMPLE_CASE_WHEN_CONDITION_FUNCTION_NAME,
+                        ImmutableList.of(whenClauseOperand.get(), whenClauseResult.get()));
+                whenClauses.add(call);
             }
+            Call whenClauseArray = new Call(new ArrayType(typeOf(node)), ARRAY_CONSTRUCTOR_FUNCTION_NAME, whenClauses.build());
+            arguments.add(whenClauseArray);
 
             if (node.getDefaultValue().isPresent()) {
                 Optional<ConnectorExpression> defaultValue = process(node.getDefaultValue().get());

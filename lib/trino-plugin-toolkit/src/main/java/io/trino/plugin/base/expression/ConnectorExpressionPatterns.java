@@ -132,9 +132,9 @@ public final class ConnectorExpressionPatterns
                 .collect(toImmutableList()));
     }
 
-    public static Predicate<List<? extends ConnectorExpression>> expressionTypes(Predicate<ConnectorExpressionIndex> predicate)
+    public static Predicate<List<? extends ConnectorExpression>> expressionsPredicate(Predicate<ConnectorExpressionWithIndex> predicate)
     {
         return expressions -> IntStream.range(0, expressions.size())
-                .allMatch(i -> predicate.test(new ConnectorExpressionIndex(expressions.get(i).getType(), i, i == expressions.size() - 1)));
+                .allMatch(i -> predicate.test(new ConnectorExpressionWithIndex(expressions.get(i), i, i == expressions.size() - 1)));
     }
 }

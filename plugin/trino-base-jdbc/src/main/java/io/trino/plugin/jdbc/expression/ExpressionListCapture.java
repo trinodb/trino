@@ -16,7 +16,7 @@ package io.trino.plugin.jdbc.expression;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.plugin.base.expression.ConnectorExpressionIndex;
+import io.trino.plugin.base.expression.ConnectorExpressionWithIndex;
 import io.trino.spi.expression.ConnectorExpression;
 
 import java.util.List;
@@ -24,7 +24,7 @@ import java.util.Objects;
 import java.util.function.Predicate;
 
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.expressionTypes;
+import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.expressionsPredicate;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionListCapture
@@ -35,11 +35,12 @@ public class ExpressionListCapture
     private final Capture<List<? extends ConnectorExpression>> capture = newCapture();
     private final Pattern<List<? extends ConnectorExpression>> pattern;
 
-    public ExpressionListCapture(String name, Predicate<ConnectorExpressionIndex> predicate)
+    public ExpressionListCapture(String name, Predicate<ConnectorExpressionWithIndex> predicate)
     {
+        requireNonNull(predicate, "predicate is null");
         this.name = requireNonNull(name, "name is null");
         this.pattern = Pattern.typeOfList(ConnectorExpression.class)
-                .matching(expressionTypes(predicate))
+                .matching(expressionsPredicate(predicate))
                 .capturedAs(capture);
     }
 
