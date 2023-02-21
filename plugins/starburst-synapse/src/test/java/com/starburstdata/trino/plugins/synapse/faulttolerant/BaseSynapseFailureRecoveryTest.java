@@ -20,9 +20,7 @@ import io.trino.testng.services.ManageTestResources;
 import io.trino.tpch.TpchTable;
 import org.assertj.core.api.Assertions;
 import org.testng.SkipException;
-import org.testng.annotations.DataProvider;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -71,6 +69,15 @@ public abstract class BaseSynapseFailureRecoveryTest
     }
 
     @Override
+    protected void testAnalyzeTable()
+    {
+        Assertions.assertThatThrownBy(() -> {
+            testNonSelect(Optional.empty(), Optional.of("CREATE TABLE <table> AS SELECT * FROM nation"), "ANALYZE <table>", Optional.of("DROP TABLE <table>"), false);
+        }).hasMessageContaining("This connector does not support analyze");
+        throw new SkipException("skipped");
+    }
+
+    @Override
     protected void testCreateTable()
     {
         this.testTableModification(Optional.empty(), "CREATE TABLE <table> AS SELECT * FROM nation", Optional.of("DROP TABLE <table>"));
@@ -80,6 +87,15 @@ public abstract class BaseSynapseFailureRecoveryTest
     protected void testInsert()
     {
         this.testTableModification(Optional.of("CREATE TABLE <table> AS SELECT * FROM nation WITH NO DATA"), "INSERT INTO <table> SELECT * FROM nation", Optional.of("DROP TABLE <table>"));
+    }
+
+    @Override
+    protected void testDelete()
+    {
+        Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM nation");
+        String testQuery = "DELETE FROM <table> WHERE nationkey = 1";
+        Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
+        this.assertThatQuery(testQuery).withSetupQuery(setupQuery).withCleanupQuery(cleanupQuery).isCoordinatorOnly();
     }
 
     @Override
@@ -141,15 +157,5 @@ public abstract class BaseSynapseFailureRecoveryTest
                 failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer");
             }).finishesSuccessfullyWithoutTaskFailures();
         }
-    }
-
-    @DataProvider(name = "parallelTests", parallel = true)
-    @Override
-    public Object[][] parallelTests()
-    {
-        // TODO: https://starburstdata.atlassian.net/browse/SEP-10920
-        return Arrays.stream(super.parallelTests())
-                .filter(arguments -> !arguments[0].toString().equals("testInsert"))
-                .toArray(Object[][]::new);
     }
 }
