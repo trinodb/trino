@@ -755,8 +755,6 @@ public class DeltaLakeMetadata
                         configurationForNewTable(checkpointInterval, changeDataFeedEnabled),
                         CREATE_TABLE_OPERATION,
                         session,
-                        nodeVersion,
-                        nodeId,
                         tableMetadata.getComment(),
                         getProtocolEntry(tableMetadata.getProperties()));
 
@@ -998,8 +996,6 @@ public class DeltaLakeMetadata
                     configurationForNewTable(handle.getCheckpointInterval(), handle.getChangeDataFeedEnabled()),
                     CREATE_TABLE_AS_OPERATION,
                     session,
-                    nodeVersion,
-                    nodeId,
                     handle.getComment(),
                     handle.getProtocolEntry());
             appendAddFileEntries(transactionLogWriter, dataFileInfos, handle.getPartitionedBy(), true);
@@ -1093,8 +1089,6 @@ public class DeltaLakeMetadata
                     handle.getMetadataEntry().getConfiguration(),
                     SET_TBLPROPERTIES_OPERATION,
                     session,
-                    nodeVersion,
-                    nodeId,
                     comment,
                     getProtocolEntry(session, handle.getSchemaTableName()));
             transactionLogWriter.flush();
@@ -1141,8 +1135,6 @@ public class DeltaLakeMetadata
                     deltaLakeTableHandle.getMetadataEntry().getConfiguration(),
                     CHANGE_COLUMN_OPERATION,
                     session,
-                    nodeVersion,
-                    nodeId,
                     Optional.ofNullable(deltaLakeTableHandle.getMetadataEntry().getDescription()),
                     getProtocolEntry(session, deltaLakeTableHandle.getSchemaTableName()));
             transactionLogWriter.flush();
@@ -1200,8 +1192,6 @@ public class DeltaLakeMetadata
                     handle.getMetadataEntry().getConfiguration(),
                     ADD_COLUMN_OPERATION,
                     session,
-                    nodeVersion,
-                    nodeId,
                     Optional.ofNullable(handle.getMetadataEntry().getDescription()),
                     getProtocolEntry(session, handle.getSchemaTableName()));
             transactionLogWriter.flush();
@@ -1211,7 +1201,7 @@ public class DeltaLakeMetadata
         }
     }
 
-    private static void appendTableEntries(
+    private void appendTableEntries(
             long commitVersion,
             TransactionLogWriter transactionLogWriter,
             String tableId,
@@ -1223,26 +1213,11 @@ public class DeltaLakeMetadata
             Map<String, String> configuration,
             String operation,
             ConnectorSession session,
-            String nodeVersion,
-            String nodeId,
             Optional<String> comment,
             ProtocolEntry protocolEntry)
     {
         long createdTime = System.currentTimeMillis();
-        transactionLogWriter.appendCommitInfoEntry(
-                new CommitInfoEntry(
-                        commitVersion,
-                        createdTime,
-                        session.getUser(),
-                        session.getUser(),
-                        operation,
-                        ImmutableMap.of("queryId", session.getQueryId()),
-                        null,
-                        null,
-                        "trino-" + nodeVersion + "-" + nodeId,
-                        0,
-                        ISOLATION_LEVEL,
-                        Optional.of(true)));
+        transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, commitVersion, createdTime, operation, 0));
 
         transactionLogWriter.appendProtocolEntry(protocolEntry);
 
@@ -1377,20 +1352,8 @@ public class DeltaLakeMetadata
                         commitVersion - 1));
             }
             Optional<Long> checkpointInterval = handle.getMetadataEntry().getCheckpointInterval();
-            transactionLogWriter.appendCommitInfoEntry(
-                    new CommitInfoEntry(
-                            commitVersion,
-                            createdTime,
-                            session.getUser(),
-                            session.getUser(),
-                            INSERT_OPERATION,
-                            ImmutableMap.of("queryId", session.getQueryId()),
-                            null,
-                            null,
-                            "trino-" + nodeVersion + "-" + nodeId,
-                            handle.getReadVersion(), // it is not obvious why we need to persist this readVersion
-                            ISOLATION_LEVEL,
-                            Optional.of(true)));
+            // it is not obvious why we need to persist this readVersion
+            transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, commitVersion, createdTime, INSERT_OPERATION, handle.getReadVersion()));
 
             // Note: during writes we want to preserve original case of partition columns
             List<String> partitionColumns = handle.getMetadataEntry().getOriginalPartitionColumns();
@@ -1525,20 +1488,7 @@ public class DeltaLakeMetadata
             }
             long commitVersion = currentVersion + 1;
 
-            transactionLogWriter.appendCommitInfoEntry(
-                    new CommitInfoEntry(
-                            commitVersion,
-                            createdTime,
-                            session.getUser(),
-                            session.getUser(),
-                            MERGE_OPERATION,
-                            ImmutableMap.of("queryId", session.getQueryId()),
-                            null,
-                            null,
-                            "trino-" + nodeVersion + "-" + nodeId,
-                            handle.getReadVersion(),
-                            ISOLATION_LEVEL,
-                            Optional.of(true)));
+            transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, commitVersion, createdTime, MERGE_OPERATION, handle.getReadVersion()));
             // TODO: Delta writes another field "operationMetrics" (https://github.com/trinodb/trino/issues/12005)
 
             long writeTimestamp = Instant.now().toEpochMilli();
@@ -1736,20 +1686,7 @@ public class DeltaLakeMetadata
 
             long createdTime = Instant.now().toEpochMilli();
             long commitVersion = readVersion + 1;
-            transactionLogWriter.appendCommitInfoEntry(
-                    new CommitInfoEntry(
-                            commitVersion,
-                            createdTime,
-                            session.getUser(),
-                            session.getUser(),
-                            OPTIMIZE_OPERATION,
-                            ImmutableMap.of("queryId", session.getQueryId()),
-                            null,
-                            null,
-                            "trino-" + nodeVersion + "-" + nodeId,
-                            readVersion,
-                            ISOLATION_LEVEL,
-                            Optional.of(true)));
+            transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, commitVersion, createdTime, OPTIMIZE_OPERATION, readVersion));
             // TODO: Delta writes another field "operationMetrics" that I haven't
             //   seen before. It contains delete/update metrics. Investigate/include it.
 
@@ -1915,6 +1852,28 @@ public class DeltaLakeMetadata
             throw new TrinoException(NOT_SUPPORTED, "Renaming managed tables is not allowed with current metastore configuration");
         }
         metastore.renameTable(session, handle.getSchemaTableName(), newTableName);
+    }
+
+    private CommitInfoEntry getCommitInfoEntry(
+            ConnectorSession session,
+            long commitVersion,
+            long createdTime,
+            String operation,
+            long readVersion)
+    {
+        return new CommitInfoEntry(
+                commitVersion,
+                createdTime,
+                session.getUser(),
+                session.getUser(),
+                operation,
+                ImmutableMap.of("queryId", session.getQueryId()),
+                null,
+                null,
+                "trino-" + nodeVersion + "-" + nodeId,
+                readVersion,
+                ISOLATION_LEVEL,
+                Optional.of(true));
     }
 
     @Override
