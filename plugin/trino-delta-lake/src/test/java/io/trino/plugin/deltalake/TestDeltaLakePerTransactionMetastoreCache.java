@@ -101,6 +101,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
 
         queryRunner.installPlugin(new TestingDeltaLakePlugin(
                 Optional.empty(),
+                Optional.empty(),
                 new AbstractConfigurationAwareModule()
                 {
                     @Override
