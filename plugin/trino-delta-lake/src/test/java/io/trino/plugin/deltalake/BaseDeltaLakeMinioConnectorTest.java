@@ -939,6 +939,69 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testCreateTableWithCdfEnabledWriterVersionUpgraded()
+    {
+        String tableName = "test_create_table_with_cdf_enabled_writer_version_upgraded_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT) WITH (change_data_feed_enabled = true)");
+        assertThatShowCreateTable(tableName, ".*(change_data_feed_enabled = true,(.*)writer_version = 4).*");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateTableWithCdfPropertyWriterVersionNotUpgraded()
+    {
+        String tableName = "test_create_table_writer_version_not_upgraded_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT) WITH (change_data_feed_enabled = false, writer_version = 3)");
+        assertThatShowCreateTable(tableName, ".*(change_data_feed_enabled = false,(.*)writer_version = 3).*");
+        assertUpdate("DROP TABLE " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT) WITH (change_data_feed_enabled = true, writer_version = 4)");
+        assertThatShowCreateTable(tableName, ".*(change_data_feed_enabled = true,(.*)writer_version = 4).*");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateTableAsWithCdfEnabledWriterVersionUpgraded()
+    {
+        String tableName = "test_create_table_as_with_cdf_enabled_writer_version_upgraded_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number) WITH (change_data_feed_enabled = true) AS VALUES (1), (2)", 2);
+        assertThatShowCreateTable(tableName, ".*(change_data_feed_enabled = true,(.*)writer_version = 4).*");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateTableAsWithCdfPropertyWriterVersionNotUpgraded()
+    {
+        String tableName = "test_create_table_as_writer_version_not_upgraded_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number) WITH (change_data_feed_enabled = false, writer_version = 3) AS VALUES (1), (2)", 2);
+        assertThatShowCreateTable(tableName, ".*(change_data_feed_enabled = false,(.*)writer_version = 3).*");
+        assertUpdate("DROP TABLE " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number) WITH (change_data_feed_enabled = true, writer_version = 4) AS VALUES (1), (2)", 2);
+        assertThatShowCreateTable(tableName, ".*(change_data_feed_enabled = true,(.*)writer_version = 4).*");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateTableWithCdfEnabledAndUnsupportedWriterVersionFails()
+    {
+        String tableName = "test_create_table_with_cdf_enabled_and_unsupported_writer_version_" + randomNameSuffix();
+
+        assertQueryFails("CREATE TABLE " + tableName + " (a_number INT) WITH (change_data_feed_enabled = true, writer_version = 3)",
+                "writer_version cannot be set less than 4 when cdf is enabled");
+        assertQueryFails("CREATE TABLE " + tableName + " (a_number INT) WITH (change_data_feed_enabled = true, writer_version = 5)",
+                "Unable to set catalog 'delta_lake' table property 'writer_version' to \\[5]: writer_version must be between 2 and 4");
+        assertQueryFails("CREATE TABLE " + tableName + " (a_number) WITH (change_data_feed_enabled = true, writer_version = 3) AS VALUES (1), (2)",
+                "writer_version cannot be set less than 4 when cdf is enabled");
+        assertQueryFails("CREATE TABLE " + tableName + " (a_number) WITH (change_data_feed_enabled = true, writer_version = 5) AS VALUES (1), (2)",
+                "Unable to set catalog 'delta_lake' table property 'writer_version' to \\[5]: writer_version must be between 2 and 4");
+    }
+
     @Override
     protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
     {
