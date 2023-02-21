@@ -28,14 +28,16 @@ public record OrcFileTail(
         Slice metadataSlice,
         int metadataSize)
 {
-    public OrcFileTail {
+    public OrcFileTail
+    {
         requireNonNull(hiveWriterVersion, "hiveWriterVersion is null");
         requireNonNull(compressionKind, "compressionKind is null");
         requireNonNull(footerSlice, "footerSlice is null");
         requireNonNull(metadataSlice, "metadataSlice is null");
     }
 
-    public int getRetainedSize() {
+    public int getRetainedSize()
+    {
         // Track footer and metadata bytes
         return footerSize + metadataSize;
     }

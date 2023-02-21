@@ -24,8 +24,8 @@ import java.util.concurrent.TimeUnit;
 
 public class OrcMetadataCacheConfig
 {
-    private boolean fileTailCacheEnabled;
-    private DataSize fileTailCacheSize = DataSize.of(1, DataSize.Unit.GIGABYTE);
+    private boolean fileTailCacheEnabled = true;
+    private DataSize fileTailCacheSize = DataSize.of(256, DataSize.Unit.MEGABYTE);
     private Duration fileTailCacheTtlSinceLastAccess = new Duration(4, TimeUnit.HOURS);
 
     public boolean isFileTailCacheEnabled()

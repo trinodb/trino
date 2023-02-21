@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.util;
 
 import com.google.common.collect.AbstractIterator;
-import io.trino.orc.FileStatusInfo;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcPredicate;
 import io.trino.orc.OrcReader;

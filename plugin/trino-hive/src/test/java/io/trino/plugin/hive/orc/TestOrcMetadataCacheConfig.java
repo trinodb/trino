@@ -23,9 +23,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.HOURS;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestOrcMetadataCacheConfig
@@ -34,8 +33,8 @@ public class TestOrcMetadataCacheConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(OrcMetadataCacheConfig.class)
-                .setFileTailCacheEnabled(false)
-                .setFileTailCacheSize(DataSize.of(1, GIGABYTE))
+                .setFileTailCacheEnabled(true)
+                .setFileTailCacheSize(DataSize.of(256, MEGABYTE))
                 .setFileTailCacheTtlSinceLastAccess(new Duration(4, HOURS)));
     }
 
@@ -43,14 +42,14 @@ public class TestOrcMetadataCacheConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("hive.orc.file-tail-cache-enabled", "true")
-                .put("hive.orc.file-tail-cache-size", "5GB")
+                .put("hive.orc.file-tail-cache-enabled", "false")
+                .put("hive.orc.file-tail-cache-size", "5MB")
                 .put("hive.orc.file-tail-cache-ttl-since-last-access", "10m")
                 .buildOrThrow();
 
         OrcMetadataCacheConfig expected = new OrcMetadataCacheConfig()
-                .setFileTailCacheEnabled(true)
-                .setFileTailCacheSize(DataSize.of(5, GIGABYTE))
+                .setFileTailCacheEnabled(false)
+                .setFileTailCacheSize(DataSize.of(5, MEGABYTE))
                 .setFileTailCacheTtlSinceLastAccess(new Duration(10, MINUTES));
 
         assertFullMapping(properties, expected);
