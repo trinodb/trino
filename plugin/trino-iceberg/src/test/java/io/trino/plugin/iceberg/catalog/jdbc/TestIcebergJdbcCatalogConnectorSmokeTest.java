@@ -86,6 +86,7 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
                                 .put("iceberg.catalog.type", "jdbc")
+                                .put("iceberg.jdbc-catalog.driver-class", "org.postgresql.Driver")
                                 .put("iceberg.jdbc-catalog.connection-url", server.getJdbcUrl())
                                 .put("iceberg.jdbc-catalog.connection-user", USER)
                                 .put("iceberg.jdbc-catalog.connection-password", PASSWORD)
