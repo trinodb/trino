@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 public class SapHanaPlugin
         implements Plugin
 {
-    public static final String CONNECTOR_NAME = "sap-hana";
+    public static final String CONNECTOR_NAME = "sap_hana";
 
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()

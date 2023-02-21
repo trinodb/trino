@@ -88,7 +88,7 @@ public final class SapHanaQueryRunner
                 queries.forEach(server::executeWithRetry);
             }
             queryRunner.installPlugin(new TestingSapHanaPlugin());
-            queryRunner.createCatalog("saphana", "sap-hana", connectorProperties);
+            queryRunner.createCatalog("saphana", "sap_hana", connectorProperties);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, redirectionDisabled(createSession()), tables);
 
