@@ -27,21 +27,21 @@ public class IcebergJdbcConnectionFactory
         implements ConnectionFactory
 {
     private final String connectionUrl;
-    private final Optional<String> user;
-    private final Optional<String> password;
+    private final Optional<String> connectionUser;
+    private final Optional<String> connectionPassword;
 
-    public IcebergJdbcConnectionFactory(String connectionUrl, Optional<String> user, Optional<String> password)
+    public IcebergJdbcConnectionFactory(String connectionUrl, Optional<String> connectionUser, Optional<String> connectionPassword)
     {
         this.connectionUrl = requireNonNull(connectionUrl, "connectionUrl is null");
-        this.user = requireNonNull(user, "user is null");
-        this.password = requireNonNull(password, "password is null");
+        this.connectionUser = requireNonNull(connectionUser, "connectionUser is null");
+        this.connectionPassword = requireNonNull(connectionPassword, "connectionPassword is null");
     }
 
     @Override
     public Connection openConnection()
             throws SQLException
     {
-        Connection connection = DriverManager.getConnection(connectionUrl, user.orElse(null), password.orElse(null));
+        Connection connection = DriverManager.getConnection(connectionUrl, connectionUser.orElse(null), connectionPassword.orElse(null));
         checkState(connection != null, "Driver returned null connection, make sure the connection URL is valid");
         return connection;
     }
