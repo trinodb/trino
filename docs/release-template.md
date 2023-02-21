@@ -40,6 +40,8 @@
 
 ## Iceberg connector
 
+## Ignite connector
+
 ## JMX connector
 
 ## Kafka connector
@@ -74,7 +76,7 @@
 
 ## Redshift connector
 
-## SingleStore (MemSQL) connector
+## SingleStore connector
 
 ## SQL Server connector
 
