@@ -13,9 +13,9 @@
  */
 package io.trino.hive.formats.compression;
 
+import io.airlift.compress.hadoop.HadoopStreams;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import org.apache.hadoop.io.compress.CompressionCodec;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,36 +28,35 @@ import static java.util.Objects.requireNonNull;
 public class AircompressorCodec
         implements Codec
 {
-    // Airlift Codecs are assumed to not retain memory and are assumed to not be pooled
-    private final CompressionCodec codec;
+    private final HadoopStreams hadoopStreams;
 
-    public AircompressorCodec(CompressionCodec codec)
+    public AircompressorCodec(HadoopStreams hadoopStreams)
     {
-        this.codec = requireNonNull(codec, "codec is null");
+        this.hadoopStreams = requireNonNull(hadoopStreams, "hadoopStreams is null");
     }
 
     @Override
     public OutputStream createStreamCompressor(OutputStream outputStream)
             throws IOException
     {
-        return codec.createOutputStream(outputStream);
+        return hadoopStreams.createOutputStream(outputStream);
     }
 
     @Override
     public ValueCompressor createValueCompressor()
     {
-        return new AircompressorValueCompressor(codec);
+        return new AircompressorValueCompressor(hadoopStreams);
     }
 
     private static class AircompressorValueCompressor
             implements ValueCompressor
     {
-        private final CompressionCodec codec;
+        private final HadoopStreams hadoopStreams;
         private final DynamicSliceOutput buffer;
 
-        private AircompressorValueCompressor(CompressionCodec codec)
+        private AircompressorValueCompressor(HadoopStreams hadoopStreams)
         {
-            this.codec = requireNonNull(codec, "codec is null");
+            this.hadoopStreams = requireNonNull(hadoopStreams, "hadoopStreams is null");
             this.buffer = new DynamicSliceOutput(1024);
         }
 
@@ -66,7 +65,7 @@ public class AircompressorCodec
                 throws IOException
         {
             buffer.reset();
-            try (OutputStream compressionStream = codec.createOutputStream(buffer)) {
+            try (OutputStream compressionStream = hadoopStreams.createOutputStream(buffer)) {
                 slice.getInput().transferTo(compressionStream);
             }
             return buffer.slice();
@@ -76,19 +75,19 @@ public class AircompressorCodec
     @Override
     public MemoryCompressedSliceOutput createMemoryCompressedSliceOutput(int minChunkSize, int maxChunkSize)
     {
-        return new AircompressorCompressedSliceOutputSupplier(codec, minChunkSize, maxChunkSize).get();
+        return new AircompressorCompressedSliceOutputSupplier(hadoopStreams, minChunkSize, maxChunkSize).get();
     }
 
     // this can be dramatically simplified when actual hadoop codecs are dropped
     private static class AircompressorCompressedSliceOutputSupplier
             implements Supplier<MemoryCompressedSliceOutput>
     {
-        private final CompressionCodec codec;
+        private final HadoopStreams hadoopStreams;
         private final ChunkedSliceOutput compressedOutput;
 
-        public AircompressorCompressedSliceOutputSupplier(CompressionCodec codec, int minChunkSize, int maxChunkSize)
+        public AircompressorCompressedSliceOutputSupplier(HadoopStreams hadoopStreams, int minChunkSize, int maxChunkSize)
         {
-            this.codec = requireNonNull(codec, "codec is null");
+            this.hadoopStreams = requireNonNull(hadoopStreams, "hadoopStreams is null");
             this.compressedOutput = new ChunkedSliceOutput(minChunkSize, maxChunkSize);
         }
 
@@ -97,7 +96,7 @@ public class AircompressorCodec
         {
             try {
                 compressedOutput.reset();
-                OutputStream compressionStream = codec.createOutputStream(compressedOutput);
+                OutputStream compressionStream = hadoopStreams.createOutputStream(compressedOutput);
                 return new MemoryCompressedSliceOutput(compressionStream, compressedOutput, this, () -> {});
             }
             catch (IOException e) {
@@ -110,23 +109,23 @@ public class AircompressorCodec
     public InputStream createStreamDecompressor(InputStream inputStream)
             throws IOException
     {
-        return codec.createInputStream(inputStream);
+        return hadoopStreams.createInputStream(inputStream);
     }
 
     @Override
     public ValueDecompressor createValueDecompressor()
     {
-        return new AircompressorValueDecompressor(codec);
+        return new AircompressorValueDecompressor(hadoopStreams);
     }
 
-    private record AircompressorValueDecompressor(CompressionCodec codec)
+    private record AircompressorValueDecompressor(HadoopStreams hadoopStreams)
             implements ValueDecompressor
     {
         @Override
         public void decompress(Slice compressed, OutputStream uncompressed)
                 throws IOException
         {
-            try (InputStream decompressorStream = codec.createInputStream(compressed.getInput())) {
+            try (InputStream decompressorStream = hadoopStreams.createInputStream(compressed.getInput())) {
                 decompressorStream.transferTo(uncompressed);
             }
             catch (IndexOutOfBoundsException | IOException e) {
@@ -138,7 +137,7 @@ public class AircompressorCodec
         public void decompress(Slice compressed, Slice uncompressed)
                 throws IOException
         {
-            try (InputStream decompressorStream = codec.createInputStream(compressed.getInput())) {
+            try (InputStream decompressorStream = hadoopStreams.createInputStream(compressed.getInput())) {
                 uncompressed.setBytes(0, decompressorStream, uncompressed.length());
             }
             catch (IndexOutOfBoundsException | IOException e) {
