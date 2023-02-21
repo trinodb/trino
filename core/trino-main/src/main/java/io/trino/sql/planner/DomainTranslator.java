@@ -476,6 +476,15 @@ public final class DomainTranslator
         }
 
         @Override
+        protected ExtractionResult visitCast(Cast node, Boolean context)
+        {
+            if (node.getExpression() instanceof NullLiteral) {
+                return new ExtractionResult(TupleDomain.none(), TRUE_LITERAL);
+            }
+            return super.visitCast(node, context);
+        }
+
+        @Override
         protected ExtractionResult visitNotExpression(NotExpression node, Boolean complement)
         {
             return process(node.getValue(), !complement);
