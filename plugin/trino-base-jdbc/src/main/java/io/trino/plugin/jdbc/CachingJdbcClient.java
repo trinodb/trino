@@ -584,6 +584,12 @@ public class CachingJdbcClient
     }
 
     @VisibleForTesting
+    CacheStats getSchemaNamesCacheStats()
+    {
+        return schemaNamesCache.stats();
+    }
+
+    @VisibleForTesting
     CacheStats getTableNamesCacheStats()
     {
         return tableNamesCache.stats();

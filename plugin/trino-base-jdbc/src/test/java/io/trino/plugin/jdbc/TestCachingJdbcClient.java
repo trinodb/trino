@@ -139,11 +139,20 @@ public class TestCachingJdbcClient
         String phantomSchema = "phantom_schema";
 
         jdbcClient.createSchema(SESSION, phantomSchema);
-        assertThat(cachingJdbcClient.getSchemaNames(SESSION)).contains(phantomSchema);
+        assertSchemaNamesCache(cachingJdbcClient)
+                .misses(1)
+                .loads(1)
+                .afterRunning(() -> {
+                    assertThat(cachingJdbcClient.getSchemaNames(SESSION)).contains(phantomSchema);
+                });
         jdbcClient.dropSchema(SESSION, phantomSchema);
 
         assertThat(jdbcClient.getSchemaNames(SESSION)).doesNotContain(phantomSchema);
-        assertThat(cachingJdbcClient.getSchemaNames(SESSION)).contains(phantomSchema);
+        assertSchemaNamesCache(cachingJdbcClient)
+                .hits(1)
+                .afterRunning(() -> {
+                    assertThat(cachingJdbcClient.getSchemaNames(SESSION)).contains(phantomSchema);
+                });
     }
 
     @Test
@@ -891,6 +900,11 @@ public class TestCachingJdbcClient
         assertAllMethodsOverridden(JdbcClient.class, CachingJdbcClient.class);
     }
 
+    private static SingleJdbcCacheStatsAssertions assertSchemaNamesCache(CachingJdbcClient client)
+    {
+        return assertCacheStats(client, CachingJdbcCache.SCHEMA_NAMES_CACHE);
+    }
+
     private static SingleJdbcCacheStatsAssertions assertTableNamesCache(CachingJdbcClient client)
     {
         return assertCacheStats(client, CachingJdbcCache.TABLE_NAMES_CACHE);
@@ -1026,6 +1040,7 @@ public class TestCachingJdbcClient
 
     enum CachingJdbcCache
     {
+        SCHEMA_NAMES_CACHE(CachingJdbcClient::getSchemaNamesCacheStats),
         TABLE_NAMES_CACHE(CachingJdbcClient::getTableNamesCacheStats),
         TABLE_HANDLES_BY_NAME_CACHE(CachingJdbcClient::getTableHandlesByNameCacheStats),
         TABLE_HANDLES_BY_QUERY_CACHE(CachingJdbcClient::getTableHandlesByQueryCacheStats),
