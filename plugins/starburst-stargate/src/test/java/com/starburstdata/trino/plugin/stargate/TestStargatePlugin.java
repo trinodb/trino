@@ -50,7 +50,7 @@ public class TestStargatePlugin
     @Test
     public void testCreateLegacyConnector()
     {
-        createTestingPlugin("starburst-remote", ImmutableMap.of("connection-url", "jdbc:trino://localhost:8080/test", "connection-user", "presto"));
+        createTestingPlugin("starburst_remote", ImmutableMap.of("connection-url", "jdbc:trino://localhost:8080/test", "connection-user", "presto"));
     }
 
     @Test

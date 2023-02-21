@@ -71,13 +71,13 @@ public class StargatePlugin
         @Override
         public String getName()
         {
-            return "starburst-remote";
+            return "starburst_remote";
         }
 
         @Override
         public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
         {
-            log.warn("Connector name 'starburst-remote' is deprecated. Use '%s' instead.", delegate.getName());
+            log.warn("Connector name 'starburst_remote' is deprecated. Use '%s' instead.", delegate.getName());
             return delegate.create(catalogName, config, context);
         }
     }
