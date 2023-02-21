@@ -20,6 +20,7 @@ import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.log.Logger;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
@@ -39,6 +40,8 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.PASSWORD;
+import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.USER;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
@@ -291,6 +294,37 @@ public final class IcebergQueryRunner
 
             Thread.sleep(10);
             Logger log = Logger.get(IcebergAzureQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
+    public static final class IcebergJdbcQueryRunnerMain
+    {
+        private IcebergJdbcQueryRunnerMain() {}
+
+        public static void main(String[] args)
+                throws Exception
+        {
+            File warehouseLocation = Files.newTemporaryFolder();
+            warehouseLocation.deleteOnExit();
+
+            TestingIcebergJdbcServer server = new TestingIcebergJdbcServer();
+
+            DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
+                    .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                    .setIcebergProperties(ImmutableMap.<String, String>builder()
+                            .put("iceberg.catalog.type", "jdbc")
+                            .put("iceberg.jdbc-catalog.connection-url", server.getJdbcUrl())
+                            .put("iceberg.jdbc-catalog.connection-user", USER)
+                            .put("iceberg.jdbc-catalog.connection-password", PASSWORD)
+                            .put("iceberg.jdbc-catalog.catalog-name", "tpch")
+                            .put("iceberg.jdbc-catalog.default-warehouse-dir", warehouseLocation.getAbsolutePath())
+                            .buildOrThrow())
+                    .setInitialTables(TpchTable.getTables())
+                    .build();
+
+            Logger log = Logger.get(IcebergJdbcQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
