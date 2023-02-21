@@ -377,6 +377,36 @@ public class TestPushPredicateIntoTableScan
                 .matches(tableScan("partitioned"));
     }
 
+    @Test
+    public void testEliminateTableScanWhenPredicateIsNull()
+    {
+        ColumnHandle nationKeyColumn = new TpchColumnHandle("nationkey", BIGINT);
+
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(expression("CAST(null AS boolean)"),
+                        p.tableScan(
+                                ordersTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), nationKeyColumn))))
+                .matches(values(ImmutableList.of("A"), ImmutableList.of()));
+
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(expression("nationkey = CAST(null AS BIGINT)"),
+                        p.tableScan(
+                                ordersTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), nationKeyColumn))))
+                .matches(values(ImmutableList.of("A"), ImmutableList.of()));
+
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(expression("nationkey = BIGINT '44' AND CAST(null AS boolean)"),
+                        p.tableScan(
+                                ordersTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), nationKeyColumn))))
+                .matches(values(ImmutableList.of("A"), ImmutableList.of()));
+    }
+
     public static MockConnectorFactory createMockFactory()
     {
         MockConnectorFactory.Builder builder = MockConnectorFactory.builder();

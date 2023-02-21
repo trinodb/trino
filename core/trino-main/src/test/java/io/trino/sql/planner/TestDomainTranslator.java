@@ -599,6 +599,13 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testFromCastOfNullPredicate()
+    {
+        assertPredicateIsAlwaysFalse(cast(nullLiteral(), BOOLEAN));
+        assertPredicateIsAlwaysFalse(not(cast(nullLiteral(), BOOLEAN)));
+    }
+
+    @Test
     public void testFromNotPredicate()
     {
         assertUnsupportedPredicate(not(and(equal(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT))));
