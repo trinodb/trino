@@ -14,6 +14,7 @@
 package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.StandardErrorCode;
@@ -88,7 +89,6 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_AGGREGATE;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_IN_DISTINCT;
@@ -174,20 +174,27 @@ class AggregationAnalyzer
         this.session = session;
         this.metadata = metadata;
         this.analysis = analysis;
-        this.expressions = groupByExpressions.stream()
-                .map(expression -> scopeAwareKey(expression, analysis, sourceScope))
-                .collect(toImmutableSet());
+
+        // Normal iteration instead of stream for performance reasons
+        ImmutableSet.Builder<ScopeAware<Expression>> expressionsBuilder = ImmutableSet.builderWithExpectedSize(groupByExpressions.size());
+        for (Expression expression : groupByExpressions) {
+            expressionsBuilder.add(scopeAwareKey(expression, analysis, sourceScope));
+        }
+        this.expressions = expressionsBuilder.build();
 
         // No defensive copy here for performance reasons.
         // Copying this map may lead to quadratic time complexity
         this.columnReferences = analysis.getColumnReferenceFields();
 
-        this.groupingFields = groupByExpressions.stream()
-                .map(NodeRef::of)
-                .filter(columnReferences::containsKey)
-                .map(columnReferences::get)
-                .map(ResolvedField::getFieldId)
-                .collect(toImmutableSet());
+        // Normal iteration instead of stream for performance reasons
+        ImmutableSet.Builder<FieldId> groupingFieldsBuilder = ImmutableSet.builder();
+        for (Expression expression : groupByExpressions) {
+            ResolvedField resolvedField = columnReferences.get(NodeRef.of(expression));
+            if (resolvedField != null) {
+                groupingFieldsBuilder.add(resolvedField.getFieldId());
+            }
+        }
+        this.groupingFields = groupingFieldsBuilder.build();
 
         this.groupingFields.forEach(fieldId -> {
             checkState(isFieldFromScope(fieldId, sourceScope),
