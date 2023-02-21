@@ -48,8 +48,10 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.NullLiteral;
 import org.assertj.core.util.VisibleForTesting;
 
 import java.util.ArrayList;
@@ -237,8 +239,10 @@ public class PushPredicateIntoTableScan
             return Optional.of(node);
         }
 
-        if (newDomain.isNone()) {
-            // TODO: DomainTranslator.fromPredicate can infer that the expression is "false" in some cases (TupleDomain.none()).
+        if (newDomain.isNone() ||
+                extractConjuncts(decomposedPredicate.getRemainingExpression()).stream()
+                        .anyMatch(conjunct -> conjunct instanceof Cast cast && cast.getExpression() instanceof NullLiteral)) {
+            // TODO: DomainTranslator.getExtractionResult can infer that the expression is "false" (TupleDomain.none()) or "null" in some cases.
             // This should move to another rule that simplifies the filter using that logic and then rely on RemoveTrivialFilters
             // to turn the subtree into a Values node
             return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
