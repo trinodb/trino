@@ -19,8 +19,8 @@ import io.trino.spi.connector.ConnectorFactory;
 public class SnowflakePlugin
         implements Plugin
 {
-    static final String SNOWFLAKE_JDBC = "snowflake-jdbc";
-    static final String SNOWFLAKE_DISTRIBUTED = "snowflake-distributed";
+    static final String SNOWFLAKE_JDBC = "snowflake_jdbc";
+    static final String SNOWFLAKE_DISTRIBUTED = "snowflake_distributed";
 
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
