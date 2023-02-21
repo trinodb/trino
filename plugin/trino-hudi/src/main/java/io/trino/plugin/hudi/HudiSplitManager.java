@@ -30,7 +30,9 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.ConnectorIdentity;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.util.HoodieTimer;
 
 import javax.annotation.PreDestroy;
@@ -45,6 +47,7 @@ import java.util.function.BiFunction;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMaxOutstandingSplits;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMaxSplitsPerSecond;
+import static io.trino.plugin.hudi.HudiSessionProperties.isHudiMetadataEnabled;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -106,7 +109,10 @@ public class HudiSplitManager
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName(hudiTableHandle.getSchemaName(), hudiTableHandle.getTableName())));
 
         HoodieTimer timer = new HoodieTimer().startTimer();
-        List<String> partitions = partitionManager.getEffectivePartitions(hudiTableHandle, metastore);
+        Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(table.getStorage().getLocation()));
+        boolean metadataEnabled = isHudiMetadataEnabled(session);
+        HoodieTableMetaClient metaClient = buildTableMetaClient(configuration, hudiTableHandle.getBasePath());
+        List<String> partitions = partitionManager.getEffectivePartitions(hudiTableHandle, metastore, session, metaClient);
         log.debug("Took %d ms to get %d partitions", timer.endTimer(), partitions.size());
 
         HudiSplitSource splitSource = new HudiSplitSource(
@@ -114,7 +120,7 @@ public class HudiSplitManager
                 metastore,
                 table,
                 hudiTableHandle,
-                hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(table.getStorage().getLocation())),
+                configuration,
                 partitionColumnHandles,
                 executor,
                 splitLoaderExecutorService,
@@ -123,5 +129,12 @@ public class HudiSplitManager
                 getMaxOutstandingSplits(session),
                 partitions);
         return new ClassLoaderSafeConnectorSplitSource(splitSource, HudiSplitManager.class.getClassLoader());
+    }
+
+    private static HoodieTableMetaClient buildTableMetaClient(Configuration configuration, String basePath)
+    {
+        HoodieTableMetaClient client = HoodieTableMetaClient.builder().setConf(configuration).setBasePath(basePath).build();
+        client.getTableConfig().setValue("hoodie.bootstrap.index.enable", "false");
+        return client;
     }
 }

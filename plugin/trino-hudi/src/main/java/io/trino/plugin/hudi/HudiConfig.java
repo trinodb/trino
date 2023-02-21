@@ -47,6 +47,7 @@ public class HudiConfig
     private int splitLoaderParallelism = 2;
     private int splitGeneratorParallelism = 16;
     private long perTransactionMetastoreCacheMaximumSize = 2000;
+    private String fileSystemViewSpillableDirectory = "/tmp";
 
     public List<String> getColumnsToHide()
     {
@@ -203,6 +204,19 @@ public class HudiConfig
     public HudiConfig setPerTransactionMetastoreCacheMaximumSize(long perTransactionMetastoreCacheMaximumSize)
     {
         this.perTransactionMetastoreCacheMaximumSize = perTransactionMetastoreCacheMaximumSize;
+        return this;
+    }
+
+    public String getFileSystemViewSpillableDirectory()
+    {
+        return fileSystemViewSpillableDirectory;
+    }
+
+    @Config("huhi.fs-view-spillable-dir")
+    @ConfigDescription("Path on storage to use when the file system view is held in a spillable map.")
+    public HudiConfig setFileSystemViewSpillableDirectory(String fileSystemViewSpillableDirectory)
+    {
+        this.fileSystemViewSpillableDirectory = fileSystemViewSpillableDirectory;
         return this;
     }
 }

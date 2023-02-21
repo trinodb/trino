@@ -33,6 +33,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -50,6 +51,7 @@ public class HudiSessionProperties
     private static final String MAX_SPLITS_PER_SECOND = "max_splits_per_second";
     private static final String MAX_OUTSTANDING_SPLITS = "max_outstanding_splits";
     private static final String SPLIT_GENERATOR_PARALLELISM = "split_generator_parallelism";
+    private static final String FILE_SYSTEM_VIEW_SPILLABLE_DIR = "fs_view_spillable_dir";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -117,6 +119,11 @@ public class HudiSessionProperties
                         SPLIT_GENERATOR_PARALLELISM,
                         "Number of threads to generate splits from partitions",
                         hudiConfig.getSplitGeneratorParallelism(),
+                        false),
+                stringProperty(
+                        FILE_SYSTEM_VIEW_SPILLABLE_DIR,
+                        "Path on local storage to use, when file system view is held in a spillable map.",
+                        hudiConfig.getFileSystemViewSpillableDirectory(),
                         false));
     }
 
@@ -175,5 +182,10 @@ public class HudiSessionProperties
     public static int getSplitGeneratorParallelism(ConnectorSession session)
     {
         return session.getProperty(SPLIT_GENERATOR_PARALLELISM, Integer.class);
+    }
+
+    public static String getFileSystemViewSpillableDir(ConnectorSession session)
+    {
+        return session.getProperty(FILE_SYSTEM_VIEW_SPILLABLE_DIR, String.class);
     }
 }
