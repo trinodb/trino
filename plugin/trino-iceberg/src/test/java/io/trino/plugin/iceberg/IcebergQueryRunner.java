@@ -315,6 +315,7 @@ public final class IcebergQueryRunner
                     .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                     .setIcebergProperties(ImmutableMap.<String, String>builder()
                             .put("iceberg.catalog.type", "jdbc")
+                            .put("iceberg.jdbc-catalog.driver-class", "org.postgresql.Driver")
                             .put("iceberg.jdbc-catalog.connection-url", server.getJdbcUrl())
                             .put("iceberg.jdbc-catalog.connection-user", USER)
                             .put("iceberg.jdbc-catalog.connection-password", PASSWORD)
