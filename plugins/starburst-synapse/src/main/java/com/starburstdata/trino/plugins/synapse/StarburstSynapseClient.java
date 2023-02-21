@@ -10,15 +10,18 @@
 package com.starburstdata.trino.plugins.synapse;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.CaseSensitivity;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
+import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
@@ -53,6 +56,7 @@ import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import org.jdbi.v3.core.Jdbi;
 
 import javax.inject.Inject;
 
@@ -67,6 +71,9 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
+import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTime;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeReadFunction;
@@ -317,5 +324,34 @@ public class StarburstSynapseClient
                     .collect(joining(", "));
             return format("SELECT TOP (%d) %s ORDER BY %s", limit, query.substring(start.length()), orderBy);
         });
+    }
+
+    @Override
+    protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, JdbcTableHandle tableHandle)
+    {
+        if (tableHandle.isSynthetic()) {
+            return ImmutableMap.of();
+        }
+        RemoteTableName remoteTableName = tableHandle.asPlainTable().getRemoteTableName();
+
+        return Jdbi.open(connection).createQuery("""
+                        SELECT c.name AS column_name, collation_name  FROM sys.columns c
+                        INNER JOIN sys.tables t on c.object_id = t.object_id
+                        INNER JOIN sys.schemas s on s.schema_id = t.schema_id
+                        WHERE s.name = :schema_name and t.name = :table_name
+                        """)
+                .bind("schema_name", remoteTableName.getSchemaName().orElseThrow())
+                .bind("table_name", remoteTableName.getTableName())
+                .collectRows(toImmutableMap(rowView -> rowView.getColumn("column_name", String.class),
+                        rowView -> getCaseSensitivityForCollation(rowView.getColumn("collation_name", String.class))));
+    }
+
+    private static CaseSensitivity getCaseSensitivityForCollation(String collation)
+    {
+        if (collation == null || collation.isEmpty()) {
+            return CASE_INSENSITIVE;
+        }
+
+        return collation.endsWith("BIN") || collation.endsWith("BIN2") || collation.contains("_CS_") ? CASE_SENSITIVE : CASE_INSENSITIVE;
     }
 }

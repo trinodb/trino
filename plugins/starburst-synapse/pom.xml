@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.trino.plugins</groupId>
         <artifactId>starburst-trino-plugins</artifactId>
-        <version>406-SNAPSHOT</version>
+        <version>410-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -56,6 +56,11 @@
         <dependency>
             <groupId>javax.inject</groupId>
             <artifactId>javax.inject</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jdbi</groupId>
+            <artifactId>jdbi3-core</artifactId>
         </dependency>
 
         <!-- used by tests but also needed transitively -->
