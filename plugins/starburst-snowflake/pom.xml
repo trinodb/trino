@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.trino.plugins</groupId>
         <artifactId>starburst-trino-plugins</artifactId>
-        <version>407-SNAPSHOT</version>
+        <version>408-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -455,8 +455,8 @@
                                 <exclude>**/TestDistributedSnowflakeLargeScan.java</exclude>
                                 <exclude>**/TestDistributedSnowflakeTypeMapping.java</exclude>
                                 <exclude>**/TestSnowflakeJmxStats.java</exclude>
-                                <exclude>**/TestSnowflakeQueryFailureRecoveryTest.java</exclude>
-                                <exclude>**/TestSnowflakeTaskFailureRecoveryTest.java</exclude>
+                                <exclude>**/TestJdbcSnowflakeQueryFailureRecoveryTest.java</exclude>
+                                <exclude>**/TestJdbcSnowflakeTaskFailureRecoveryTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
