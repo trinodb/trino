@@ -157,6 +157,16 @@ values. Typical usage does not require you to configure them.
     * - ``delta.register-table-procedure.enabled``
       - Enable to allow users to call the ``register_table`` procedure
       - ``false``
+    * - ``delta.default-reader-version``
+      - The default reader version used by new tables.
+        The value can be overridden for a specific table with the
+        ``reader_version`` table property.
+      - ``1``
+    * - ``delta.default-writer-version``
+      - The default writer version used by new tables.
+        The value can be overridden for a specific table with the
+        ``writer_version`` table property.
+      - ``2``
 
 The following table describes performance tuning catalog properties for the
 connector.
