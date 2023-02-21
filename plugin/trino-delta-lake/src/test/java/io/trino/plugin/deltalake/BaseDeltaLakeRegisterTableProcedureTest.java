@@ -68,7 +68,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
         this.metastore = createTestMetastore(dataDirectory);
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), EMPTY_MODULE));
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), Optional.empty(), EMPTY_MODULE));
 
         Map<String, String> connectorProperties = ImmutableMap.<String, String>builder()
                 .put("delta.unique-table-location", "true")

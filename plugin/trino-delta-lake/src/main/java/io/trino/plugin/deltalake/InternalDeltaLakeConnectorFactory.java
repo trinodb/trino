@@ -22,6 +22,7 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemModule;
 import io.trino.hdfs.HdfsModule;
 import io.trino.hdfs.authentication.HdfsAuthenticationModule;
@@ -73,6 +74,7 @@ public final class InternalDeltaLakeConnectorFactory
             Map<String, String> config,
             ConnectorContext context,
             Optional<Module> metastoreModule,
+            Optional<TrinoFileSystemFactory> fileSystemFactory,
             Module module)
     {
         ClassLoader classLoader = InternalDeltaLakeConnectorFactory.class.getClassLoader();
@@ -91,7 +93,6 @@ public final class InternalDeltaLakeConnectorFactory
                     new HiveGcsModule(),
                     new DeltaLakeGcsModule(),
                     new HdfsAuthenticationModule(),
-                    new HdfsFileSystemModule(),
                     new CatalogNameModule(catalogName),
                     metastoreModule.orElse(new DeltaLakeMetastoreModule()),
                     new DeltaLakeModule(),
@@ -103,6 +104,9 @@ public final class InternalDeltaLakeConnectorFactory
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                         newSetBinder(binder, EventListener.class);
+                        fileSystemFactory.ifPresentOrElse(
+                                factory -> binder.bind(TrinoFileSystemFactory.class).toInstance(factory),
+                                () -> binder.install(new HdfsFileSystemModule()));
                     },
                     module);
 
