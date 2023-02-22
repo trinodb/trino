@@ -13,10 +13,8 @@
  */
 package io.trino.cost;
 
-import io.trino.Session;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 
 import java.util.Optional;
@@ -38,15 +36,15 @@ public class SpatialJoinStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(SpatialJoinNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(SpatialJoinNode node, Context context)
     {
-        PlanNodeStatsEstimate leftStats = sourceStats.getStats(node.getLeft());
-        PlanNodeStatsEstimate rightStats = sourceStats.getStats(node.getRight());
+        PlanNodeStatsEstimate leftStats = context.statsProvider().getStats(node.getLeft());
+        PlanNodeStatsEstimate rightStats = context.statsProvider().getStats(node.getRight());
         PlanNodeStatsEstimate crossJoinStats = crossJoinStats(node, leftStats, rightStats);
 
         switch (node.getType()) {
             case INNER:
-                return Optional.of(statsCalculator.filterStats(crossJoinStats, node.getFilter(), session, types));
+                return Optional.of(statsCalculator.filterStats(crossJoinStats, node.getFilter(), context.session(), context.types()));
             case LEFT:
                 return Optional.of(PlanNodeStatsEstimate.unknown());
         }

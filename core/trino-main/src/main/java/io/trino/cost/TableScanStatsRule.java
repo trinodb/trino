@@ -13,7 +13,7 @@
  */
 package io.trino.cost;
 
-import io.trino.Session;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.statistics.ColumnStatistics;
@@ -22,8 +22,6 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.HashMap;
@@ -53,13 +51,13 @@ public class TableScanStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(TableScanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(TableScanNode node, Context context)
     {
-        if (isStatisticsPrecalculationForPushdownEnabled(session) && node.getStatistics().isPresent()) {
+        if (isStatisticsPrecalculationForPushdownEnabled(context.session()) && node.getStatistics().isPresent()) {
             return node.getStatistics();
         }
 
-        TableStatistics tableStatistics = tableStatsProvider.getTableStatistics(node.getTable());
+        TableStatistics tableStatistics = context.tableStatsProvider().getTableStatistics(node.getTable());
 
         Map<Symbol, SymbolStatsEstimate> outputSymbolStats = new HashMap<>();
 
@@ -67,7 +65,7 @@ public class TableScanStatsRule
             Symbol symbol = entry.getKey();
             Optional<ColumnStatistics> columnStatistics = Optional.ofNullable(tableStatistics.getColumnStatistics().get(entry.getValue()));
             SymbolStatsEstimate symbolStatistics = columnStatistics
-                    .map(statistics -> toSymbolStatistics(tableStatistics, statistics, types.get(symbol)))
+                    .map(statistics -> toSymbolStatistics(tableStatistics, statistics, context.types().get(symbol)))
                     .orElse(SymbolStatsEstimate.unknown());
             outputSymbolStats.put(symbol, symbolStatistics);
         }
