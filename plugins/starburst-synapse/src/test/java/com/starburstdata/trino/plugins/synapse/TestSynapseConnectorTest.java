@@ -9,9 +9,17 @@
  */
 package com.starburstdata.trino.plugins.synapse;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.sqlserver.BaseSqlServerConnectorTest;
 import io.trino.plugin.sqlserver.DataCompression;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.DataProviders;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -22,12 +30,19 @@ import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.starburstdata.trino.plugins.synapse.SynapseQueryRunner.createSynapseQueryRunner;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_INSERT;
 import static io.trino.plugin.sqlserver.SqlServerSessionProperties.BULK_COPY_FOR_WRITE;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
@@ -65,6 +80,9 @@ public class TestSynapseConnectorTest
         switch (connectorBehavior) {
             // Overriden because Synapse disables connector expression pushdown due to correctness issues with varchar pushdown because of default case-insensitive collation
             case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN:
+                return false;
+            // Overridden Until equality predicate pushdown is implemented for Synapse
+            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
                 return false;
             default:
                 return super.hasBehavior(connectorBehavior);
@@ -312,6 +330,151 @@ public class TestSynapseConnectorTest
         assertExplainAnalyze("EXPLAIN ANALYZE DELETE FROM " + tableName + " WHERE TRUE");
         assertQuery("SELECT COUNT(*) from " + tableName, "SELECT 0");
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    @Override // Until equality predicate pushdown is implemented for Synapse
+    public void testPredicatePushdown()
+    {
+        // varchar equality
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                // SQL Server is case insensitive by default
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // varchar range
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                // SQL Server is case insensitive by default
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // varchar IN without domain compaction
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name IN ('POLAND', 'ROMANIA', 'VIETNAM')"))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25))), " +
+                        "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(25)))")
+                // SQL Server is case insensitive by default
+                .isNotFullyPushedDown(
+                        node(
+                                FilterNode.class,
+                                // verify that pushed down constraint is applied by the connector
+                                tableScan(
+                                        tableHandle -> {
+                                            TupleDomain<ColumnHandle> constraint = ((JdbcTableHandle) tableHandle).getConstraint();
+                                            ColumnHandle nameColumn = constraint.getDomains().orElseThrow()
+                                                    .keySet().stream()
+                                                    .map(JdbcColumnHandle.class::cast)
+                                                    .filter(column -> column.getColumnName().equals("name"))
+                                                    .collect(onlyElement());
+                                            return constraint.getDomains().get().get(nameColumn)
+                                                    .equals(Domain.multipleValues(
+                                                            createVarcharType(25),
+                                                            ImmutableList.of(
+                                                                    utf8Slice("POLAND"),
+                                                                    utf8Slice("ROMANIA"),
+                                                                    utf8Slice("VIETNAM"))));
+                                        },
+                                        TupleDomain.all(),
+                                        ImmutableMap.of())));
+
+        // varchar IN with small compaction threshold
+        assertThat(query(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("sqlserver", "domain_compaction_threshold", "1")
+                        .build(),
+                "SELECT regionkey, nationkey, name FROM nation WHERE name IN ('POLAND', 'ROMANIA', 'VIETNAM')"))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25))), " +
+                        "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(25)))")
+                // SQL Server is case insensitive by default
+                .isNotFullyPushedDown(
+                        node(
+                                FilterNode.class,
+                                // verify that no constraint is applied by the connector
+                                tableScan(
+                                        tableHandle -> ((JdbcTableHandle) tableHandle).getConstraint().isAll(),
+                                        TupleDomain.all(),
+                                        ImmutableMap.of())));
+
+        // varchar different case
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'"))
+                .returnsEmptyResult()
+                // SQL Server is case insensitive by default
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // bigint equality
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey = 19"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // bigint equality with small compaction threshold
+        assertThat(query(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("sqlserver", "domain_compaction_threshold", "1")
+                        .build(),
+                "SELECT regionkey, nationkey, name FROM nation WHERE nationkey IN (19, 21)"))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25))), " +
+                        "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(25)))")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // bigint range, with decimal to bigint simplification
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey BETWEEN 18.5 AND 19.5"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // date equality
+        assertThat(query("SELECT orderkey FROM orders WHERE orderdate = DATE '1992-09-29'"))
+                .matches("VALUES BIGINT '1250', 34406, 38436, 57570")
+                .isFullyPushedDown();
+
+        // predicate over aggregation key (likely to be optimized before being pushed down into the connector)
+        assertThat(query("SELECT * FROM (SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey) WHERE regionkey = 3"))
+                .matches("VALUES (BIGINT '3', BIGINT '77')")
+                .isFullyPushedDown();
+
+        // predicate over aggregation result
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 77"))
+                .matches("VALUES (BIGINT '3', BIGINT '77')")
+                .isFullyPushedDown();
+
+        // decimals
+        try (TestTable testTable = new TestTable(
+                onRemoteDatabase(),
+                "test_decimal_pushdown",
+                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))",
+                List.of("123.321, 123456789.987654321"))) {
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE short_decimal <= 124"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE short_decimal <= 124"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE long_decimal <= 123456790"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE short_decimal <= 123.321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE long_decimal <= 123456789.987654321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE short_decimal = 123.321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE long_decimal = 123456789.987654321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
+    @Override // Until equality predicate pushdown is implemented for Synapse
+    public void testDeleteWithVarcharInequalityPredicate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
+            assertQueryFails("DELETE FROM " + table.getName() + " WHERE col != 'A'", MODIFYING_ROWS_MESSAGE);
+        }
     }
 
     @Override

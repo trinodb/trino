@@ -23,6 +23,7 @@ import dev.failsafe.function.CheckedSupplier;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveConfig;
@@ -344,6 +345,7 @@ public class SnowflakeSplitSource
         return new HiveSplitManager(
                 transactionManager,
                 new HivePartitionManager(hiveConfig),
+                new HdfsFileSystemFactory(hdfsEnvironment),
                 new NamenodeStats(),
                 hdfsEnvironment,
                 executorService,

@@ -1033,6 +1033,20 @@ public abstract class BaseSnowflakeConnectorTest
         }
     }
 
+    @Test
+    @Override
+    public void testCharTrailingSpace()
+    {
+        String schema = getSession().getSchema().orElseThrow();
+        try (TestTable table = new TestTable(onRemoteDatabase(), schema + ".char_trailing_space", "(x char(10))", List.of("'test'"))) {
+            String tableName = table.getName();
+            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test'", "VALUES 'test'");
+            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test  '", "VALUES 'test'");
+            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test        '", "VALUES 'test'");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + tableName + " WHERE x = char ' test'");
+        }
+    }
+
     private static String jsonExtractPushdownTestTableDefinition()
     {
         // Snowflake doesn't allow using `parse_json` in VALUES of INSERT statement so we need to wrap it inside a SELECT
