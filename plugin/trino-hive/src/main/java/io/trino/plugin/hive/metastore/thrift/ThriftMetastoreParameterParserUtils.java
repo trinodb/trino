@@ -13,15 +13,30 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Longs;
 
 import javax.annotation.Nullable;
 
+import java.math.BigDecimal;
+import java.time.DateTimeException;
+import java.time.LocalDate;
+import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
-class ThriftMetastoreParameterParserUtils
+final class ThriftMetastoreParameterParserUtils
 {
     private ThriftMetastoreParameterParserUtils() {}
+
+    static Optional<Boolean> toBoolean(@Nullable String parameterValue)
+    {
+        if (parameterValue == null) {
+            return Optional.empty();
+        }
+        Boolean value = Boolean.parseBoolean(parameterValue);
+        return Optional.of(value);
+    }
 
     static OptionalLong toLong(@Nullable String parameterValue)
     {
@@ -33,5 +48,48 @@ class ThriftMetastoreParameterParserUtils
             return OptionalLong.empty();
         }
         return OptionalLong.of(longValue);
+    }
+
+    static OptionalDouble toDouble(@Nullable String parameterValue)
+    {
+        if (parameterValue == null) {
+            return OptionalDouble.empty();
+        }
+        Double doubleValue = Doubles.tryParse(parameterValue);
+        if (doubleValue == null || doubleValue < 0) {
+            return OptionalDouble.empty();
+        }
+        return OptionalDouble.of(doubleValue);
+    }
+
+    static Optional<BigDecimal> toDecimal(@Nullable String parameterValue)
+    {
+        if (parameterValue == null) {
+            return Optional.empty();
+        }
+        try {
+            BigDecimal decimal = new BigDecimal(parameterValue);
+            if (decimal.compareTo(BigDecimal.ZERO) < 0) {
+                return Optional.empty();
+            }
+            return Optional.of(decimal);
+        }
+        catch (NumberFormatException exception) {
+            return Optional.empty();
+        }
+    }
+
+    static Optional<LocalDate> toDate(@Nullable String parameterValue)
+    {
+        if (parameterValue == null) {
+            return Optional.empty();
+        }
+        try {
+            LocalDate date = LocalDate.parse(parameterValue);
+            return Optional.of(date);
+        }
+        catch (DateTimeException exception) {
+            return Optional.empty();
+        }
     }
 }
