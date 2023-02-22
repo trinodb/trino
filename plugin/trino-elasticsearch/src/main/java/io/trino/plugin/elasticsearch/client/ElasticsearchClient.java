@@ -576,8 +576,7 @@ public class ElasticsearchClient
             aggregations.get().forEach(sourceBuilder::aggregation);
             sourceBuilder.size(0);
         }
-
-        if (topN.isPresent() &&
+        else if (topN.isPresent() &&
                 topN.get().getLimit() != NO_LIMIT &&
                 topN.get().getLimit() < scrollSize) {
             // Safe to cast it to int because scrollSize is int.
