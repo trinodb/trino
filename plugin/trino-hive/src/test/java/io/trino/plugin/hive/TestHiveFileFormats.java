@@ -310,6 +310,8 @@ public class TestHiveFileFormats
         assertThatFileFormat(RCBINARY)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
+                // generic Hive writer corrupts timestamps
+                .withSkipGenericWriterTest()
                 .withFileWriterFactory(new RcFileFileWriterFactory(HDFS_ENVIRONMENT, TESTING_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE))
                 .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()))
                 .withColumns(testColumnsNoTimestamps)
@@ -804,6 +806,8 @@ public class TestHiveFileFormats
                 .withWriteColumns(writeColumns)
                 .withReadColumns(readColumns)
                 .withRowsCount(rowCount)
+                // generic Hive writer corrupts timestamps
+                .withSkipGenericWriterTest()
                 .withFileWriterFactory(new RcFileFileWriterFactory(HDFS_ENVIRONMENT, TESTING_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE))
                 .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()));
     }
@@ -832,6 +836,8 @@ public class TestHiveFileFormats
                 .withWriteColumns(writeColumns)
                 .withReadColumns(readColumns)
                 .withRowsCount(rowCount)
+                // generic Hive writer corrupts timestamps
+                .withSkipGenericWriterTest()
                 .withFileWriterFactory(new RcFileFileWriterFactory(HDFS_ENVIRONMENT, TESTING_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE))
                 .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()));
     }
@@ -1194,6 +1200,7 @@ public class TestHiveFileFormats
         private List<TestColumn> readColumns;
         private ConnectorSession session = SESSION;
         private int rowsCount = 1000;
+        private boolean skipGenericWrite;
         private HiveFileWriterFactory fileWriterFactory;
         private long fileSizePadding;
 
@@ -1211,6 +1218,12 @@ public class TestHiveFileFormats
         public FileFormatAssertion withCompressionCodec(HiveCompressionCodec compressionCodec)
         {
             this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
+            return this;
+        }
+
+        public FileFormatAssertion withSkipGenericWriterTest()
+        {
+            this.skipGenericWrite = true;
             return this;
         }
 
@@ -1307,31 +1320,39 @@ public class TestHiveFileFormats
 
             File file = File.createTempFile("trino_test", formatName + compressionSuffix);
             file.delete();
-            try {
-                FileSplit split;
-                if (fileWriterFactory != null) {
-                    split = createTestFileTrino(file.getAbsolutePath(), storageFormat, compressionCodec, writeColumns, session, rowsCount, fileWriterFactory);
-                }
-                else {
-                    split = createTestFileHive(file.getAbsolutePath(), storageFormat, compressionCodec, writeColumns, rowsCount);
-                }
-
-                long fileSize = split.getLength() + fileSizePadding;
-                if (pageSourceFactory.isPresent()) {
-                    testPageSourceFactory(pageSourceFactory.get(), split, storageFormat, readColumns, session, fileSize, rowsCount);
-                }
-                if (cursorProvider.isPresent()) {
-                    if (withRecordPageSource) {
-                        testRecordPageSource(cursorProvider.get(), split, storageFormat, readColumns, session, fileSize, rowsCount);
+            for (boolean testFileWriter : ImmutableList.of(false, true)) {
+                try {
+                    FileSplit split;
+                    if (testFileWriter) {
+                        if (fileWriterFactory == null) {
+                            continue;
+                        }
+                        split = createTestFileTrino(file.getAbsolutePath(), storageFormat, compressionCodec, writeColumns, session, rowsCount, fileWriterFactory);
                     }
                     else {
-                        testCursorProvider(cursorProvider.get(), split, storageFormat, readColumns, session, fileSize, rowsCount);
+                        if (skipGenericWrite) {
+                            continue;
+                        }
+                        split = createTestFileHive(file.getAbsolutePath(), storageFormat, compressionCodec, writeColumns, rowsCount);
+                    }
+
+                    long fileSize = split.getLength() + fileSizePadding;
+                    if (pageSourceFactory.isPresent()) {
+                        testPageSourceFactory(pageSourceFactory.get(), split, storageFormat, readColumns, session, fileSize, rowsCount);
+                    }
+                    if (cursorProvider.isPresent()) {
+                        if (withRecordPageSource) {
+                            testRecordPageSource(cursorProvider.get(), split, storageFormat, readColumns, session, fileSize, rowsCount);
+                        }
+                        else {
+                            testCursorProvider(cursorProvider.get(), split, storageFormat, readColumns, session, fileSize, rowsCount);
+                        }
                     }
                 }
-            }
-            finally {
-                //noinspection ResultOfMethodCallIgnored
-                file.delete();
+                finally {
+                    //noinspection ResultOfMethodCallIgnored
+                    file.delete();
+                }
             }
         }
 
