@@ -116,6 +116,12 @@ public class MonitoredTrinoInputFile
         {
             delegate.close();
         }
+
+        @Override
+        public String toString()
+        {
+            return delegate.toString();
+        }
     }
 
     private static final class MonitoredSeekableInputStream

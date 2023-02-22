@@ -70,6 +70,6 @@ public class MemoryInputFile
     @Override
     public String toString()
     {
-        return location;
+        return location();
     }
 }

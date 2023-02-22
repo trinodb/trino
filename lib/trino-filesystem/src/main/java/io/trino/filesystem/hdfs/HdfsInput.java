@@ -65,6 +65,12 @@ class HdfsInput
         stream.close();
     }
 
+    @Override
+    public String toString()
+    {
+        return inputFile.toString();
+    }
+
     private static class HdfsSeekableInputStream
             extends SeekableInputStream
     {

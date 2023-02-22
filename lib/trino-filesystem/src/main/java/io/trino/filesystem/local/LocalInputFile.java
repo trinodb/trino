@@ -68,6 +68,6 @@ public class LocalInputFile
     @Override
     public String toString()
     {
-        return file.getPath();
+        return location();
     }
 }
