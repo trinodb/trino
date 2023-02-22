@@ -15,7 +15,6 @@ package io.trino.filesystem;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.iceberg.io.SeekableInputStream;
 
 import java.io.Closeable;
 import java.io.IOException;

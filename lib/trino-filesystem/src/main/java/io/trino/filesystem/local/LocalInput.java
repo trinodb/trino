@@ -13,9 +13,9 @@
  */
 package io.trino.filesystem.local;
 
+import com.google.common.primitives.Ints;
+import io.trino.filesystem.SeekableInputStream;
 import io.trino.filesystem.TrinoInput;
-import org.apache.iceberg.Files;
-import org.apache.iceberg.io.SeekableInputStream;
 
 import java.io.File;
 import java.io.IOException;
@@ -40,7 +40,7 @@ class LocalInput
     @Override
     public SeekableInputStream inputStream()
     {
-        return Files.localInput(file).newStream();
+        return new FileSeekableInputStream(input);
     }
 
     @Override
@@ -71,5 +71,65 @@ class LocalInput
     public String toString()
     {
         return file.getPath();
+    }
+
+    private static class FileSeekableInputStream
+            extends SeekableInputStream
+    {
+        private final RandomAccessFile input;
+
+        private FileSeekableInputStream(RandomAccessFile input)
+        {
+            this.input = requireNonNull(input, "input is null");
+        }
+
+        @Override
+        public long getPosition()
+                throws IOException
+        {
+            return input.getFilePointer();
+        }
+
+        @Override
+        public void seek(long position)
+                throws IOException
+        {
+            input.seek(position);
+        }
+
+        @Override
+        public int read()
+                throws IOException
+        {
+            return input.read();
+        }
+
+        @Override
+        public int read(byte[] b)
+                throws IOException
+        {
+            return input.read(b);
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len)
+                throws IOException
+        {
+            return input.read(b, off, len);
+        }
+
+        @Override
+        public long skip(long n)
+                throws IOException
+        {
+            return input.skipBytes(Ints.saturatedCast(n));
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            input.close();
+        }
     }
 }

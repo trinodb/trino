@@ -15,7 +15,7 @@ package io.trino.filesystem.memory;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
-import org.apache.iceberg.io.SeekableInputStream;
+import io.trino.filesystem.SeekableInputStream;
 
 import java.io.IOException;
 
@@ -30,15 +30,15 @@ public class MemorySeekableInputStream
     }
 
     @Override
-    public long getPos()
+    public long getPosition()
     {
         return input.position();
     }
 
     @Override
-    public void seek(long newPos)
+    public void seek(long position)
     {
-        input.setPosition(newPos);
+        input.setPosition(position);
     }
 
     @Override
