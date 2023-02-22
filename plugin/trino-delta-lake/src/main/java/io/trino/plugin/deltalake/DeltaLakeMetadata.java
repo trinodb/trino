@@ -210,6 +210,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.se
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.validateType;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.verifySupportedColumnMapping;
+import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.configurationForNewTable;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.getMandatoryCurrentVersion;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
@@ -297,7 +298,7 @@ public class DeltaLakeMetadata
             .add(NUMBER_OF_DISTINCT_VALUES_SUMMARY)
             .build();
     private static final String ENABLE_NON_CONCURRENT_WRITES_CONFIGURATION_KEY = "delta.enable-non-concurrent-writes";
-    public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.of(READER_VERSION_PROPERTY, WRITER_VERSION_PROPERTY);
+    public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.of(READER_VERSION_PROPERTY, WRITER_VERSION_PROPERTY, CHANGE_DATA_FEED_ENABLED_PROPERTY);
 
     private final DeltaLakeMetastore metastore;
     private final TrinoFileSystemFactory fileSystemFactory;
@@ -1908,26 +1909,62 @@ public class DeltaLakeMetadata
                         "%s cannot be downgraded from %d to %d", WRITER_VERSION_PROPERTY, currentProtocolEntry.getMinWriterVersion(), writerVersion.get()));
             }
         }
+        long createdTime = Instant.now().toEpochMilli();
+
+        Optional<MetadataEntry> metadataEntry = Optional.empty();
+        if (properties.containsKey(CHANGE_DATA_FEED_ENABLED_PROPERTY)) {
+            boolean changeDataFeedEnabled = (Boolean) properties.get(CHANGE_DATA_FEED_ENABLED_PROPERTY)
+                    .orElseThrow(() -> new IllegalArgumentException("The change_data_feed_enabled property cannot be empty"));
+            long latestWriterVersion = writerVersion.orElse(currentProtocolEntry.getMinWriterVersion());
+            if (changeDataFeedEnabled && (latestWriterVersion < CDF_SUPPORTED_WRITER_VERSION)) {
+                throw new TrinoException(
+                        INVALID_TABLE_PROPERTY,
+                        format(
+                                "%s is set to %s and %s is required to enable change data feed",
+                                WRITER_VERSION_PROPERTY,
+                                latestWriterVersion,
+                                CDF_SUPPORTED_WRITER_VERSION));
+            }
+            Map<String, String> configuration = new HashMap<>(handle.getMetadataEntry().getConfiguration());
+            configuration.put(DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY, String.valueOf(changeDataFeedEnabled));
+            metadataEntry = Optional.of(buildMetadataEntry(handle.getMetadataEntry(), configuration, createdTime));
+        }
 
         long readVersion = handle.getReadVersion();
         long commitVersion = readVersion + 1;
 
-        ProtocolEntry protocolEntry = new ProtocolEntry(
-                readerVersion.orElse(currentProtocolEntry.getMinReaderVersion()),
-                writerVersion.orElse(currentProtocolEntry.getMinWriterVersion()));
+        Optional<ProtocolEntry> protocolEntry = Optional.empty();
+        if (readerVersion.isPresent() || writerVersion.isPresent()) {
+            protocolEntry = Optional.of(new ProtocolEntry(
+                    readerVersion.orElse(currentProtocolEntry.getMinReaderVersion()),
+                    writerVersion.orElse(currentProtocolEntry.getMinWriterVersion())));
+        }
 
         try {
             TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, handle.getLocation());
-
-            long createdTime = Instant.now().toEpochMilli();
             transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, commitVersion, createdTime, SET_TBLPROPERTIES_OPERATION, readVersion));
-            transactionLogWriter.appendProtocolEntry(protocolEntry);
+            protocolEntry.ifPresent(transactionLogWriter::appendProtocolEntry);
+
+            metadataEntry.ifPresent(transactionLogWriter::appendMetadataEntry);
 
             transactionLogWriter.flush();
         }
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
         }
+    }
+
+    private MetadataEntry buildMetadataEntry(MetadataEntry metadataEntry, Map<String, String> configuration, long createdTime)
+    {
+        return new MetadataEntry(
+                metadataEntry.getId(),
+                metadataEntry.getName(),
+                metadataEntry.getDescription(),
+                metadataEntry.getFormat(),
+                metadataEntry.getSchemaString(),
+                metadataEntry.getOriginalPartitionColumns(),
+                configuration,
+                createdTime);
     }
 
     @Override
