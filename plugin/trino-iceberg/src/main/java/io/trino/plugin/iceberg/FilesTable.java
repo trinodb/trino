@@ -65,6 +65,8 @@ public class FilesTable
     private final TypeManager typeManager;
     private final Table icebergTable;
     private final Optional<Long> snapshotId;
+    private final List<io.trino.spi.type.Type> types;
+    private final Map<Integer, Type> idToTypeMapping;
 
     public FilesTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId)
     {
@@ -89,6 +91,10 @@ public class FilesTable
                         .add(new ColumnMetadata("equality_ids", new ArrayType(INTEGER)))
                         .build());
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
+        this.types = tableMetadata.getColumns().stream()
+                .map(ColumnMetadata::getType)
+                .collect(toImmutableList());
+        this.idToTypeMapping = getIcebergIdToTypeMapping(icebergTable.schema());
     }
 
     @Override
@@ -106,14 +112,10 @@ public class FilesTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        List<io.trino.spi.type.Type> types = tableMetadata.getColumns().stream()
-                .map(ColumnMetadata::getType)
-                .collect(toImmutableList());
         if (snapshotId.isEmpty()) {
             return InMemoryRecordSet.builder(types).build().cursor();
         }
 
-        Map<Integer, Type> idToTypeMapping = getIcebergIdToTypeMapping(icebergTable.schema());
         TableScan tableScan = icebergTable.newScan()
                 .useSnapshot(snapshotId.get())
                 .includeColumnStats();
