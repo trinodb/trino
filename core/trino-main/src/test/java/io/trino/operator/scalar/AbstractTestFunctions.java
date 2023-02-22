@@ -16,7 +16,6 @@ package io.trino.operator.scalar;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.metadata.InternalFunctionBundle;
-import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
@@ -115,11 +114,6 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertInvalidFunction(projection, expectedErrorCode);
     }
 
-    protected void assertNumericOverflow(String projection, String message)
-    {
-        functionAssertions.assertNumericOverflow(projection, message);
-    }
-
     protected void assertInvalidCast(@Language("SQL") String projection, String message)
     {
         functionAssertions.assertInvalidCast(projection, message);
@@ -128,16 +122,6 @@ public abstract class AbstractTestFunctions
     protected void assertCachedInstanceHasBoundedRetainedSize(String projection)
     {
         functionAssertions.assertCachedInstanceHasBoundedRetainedSize(projection);
-    }
-
-    protected void tryEvaluateWithAll(String projection, Type expectedType)
-    {
-        functionAssertions.tryEvaluateWithAll(projection, expectedType);
-    }
-
-    protected void registerScalarFunction(SqlScalarFunction sqlScalarFunction)
-    {
-        functionAssertions.addFunctions(new InternalFunctionBundle(sqlScalarFunction));
     }
 
     protected void registerScalar(Class<?> clazz)
