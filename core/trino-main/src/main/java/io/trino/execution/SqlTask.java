@@ -147,7 +147,7 @@ public class SqlTask
                 // Pass a memory context supplier instead of a memory context to the output buffer,
                 // because we haven't created the task context that holds the memory context yet.
                 () -> queryContext.getTaskContextByTaskId(taskId).localMemoryContext(),
-                () -> notifyStatusChanged(),
+                this::notifyStatusChanged,
                 exchangeManagerRegistry);
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
     }
