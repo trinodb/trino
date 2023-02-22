@@ -421,10 +421,20 @@ public final class IcebergUtil
 
     public static Schema schemaFromHandles(List<IcebergColumnHandle> columns)
     {
-        List<NestedField> icebergColumns = columns.stream()
-                .map(column -> NestedField.optional(column.getId(), column.getName(), toIcebergType(column.getType(), column.getColumnIdentity())))
-                .collect(toImmutableList());
-        return new Schema(StructType.of(icebergColumns).asStructType().fields());
+        ImmutableList.Builder<NestedField> icebergColumns = ImmutableList.builderWithExpectedSize(columns.size());
+        for (IcebergColumnHandle column : columns) {
+            NestedField field;
+            // If column is rowIdColumn, we should not create a field with its actual type, because column id will conflict
+            // with a real column. We just use boolean type make a fake.
+            if (column.isUpdateRowIdColumn() || column.isMergeRowIdColumn()) {
+                field = NestedField.optional(column.getId(), column.getName(), toIcebergType(BOOLEAN, column.getColumnIdentity()));
+            }
+            else {
+                field = NestedField.optional(column.getId(), column.getName(), toIcebergType(column.getType(), column.getColumnIdentity()));
+            }
+            icebergColumns.add(field);
+        }
+        return new Schema(StructType.of(icebergColumns.build()).asStructType().fields());
     }
 
     public static Map<PartitionField, Integer> getIdentityPartitions(PartitionSpec partitionSpec)
