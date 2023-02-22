@@ -1063,14 +1063,44 @@ public abstract class BaseDeltaLakeMinioConnectorTest
 
         assertUpdate("CREATE TABLE " + tableName + " (a_number INT)");
 
-        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true",
-                "The following properties cannot be updated: change_data_feed_enabled");
         assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true, checkpoint_interval = 10",
-                "The following properties cannot be updated: change_data_feed_enabled, checkpoint_interval");
+                "The following properties cannot be updated: checkpoint_interval");
         assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES writer_version = 4, partitioned_by = ARRAY['a']",
                 "The following properties cannot be updated: partitioned_by");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testSettingChangeDataFeedEnabledProperty()
+    {
+        String tableName = "test_enable_and_disable_cdf_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER)");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName)).contains("writer_version = 2");
+
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true",
+                "writer_version is set to less than 4 which is a minimal writer_version that supports change_data_feed_enabled");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = false, writer_version = 3");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("change_data_feed_enabled = false")
+                .contains("writer_version = 3");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = false");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName)).contains("change_data_feed_enabled = false");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES writer_version = 4");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName)).contains("change_data_feed_enabled = true");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = false");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName)).contains("change_data_feed_enabled = false");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("change_data_feed_enabled = true")
+                .contains("writer_version = 4");
     }
 
     @Override
