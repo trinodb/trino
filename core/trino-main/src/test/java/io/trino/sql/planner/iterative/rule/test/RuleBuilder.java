@@ -16,11 +16,8 @@ package io.trino.sql.planner.iterative.rule.test;
 import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsCalculator;
-import io.trino.cost.StatsProvider;
-import io.trino.cost.TableStatsProvider;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -108,12 +105,12 @@ public class RuleBuilder
         }
 
         @Override
-        public PlanNodeStatsEstimate calculateStats(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+        public PlanNodeStatsEstimate calculateStats(PlanNode node, Context context)
         {
             if (stats.containsKey(node.getId())) {
                 return stats.get(node.getId());
             }
-            return delegate.calculateStats(node, sourceStats, lookup, session, types, tableStatsProvider);
+            return delegate.calculateStats(node, context);
         }
 
         public void setNodeStats(PlanNodeId nodeId, PlanNodeStatsEstimate nodeStats)
