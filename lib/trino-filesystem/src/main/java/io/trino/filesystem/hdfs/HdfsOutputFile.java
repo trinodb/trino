@@ -13,10 +13,10 @@
  */
 package io.trino.filesystem.hdfs;
 
-import io.trino.filesystem.MemoryAwareFileSystem;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.MemoryAwareFileSystem;
 import io.trino.memory.context.AggregatedMemoryContext;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -24,8 +24,8 @@ import org.apache.hadoop.fs.Path;
 import java.io.IOException;
 import java.io.OutputStream;
 
-import static io.trino.filesystem.FileSystemUtils.getRawFileSystem;
 import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
+import static io.trino.hdfs.FileSystemUtils.getRawFileSystem;
 import static java.util.Objects.requireNonNull;
 
 class HdfsOutputFile
