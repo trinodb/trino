@@ -106,7 +106,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createBooleansBlock;
 import static io.trino.block.BlockAssertions.createDoublesBlock;
 import static io.trino.block.BlockAssertions.createIntsBlock;
@@ -131,7 +130,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ExpressionTestUtils.createExpression;
 import static io.trino.sql.ExpressionTestUtils.getTypes;
-import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.sql.relational.SqlToRowExpressionTranslator.translate;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
@@ -178,8 +176,6 @@ public final class FunctionAssertions
             createShortDecimalsBlock("1234"),
             createLongDecimalsBlock("1234"));
 
-    private static final Page ZERO_CHANNEL_PAGE = new Page(1);
-
     private static final TypeProvider INPUT_TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("bound_long"), BIGINT)
             .put(new Symbol("bound_string"), VARCHAR)
@@ -218,11 +214,6 @@ public final class FunctionAssertions
     private final Session session;
     private final LocalQueryRunner runner;
     private final TestingFunctionResolution testingFunctionResolution;
-
-    public FunctionAssertions(Session session)
-    {
-        this(session, new FeaturesConfig());
-    }
 
     public FunctionAssertions(Session session, FeaturesConfig featuresConfig)
     {
@@ -295,16 +286,6 @@ public final class FunctionAssertions
 
         Object actual = selectSingleValue(projection, expectedType, runner.getExpressionCompiler());
         assertEquals(actual, expected);
-    }
-
-    /**
-     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#function(String, String...)}
-     */
-    @Deprecated
-    public void assertFunctionString(String projection, Type expectedType, String expected)
-    {
-        Object actual = selectSingleValue(projection, expectedType, runner.getExpressionCompiler());
-        assertEquals(actual.toString(), expected);
     }
 
     /**
@@ -595,124 +576,6 @@ public final class FunctionAssertions
         return type.getObjectValue(session.toConnectorSession(), block, 0);
     }
 
-    private void assertFilter(String filter, boolean expected, boolean withNoInputColumns, ExpressionCompiler compiler)
-    {
-        List<Boolean> results = executeFilterWithAll(filter, TEST_SESSION, withNoInputColumns, compiler);
-        HashSet<Boolean> resultSet = new HashSet<>(results);
-
-        // we should only have a single result
-        assertTrue(resultSet.size() == 1, "Expected only [" + expected + "] result unique result, but got " + resultSet);
-
-        assertEquals((boolean) Iterables.getOnlyElement(resultSet), expected);
-    }
-
-    private List<Boolean> executeFilterWithAll(String filter, Session session, boolean executeWithNoInputColumns, ExpressionCompiler compiler)
-    {
-        requireNonNull(filter, "filter is null");
-
-        Expression filterExpression = createExpression(session, filter, getPlannerContext(), INPUT_TYPES);
-        RowExpression filterRowExpression = toRowExpression(session, filterExpression);
-
-        List<Boolean> results = new ArrayList<>();
-
-        // execute as standalone operator
-        OperatorFactory operatorFactory = compileFilterProject(Optional.of(filterRowExpression), constant(true, BOOLEAN), compiler);
-        results.add(executeFilter(operatorFactory, session));
-
-        if (executeWithNoInputColumns) {
-            // execute as standalone operator
-            operatorFactory = compileFilterWithNoInputColumns(filterRowExpression, compiler);
-            results.add(executeFilterWithNoInputColumns(operatorFactory, session));
-        }
-
-        // interpret
-        Boolean interpretedValue = (Boolean) interpret(filterExpression, BOOLEAN, session);
-        if (interpretedValue == null) {
-            interpretedValue = false;
-        }
-        results.add(interpretedValue);
-
-        // execute over normal operator
-        SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(Optional.of(filterRowExpression), constant(true, BOOLEAN), compiler);
-        boolean scanOperatorValue = executeFilter(scanProjectOperatorFactory, createNormalSplit(), session);
-        results.add(scanOperatorValue);
-
-        // execute over record set
-        boolean recordValue = executeFilter(scanProjectOperatorFactory, createRecordSetSplit(), session);
-        results.add(recordValue);
-
-        //
-        // If the filter does not need bound values, execute query using full engine
-        if (!needsBoundValue(filterExpression)) {
-            MaterializedResult result = runner.execute("SELECT TRUE WHERE " + filter);
-            assertEquals(result.getTypes().size(), 1);
-
-            Boolean queryResult;
-            if (result.getMaterializedRows().isEmpty()) {
-                queryResult = false;
-            }
-            else {
-                assertEquals(result.getMaterializedRows().size(), 1);
-                queryResult = (Boolean) Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
-            }
-            results.add(queryResult);
-        }
-
-        return results;
-    }
-
-    private static boolean executeFilterWithNoInputColumns(OperatorFactory operatorFactory, Session session)
-    {
-        return executeFilterWithNoInputColumns(operatorFactory.createOperator(createDriverContext(session)));
-    }
-
-    private static boolean executeFilter(OperatorFactory operatorFactory, Session session)
-    {
-        return executeFilter(operatorFactory.createOperator(createDriverContext(session)));
-    }
-
-    private static boolean executeFilter(SourceOperatorFactory operatorFactory, Split split, Session session)
-    {
-        SourceOperator operator = operatorFactory.createOperator(createDriverContext(session));
-        operator.addSplit(split);
-        operator.noMoreSplits();
-        return executeFilter(operator);
-    }
-
-    private static boolean executeFilter(Operator operator)
-    {
-        Page page = getAtMostOnePage(operator, SOURCE_PAGE);
-
-        boolean value;
-        if (page != null) {
-            assertEquals(page.getPositionCount(), 1);
-            assertEquals(page.getChannelCount(), 1);
-
-            assertTrue(BOOLEAN.getBoolean(page.getBlock(0), 0));
-            value = true;
-        }
-        else {
-            value = false;
-        }
-        return value;
-    }
-
-    private static boolean executeFilterWithNoInputColumns(Operator operator)
-    {
-        Page page = getAtMostOnePage(operator, ZERO_CHANNEL_PAGE);
-
-        boolean value;
-        if (page != null) {
-            assertEquals(page.getPositionCount(), 1);
-            assertEquals(page.getChannelCount(), 0);
-            value = true;
-        }
-        else {
-            value = false;
-        }
-        return value;
-    }
-
     private static boolean needsBoundValue(Expression projectionExpression)
     {
         AtomicBoolean hasSymbolReferences = new AtomicBoolean();
@@ -767,21 +630,6 @@ public final class FunctionAssertions
         // convert result from stack type to Type ObjectValue
         Block block = Utils.nativeValueToBlock(expectedType, result);
         return expectedType.getObjectValue(session.toConnectorSession(), block, 0);
-    }
-
-    private static OperatorFactory compileFilterWithNoInputColumns(RowExpression filter, ExpressionCompiler compiler)
-    {
-        try {
-            Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of());
-
-            return FilterAndProjectOperator.createOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(), DataSize.ofBytes(0), 0);
-        }
-        catch (Throwable e) {
-            if (e instanceof UncheckedExecutionException) {
-                e = e.getCause();
-            }
-            throw new RuntimeException("Error compiling " + filter + ": " + e.getMessage(), e);
-        }
     }
 
     private static OperatorFactory compileFilterProject(Optional<RowExpression> filter, RowExpression projection, ExpressionCompiler compiler)
