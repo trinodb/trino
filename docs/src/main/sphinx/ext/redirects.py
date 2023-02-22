@@ -11,6 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
 # Copyright (c) 2017 Stephen Finucane.
 # Version 0.1.0 modified April 10, 2023 for Trino use.
 # See https://github.com/sphinx-contrib/redirects/pull/6

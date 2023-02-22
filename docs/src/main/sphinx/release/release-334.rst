@@ -81,7 +81,7 @@ Hive connector
 MemSQL connector
 ----------------
 
-* Include :doc:`/connector/memsql` in the server tarball and RPM. (:issue:`3743`)
+* Include :doc:`/connector/singlestore` in the server tarball and RPM. (:issue:`3743`)
 
 MongoDB connector
 -----------------
