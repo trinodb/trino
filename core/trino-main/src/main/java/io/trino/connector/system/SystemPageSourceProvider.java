@@ -14,6 +14,8 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.base.MappedPageSource;
+import io.trino.plugin.base.MappedRecordSet;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -32,8 +34,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import io.trino.split.MappedPageSource;
-import io.trino.split.MappedRecordSet;
 
 import java.util.HashMap;
 import java.util.List;
