@@ -32,8 +32,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import static io.trino.filesystem.FileSystemUtils.getRawFileSystem;
 import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
+import static io.trino.hdfs.FileSystemUtils.getRawFileSystem;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
