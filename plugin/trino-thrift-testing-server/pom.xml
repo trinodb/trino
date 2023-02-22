@@ -21,7 +21,7 @@
     <dependencies>
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-main</artifactId>
+            <artifactId>trino-plugin-toolkit</artifactId>
         </dependency>
 
         <dependency>

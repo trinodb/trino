@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.split;
+package io.trino.plugin.base;
 
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
