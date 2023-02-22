@@ -197,6 +197,28 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testUpdateV2Table()
+    {
+        String tableName = "test_update_v2_table" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
+        updateTableToV2(tableName);
+        assertUpdate("UPDATE " + tableName + " SET nationkey = 0", 25);
+        assertQuery("SELECT nationkey FROM " + tableName, "SELECT 0 FROM nation");
+    }
+
+    @Test
+    public void testUpdateV2tableWithEqualityDelete()
+            throws Exception
+    {
+        String tableName = "test_update_v2_table" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = updateTableToV2(tableName);
+        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
+        assertUpdate("UPDATE " + tableName + " SET nationkey = 0", 20);
+        assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT 0, comment FROM nation WHERE regionkey != 1");
+    }
+
+    @Test
     public void testOptimizingV2TableRemovesEqualityDeletesWhenWholeTableIsScanned()
             throws Exception
     {
@@ -208,7 +230,7 @@ public class TestIcebergV2
         List<String> initialActiveFiles = getActiveFiles(tableName);
         query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
-        // natiokey is before the equality delete column in the table schema, comment is after
+        // nationkey is before the equality delete column in the table schema, comment is after
         assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
         Assertions.assertThat(loadTable(tableName).currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
         List<String> updatedFiles = getActiveFiles(tableName);
