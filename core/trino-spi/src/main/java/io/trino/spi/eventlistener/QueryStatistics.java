@@ -34,7 +34,7 @@ public class QueryStatistics
     private final Duration queuedTime;
     private final Optional<Duration> scheduledTime;
     private final Optional<Duration> failedScheduledTime;
-    private final Optional<Duration> waitingTime;
+    private final Optional<Duration> resourceWaitingTime;
     private final Optional<Duration> analysisTime;
     private final Optional<Duration> planningTime;
     private final Optional<Duration> executionTime;
@@ -91,7 +91,7 @@ public class QueryStatistics
             Duration queuedTime,
             Optional<Duration> scheduledTime,
             Optional<Duration> failedScheduledTime,
-            Optional<Duration> waitingTime,
+            Optional<Duration> resourceWaitingTime,
             Optional<Duration> analysisTime,
             Optional<Duration> planningTime,
             Optional<Duration> executionTime,
@@ -131,7 +131,7 @@ public class QueryStatistics
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.scheduledTime = requireNonNull(scheduledTime, "scheduledTime is null");
         this.failedScheduledTime = requireNonNull(failedScheduledTime, "failedScheduledTime is null");
-        this.waitingTime = requireNonNull(waitingTime, "waitingTime is null");
+        this.resourceWaitingTime = requireNonNull(resourceWaitingTime, "resourceWaitingTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
         this.planningTime = requireNonNull(planningTime, "planningTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
@@ -205,7 +205,7 @@ public class QueryStatistics
     @JsonProperty
     public Optional<Duration> getResourceWaitingTime()
     {
-        return waitingTime;
+        return resourceWaitingTime;
     }
 
     @JsonProperty
