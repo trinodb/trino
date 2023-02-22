@@ -8,7 +8,7 @@ General
 * Fix incorrect query results when query contains ``LEFT JOIN`` over ``UNNEST``. (:issue:`2097`)
 * Fix performance regression in queries involving ``JOIN``. (:issue:`2047`)
 * Fix accounting of semantic analysis time when queued queries are cancelled. (:issue:`2055`)
-* Add :doc:`/connector/memsql`. (:issue:`1906`)
+* Add :doc:`/connector/singlestore`. (:issue:`1906`)
 * Improve performance of ``INSERT`` and ``CREATE TABLE ... AS`` queries containing redundant
   ``ORDER BY`` clauses. (:issue:`2044`)
 * Improve performance when processing columns of ``map`` type. (:issue:`2015`)
