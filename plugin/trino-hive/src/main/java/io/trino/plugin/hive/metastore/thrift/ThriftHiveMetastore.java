@@ -123,6 +123,7 @@ import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMeta
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromRolePrincipalGrants;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromTrinoPrincipalType;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getBasicStatisticsWithSparkFallback;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.parsePrivilege;
@@ -156,6 +157,7 @@ public class ThriftHiveMetastore
     private final boolean deleteFilesOnDrop;
     private final boolean translateHiveViews;
     private final boolean assumeCanonicalPartitionKeys;
+    private final boolean useSparkTableStatisticsFallback;
     private final ThriftMetastoreStats stats;
     private final ExecutorService writeStatisticsExecutor;
 
@@ -172,6 +174,7 @@ public class ThriftHiveMetastore
             boolean deleteFilesOnDrop,
             boolean translateHiveViews,
             boolean assumeCanonicalPartitionKeys,
+            boolean useSparkTableStatisticsFallback,
             ThriftMetastoreStats stats,
             ExecutorService writeStatisticsExecutor)
     {
@@ -187,6 +190,7 @@ public class ThriftHiveMetastore
         this.deleteFilesOnDrop = deleteFilesOnDrop;
         this.translateHiveViews = translateHiveViews;
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        this.useSparkTableStatisticsFallback = useSparkTableStatisticsFallback;
         this.stats = requireNonNull(stats, "stats is null");
         this.writeStatisticsExecutor = requireNonNull(writeStatisticsExecutor, "writeStatisticsExecutor is null");
     }
@@ -325,7 +329,16 @@ public class ThriftHiveMetastore
         List<String> dataColumns = table.getSd().getCols().stream()
                 .map(FieldSchema::getName)
                 .collect(toImmutableList());
-        HiveBasicStatistics basicStatistics = getHiveBasicStatistics(table.getParameters());
+        Map<String, String> parameters = table.getParameters();
+        HiveBasicStatistics basicStatistics = getHiveBasicStatistics(parameters);
+
+        if (useSparkTableStatisticsFallback && basicStatistics.getRowCount().isEmpty()) {
+            PartitionStatistics sparkTableStatistics = ThriftSparkMetastoreUtil.getTableStatistics(table);
+            if (sparkTableStatistics.getBasicStatistics().getRowCount().isPresent()) {
+                return sparkTableStatistics;
+            }
+        }
+
         Map<String, HiveColumnStatistics> columnStatistics = getTableColumnStatistics(table.getDbName(), table.getTableName(), dataColumns, basicStatistics.getRowCount());
         return new PartitionStatistics(basicStatistics, columnStatistics);
     }
@@ -366,7 +379,12 @@ public class ThriftHiveMetastore
         Map<String, HiveBasicStatistics> partitionBasicStatistics = partitions.stream()
                 .collect(toImmutableMap(
                         partition -> makePartName(partitionColumns, partition.getValues()),
-                        partition -> getHiveBasicStatistics(partition.getParameters())));
+                        partition -> {
+                            if (useSparkTableStatisticsFallback) {
+                                return getBasicStatisticsWithSparkFallback(partition.getParameters());
+                            }
+                            return getHiveBasicStatistics(partition.getParameters());
+                        }));
         Map<String, OptionalLong> partitionRowCounts = partitionBasicStatistics.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getRowCount()));
         Map<String, Map<String, HiveColumnStatistics>> partitionColumnStatistics = getPartitionColumnStatistics(
