@@ -176,5 +176,11 @@ public final class AccessTrackingFileSystemFactory
         {
             return delegate.location();
         }
+
+        @Override
+        public String toString()
+        {
+            return delegate.toString();
+        }
     }
 }

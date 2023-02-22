@@ -88,6 +88,12 @@ class HdfsInputFile
         return path;
     }
 
+    @Override
+    public String toString()
+    {
+        return location();
+    }
+
     private FileStatus lazyStatus()
             throws IOException
     {

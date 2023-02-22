@@ -984,7 +984,7 @@ public class OrcTester
                 objectInspector,
                 ImmutableList.of(type),
                 StreamSupport.stream(
-                        Spliterators.spliteratorUnknownSize(values, Spliterator.ORDERED), false)
+                                Spliterators.spliteratorUnknownSize(values, Spliterator.ORDERED), false)
                         .map(value -> (Function<Integer, Object>) (fieldIndex) -> value)
                         .iterator());
     }
@@ -1417,6 +1417,12 @@ public class OrcTester
         public String location()
         {
             return file.getAbsolutePath();
+        }
+
+        @Override
+        public String toString()
+        {
+            return location();
         }
     }
 }
