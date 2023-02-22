@@ -73,4 +73,10 @@ class HdfsOutputFile
     {
         return path;
     }
+
+    @Override
+    public String toString()
+    {
+        return location();
+    }
 }
