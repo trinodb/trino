@@ -14,8 +14,8 @@
 package io.trino.filesystem.memory;
 
 import io.airlift.slice.Slice;
+import io.trino.filesystem.SeekableInputStream;
 import io.trino.filesystem.TrinoInput;
-import org.apache.iceberg.io.SeekableInputStream;
 
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;

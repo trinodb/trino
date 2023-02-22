@@ -18,8 +18,8 @@ import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.filesystem.SeekableInputStream;
 import io.trino.filesystem.memory.MemorySeekableInputStream;
-import org.apache.iceberg.io.SeekableInputStream;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
