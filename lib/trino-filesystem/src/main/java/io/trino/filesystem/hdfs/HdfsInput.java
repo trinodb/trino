@@ -14,11 +14,11 @@
 package io.trino.filesystem.hdfs;
 
 import io.airlift.slice.Slice;
+import io.trino.filesystem.SeekableInputStream;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hdfs.FSDataInputStreamTail;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.iceberg.io.SeekableInputStream;
 
 import java.io.IOException;
 
@@ -76,17 +76,17 @@ class HdfsInput
         }
 
         @Override
-        public long getPos()
+        public long getPosition()
                 throws IOException
         {
             return stream.getPos();
         }
 
         @Override
-        public void seek(long newPos)
+        public void seek(long position)
                 throws IOException
         {
-            stream.seek(newPos);
+            stream.seek(position);
         }
 
         @Override

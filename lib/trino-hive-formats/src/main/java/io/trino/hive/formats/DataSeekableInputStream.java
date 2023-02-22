@@ -15,7 +15,7 @@ package io.trino.hive.formats;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.iceberg.io.SeekableInputStream;
+import io.trino.filesystem.SeekableInputStream;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.DataInput;
