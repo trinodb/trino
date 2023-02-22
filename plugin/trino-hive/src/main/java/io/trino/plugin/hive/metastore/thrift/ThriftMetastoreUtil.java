@@ -125,6 +125,7 @@ import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWN
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreParameterParserUtils.toLong;
+import static io.trino.plugin.hive.metastore.thrift.ThriftSparkMetastoreUtil.getSparkBasicStatistics;
 import static io.trino.plugin.hive.type.Category.PRIMITIVE;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -144,10 +145,10 @@ import static java.util.Objects.requireNonNull;
 
 public final class ThriftMetastoreUtil
 {
+    public static final String NUM_ROWS = "numRows";
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";
     private static final String NUM_FILES = "numFiles";
-    public static final String NUM_ROWS = "numRows";
     private static final String RAW_DATA_SIZE = "rawDataSize";
     private static final String TOTAL_SIZE = "totalSize";
     private static final Set<String> STATS_PROPERTIES = ImmutableSet.of(NUM_FILES, NUM_ROWS, RAW_DATA_SIZE, TOTAL_SIZE);
@@ -747,6 +748,20 @@ public final class ThriftMetastoreUtil
         OptionalLong inMemoryDataSizeInBytes = toLong(parameters.get(RAW_DATA_SIZE));
         OptionalLong onDiskDataSizeInBytes = toLong(parameters.get(TOTAL_SIZE));
         return new HiveBasicStatistics(numFiles, numRows, inMemoryDataSizeInBytes, onDiskDataSizeInBytes);
+    }
+
+    public static HiveBasicStatistics getBasicStatisticsWithSparkFallback(Map<String, String> parameters)
+    {
+        HiveBasicStatistics basicStatistics = getHiveBasicStatistics(parameters);
+        // Partitioned table without statistics
+        if (basicStatistics.getRowCount().isEmpty() || basicStatistics.getRowCount().getAsLong() == 0L) {
+            HiveBasicStatistics sparkBasicStatistics = getSparkBasicStatistics(parameters);
+            if (sparkBasicStatistics.getRowCount().isPresent()) {
+                return sparkBasicStatistics;
+            }
+        }
+
+        return basicStatistics;
     }
 
     public static Map<String, String> updateStatisticsParameters(Map<String, String> parameters, HiveBasicStatistics statistics)
