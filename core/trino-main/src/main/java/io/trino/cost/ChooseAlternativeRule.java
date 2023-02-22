@@ -13,11 +13,8 @@
  */
 package io.trino.cost;
 
-import io.trino.Session;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.PlanNode;
 
@@ -47,7 +44,7 @@ public class ChooseAlternativeRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(ChooseAlternativeNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(ChooseAlternativeNode node, StatsCalculator.Context context)
     {
         // For each symbol, peek up the narrowest estimate out of the alternatives.
         // That's because all the alternatives describe the same dataset,
@@ -55,7 +52,7 @@ public class ChooseAlternativeRule
         double lowestOutputRowCount = NaN;
         Map<Symbol, SymbolStatsEstimate> narrowestSymbolStatistics = new HashMap<>();
         for (PlanNode alternative : node.getSources()) {
-            PlanNodeStatsEstimate alternativeStats = statsProvider.getStats(alternative);
+            PlanNodeStatsEstimate alternativeStats = context.statsProvider().getStats(alternative);
             lowestOutputRowCount = minExcludeNaN(lowestOutputRowCount, alternativeStats.getOutputRowCount());
             for (Map.Entry<Symbol, SymbolStatsEstimate> stats : alternativeStats.getSymbolStatistics().entrySet()) {
                 if (narrowestSymbolStatistics.containsKey(stats.getKey())) {

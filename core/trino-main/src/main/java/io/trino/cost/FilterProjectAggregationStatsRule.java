@@ -14,9 +14,9 @@
 package io.trino.cost;
 
 import io.trino.Session;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -54,12 +54,12 @@ public class FilterProjectAggregationStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(FilterNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(FilterNode node, Context context)
     {
-        if (!isNonEstimatablePredicateApproximationEnabled(session)) {
+        if (!isNonEstimatablePredicateApproximationEnabled(context.session())) {
             return Optional.empty();
         }
-        PlanNode nodeSource = lookup.resolve(node.getSource());
+        PlanNode nodeSource = context.lookup().resolve(node.getSource());
         AggregationNode aggregationNode;
         // TODO match the required source nodes through separate patterns when
         //  ComposableStatsCalculator allows patterns other than TypeOfPattern
@@ -67,7 +67,7 @@ public class FilterProjectAggregationStatsRule
             if (!projectNode.isIdentity()) {
                 return Optional.empty();
             }
-            PlanNode projectNodeSource = lookup.resolve(projectNode.getSource());
+            PlanNode projectNodeSource = context.lookup().resolve(projectNode.getSource());
             if (!(projectNodeSource instanceof AggregationNode)) {
                 return Optional.empty();
             }
@@ -80,7 +80,7 @@ public class FilterProjectAggregationStatsRule
             return Optional.empty();
         }
 
-        return calculate(node, aggregationNode, sourceStats, session, types);
+        return calculate(node, aggregationNode, context.statsProvider(), context.session(), context.types());
     }
 
     private Optional<PlanNodeStatsEstimate> calculate(FilterNode filterNode, AggregationNode aggregationNode, StatsProvider statsProvider, Session session, TypeProvider types)

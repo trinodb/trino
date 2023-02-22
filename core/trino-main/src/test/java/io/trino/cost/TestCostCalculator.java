@@ -733,8 +733,7 @@ public class TestCostCalculator
 
     private StatsCalculator statsCalculator(Map<String, PlanNodeStatsEstimate> stats)
     {
-        return (node, sourceStats, lookup, session, types, tableStatsProvider) ->
-                requireNonNull(stats.get(node.getId().toString()), "no stats for node");
+        return (node, context) -> requireNonNull(stats.get(node.getId().toString()), "no stats for node");
     }
 
     private PlanCostEstimate calculateCost(
