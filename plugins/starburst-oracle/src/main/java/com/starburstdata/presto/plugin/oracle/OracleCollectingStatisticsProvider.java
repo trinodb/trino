@@ -12,6 +12,7 @@ package com.starburstdata.presto.plugin.oracle;
 import com.starburstdata.managed.statistics.CollectedStatisticsType;
 import com.starburstdata.presto.plugin.jdbc.statistics.JdbcCollectingStatisticsProvider;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -42,8 +43,9 @@ public class OracleCollectingStatisticsProvider
     }
 
     @Override
-    protected boolean isTypeApplicable(Type columnType, CollectedStatisticsType collectedStatisticsType)
+    protected boolean isTypeApplicable(JdbcColumnHandle column, CollectedStatisticsType collectedStatisticsType)
     {
+        Type columnType = column.getColumnType();
         if (collectedStatisticsType == DISTINCT_VALUES) {
             // unlimited varchar type presented in Oracle as clob type,
             // which doesn't support DISTINCT keyword, so omit this stat
@@ -55,6 +57,6 @@ public class OracleCollectingStatisticsProvider
                 return false;
             }
         }
-        return super.isTypeApplicable(columnType, collectedStatisticsType);
+        return super.isTypeApplicable(column, collectedStatisticsType);
     }
 }
