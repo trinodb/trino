@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.file;
 
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.fileio.ForwardingFileIo;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -47,7 +48,7 @@ public class FileMetastoreTableOperationsProvider
             Optional<String> location)
     {
         return new FileMetastoreTableOperations(
-                fileSystemFactory.create(session).toFileIo(),
+                new ForwardingFileIo(fileSystemFactory.create(session)),
                 ((TrinoHiveCatalog) catalog).getMetastore(),
                 session,
                 database,

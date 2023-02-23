@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog.glue;
 
 import com.amazonaws.services.glue.AWSGlueAsync;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.fileio.ForwardingFileIo;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -57,7 +58,7 @@ public class GlueIcebergTableOperationsProvider
         return new GlueIcebergTableOperations(
                 glueClient,
                 stats,
-                fileSystemFactory.create(session).toFileIo(),
+                new ForwardingFileIo(fileSystemFactory.create(session)),
                 session,
                 database,
                 table,

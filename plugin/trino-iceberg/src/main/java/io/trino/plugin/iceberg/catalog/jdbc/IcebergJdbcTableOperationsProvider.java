@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.jdbc;
 
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.fileio.ForwardingFileIo;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -48,7 +49,7 @@ public class IcebergJdbcTableOperationsProvider
             Optional<String> location)
     {
         return new IcebergJdbcTableOperations(
-                fileSystemFactory.create(session).toFileIo(),
+                new ForwardingFileIo(fileSystemFactory.create(session)),
                 jdbcClient,
                 session,
                 database,

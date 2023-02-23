@@ -23,6 +23,7 @@ import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.fileio.ForwardingFileIo;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
@@ -1075,7 +1076,7 @@ public class IcebergPageSourceProvider
         InputFile file;
         OptionalLong fileModifiedTime = OptionalLong.empty();
         try {
-            file = fileSystem.toFileIo().newInputFile(inputFile.location(), inputFile.length());
+            file = new ForwardingFileIo(fileSystem).newInputFile(inputFile.location(), inputFile.length());
             if (readColumns.stream().anyMatch(IcebergColumnHandle::isFileModifiedTimeColumn)) {
                 fileModifiedTime = OptionalLong.of(inputFile.modificationTime());
             }

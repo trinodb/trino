@@ -38,6 +38,7 @@ import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.SystemSessionProperties.MIN_INPUT_SIZE_PER_TASK;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.DATA;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.MANIFEST;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.METADATA_JSON;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.SNAPSHOT;
@@ -426,6 +427,7 @@ public class TestIcebergMetadataFileOperations
         resetCounts();
         getDistributedQueryRunner().executeWithQueryId(session, query);
         assertThat(getOperations())
+                .filteredOn(operation -> operation.fileType() != DATA)
                 .containsExactlyInAnyOrderElementsOf(expectedAccesses);
     }
 
@@ -463,6 +465,11 @@ public class TestIcebergMetadataFileOperations
             this.operationType = requireNonNull(operationType, "operationType is null");
         }
 
+        public FileType fileType()
+        {
+            return fileType;
+        }
+
         @Override
         public boolean equals(Object o)
         {
@@ -498,6 +505,7 @@ public class TestIcebergMetadataFileOperations
         METADATA_JSON,
         MANIFEST,
         SNAPSHOT,
+        DATA,
         /**/;
 
         public static FileType fromFilePath(String path)
@@ -510,6 +518,9 @@ public class TestIcebergMetadataFileOperations
             }
             if (path.endsWith("-m0.avro")) {
                 return MANIFEST;
+            }
+            if (path.contains("/data/") && path.endsWith(".orc")) {
+                return DATA;
             }
             throw new IllegalArgumentException("File not recognized: " + path);
         }
