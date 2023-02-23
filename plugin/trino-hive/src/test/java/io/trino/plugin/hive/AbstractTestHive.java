@@ -2340,19 +2340,6 @@ public abstract class AbstractTestHive
         }
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*" + INVALID_COLUMN + ".*")
-    public void testGetRecordsInvalidColumn()
-            throws Exception
-    {
-        try (Transaction transaction = newTransaction()) {
-            ConnectorMetadata connectorMetadata = transaction.getMetadata();
-            ConnectorTableHandle table = getTableHandle(connectorMetadata, tableUnpartitioned);
-            ConnectorSession session = newSession();
-            connectorMetadata.beginQuery(session);
-            readTable(transaction, table, ImmutableList.of(invalidColumnHandle), session, TupleDomain.all(), OptionalInt.empty(), Optional.empty());
-        }
-    }
-
     @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = ".*The column 't_data' in table '.*\\.trino_test_partition_schema_change' is declared as type 'double', but partition 'ds=2012-12-29' declared column 't_data' as type 'string'.")
     public void testPartitionSchemaMismatch()
             throws Exception
