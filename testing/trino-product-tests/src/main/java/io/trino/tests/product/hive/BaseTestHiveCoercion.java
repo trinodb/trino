@@ -112,9 +112,13 @@ public abstract class BaseTestHiveCoercion
 
         Function<Engine, Map<String, List<Object>>> expected = engine -> expectedValuesForEngineProvider(engine, tableName, decimalToFloatVal, floatToDecimalVal);
 
+        // For Trino, remove unsupported columns
         List<String> prestoReadColumns = removeUnsupportedColumnsForTrino(allColumns, tableName);
         Map<String, List<Object>> expectedPrestoResults = expected.apply(Engine.TRINO);
-        assertEquals(ImmutableSet.copyOf(prestoReadColumns), expectedPrestoResults.keySet());
+        // In case of unpartitioned tables we don't support all the column coercion thereby making this assertion conditional
+        if (expectedExceptionsWithTrinoContext().isEmpty()) {
+            assertEquals(ImmutableSet.copyOf(prestoReadColumns), expectedPrestoResults.keySet());
+        }
         String prestoSelectQuery = format("SELECT %s FROM %s", String.join(", ", prestoReadColumns), tableName);
         assertQueryResults(Engine.TRINO, prestoSelectQuery, expectedPrestoResults, prestoReadColumns, 2, tableName);
 
@@ -350,9 +354,8 @@ public abstract class BaseTestHiveCoercion
         // TODO: assert exceptions being thrown for each column
         Map<ColumnContext, String> expectedExceptions = expectedExceptionsWithTrinoContext();
 
-        String hiveVersion = getHiveVersionMajor() + "." + getHiveVersionMinor();
         Set<String> unsupportedColumns = expectedExceptions.keySet().stream()
-                .filter(context -> context.hiveVersion().orElseThrow().equals(hiveVersion) && tableName.contains(context.format()))
+                .filter(context -> tableName.contains(context.format()))
                 .map(ColumnContext::column)
                 .collect(toImmutableSet());
 
@@ -693,6 +696,11 @@ public abstract class BaseTestHiveCoercion
     public static ColumnContext columnContext(String version, String format, String column)
     {
         return new ColumnContext(Optional.of(version), format, column);
+    }
+
+    public static ColumnContext columnContext(String format, String column)
+    {
+        return new ColumnContext(Optional.empty(), format, column);
     }
 
     public record ColumnContext(Optional<String> hiveVersion, String format, String column)
