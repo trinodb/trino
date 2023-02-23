@@ -31,9 +31,6 @@ import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchColumnType;
 import io.trino.tpch.TpchColumnTypes;
 import io.trino.tpch.TpchTable;
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.client.common.HoodieJavaEngineContext;
@@ -50,6 +47,9 @@ import org.apache.hudi.config.HoodieArchivalConfig;
 import org.apache.hudi.config.HoodieIndexConfig;
 import org.apache.hudi.config.HoodieWriteConfig;
 import org.apache.hudi.index.HoodieIndex;
+import org.apache.hudi.org.apache.avro.Schema;
+import org.apache.hudi.org.apache.avro.generic.GenericData;
+import org.apache.hudi.org.apache.avro.generic.GenericRecord;
 import org.intellij.lang.annotations.Language;
 
 import java.io.IOException;
@@ -268,9 +268,9 @@ public class TpchHudiTablesInitializer
             String columnName = column.getSimplifiedColumnName();
             Schema.Type columnSchemaType = toSchemaType(column.getType());
             // Schema.createUnion(Schema.create(Schema.Type.NULL), Schema.create(type));
-            fields.add(new Schema.Field(columnName, Schema.create(columnSchemaType)));
+            // fields.add(new Schema.Field(columnName, Schema.create(columnSchemaType)));
         }
-        fields.add(new Schema.Field(FIELD_UUID, Schema.create(Schema.Type.STRING)));
+        // fields.add(new Schema.Field(FIELD_UUID, Schema.create(Schema.Type.STRING)));
         String name = table.getTableName();
         return Schema.createRecord(name, null, null, false, fields);
     }

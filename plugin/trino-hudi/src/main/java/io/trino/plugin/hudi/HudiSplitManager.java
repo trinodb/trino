@@ -21,10 +21,10 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.HiveTransactionHandle;
+import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.plugin.hudi.split.HudiSplitFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -54,8 +54,10 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.hudi.HudiPartitionManager.extractPartitionValues;
 import static io.trino.plugin.hudi.HudiSessionProperties.getFileSystemViewSpillableDir;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMaxOutstandingSplits;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMaxSplitsPerSecond;
@@ -152,6 +154,7 @@ public class HudiSplitManager
             ImmutableList.Builder<HudiSplit> splitsBuilder = ImmutableList.builder();
             Map<String, List<HivePartitionKey>> hudiPartitionMap = getHivePartitionKeys(partitions, metastore, table);
             HudiSplitFactory splitFactory = new HudiSplitFactory(hudiTableHandle, createSplitWeightProvider(session));
+            log.debug(">>> calling fileskippingmanager: " + hudiPartitionMap);
             hudiFileSkippingManager.listQueryFiles(constraint.getSummary())
                     .entrySet()
                     .stream()
@@ -181,8 +184,9 @@ public class HudiSplitManager
     private static Map<String, List<HivePartitionKey>> getHivePartitionKeys(List<String> partitions, HiveMetastore metastore, Table table)
     {
         Map<String, List<HivePartitionKey>> partitionKeys = new HashMap<>();
+        List<String> partitionColumnNames = table.getPartitionColumns().stream().map(Column::getName).collect(Collectors.toList());
         for (String partitionName : partitions) {
-            Optional<Partition> partition = metastore.getPartition(table, HiveUtil.toPartitionValues(partitionName));
+            Optional<Partition> partition = metastore.getPartition(table, extractPartitionValues(partitionName, Optional.of(partitionColumnNames)));
             partition.ifPresent(value -> partitionKeys.put(partitionName, buildPartitionKeys(table.getPartitionColumns(), value.getValues())));
         }
         return partitionKeys;
