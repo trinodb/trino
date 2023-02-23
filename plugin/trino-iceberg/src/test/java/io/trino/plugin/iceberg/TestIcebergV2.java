@@ -541,6 +541,49 @@ public class TestIcebergV2
         }
     }
 
+    @Test
+    public void testSnapshotReferenceSystemTable()
+    {
+        String tableName = "test_snapshot_reference_system_table_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = this.loadTable(tableName);
+        long snapshotId1 = icebergTable.currentSnapshot().snapshotId();
+        icebergTable.manageSnapshots()
+                .createTag("test-tag", snapshotId1)
+                .setMaxRefAgeMs("test-tag", 1)
+                .commit();
+
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation LIMIT 5", 5);
+        icebergTable.refresh();
+        long snapshotId2 = icebergTable.currentSnapshot().snapshotId();
+        icebergTable.manageSnapshots()
+                .createBranch("test-branch", snapshotId2)
+                .setMaxSnapshotAgeMs("test-branch", 1)
+                .commit();
+
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation LIMIT 5", 5);
+        icebergTable.refresh();
+        long snapshotId3 = icebergTable.currentSnapshot().snapshotId();
+        icebergTable.manageSnapshots()
+                .createBranch("test-branch2", snapshotId3)
+                .setMinSnapshotsToKeep("test-branch2", 1)
+                .commit();
+
+        assertQuery("SHOW COLUMNS FROM \"" + tableName + "$refs\"",
+                "VALUES ('name', 'varchar', '', '')," +
+                        "('type', 'varchar', '', '')," +
+                        "('snapshot_id', 'bigint', '', '')," +
+                        "('max_reference_age_in_ms', 'bigint', '', '')," +
+                        "('min_snapshots_to_keep', 'integer', '', '')," +
+                        "('max_snapshot_age_in_ms', 'bigint', '', '')");
+
+        assertQuery("SELECT * FROM \"" + tableName + "$refs\"",
+                "VALUES ('test-tag', 'TAG', " + snapshotId1 + ", 1, null, null)," +
+                        "('test-branch', 'BRANCH', " + snapshotId2 + ", null, null, 1)," +
+                        "('test-branch2', 'BRANCH', " + snapshotId3 + ", null, 1, null)," +
+                        "('main', 'BRANCH', " + snapshotId3 + ", null, null, null)");
+    }
+
     private void writeEqualityDeleteToNationTable(Table icebergTable)
             throws Exception
     {

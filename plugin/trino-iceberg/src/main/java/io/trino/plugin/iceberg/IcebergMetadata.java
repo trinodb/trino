@@ -482,6 +482,7 @@ public class IcebergMetadata
             case MANIFESTS -> Optional.of(new ManifestsTable(systemTableName, table, getCurrentSnapshotId(table)));
             case FILES -> Optional.of(new FilesTable(systemTableName, typeManager, table, getCurrentSnapshotId(table)));
             case PROPERTIES -> Optional.of(new PropertiesTable(systemTableName, table));
+            case REFS -> Optional.of(new RefsTable(systemTableName, table));
         };
     }
 
