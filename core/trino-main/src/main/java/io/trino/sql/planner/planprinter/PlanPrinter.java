@@ -584,7 +584,7 @@ public class PlanPrinter
                     hashColumn));
         }
 
-        fragment.getPartitionCount().ifPresent(partitionCount -> builder.append(format("Partition count: %s\n", partitionCount)));
+        fragment.getPartitionCount().ifPresent(partitionCount -> builder.append(format("%sPartition count: %s\n", indentString(1), partitionCount)));
 
         builder.append(
                         new PlanPrinter(
