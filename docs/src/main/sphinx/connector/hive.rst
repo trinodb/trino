@@ -1024,8 +1024,10 @@ to the connector using a :doc:`WITH </sql/create-table-as>` clause::
     - The CSV quote character. Requires CSV format.
     -
   * - ``csv_separator``
-    - The CSV separator character. Requires CSV format.
-    -
+    - The CSV separator character. Requires CSV format. You can use other
+      separators such as ``|`` or use Unicode to configure invisible separators
+      such tabs with ``U&'\0009'``.
+    - ``,``
   * - ``external_location``
     - The URI for an external Hive table on S3, Azure Blob Storage, etc. See the
       :ref:`hive_examples` for more information.
