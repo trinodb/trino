@@ -1356,6 +1356,50 @@ The output of the query has the following columns:
     - ``array(integer)``
     - The set of field IDs used for equality comparison in equality delete files
 
+``$refs`` table
+^^^^^^^^^^^^^^^
+
+The ``$refs`` table provides information about Iceberg references including branches and tags.
+
+You can retrieve the references of the Iceberg table ``test_table`` by using the following query::
+
+    SELECT * FROM "test_table$refs"
+
+.. code-block:: text
+
+    name            | type   | snapshot_id | max_reference_age_in_ms | min_snapshots_to_keep | max_snapshot_age_in_ms |
+    ----------------+--------+-------------+-------------------------+-----------------------+------------------------+
+    example_tag     | TAG    | 10000000000 | 10000                   | null                  | null                   |
+    example_branch  | BRANCH | 20000000000 | 20000                   | 2                     | 30000                  |
+
+The output of the query has the following columns:
+
+.. list-table:: Refs columns
+  :widths: 20, 30, 50
+  :header-rows: 1
+
+  * - Name
+    - Type
+    - Description
+  * - ``name``
+    - ``varchar``
+    - Name of the reference
+  * - ``type``
+    - ``varchar``
+    - Type of the reference, either ``BRANCH`` or ``TAG``
+  * - ``snapshot_id``
+    - ``bigint``
+    - The snapshot ID of the reference
+  * - ``max_reference_age_in_ms``
+    - ``bigint``
+    - The maximum age of the reference before it could be expired.
+  * - ``min_snapshots_to_keep``
+    - ``integer``
+    - For branch only, the minimum number of snapshots to keep in a branch.
+  * - ``max_snapshot_age_in_ms``
+    - ``bigint``
+    - For branch only, the max snapshot age allowed in a branch. Older snapshots in the branch will be expired.
+
 .. _iceberg-materialized-views:
 
 Materialized views
