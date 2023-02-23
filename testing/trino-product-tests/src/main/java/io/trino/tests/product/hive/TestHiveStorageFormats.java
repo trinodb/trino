@@ -304,6 +304,8 @@ public class TestHiveStorageFormats
         Set<String> allFormatsToTest = allFormats.stream()
                 // Hive CSV storage format only supports VARCHAR, so needs to be excluded from any generic tests
                 .filter(format -> !"CSV".equals(format))
+                // REGEX is read-only
+                .filter(format -> !"REGEX".equals(format))
                 // TODO when using JSON serde Hive fails with ClassNotFoundException: org.apache.hive.hcatalog.data.JsonSerDe
                 .filter(format -> !"JSON".equals(format))
                 .collect(toImmutableSet());

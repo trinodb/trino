@@ -116,6 +116,10 @@ public class TestHivePageSink
                     // CSV supports only unbounded VARCHAR type, which is not provided by lineitem
                     continue;
                 }
+                if (format == HiveStorageFormat.REGEX) {
+                    // REGEX format is readonly
+                    continue;
+                }
                 config.setHiveStorageFormat(format);
                 config.setHiveCompressionCodec(NONE);
                 long uncompressedLength = writeTestFile(config, metastore, makeFileName(tempDir, config));
