@@ -14,10 +14,10 @@
 package io.trino.plugin.iceberg.catalog.jdbc;
 
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.fileio.ForwardingFileIo;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
