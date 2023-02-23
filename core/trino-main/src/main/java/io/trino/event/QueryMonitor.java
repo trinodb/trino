@@ -13,6 +13,9 @@
  */
 package io.trino.event;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
+import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -23,6 +26,7 @@ import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.stats.Distribution;
 import io.airlift.stats.Distribution.DistributionSnapshot;
+import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.trino.SessionRepresentation;
 import io.trino.client.NodeVersion;
@@ -77,6 +81,7 @@ import org.joda.time.DateTime;
 
 import javax.inject.Inject;
 
+import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -131,8 +136,8 @@ public class QueryMonitor
             QueryMonitorConfig config)
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
-        this.stageInfoCodec = requireNonNull(stageInfoCodec, "stageInfoCodec is null");
-        this.operatorStatsCodec = requireNonNull(operatorStatsCodec, "operatorStatsCodec is null");
+        this.stageInfoCodec = requireNonNull(ignoreTDigest(stageInfoCodec), "stageInfoCodec is null");
+        this.operatorStatsCodec = requireNonNull(ignoreTDigest(operatorStatsCodec), "operatorStatsCodec is null");
         this.statsAndCostsCodec = requireNonNull(statsAndCostsCodec, "statsAndCostsCodec is null");
         this.executionFailureInfoCodec = requireNonNull(executionFailureInfoCodec, "executionFailureInfoCodec is null");
         this.serverVersion = nodeVersion;
@@ -783,6 +788,26 @@ public class QueryMonitor
         public String toString()
         {
             return fragmentId + ":" + nodeId;
+        }
+    }
+
+    private static <T> JsonCodec<T> ignoreTDigest(JsonCodec<T> jsonCodec)
+    {
+        try {
+            Field field = JsonCodec.class.getDeclaredField("mapper");
+            field.setAccessible(true);
+            ObjectMapper mapper = (ObjectMapper) field.get(jsonCodec);
+            mapper.setAnnotationIntrospector(new JacksonAnnotationIntrospector() {
+                @Override
+                public boolean hasIgnoreMarker(AnnotatedMember m)
+                {
+                    return m.getRawType() == TDigest.class || super.hasIgnoreMarker(m);
+                }
+            });
+            return jsonCodec;
+        }
+        catch (IllegalAccessException | NoSuchFieldException e) {
+            throw new RuntimeException(e);
         }
     }
 }

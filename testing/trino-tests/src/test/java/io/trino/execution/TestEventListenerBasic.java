@@ -1138,6 +1138,17 @@ public class TestEventListenerBasic
                                 new ColumnDetail("tpch", "sf1", "orders", "custkey"))));
     }
 
+    @Test
+    public void testIgnoreTDigest()
+            throws Exception
+    {
+        String sql = "SELECT COUNT(1) FROM tpch.tiny.nation";
+        QueryEvents queryEvents = runQueryAndWaitForEvents(sql).getQueryEvents();
+        QueryCompletedEvent queryCompletedEvent = queryEvents.getQueryCompletedEvent();
+        String json = JsonCodec.jsonCodec(QueryCompletedEvent.class).toJson(queryCompletedEvent);
+        assertThat(json).doesNotContain("\\\"digest\\\":");
+    }
+
     @DataProvider
     public Object[][] setOperator()
     {
