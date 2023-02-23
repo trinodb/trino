@@ -136,13 +136,6 @@ public enum CompressionKind
                 .orElseThrow(() -> new IllegalArgumentException("Unknown codec: " + hadoopClassName));
     }
 
-    public static Codec createCodecFromHadoopClassName(String hadoopClassName)
-    {
-        return Optional.ofNullable(CODECS_BY_HADOOP_CLASS_NAME.get(hadoopClassName))
-                .orElseThrow(() -> new IllegalArgumentException("Unknown codec: " + hadoopClassName))
-                .createCodec();
-    }
-
     private static final Map<String, CompressionKind> CODECS_BY_FILE_EXTENSION = Arrays.stream(values())
             .filter(codec -> codec.fileExtension != null)
             .collect(toImmutableMap(codec -> codec.fileExtension, Function.identity()));
