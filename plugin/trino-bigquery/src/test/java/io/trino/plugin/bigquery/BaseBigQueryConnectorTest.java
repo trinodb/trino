@@ -734,6 +734,29 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Test
+    public void testNativeQueryColumnAlias()
+    {
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region WHERE regionkey = 0'))"))
+                .hasColumnNames("region_name")
+                .matches("VALUES CAST('AFRICA' AS VARCHAR)");
+
+        assertThat(query("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region WHERE regionkey = 0'))"))
+                .hasColumnNames("region_name")
+                .matches("VALUES CAST('AFRICA' AS VARCHAR)");
+    }
+
+    @Test
+    public void testNativeQueryColumnAliasNotFound()
+    {
+        assertQueryFails(
+                "SELECT name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region'))",
+                ".* Column 'name' cannot be resolved");
+        assertQueryFails(
+                "SELECT column_not_found FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region'))",
+                ".* Column 'column_not_found' cannot be resolved");
+    }
+
+    @Test
     public void testNativeQuerySelectFromTestTable()
     {
         String tableName = "test.test_select" + randomNameSuffix();
