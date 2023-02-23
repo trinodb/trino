@@ -292,12 +292,12 @@ public class SemiTransactionalHiveMetastore
         return delegate.getSupportedColumnStatistics(type);
     }
 
-    public synchronized PartitionStatistics getTableStatistics(String databaseName, String tableName)
+    public synchronized PartitionStatistics getTableStatistics(String databaseName, String tableName, Optional<Set<String>> columns)
     {
         checkReadable();
         Action<TableAndMore> tableAction = tableActions.get(new SchemaTableName(databaseName, tableName));
         if (tableAction == null) {
-            return delegate.getTableStatistics(databaseName, tableName);
+            return delegate.getTableStatistics(databaseName, tableName, columns);
         }
         switch (tableAction.getType()) {
             case ADD:
@@ -314,7 +314,7 @@ public class SemiTransactionalHiveMetastore
         throw new IllegalStateException("Unknown action type: " + tableAction.getType());
     }
 
-    public synchronized Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
+    public synchronized Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> columns, Set<String> partitionNames)
     {
         checkReadable();
         Optional<Table> table = getTable(databaseName, tableName);
@@ -345,7 +345,7 @@ public class SemiTransactionalHiveMetastore
             }
         }
 
-        Map<String, PartitionStatistics> delegateResult = delegate.getPartitionStatistics(databaseName, tableName, partitionNamesToQuery.build());
+        Map<String, PartitionStatistics> delegateResult = delegate.getPartitionStatistics(databaseName, tableName, partitionNamesToQuery.build(), Optional.of(columns));
         if (!delegateResult.isEmpty()) {
             resultBuilder.putAll(delegateResult);
         }
@@ -677,7 +677,7 @@ public class SemiTransactionalHiveMetastore
             if (isAcidTransactionRunning()) {
                 table = Table.builder(table).setWriteId(OptionalLong.of(currentHiveTransaction.orElseThrow().getTransaction().getWriteId())).build();
             }
-            PartitionStatistics currentStatistics = getTableStatistics(databaseName, tableName);
+            PartitionStatistics currentStatistics = getTableStatistics(databaseName, tableName, Optional.empty());
             HdfsContext hdfsContext = new HdfsContext(session);
             tableActions.put(
                     schemaTableName,
