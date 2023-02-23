@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.json.JsonCodec;
 import io.airlift.stats.TDigest;
 import io.airlift.units.Duration;
@@ -1168,9 +1169,12 @@ public class PlanPrinter
             printTableScanInfo(nodeOutput, node, tableInfo);
             PlanNodeStats nodeStats = stats.map(s -> s.get(node.getId())).orElse(null);
             if (nodeStats != null) {
-                StringBuilder inputDetailBuilder = new StringBuilder("Input: %s (%s)");
+                StringBuilder inputDetailBuilder = new StringBuilder();
                 ImmutableList.Builder<String> argsBuilder = ImmutableList.builder();
-                argsBuilder.add(
+                buildFormatString(
+                        inputDetailBuilder,
+                        argsBuilder,
+                        "Input: %s (%s)",
                         formatPositions(nodeStats.getPlanNodeInputPositions()),
                         nodeStats.getPlanNodeInputDataSize().toString());
                 addPhysicalInputStats(nodeStats, inputDetailBuilder, argsBuilder);
@@ -1294,9 +1298,12 @@ public class PlanPrinter
                 if (nodeStats != null) {
                     // Add to 'details' rather than 'statistics', since these stats are node-specific
                     double filtered = 100.0d * (nodeStats.getPlanNodeInputPositions() - nodeStats.getPlanNodeOutputPositions()) / nodeStats.getPlanNodeInputPositions();
-                    StringBuilder inputDetailBuilder = new StringBuilder("Input: %s (%s), Filtered: %s%%");
+                    StringBuilder inputDetailBuilder = new StringBuilder();
                     ImmutableList.Builder<String> argsBuilder = ImmutableList.builder();
-                    argsBuilder.add(
+                    buildFormatString(
+                            inputDetailBuilder,
+                            argsBuilder,
+                            "Input: %s (%s), Filtered: %s%%",
                             formatPositions(nodeStats.getPlanNodeInputPositions()),
                             nodeStats.getPlanNodeInputDataSize().toString(),
                             formatDouble(filtered));
@@ -1334,16 +1341,20 @@ public class PlanPrinter
         private static void addPhysicalInputStats(PlanNodeStats nodeStats, StringBuilder inputDetailBuilder, ImmutableList.Builder<String> argsBuilder)
         {
             if (nodeStats.getPlanNodePhysicalInputDataSize().toBytes() > 0) {
-                inputDetailBuilder.append(", Physical input: %s");
-                argsBuilder.add(nodeStats.getPlanNodePhysicalInputDataSize().toString());
-                inputDetailBuilder.append(", Physical input time: %s");
-                argsBuilder.add(nodeStats.getPlanNodePhysicalInputReadTime().toString());
+                buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input: %s", nodeStats.getPlanNodePhysicalInputDataSize().toString());
+                buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input time: %s", nodeStats.getPlanNodePhysicalInputReadTime().toString());
             }
             // Some connectors may report physical input time but not physical input data size
             else if (nodeStats.getPlanNodePhysicalInputReadTime().getValue() > 0) {
-                inputDetailBuilder.append(", Physical input time: %s");
-                argsBuilder.add(nodeStats.getPlanNodePhysicalInputReadTime().toString());
+                buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input time: %s", nodeStats.getPlanNodePhysicalInputReadTime().toString());
             }
+        }
+
+        @FormatMethod
+        private static void buildFormatString(StringBuilder formatBuilder, ImmutableList.Builder<String> argsBuilder, String formatFragment, String... fragmentArgs)
+        {
+            formatBuilder.append(formatFragment);
+            argsBuilder.add(fragmentArgs);
         }
 
         private String printDynamicFilters(Collection<DynamicFilters.Descriptor> filters)
