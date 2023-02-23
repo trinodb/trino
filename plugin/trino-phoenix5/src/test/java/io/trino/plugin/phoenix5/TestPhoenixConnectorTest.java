@@ -602,6 +602,24 @@ public class TestPhoenixConnectorTest
     }
 
     @Override
+    public void testNativeQueryColumnAlias()
+    {
+        // not implemented
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region WHERE regionkey = 0'))",
+                ".* Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQueryColumnAliasNotFound()
+    {
+        // not implemented
+        assertQueryFails(
+                "SELECT name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region'))",
+                ".* Table function system.query not registered");
+    }
+
+    @Override
     public void testNativeQueryCreateStatement()
     {
         // not implemented

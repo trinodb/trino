@@ -685,6 +685,24 @@ public abstract class BaseClickHouseConnectorTest
     }
 
     @Override
+    public void testNativeQueryColumnAlias()
+    {
+        // table function disabled for ClickHouse, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region WHERE regionkey = 0'))",
+                ".* Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQueryColumnAliasNotFound()
+    {
+        // table function disabled for ClickHouse, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
+        assertQueryFails(
+                "SELECT name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region'))",
+                ".* Table function system.query not registered");
+    }
+
+    @Override
     public void testNativeQuerySelectUnsupportedType()
     {
         // table function disabled for ClickHouse, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
