@@ -13,256 +13,532 @@
  */
 package io.trino.type;
 
-import io.trino.operator.scalar.AbstractTestFunctions;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.spi.function.OperatorType.ADD;
+import static io.trino.spi.function.OperatorType.DIVIDE;
+import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MULTIPLY;
+import static io.trino.spi.function.OperatorType.NEGATION;
+import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestIntegerOperators
-        extends AbstractTestFunctions
 {
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     @Test
     public void testLiteral()
     {
-        assertFunction("INTEGER '37'", INTEGER, 37);
-        assertFunction("INTEGER '17'", INTEGER, 17);
-        assertInvalidFunction("INTEGER '" + ((long) Integer.MAX_VALUE + 1L) + "'", INVALID_LITERAL);
+        assertThat(assertions.expression("INTEGER '37'"))
+                .isEqualTo(37);
+
+        assertThat(assertions.expression("INTEGER '17'"))
+                .isEqualTo(17);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("INTEGER '" + ((long) Integer.MAX_VALUE + 1L) + "'").evaluate())
+                .hasErrorCode(INVALID_LITERAL);
     }
 
     @Test
     public void testUnaryPlus()
     {
-        assertFunction("+INTEGER '37'", INTEGER, 37);
-        assertFunction("+INTEGER '17'", INTEGER, 17);
+        assertThat(assertions.expression("+INTEGER '37'"))
+                .isEqualTo(37);
+
+        assertThat(assertions.expression("+INTEGER '17'"))
+                .isEqualTo(17);
     }
 
     @Test
     public void testUnaryMinus()
     {
-        assertFunction("INTEGER '-37'", INTEGER, -37);
-        assertFunction("INTEGER '-17'", INTEGER, -17);
-        assertInvalidFunction("INTEGER '-" + Integer.MIN_VALUE + "'", INVALID_LITERAL);
+        assertThat(assertions.expression("INTEGER '-37'"))
+                .isEqualTo(-37);
+
+        assertThat(assertions.expression("INTEGER '-17'"))
+                .isEqualTo(-17);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("INTEGER '-" + Integer.MIN_VALUE + "'").evaluate())
+                .hasErrorCode(INVALID_LITERAL);
     }
 
     @Test
     public void testAdd()
     {
-        assertFunction("INTEGER '37' + INTEGER '37'", INTEGER, 37 + 37);
-        assertFunction("INTEGER '37' + INTEGER '17'", INTEGER, 37 + 17);
-        assertFunction("INTEGER '17' + INTEGER '37'", INTEGER, 17 + 37);
-        assertFunction("INTEGER '17' + INTEGER '17'", INTEGER, 17 + 17);
-        assertNumericOverflow(format("INTEGER '%s' + INTEGER '1'", Integer.MAX_VALUE), "integer addition overflow: 2147483647 + 1");
+        assertThat(assertions.operator(ADD, "INTEGER '37'", "INTEGER '37'"))
+                .isEqualTo(37 + 37);
+
+        assertThat(assertions.operator(ADD, "INTEGER '37'", "INTEGER '17'"))
+                .isEqualTo(37 + 17);
+
+        assertThat(assertions.operator(ADD, "INTEGER '17'", "INTEGER '37'"))
+                .isEqualTo(17 + 37);
+
+        assertThat(assertions.operator(ADD, "INTEGER '17'", "INTEGER '17'"))
+                .isEqualTo(17 + 17);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression(format("INTEGER '%s' + INTEGER '1'", Integer.MAX_VALUE)).evaluate())
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("integer addition overflow: 2147483647 + 1");
     }
 
     @Test
     public void testSubtract()
     {
-        assertFunction("INTEGER '37' - INTEGER '37'", INTEGER, 0);
-        assertFunction("INTEGER '37' - INTEGER '17'", INTEGER, 37 - 17);
-        assertFunction("INTEGER '17' - INTEGER '37'", INTEGER, 17 - 37);
-        assertFunction("INTEGER '17' - INTEGER '17'", INTEGER, 0);
-        assertNumericOverflow(format("INTEGER '%s' - INTEGER '1'", Integer.MIN_VALUE), "integer subtraction overflow: -2147483648 - 1");
+        assertThat(assertions.operator(SUBTRACT, "INTEGER '37'", "INTEGER '37'"))
+                .isEqualTo(0);
+
+        assertThat(assertions.operator(SUBTRACT, "INTEGER '37'", "INTEGER '17'"))
+                .isEqualTo(37 - 17);
+
+        assertThat(assertions.operator(SUBTRACT, "INTEGER '17'", "INTEGER '37'"))
+                .isEqualTo(17 - 37);
+
+        assertThat(assertions.operator(SUBTRACT, "INTEGER '17'", "INTEGER '17'"))
+                .isEqualTo(0);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression(format("INTEGER '%s' - INTEGER '1'", Integer.MIN_VALUE)).evaluate())
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("integer subtraction overflow: -2147483648 - 1");
     }
 
     @Test
     public void testMultiply()
     {
-        assertFunction("INTEGER '37' * INTEGER '37'", INTEGER, 37 * 37);
-        assertFunction("INTEGER '37' * INTEGER '17'", INTEGER, 37 * 17);
-        assertFunction("INTEGER '17' * INTEGER '37'", INTEGER, 17 * 37);
-        assertFunction("INTEGER '17' * INTEGER '17'", INTEGER, 17 * 17);
-        assertNumericOverflow(format("INTEGER '%s' * INTEGER '2'", Integer.MAX_VALUE), "integer multiplication overflow: 2147483647 * 2");
+        assertThat(assertions.operator(MULTIPLY, "INTEGER '37'", "INTEGER '37'"))
+                .isEqualTo(37 * 37);
+
+        assertThat(assertions.operator(MULTIPLY, "INTEGER '37'", "INTEGER '17'"))
+                .isEqualTo(37 * 17);
+
+        assertThat(assertions.operator(MULTIPLY, "INTEGER '17'", "INTEGER '37'"))
+                .isEqualTo(17 * 37);
+
+        assertThat(assertions.operator(MULTIPLY, "INTEGER '17'", "INTEGER '17'"))
+                .isEqualTo(17 * 17);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression(format("INTEGER '%s' * INTEGER '2'", Integer.MAX_VALUE)).evaluate())
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("integer multiplication overflow: 2147483647 * 2");
     }
 
     @Test
     public void testDivide()
     {
-        assertFunction("INTEGER '37' / INTEGER '37'", INTEGER, 1);
-        assertFunction("INTEGER '37' / INTEGER '17'", INTEGER, 37 / 17);
-        assertFunction("INTEGER '17' / INTEGER '37'", INTEGER, 17 / 37);
-        assertFunction("INTEGER '17' / INTEGER '17'", INTEGER, 1);
-        assertInvalidFunction("INTEGER '17' / INTEGER '0'", DIVISION_BY_ZERO);
+        assertThat(assertions.operator(DIVIDE, "INTEGER '37'", "INTEGER '37'"))
+                .isEqualTo(1);
+
+        assertThat(assertions.operator(DIVIDE, "INTEGER '37'", "INTEGER '17'"))
+                .isEqualTo(37 / 17);
+
+        assertThat(assertions.operator(DIVIDE, "INTEGER '17'", "INTEGER '37'"))
+                .isEqualTo(17 / 37);
+
+        assertThat(assertions.operator(DIVIDE, "INTEGER '17'", "INTEGER '17'"))
+                .isEqualTo(1);
+
+        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "INTEGER '17'", "INTEGER '0'").evaluate())
+                .hasErrorCode(DIVISION_BY_ZERO);
     }
 
     @Test
     public void testModulus()
     {
-        assertFunction("INTEGER '37' % INTEGER '37'", INTEGER, 0);
-        assertFunction("INTEGER '37' % INTEGER '17'", INTEGER, 37 % 17);
-        assertFunction("INTEGER '17' % INTEGER '37'", INTEGER, 17 % 37);
-        assertFunction("INTEGER '17' % INTEGER '17'", INTEGER, 0);
-        assertInvalidFunction("INTEGER '17' % INTEGER '0'", DIVISION_BY_ZERO);
+        assertThat(assertions.operator(MODULUS, "INTEGER '37'", "INTEGER '37'"))
+                .isEqualTo(0);
+
+        assertThat(assertions.operator(MODULUS, "INTEGER '37'", "INTEGER '17'"))
+                .isEqualTo(37 % 17);
+
+        assertThat(assertions.operator(MODULUS, "INTEGER '17'", "INTEGER '37'"))
+                .isEqualTo(17 % 37);
+
+        assertThat(assertions.operator(MODULUS, "INTEGER '17'", "INTEGER '17'"))
+                .isEqualTo(0);
+
+        assertTrinoExceptionThrownBy(() -> assertions.operator(MODULUS, "INTEGER '17'", "INTEGER '0'").evaluate())
+                .hasErrorCode(DIVISION_BY_ZERO);
     }
 
     @Test
     public void testNegation()
     {
-        assertFunction("-(INTEGER '37')", INTEGER, -37);
-        assertFunction("-(INTEGER '17')", INTEGER, -17);
-        assertFunction("-(INTEGER '" + Integer.MAX_VALUE + "')", INTEGER, Integer.MIN_VALUE + 1);
-        assertNumericOverflow(format("-(INTEGER '%s')", Integer.MIN_VALUE), "integer negation overflow: -2147483648");
+        assertThat(assertions.operator(NEGATION, "(INTEGER '37')"))
+                .isEqualTo(-37);
+
+        assertThat(assertions.operator(NEGATION, "(INTEGER '17')"))
+                .isEqualTo(-17);
+
+        assertThat(assertions.expression("-(INTEGER '" + Integer.MAX_VALUE + "')"))
+                .isEqualTo(Integer.MIN_VALUE + 1);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression(format("-(INTEGER '%s')", Integer.MIN_VALUE)).evaluate())
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("integer negation overflow: -2147483648");
     }
 
     @Test
     public void testEqual()
     {
-        assertFunction("INTEGER '37' = INTEGER '37'", BOOLEAN, true);
-        assertFunction("INTEGER '37' = INTEGER '17'", BOOLEAN, false);
-        assertFunction("INTEGER '17' = INTEGER '37'", BOOLEAN, false);
-        assertFunction("INTEGER '17' = INTEGER '17'", BOOLEAN, true);
+        assertThat(assertions.operator(EQUAL, "INTEGER '37'", "INTEGER '37'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(EQUAL, "INTEGER '37'", "INTEGER '17'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "INTEGER '17'", "INTEGER '37'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "INTEGER '17'", "INTEGER '17'"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testNotEqual()
     {
-        assertFunction("INTEGER '37' <> INTEGER '37'", BOOLEAN, false);
-        assertFunction("INTEGER '37' <> INTEGER '17'", BOOLEAN, true);
-        assertFunction("INTEGER '17' <> INTEGER '37'", BOOLEAN, true);
-        assertFunction("INTEGER '17' <> INTEGER '17'", BOOLEAN, false);
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "INTEGER '37'")
+                .binding("b", "INTEGER '37'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "INTEGER '37'")
+                .binding("b", "INTEGER '17'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "INTEGER '17'")
+                .binding("b", "INTEGER '37'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "INTEGER '17'")
+                .binding("b", "INTEGER '17'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testLessThan()
     {
-        assertFunction("INTEGER '37' < INTEGER '37'", BOOLEAN, false);
-        assertFunction("INTEGER '37' < INTEGER '17'", BOOLEAN, false);
-        assertFunction("INTEGER '17' < INTEGER '37'", BOOLEAN, true);
-        assertFunction("INTEGER '17' < INTEGER '17'", BOOLEAN, false);
+        assertThat(assertions.operator(LESS_THAN, "INTEGER '37'", "INTEGER '37'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "INTEGER '37'", "INTEGER '17'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "INTEGER '17'", "INTEGER '37'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN, "INTEGER '17'", "INTEGER '17'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testLessThanOrEqual()
     {
-        assertFunction("INTEGER '37' <= INTEGER '37'", BOOLEAN, true);
-        assertFunction("INTEGER '37' <= INTEGER '17'", BOOLEAN, false);
-        assertFunction("INTEGER '17' <= INTEGER '37'", BOOLEAN, true);
-        assertFunction("INTEGER '17' <= INTEGER '17'", BOOLEAN, true);
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "INTEGER '37'", "INTEGER '37'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "INTEGER '37'", "INTEGER '17'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "INTEGER '17'", "INTEGER '37'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "INTEGER '17'", "INTEGER '17'"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testGreaterThan()
     {
-        assertFunction("INTEGER '37' > INTEGER '37'", BOOLEAN, false);
-        assertFunction("INTEGER '37' > INTEGER '17'", BOOLEAN, true);
-        assertFunction("INTEGER '17' > INTEGER '37'", BOOLEAN, false);
-        assertFunction("INTEGER '17' > INTEGER '17'", BOOLEAN, false);
+        assertThat(assertions.expression("a > b")
+                .binding("a", "INTEGER '37'")
+                .binding("b", "INTEGER '37'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "INTEGER '37'")
+                .binding("b", "INTEGER '17'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "INTEGER '17'")
+                .binding("b", "INTEGER '37'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "INTEGER '17'")
+                .binding("b", "INTEGER '17'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testGreaterThanOrEqual()
     {
-        assertFunction("INTEGER '37' >= INTEGER '37'", BOOLEAN, true);
-        assertFunction("INTEGER '37' >= INTEGER '17'", BOOLEAN, true);
-        assertFunction("INTEGER '17' >= INTEGER '37'", BOOLEAN, false);
-        assertFunction("INTEGER '17' >= INTEGER '17'", BOOLEAN, true);
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "INTEGER '37'")
+                .binding("b", "INTEGER '37'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "INTEGER '37'")
+                .binding("b", "INTEGER '17'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "INTEGER '17'")
+                .binding("b", "INTEGER '37'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "INTEGER '17'")
+                .binding("b", "INTEGER '17'"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testBetween()
     {
-        assertFunction("INTEGER '37' BETWEEN INTEGER '37' AND INTEGER '37'", BOOLEAN, true);
-        assertFunction("INTEGER '37' BETWEEN INTEGER '37' AND INTEGER '17'", BOOLEAN, false);
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTEGER '37'")
+                .binding("low", "INTEGER '37'")
+                .binding("high", "INTEGER '37'"))
+                .isEqualTo(true);
 
-        assertFunction("INTEGER '37' BETWEEN INTEGER '17' AND INTEGER '37'", BOOLEAN, true);
-        assertFunction("INTEGER '37' BETWEEN INTEGER '17' AND INTEGER '17'", BOOLEAN, false);
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTEGER '37'")
+                .binding("low", "INTEGER '37'")
+                .binding("high", "INTEGER '17'"))
+                .isEqualTo(false);
 
-        assertFunction("INTEGER '17' BETWEEN INTEGER '37' AND INTEGER '37'", BOOLEAN, false);
-        assertFunction("INTEGER '17' BETWEEN INTEGER '37' AND INTEGER '17'", BOOLEAN, false);
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTEGER '37'")
+                .binding("low", "INTEGER '17'")
+                .binding("high", "INTEGER '37'"))
+                .isEqualTo(true);
 
-        assertFunction("INTEGER '17' BETWEEN INTEGER '17' AND INTEGER '37'", BOOLEAN, true);
-        assertFunction("INTEGER '17' BETWEEN INTEGER '17' AND INTEGER '17'", BOOLEAN, true);
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTEGER '37'")
+                .binding("low", "INTEGER '17'")
+                .binding("high", "INTEGER '17'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTEGER '17'")
+                .binding("low", "INTEGER '37'")
+                .binding("high", "INTEGER '37'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTEGER '17'")
+                .binding("low", "INTEGER '37'")
+                .binding("high", "INTEGER '17'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTEGER '17'")
+                .binding("low", "INTEGER '17'")
+                .binding("high", "INTEGER '37'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTEGER '17'")
+                .binding("low", "INTEGER '17'")
+                .binding("high", "INTEGER '17'"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testCastToBigint()
     {
-        assertFunction("cast(INTEGER '37' as bigint)", BIGINT, 37L);
-        assertFunction("cast(INTEGER '17' as bigint)", BIGINT, 17L);
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "INTEGER '37'"))
+                .isEqualTo(37L);
+
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "INTEGER '17'"))
+                .isEqualTo(17L);
     }
 
     @Test
     public void testCastToSmallint()
     {
-        assertFunction("cast(INTEGER '37' as smallint)", SMALLINT, (short) 37);
-        assertFunction("cast(INTEGER '17' as smallint)", SMALLINT, (short) 17);
+        assertThat(assertions.expression("cast(a as smallint)")
+                .binding("a", "INTEGER '37'"))
+                .isEqualTo((short) 37);
+
+        assertThat(assertions.expression("cast(a as smallint)")
+                .binding("a", "INTEGER '17'"))
+                .isEqualTo((short) 17);
     }
 
     @Test
     public void testCastToTinyint()
     {
-        assertFunction("cast(INTEGER '37' as tinyint)", TINYINT, (byte) 37);
-        assertFunction("cast(INTEGER '17' as tinyint)", TINYINT, (byte) 17);
+        assertThat(assertions.expression("cast(a as tinyint)")
+                .binding("a", "INTEGER '37'"))
+                .isEqualTo((byte) 37);
+
+        assertThat(assertions.expression("cast(a as tinyint)")
+                .binding("a", "INTEGER '17'"))
+                .isEqualTo((byte) 17);
     }
 
     @Test
     public void testCastToVarchar()
     {
-        assertFunction("cast(INTEGER '37' as varchar)", VARCHAR, "37");
-        assertFunction("cast(INTEGER '17' as varchar)", VARCHAR, "17");
-        assertFunction("cast(INTEGER '123' as varchar(3))", createVarcharType(3), "123");
-        assertFunction("cast(INTEGER '123' as varchar(50))", createVarcharType(50), "123");
-        assertInvalidCast("cast(INTEGER '123' as varchar(2))", "Value 123 cannot be represented as varchar(2)");
+        assertThat(assertions.expression("cast(a as varchar)")
+                .binding("a", "INTEGER '37'"))
+                .hasType(VARCHAR)
+                .isEqualTo("37");
+
+        assertThat(assertions.expression("cast(a as varchar)")
+                .binding("a", "INTEGER '17'"))
+                .hasType(VARCHAR)
+                .isEqualTo("17");
+
+        assertThat(assertions.expression("cast(a as varchar(3))")
+                .binding("a", "INTEGER '123'"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("123");
+
+        assertThat(assertions.expression("cast(a as varchar(50))")
+                .binding("a", "INTEGER '123'"))
+                .hasType(createVarcharType(50))
+                .isEqualTo("123");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as varchar(2))")
+                .binding("a", "INTEGER '123'")
+                .evaluate())
+                .hasMessage("Value 123 cannot be represented as varchar(2)")
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
     }
 
     @Test
     public void testCastToDouble()
     {
-        assertFunction("cast(INTEGER '37' as double)", DOUBLE, 37.0);
-        assertFunction("cast(INTEGER '17' as double)", DOUBLE, 17.0);
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "INTEGER '37'"))
+                .isEqualTo(37.0);
+
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "INTEGER '17'"))
+                .isEqualTo(17.0);
     }
 
     @Test
     public void testCastToFloat()
     {
-        assertFunction("cast(INTEGER '37' as real)", REAL, 37.0f);
-        assertFunction("cast(INTEGER '-2147483648' as real)", REAL, -2147483648.0f);
-        assertFunction("cast(INTEGER '0' as real)", REAL, 0.0f);
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "INTEGER '37'"))
+                .isEqualTo(37.0f);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "INTEGER '-2147483648'"))
+                .isEqualTo(-2147483648.0f);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "INTEGER '0'"))
+                .isEqualTo(0.0f);
     }
 
     @Test
     public void testCastToBoolean()
     {
-        assertFunction("cast(INTEGER '37' as boolean)", BOOLEAN, true);
-        assertFunction("cast(INTEGER '17' as boolean)", BOOLEAN, true);
-        assertFunction("cast(INTEGER '0' as boolean)", BOOLEAN, false);
+        assertThat(assertions.expression("cast(a as boolean)")
+                .binding("a", "INTEGER '37'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("cast(a as boolean)")
+                .binding("a", "INTEGER '17'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("cast(a as boolean)")
+                .binding("a", "INTEGER '0'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testCastFromVarchar()
     {
-        assertFunction("cast('37' as integer)", INTEGER, 37);
-        assertFunction("cast('17' as integer)", INTEGER, 17);
+        assertThat(assertions.expression("cast(a as integer)")
+                .binding("a", "'37'"))
+                .isEqualTo(37);
+
+        assertThat(assertions.expression("cast(a as integer)")
+                .binding("a", "'17'"))
+                .isEqualTo(17);
     }
 
     @Test
     public void testIsDistinctFrom()
     {
-        assertFunction("CAST(NULL AS INTEGER) IS DISTINCT FROM CAST(NULL AS INTEGER)", BOOLEAN, false);
-        assertFunction("37 IS DISTINCT FROM 37", BOOLEAN, false);
-        assertFunction("37 IS DISTINCT FROM 38", BOOLEAN, true);
-        assertFunction("NULL IS DISTINCT FROM 37", BOOLEAN, true);
-        assertFunction("37 IS DISTINCT FROM NULL", BOOLEAN, true);
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "cast(NULL as INTEGER)", "CAST(NULL AS INTEGER)"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "37", "37"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "37", "38"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "NULL", "37"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "37", "NULL"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testIndeterminate()
     {
-        assertOperator(INDETERMINATE, "cast(null as integer)", BOOLEAN, true);
-        assertOperator(INDETERMINATE, "12", BOOLEAN, false);
-        assertOperator(INDETERMINATE, "0", BOOLEAN, false);
-        assertOperator(INDETERMINATE, "-23", BOOLEAN, false);
-        assertOperator(INDETERMINATE, "cast(1.4 as integer)", BOOLEAN, false);
+        assertThat(assertions.operator(INDETERMINATE, "cast(null as integer)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(INDETERMINATE, "12"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(INDETERMINATE, "0"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(INDETERMINATE, "-23"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(INDETERMINATE, "cast(1.4 as integer)"))
+                .isEqualTo(false);
     }
 }
