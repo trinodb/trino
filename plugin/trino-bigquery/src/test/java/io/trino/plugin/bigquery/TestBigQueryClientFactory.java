@@ -27,7 +27,7 @@ public class TestBigQueryClientFactory
     @Test
     public void testConfigurationOnly()
     {
-        String projectId = BigQueryClientFactory.calculateBillingProjectId(Optional.of("pid"), Optional.empty());
+        String projectId = BigQueryClient.getParentProjectId(Optional.of("pid"), Optional.empty());
         assertThat(projectId).isEqualTo("pid");
     }
 
@@ -35,7 +35,7 @@ public class TestBigQueryClientFactory
     public void testCredentialsOnly()
             throws Exception
     {
-        String projectId = BigQueryClientFactory.calculateBillingProjectId(Optional.empty(), credentials());
+        String projectId = BigQueryClient.getParentProjectId(Optional.empty(), credentials());
         assertThat(projectId).isEqualTo("presto-bq-credentials-test");
     }
 
@@ -43,7 +43,7 @@ public class TestBigQueryClientFactory
     public void testBothConfigurationAndCredentials()
             throws Exception
     {
-        String projectId = BigQueryClientFactory.calculateBillingProjectId(Optional.of("pid"), credentials());
+        String projectId = BigQueryClient.getParentProjectId(Optional.of("pid"), credentials());
         assertThat(projectId).isEqualTo("pid");
     }
 

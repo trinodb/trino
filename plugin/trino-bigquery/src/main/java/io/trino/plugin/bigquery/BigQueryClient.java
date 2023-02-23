@@ -13,8 +13,12 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.api.gax.rpc.HeaderProvider;
+import com.google.auth.Credentials;
+import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryException;
+import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
@@ -82,20 +86,51 @@ public class BigQueryClient
     private final Optional<String> configProjectId;
 
     public BigQueryClient(
-            BigQuery bigQuery,
-            boolean caseInsensitiveNameMatching,
-            ViewMaterializationCache materializationCache,
-            Duration metadataCacheTtl,
-            Optional<String> configProjectId)
+            BigQueryConfig bigQueryConfig,
+            HeaderProvider headerProvider,
+            Optional<Credentials> credentials,
+            ViewMaterializationCache materializationCache)
     {
-        this.bigQuery = requireNonNull(bigQuery, "bigQuery is null");
         this.materializationCache = requireNonNull(materializationCache, "materializationCache is null");
-        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
+        this.caseInsensitiveNameMatching = bigQueryConfig.isCaseInsensitiveNameMatching();
+
+        Duration metadataCacheTtl = bigQueryConfig.getMetadataCacheTtl();
         this.remoteDatasetCache = EvictableCacheBuilder.newBuilder()
                 .expireAfterWrite(metadataCacheTtl.toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
                 .build(CacheLoader.from(this::listDatasetsFromBigQuery));
-        this.configProjectId = requireNonNull(configProjectId, "projectId is null");
+
+        this.configProjectId = requireNonNull(bigQueryConfig.getProjectId(), "projectId is null");
+
+        Optional<String> configParentProjectId = bigQueryConfig.getParentProjectId();
+        this.bigQuery = createClient(configParentProjectId, credentials, headerProvider);
+    }
+
+    private static BigQuery createClient(Optional<String> configParentProjectId, Optional<Credentials> credentials, HeaderProvider headerProvider)
+    {
+        String parentProjectId = getParentProjectId(configParentProjectId, credentials);
+
+        BigQueryOptions.Builder options = BigQueryOptions.newBuilder()
+                .setHeaderProvider(headerProvider)
+                .setProjectId(parentProjectId);
+        credentials.ifPresent(options::setCredentials);
+
+        return options.build().getService();
+    }
+
+    // Note that at this point the config has been validated, which means that option 2 or option 3 will always be valid
+    static String getParentProjectId(Optional<String> configParentProjectId, Optional<Credentials> credentials)
+    {
+        // 1. Get from configuration
+        return configParentProjectId
+                // 2. Get from the provided credentials, but only ServiceAccountCredentials contains the project id.
+                // All other credentials types (User, AppEngine, GCE, CloudShell, etc.) take it from the environment
+                .orElseGet(() -> credentials
+                        .filter(ServiceAccountCredentials.class::isInstance)
+                        .map(ServiceAccountCredentials.class::cast)
+                        .map(ServiceAccountCredentials::getProjectId)
+                        // 3. No configuration was provided, so get the default from the environment
+                        .orElseGet(BigQueryOptions::getDefaultProjectId));
     }
 
     public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName)
