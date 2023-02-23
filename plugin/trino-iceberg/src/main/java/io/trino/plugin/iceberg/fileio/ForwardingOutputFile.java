@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.fileio;
+package io.trino.plugin.iceberg.fileio;
 
 import com.google.common.io.CountingOutputStream;
 import io.trino.filesystem.TrinoFileSystem;

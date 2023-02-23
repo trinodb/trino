@@ -57,11 +57,6 @@
             <artifactId>javax.inject</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-api</artifactId>
-        </dependency>
-
         <!-- for testing -->
         <dependency>
             <groupId>io.trino</groupId>
