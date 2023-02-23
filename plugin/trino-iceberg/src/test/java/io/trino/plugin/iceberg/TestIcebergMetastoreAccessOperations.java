@@ -43,6 +43,7 @@ import static io.trino.plugin.iceberg.TableType.HISTORY;
 import static io.trino.plugin.iceberg.TableType.MANIFESTS;
 import static io.trino.plugin.iceberg.TableType.PARTITIONS;
 import static io.trino.plugin.iceberg.TableType.PROPERTIES;
+import static io.trino.plugin.iceberg.TableType.REFS;
 import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -295,7 +296,7 @@ public class TestIcebergMetastoreAccessOperations
 
         // This test should get updated if a new system table is added.
         assertThat(TableType.values())
-                .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES);
+                .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES, REFS);
     }
 
     @Test
