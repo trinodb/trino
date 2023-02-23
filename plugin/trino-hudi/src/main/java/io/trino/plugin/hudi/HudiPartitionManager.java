@@ -23,7 +23,6 @@ import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
@@ -135,8 +134,6 @@ public class HudiPartitionManager
             }
             return columnHandle.getName();
         });
-
-
 
         if (partitionPredicate.isAll()) {
             return allPartitions;

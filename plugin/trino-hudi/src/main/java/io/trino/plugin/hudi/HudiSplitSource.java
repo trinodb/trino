@@ -14,7 +14,6 @@
 package io.trino.plugin.hudi;
 
 import com.google.common.util.concurrent.Futures;
-import io.airlift.units.DataSize;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
@@ -23,8 +22,6 @@ import io.trino.plugin.hive.util.ThrottledAsyncQueue;
 import io.trino.plugin.hudi.query.HudiDirectoryLister;
 import io.trino.plugin.hudi.query.HudiReadOptimizedDirectoryLister;
 import io.trino.plugin.hudi.split.HudiBackgroundSplitLoader;
-import io.trino.plugin.hudi.split.HudiSplitWeightProvider;
-import io.trino.plugin.hudi.split.SizeBasedSplitWeightProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -47,10 +44,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
-import static io.trino.plugin.hudi.HudiSessionProperties.getMinimumAssignedSplitWeight;
-import static io.trino.plugin.hudi.HudiSessionProperties.getStandardSplitWeightSize;
 import static io.trino.plugin.hudi.HudiSessionProperties.isHudiMetadataEnabled;
-import static io.trino.plugin.hudi.HudiSessionProperties.isSizeBasedSplitWeightsEnabled;
+import static io.trino.plugin.hudi.HudiUtil.buildTableMetaClient;
+import static io.trino.plugin.hudi.HudiUtil.createSplitWeightProvider;
 import static java.util.stream.Collectors.toList;
 
 public class HudiSplitSource
@@ -137,22 +133,5 @@ public class HudiSplitSource
     public boolean isFinished()
     {
         return splitLoaderFuture.isDone() && queue.isFinished();
-    }
-
-    private static HoodieTableMetaClient buildTableMetaClient(Configuration configuration, String basePath)
-    {
-        HoodieTableMetaClient client = HoodieTableMetaClient.builder().setConf(configuration).setBasePath(basePath).build();
-        client.getTableConfig().setValue("hoodie.bootstrap.index.enable", "false");
-        return client;
-    }
-
-    private static HudiSplitWeightProvider createSplitWeightProvider(ConnectorSession session)
-    {
-        if (isSizeBasedSplitWeightsEnabled(session)) {
-            DataSize standardSplitWeightSize = getStandardSplitWeightSize(session);
-            double minimumAssignedSplitWeight = getMinimumAssignedSplitWeight(session);
-            return new SizeBasedSplitWeightProvider(minimumAssignedSplitWeight, standardSplitWeightSize);
-        }
-        return HudiSplitWeightProvider.uniformStandardWeightProvider();
     }
 }

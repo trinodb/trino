@@ -34,10 +34,8 @@ import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieEngineContext;
 import org.apache.hudi.common.model.BaseFile;
 import org.apache.hudi.common.model.FileSlice;
-import org.apache.hudi.common.model.HoodieTableQueryType;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
-import org.apache.hudi.common.table.timeline.HoodieTimeline;
 import org.apache.hudi.common.table.view.FileSystemViewManager;
 import org.apache.hudi.common.table.view.FileSystemViewStorageConfig;
 import org.apache.hudi.common.table.view.SyncableFileSystemView;
@@ -67,7 +65,6 @@ public class HudiFileSkippingManager
 {
     private static final Logger log = Logger.get(HudiFileSkippingManager.class);
 
-    private final HoodieTableQueryType queryType;
     private final Optional<String> specifiedQueryInstant;
     private final HoodieTableMetaClient metaClient;
     private final HoodieTableMetadata metadataTable;
@@ -79,19 +76,16 @@ public class HudiFileSkippingManager
             String spillableDir,
             HoodieEngineContext engineContext,
             HoodieTableMetaClient metaClient,
-            HoodieTableQueryType queryType,
             Optional<String> specifiedQueryInstant)
     {
         requireNonNull(partitions, "partitions is null");
         requireNonNull(spillableDir, "spillableDir is null");
         requireNonNull(engineContext, "engineContext is null");
-        this.queryType = requireNonNull(queryType, "queryType is null");
         this.specifiedQueryInstant = requireNonNull(specifiedQueryInstant, "specifiedQueryInstant is null");
         this.metaClient = requireNonNull(metaClient, "metaClient is null");
 
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder().enable(true).build();
-        this.metadataTable = HoodieTableMetadata
-                .create(engineContext, metadataConfig, metaClient.getBasePathV2().toString(), spillableDir, true);
+        this.metadataTable = HoodieTableMetadata.create(engineContext, metadataConfig, metaClient.getBasePathV2().toString(), spillableDir, true);
         this.allInputFileSlices = prepareAllInputFileSlices(partitions, engineContext, metadataConfig, spillableDir);
     }
 
@@ -102,8 +96,6 @@ public class HudiFileSkippingManager
             String spillableDir)
     {
         long startTime = System.currentTimeMillis();
-        HoodieTimeline activeTimeline = metaClient.reloadActiveTimeline();
-        Optional<HoodieInstant> latestInstant = activeTimeline.lastInstant().toJavaOptional();
         // build system view.
         SyncableFileSystemView fileSystemView = FileSystemViewManager
                 .createViewManager(engineContext,
@@ -113,7 +105,7 @@ public class HudiFileSkippingManager
                         () -> metadataTable)
                 .getFileSystemView(metaClient);
         Optional<String> queryInstant = specifiedQueryInstant.isPresent() ?
-                specifiedQueryInstant : latestInstant.map(HoodieInstant::getTimestamp);
+                specifiedQueryInstant : metaClient.getActiveTimeline().lastInstant().toJavaOptional().map(HoodieInstant::getTimestamp);
 
         Map<String, List<FileSlice>> allInputFileSlices = engineContext
                 .mapToPair(
@@ -152,7 +144,6 @@ public class HudiFileSkippingManager
         catch (Exception e) {
             // Should not throw exception, just log this Exception.
             log.warn(e, "failed to do data skipping for table: %s, fallback to all files scan", metaClient.getBasePathV2());
-            candidateFileSlices = allInputFileSlices;
         }
         if (log.isDebugEnabled()) {
             int candidateFileSize = candidateFileSlices.values().stream().mapToInt(List::size).sum();
@@ -173,11 +164,11 @@ public class HudiFileSkippingManager
         // split regular column predicates
         TupleDomain<HiveColumnHandle> regularTupleDomain = HudiPredicates.from(tupleDomain).getRegularColumnPredicates();
         TupleDomain<String> regularColumnPredicates = regularTupleDomain.transformKeys(HiveColumnHandle::getName);
-        if (regularColumnPredicates.isAll() || !regularColumnPredicates.getDomains().isPresent()) {
+        if (regularColumnPredicates.isAll() || regularColumnPredicates.getDomains().isEmpty()) {
             return inputFileSlices;
         }
         List<String> regularColumns = regularColumnPredicates
-                .getDomains().get().entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toList());
+                .getDomains().get().keySet().stream().collect(Collectors.toList());
         // get filter columns
         List<String> encodedTargetColumnNames = regularColumns
                 .stream()
@@ -196,7 +187,7 @@ public class HudiFileSkippingManager
                 .entrySet()
                 .stream()
                 .collect(Collectors
-                        .toMap(entry -> entry.getKey(), entry -> entry
+                        .toMap(Map.Entry::getKey, entry -> entry
                                 .getValue()
                                 .stream()
                                 .filter(fileSlice -> pruneFiles(fileSlice, statsByFileName, regularColumnPredicates, regularColumns))
@@ -223,14 +214,14 @@ public class HudiFileSkippingManager
             List<HoodieMetadataColumnStats> stats,
             List<String> regularColumns)
     {
-        if (regularColumnPredicates.isNone() || !regularColumnPredicates.getDomains().isPresent()) {
+        if (regularColumnPredicates.isNone() || regularColumnPredicates.getDomains().isEmpty()) {
             return true;
         }
         for (String regularColumn : regularColumns) {
             Domain columnPredicate = regularColumnPredicates.getDomains().get().get(regularColumn);
             Optional<HoodieMetadataColumnStats> currentColumnStats = stats
                     .stream().filter(s -> s.getColumnName().equals(regularColumn)).findFirst();
-            if (!currentColumnStats.isPresent()) {
+            if (currentColumnStats.isEmpty()) {
                 // no stats for column
             }
             else {
