@@ -50,6 +50,8 @@ import static java.util.stream.Collectors.toList;
 
 public final class HudiUtil
 {
+    public static final String PARQUET_ROW_INDEX_COLUMN_NAME = "$parquet$row_index";
+
     private HudiUtil() {}
 
     public static boolean isHudiParquetInputFormat(InputFormat<?, ?> inputFormat)
