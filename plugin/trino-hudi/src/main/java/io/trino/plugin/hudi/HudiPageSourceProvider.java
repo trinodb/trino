@@ -98,6 +98,7 @@ import static io.trino.plugin.hudi.HudiErrorCode.HUDI_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_MISSING_DATA;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNKNOWN_TABLE_TYPE;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_FILE_FORMAT;
+import static io.trino.plugin.hudi.HudiRecordCursor.createRealtimeRecordCursor;
 import static io.trino.plugin.hudi.HudiSessionProperties.isParquetOptimizedReaderEnabled;
 import static io.trino.plugin.hudi.HudiSessionProperties.shouldUseParquetColumnNames;
 import static io.trino.plugin.hudi.HudiUtil.getHudiFileFormat;
@@ -194,7 +195,7 @@ public class HudiPageSourceProvider
                     baseFile.getFileModifiedTime());
         }
         else if (MERGE_ON_READ.equals(tableHandle.getTableType())) {
-            RecordCursor recordCursor = HudiRecordCursor.createRealtimeRecordCursor(hdfsEnvironment, session, split, tableHandle, regularColumns);
+            RecordCursor recordCursor = createRealtimeRecordCursor(hdfsEnvironment, session, split, tableHandle, regularColumns);
             List<Type> types = regularColumns.stream()
                     .map(column -> column.getHiveType().getType(typeManager))
                     .collect(toImmutableList());

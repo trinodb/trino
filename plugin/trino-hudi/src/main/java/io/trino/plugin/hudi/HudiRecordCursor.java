@@ -53,6 +53,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
+import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_IDS_CONF_STR;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_NAMES_CONF_STR;
 
 class HudiRecordCursor
@@ -89,7 +90,7 @@ class HudiRecordCursor
         // update configuration
         JobConf jobConf = new JobConf(configuration);
         jobConf.setBoolean(READ_ALL_COLUMNS, false);
-        //jobConf.set(READ_COLUMN_IDS_CONF_STR, join(dataColumns, HudiColumnHandle::getId));
+        jobConf.set(READ_COLUMN_IDS_CONF_STR, join(dataColumns, HiveColumnHandle::getBaseHiveColumnIndex));
         jobConf.set(READ_COLUMN_NAMES_CONF_STR, join(dataColumns, HiveColumnHandle::getName));
         schema.stringPropertyNames()
                 .forEach(name -> jobConf.set(name, schema.getProperty(name)));

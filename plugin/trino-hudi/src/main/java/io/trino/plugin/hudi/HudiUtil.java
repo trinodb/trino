@@ -169,8 +169,11 @@ public final class HudiUtil
     public static HoodieTableType getTableType(String inputFormatName)
     {
         return switch (inputFormatName) {
-            case "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat", "org.apache.hudi.hadoop.HoodieParquetInputFormat", "com.uber.hoodie.hadoop.HoodieInputFormat" -> COPY_ON_WRITE;
-            case "org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat", "com.uber.hoodie.hadoop.realtime.HoodieRealtimeInputFormat" -> MERGE_ON_READ;
+            case "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
+                    "org.apache.hudi.hadoop.HoodieParquetInputFormat",
+                    "com.uber.hoodie.hadoop.HoodieInputFormat" -> COPY_ON_WRITE;
+            case "org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat",
+                    "com.uber.hoodie.hadoop.realtime.HoodieRealtimeInputFormat" -> MERGE_ON_READ;
             default -> throw new TrinoException(HUDI_UNKNOWN_TABLE_TYPE, "Unknown table type for input format: " + inputFormatName);
         };
     }
