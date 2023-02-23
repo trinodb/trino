@@ -13,131 +13,314 @@
  */
 package io.trino.type;
 
-import io.trino.operator.scalar.AbstractTestFunctions;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
+import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestVarcharOperators
-        extends AbstractTestFunctions
 {
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     @Test
     public void testLiteral()
     {
-        assertFunction("'foo'", createVarcharType(3), "foo");
-        assertFunction("'bar'", createVarcharType(3), "bar");
-        assertFunction("''", createVarcharType(0), "");
+        assertThat(assertions.expression("'foo'"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("foo");
+
+        assertThat(assertions.expression("'bar'"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("bar");
+
+        assertThat(assertions.expression("''"))
+                .hasType(createVarcharType(0))
+                .isEqualTo("");
     }
 
     @Test
     public void testTypeConstructor()
     {
-        assertFunction("VARCHAR 'foo'", VARCHAR, "foo");
-        assertFunction("VARCHAR 'bar'", VARCHAR, "bar");
-        assertFunction("VARCHAR ''", VARCHAR, "");
+        assertThat(assertions.expression("VARCHAR 'foo'"))
+                .hasType(VARCHAR)
+                .isEqualTo("foo");
+
+        assertThat(assertions.expression("VARCHAR 'bar'"))
+                .hasType(VARCHAR)
+                .isEqualTo("bar");
+
+        assertThat(assertions.expression("VARCHAR ''"))
+                .hasType(VARCHAR)
+                .isEqualTo("");
     }
 
     @Test
     public void testAdd()
     {
         // TODO change expected return type to createVarcharType(6) when function resolving is fixed
-        assertFunction("'foo' || 'foo'", VARCHAR, "foofoo");
-        assertFunction("'foo' || 'bar'", VARCHAR, "foobar");
-        assertFunction("'bar' || 'foo'", VARCHAR, "barfoo");
-        assertFunction("'bar' || 'bar'", VARCHAR, "barbar");
-        assertFunction("'bar' || 'barbaz'", VARCHAR, "barbarbaz");
+        assertThat(assertions.expression("a || b")
+                .binding("a", "'foo'")
+                .binding("b", "'foo'"))
+                .hasType(VARCHAR)
+                .isEqualTo("foofoo");
+
+        assertThat(assertions.expression("a || b")
+                .binding("a", "'foo'")
+                .binding("b", "'bar'"))
+                .hasType(VARCHAR)
+                .isEqualTo("foobar");
+
+        assertThat(assertions.expression("a || b")
+                .binding("a", "'bar'")
+                .binding("b", "'foo'"))
+                .hasType(VARCHAR)
+                .isEqualTo("barfoo");
+
+        assertThat(assertions.expression("a || b")
+                .binding("a", "'bar'")
+                .binding("b", "'bar'"))
+                .hasType(VARCHAR)
+                .isEqualTo("barbar");
+
+        assertThat(assertions.expression("a || b")
+                .binding("a", "'bar'")
+                .binding("b", "'barbaz'"))
+                .hasType(VARCHAR)
+                .isEqualTo("barbarbaz");
     }
 
     @Test
     public void testEqual()
     {
-        assertFunction("'foo' = 'foo'", BOOLEAN, true);
-        assertFunction("'foo' = 'bar'", BOOLEAN, false);
-        assertFunction("'bar' = 'foo'", BOOLEAN, false);
-        assertFunction("'bar' = 'bar'", BOOLEAN, true);
+        assertThat(assertions.operator(EQUAL, "'foo'", "'foo'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(EQUAL, "'foo'", "'bar'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "'bar'", "'foo'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "'bar'", "'bar'"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testNotEqual()
     {
-        assertFunction("'foo' <> 'foo'", BOOLEAN, false);
-        assertFunction("'foo' <> 'bar'", BOOLEAN, true);
-        assertFunction("'bar' <> 'foo'", BOOLEAN, true);
-        assertFunction("'bar' <> 'bar'", BOOLEAN, false);
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "'foo'")
+                .binding("b", "'foo'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "'foo'")
+                .binding("b", "'bar'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "'bar'")
+                .binding("b", "'foo'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "'bar'")
+                .binding("b", "'bar'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testLessThan()
     {
-        assertFunction("'foo' < 'foo'", BOOLEAN, false);
-        assertFunction("'foo' < 'bar'", BOOLEAN, false);
-        assertFunction("'bar' < 'foo'", BOOLEAN, true);
-        assertFunction("'bar' < 'bar'", BOOLEAN, false);
+        assertThat(assertions.operator(LESS_THAN, "'foo'", "'foo'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "'foo'", "'bar'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "'bar'", "'foo'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN, "'bar'", "'bar'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testLessThanOrEqual()
     {
-        assertFunction("'foo' <= 'foo'", BOOLEAN, true);
-        assertFunction("'foo' <= 'bar'", BOOLEAN, false);
-        assertFunction("'bar' <= 'foo'", BOOLEAN, true);
-        assertFunction("'bar' <= 'bar'", BOOLEAN, true);
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "'foo'", "'foo'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "'foo'", "'bar'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "'bar'", "'foo'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "'bar'", "'bar'"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testGreaterThan()
     {
-        assertFunction("'foo' > 'foo'", BOOLEAN, false);
-        assertFunction("'foo' > 'bar'", BOOLEAN, true);
-        assertFunction("'bar' > 'foo'", BOOLEAN, false);
-        assertFunction("'bar' > 'bar'", BOOLEAN, false);
+        assertThat(assertions.expression("a > b")
+                .binding("a", "'foo'")
+                .binding("b", "'foo'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "'foo'")
+                .binding("b", "'bar'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "'bar'")
+                .binding("b", "'foo'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "'bar'")
+                .binding("b", "'bar'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testGreaterThanOrEqual()
     {
-        assertFunction("'foo' >= 'foo'", BOOLEAN, true);
-        assertFunction("'foo' >= 'bar'", BOOLEAN, true);
-        assertFunction("'bar' >= 'foo'", BOOLEAN, false);
-        assertFunction("'bar' >= 'bar'", BOOLEAN, true);
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "'foo'")
+                .binding("b", "'foo'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "'foo'")
+                .binding("b", "'bar'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "'bar'")
+                .binding("b", "'foo'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "'bar'")
+                .binding("b", "'bar'"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testBetween()
     {
-        assertFunction("'foo' BETWEEN 'foo' AND 'foo'", BOOLEAN, true);
-        assertFunction("'foo' BETWEEN 'foo' AND 'bar'", BOOLEAN, false);
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "'foo'")
+                .binding("low", "'foo'")
+                .binding("high", "'foo'"))
+                .isEqualTo(true);
 
-        assertFunction("'foo' BETWEEN 'bar' AND 'foo'", BOOLEAN, true);
-        assertFunction("'foo' BETWEEN 'bar' AND 'bar'", BOOLEAN, false);
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "'foo'")
+                .binding("low", "'foo'")
+                .binding("high", "'bar'"))
+                .isEqualTo(false);
 
-        assertFunction("'bar' BETWEEN 'foo' AND 'foo'", BOOLEAN, false);
-        assertFunction("'bar' BETWEEN 'foo' AND 'bar'", BOOLEAN, false);
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "'foo'")
+                .binding("low", "'bar'")
+                .binding("high", "'foo'"))
+                .isEqualTo(true);
 
-        assertFunction("'bar' BETWEEN 'bar' AND 'foo'", BOOLEAN, true);
-        assertFunction("'bar' BETWEEN 'bar' AND 'bar'", BOOLEAN, true);
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "'foo'")
+                .binding("low", "'bar'")
+                .binding("high", "'bar'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "'bar'")
+                .binding("low", "'foo'")
+                .binding("high", "'foo'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "'bar'")
+                .binding("low", "'foo'")
+                .binding("high", "'bar'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "'bar'")
+                .binding("low", "'bar'")
+                .binding("high", "'foo'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "'bar'")
+                .binding("low", "'bar'")
+                .binding("high", "'bar'"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testIsDistinctFrom()
     {
-        assertFunction("CAST(NULL AS VARCHAR) IS DISTINCT FROM CAST(NULL AS VARCHAR)", BOOLEAN, false);
-        assertFunction("'foo' IS DISTINCT FROM 'foo'", BOOLEAN, false);
-        assertFunction("'foo' IS DISTINCT FROM 'fo0'", BOOLEAN, true);
-        assertFunction("NULL IS DISTINCT FROM 'foo'", BOOLEAN, true);
-        assertFunction("'foo' IS DISTINCT FROM NULL", BOOLEAN, true);
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS VARCHAR)", "CAST(NULL AS VARCHAR)"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "'foo'", "'foo'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "'foo'", "'fo0'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "NULL", "'foo'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "'foo'", "NULL"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testIndeterminate()
     {
-        assertOperator(INDETERMINATE, "cast(null as varchar)", BOOLEAN, true);
-        assertOperator(INDETERMINATE, "'foo'", BOOLEAN, false);
-        assertOperator(INDETERMINATE, "cast(123456 as varchar)", BOOLEAN, false);
-        assertOperator(INDETERMINATE, "cast(12345.0123 as varchar)", BOOLEAN, false);
-        assertOperator(INDETERMINATE, "cast(true as varchar)", BOOLEAN, false);
+        assertThat(assertions.operator(INDETERMINATE, "cast(null as varchar)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(INDETERMINATE, "'foo'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(INDETERMINATE, "cast(123456 as varchar)"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(INDETERMINATE, "cast(12345.0123 as varchar)"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(INDETERMINATE, "cast(true as varchar)"))
+                .isEqualTo(false);
     }
 }
