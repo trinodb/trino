@@ -16,6 +16,7 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import io.trino.hive.thrift.metastore.ColumnStatisticsData;
 import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
 import io.trino.hive.thrift.metastore.Database;
@@ -36,12 +37,14 @@ import io.trino.hive.thrift.metastore.SerDeInfo;
 import io.trino.hive.thrift.metastore.StorageDescriptor;
 import io.trino.hive.thrift.metastore.Table;
 import io.trino.plugin.hive.acid.AcidOperation;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.testng.services.ManageTestResources;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.thrift.TException;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -61,9 +64,11 @@ public class MockThriftMetastoreClient
     public static final String TEST_PARTITION1 = "key=" + TEST_PARTITION1_VALUE;
     public static final String TEST_COLUMN = "column";
     public static final String TEST_PARTITION2 = "key=testpartition2";
+    public static final String TEST_PARTITION3 = "key=testpartition3";
     public static final String BAD_PARTITION = "key=badpartition1";
     public static final List<String> TEST_PARTITION_VALUES1 = ImmutableList.of("testpartition1");
-    private static final List<String> TEST_PARTITION_VALUES2 = ImmutableList.of("testpartition2");
+    public static final List<String> TEST_PARTITION_VALUES2 = ImmutableList.of("testpartition2");
+    public static final List<String> TEST_PARTITION_VALUES3 = ImmutableList.of("testpartition3");
     public static final List<String> TEST_ROLES = ImmutableList.of("testrole");
     private static final List<RolePrincipalGrant> TEST_ROLE_GRANTS = ImmutableList.of(
             new RolePrincipalGrant("role1", "user", USER, false, 0, "grantor1", USER),
@@ -74,7 +79,56 @@ public class MockThriftMetastoreClient
             new StorageDescriptor(ImmutableList.of(new FieldSchema(TEST_COLUMN, "bigint", "")), "", null, null, false, 0, new SerDeInfo(TEST_TABLE, null, ImmutableMap.of()), null, null, ImmutableMap.of());
 
     private final AtomicInteger accessCount = new AtomicInteger();
+    private final Map<SchemaTableName, Map<String, ColumnStatisticsObj>> columnStatistics = new HashMap<>();
+    private final Map<SchemaTableName, Map<String, Map<String, ColumnStatisticsObj>>> databaseTablePartitionColumnStatistics = new HashMap<>();
+
     private boolean throwException;
+
+    public MockThriftMetastoreClient()
+    {
+        mockColumnStats(TEST_DATABASE, TEST_TABLE, ImmutableMap.of(TEST_COLUMN, createLongColumnStats()));
+        mockPartitionColumnStats(TEST_DATABASE, TEST_TABLE, TEST_PARTITION1, ImmutableMap.of(TEST_COLUMN, createLongColumnStats()));
+    }
+
+    public void mockColumnStats(String database, String table, Map<String, ColumnStatisticsData> columnStatistics)
+    {
+        this.columnStatistics.compute(new SchemaTableName(database, table), (ignored, oldColumnStats) -> {
+            if (oldColumnStats == null) {
+                oldColumnStats = new HashMap<>();
+            }
+            oldColumnStats.putAll(Maps.transformEntries(columnStatistics, (columnName, stats) -> {
+                ColumnStatisticsObj statsObj = new ColumnStatisticsObj();
+                statsObj.setColName(columnName);
+                statsObj.setStatsData(stats);
+                return statsObj;
+            }));
+            return oldColumnStats;
+        });
+    }
+
+    public void mockPartitionColumnStats(String database, String table, String partitionName, Map<String, ColumnStatisticsData> columnStatistics)
+    {
+        Map<String, Map<String, ColumnStatisticsObj>> tablePartitionColumnStatistics = databaseTablePartitionColumnStatistics.computeIfAbsent(new SchemaTableName(database, table), key -> new HashMap<>());
+        tablePartitionColumnStatistics.compute(partitionName, (ignored, oldColumnStats) -> {
+            if (oldColumnStats == null) {
+                oldColumnStats = new HashMap<>();
+            }
+            oldColumnStats.putAll(Maps.transformEntries(columnStatistics, (columnName, stats) -> {
+                ColumnStatisticsObj statsObj = new ColumnStatisticsObj();
+                statsObj.setColName(columnName);
+                statsObj.setStatsData(stats);
+                return statsObj;
+            }));
+            return oldColumnStats;
+        });
+    }
+
+    private static ColumnStatisticsData createLongColumnStats()
+    {
+        ColumnStatisticsData data = new ColumnStatisticsData();
+        data.setLongStats(new LongColumnStatsData());
+        return data;
+    }
 
     private static ColumnStatisticsObj createTestStats()
     {
@@ -186,13 +240,13 @@ public class MockThriftMetastoreClient
             throw new RuntimeException();
         }
 
-        if (!databaseName.equals(TEST_DATABASE)
-                || !tableName.equals(TEST_TABLE)
-                || !columnNames.equals(ImmutableList.of(TEST_COLUMN))) {
+        Map<String, ColumnStatisticsObj> columnStatistics = this.columnStatistics.get(new SchemaTableName(databaseName, tableName));
+
+        if (columnStatistics == null || !columnStatistics.keySet().containsAll(columnNames)) {
             throw new NoSuchObjectException();
         }
 
-        return ImmutableList.of(createTestStats());
+        return columnNames.stream().map(columnStatistics::get).collect(toImmutableList());
     }
 
     @Override
@@ -215,15 +269,21 @@ public class MockThriftMetastoreClient
         if (throwException) {
             throw new RuntimeException();
         }
-
-        if (!databaseName.equals(TEST_DATABASE)
-                || !tableName.equals(TEST_TABLE)
-                || !partitionNames.equals(ImmutableList.of(TEST_PARTITION1))
-                || !columnNames.equals(ImmutableList.of(TEST_COLUMN))) {
+        ImmutableMap.Builder<String, List<ColumnStatisticsObj>> result = ImmutableMap.builder();
+        Map<String, Map<String, ColumnStatisticsObj>> tablePartitionColumnStatistics = databaseTablePartitionColumnStatistics.get(new SchemaTableName(databaseName, tableName));
+        if (tablePartitionColumnStatistics == null) {
             throw new NoSuchObjectException();
         }
 
-        return ImmutableMap.of(TEST_PARTITION1, ImmutableList.of(createTestStats()));
+        for (String partition : partitionNames) {
+            Map<String, ColumnStatisticsObj> columnStatistics = tablePartitionColumnStatistics.get(partition);
+            if (columnStatistics == null || !columnStatistics.keySet().containsAll(columnNames)) {
+                throw new NoSuchObjectException();
+            }
+            result.put(partition, ImmutableList.copyOf(columnStatistics.values()));
+        }
+
+        return result.buildOrThrow();
     }
 
     @Override
@@ -250,7 +310,7 @@ public class MockThriftMetastoreClient
         if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE)) {
             throw new NoSuchObjectException();
         }
-        return ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2);
+        return ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2, TEST_PARTITION3);
     }
 
     @Override
@@ -264,7 +324,7 @@ public class MockThriftMetastoreClient
         if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE)) {
             throw new NoSuchObjectException();
         }
-        return ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2);
+        return ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2, TEST_PARTITION3);
     }
 
     @Override
@@ -275,7 +335,8 @@ public class MockThriftMetastoreClient
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION_VALUES1, TEST_PARTITION_VALUES2).contains(partitionValues)) {
+        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE) ||
+                !ImmutableSet.of(TEST_PARTITION_VALUES1, TEST_PARTITION_VALUES2, TEST_PARTITION_VALUES3).contains(partitionValues)) {
             throw new NoSuchObjectException();
         }
         return new Partition(partitionValues, TEST_DATABASE, TEST_TABLE, 0, 0, DEFAULT_STORAGE_DESCRIPTOR, ImmutableMap.of());
@@ -289,7 +350,7 @@ public class MockThriftMetastoreClient
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION1, TEST_PARTITION2).containsAll(names)) {
+        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION1, TEST_PARTITION2, TEST_PARTITION3).containsAll(names)) {
             throw new NoSuchObjectException();
         }
         return names.stream()

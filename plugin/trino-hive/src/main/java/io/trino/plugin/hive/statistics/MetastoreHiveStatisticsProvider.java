@@ -100,7 +100,7 @@ public class MetastoreHiveStatisticsProvider
     public MetastoreHiveStatisticsProvider(SemiTransactionalHiveMetastore metastore)
     {
         requireNonNull(metastore, "metastore is null");
-        this.statisticsProvider = (session, table, hivePartitions) -> getPartitionsStatistics(metastore, table, hivePartitions);
+        this.statisticsProvider = (session, table, hivePartitions, columns) -> getPartitionsStatistics(metastore, table, columns, hivePartitions);
     }
 
     @VisibleForTesting
@@ -109,7 +109,7 @@ public class MetastoreHiveStatisticsProvider
         this.statisticsProvider = requireNonNull(statisticsProvider, "statisticsProvider is null");
     }
 
-    private static Map<String, PartitionStatistics> getPartitionsStatistics(SemiTransactionalHiveMetastore metastore, SchemaTableName table, List<HivePartition> hivePartitions)
+    private static Map<String, PartitionStatistics> getPartitionsStatistics(SemiTransactionalHiveMetastore metastore, SchemaTableName table, Set<String> columns, List<HivePartition> hivePartitions)
     {
         if (hivePartitions.isEmpty()) {
             return ImmutableMap.of();
@@ -117,12 +117,12 @@ public class MetastoreHiveStatisticsProvider
         boolean unpartitioned = hivePartitions.stream().anyMatch(partition -> partition.getPartitionId().equals(UNPARTITIONED_ID));
         if (unpartitioned) {
             checkArgument(hivePartitions.size() == 1, "expected only one hive partition");
-            return ImmutableMap.of(UNPARTITIONED_ID, metastore.getTableStatistics(table.getSchemaName(), table.getTableName()));
+            return ImmutableMap.of(UNPARTITIONED_ID, metastore.getTableStatistics(table.getSchemaName(), table.getTableName(), Optional.of(columns)));
         }
         Set<String> partitionNames = hivePartitions.stream()
                 .map(HivePartition::getPartitionId)
                 .collect(toImmutableSet());
-        return metastore.getPartitionStatistics(table.getSchemaName(), table.getTableName(), partitionNames);
+        return metastore.getPartitionStatistics(table.getSchemaName(), table.getTableName(), columns, partitionNames);
     }
 
     @Override
@@ -142,7 +142,7 @@ public class MetastoreHiveStatisticsProvider
         int sampleSize = getPartitionStatisticsSampleSize(session);
         List<HivePartition> partitionsSample = getPartitionsSample(partitions, sampleSize);
         try {
-            Map<String, PartitionStatistics> statisticsSample = statisticsProvider.getPartitionsStatistics(session, table, partitionsSample);
+            Map<String, PartitionStatistics> statisticsSample = statisticsProvider.getPartitionsStatistics(session, table, partitionsSample, columns.keySet());
             validatePartitionStatistics(table, statisticsSample);
             return getTableStatistics(columns, columnTypes, partitions, statisticsSample);
         }
@@ -925,6 +925,6 @@ public class MetastoreHiveStatisticsProvider
     @VisibleForTesting
     interface PartitionsStatisticsProvider
     {
-        Map<String, PartitionStatistics> getPartitionsStatistics(ConnectorSession session, SchemaTableName table, List<HivePartition> hivePartitions);
+        Map<String, PartitionStatistics> getPartitionsStatistics(ConnectorSession session, SchemaTableName table, List<HivePartition> hivePartitions, Set<String> columns);
     }
 }

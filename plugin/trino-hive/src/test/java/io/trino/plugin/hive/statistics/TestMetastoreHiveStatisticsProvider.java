@@ -630,7 +630,7 @@ public class TestMetastoreHiveStatisticsProvider
                 .setBasicStatistics(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(1000), OptionalLong.empty(), OptionalLong.empty()))
                 .setColumnStatistics(ImmutableMap.of(COLUMN, createIntegerColumnStatistics(OptionalLong.of(-100), OptionalLong.of(100), OptionalLong.of(500), OptionalLong.of(300))))
                 .build();
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions) -> ImmutableMap.of(partitionName, statistics));
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions, columns) -> ImmutableMap.of(partitionName, statistics));
         HiveColumnHandle columnHandle = createBaseColumn(COLUMN, 2, HIVE_LONG, BIGINT, REGULAR, Optional.empty());
         TableStatistics expected = TableStatistics.builder()
                 .setRowCount(Estimate.of(1000))
@@ -679,7 +679,7 @@ public class TestMetastoreHiveStatisticsProvider
                 .setBasicStatistics(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(1000), OptionalLong.empty(), OptionalLong.empty()))
                 .setColumnStatistics(ImmutableMap.of(COLUMN, createIntegerColumnStatistics(OptionalLong.of(-100), OptionalLong.of(100), OptionalLong.of(500), OptionalLong.of(300))))
                 .build();
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions) -> ImmutableMap.of(UNPARTITIONED_ID, statistics));
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions, columns) -> ImmutableMap.of(UNPARTITIONED_ID, statistics));
 
         HiveColumnHandle columnHandle = createBaseColumn(COLUMN, 2, HIVE_LONG, BIGINT, REGULAR, Optional.empty());
 
@@ -707,7 +707,7 @@ public class TestMetastoreHiveStatisticsProvider
     public void testGetTableStatisticsEmpty()
     {
         String partitionName = "p1=string1/p2=1234";
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions) -> ImmutableMap.of(partitionName, PartitionStatistics.empty()));
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions, columns) -> ImmutableMap.of(partitionName, PartitionStatistics.empty()));
         assertEquals(
                 statisticsProvider.getTableStatistics(
                         SESSION,
@@ -721,7 +721,7 @@ public class TestMetastoreHiveStatisticsProvider
     @Test
     public void testGetTableStatisticsSampling()
     {
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions) -> {
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions, columns) -> {
             assertEquals(table, TABLE);
             assertEquals(hivePartitions.size(), 1);
             return ImmutableMap.of();
@@ -743,7 +743,7 @@ public class TestMetastoreHiveStatisticsProvider
                 .setBasicStatistics(new HiveBasicStatistics(-1, 0, 0, 0))
                 .build();
         String partitionName = "p1=string1/p2=1234";
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions) -> ImmutableMap.of(partitionName, corruptedStatistics));
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions, columns) -> ImmutableMap.of(partitionName, corruptedStatistics));
         assertThatThrownBy(() -> statisticsProvider.getTableStatistics(
                 getHiveSession(new HiveConfig().setIgnoreCorruptedStatistics(false)),
                 TABLE,
@@ -766,7 +766,7 @@ public class TestMetastoreHiveStatisticsProvider
     public void testEmptyTableStatisticsForPartitionColumnsWhenStatsAreEmpty()
     {
         MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider(
-                (session, table, hivePartitions) -> ImmutableMap.of("p1=string1/p2=1234", PartitionStatistics.empty()));
+                (session, table, hivePartitions, columns) -> ImmutableMap.of("p1=string1/p2=1234", PartitionStatistics.empty()));
         testEmptyTableStatisticsForPartitionColumns(statisticsProvider);
     }
 
@@ -774,7 +774,7 @@ public class TestMetastoreHiveStatisticsProvider
     public void testEmptyTableStatisticsForPartitionColumnsWhenStatsAreMissing()
     {
         MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider(
-                (session, table, hivePartitions) -> ImmutableMap.of());
+                (session, table, hivePartitions, columns) -> ImmutableMap.of());
         testEmptyTableStatisticsForPartitionColumns(statisticsProvider);
     }
 

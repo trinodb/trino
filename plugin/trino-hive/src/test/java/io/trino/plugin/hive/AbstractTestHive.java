@@ -379,6 +379,8 @@ public abstract class AbstractTestHive
             .add(new ColumnMetadata("ds", createUnboundedVarcharType()))
             .build();
 
+    protected static final Set<String> COLUMN_NAMES_PARTITIONED = CREATE_TABLE_COLUMNS_PARTITIONED.stream().map(ColumnMetadata::getName).collect(toImmutableSet());
+
     protected static final Predicate<String> PARTITION_COLUMN_FILTER = columnName -> columnName.equals("ds") || columnName.startsWith("part_");
 
     private static final MaterializedResult CREATE_TABLE_PARTITIONED_DATA = new MaterializedResult(
@@ -1490,46 +1492,73 @@ public abstract class AbstractTestHive
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorSession session = newSession();
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
-            TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle);
 
-            assertFalse(tableStatistics.getRowCount().isUnknown(), "row count is unknown");
+            // first check if table handle with only one projected column will return this column stats
+            String firstColumnName = expectedColumnStatsColumns.iterator().next();
+            verifyTableStatisticsWithColumns(metadata, session, applyProjection(metadata, session, tableHandle, firstColumnName), ImmutableSet.of(firstColumnName));
 
-            Map<String, ColumnStatistics> columnsStatistics = tableStatistics
-                    .getColumnStatistics()
-                    .entrySet()
-                    .stream()
-                    .collect(
-                            toImmutableMap(
-                                    entry -> ((HiveColumnHandle) entry.getKey()).getName(),
-                                    Map.Entry::getValue));
-
-            assertEquals(columnsStatistics.keySet(), expectedColumnStatsColumns, "columns with statistics");
-
-            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
-            columnsStatistics.forEach((columnName, columnStatistics) -> {
-                ColumnHandle columnHandle = columnHandles.get(columnName);
-                Type columnType = metadata.getColumnMetadata(session, tableHandle, columnHandle).getType();
-
-                assertFalse(
-                        columnStatistics.getNullsFraction().isUnknown(),
-                        "unknown nulls fraction for " + columnName);
-
-                assertFalse(
-                        columnStatistics.getDistinctValuesCount().isUnknown(),
-                        "unknown distinct values count for " + columnName);
-
-                if (columnType instanceof VarcharType) {
-                    assertFalse(
-                            columnStatistics.getDataSize().isUnknown(),
-                            "unknown data size for " + columnName);
-                }
-                else {
-                    assertTrue(
-                            columnStatistics.getDataSize().isUnknown(),
-                            "unknown data size for" + columnName);
-                }
-            });
+            verifyTableStatisticsWithColumns(metadata, session, tableHandle, expectedColumnStatsColumns);
         }
+    }
+
+    private static ConnectorTableHandle applyProjection(ConnectorMetadata metadata, ConnectorSession session, ConnectorTableHandle tableHandle, String columnName)
+    {
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+        HiveColumnHandle firstColumn = (HiveColumnHandle) columnHandles.get(columnName);
+        return metadata.applyProjection(
+                        session,
+                        tableHandle,
+                        ImmutableList.of(new Variable("c1", firstColumn.getBaseType())),
+                        ImmutableMap.of("c1", firstColumn))
+                .orElseThrow()
+                .getHandle();
+    }
+
+    private static void verifyTableStatisticsWithColumns(
+            ConnectorMetadata metadata,
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            Set<String> expectedColumnStatsColumns)
+    {
+        TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle);
+
+        assertFalse(tableStatistics.getRowCount().isUnknown(), "row count is unknown");
+
+        Map<String, ColumnStatistics> columnsStatistics = tableStatistics
+                .getColumnStatistics()
+                .entrySet()
+                .stream()
+                .collect(
+                        toImmutableMap(
+                                entry -> ((HiveColumnHandle) entry.getKey()).getName(),
+                                Map.Entry::getValue));
+
+        assertEquals(columnsStatistics.keySet(), expectedColumnStatsColumns, "columns with statistics");
+
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+        columnsStatistics.forEach((columnName, columnStatistics) -> {
+            ColumnHandle columnHandle = columnHandles.get(columnName);
+            Type columnType = metadata.getColumnMetadata(session, tableHandle, columnHandle).getType();
+
+            assertFalse(
+                    columnStatistics.getNullsFraction().isUnknown(),
+                    "unknown nulls fraction for " + columnName);
+
+            assertFalse(
+                    columnStatistics.getDistinctValuesCount().isUnknown(),
+                    "unknown distinct values count for " + columnName);
+
+            if (columnType instanceof VarcharType) {
+                assertFalse(
+                        columnStatistics.getDataSize().isUnknown(),
+                        "unknown data size for " + columnName);
+            }
+            else {
+                assertTrue(
+                        columnStatistics.getDataSize().isUnknown(),
+                        "unknown data size for" + columnName);
+            }
+        });
     }
 
     @Test
@@ -4487,7 +4516,7 @@ public abstract class AbstractTestHive
 
             // test statistics
             for (String partitionName : partitionNames) {
-                HiveBasicStatistics partitionStatistics = getBasicStatisticsForPartition(transaction, tableName, partitionName);
+                HiveBasicStatistics partitionStatistics = getBasicStatisticsForPartition(transaction, tableName, COLUMN_NAMES_PARTITIONED, partitionName);
                 assertEquals(partitionStatistics.getRowCount().getAsLong(), 1L);
                 assertEquals(partitionStatistics.getFileCount().getAsLong(), 1L);
                 assertGreaterThan(partitionStatistics.getInMemoryDataSizeInBytes().getAsLong(), 0L);
@@ -4596,7 +4625,7 @@ public abstract class AbstractTestHive
 
                 // test statistics
                 for (String partitionName : partitionNames) {
-                    HiveBasicStatistics statistics = getBasicStatisticsForPartition(transaction, tableName, partitionName);
+                    HiveBasicStatistics statistics = getBasicStatisticsForPartition(transaction, tableName, COLUMN_NAMES_PARTITIONED, partitionName);
                     assertEquals(statistics.getRowCount().getAsLong(), i + 1L);
                     assertEquals(statistics.getFileCount().getAsLong(), i + 1L);
                     assertGreaterThan(statistics.getInMemoryDataSizeInBytes().getAsLong(), 0L);
@@ -4638,7 +4667,7 @@ public abstract class AbstractTestHive
             List<String> partitionNames = transaction.getMetastore().getPartitionNames(tableName.getSchemaName(), tableName.getTableName())
                     .orElseThrow(() -> new AssertionError("Table does not exist: " + tableName));
             for (String partitionName : partitionNames) {
-                HiveBasicStatistics partitionStatistics = getBasicStatisticsForPartition(transaction, tableName, partitionName);
+                HiveBasicStatistics partitionStatistics = getBasicStatisticsForPartition(transaction, tableName, COLUMN_NAMES_PARTITIONED, partitionName);
                 assertEquals(partitionStatistics.getRowCount().getAsLong(), 5L);
             }
 
@@ -4668,7 +4697,7 @@ public abstract class AbstractTestHive
             List<String> partitionNames = transaction.getMetastore().getPartitionNames(tableName.getSchemaName(), tableName.getTableName())
                     .orElseThrow(() -> new AssertionError("Table does not exist: " + tableName));
             for (String partitionName : partitionNames) {
-                HiveBasicStatistics partitionStatistics = getBasicStatisticsForPartition(transaction, tableName, partitionName);
+                HiveBasicStatistics partitionStatistics = getBasicStatisticsForPartition(transaction, tableName, COLUMN_NAMES_PARTITIONED, partitionName);
                 assertEquals(partitionStatistics.getRowCount().getAsLong(), 3L);
             }
         }
@@ -4689,7 +4718,7 @@ public abstract class AbstractTestHive
                     .orElseThrow(() -> new AssertionError("Table does not exist: " + tableName));
 
             for (String partitionName : partitionNames) {
-                HiveBasicStatistics statistics = getBasicStatisticsForPartition(transaction, tableName, partitionName);
+                HiveBasicStatistics statistics = getBasicStatisticsForPartition(transaction, tableName, COLUMN_NAMES_PARTITIONED, partitionName);
                 assertThat(statistics.getRowCount()).isNotPresent();
                 assertThat(statistics.getInMemoryDataSizeInBytes()).isNotPresent();
                 // fileCount and rawSize statistics are computed on the fly by the metastore, thus cannot be erased
@@ -4701,15 +4730,15 @@ public abstract class AbstractTestHive
     {
         return transaction
                 .getMetastore()
-                .getTableStatistics(table.getSchemaName(), table.getTableName())
+                .getTableStatistics(table.getSchemaName(), table.getTableName(), Optional.empty())
                 .getBasicStatistics();
     }
 
-    private static HiveBasicStatistics getBasicStatisticsForPartition(Transaction transaction, SchemaTableName table, String partitionName)
+    private static HiveBasicStatistics getBasicStatisticsForPartition(Transaction transaction, SchemaTableName table, Set<String> columns, String partitionName)
     {
         return transaction
                 .getMetastore()
-                .getPartitionStatistics(table.getSchemaName(), table.getTableName(), ImmutableSet.of(partitionName))
+                .getPartitionStatistics(table.getSchemaName(), table.getTableName(), columns, ImmutableSet.of(partitionName))
                 .get(partitionName)
                 .getBasicStatistics();
     }
