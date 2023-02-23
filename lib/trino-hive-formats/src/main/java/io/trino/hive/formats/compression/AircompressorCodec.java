@@ -119,16 +119,9 @@ public class AircompressorCodec
         return new AircompressorValueDecompressor(codec);
     }
 
-    private static class AircompressorValueDecompressor
+    private record AircompressorValueDecompressor(CompressionCodec codec)
             implements ValueDecompressor
     {
-        private final CompressionCodec codec;
-
-        private AircompressorValueDecompressor(CompressionCodec codec)
-        {
-            this.codec = requireNonNull(codec, "codec is null");
-        }
-
         @Override
         public void decompress(Slice compressed, OutputStream uncompressed)
                 throws IOException
