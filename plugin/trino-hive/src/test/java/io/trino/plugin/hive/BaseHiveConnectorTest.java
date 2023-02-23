@@ -120,6 +120,7 @@ import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABL
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.HiveQueryRunner.createBucketedSession;
+import static io.trino.plugin.hive.HiveStorageFormat.REGEX;
 import static io.trino.plugin.hive.HiveTableProperties.AUTO_PURGE;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
@@ -2055,6 +2056,10 @@ public abstract class BaseHiveConnectorTest
     {
         // create empty bucket files for all storage formats and compression codecs
         for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            if (storageFormat == REGEX) {
+                // REGEX format is readonly
+                continue;
+            }
             for (HiveCompressionCodec compressionCodec : HiveCompressionCodec.values()) {
                 if ((storageFormat == HiveStorageFormat.AVRO) && (compressionCodec == HiveCompressionCodec.LZ4)) {
                     continue;
@@ -8586,6 +8591,10 @@ public abstract class BaseHiveConnectorTest
         for (HiveStorageFormat hiveStorageFormat : HiveStorageFormat.values()) {
             if (hiveStorageFormat == HiveStorageFormat.CSV) {
                 // CSV supports only unbounded VARCHAR type
+                continue;
+            }
+            if (hiveStorageFormat == REGEX) {
+                // REGEX format is read-only
                 continue;
             }
             if (hiveStorageFormat == HiveStorageFormat.PARQUET) {

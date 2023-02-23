@@ -153,6 +153,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -223,6 +225,8 @@ import static io.trino.plugin.hive.HiveTableProperties.NULL_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
+import static io.trino.plugin.hive.HiveTableProperties.REGEX_CASE_INSENSITIVE;
+import static io.trino.plugin.hive.HiveTableProperties.REGEX_PATTERN;
 import static io.trino.plugin.hive.HiveTableProperties.SKIP_FOOTER_LINE_COUNT;
 import static io.trino.plugin.hive.HiveTableProperties.SKIP_HEADER_LINE_COUNT;
 import static io.trino.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
@@ -240,7 +244,9 @@ import static io.trino.plugin.hive.HiveTableProperties.getNullFormat;
 import static io.trino.plugin.hive.HiveTableProperties.getOrcBloomFilterColumns;
 import static io.trino.plugin.hive.HiveTableProperties.getOrcBloomFilterFpp;
 import static io.trino.plugin.hive.HiveTableProperties.getPartitionedBy;
+import static io.trino.plugin.hive.HiveTableProperties.getRegexPattern;
 import static io.trino.plugin.hive.HiveTableProperties.getSingleCharacterProperty;
+import static io.trino.plugin.hive.HiveTableProperties.isRegexCaseInsensitive;
 import static io.trino.plugin.hive.HiveTableProperties.isTransactional;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
@@ -356,6 +362,9 @@ public class HiveMetadata
     private static final String CSV_SEPARATOR_KEY = "separatorChar";
     private static final String CSV_QUOTE_KEY = "quoteChar";
     private static final String CSV_ESCAPE_KEY = "escapeChar";
+
+    private static final String REGEX_KEY = "input.regex";
+    private static final String REGEX_CASE_SENSITIVE_KEY = "input.regex.case.insensitive";
 
     private static final String AUTO_PURGE_KEY = "auto.purge";
 
@@ -684,6 +693,12 @@ public class HiveMetadata
                 .ifPresent(csvQuote -> properties.put(CSV_QUOTE, csvQuote));
         getCsvSerdeProperty(table, CSV_ESCAPE_KEY)
                 .ifPresent(csvEscape -> properties.put(CSV_ESCAPE, csvEscape));
+
+        // REGEX specific properties
+        getSerdeProperty(table, REGEX_KEY)
+                .ifPresent(regex -> properties.put(REGEX_PATTERN, regex));
+        getSerdeProperty(table, REGEX_CASE_SENSITIVE_KEY)
+                .ifPresent(regexCaseInsensitive -> properties.put(REGEX_CASE_INSENSITIVE, parseBoolean(regexCaseInsensitive)));
 
         Optional<String> comment = Optional.ofNullable(table.getParameters().get(TABLE_COMMENT));
 
@@ -1092,6 +1107,30 @@ public class HiveMetadata
                 .ifPresent(separator -> {
                     checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.CSV, CSV_SEPARATOR);
                     tableProperties.put(CSV_SEPARATOR_KEY, separator.toString());
+                });
+
+        // REGEX specific properties
+        getRegexPattern(tableMetadata.getProperties())
+                .ifPresentOrElse(
+                        regexPattern -> {
+                            checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.REGEX, REGEX_PATTERN);
+                            try {
+                                Pattern.compile(regexPattern);
+                            }
+                            catch (PatternSyntaxException e) {
+                                throw new TrinoException(INVALID_TABLE_PROPERTY, "Invalid REGEX pattern value: " + regexPattern);
+                            }
+                            tableProperties.put(REGEX_KEY, regexPattern);
+                        },
+                        () -> {
+                            if (hiveStorageFormat == HiveStorageFormat.REGEX) {
+                                throw new TrinoException(INVALID_TABLE_PROPERTY, format("REGEX format requires the '%s' table property", REGEX_PATTERN));
+                            }
+                        });
+        isRegexCaseInsensitive(tableMetadata.getProperties())
+                .ifPresent(regexCaseInsensitive -> {
+                    checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.REGEX, REGEX_CASE_INSENSITIVE);
+                    tableProperties.put(REGEX_CASE_SENSITIVE_KEY, String.valueOf(regexCaseInsensitive));
                 });
 
         // Set bogus table stats to prevent Hive 2.x from gathering these stats at table creation.
