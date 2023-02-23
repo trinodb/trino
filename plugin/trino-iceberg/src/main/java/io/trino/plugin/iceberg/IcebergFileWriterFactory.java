@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.fileio.ForwardingFileIo;
 import io.trino.orc.OrcDataSink;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcReaderOptions;
@@ -130,7 +131,7 @@ public class IcebergFileWriterFactory
             case ORC:
                 return createOrcWriter(metricsConfig, fileSystem, outputPath, icebergSchema, session, storageProperties, getOrcStringStatisticsLimit(session));
             case AVRO:
-                return createAvroWriter(fileSystem.toFileIo(), outputPath, icebergSchema, session);
+                return createAvroWriter(new ForwardingFileIo(fileSystem), outputPath, icebergSchema, session);
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported: " + fileFormat);
         }
@@ -149,7 +150,7 @@ public class IcebergFileWriterFactory
             case ORC:
                 return createOrcWriter(FULL_METRICS_CONFIG, fileSystem, outputPath, POSITION_DELETE_SCHEMA, session, storageProperties, DataSize.ofBytes(Integer.MAX_VALUE));
             case AVRO:
-                return createAvroWriter(fileSystem.toFileIo(), outputPath, POSITION_DELETE_SCHEMA, session);
+                return createAvroWriter(new ForwardingFileIo(fileSystem), outputPath, POSITION_DELETE_SCHEMA, session);
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported: " + fileFormat);
         }

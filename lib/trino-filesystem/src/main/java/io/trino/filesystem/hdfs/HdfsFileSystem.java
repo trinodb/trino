@@ -17,13 +17,11 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
-import io.trino.filesystem.fileio.ForwardingFileIo;
 import io.trino.hdfs.FileSystemWithBatchDelete;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.iceberg.io.FileIO;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -151,11 +149,5 @@ class HdfsFileSystem
                 return FileIterator.empty();
             }
         });
-    }
-
-    @Override
-    public FileIO toFileIo()
-    {
-        return new ForwardingFileIo(this);
     }
 }

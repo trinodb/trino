@@ -13,8 +13,6 @@
  */
 package io.trino.filesystem;
 
-import org.apache.iceberg.io.FileIO;
-
 import java.io.IOException;
 import java.util.Collection;
 
@@ -46,6 +44,4 @@ public interface TrinoFileSystem
 
     FileIterator listFiles(String path)
             throws IOException;
-
-    FileIO toFileIo();
 }
