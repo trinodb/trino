@@ -25,7 +25,6 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -74,14 +73,8 @@ public class TestPhoenixConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        testingPhoenixServer = TestingPhoenixServer.getInstance();
+        testingPhoenixServer = closeAfterClass(TestingPhoenixServer.getInstance()).get();
         return createPhoenixQueryRunner(testingPhoenixServer, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void destroy()
-    {
-        TestingPhoenixServer.shutDown();
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")

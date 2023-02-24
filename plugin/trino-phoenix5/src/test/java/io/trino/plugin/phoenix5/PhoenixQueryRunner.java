@@ -20,6 +20,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.SharedResource;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 
@@ -133,13 +134,15 @@ public final class PhoenixQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createPhoenixQueryRunner(
-                TestingPhoenixServer.getInstance(),
-                ImmutableMap.of("http-server.http.port", "8080"),
-                TpchTable.getTables());
+        try (SharedResource.Lease<TestingPhoenixServer> instance = TestingPhoenixServer.getInstance()) {
+            DistributedQueryRunner queryRunner = createPhoenixQueryRunner(
+                    instance.get(),
+                    ImmutableMap.of("http-server.http.port", "8080"),
+                    TpchTable.getTables());
 
-        Logger log = Logger.get(PhoenixQueryRunner.class);
-        log.info("======== SERVER STARTED ========");
-        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+            Logger log = Logger.get(PhoenixQueryRunner.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
     }
 }
