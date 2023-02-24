@@ -37,8 +37,9 @@ public class DriverFactory
     private final Optional<PlanNodeId> sourceId;
     private final OptionalInt driverInstances;
 
+    // must synchronize between createDriver() and noMoreDrivers(), but isNoMoreDrivers() is safe without synchronizing
     @GuardedBy("this")
-    private boolean noMoreDrivers;
+    private volatile boolean noMoreDrivers;
 
     public DriverFactory(int pipelineId, boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
     {
@@ -93,16 +94,20 @@ public class DriverFactory
         return operatorFactories;
     }
 
-    public synchronized Driver createDriver(DriverContext driverContext)
+    public Driver createDriver(DriverContext driverContext)
     {
-        checkState(!noMoreDrivers, "noMoreDrivers is already set");
         requireNonNull(driverContext, "driverContext is null");
-        List<Operator> operators = new ArrayList<>();
+        List<Operator> operators = new ArrayList<>(operatorFactories.size());
         try {
-            for (OperatorFactory operatorFactory : operatorFactories) {
-                Operator operator = operatorFactory.createOperator(driverContext);
-                operators.add(operator);
+            synchronized (this) {
+                // must check noMoreDrivers after acquiring the lock
+                checkState(!noMoreDrivers, "noMoreDrivers is already set");
+                for (OperatorFactory operatorFactory : operatorFactories) {
+                    Operator operator = operatorFactory.createOperator(driverContext);
+                    operators.add(operator);
+                }
             }
+            // Driver creation can continue without holding the lock
             return Driver.createDriver(driverContext, operators);
         }
         catch (Throwable failure) {
@@ -141,7 +146,9 @@ public class DriverFactory
         }
     }
 
-    public synchronized boolean isNoMoreDrivers()
+    // no need to synchronize when just checking the boolean flag
+    @SuppressWarnings("GuardedBy")
+    public boolean isNoMoreDrivers()
     {
         return noMoreDrivers;
     }
