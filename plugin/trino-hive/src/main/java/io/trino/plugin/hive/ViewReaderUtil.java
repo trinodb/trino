@@ -79,7 +79,8 @@ public final class ViewReaderUtil
             TypeManager typeManager,
             BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> tableRedirectionResolver,
             MetadataProvider metadataProvider,
-            boolean runHiveViewRunAsInvoker)
+            boolean runHiveViewRunAsInvoker,
+            HiveTimestampPrecision hiveViewsTimestampPrecision)
     {
         if (isPrestoView(table)) {
             return new PrestoViewReader();
@@ -91,7 +92,8 @@ public final class ViewReaderUtil
         return new HiveViewReader(
                 new CoralSemiTransactionalHiveMSCAdapter(metastore, coralTableRedirectionResolver(session, tableRedirectionResolver, metadataProvider)),
                 typeManager,
-                runHiveViewRunAsInvoker);
+                runHiveViewRunAsInvoker,
+                hiveViewsTimestampPrecision);
     }
 
     private static CoralTableRedirectionResolver coralTableRedirectionResolver(
@@ -198,12 +200,14 @@ public final class ViewReaderUtil
         private final HiveMetastoreClient metastoreClient;
         private final TypeManager typeManager;
         private final boolean hiveViewsRunAsInvoker;
+        private final HiveTimestampPrecision hiveViewsTimestampPrecision;
 
-        public HiveViewReader(HiveMetastoreClient hiveMetastoreClient, TypeManager typeManager, boolean hiveViewsRunAsInvoker)
+        public HiveViewReader(HiveMetastoreClient hiveMetastoreClient, TypeManager typeManager, boolean hiveViewsRunAsInvoker, HiveTimestampPrecision hiveViewsTimestampPrecision)
         {
             this.metastoreClient = requireNonNull(hiveMetastoreClient, "hiveMetastoreClient is null");
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
             this.hiveViewsRunAsInvoker = hiveViewsRunAsInvoker;
+            this.hiveViewsTimestampPrecision = requireNonNull(hiveViewsTimestampPrecision, "hiveViewsTimestampPrecision is null");
         }
 
         @Override
@@ -218,7 +222,7 @@ public final class ViewReaderUtil
                 List<ViewColumn> columns = rowType.getFieldList().stream()
                         .map(field -> new ViewColumn(
                                 field.getName(),
-                                typeManager.fromSqlType(getTypeString(field.getType())).getTypeId(),
+                                typeManager.fromSqlType(getTypeString(field.getType(), hiveViewsTimestampPrecision)).getTypeId(),
                                 Optional.empty()))
                         .collect(toImmutableList());
                 return new ConnectorViewDefinition(
@@ -241,7 +245,7 @@ public final class ViewReaderUtil
 
         // Calcite does not provide correct type strings for non-primitive types.
         // We add custom code here to make it work. Goal is for calcite/coral to handle this
-        private static String getTypeString(RelDataType type)
+        private static String getTypeString(RelDataType type, HiveTimestampPrecision timestampPrecision)
         {
             switch (type.getSqlTypeName()) {
                 case ROW: {
@@ -250,7 +254,7 @@ public final class ViewReaderUtil
                     // We add the Coral function here to parse data types successfully.
                     // Goal is to use data type mapping instead of translating to strings
                     return type.getFieldList().stream()
-                            .map(field -> quoteWordIfNotQuoted(field.getName().toLowerCase(Locale.ENGLISH)) + " " + getTypeString(field.getType()))
+                            .map(field -> quoteWordIfNotQuoted(field.getName().toLowerCase(Locale.ENGLISH)) + " " + getTypeString(field.getType(), timestampPrecision))
                             .collect(joining(",", "row(", ")"));
                 }
                 case CHAR:
@@ -263,14 +267,16 @@ public final class ViewReaderUtil
                 case MAP: {
                     RelDataType keyType = type.getKeyType();
                     RelDataType valueType = type.getValueType();
-                    return "map(" + getTypeString(keyType) + "," + getTypeString(valueType) + ")";
+                    return "map(" + getTypeString(keyType, timestampPrecision) + "," + getTypeString(valueType, timestampPrecision) + ")";
                 }
                 case ARRAY: {
-                    return "array(" + getTypeString(type.getComponentType()) + ")";
+                    return "array(" + getTypeString(type.getComponentType(), timestampPrecision) + ")";
                 }
                 case DECIMAL: {
                     return "decimal(" + type.getPrecision() + "," + type.getScale() + ")";
                 }
+                case TIMESTAMP:
+                    return "timestamp(" + timestampPrecision.getPrecision() + ")";
                 default:
                     return type.getSqlTypeName().toString();
             }
