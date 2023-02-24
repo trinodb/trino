@@ -38,7 +38,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
-import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -169,9 +168,9 @@ public class VacuumProcedure
         accessControl.checkCanInsertIntoTable(null, tableName);
         accessControl.checkCanDeleteFromTable(null, tableName);
 
-        TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(tableName, new Path(handle.getLocation()), session);
-        Path tableLocation = tableSnapshot.getTableLocation();
-        Path transactionLogDir = getTransactionLogDir(tableLocation);
+        TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(tableName, handle.getLocation(), session);
+        String tableLocation = tableSnapshot.getTableLocation();
+        String transactionLogDir = getTransactionLogDir(tableLocation);
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         String commonPathPrefix = tableLocation + "/";
         String queryId = session.getQueryId();

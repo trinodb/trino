@@ -31,7 +31,6 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.fs.Path;
 
 import javax.annotation.Nullable;
 
@@ -54,6 +53,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -217,7 +217,7 @@ public final class TransactionLogParser
                 format("Unable to parse value [%s] from column %s with type %s", valueString, column.getName(), column.getType()));
     }
 
-    static Optional<LastCheckpoint> readLastCheckpoint(TrinoFileSystem fileSystem, Path tableLocation)
+    static Optional<LastCheckpoint> readLastCheckpoint(TrinoFileSystem fileSystem, String tableLocation)
     {
         return Failsafe.with(RetryPolicy.builder()
                         .withMaxRetries(5)
@@ -231,11 +231,11 @@ public final class TransactionLogParser
                 .get(() -> tryReadLastCheckpoint(fileSystem, tableLocation));
     }
 
-    private static Optional<LastCheckpoint> tryReadLastCheckpoint(TrinoFileSystem fileSystem, Path tableLocation)
+    private static Optional<LastCheckpoint> tryReadLastCheckpoint(TrinoFileSystem fileSystem, String tableLocation)
             throws JsonParseException, JsonMappingException
     {
-        Path checkpointPath = new Path(getTransactionLogDir(tableLocation), LAST_CHECKPOINT_FILENAME);
-        TrinoInputFile inputFile = fileSystem.newInputFile(checkpointPath.toString());
+        String checkpointPath = appendPath(getTransactionLogDir(tableLocation), LAST_CHECKPOINT_FILENAME);
+        TrinoInputFile inputFile = fileSystem.newInputFile(checkpointPath);
         try (InputStream lastCheckpointInput = inputFile.newStream()) {
             // Note: there apparently is 8K buffering applied and _last_checkpoint should be much smaller.
             return Optional.of(JsonUtils.parseJson(OBJECT_MAPPER, lastCheckpointInput, LastCheckpoint.class));
@@ -252,15 +252,15 @@ public final class TransactionLogParser
         }
     }
 
-    public static long getMandatoryCurrentVersion(TrinoFileSystem fileSystem, Path tableLocation)
+    public static long getMandatoryCurrentVersion(TrinoFileSystem fileSystem, String tableLocation)
             throws IOException
     {
         long version = readLastCheckpoint(fileSystem, tableLocation).map(LastCheckpoint::getVersion).orElse(0L);
 
-        Path transactionLogDir = getTransactionLogDir(tableLocation);
+        String transactionLogDir = getTransactionLogDir(tableLocation);
         while (true) {
-            Path entryPath = getTransactionLogJsonEntryPath(transactionLogDir, version + 1);
-            if (!fileSystem.newInputFile(entryPath.toString()).exists()) {
+            String entryPath = getTransactionLogJsonEntryPath(transactionLogDir, version + 1);
+            if (!fileSystem.newInputFile(entryPath).exists()) {
                 return version;
             }
             version++;
