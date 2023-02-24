@@ -13,14 +13,11 @@
  */
 package io.trino.plugin.deltalake;
 
-import io.trino.hdfs.HdfsContext;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.metastore.TableType;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -28,7 +25,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,7 +41,6 @@ public abstract class BaseDeltaLakeTableWithCustomLocation
     protected static final String CATALOG_NAME = "delta_with_custom_location";
     protected File metastoreDir;
     protected HiveMetastore metastore;
-    protected HdfsContext hdfsContext;
 
     @Test
     public void testTableHasUuidSuffixInLocation()
@@ -63,18 +60,18 @@ public abstract class BaseDeltaLakeTableWithCustomLocation
         String tableName = "test_create_and_drop" + randomNameSuffix();
         assertQuerySucceeds(format("CREATE TABLE %s AS SELECT 1 as val", tableName));
         Table table = metastore.getTable(SCHEMA, tableName).orElseThrow();
-        assertThat(table.getTableType()).isEqualTo(TableType.MANAGED_TABLE.name());
+        assertThat(table.getTableType()).isEqualTo(MANAGED_TABLE.name());
 
-        Path tableLocation = new Path(table.getStorage().getLocation());
-        FileSystem fileSystem = HDFS_ENVIRONMENT.getFileSystem(hdfsContext, tableLocation);
-        assertTrue(fileSystem.exists(tableLocation), "The directory corresponding to the table storage location should exist");
+        String tableLocation = table.getStorage().getLocation();
+        TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(getSession().toConnectorSession());
+        assertTrue(fileSystem.listFiles(tableLocation).hasNext(), "The directory corresponding to the table storage location should exist");
         List<MaterializedRow> materializedRows = computeActual("SELECT \"$path\" FROM " + tableName).getMaterializedRows();
         assertEquals(materializedRows.size(), 1);
         String filePath = (String) materializedRows.get(0).getField(0);
-        assertTrue(fileSystem.exists(new Path(filePath)), "The data file should exist");
+        assertTrue(fileSystem.listFiles(filePath).hasNext(), "The data file should exist");
         assertQuerySucceeds(format("DROP TABLE %s", tableName));
         assertFalse(metastore.getTable(SCHEMA, tableName).isPresent(), "Table should be dropped");
-        assertFalse(fileSystem.exists(new Path(filePath)), "The data file should have been removed");
-        assertFalse(fileSystem.exists(tableLocation), "The directory corresponding to the dropped Delta Lake table should be removed");
+        assertFalse(fileSystem.listFiles(filePath).hasNext(), "The data file should have been removed");
+        assertFalse(fileSystem.listFiles(tableLocation).hasNext(), "The directory corresponding to the dropped Delta Lake table should be removed");
     }
 }
