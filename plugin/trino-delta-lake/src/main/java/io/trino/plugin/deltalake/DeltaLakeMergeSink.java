@@ -332,7 +332,7 @@ public class DeltaLakeMergeSink
             DeltaLakeWriter writer = new DeltaLakeWriter(
                     fileSystem,
                     fileWriter,
-                    rootTablePath,
+                    rootTableLocation,
                     targetRelativePath,
                     deletion.partitionValues(),
                     writerStats,

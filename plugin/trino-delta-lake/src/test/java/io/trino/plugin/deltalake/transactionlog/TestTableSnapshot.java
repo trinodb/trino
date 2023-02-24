@@ -24,12 +24,10 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManag
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.SchemaTableName;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
@@ -55,15 +53,14 @@ public class TestTableSnapshot
     private CheckpointSchemaManager checkpointSchemaManager;
     private AccessTrackingFileSystemFactory accessTrackingFileSystemFactory;
     private TrinoFileSystem accessTrackingFileSystem;
-    private Path tableLocation;
+    private String tableLocation;
 
     @BeforeMethod
     public void setUp()
             throws URISyntaxException
     {
         checkpointSchemaManager = new CheckpointSchemaManager(TESTING_TYPE_MANAGER);
-        URI deltaLogPath = getClass().getClassLoader().getResource("databricks/person").toURI();
-        tableLocation = new Path(deltaLogPath);
+        tableLocation = getClass().getClassLoader().getResource("databricks/person").toURI().toString();
 
         accessTrackingFileSystemFactory = new AccessTrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT));
         accessTrackingFileSystem = accessTrackingFileSystemFactory.create(SESSION);

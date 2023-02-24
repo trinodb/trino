@@ -131,8 +131,8 @@ public class RegisterTableProcedure
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
-            Path transactionLogDir = getTransactionLogDir(new Path(tableLocation));
-            if (!fileSystem.listFiles(transactionLogDir.toString()).hasNext()) {
+            String transactionLogDir = getTransactionLogDir(tableLocation);
+            if (!fileSystem.listFiles(transactionLogDir).hasNext()) {
                 throw new TrinoException(GENERIC_USER_ERROR, format("No transaction log found in location %s", transactionLogDir));
             }
         }

@@ -724,13 +724,13 @@ public class DeltaLakeMetadata
         }
         Path targetPath = new Path(location);
         ensurePathExists(session, targetPath);
-        Path deltaLogDirectory = getTransactionLogDir(targetPath);
+        String deltaLogDirectory = getTransactionLogDir(location);
         Optional<Long> checkpointInterval = getCheckpointInterval(tableMetadata.getProperties());
         Optional<Boolean> changeDataFeedEnabled = getChangeDataFeedEnabled(tableMetadata.getProperties());
 
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            if (!fileSystem.listFiles(deltaLogDirectory.toString()).hasNext()) {
+            if (!fileSystem.listFiles(deltaLogDirectory).hasNext()) {
                 validateTableColumns(tableMetadata);
 
                 List<String> partitionColumns = getPartitionedBy(tableMetadata.getProperties());
@@ -872,7 +872,7 @@ public class DeltaLakeMetadata
         ensurePathExists(session, targetPath);
         checkPathContainsNoFiles(session, targetPath);
 
-        setRollback(() -> deleteRecursivelyIfExists(fileSystemFactory.create(session), targetPath));
+        setRollback(() -> deleteRecursivelyIfExists(fileSystemFactory.create(session), targetPath.toString()));
 
         return new DeltaLakeOutputTableHandle(
                 schemaName,
@@ -945,10 +945,10 @@ public class DeltaLakeMetadata
         }
     }
 
-    private static void deleteRecursivelyIfExists(TrinoFileSystem fileSystem, Path path)
+    private static void deleteRecursivelyIfExists(TrinoFileSystem fileSystem, String path)
     {
         try {
-            fileSystem.deleteDirectory(path.toString());
+            fileSystem.deleteDirectory(path);
         }
         catch (IOException e) {
             LOG.warn(e, "IOException while trying to delete '%s'", path);
@@ -1035,9 +1035,9 @@ public class DeltaLakeMetadata
         catch (Exception e) {
             // Remove the transaction log entry if the table creation fails
             try {
-                Path transactionLogLocation = getTransactionLogDir(new Path(handle.getLocation()));
+                String transactionLogLocation = getTransactionLogDir(handle.getLocation());
                 TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-                fileSystem.deleteDirectory(transactionLogLocation.toString());
+                fileSystem.deleteDirectory(transactionLogLocation);
             }
             catch (IOException ioException) {
                 // Nothing to do, the IOException is probably the same reason why the initial write failed
@@ -1300,7 +1300,7 @@ public class DeltaLakeMetadata
                     tableLocation,
                     table.getMetadataEntry(),
                     inputColumns,
-                    getMandatoryCurrentVersion(fileSystem, new Path(tableLocation)),
+                    getMandatoryCurrentVersion(fileSystem, tableLocation),
                     retryMode != NO_RETRIES);
         }
         catch (IOException e) {
@@ -1347,7 +1347,7 @@ public class DeltaLakeMetadata
             long createdTime = Instant.now().toEpochMilli();
 
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            long commitVersion = getMandatoryCurrentVersion(fileSystem, new Path(handle.getLocation())) + 1;
+            long commitVersion = getMandatoryCurrentVersion(fileSystem, handle.getLocation()) + 1;
             if (commitVersion != handle.getReadVersion() + 1) {
                 throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s",
                         handle.getReadVersion(),
@@ -1484,7 +1484,7 @@ public class DeltaLakeMetadata
             long createdTime = Instant.now().toEpochMilli();
 
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            long currentVersion = getMandatoryCurrentVersion(fileSystem, new Path(tableLocation));
+            long currentVersion = getMandatoryCurrentVersion(fileSystem, tableLocation);
             if (currentVersion != handle.getReadVersion()) {
                 throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s", handle.getReadVersion(), currentVersion));
             }
@@ -2618,7 +2618,7 @@ public class DeltaLakeMetadata
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
-            return TransactionLogTail.loadNewTail(fileSystem, new Path(metastore.getTableLocation(table, session)), Optional.empty()).getFileEntries().stream()
+            return TransactionLogTail.loadNewTail(fileSystem, metastore.getTableLocation(table, session), Optional.empty()).getFileEntries().stream()
                     .map(DeltaLakeTransactionLogEntry::getCommitInfo)
                     .filter(Objects::nonNull)
                     .collect(toImmutableList());

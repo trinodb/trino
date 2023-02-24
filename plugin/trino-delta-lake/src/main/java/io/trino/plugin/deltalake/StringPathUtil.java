@@ -11,18 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.deltalake.transactionlog;
+package io.trino.plugin.deltalake;
 
-import io.trino.spi.TrinoException;
+import java.io.File;
+import java.util.regex.Pattern;
 
-import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_TABLE;
-import static java.lang.String.format;
-
-public class MissingTransactionLogException
-        extends TrinoException
+public final class StringPathUtil
 {
-    public MissingTransactionLogException(String transactionLogPath)
+    public static final Pattern DOUBLE_SLASH_TO_REPLEACE = Pattern.compile("(?<!\\w+:/?)//+");
+
+    private StringPathUtil() {}
+
+    public static String stringPathOf(String... pathParts)
     {
-        super(DELTA_LAKE_INVALID_TABLE, format("The transaction log file %s was not found", transactionLogPath));
+        String path = String.join(File.separator, pathParts);
+        return DOUBLE_SLASH_TO_REPLEACE.matcher(path).replaceAll("/");
     }
 }

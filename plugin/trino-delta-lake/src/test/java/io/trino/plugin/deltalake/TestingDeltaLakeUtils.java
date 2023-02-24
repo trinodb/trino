@@ -21,7 +21,6 @@ import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.TestingConnectorContext;
-import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.List;
@@ -47,6 +46,6 @@ public final class TestingDeltaLakeUtils
                 new HdfsFileSystemFactory(HDFS_ENVIRONMENT),
                 new ParquetReaderConfig());
 
-        return transactionLogAccess.getActiveFiles(transactionLogAccess.loadSnapshot(dummyTable, new Path(tableLocation), SESSION), SESSION);
+        return transactionLogAccess.getActiveFiles(transactionLogAccess.loadSnapshot(dummyTable, tableLocation, SESSION), SESSION);
     }
 }
