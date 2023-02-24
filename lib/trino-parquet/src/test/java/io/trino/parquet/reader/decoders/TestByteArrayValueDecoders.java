@@ -370,36 +370,4 @@ public final class TestByteArrayValueDecoders
             delegate.skip(n);
         }
     }
-
-    private static final class BinaryApacheParquetValueDecoder
-            implements ValueDecoder<BinaryBuffer>
-    {
-        private final ValuesReader delegate;
-
-        public BinaryApacheParquetValueDecoder(ValuesReader delegate)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-        }
-
-        @Override
-        public void init(SimpleSliceInputStream input)
-        {
-            initialize(input, delegate);
-        }
-
-        @Override
-        public void read(BinaryBuffer values, int offsetsIndex, int length)
-        {
-            for (int i = 0; i < length; i++) {
-                byte[] value = delegate.readBytes().getBytes();
-                values.add(value, i + offsetsIndex);
-            }
-        }
-
-        @Override
-        public void skip(int n)
-        {
-            delegate.skip(n);
-        }
-    }
 }

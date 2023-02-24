@@ -330,6 +330,21 @@ public class TestingColumnReader
         };
     }
 
+    private static Writer<String> writeFixedWidthBinary(int typeLength)
+    {
+        return (writer, values) -> {
+            String[] result = new String[values.length];
+            for (int i = 0; i < values.length; i++) {
+                if (values[i] != null) {
+                    byte[] bytes = Arrays.copyOf(Integer.toString(values[i]).getBytes(UTF_8), typeLength);
+                    writer.writeBytes(Binary.fromConstantByteArray(bytes));
+                    result[i] = new String(bytes, UTF_8);
+                }
+            }
+            return result;
+        };
+    }
+
     private static final Assertion<Number> ASSERT_BYTE = (values, block, offset, blockOffset) -> assertThat(block.getByte(blockOffset, 0)).isEqualTo(values[offset].byteValue());
     private static final Assertion<Number> ASSERT_SHORT = (values, block, offset, blockOffset) -> assertThat(block.getShort(blockOffset, 0)).isEqualTo(values[offset].shortValue());
     private static final Assertion<Number> ASSERT_INT = (values, block, offset, blockOffset) -> assertThat(block.getInt(blockOffset, 0)).isEqualTo(values[offset].intValue());
@@ -641,6 +656,7 @@ public class TestingColumnReader
                 new ColumnReaderFormat<>(INT32, SMALLINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_SHORT, ASSERT_SHORT),
                 new ColumnReaderFormat<>(INT32, TINYINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_BYTE, ASSERT_BYTE),
                 new ColumnReaderFormat<>(BINARY, VARCHAR, PLAIN_WRITER, DICTIONARY_BINARY_WRITER, WRITE_BINARY, ASSERT_BINARY),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, null, VARCHAR, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, writeFixedWidthBinary(8), ASSERT_BINARY),
                 new ColumnReaderFormat<>(INT64, decimalType(0, 16), createDecimalType(16), PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT64, BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT64, INTEGER, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_INT),
