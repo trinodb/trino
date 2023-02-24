@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.hdfs.HdfsContext;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
@@ -59,7 +58,6 @@ public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
                         .buildOrThrow());
 
         metastore = createTestingGlueHiveMetastore(metastoreDir.getPath());
-        hdfsContext = new HdfsContext(queryRunner.getDefaultSession().toConnectorSession());
 
         queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = '" + metastoreDir.getPath() + "')");
         return queryRunner;
