@@ -66,6 +66,8 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
@@ -249,6 +251,9 @@ public final class ColumnReaderFactory
             if (type instanceof AbstractVariableWidthType && primitiveType == BINARY) {
                 return createColumnReader(field, ValueDecoders::getBinaryDecoder, BINARY_ADAPTER, memoryContext);
             }
+            if ((VARBINARY.equals(type) || VARCHAR.equals(type)) && primitiveType == FIXED_LEN_BYTE_ARRAY) {
+                return createColumnReader(field, ValueDecoders::getFixedWidthBinaryDecoder, BINARY_ADAPTER, memoryContext);
+            }
             if (UUID.equals(type) && primitiveType == FIXED_LEN_BYTE_ARRAY) {
                 // Iceberg 0.11.1 writes UUID as FIXED_LEN_BYTE_ARRAY without logical type annotation (see https://github.com/apache/iceberg/pull/2913)
                 // To support such files, we bet on the logical type to be UUID based on the Trino UUID type check.
@@ -297,6 +302,9 @@ public final class ColumnReaderFactory
                 }
                 if (isLogicalUuid(annotation)) {
                     yield new UuidColumnReader(field);
+                }
+                if (VARBINARY.equals(type) || VARCHAR.equals(type)) {
+                    yield new BinaryColumnReader(field);
                 }
                 if (annotation == null) {
                     // Iceberg 0.11.1 writes UUID as FIXED_LEN_BYTE_ARRAY without logical type annotation (see https://github.com/apache/iceberg/pull/2913)
