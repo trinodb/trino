@@ -15,6 +15,7 @@ package io.trino.parquet.reader.decoders;
 
 import io.airlift.slice.Slices;
 import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.parquet.reader.flat.BinaryBuffer;
 import io.trino.parquet.reader.flat.BitPackingUtils;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.type.Decimals;
@@ -369,6 +370,44 @@ public final class PlainValueDecoders
         public void skip(int n)
         {
             input.skip(n * LENGTH);
+        }
+    }
+
+    public static final class FixedLengthPlainValueDecoder
+            implements ValueDecoder<BinaryBuffer>
+    {
+        private final int typeLength;
+
+        private SimpleSliceInputStream input;
+
+        public FixedLengthPlainValueDecoder(int typeLength)
+        {
+            this.typeLength = typeLength;
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            this.input = requireNonNull(input, "input is null");
+        }
+
+        @Override
+        public void read(BinaryBuffer values, int offset, int length)
+        {
+            values.addChunk(input.readSlice(typeLength * length));
+            int[] outputOffsets = values.getOffsets();
+
+            int inputLength = outputOffsets[offset] + typeLength;
+            for (int i = offset; i < offset + length; i++) {
+                outputOffsets[i + 1] = inputLength;
+                inputLength += typeLength;
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            input.skip(n * typeLength);
         }
     }
 }
