@@ -8241,47 +8241,29 @@ public abstract class BaseHiveConnectorTest
 
         assertThat(query(defaultSession, "SELECT ts FROM " + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
 
-        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(defaultSession, "SELECT ts  FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(defaultSession, "SELECT ts  FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
 
         assertThat(query(millisSession, "SELECT ts FROM " + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
         assertThat(query(millisSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
 
-        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
 
-        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
 
         // Presto view created with config property set to MILLIS and session property set to NANOS
         String prestoViewNameNanos = "presto_view_ts_nanos_" + randomNameSuffix();
         assertUpdate(nanosSessions, "CREATE VIEW " + prestoViewNameNanos + " AS SELECT *  FROM " + tableName);
 
-        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(defaultSession, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'")
         assertThat(query(defaultSession, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
 
-        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(defaultSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(defaultSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
 
-        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(millisSession, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'")
         assertThat(query(millisSession, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
 
-        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(millisSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'")
         assertThat(query(millisSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
 
-        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
 
-        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
     }
 
