@@ -226,9 +226,9 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         String tableNameNew = "test_register_table_with_no_transaction_log_new_" + randomNameSuffix();
 
         // Delete files under transaction log directory and put an invalid log file to verify register_table call fails
-        String transactionLogDir = new URI(getTransactionLogDir(new org.apache.hadoop.fs.Path(tableLocation)).toString()).getPath();
+        String transactionLogDir = new URI(getTransactionLogDir(tableLocation)).getPath();
         deleteDirectoryContents(Path.of(transactionLogDir), ALLOW_INSECURE);
-        new File(getTransactionLogJsonEntryPath(new org.apache.hadoop.fs.Path(transactionLogDir), 0).toString()).createNewFile();
+        new File(getTransactionLogJsonEntryPath(transactionLogDir, 0)).createNewFile();
 
         assertQueryFails(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableNameNew, tableLocation),
                 ".*Failed to access table location: (.*)");
@@ -250,7 +250,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         String tableNameNew = "test_register_table_with_no_transaction_log_new_" + randomNameSuffix();
 
         // Delete files under transaction log directory to verify register_table call fails
-        deleteDirectoryContents(Path.of(new URI(getTransactionLogDir(new org.apache.hadoop.fs.Path(tableLocation)).toString()).getPath()), ALLOW_INSECURE);
+        deleteDirectoryContents(Path.of(new URI(getTransactionLogDir(tableLocation)).getPath()), ALLOW_INSECURE);
 
         assertQueryFails(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableNameNew, tableLocation),
                 ".*No transaction log found in location (.*)");

@@ -36,7 +36,6 @@ import io.trino.tpch.LineItemColumn;
 import io.trino.tpch.LineItemGenerator;
 import io.trino.tpch.TpchColumnType;
 import io.trino.type.BlockTypeOperators;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -83,7 +82,7 @@ public class TestDeltaLakePageSink
         try {
             DeltaLakeWriterStats stats = new DeltaLakeWriterStats();
             String tablePath = tempDir.getAbsolutePath() + "/test_table";
-            ConnectorPageSink pageSink = createPageSink(new Path(tablePath), stats);
+            ConnectorPageSink pageSink = createPageSink(tablePath, stats);
 
             List<LineItemColumn> columns = ImmutableList.copyOf(LineItemColumn.values());
             List<Type> columnTypes = columns.stream()
@@ -150,7 +149,7 @@ public class TestDeltaLakePageSink
         }
     }
 
-    private static ConnectorPageSink createPageSink(Path outputPath, DeltaLakeWriterStats stats)
+    private static ConnectorPageSink createPageSink(String outputPath, DeltaLakeWriterStats stats)
     {
         HiveTransactionHandle transaction = new HiveTransactionHandle(false);
         DeltaLakeConfig deltaLakeConfig = new DeltaLakeConfig();
@@ -158,7 +157,7 @@ public class TestDeltaLakePageSink
                 SCHEMA_NAME,
                 TABLE_NAME,
                 getColumnHandles(),
-                outputPath.toString(),
+                outputPath,
                 Optional.of(deltaLakeConfig.getDefaultCheckpointWritingInterval()),
                 true,
                 Optional.empty(),

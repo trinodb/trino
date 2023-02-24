@@ -40,7 +40,6 @@ import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.fs.Path;
 import org.apache.parquet.format.CompressionCodec;
 
 import java.io.Closeable;
@@ -57,6 +56,7 @@ import java.util.concurrent.CompletableFuture;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressionCodec;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
@@ -355,26 +355,25 @@ public abstract class AbstractDeltaLakePageSink
                 closeWriter(writerIndex);
             }
 
-            Path filePath = new Path(outputPathDirectory);
+            String filePath = outputPathDirectory;
 
             List<String> partitionValues = createPartitionValues(partitionColumnTypes, partitionColumns, position);
             Optional<String> partitionName = Optional.empty();
             if (!originalPartitionColumnNames.isEmpty()) {
                 String partName = makePartName(originalPartitionColumnNames, partitionValues);
-                filePath = new Path(outputPathDirectory, partName);
+                filePath = appendPath(outputPathDirectory, partName);
                 partitionName = Optional.of(partName);
             }
 
             String fileName = session.getQueryId() + "-" + randomUUID();
-            filePath = new Path(filePath, fileName);
+            filePath = appendPath(filePath, fileName);
 
-            FileWriter fileWriter = createParquetFileWriter(filePath.toString());
+            FileWriter fileWriter = createParquetFileWriter(filePath);
 
-            Path rootTableLocationPath = new Path(tableLocation);
             DeltaLakeWriter writer = new DeltaLakeWriter(
                     fileSystem,
                     fileWriter,
-                    rootTableLocationPath,
+                    tableLocation,
                     getRelativeFilePath(partitionName, fileName),
                     partitionValues,
                     stats,
@@ -392,7 +391,7 @@ public abstract class AbstractDeltaLakePageSink
 
     private String getRelativeFilePath(Optional<String> partitionName, String fileName)
     {
-        return getPathPrefix() + partitionName.map(partition -> new Path(partition, fileName).toString()).orElse(fileName);
+        return getPathPrefix() + partitionName.map(partition -> appendPath(partition, fileName)).orElse(fileName);
     }
 
     protected void closeWriter(int writerIndex)
