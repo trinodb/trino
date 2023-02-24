@@ -1856,28 +1856,6 @@ public class DeltaLakeMetadata
         metastore.renameTable(session, handle.getSchemaTableName(), newTableName);
     }
 
-    private CommitInfoEntry getCommitInfoEntry(
-            ConnectorSession session,
-            long commitVersion,
-            long createdTime,
-            String operation,
-            long readVersion)
-    {
-        return new CommitInfoEntry(
-                commitVersion,
-                createdTime,
-                session.getUser(),
-                session.getUser(),
-                operation,
-                ImmutableMap.of("queryId", session.getQueryId()),
-                null,
-                null,
-                "trino-" + nodeVersion + "-" + nodeId,
-                readVersion,
-                ISOLATION_LEVEL,
-                Optional.of(true));
-    }
-
     @Override
     public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Optional<Object>> properties)
     {
@@ -1928,6 +1906,28 @@ public class DeltaLakeMetadata
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
         }
+    }
+
+    private CommitInfoEntry getCommitInfoEntry(
+            ConnectorSession session,
+            long commitVersion,
+            long createdTime,
+            String operation,
+            long readVersion)
+    {
+        return new CommitInfoEntry(
+                commitVersion,
+                createdTime,
+                session.getUser(),
+                session.getUser(),
+                operation,
+                ImmutableMap.of("queryId", session.getQueryId()),
+                null,
+                null,
+                "trino-" + nodeVersion + "-" + nodeId,
+                readVersion,
+                ISOLATION_LEVEL,
+                Optional.of(true));
     }
 
     @Override
