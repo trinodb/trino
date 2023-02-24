@@ -34,7 +34,6 @@ import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.fs.Path;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
@@ -54,6 +53,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.hasInvalidStatistics;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonEncodeMax;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonEncodeMin;
@@ -68,7 +68,7 @@ public class DeltaLakeWriter
 {
     private final TrinoFileSystem fileSystem;
     private final FileWriter fileWriter;
-    private final Path rootTableLocation;
+    private final String rootTableLocation;
     private final String relativeFilePath;
     private final List<String> partitionValues;
     private final DeltaLakeWriterStats stats;
@@ -83,7 +83,7 @@ public class DeltaLakeWriter
     public DeltaLakeWriter(
             TrinoFileSystem fileSystem,
             FileWriter fileWriter,
-            Path rootTableLocation,
+            String rootTableLocation,
             String relativeFilePath,
             List<String> partitionValues,
             DeltaLakeWriterStats stats,
@@ -186,7 +186,7 @@ public class DeltaLakeWriter
 
     private static DeltaLakeJsonFileStatistics readStatistics(
             TrinoFileSystem fileSystem,
-            Path tableLocation,
+            String tableLocation,
             List<String> dataColumnNames,
             List<Type> dataColumnTypes,
             String relativeFilePath,
@@ -198,7 +198,7 @@ public class DeltaLakeWriter
             typeForColumn.put(dataColumnNames.get(i), dataColumnTypes.get(i));
         }
 
-        TrinoInputFile inputFile = fileSystem.newInputFile(new Path(tableLocation, relativeFilePath).toString());
+        TrinoInputFile inputFile = fileSystem.newInputFile(appendPath(tableLocation, relativeFilePath));
         try (TrinoParquetDataSource trinoParquetDataSource = new TrinoParquetDataSource(
                 inputFile,
                 new ParquetReaderOptions(),

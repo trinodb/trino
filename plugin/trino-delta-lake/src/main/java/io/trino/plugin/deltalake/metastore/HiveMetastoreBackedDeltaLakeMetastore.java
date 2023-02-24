@@ -41,7 +41,6 @@ import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -153,7 +152,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
         statisticsAccess.invalidateCache(tableLocation);
         transactionLogAccess.invalidateCaches(tableLocation);
         try {
-            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(table.getSchemaTableName(), new Path(tableLocation), session);
+            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(table.getSchemaTableName(), tableLocation, session);
             Optional<MetadataEntry> maybeMetadata = transactionLogAccess.getMetadataEntry(tableSnapshot, session);
             if (maybeMetadata.isEmpty()) {
                 throw new TrinoException(DELTA_LAKE_INVALID_TABLE, "Provided location did not contain a valid Delta Lake table: " + tableLocation);
@@ -219,7 +218,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     public TableSnapshot getSnapshot(SchemaTableName table, ConnectorSession session)
     {
         try {
-            return transactionLogAccess.loadSnapshot(table, new Path(getTableLocation(table, session)), session);
+            return transactionLogAccess.loadSnapshot(table, getTableLocation(table, session), session);
         }
         catch (NotADeltaLakeTableException e) {
             throw e;
