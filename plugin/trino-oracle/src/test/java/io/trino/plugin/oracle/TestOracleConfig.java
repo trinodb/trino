@@ -43,7 +43,8 @@ public class TestOracleConfig
                 .setConnectionPoolEnabled(true)
                 .setConnectionPoolMinSize(1)
                 .setConnectionPoolMaxSize(30)
-                .setInactiveConnectionTimeout(new Duration(20, MINUTES)));
+                .setInactiveConnectionTimeout(new Duration(20, MINUTES))
+                .setJdbcFetchSize(1000));
     }
 
     @Test
@@ -58,6 +59,7 @@ public class TestOracleConfig
                 .put("oracle.connection-pool.min-size", "10")
                 .put("oracle.connection-pool.max-size", "20")
                 .put("oracle.connection-pool.inactive-timeout", "30s")
+                .put("oracle.jdbc-fetch-size", "2000")
                 .buildOrThrow();
 
         OracleConfig expected = new OracleConfig()
@@ -68,7 +70,8 @@ public class TestOracleConfig
                 .setConnectionPoolEnabled(false)
                 .setConnectionPoolMinSize(10)
                 .setConnectionPoolMaxSize(20)
-                .setInactiveConnectionTimeout(new Duration(30, SECONDS));
+                .setInactiveConnectionTimeout(new Duration(30, SECONDS))
+                .setJdbcFetchSize(2000);
 
         assertFullMapping(properties, expected);
     }

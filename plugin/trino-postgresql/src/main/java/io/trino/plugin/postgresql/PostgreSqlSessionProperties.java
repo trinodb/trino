@@ -25,12 +25,14 @@ import java.util.List;
 
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
 
 public final class PostgreSqlSessionProperties
         implements SessionPropertiesProvider
 {
     public static final String ARRAY_MAPPING = "array_mapping";
     public static final String ENABLE_STRING_PUSHDOWN_WITH_COLLATE = "enable_string_pushdown_with_collate";
+    public static final String JDBC_FETCH_SIZE = "jdbc_fetch_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -48,6 +50,11 @@ public final class PostgreSqlSessionProperties
                         ENABLE_STRING_PUSHDOWN_WITH_COLLATE,
                         "Enable string pushdown with collate (experimental)",
                         postgreSqlConfig.isEnableStringPushdownWithCollate(),
+                        false),
+                integerProperty(
+                        JDBC_FETCH_SIZE,
+                        "A hit number for postgresql JDBC driver for fetching the result rows",
+                        postgreSqlConfig.getJdbcFetchSize(),
                         false));
     }
 
@@ -65,5 +72,10 @@ public final class PostgreSqlSessionProperties
     public static boolean isEnableStringPushdownWithCollate(ConnectorSession session)
     {
         return session.getProperty(ENABLE_STRING_PUSHDOWN_WITH_COLLATE, Boolean.class);
+    }
+
+    public static int getJdbcFetchSize(ConnectorSession session)
+    {
+        return session.getProperty(JDBC_FETCH_SIZE, Integer.class);
     }
 }

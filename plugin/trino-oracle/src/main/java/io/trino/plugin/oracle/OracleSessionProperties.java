@@ -32,6 +32,7 @@ public final class OracleSessionProperties
 {
     public static final String NUMBER_ROUNDING_MODE = "number_rounding_mode";
     public static final String NUMBER_DEFAULT_SCALE = "number_default_scale";
+    public static final String JDBC_FETCH_SIZE = "jdbc_fetch_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -50,6 +51,11 @@ public final class OracleSessionProperties
                         "Default scale for Oracle Number data type",
                         config.getDefaultNumberScale().orElse(null),
                         false))
+                .add(integerProperty(
+                        JDBC_FETCH_SIZE,
+                        "A hit number for oracle JDBC driver for fetching the result rows",
+                        config.getJdbcFetchSize(),
+                        false))
                 .build();
     }
 
@@ -67,5 +73,10 @@ public final class OracleSessionProperties
     public static Optional<Integer> getNumberDefaultScale(ConnectorSession session)
     {
         return Optional.ofNullable(session.getProperty(NUMBER_DEFAULT_SCALE, Integer.class));
+    }
+
+    public static int getJdbcFetchSize(ConnectorSession session)
+    {
+        return session.getProperty(JDBC_FETCH_SIZE, Integer.class);
     }
 }

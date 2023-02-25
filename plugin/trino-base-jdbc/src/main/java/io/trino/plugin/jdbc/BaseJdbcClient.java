@@ -1064,7 +1064,7 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
             throws SQLException
     {
         return connection.prepareStatement(sql);

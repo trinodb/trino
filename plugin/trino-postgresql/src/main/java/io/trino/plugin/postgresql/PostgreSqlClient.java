@@ -184,6 +184,7 @@ import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_JSON;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.DISABLED;
 import static io.trino.plugin.postgresql.PostgreSqlSessionProperties.getArrayMapping;
+import static io.trino.plugin.postgresql.PostgreSqlSessionProperties.getJdbcFetchSize;
 import static io.trino.plugin.postgresql.PostgreSqlSessionProperties.isEnableStringPushdownWithCollate;
 import static io.trino.plugin.postgresql.TypeUtils.arrayDepth;
 import static io.trino.plugin.postgresql.TypeUtils.getArrayElementPgTypeName;
@@ -378,13 +379,13 @@ public class PostgreSqlClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
             throws SQLException
     {
         // fetch-size is ignored when connection is in auto-commit
         connection.setAutoCommit(false);
         PreparedStatement statement = connection.prepareStatement(sql);
-        statement.setFetchSize(1000);
+        statement.setFetchSize(getJdbcFetchSize(session));
         return statement;
     }
 

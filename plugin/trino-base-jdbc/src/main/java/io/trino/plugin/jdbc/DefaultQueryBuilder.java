@@ -176,7 +176,7 @@ public class DefaultQueryBuilder
     {
         String modifiedQuery = queryModifier.apply(session, preparedQuery.getQuery());
         log.debug("Preparing query: %s", modifiedQuery);
-        PreparedStatement statement = client.getPreparedStatement(connection, modifiedQuery);
+        PreparedStatement statement = client.getPreparedStatement(session, connection, modifiedQuery);
 
         List<QueryParameter> parameters = preparedQuery.getParameters();
         for (int i = 0; i < parameters.size(); i++) {

@@ -404,7 +404,7 @@ public class RedshiftClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
             throws SQLException
     {
         // In PostgreSQL, fetch-size is ignored when connection is in auto-commit. Redshift JDBC documentation does not state this requirement

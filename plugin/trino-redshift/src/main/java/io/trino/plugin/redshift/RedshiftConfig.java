@@ -18,6 +18,7 @@ import io.airlift.configuration.Config;
 public class RedshiftConfig
 {
     private boolean legacyTypeMapping;
+    private int jdbcFetchSize = 1000;
 
     public boolean isLegacyTypeMapping()
     {
@@ -28,6 +29,18 @@ public class RedshiftConfig
     public RedshiftConfig setLegacyTypeMapping(boolean legacyTypeMapping)
     {
         this.legacyTypeMapping = legacyTypeMapping;
+        return this;
+    }
+
+    public int getJdbcFetchSize()
+    {
+        return jdbcFetchSize;
+    }
+
+    @Config("redshift.jdbc-fetch-size")
+    public RedshiftConfig setJdbcFetchSize(int jdbcFetchSize)
+    {
+        this.jdbcFetchSize = jdbcFetchSize;
         return this;
     }
 }

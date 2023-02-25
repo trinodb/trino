@@ -177,7 +177,7 @@ public interface JdbcClient
     Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException;
 
-    PreparedStatement getPreparedStatement(Connection connection, String sql)
+    PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
             throws SQLException;
 
     /**

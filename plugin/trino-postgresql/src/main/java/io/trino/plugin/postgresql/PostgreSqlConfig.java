@@ -23,6 +23,7 @@ public class PostgreSqlConfig
     private ArrayMapping arrayMapping = ArrayMapping.DISABLED;
     private boolean includeSystemTables;
     private boolean enableStringPushdownWithCollate;
+    private int jdbcFetchSize = 1000;
 
     public enum ArrayMapping
     {
@@ -66,6 +67,18 @@ public class PostgreSqlConfig
     public PostgreSqlConfig setEnableStringPushdownWithCollate(boolean enableStringPushdownWithCollate)
     {
         this.enableStringPushdownWithCollate = enableStringPushdownWithCollate;
+        return this;
+    }
+
+    public int getJdbcFetchSize()
+    {
+        return jdbcFetchSize;
+    }
+
+    @Config("postgresql.jdbc-fetch-size")
+    public PostgreSqlConfig setJdbcFetchSize(int jdbcFetchSize)
+    {
+        this.jdbcFetchSize = jdbcFetchSize;
         return this;
     }
 }

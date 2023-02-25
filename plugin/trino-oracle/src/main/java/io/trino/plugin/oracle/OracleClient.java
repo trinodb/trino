@@ -105,6 +105,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.oracle.OracleSessionProperties.getJdbcFetchSize;
 import static io.trino.plugin.oracle.OracleSessionProperties.getNumberDefaultScale;
 import static io.trino.plugin.oracle.OracleSessionProperties.getNumberRoundingMode;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -257,11 +258,11 @@ public class OracleClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
             throws SQLException
     {
         PreparedStatement statement = connection.prepareStatement(sql);
-        statement.setFetchSize(1000);
+        statement.setFetchSize(getJdbcFetchSize(session));
         return statement;
     }
 

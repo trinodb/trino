@@ -37,6 +37,7 @@ public class OracleConfig
     private int connectionPoolMinSize = 1;
     private int connectionPoolMaxSize = 30;
     private Duration inactiveConnectionTimeout = new Duration(20, MINUTES);
+    private int jdbcFetchSize = 1000;
 
     @NotNull
     public boolean isSynonymsEnabled()
@@ -146,5 +147,17 @@ public class OracleConfig
     public boolean isPoolSizedProperly()
     {
         return getConnectionPoolMaxSize() >= getConnectionPoolMinSize();
+    }
+
+    public int getJdbcFetchSize()
+    {
+        return jdbcFetchSize;
+    }
+
+    @Config("oracle.jdbc-fetch-size")
+    public OracleConfig setJdbcFetchSize(int jdbcFetchSize)
+    {
+        this.jdbcFetchSize = jdbcFetchSize;
+        return this;
     }
 }

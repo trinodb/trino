@@ -294,7 +294,7 @@ public class MySqlClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
             throws SQLException
     {
         PreparedStatement statement = connection.prepareStatement(sql);
@@ -472,7 +472,8 @@ public class MySqlClient
 
     private LongWriteFunction mySqlDateWriteFunctionUsingLocalDate()
     {
-        return new LongWriteFunction() {
+        return new LongWriteFunction()
+        {
             @Override
             public String getBindExpression()
             {
