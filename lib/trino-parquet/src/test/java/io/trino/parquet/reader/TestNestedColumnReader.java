@@ -18,7 +18,6 @@ import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.reader.flat.AbstractColumnReaderTest;
 import io.trino.spi.block.Block;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesWriter;

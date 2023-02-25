@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.parquet.reader.flat;
+package io.trino.parquet.reader;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Bytes;
@@ -26,11 +26,6 @@ import io.trino.parquet.Page;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.reader.ColumnReader;
-import io.trino.parquet.reader.ColumnReaderFactory;
-import io.trino.parquet.reader.FilteredRowRanges;
-import io.trino.parquet.reader.PageReader;
-import io.trino.parquet.reader.TestingColumnReader;
 import io.trino.parquet.reader.TestingColumnReader.ColumnReaderFormat;
 import io.trino.parquet.reader.TestingColumnReader.DataPageVersion;
 import io.trino.spi.block.Block;
