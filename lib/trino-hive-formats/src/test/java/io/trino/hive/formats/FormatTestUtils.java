@@ -129,6 +129,7 @@ public final class FormatTestUtils
             .add(Optional.of(CompressionKind.SNAPPY))
             .add(Optional.of(CompressionKind.LZ4))
             .add(Optional.of(CompressionKind.GZIP))
+            .add(Optional.of(CompressionKind.DEFLATE))
             .add(Optional.of(CompressionKind.ZSTD))
             .add(Optional.of(CompressionKind.LZO))
             .add(Optional.of(CompressionKind.LZOP))

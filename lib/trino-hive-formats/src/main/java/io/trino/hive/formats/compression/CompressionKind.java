@@ -20,6 +20,7 @@ import io.airlift.compress.lz4.Lz4Codec;
 import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.lzo.LzopCodec;
 import io.airlift.compress.snappy.SnappyCodec;
+import org.apache.hadoop.io.compress.DefaultCodec;
 
 import java.util.Arrays;
 import java.util.List;
@@ -66,6 +67,15 @@ public enum CompressionKind
         public Codec createCodec()
         {
             return new AircompressorCodec(new JdkGzipCodec());
+        }
+    },
+    DEFLATE(".deflate", "org.apache.hadoop.io.compress.DefaultCodec") {
+        @Override
+        public Codec createCodec()
+        {
+            DefaultCodec codec = new DefaultCodec();
+            codec.setConf(newEmptyConfiguration());
+            return new HadoopCodec(codec);
         }
     },
     ZSTD(".zst", "org.apache.hadoop.io.compress.ZStandardCodec") {
