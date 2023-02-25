@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.ignite;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
@@ -20,12 +22,17 @@ import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.TestRetryingConnectionFactory;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
+import io.trino.testing.assertions.TrinoExceptionAssert;
 import org.testng.annotations.Test;
 
 import java.sql.Types;
@@ -33,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -59,10 +67,35 @@ public class TestIgniteClient
 
     public static final JdbcClient JDBC_CLIENT = new IgniteClient(
             new BaseJdbcConfig(),
-            session -> { throw new UnsupportedOperationException(); },
+            new TestRetryingConnectionFactory.MockConnectorFactory(
+                    TestRetryingConnectionFactory.MockConnectorFactory.Action.RETURN),
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),
             new DefaultIdentifierMapping(),
             RemoteQueryModifier.NONE);
+
+    @Test
+    public void testBeginCreateTable()
+    {
+        SchemaTableName schemaTableName = new SchemaTableName("PUBLIC", "temp_table");
+
+        List<ColumnMetadata> columnMetadataList = ImmutableList.of(
+                ColumnMetadata.builder().setName("column_1").setType(DOUBLE).build(),
+                ColumnMetadata.builder().setName("column_2").setType(DOUBLE).build());
+
+        Map<String, Object> properties = ImmutableMap.of(
+                "primary_key",
+                ImmutableList.of("non_existing_column_name"));
+
+        ConnectorTableMetadata connectorTableMetadata = new ConnectorTableMetadata(
+                schemaTableName,
+                columnMetadataList,
+                properties);
+
+        TrinoExceptionAssert.assertTrinoExceptionThrownBy(() -> {
+            JDBC_CLIENT.beginCreateTable(SESSION, connectorTableMetadata);
+        }).hasMessage("non_existing_column_name specified as PRIMARY KEY is not present in columns")
+                .hasErrorCode(COLUMN_NOT_FOUND);
+    }
 
     @Test
     public void testImplementCount()

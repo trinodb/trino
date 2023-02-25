@@ -108,6 +108,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
+import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -373,7 +374,7 @@ public class IgniteClient
             columnNames.add(columnMetadata.getName());
             columnTypes.add(columnMetadata.getType());
         }
-        String sql = buildCreateSql(schemaTableName, columns.build(), tableMetadata.getProperties());
+        String sql = buildCreateSql(schemaTableName, columns.build(), columnNames.build(), tableMetadata.getProperties());
 
         try (Connection connection = connectionFactory.openConnection(session)) {
             execute(session, connection, sql);
@@ -391,13 +392,21 @@ public class IgniteClient
         }
     }
 
-    private String buildCreateSql(SchemaTableName schemaTableName, List<String> columns, Map<String, Object> tableProperties)
+    private String buildCreateSql(SchemaTableName schemaTableName, List<String> columns, List<String> columnNames, Map<String, Object> tableProperties)
     {
         ImmutableList.Builder<String> columnDefinitions = ImmutableList.builder();
         columnDefinitions.addAll(columns);
 
         List<String> primaryKeys = IgniteTableProperties.getPrimaryKey(tableProperties);
         checkArgument(primaryKeys.size() < columns.size(), "Ignite table must have at least one non PRIMARY KEY column.");
+
+        for (String primaryKey : primaryKeys) {
+            if (!columnNames.contains(primaryKey)) {
+                String message = format("%s specified as PRIMARY KEY is not present in columns", primaryKey);
+                throw new TrinoException(COLUMN_NOT_FOUND, message);
+            }
+        }
+
         if (primaryKeys.isEmpty()) {
             columnDefinitions.add(quoted(IGNITE_DUMMY_ID) + " VARCHAR NOT NULL");
             primaryKeys = ImmutableList.of(IGNITE_DUMMY_ID);
