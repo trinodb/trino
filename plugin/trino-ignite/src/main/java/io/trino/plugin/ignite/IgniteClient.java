@@ -115,6 +115,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -382,14 +383,25 @@ public class IgniteClient
 
         int expectedSize = tableMetadata.getColumns().size();
         ImmutableList.Builder<String> columns = ImmutableList.builderWithExpectedSize(expectedSize);
-        ImmutableList.Builder<String> columnNames = ImmutableList.builderWithExpectedSize(expectedSize);
+        ImmutableList.Builder<String> columnNamesBuilder = ImmutableList.builderWithExpectedSize(expectedSize);
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builderWithExpectedSize(expectedSize);
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
             columns.add(getColumnDefinitionSql(session, columnMetadata, columnMetadata.getName()));
-            columnNames.add(columnMetadata.getName());
+            columnNamesBuilder.add(columnMetadata.getName());
             columnTypes.add(columnMetadata.getType());
         }
-        String sql = buildCreateSql(schemaTableName, columns.build(), tableMetadata.getProperties());
+
+        List<String> columnNames = columnNamesBuilder.build();
+        List<String> primaryKeys = IgniteTableProperties.getPrimaryKey(tableMetadata.getProperties());
+
+        for (String primaryKey : primaryKeys) {
+            if (!columnNames.contains(primaryKey)) {
+                throw new TrinoException(INVALID_TABLE_PROPERTY,
+                        format("Column '%s' specified in property '%s' doesn't exist in table", primaryKey, PRIMARY_KEY_PROPERTY));
+            }
+        }
+
+        String sql = buildCreateSql(schemaTableName, columns.build(), primaryKeys);
 
         try (Connection connection = connectionFactory.openConnection(session)) {
             execute(session, connection, sql);
@@ -397,22 +409,21 @@ public class IgniteClient
             return new IgniteOutputTableHandle(
                     schemaTableName.getSchemaName(),
                     schemaTableName.getTableName(),
-                    columnNames.build(),
+                    columnNames,
                     columnTypes.build(),
                     Optional.empty(),
-                    IgniteTableProperties.getPrimaryKey(tableMetadata.getProperties()).isEmpty() ? Optional.of(IGNITE_DUMMY_ID) : Optional.empty());
+                    primaryKeys.isEmpty() ? Optional.of(IGNITE_DUMMY_ID) : Optional.empty());
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
-    private String buildCreateSql(SchemaTableName schemaTableName, List<String> columns, Map<String, Object> tableProperties)
+    private String buildCreateSql(SchemaTableName schemaTableName, List<String> columns, List<String> primaryKeys)
     {
         ImmutableList.Builder<String> columnDefinitions = ImmutableList.builder();
         columnDefinitions.addAll(columns);
 
-        List<String> primaryKeys = IgniteTableProperties.getPrimaryKey(tableProperties);
         checkArgument(primaryKeys.size() < columns.size(), "Ignite table must have at least one non PRIMARY KEY column.");
         if (primaryKeys.isEmpty()) {
             columnDefinitions.add(quoted(IGNITE_DUMMY_ID) + " VARCHAR NOT NULL");
