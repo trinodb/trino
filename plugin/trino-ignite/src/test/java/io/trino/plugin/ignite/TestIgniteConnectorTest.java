@@ -30,6 +30,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.plugin.ignite.IgniteQueryRunner.createIgniteQueryRunner;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -145,6 +146,20 @@ public class TestIgniteConnectorTest
             assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
                     .isEqualTo(format(pattern, catalog, schema, tableName));
         }
+    }
+
+    @Test
+    public void testCreateTableWithNonExistingPrimaryKey()
+    {
+        String tableName = "test_invalid_primary_key" + randomNameSuffix();
+        assertQueryFails("CREATE TABLE " + tableName + "(a bigint) WITH (primary_key = ARRAY['not_existing_column'])",
+                "Column 'not_existing_column' specified in property 'primary_key' doesn't exist in table");
+
+        assertQueryFails("CREATE TABLE " + tableName + "(a bigint) WITH (primary_key = ARRAY['dummy_id'])",
+                "Column 'dummy_id' specified in property 'primary_key' doesn't exist in table");
+
+        assertQueryFails("CREATE TABLE " + tableName + "(a bigint) WITH (primary_key = ARRAY['A'])",
+                "Column 'A' specified in property 'primary_key' doesn't exist in table");
     }
 
     @Test
