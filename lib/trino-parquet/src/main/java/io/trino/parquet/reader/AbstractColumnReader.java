@@ -13,7 +13,6 @@
  */
 package io.trino.parquet.reader;
 
-import com.google.common.annotations.VisibleForTesting;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.parquet.DictionaryPage;
@@ -55,10 +54,7 @@ public abstract class AbstractColumnReader<BufferType>
     protected RowRangesIterator rowRanges;
     @Nullable
     protected DictionaryDecoder<BufferType> dictionaryDecoder;
-    protected boolean produceDictionaryBlock;
-
-    protected int readOffset;
-    protected int nextBatchSize;
+    private boolean produceDictionaryBlock;
 
     public AbstractColumnReader(
             PrimitiveField field,
@@ -68,12 +64,6 @@ public abstract class AbstractColumnReader<BufferType>
         this.field = requireNonNull(field, "field is null");
         this.decodersProvider = requireNonNull(decodersProvider, "decoders is null");
         this.columnAdapter = requireNonNull(columnAdapter, "columnAdapter is null");
-    }
-
-    @Override
-    public boolean hasPageReader()
-    {
-        return pageReader != null;
     }
 
     @Override
@@ -98,39 +88,12 @@ public abstract class AbstractColumnReader<BufferType>
         this.rowRanges = createRowRangesIterator(rowRanges);
     }
 
-    @Override
-    public void prepareNextRead(int batchSize)
-    {
-        readOffset += nextBatchSize;
-        nextBatchSize = batchSize;
-    }
-
-    @Override
-    public ColumnChunk readPrimitive()
-    {
-        seek();
-        ColumnChunk columnChunk;
-        if (isNonNull()) {
-            columnChunk = readNonNull();
-        }
-        else {
-            columnChunk = readNullable();
-        }
-
-        readOffset = 0;
-        nextBatchSize = 0;
-        return columnChunk;
-    }
-
     protected abstract boolean isNonNull();
 
-    protected abstract void seek();
-
-    @VisibleForTesting
-    public abstract ColumnChunk readNullable();
-
-    @VisibleForTesting
-    public abstract ColumnChunk readNonNull();
+    protected boolean produceDictionaryBlock()
+    {
+        return produceDictionaryBlock;
+    }
 
     protected ValueDecoder<BufferType> createValueDecoder(ValueDecodersProvider<BufferType> decodersProvider, ParquetEncoding encoding, Slice data)
     {

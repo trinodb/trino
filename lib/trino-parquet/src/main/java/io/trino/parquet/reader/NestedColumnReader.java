@@ -96,6 +96,8 @@ public class NestedColumnReader<BufferType>
     private ValueDecoder<int[]> repetitionLevelDecoder;
     private ValueDecoder<BufferType> valueDecoder;
     private int[] repetitionBuffer;
+    private int readOffset;
+    private int nextBatchSize;
     private boolean pageLastRowUnfinished;
     // True if the last row of the previously read page was skipped, instead of read.
     // This way the remaining part of this row that may be stored in the next page
@@ -116,13 +118,42 @@ public class NestedColumnReader<BufferType>
     }
 
     @Override
+    public boolean hasPageReader()
+    {
+        return pageReader != null;
+    }
+
+    @Override
     protected boolean isNonNull()
     {
         return field.isRequired();
     }
 
     @Override
-    public ColumnChunk readNullable()
+    public ColumnChunk readPrimitive()
+    {
+        seek();
+        ColumnChunk columnChunk;
+        if (isNonNull()) {
+            columnChunk = readNonNull();
+        }
+        else {
+            columnChunk = readNullable();
+        }
+
+        readOffset = 0;
+        nextBatchSize = 0;
+        return columnChunk;
+    }
+
+    @Override
+    public void prepareNextRead(int batchSize)
+    {
+        readOffset += nextBatchSize;
+        nextBatchSize = batchSize;
+    }
+
+    private ColumnChunk readNullable()
     {
         log.debug("readNullable field %s, nextBatchSize %d", field, nextBatchSize);
         NullableValuesBuffer<BufferType> data = createNullableValuesBuffer();
@@ -181,8 +212,7 @@ public class NestedColumnReader<BufferType>
         return data.createNullableBlock(isNull, outputDefinitionLevels.getMergedBuffer(), outputRepetitionLevels.getMergedBuffer());
     }
 
-    @Override
-    public ColumnChunk readNonNull()
+    private ColumnChunk readNonNull()
     {
         log.debug("readNonNull field %s, nextBatchSize %d", field, nextBatchSize);
         NonNullValuesBuffer<BufferType> data = createNonNullValuesBuffer();
@@ -236,8 +266,7 @@ public class NestedColumnReader<BufferType>
         return data.createNonNullBlock(outputDefinitionLevels.getMergedBuffer(), outputRepetitionLevels.getMergedBuffer());
     }
 
-    @Override
-    protected void seek()
+    private void seek()
     {
         if (readOffset > 0) {
             log.debug("seek field %s, readOffset %d, remainingPageValueCount %d, pageLastRowUnfinished %b", field, readOffset, remainingPageValueCount, pageLastRowUnfinished);
@@ -529,7 +558,7 @@ public class NestedColumnReader<BufferType>
      */
     private NonNullValuesBuffer<BufferType> createNonNullValuesBuffer()
     {
-        if (produceDictionaryBlock) {
+        if (produceDictionaryBlock()) {
             return new DictionaryValuesBuffer<>(field, dictionaryDecoder);
         }
         return new DataValuesBuffer<>(field, columnAdapter);
@@ -537,7 +566,7 @@ public class NestedColumnReader<BufferType>
 
     private NullableValuesBuffer<BufferType> createNullableValuesBuffer()
     {
-        if (produceDictionaryBlock) {
+        if (produceDictionaryBlock()) {
             return new DictionaryValuesBuffer<>(field, dictionaryDecoder);
         }
         return new DataValuesBuffer<>(field, columnAdapter);
