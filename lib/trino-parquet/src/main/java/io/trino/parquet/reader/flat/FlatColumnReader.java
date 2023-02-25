@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.reader.flat;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.parquet.DataPage;
@@ -46,6 +47,8 @@ public class FlatColumnReader<BufferType>
     private int remainingPageValueCount;
     private FlatDefinitionLevelDecoder definitionLevelDecoder;
     private ValueDecoder<BufferType> valueDecoder;
+    private int readOffset;
+    private int nextBatchSize;
 
     public FlatColumnReader(
             PrimitiveField field,
@@ -58,13 +61,42 @@ public class FlatColumnReader<BufferType>
     }
 
     @Override
+    public boolean hasPageReader()
+    {
+        return pageReader != null;
+    }
+
+    @Override
     protected boolean isNonNull()
     {
         return field.isRequired() || pageReader.hasNoNulls();
     }
 
     @Override
-    protected void seek()
+    public ColumnChunk readPrimitive()
+    {
+        seek();
+        ColumnChunk columnChunk;
+        if (isNonNull()) {
+            columnChunk = readNonNull();
+        }
+        else {
+            columnChunk = readNullable();
+        }
+
+        readOffset = 0;
+        nextBatchSize = 0;
+        return columnChunk;
+    }
+
+    @Override
+    public void prepareNextRead(int batchSize)
+    {
+        readOffset += nextBatchSize;
+        nextBatchSize = batchSize;
+    }
+
+    private void seek()
     {
         int remainingInBatch = readOffset;
         while (remainingInBatch > 0) {
@@ -92,8 +124,8 @@ public class FlatColumnReader<BufferType>
         }
     }
 
-    @Override
-    public ColumnChunk readNullable()
+    @VisibleForTesting
+    ColumnChunk readNullable()
     {
         NullableValuesBuffer<BufferType> valuesBuffer = createNullableValuesBuffer(nextBatchSize);
         boolean[] isNull = new boolean[nextBatchSize];
@@ -121,8 +153,8 @@ public class FlatColumnReader<BufferType>
         return valuesBuffer.createNullableBlock(isNull, field.getType());
     }
 
-    @Override
-    public ColumnChunk readNonNull()
+    @VisibleForTesting
+    ColumnChunk readNonNull()
     {
         NonNullValuesBuffer<BufferType> valuesBuffer = createNonNullValuesBuffer(nextBatchSize);
         int remainingInBatch = nextBatchSize;
@@ -261,7 +293,7 @@ public class FlatColumnReader<BufferType>
 
     private NonNullValuesBuffer<BufferType> createNonNullValuesBuffer(int batchSize)
     {
-        if (produceDictionaryBlock) {
+        if (produceDictionaryBlock()) {
             return new DictionaryValuesBuffer<>(dictionaryDecoder, batchSize);
         }
         return new DataValuesBuffer<>(columnAdapter, batchSize);
@@ -269,7 +301,7 @@ public class FlatColumnReader<BufferType>
 
     private NullableValuesBuffer<BufferType> createNullableValuesBuffer(int batchSize)
     {
-        if (produceDictionaryBlock) {
+        if (produceDictionaryBlock()) {
             return new DictionaryValuesBuffer<>(dictionaryDecoder, batchSize);
         }
         return new DataValuesBuffer<>(columnAdapter, batchSize);
