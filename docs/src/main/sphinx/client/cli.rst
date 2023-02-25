@@ -161,6 +161,8 @@ mode:
       EMACS editors. Defaults to ``EMACS``.
   * - ``--http-proxy``
     - Configures the URL of the HTTP proxy to connect to Trino.
+  * - ``--history-file``
+    - Path to the :ref:`history file <cli-history>`. Defaults to ``~/.trino_history``.
   * - ``--network-logging``
     - Configures the level of detail provided for network logging of the CLI.
       Defaults to ``NONE``, other options are ``BASIC``, ``HEADERS``, or
@@ -168,6 +170,10 @@ mode:
   * - ``--output-format-interactive=<format>``
     - Specify the :ref:`format <cli-output-format>` to use
       for printing query results. Defaults to ``ALIGNED``.
+  * - ``--pager=<pager>``
+    - Path to the pager program used to display the query results. Set to
+      an empty value to completely disable pagination. Defaults to ``less``
+      with a carefully selected set of options.
   * - ``--no-progress``
     - Do not show query processing progress.
   * - ``--password``
@@ -423,9 +429,12 @@ Pagination
 
 By default, the results of queries are paginated using the ``less`` program
 which is configured with a carefully selected set of options. This behavior
-can be overridden by setting the environment variable ``TRINO_PAGER`` to the
-name of a different program such as ``more`` or `pspg <https://github.com/okbob/pspg>`_,
+can be overridden by setting the ``--pager`` option or
+the ``TRINO_PAGER`` environment variable to the name of a different program
+such as ``more`` or `pspg <https://github.com/okbob/pspg>`_,
 or it can be set to an empty value to completely disable pagination.
+
+.. _cli-history:
 
 History
 -------
@@ -436,7 +445,8 @@ history by scrolling or searching. Use the up and down arrows to scroll and
 press :kbd:`Enter`.
 
 By default, you can locate the Trino history file in ``~/.trino_history``.
-Use the ``TRINO_HISTORY_FILE`` environment variable to change the default.
+Use the ``--history-file`` option or the ```TRINO_HISTORY_FILE`` environment variable
+to change the default.
 
 Auto suggestion
 ^^^^^^^^^^^^^^^

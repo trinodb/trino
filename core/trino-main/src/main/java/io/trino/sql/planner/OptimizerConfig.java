@@ -50,7 +50,6 @@ public class OptimizerConfig
     private boolean nonEstimatablePredicateApproximationEnabled = true;
 
     private boolean colocatedJoinsEnabled;
-    private boolean distributedIndexJoinsEnabled;
     private boolean spatialJoinsEnabled = true;
     private boolean distributedSort = true;
 
@@ -321,18 +320,6 @@ public class OptimizerConfig
     public OptimizerConfig setColocatedJoinsEnabled(boolean colocatedJoinsEnabled)
     {
         this.colocatedJoinsEnabled = colocatedJoinsEnabled;
-        return this;
-    }
-
-    public boolean isDistributedIndexJoinsEnabled()
-    {
-        return distributedIndexJoinsEnabled;
-    }
-
-    @Config("distributed-index-joins-enabled")
-    public OptimizerConfig setDistributedIndexJoinsEnabled(boolean distributedIndexJoinsEnabled)
-    {
-        this.distributedIndexJoinsEnabled = distributedIndexJoinsEnabled;
         return this;
     }
 

@@ -157,8 +157,6 @@ public class AddExchanges
         private final StatsProvider statsProvider;
         private final Session session;
         private final DomainTranslator domainTranslator;
-        private final boolean distributedIndexJoins;
-        private final boolean preferStreamingOperators;
         private final boolean redistributeWrites;
         private final boolean scaleWriters;
 
@@ -170,10 +168,8 @@ public class AddExchanges
             this.statsProvider = new CachingStatsProvider(statsCalculator, session, types, tableStatsProvider);
             this.session = session;
             this.domainTranslator = new DomainTranslator(plannerContext);
-            this.distributedIndexJoins = SystemSessionProperties.isDistributedIndexJoinEnabled(session);
             this.redistributeWrites = SystemSessionProperties.isRedistributeWrites(session);
             this.scaleWriters = SystemSessionProperties.isScaleWriters(session);
-            this.preferStreamingOperators = SystemSessionProperties.preferStreamingOperators(session);
         }
 
         @Override
@@ -1062,55 +1058,14 @@ public class AddExchanges
                     computePreference(
                             partitionedWithLocal(ImmutableSet.copyOf(joinColumns), desiredLocalProperties),
                             preferredProperties));
-            ActualProperties probeProperties = probeSource.getProperties();
 
             PlanWithProperties indexSource = node.getIndexSource().accept(this, PreferredProperties.any());
-
-            // TODO: allow repartitioning if unpartitioned to increase parallelism
-            if (shouldRepartitionForIndexJoin(joinColumns, preferredProperties, probeProperties)) {
-                probeSource = withDerivedProperties(
-                        partitionedExchange(idAllocator.getNextId(), REMOTE, probeSource.getNode(), joinColumns, node.getProbeHashSymbol()),
-                        probeProperties);
-            }
 
             // TODO: if input is grouped, create streaming join
 
             // index side is really a nested-loops plan, so don't add exchanges
             PlanNode result = ChildReplacer.replaceChildren(node, ImmutableList.of(probeSource.getNode(), node.getIndexSource()));
             return new PlanWithProperties(result, deriveProperties(result, ImmutableList.of(probeSource.getProperties(), indexSource.getProperties())));
-        }
-
-        private boolean shouldRepartitionForIndexJoin(List<Symbol> joinColumns, PreferredProperties parentPreferredProperties, ActualProperties probeProperties)
-        {
-            // See if distributed index joins are enabled
-            if (!distributedIndexJoins) {
-                return false;
-            }
-
-            // No point in repartitioning if the plan is not distributed
-            if (probeProperties.isSingleNode()) {
-                return false;
-            }
-
-            Optional<PreferredProperties.PartitioningProperties> parentPartitioningPreferences = parentPreferredProperties.getGlobalProperties()
-                    .flatMap(PreferredProperties.Global::getPartitioningProperties);
-
-            // Disable repartitioning if it would disrupt a parent's partitioning preference when streaming is enabled
-            boolean parentAlreadyPartitionedOnChild = parentPartitioningPreferences
-                    .map(partitioning -> isStreamPartitionedOn(probeProperties, partitioning.getPartitioningColumns()))
-                    .orElse(false);
-            if (preferStreamingOperators && parentAlreadyPartitionedOnChild) {
-                return false;
-            }
-
-            // Otherwise, repartition if we need to align with the join columns
-            if (!isStreamPartitionedOn(probeProperties, joinColumns)) {
-                return true;
-            }
-
-            // If we are already partitioned on the join columns because the data has been forced effectively into one stream,
-            // then we should repartition if that would make a difference (from the single stream state).
-            return probeProperties.isEffectivelySingleStream() && probeProperties.isStreamRepartitionEffective(joinColumns);
         }
 
         @Override
