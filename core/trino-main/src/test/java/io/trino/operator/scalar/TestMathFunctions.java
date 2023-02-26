@@ -3573,4 +3573,25 @@ public class TestMathFunctions
         assertThat(assertions.function("wilson_interval_upper", "1250", "1310", "1.96e0"))
                 .isEqualTo(0.9642524717143908);
     }
+
+    @Test
+    public void testBSEuropeanOption() {
+        assertThat(assertions.function("bs_european_option", "500", "450", "1", ".05", ".15", "call"))
+                .isEqualTo(77.33579531627726);
+
+        assertThat(assertions.function("bs_european_option", "450", "500", "1", ".05", ".15", "put"))
+                .isEqualTo(42.335680830637045);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("bs_european_option", "0", "500", "1", ".05", ".15", "put").evaluate())
+                .hasMessage("stockPrice must be > 0");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("bs_european_option", "450", "0", "1", ".05", ".15", "put").evaluate())
+                .hasMessage("strikePrice must be > 0");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("bs_european_option", "450", "500", "0", ".05", ".15", "put").evaluate())
+                .hasMessage("timeToExpiration must be > 0");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("bs_european_option", "450", "500", "1", ".05", ".15", "foo").evaluate())
+                .hasMessage("optionType must be call or put");
+    }
 }

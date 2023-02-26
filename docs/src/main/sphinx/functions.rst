@@ -28,6 +28,7 @@ and the :doc:`SQL statement and syntax reference</sql>`.
     Conversion          <functions/conversion>
     Date and time       <functions/datetime>
     Decimal             <functions/decimal>
+    Financial           <functions/financial>
     Geospatial          <functions/geospatial>
     HyperLogLog         <functions/hyperloglog>
     IP Address          <functions/ipaddress>

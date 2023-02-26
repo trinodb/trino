@@ -1398,4 +1398,37 @@ public final class MathFunctions
 
         return Math.sqrt(norm);
     }
+
+    @Description("Black-Scholes equation for a Euro vanilla option")
+    @ScalarFunction("bs_european_option")
+    @SqlType(StandardTypes.DOUBLE)
+    public static double bsEuropeanOption(
+            @SqlType(StandardTypes.DOUBLE) double stockPrice,
+            @SqlType(StandardTypes.DOUBLE) double strikePrice,
+            @SqlType(StandardTypes.DOUBLE) double timeToExpiration,
+            @SqlType(StandardTypes.DOUBLE) double riskFreeRate,
+            @SqlType(StandardTypes.DOUBLE) double volatility,
+            @SqlType("varchar(x)") String optionType)
+    {
+        checkCondition(stockPrice > 0, INVALID_FUNCTION_ARGUMENT, "stockPrice must be > 0");
+        checkCondition(strikePrice > 0, INVALID_FUNCTION_ARGUMENT, "strikePrice must be > 0");
+        checkCondition(timeToExpiration > 0, INVALID_FUNCTION_ARGUMENT, "timeToExpiration must be > 0");
+
+        double d1 = (Math.log(stockPrice / strikePrice) + (riskFreeRate + 0.5 * Math.pow(volatility, 2)) * timeToExpiration) / (volatility * Math.sqrt(timeToExpiration));
+        double d2 = (Math.log(stockPrice / strikePrice) + (riskFreeRate - 0.5 * Math.pow(volatility, 2)) * timeToExpiration) / (volatility * Math.sqrt(timeToExpiration));
+
+        double price;
+
+        if (optionType == "call") {
+            price = (stockPrice * normalCdf(0.0, 1.0, d1) - strikePrice * Math.exp(-riskFreeRate * timeToExpiration) * normalCdf(0.0, 1.0, d2));
+        }
+        else if (optionType == "put") {
+            price = ((strikePrice * Math.exp(-riskFreeRate * timeToExpiration)) * (normalCdf(0.0, 1.0, -d2)) - (stockPrice * normalCdf(0.0, 1.0, -d1)));
+        }
+        else {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "optionType must be call or put");
+        }
+
+        return price;
+    }
 }
