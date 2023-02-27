@@ -180,10 +180,9 @@ public abstract class BaseClickHouseConnectorTest
     }
 
     @Override
-    public void testAddColumnConcurrently()
+    protected TestTable createTableWithOneIntegerColumn(String namePrefix)
     {
-        // TODO: Default storage engine doesn't support adding new columns
-        throw new SkipException("TODO: test not implemented yet");
+        return new TestTable(getQueryRunner()::execute, namePrefix, "(col integer NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['col'])");
     }
 
     @Override
