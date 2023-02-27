@@ -40,6 +40,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 
@@ -229,4 +230,6 @@ public interface JdbcClient
     OptionalLong delete(ConnectorSession session, JdbcTableHandle handle);
 
     void truncateTable(ConnectorSession session, JdbcTableHandle handle);
+
+    OptionalInt getMaxWriteParallelism(ConnectorSession session);
 }

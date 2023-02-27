@@ -72,6 +72,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -992,6 +993,12 @@ public class DefaultJdbcMetadata
     public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
     {
         jdbcClient.renameSchema(session, schemaName, newSchemaName);
+    }
+
+    @Override
+    public OptionalInt getMaxWriterTasks(ConnectorSession session)
+    {
+        return jdbcClient.getMaxWriteParallelism(session);
     }
 
     private static boolean isTableHandleForProcedure(ConnectorTableHandle tableHandle)

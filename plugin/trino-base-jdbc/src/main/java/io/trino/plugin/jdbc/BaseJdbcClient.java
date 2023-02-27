@@ -61,6 +61,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.BiFunction;
@@ -81,6 +82,7 @@ import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.getWriteBatchSize;
+import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.getWriteParallelism;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactionalInsert;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
@@ -1340,6 +1342,12 @@ public abstract class BaseJdbcClient
         verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
         String sql = "TRUNCATE TABLE " + quoted(handle.asPlainTable().getRemoteTableName());
         execute(session, sql);
+    }
+
+    @Override
+    public OptionalInt getMaxWriteParallelism(ConnectorSession session)
+    {
+        return OptionalInt.of(getWriteParallelism(session));
     }
 
     protected void verifySchemaName(DatabaseMetaData databaseMetadata, String schemaName)
