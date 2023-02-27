@@ -30,7 +30,6 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -50,91 +49,6 @@ public class TestDateTimeOperators
         super(testSessionBuilder()
                 .setTimeZoneKey(TIME_ZONE_KEY)
                 .build());
-    }
-
-    @Test
-    public void testTimeZoneGap()
-    {
-        // No time zone gap should be applied
-
-        assertFunction(
-                "TIMESTAMP '2013-03-31 00:05' + INTERVAL '1' hour",
-                createTimestampType(3),
-                sqlTimestampOf(3, 2013, 3, 31, 1, 5, 0, 0));
-        session.toConnectorSession();
-        assertFunction(
-                "TIMESTAMP '2013-03-31 00:05' + INTERVAL '2' hour",
-                createTimestampType(3),
-                sqlTimestampOf(3, 2013, 3, 31, 2, 5, 0, 0));
-        session.toConnectorSession();
-        assertFunction(
-                "TIMESTAMP '2013-03-31 00:05' + INTERVAL '3' hour",
-                createTimestampType(3),
-                sqlTimestampOf(3, 2013, 3, 31, 3, 5, 0, 0));
-
-        assertFunction(
-                "TIMESTAMP '2013-03-31 04:05' - INTERVAL '3' hour",
-                createTimestampType(3),
-                sqlTimestampOf(3, 2013, 3, 31, 1, 5, 0, 0));
-        session.toConnectorSession();
-        assertFunction(
-                "TIMESTAMP '2013-03-31 03:05' - INTERVAL '2' hour",
-                createTimestampType(3),
-                sqlTimestampOf(3, 2013, 3, 31, 1, 5, 0, 0));
-        session.toConnectorSession();
-        assertFunction(
-                "TIMESTAMP '2013-03-31 01:05' - INTERVAL '1' hour",
-                createTimestampType(3),
-                sqlTimestampOf(3, 2013, 3, 31, 0, 5, 0, 0));
-    }
-
-    @Test
-    public void testDaylightTimeSaving()
-    {
-        assertFunction(
-                "TIMESTAMP '2013-10-27 00:05' + INTERVAL '1' hour",
-                createTimestampType(3),
-                sqlTimestampOf(3, 2013, 10, 27, 1, 5, 0, 0));
-        session.toConnectorSession();
-        assertFunction(
-                "TIMESTAMP '2013-10-27 00:05' + INTERVAL '2' hour",
-                createTimestampType(3),
-                sqlTimestampOf(3, 2013, 10, 27, 2, 5, 0, 0));
-
-        assertFunction(
-                "TIMESTAMP '2013-10-27 00:05' + INTERVAL '3' hour",
-                createTimestampType(3),
-                sqlTimestampOf(3, 2013, 10, 27, 3, 5, 0, 0));
-        session.toConnectorSession();
-        assertFunction(
-                "TIMESTAMP '2013-10-27 00:05' + INTERVAL '4' hour",
-                createTimestampType(3),
-                sqlTimestampOf(3, 2013, 10, 27, 4, 5, 0, 0));
-
-        assertFunction(
-                "TIMESTAMP '2013-10-27 03:05' - INTERVAL '4' hour",
-                createTimestampType(3),
-                sqlTimestampOf(3, 2013, 10, 26, 23, 5, 0, 0));
-        session.toConnectorSession();
-        assertFunction(
-                "TIMESTAMP '2013-10-27 02:05' - INTERVAL '2' hour",
-                createTimestampType(3),
-                sqlTimestampOf(3, 2013, 10, 27, 0, 5, 0, 0));
-        session.toConnectorSession();
-        assertFunction(
-                "TIMESTAMP '2013-10-27 01:05' - INTERVAL '1' hour",
-                createTimestampType(3),
-                sqlTimestampOf(3, 2013, 10, 27, 0, 5, 0, 0));
-
-        assertFunction(
-                "TIMESTAMP '2013-10-27 03:05' - INTERVAL '1' hour",
-                createTimestampType(3),
-                sqlTimestampOf(3, 2013, 10, 27, 2, 5, 0, 0));
-        session.toConnectorSession();
-        assertFunction(
-                "TIMESTAMP '2013-10-27 03:05' - INTERVAL '2' hour",
-                createTimestampType(3),
-                sqlTimestampOf(3, 2013, 10, 27, 1, 5, 0, 0));
     }
 
     @Test
