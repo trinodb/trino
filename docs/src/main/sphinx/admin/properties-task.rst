@@ -76,11 +76,21 @@ Maximum size of partial aggregation results for distributed aggregations. Increa
 value can result in less network transfer and lower CPU utilization, by allowing more
 groups to be kept locally before being flushed, at the cost of additional memory usage.
 
+``task.max-worker-threads-processor-multiplier``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-double`
+* **Default value:** ``2``
+
+Sets the multiplier used to decide the number of threads used by workers to process
+splits. This value is multiplied by the Node CPU count to decide ``task.max-worker-threads``
+unless that value is explicitly specified.
+
 ``task.max-worker-threads``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** :ref:`prop-type-integer`
-* **Default value:** (Node CPUs * 2)
+* **Default value:** (Node CPUs * ``task.max-worker-threads-processor-multiplier``)
 
 Sets the number of threads used by workers to process splits. Increasing this number
 can improve throughput, if worker CPU utilization is low and all the threads are in use,

@@ -54,7 +54,8 @@ public class TaskManagerConfig
     private DataSize maxLocalExchangeBufferSize = DataSize.of(32, Unit.MEGABYTE);
     private DataSize maxIndexMemoryUsage = DataSize.of(64, Unit.MEGABYTE);
     private boolean shareIndexLoading;
-    private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 2;
+    private double maxWorkerThreadsProcessorMultiplier = 2.0;
+    private Integer maxWorkerThreads;
     private Integer minDrivers;
     private Integer initialSplitsPerNode;
     private int minDriversPerTask = 3;
@@ -254,15 +255,30 @@ public class TaskManagerConfig
         return this;
     }
 
+    public double getMaxWorkerThreadsProcessorMultiplier()
+    {
+        return maxWorkerThreadsProcessorMultiplier;
+    }
+
+    @Config("task.max-worker-threads-processor-multiplier")
+    public TaskManagerConfig setMaxWorkerThreadsProcessorMultiplier(double maxWorkerThreadsProcessorMultiplier)
+    {
+        this.maxWorkerThreadsProcessorMultiplier = maxWorkerThreadsProcessorMultiplier;
+        return this;
+    }
+
     @Min(1)
     public int getMaxWorkerThreads()
     {
+        if (maxWorkerThreads == null) {
+            return (int) Math.round(Runtime.getRuntime().availableProcessors() * maxWorkerThreadsProcessorMultiplier);
+        }
         return maxWorkerThreads;
     }
 
     @LegacyConfig("task.shard.max-threads")
     @Config("task.max-worker-threads")
-    public TaskManagerConfig setMaxWorkerThreads(int maxWorkerThreads)
+    public TaskManagerConfig setMaxWorkerThreads(Integer maxWorkerThreads)
     {
         this.maxWorkerThreads = maxWorkerThreads;
         return this;
@@ -272,7 +288,7 @@ public class TaskManagerConfig
     public int getInitialSplitsPerNode()
     {
         if (initialSplitsPerNode == null) {
-            return maxWorkerThreads;
+            return getMaxWorkerThreads();
         }
         return initialSplitsPerNode;
     }
@@ -301,7 +317,7 @@ public class TaskManagerConfig
     public int getMinDrivers()
     {
         if (minDrivers == null) {
-            return 2 * maxWorkerThreads;
+            return 2 * getMaxWorkerThreads();
         }
         return minDrivers;
     }
