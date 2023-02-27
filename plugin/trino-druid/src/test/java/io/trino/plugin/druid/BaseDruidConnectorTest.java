@@ -26,7 +26,6 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.assertions.Assert;
 import io.trino.testing.sql.SqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -221,8 +220,7 @@ public abstract class BaseDruidConnectorTest
                 .row("shippriority", "bigint", "", "") // Druid doesn't support int type
                 .row("totalprice", "double", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE " + datasourceA);
-        Assert.assertEquals(actualColumns, expectedColumns);
+        assertThat(query("DESCRIBE " + datasourceA)).matches(expectedColumns);
 
         // Assert that only columns from datsourceB are returned
         expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
@@ -237,8 +235,7 @@ public abstract class BaseDruidConnectorTest
                 .row("shippriority_x", "bigint", "", "") // Druid doesn't support int type
                 .row("totalprice_x", "double", "", "")
                 .build();
-        actualColumns = computeActual("DESCRIBE " + datasourceB);
-        Assert.assertEquals(actualColumns, expectedColumns);
+        assertThat(query("DESCRIBE " + datasourceB)).matches(expectedColumns);
     }
 
     @Test
