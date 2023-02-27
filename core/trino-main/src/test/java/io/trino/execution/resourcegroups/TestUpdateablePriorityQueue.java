@@ -18,7 +18,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.trino.testing.assertions.Assert.assertEquals;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestUpdateablePriorityQueue

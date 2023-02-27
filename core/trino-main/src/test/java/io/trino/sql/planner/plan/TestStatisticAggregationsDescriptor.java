@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.testing.assertions.Assert.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 public class TestStatisticAggregationsDescriptor
 {

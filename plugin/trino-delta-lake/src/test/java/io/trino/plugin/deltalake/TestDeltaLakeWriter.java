@@ -41,10 +41,10 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.Float.floatToRawIntBits;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.testng.Assert.assertEquals;
 
 public class TestDeltaLakeWriter
 {

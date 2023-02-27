@@ -24,8 +24,8 @@ import org.testng.annotations.Test;
 import java.util.function.Consumer;
 
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 
 public class TestSortFieldUtils
 {
