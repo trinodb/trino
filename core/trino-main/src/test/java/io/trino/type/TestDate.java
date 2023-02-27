@@ -13,167 +13,270 @@
  */
 package io.trino.type;
 
-import io.trino.operator.scalar.AbstractTestFunctions;
+import io.trino.Session;
 import io.trino.spi.type.SqlDate;
-import io.trino.spi.type.SqlTimestampWithTimeZone;
-import io.trino.spi.type.TimeZoneKey;
+import io.trino.sql.query.QueryAssertions;
 import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.UTC;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestDate
-        extends AbstractTestFunctions
 {
-    private static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("Europe/Berlin");
-    private static final DateTimeZone DATE_TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
+    private QueryAssertions assertions;
 
-    protected TestDate()
+    @BeforeAll
+    public void init()
     {
-        super(testSessionBuilder()
-                .setTimeZoneKey(TIME_ZONE_KEY)
-                .build());
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
     }
 
     @Test
     public void testLiteral()
     {
         long millis = new DateTime(2001, 1, 22, 0, 0, UTC).getMillis();
-        assertFunction("DATE '2001-1-22'", DATE, new SqlDate((int) TimeUnit.MILLISECONDS.toDays(millis)));
+        assertThat(assertions.expression("DATE '2001-1-22'"))
+                .hasType(DATE)
+                .isEqualTo(new SqlDate((int) TimeUnit.MILLISECONDS.toDays(millis)));
     }
 
     @Test
     public void testEqual()
     {
-        assertFunction("DATE '2001-1-22' = DATE '2001-1-22'", BOOLEAN, true);
-        assertFunction("DATE '2001-1-22' = DATE '2001-1-22'", BOOLEAN, true);
+        assertThat(assertions.operator(EQUAL, "DATE '2001-1-22'", "DATE '2001-1-22'"))
+                .isEqualTo(true);
 
-        assertFunction("DATE '2001-1-22' = DATE '2001-1-23'", BOOLEAN, false);
-        assertFunction("DATE '2001-1-22' = DATE '2001-1-11'", BOOLEAN, false);
+        assertThat(assertions.operator(EQUAL, "DATE '2001-1-22'", "DATE '2001-1-22'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(EQUAL, "DATE '2001-1-22'", "DATE '2001-1-23'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "DATE '2001-1-22'", "DATE '2001-1-11'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testNotEqual()
     {
-        assertFunction("DATE '2001-1-22' <> DATE '2001-1-23'", BOOLEAN, true);
-        assertFunction("DATE '2001-1-22' <> DATE '2001-1-11'", BOOLEAN, true);
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "DATE '2001-1-22'")
+                .binding("b", "DATE '2001-1-23'"))
+                .isEqualTo(true);
 
-        assertFunction("DATE '2001-1-22' <> DATE '2001-1-22'", BOOLEAN, false);
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "DATE '2001-1-22'")
+                .binding("b", "DATE '2001-1-11'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "DATE '2001-1-22'")
+                .binding("b", "DATE '2001-1-22'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testLessThan()
     {
-        assertFunction("DATE '2001-1-22' < DATE '2001-1-23'", BOOLEAN, true);
+        assertThat(assertions.operator(LESS_THAN, "DATE '2001-1-22'", "DATE '2001-1-23'"))
+                .isEqualTo(true);
 
-        assertFunction("DATE '2001-1-22' < DATE '2001-1-22'", BOOLEAN, false);
-        assertFunction("DATE '2001-1-22' < DATE '2001-1-20'", BOOLEAN, false);
+        assertThat(assertions.operator(LESS_THAN, "DATE '2001-1-22'", "DATE '2001-1-22'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "DATE '2001-1-22'", "DATE '2001-1-20'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testLessThanOrEqual()
     {
-        assertFunction("DATE '2001-1-22' <= DATE '2001-1-22'", BOOLEAN, true);
-        assertFunction("DATE '2001-1-22' <= DATE '2001-1-23'", BOOLEAN, true);
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "DATE '2001-1-22'", "DATE '2001-1-22'"))
+                .isEqualTo(true);
 
-        assertFunction("DATE '2001-1-22' <= DATE '2001-1-20'", BOOLEAN, false);
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "DATE '2001-1-22'", "DATE '2001-1-23'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "DATE '2001-1-22'", "DATE '2001-1-20'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testGreaterThan()
     {
-        assertFunction("DATE '2001-1-22' > DATE '2001-1-11'", BOOLEAN, true);
+        assertThat(assertions.expression("a > b")
+                .binding("a", "DATE '2001-1-22'")
+                .binding("b", "DATE '2001-1-11'"))
+                .isEqualTo(true);
 
-        assertFunction("DATE '2001-1-22' > DATE '2001-1-22'", BOOLEAN, false);
-        assertFunction("DATE '2001-1-22' > DATE '2001-1-23'", BOOLEAN, false);
+        assertThat(assertions.expression("a > b")
+                .binding("a", "DATE '2001-1-22'")
+                .binding("b", "DATE '2001-1-22'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "DATE '2001-1-22'")
+                .binding("b", "DATE '2001-1-23'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testGreaterThanOrEqual()
     {
-        assertFunction("DATE '2001-1-22' >= DATE '2001-1-22'", BOOLEAN, true);
-        assertFunction("DATE '2001-1-22' >= DATE '2001-1-11'", BOOLEAN, true);
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "DATE '2001-1-22'")
+                .binding("b", "DATE '2001-1-22'"))
+                .isEqualTo(true);
 
-        assertFunction("DATE '2001-1-22' >= DATE '2001-1-23'", BOOLEAN, false);
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "DATE '2001-1-22'")
+                .binding("b", "DATE '2001-1-11'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "DATE '2001-1-22'")
+                .binding("b", "DATE '2001-1-23'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testBetween()
     {
-        assertFunction("DATE '2001-1-22' between DATE '2001-1-11' and DATE '2001-1-23'", BOOLEAN, true);
-        assertFunction("DATE '2001-1-22' between DATE '2001-1-11' and DATE '2001-1-22'", BOOLEAN, true);
-        assertFunction("DATE '2001-1-22' between DATE '2001-1-22' and DATE '2001-1-23'", BOOLEAN, true);
-        assertFunction("DATE '2001-1-22' between DATE '2001-1-22' and DATE '2001-1-22'", BOOLEAN, true);
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "DATE '2001-1-22'")
+                .binding("low", "DATE '2001-1-11'")
+                .binding("high", "DATE '2001-1-23'"))
+                .isEqualTo(true);
 
-        assertFunction("DATE '2001-1-22' between DATE '2001-1-11' and DATE '2001-1-12'", BOOLEAN, false);
-        assertFunction("DATE '2001-1-22' between DATE '2001-1-23' and DATE '2001-1-24'", BOOLEAN, false);
-        assertFunction("DATE '2001-1-22' between DATE '2001-1-23' and DATE '2001-1-11'", BOOLEAN, false);
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "DATE '2001-1-22'")
+                .binding("low", "DATE '2001-1-11'")
+                .binding("high", "DATE '2001-1-22'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "DATE '2001-1-22'")
+                .binding("low", "DATE '2001-1-22'")
+                .binding("high", "DATE '2001-1-23'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "DATE '2001-1-22'")
+                .binding("low", "DATE '2001-1-22'")
+                .binding("high", "DATE '2001-1-22'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "DATE '2001-1-22'")
+                .binding("low", "DATE '2001-1-11'")
+                .binding("high", "DATE '2001-1-12'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "DATE '2001-1-22'")
+                .binding("low", "DATE '2001-1-23'")
+                .binding("high", "DATE '2001-1-24'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "DATE '2001-1-22'")
+                .binding("low", "DATE '2001-1-23'")
+                .binding("high", "DATE '2001-1-11'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testCastToTimestamp()
     {
-        assertFunction("cast(DATE '2001-1-22' as timestamp)",
-                TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2001, 1, 22, 0, 0, 0, 0));
+        assertThat(assertions.expression("CAST(DATE '2001-1-22' AS timestamp)"))
+                .matches("TIMESTAMP '2001-01-22 00:00:00.000'");
     }
 
     @Test
     public void testCastToTimestampWithTimeZone()
     {
-        assertFunction("cast(DATE '2001-1-22' as timestamp with time zone)",
-                TIMESTAMP_TZ_MILLIS,
-                SqlTimestampWithTimeZone.newInstance(3, new DateTime(2001, 1, 22, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), 0, TIME_ZONE_KEY));
+        Session session = testSessionBuilder()
+                .setTimeZoneKey(getTimeZoneKey("Europe/Berlin"))
+                .build();
+
+        assertThat(assertions.expression("CAST(DATE '2001-1-22' AS timestamp with time zone)", session))
+                .matches("TIMESTAMP '2001-01-22 00:00:00.000 Europe/Berlin'");
     }
 
     @Test
     public void testCastToVarchar()
     {
-        assertFunction("cast(DATE '2001-1-22' as varchar)", VARCHAR, "2001-01-22");
+        assertThat(assertions.expression("CAST(DATE '2001-1-22' AS varchar)"))
+                .hasType(VARCHAR)
+                .isEqualTo("2001-01-22");
     }
 
     @Test
     public void testCastFromVarchar()
     {
-        assertFunction("cast('2001-1-22' as date) = Date '2001-1-22'", BOOLEAN, true);
-        assertFunction("cast('\n\t 2001-1-22' as date) = Date '2001-1-22'", BOOLEAN, true);
-        assertFunction("cast('2001-1-22 \t\n' as date) = Date '2001-1-22'", BOOLEAN, true);
-        assertFunction("cast('\n\t 2001-1-22 \t\n' as date) = Date '2001-1-22'", BOOLEAN, true);
+        assertThat(assertions.expression("CAST('2001-1-22' AS date)"))
+                .matches("DATE '2001-01-22'");
+
+        assertThat(assertions.expression("CAST('\n\t 2001-1-22' AS date)"))
+                .matches("DATE '2001-01-22'");
+
+        assertThat(assertions.expression("CAST('2001-1-22 \t\n' AS date)"))
+                .matches("DATE '2001-01-22'");
+
+        assertThat(assertions.expression("CAST('\n\t 2001-1-22 \t\n' AS date)"))
+                .matches("DATE '2001-01-22'");
     }
 
     @Test
     public void testGreatest()
     {
-        int days = (int) TimeUnit.MILLISECONDS.toDays(new DateTime(2013, 3, 30, 0, 0, UTC).getMillis());
-        assertFunction("greatest(DATE '2013-03-30', DATE '2012-05-23')", DATE, new SqlDate(days));
-        assertFunction("greatest(DATE '2013-03-30', DATE '2012-05-23', DATE '2012-06-01')", DATE, new SqlDate(days));
+        assertThat(assertions.function("greatest", "DATE '2013-03-30'", "DATE '2012-05-23'"))
+                .matches("DATE '2013-03-30'");
+
+        assertThat(assertions.function("greatest", "DATE '2013-03-30'", "DATE '2012-05-23'", "DATE '2012-06-01'"))
+                .matches("DATE '2013-03-30'");
     }
 
     @Test
     public void testLeast()
     {
-        int days = (int) TimeUnit.MILLISECONDS.toDays(new DateTime(2012, 5, 23, 0, 0, UTC).getMillis());
-        assertFunction("least(DATE '2013-03-30', DATE '2012-05-23')", DATE, new SqlDate(days));
-        assertFunction("least(DATE '2013-03-30', DATE '2012-05-23', DATE '2012-06-01')", DATE, new SqlDate(days));
+        assertThat(assertions.function("least", "DATE '2013-03-30'", "DATE '2012-05-23'"))
+                .matches("DATE '2012-05-23'");
+
+        assertThat(assertions.function("least", "DATE '2013-03-30'", "DATE '2012-05-23'", "DATE '2012-06-01'"))
+                .matches("DATE '2012-05-23'");
     }
 
     @Test
     public void testIndeterminate()
     {
-        assertOperator(INDETERMINATE, "cast(null as DATE)", BOOLEAN, true);
-        assertOperator(INDETERMINATE, "DATE '2013-10-27'", BOOLEAN, false);
+        assertThat(assertions.operator(INDETERMINATE, "CAST(NULL AS DATE)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(INDETERMINATE, "DATE '2013-10-27'"))
+                .isEqualTo(false);
     }
 }
