@@ -29,6 +29,7 @@ import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
@@ -73,6 +74,7 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAS
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN;
@@ -1681,6 +1683,46 @@ public abstract class BaseJdbcConnectorTest
             assertUpdate(session, "INSERT INTO " + table.getName() + " (a, b) VALUES " + values, numberOfRows);
             assertQuery("SELECT COUNT(*) FROM " + table.getName(), format("VALUES %d", numberOfRows));
         }
+    }
+
+    @Test(dataProvider = "writeTaskParallelismDataProvider")
+    public void testWriteTaskParallelismSessionProperty(int parallelism, int numberOfRows)
+    {
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            throw new SkipException("CREATE TABLE is required for write_parallelism test but is not supported");
+        }
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "write_parallelism", String.valueOf(parallelism))
+                .build();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "write_parallelism",
+                "(a varchar(128), b bigint)")) {
+            assertUpdate(session, "INSERT INTO " + table.getName() + " (a, b) SELECT clerk, orderkey FROM tpch.sf100.orders LIMIT " + numberOfRows, numberOfRows, plan -> {
+                TableWriterNode.WriterTarget target = searchFrom(plan.getRoot())
+                        .where(node -> node instanceof TableWriterNode)
+                        .findFirst()
+                        .map(TableWriterNode.class::cast)
+                        .map(TableWriterNode::getTarget)
+                        .orElseThrow();
+
+                assertThat(target.getMaxWriterTasks(getQueryRunner().getMetadata(), getSession()))
+                        .hasValue(parallelism);
+            });
+        }
+    }
+
+    @DataProvider
+    public static Object[][] writeTaskParallelismDataProvider()
+    {
+        return new Object[][]{
+                {1, 10_000},
+                {2, 10_000},
+                {4, 10_000},
+                {16, 10_000},
+                {32, 10_000}};
     }
 
     private static List<String> buildRowsForInsert(int numberOfRows)

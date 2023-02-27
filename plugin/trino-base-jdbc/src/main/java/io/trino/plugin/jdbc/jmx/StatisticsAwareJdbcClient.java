@@ -56,6 +56,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 
@@ -450,5 +451,11 @@ public final class StatisticsAwareJdbcClient
     public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
     {
         stats.getTruncateTable().wrap(() -> delegate().truncateTable(session, handle));
+    }
+
+    @Override
+    public OptionalInt getMaxWriteParallelism(ConnectorSession session)
+    {
+        return delegate().getMaxWriteParallelism(session);
     }
 }
