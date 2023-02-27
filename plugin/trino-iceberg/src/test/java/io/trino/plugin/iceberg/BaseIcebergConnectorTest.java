@@ -177,9 +177,6 @@ public abstract class BaseIcebergConnectorTest
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
-            case SUPPORTS_DROP_FIELD:
-                return false;
-
             case SUPPORTS_COMMENT_ON_VIEW:
             case SUPPORTS_COMMENT_ON_VIEW_COLUMN:
                 return true;
@@ -1209,6 +1206,14 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO test_schema_evolution_drop_middle VALUES (3, 4, 5)", 1);
         assertQuery("SELECT * FROM test_schema_evolution_drop_middle", "VALUES(0, 2, NULL), (3, 4, 5)");
         dropTable("test_schema_evolution_drop_middle");
+    }
+
+    @Override
+    public void testDropRowFieldWhenDuplicates()
+    {
+        // Override because Iceberg doesn't allow duplicated field names in a row type
+        assertThatThrownBy(super::testDropRowFieldWhenDuplicates)
+                .hasMessage("Invalid schema: multiple fields for name col.a: 2 and 3");
     }
 
     @Test

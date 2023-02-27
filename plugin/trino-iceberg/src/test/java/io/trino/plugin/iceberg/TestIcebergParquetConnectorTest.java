@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestIcebergParquetConnectorTest
@@ -84,5 +85,14 @@ public class TestIcebergParquetConnectorTest
                 return Optional.of(setup.withNewValueLiteral("NULL"));
         }
         return super.filterSetColumnTypesDataProvider(setup);
+    }
+
+    @Override
+    public void testDropAmbiguousRowFieldCaseSensitivity()
+    {
+        // TODO https://github.com/trinodb/trino/issues/16273 The connector can't read row types having ambiguous field names in Parquet files. e.g. row(X int, x int)
+        assertThatThrownBy(super::testDropAmbiguousRowFieldCaseSensitivity)
+                .hasMessageContaining("Error opening Iceberg split")
+                .hasStackTraceContaining("Multiple entries with same key");
     }
 }

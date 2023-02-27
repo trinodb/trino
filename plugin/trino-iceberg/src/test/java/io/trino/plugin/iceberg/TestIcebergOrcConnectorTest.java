@@ -26,6 +26,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static java.lang.String.format;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergOrcConnectorTest
         extends BaseIcebergConnectorTest
@@ -86,5 +87,14 @@ public class TestIcebergOrcConnectorTest
                     .matches("VALUES varchar 'integer'");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 32767, NULL");
         }
+    }
+
+    @Override
+    public void testDropAmbiguousRowFieldCaseSensitivity()
+    {
+        // TODO https://github.com/trinodb/trino/issues/16273 The connector can't read row types having ambiguous field names in ORC files. e.g. row(X int, x int)
+        assertThatThrownBy(super::testDropAmbiguousRowFieldCaseSensitivity)
+                .hasMessageContaining("Error opening Iceberg split")
+                .hasStackTraceContaining("Multiple entries with same key");
     }
 }
