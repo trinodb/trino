@@ -46,6 +46,7 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.union;
+import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_DATA_FOLDER_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -1304,6 +1305,35 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         assertThat(resultWithoutTimestamp).containsOnly(new MaterializedRow(ImmutableList.of("url1", "domain1", 1, "delete", 6)));
     }
 
+    @Test
+    public void testVacuumCorrectlyDeletesCdfFiles()
+            throws InterruptedException
+    {
+        String tableName = "test_vacuum_correctly_deletes_cdf_files_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1), ('url3', 'domain3', 3), ('url2', 'domain2', 2)", 3);
+        assertUpdate("UPDATE " + tableName + " SET views = views * 10 WHERE views = 1", 1);
+        assertUpdate("UPDATE " + tableName + " SET views = views * 10 WHERE views = 2", 1);
+        Stopwatch timeSinceUpdate = Stopwatch.createStarted();
+        Thread.sleep(2000);
+        assertUpdate("UPDATE " + tableName + " SET views = views * 30 WHERE views = 3", 1);
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
+                .build();
+        Set<String> allFilesFromCdfDirectory = getAllFilesFromCdfDirectory(tableName);
+        assertThat(allFilesFromCdfDirectory).hasSizeGreaterThanOrEqualTo(3);
+        long retention = timeSinceUpdate.elapsed().getSeconds();
+        getQueryRunner().execute(sessionWithShortRetentionUnlocked, "CALL delta_lake.system.vacuum('test_schema', '" + tableName + "', '" + retention + "s')");
+        allFilesFromCdfDirectory = getAllFilesFromCdfDirectory(tableName);
+        assertThat(allFilesFromCdfDirectory).hasSizeBetween(1, 2);
+        assertQueryFails("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 2))", "Failed to access table metadata.*");
+        MaterializedResult result = computeActual("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 3))");
+        List<MaterializedRow> resultWithoutTimestamp = getCdfColumnsWithoutTimestamp(result);
+        assertThat(resultWithoutTimestamp).containsOnly(
+                new MaterializedRow(ImmutableList.of("url3", "domain3", 3, "update_preimage", 4)),
+                new MaterializedRow(ImmutableList.of("url3", "domain3", 90, "update_postimage", 4)));
+    }
+
     @Override
     protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
     {
@@ -1378,5 +1408,12 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         return materializedRows.stream()
                 .map(row -> new MaterializedRow(ImmutableList.of(row.getField(0), row.getField(1), row.getField(2), row.getField(3), row.getField(4))))
                 .collect(toImmutableList());
+    }
+
+    private Set<String> getAllFilesFromCdfDirectory(String tableName)
+    {
+        return getTableFiles(tableName).stream()
+                .filter(path -> path.contains("/" + CHANGE_DATA_FOLDER_NAME))
+                .collect(toImmutableSet());
     }
 }
