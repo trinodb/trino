@@ -24,8 +24,7 @@ import io.trino.plugin.kinesis.util.TestUtils;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.QueryId;
 import io.trino.spi.security.Identity;
-import io.trino.spi.type.BigintType;
-import io.trino.testing.MaterializedResult;
+import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.StandaloneQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
@@ -46,10 +45,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
 /**
@@ -75,6 +74,7 @@ public class TestMinimalFunctionality
     private EmbeddedKinesisStream embeddedKinesisStream;
     private String streamName;
     private StandaloneQueryRunner queryRunner;
+    private QueryAssertions assertions;
 
     @Parameters({
             "kinesis.awsAccessKey",
@@ -105,6 +105,7 @@ public class TestMinimalFunctionality
 
         embeddedKinesisStream.createStream(2, streamName);
         this.queryRunner = new StandaloneQueryRunner(SESSION);
+        assertions = new QueryAssertions(queryRunner);
         Path tempDir = Files.createTempDirectory("tempdir");
         File baseFile = new File("src/test/resources/tableDescriptions/EmptyTable.json");
         File file = new File(tempDir.toAbsolutePath().toString() + "/" + streamName + ".json");
@@ -152,23 +153,14 @@ public class TestMinimalFunctionality
     @Test
     public void testStreamHasData()
     {
-        MaterializedResult result = queryRunner.execute("SELECT COUNT(1) FROM " + streamName);
-
-        MaterializedResult expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
-                .row(0L)
-                .build();
-
-        assertEquals(result, expected);
+        assertThat(assertions.query("SELECT COUNT(1) FROM " + streamName))
+                .matches("VALUES 0");
 
         long count = 500L;
         createMessages(streamName, count);
 
-        result = queryRunner.execute("SELECT COUNT(1) FROM " + streamName);
-
-        expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
-                .row(count)
-                .build();
-        assertEquals(result, expected);
+        assertThat(assertions.query("SELECT COUNT(1) FROM " + streamName))
+                .matches("VALUES %s".formatted(count));
     }
 
     @AfterMethod

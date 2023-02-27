@@ -294,7 +294,7 @@ public class TestRaptorStorageManager
         try (ConnectorPageSource pageSource = getPageSource(manager, columnIds, columnTypes, uuid, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
             assertEquals(result.getRowCount(), expected.getRowCount());
-            assertEquals(result, expected);
+            assertThat(result).containsExactlyElementsOf(expected);
         }
 
         // tuple domain within the column range

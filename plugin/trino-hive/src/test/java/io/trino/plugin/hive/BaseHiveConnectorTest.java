@@ -3735,7 +3735,6 @@ public abstract class BaseHiveConnectorTest
                 "(grape bigint, orange bigint, pear varchar(65535), mango integer, lychee smallint, kiwi tinyint, apple varchar, pineapple varchar(65535))\n" +
                 "WITH (partitioned_by = ARRAY['apple', 'pineapple'])");
 
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM test_show_columns_partition_key");
         Type unboundedVarchar = canonicalizeType(VARCHAR);
         MaterializedResult expected = resultBuilder(getSession(), unboundedVarchar, unboundedVarchar, unboundedVarchar, unboundedVarchar)
                 .row("grape", canonicalizeType(BIGINT).toString(), "", "")
@@ -3747,7 +3746,7 @@ public abstract class BaseHiveConnectorTest
                 .row("apple", canonicalizeType(VARCHAR).toString(), "partition key", "")
                 .row("pineapple", canonicalizeType(createVarcharType(65535)).toString(), "partition key", "")
                 .build();
-        assertEquals(actual, expected);
+        assertThat(query("SHOW COLUMNS FROM test_show_columns_partition_key")).matches(expected);
     }
 
     // TODO: These should be moved to another class, when more connectors support arrays
@@ -4991,7 +4990,8 @@ public abstract class BaseHiveConnectorTest
                 .row("a ")
                 .build();
 
-        assertEquals(actual, expected);
+        assertThat(actual.getTypes()).isEqualTo(expected.getTypes());
+        assertThat(actual).containsExactlyElementsOf(expected);
     }
 
     /**

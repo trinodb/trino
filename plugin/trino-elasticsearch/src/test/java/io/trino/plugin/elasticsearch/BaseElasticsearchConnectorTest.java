@@ -42,7 +42,6 @@ import java.util.List;
 import java.util.Map;
 
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -1333,13 +1332,12 @@ public abstract class BaseElasticsearchConnectorTest
                 .buildOrThrow());
 
         // Trino query filters in the engine, so the rounding (dependent on scaling factor) does not impact results
-        assertEquals(
-                computeActual("" +
-                        "SELECT " +
-                        "text_column, " +
-                        "scaled_float_column " +
-                        "FROM scaled_float_type WHERE scaled_float_column = 123.46"),
-                resultBuilder(getSession(), ImmutableList.of(VARCHAR, DOUBLE))
+        assertThat(query("""
+                SELECT text_column, scaled_float_column
+                FROM scaled_float_type
+                WHERE scaled_float_column = 123.46
+                """))
+                .matches(resultBuilder(getSession(), ImmutableList.of(VARCHAR, DOUBLE))
                         .row("bar", 123.46d)
                         .build());
     }
@@ -1654,13 +1652,7 @@ public abstract class BaseElasticsearchConnectorTest
     @Test
     public void testQueryString()
     {
-        MaterializedResult actual = computeActual("SELECT count(*) FROM \"orders: +packages -slyly\"");
-
-        MaterializedResult expected = resultBuilder(getSession(), ImmutableList.of(BIGINT))
-                .row(1639L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQuery("SELECT count(*) FROM \"orders: +packages -slyly\"", "VALUES 1639");
     }
 
     @Test

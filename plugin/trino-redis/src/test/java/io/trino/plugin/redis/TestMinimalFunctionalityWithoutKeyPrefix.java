@@ -14,15 +14,13 @@
 package io.trino.plugin.redis;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.spi.type.BigintType;
-import io.trino.testing.MaterializedResult;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 @Test(singleThreaded = true)
 public class TestMinimalFunctionalityWithoutKeyPrefix
@@ -37,55 +35,34 @@ public class TestMinimalFunctionalityWithoutKeyPrefix
     @Test
     public void testStringValueWhereClauseHasData()
     {
-        MaterializedResult result = queryRunner.execute(format("SELECT count(1) FROM %s WHERE redis_key IN ('%s:0', '%s:999')", stringValueTableName, stringValueTableName, tableName));
-        MaterializedResult expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
-                .row(2L)
-                .build();
-        assertEquals(result, expected);
+        assertThat(assertions.query(format("SELECT count(1) FROM %s WHERE redis_key IN ('%s:0', '%s:999')", stringValueTableName, stringValueTableName, tableName)))
+                .matches("VALUES BIGINT '2'");
 
-        result = queryRunner.execute(format("SELECT count(1) FROM %s WHERE redis_key = '%s:999'", stringValueTableName, tableName));
-        expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
-                .row(1L)
-                .build();
-        assertEquals(result, expected);
+        assertThat(assertions.query(format("SELECT count(1) FROM %s WHERE redis_key = '%s:999'", stringValueTableName, tableName)))
+                .matches("VALUES BIGINT '1'");
 
-        result = queryRunner.execute(format("SELECT count(1) FROM %s WHERE redis_key IN ('%s:0', '%s:999')", stringValueTableName, tableName, tableName));
-        expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
-                .row(2L)
-                .build();
-        assertEquals(result, expected);
+        assertThat(assertions.query(format("SELECT count(1) FROM %s WHERE redis_key IN ('%s:0', '%s:999')", stringValueTableName, tableName, tableName)))
+                .matches("VALUES BIGINT '2'");
     }
 
     @Test
     public void testHashValueWhereClauseHasData()
     {
-        MaterializedResult result = queryRunner.execute(format("SELECT count(1) FROM %s WHERE redis_key IN ('%s:0', '%s:999')", hashValueTableName, hashValueTableName, hashValueTableName));
-        MaterializedResult expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
-                .row(2L)
-                .build();
-        assertEquals(result, expected);
+        assertThat(assertions.query(format("SELECT count(1) FROM %s WHERE redis_key IN ('%s:0', '%s:999')", hashValueTableName, hashValueTableName, hashValueTableName)))
+                .matches("VALUES BIGINT '2'");
 
-        result = queryRunner.execute(format("SELECT count(1) FROM %s WHERE redis_key = '%s:999'", hashValueTableName, hashValueTableName));
-        expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
-                .row(1L)
-                .build();
-        assertEquals(result, expected);
+        assertThat(assertions.query(format("SELECT count(1) FROM %s WHERE redis_key = '%s:999'", hashValueTableName, hashValueTableName)))
+                .matches("VALUES BIGINT '1'");
     }
 
     @Test
     public void testHashValueWhereClauseHasNoData()
     {
-        MaterializedResult result = queryRunner.execute(format("SELECT count(1) FROM %s WHERE redis_key = 'does_not_exist'", hashValueTableName));
-        MaterializedResult expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
-                .row(0L)
-                .build();
-        assertEquals(result, expected);
+        assertThat(assertions.query(format("SELECT count(1) FROM %s WHERE redis_key = 'does_not_exist'", hashValueTableName)))
+                .matches("VALUES BIGINT '0'");
 
-        result = queryRunner.execute(format("SELECT count(1) FROM %s WHERE redis_key = '%s:999' AND id = 1", hashValueTableName, hashValueTableName));
-        expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
-                .row(0L)
-                .build();
-        assertEquals(result, expected);
+        assertThat(assertions.query(format("SELECT count(1) FROM %s WHERE redis_key = '%s:999' AND id = 1", hashValueTableName, hashValueTableName)))
+                .matches("VALUES BIGINT '0'");
     }
 
     @Test
