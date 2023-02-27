@@ -15,6 +15,7 @@ package io.trino.testing.containers;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.PullImageResultCallback;
+import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.PullResponseItem;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.utility.DockerImageName;
@@ -39,27 +40,11 @@ public class PlatformChecks
         }
 
         DockerClient client = DockerClientFactory.lazyClient();
-        try {
-            client.pullImageCmd(dockerImageName.asCanonicalNameString()).exec(new PullImageResultCallback() {
-                @Override
-                public void onNext(PullResponseItem item)
-                {
-                    String progress = item.getProgress();
-                    if (progress != null) {
-                        System.err.println(padEnd(dockerImageName.asCanonicalNameString() + ":" + item.getId(), 50, ' ') + ' ' + progress);
-                    }
-                }
-            }).awaitCompletion();
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Could not pull image", e);
+        if (!imageExists(client, dockerImageName)) {
+            pullImage(client, dockerImageName);
         }
 
-        String imageArch = client.inspectImageCmd(dockerImageName.asCanonicalNameString())
-                .exec()
-                .getArch()
-                .toLowerCase(ENGLISH);
+        String imageArch = getImageArch(client, dockerImageName);
 
         boolean isJavaOnArm = isARM();
         boolean isImageArmBased = imageArch.contains("arm");
@@ -90,5 +75,44 @@ public class PlatformChecks
     protected String getDescription()
     {
         return "Image substitutor that checks whether the image platform matches host platform";
+    }
+
+    private static boolean imageExists(DockerClient client, DockerImageName imageName)
+    {
+        try {
+            getImageArch(client, imageName);
+            return true;
+        }
+        catch (NotFoundException e) {
+            return false;
+        }
+    }
+
+    private static String getImageArch(DockerClient client, DockerImageName imageName)
+    {
+        return client.inspectImageCmd(imageName.asCanonicalNameString())
+                .exec()
+                .getArch()
+                .toLowerCase(ENGLISH);
+    }
+
+    private static void pullImage(DockerClient client, DockerImageName imageName)
+    {
+        try {
+            client.pullImageCmd(imageName.asCanonicalNameString()).exec(new PullImageResultCallback() {
+                @Override
+                public void onNext(PullResponseItem item)
+                {
+                    String progress = item.getProgress();
+                    if (progress != null) {
+                        System.err.println(padEnd(imageName.asCanonicalNameString() + ":" + item.getId(), 50, ' ') + ' ' + progress);
+                    }
+                }
+            }).awaitCompletion();
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
     }
 }
