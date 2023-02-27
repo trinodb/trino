@@ -14,14 +14,9 @@ import com.google.common.collect.ImmutableList;
 import com.starburstdata.presto.license.LicenceCheckingConnectorFactory;
 import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.license.LicenseManagerProvider;
-import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.JdbcConnectorFactory;
 import io.trino.spi.Plugin;
-import io.trino.spi.connector.Connector;
-import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-
-import java.util.Map;
 
 import static com.starburstdata.presto.license.StarburstFeature.STARGATE;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
@@ -30,8 +25,6 @@ import static java.util.Objects.requireNonNull;
 public class StargatePlugin
         implements Plugin
 {
-    private static final Logger log = Logger.get(StargatePlugin.class);
-
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
@@ -41,8 +34,7 @@ public class StargatePlugin
     @VisibleForTesting
     Iterable<ConnectorFactory> getConnectorFactories(LicenseManager licenseManager, boolean enableWrites)
     {
-        ConnectorFactory connectorFactory = new LicenceCheckingConnectorFactory(STARGATE, getConnectorFactory(licenseManager, enableWrites), licenseManager);
-        return ImmutableList.of(connectorFactory, new LegacyConnectorFactory(connectorFactory));
+        return ImmutableList.of(new LicenceCheckingConnectorFactory(STARGATE, getConnectorFactory(licenseManager, enableWrites), licenseManager));
     }
 
     private ConnectorFactory getConnectorFactory(LicenseManager licenseManager, boolean enableWrites)
@@ -55,30 +47,5 @@ public class StargatePlugin
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
                         binder -> binder.bind(Boolean.class).annotatedWith(EnableWrites.class).toInstance(enableWrites),
                         new StargateModule()));
-    }
-
-    @VisibleForTesting
-    static class LegacyConnectorFactory
-            implements ConnectorFactory
-    {
-        private final ConnectorFactory delegate;
-
-        public LegacyConnectorFactory(ConnectorFactory delegate)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-        }
-
-        @Override
-        public String getName()
-        {
-            return "starburst_remote";
-        }
-
-        @Override
-        public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
-        {
-            log.warn("Connector name 'starburst_remote' is deprecated. Use '%s' instead.", delegate.getName());
-            return delegate.create(catalogName, config, context);
-        }
     }
 }

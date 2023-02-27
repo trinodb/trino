@@ -22,7 +22,6 @@ import java.util.Map;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.collect.Streams.stream;
 import static com.starburstdata.trino.plugin.stargate.StargateAuthenticationType.PASSWORD_PASS_THROUGH;
-import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestStargatePlugin
@@ -45,18 +44,6 @@ public class TestStargatePlugin
     public void testCreateConnector()
     {
         createTestingPlugin(ImmutableMap.of("connection-url", "jdbc:trino://localhost:8080/test", "connection-user", "presto"));
-    }
-
-    @Test
-    public void testCreateLegacyConnector()
-    {
-        createTestingPlugin("starburst_remote", ImmutableMap.of("connection-url", "jdbc:trino://localhost:8080/test", "connection-user", "presto"));
-    }
-
-    @Test
-    public void testLegacyConnectorAllMethodsOverridden()
-    {
-        assertAllMethodsOverridden(ConnectorFactory.class, StargatePlugin.LegacyConnectorFactory.class);
     }
 
     @Test
