@@ -1536,25 +1536,40 @@ public class IcebergMetadata
     public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
         IcebergColumnHandle handle = (IcebergColumnHandle) column;
+        dropField(session, tableHandle, handle.getName());
+    }
+
+    @Override
+    public void dropField(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
+    {
+        IcebergColumnHandle handle = (IcebergColumnHandle) column;
+        // Iceberg disallows ambiguous field names in a table. e.g. (a row(b int), "a.b" int)
+        String name = String.join(".", ImmutableList.<String>builder().add(handle.getName()).addAll(fieldPath).build());
+        dropField(session, tableHandle, name);
+    }
+
+    private void dropField(ConnectorSession session, ConnectorTableHandle tableHandle, String name)
+    {
         Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        long fieldId = icebergTable.schema().findField(name).fieldId();
         boolean isPartitionColumn = icebergTable.spec().fields().stream()
-                .anyMatch(field -> field.sourceId() == handle.getId());
+                .anyMatch(field -> field.sourceId() == fieldId);
         if (isPartitionColumn) {
-            throw new TrinoException(NOT_SUPPORTED, "Cannot drop partition field: " + handle.getName());
+            throw new TrinoException(NOT_SUPPORTED, "Cannot drop partition field: " + name);
         }
         int currentSpecId = icebergTable.spec().specId();
         boolean columnUsedInOlderPartitionSpecs = icebergTable.specs().entrySet().stream()
                 .filter(spec -> spec.getValue().specId() != currentSpecId)
                 .flatMap(spec -> spec.getValue().fields().stream())
-                .anyMatch(field -> field.sourceId() == handle.getId());
+                .anyMatch(field -> field.sourceId() == fieldId);
         if (columnUsedInOlderPartitionSpecs) {
             // After dropping a column which was used in older partition specs, insert/update/select fails on the table.
             // So restricting user to dropping that column. https://github.com/trinodb/trino/issues/15729
-            throw new TrinoException(NOT_SUPPORTED, "Cannot drop column which is used by an old partition spec: " + handle.getName());
+            throw new TrinoException(NOT_SUPPORTED, "Cannot drop column which is used by an old partition spec: " + name);
         }
         try {
             icebergTable.updateSchema()
-                    .deleteColumn(handle.getName())
+                    .deleteColumn(name)
                     .commit();
         }
         catch (RuntimeException e) {

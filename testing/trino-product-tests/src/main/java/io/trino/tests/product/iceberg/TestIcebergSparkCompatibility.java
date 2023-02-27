@@ -514,7 +514,7 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery(format("" +
                         "CREATE TABLE %s (" +
                         "  id INT," +
-                        "  parent STRUCT<nested:STRING>)" +
+                        "  parent STRUCT<nested:STRING, nested_another:STRING>)" +
                         "  USING ICEBERG" +
                         "  PARTITIONED BY (parent.nested)" +
                         "  TBLPROPERTIES ('format-version'=2)",
@@ -530,6 +530,8 @@ public class TestIcebergSparkCompatibility
                 .hasMessageContaining("Partitioning by nested field is unsupported: parent.nested");
         assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + trinoTableName + " EXECUTE OPTIMIZE"))
                 .hasMessageContaining("Partitioning by nested field is unsupported: parent.nested");
+        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + trinoTableName + " DROP COLUMN parent.nested"))
+                .hasMessageContaining("Cannot drop partition field: parent.nested");
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
@@ -2175,6 +2177,45 @@ public class TestIcebergSparkCompatibility
                 .hasMessageMatching("(?s).*Unsupported table change: Incompatible change: cannot add required column.*");
 
         assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(1));
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC})
+    public void testDropNestedField()
+    {
+        String baseTableName = "test_drop_nested_field_" + randomNameSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + " AS SELECT CAST(row(1, 2, row(10, 20)) AS row(a integer, b integer, c row(x integer, y integer))) AS col");
+
+        // Drop a nested field
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " DROP COLUMN col.b");
+        assertThat(onTrino().executeQuery("SELECT col.a, col.c.x, col.c.y FROM " + trinoTableName)).containsOnly(row(1, 10, 20));
+        assertThat(onSpark().executeQuery("SELECT col.a, col.c.x, col.c.y FROM " + sparkTableName)).containsOnly(row(1, 10, 20));
+
+        // Drop a row type having fields
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " DROP COLUMN col.c");
+        assertThat(onTrino().executeQuery("SELECT col.a FROM " + trinoTableName)).containsOnly(row(1));
+        assertThat(onSpark().executeQuery("SELECT col.a FROM " + sparkTableName)).containsOnly(row(1));
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC})
+    public void testDropPastPartitionedField()
+    {
+        String baseTableName = "test_drop_past_partitioned_field_" + randomNameSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + "(id INTEGER, parent ROW(nested VARCHAR, nested_another VARCHAR))");
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD PARTITION FIELD parent.nested");
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " SET PROPERTIES partitioning = ARRAY[]");
+
+        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + trinoTableName + " DROP COLUMN parent.nested"))
+                .hasMessageContaining("Cannot drop column which is used by an old partition spec: parent.nested");
+
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
