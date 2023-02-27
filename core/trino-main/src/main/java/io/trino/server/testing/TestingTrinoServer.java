@@ -34,6 +34,7 @@ import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.testing.TestingJmxModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
+import io.airlift.openmetrics.JmxOpenMetricsModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.ConnectorName;
@@ -256,6 +257,7 @@ public class TestingTrinoServer
                 .add(new JaxrsModule())
                 .add(new MBeanModule())
                 .add(new TestingJmxModule())
+                .add(new JmxOpenMetricsModule())
                 .add(new EventModule())
                 .add(new TraceTokenModule())
                 .add(new ServerSecurityModule())
