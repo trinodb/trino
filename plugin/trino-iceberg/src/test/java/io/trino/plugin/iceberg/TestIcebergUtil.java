@@ -18,8 +18,8 @@ import org.testng.annotations.Test;
 import java.util.OptionalInt;
 
 import static io.trino.plugin.iceberg.IcebergUtil.parseVersion;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 
 public class TestIcebergUtil
 {

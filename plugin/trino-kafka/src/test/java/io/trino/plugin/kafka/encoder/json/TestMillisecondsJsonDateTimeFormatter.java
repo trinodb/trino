@@ -29,11 +29,11 @@ import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.sca
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimeOf;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.time.temporal.ChronoField.EPOCH_DAY;
 import static java.time.temporal.ChronoField.MILLI_OF_DAY;
 import static java.time.temporal.ChronoField.NANO_OF_DAY;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static org.testng.Assert.assertEquals;
 
 public class TestMillisecondsJsonDateTimeFormatter
 {

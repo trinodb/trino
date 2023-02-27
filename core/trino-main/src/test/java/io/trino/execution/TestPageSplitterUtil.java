@@ -34,9 +34,9 @@ import static io.trino.execution.buffer.PageSplitterUtil.splitPage;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 
 public class TestPageSplitterUtil
 {
