@@ -92,7 +92,6 @@ import static com.starburstdata.presto.license.StarburstFeature.ORACLE_EXTENSION
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
-import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -225,14 +224,6 @@ public class StarburstOracleClient
                 split.getAdditionalPredicate());
         preparedQuery = applyQueryTransformations(table, preparedQuery);
         return queryBuilder.prepareStatement(this, session, connection, preparedQuery);
-    }
-
-    @Override
-    protected String generateTemporaryTableName()
-    {
-        // Oracle before 12.2 doesn't allow identifiers over 30 characters
-        String id = super.generateTemporaryTableName();
-        return id.substring(0, min(30, id.length()));
     }
 
     @Override
