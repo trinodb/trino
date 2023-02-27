@@ -420,13 +420,6 @@ public class IgniteClient
         }
         columnDefinitions.add("PRIMARY KEY (" + join(", ", primaryKeys.stream().map(this::quoted).collect(joining(", "))) + ")");
 
-        for (Map.Entry<String, Object> propertyEntry : tableProperties.entrySet()) {
-            String propertyKey = propertyEntry.getKey();
-            if (!PRIMARY_KEY_PROPERTY.equalsIgnoreCase(propertyKey)) {
-                throw new UnsupportedOperationException("Not support table property " + propertyKey);
-            }
-        }
-
         String remoteTableName = quoted(null, schemaTableName.getSchemaName(), schemaTableName.getTableName());
         return format("CREATE TABLE %s (%s) ", remoteTableName, join(", ", columnDefinitions.build()));
     }
