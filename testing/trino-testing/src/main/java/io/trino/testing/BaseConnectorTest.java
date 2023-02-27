@@ -4447,7 +4447,7 @@ public abstract class BaseConnectorTest
         String tableName = "tcn_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "") + randomNameSuffix();
 
         try {
-            assertUpdate("CREATE TABLE " + tableName + "(" + nameInSql + " varchar(50), value varchar(50))");
+            assertUpdate(createTableSqlForAddingAndDroppingColumn(tableName, nameInSql));
         }
         catch (RuntimeException e) {
             if (isColumnNameRejected(e, columnName, delimited)) {
@@ -4465,6 +4465,14 @@ public abstract class BaseConnectorTest
         assertTableColumnNames(tableName, "value", columnName.toLowerCase(ENGLISH));
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    /**
+     * Create a table with name "tableName" and with two columns: "columnNameInSql" varchar(50), value varchar(50)
+     */
+    protected String createTableSqlForAddingAndDroppingColumn(String tableName, String columnNameInSql)
+    {
+        return "CREATE TABLE " + tableName + "(" + columnNameInSql + " varchar(50), value varchar(50))";
     }
 
     @Test(dataProvider = "testColumnNameDataProvider")
