@@ -1354,14 +1354,11 @@ public abstract class BaseConnectorTest
         assertContains(actual, expected);
 
         // test SHOW COLUMNS
-        actual = computeActual("SHOW COLUMNS FROM " + viewName);
-
-        expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        assertThat(query("SHOW COLUMNS FROM " + viewName))
+                .matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("x", "bigint", "", "")
                 .row("y", "varchar(3)", "", "")
-                .build();
-
-        assertEquals(actual, expected);
+                .build());
 
         // test SHOW CREATE VIEW
         String expectedSql = formatSqlText(format(
@@ -4894,14 +4891,12 @@ public abstract class BaseConnectorTest
         assertQuery("SELECT count(*) FROM " + tableName + " WHERE mod(orderkey, 3) = 1", "SELECT 0");
 
         // verify untouched rows
-        assertEquals(
-                computeActual("SELECT count(*), cast(sum(totalprice) AS decimal(18,2)) FROM " + tableName + " WHERE mod(orderkey, 3) = 2"),
-                computeActual("SELECT count(*), cast(sum(totalprice) AS decimal(18,2)) FROM tpch.sf1.orders WHERE mod(orderkey, 3) = 2"));
+        assertThat(query("SELECT count(*), cast(sum(totalprice) AS decimal(18,2)) FROM " + tableName + " WHERE mod(orderkey, 3) = 2"))
+                .matches("SELECT count(*), cast(sum(totalprice) AS decimal(18,2)) FROM tpch.sf1.orders WHERE mod(orderkey, 3) = 2");
 
         // verify updated rows
-        assertEquals(
-                computeActual("SELECT count(*), cast(sum(totalprice) AS decimal(18,2)) FROM " + tableName + " WHERE mod(orderkey, 3) = 0"),
-                computeActual("SELECT count(*), cast(sum(totalprice * 2) AS decimal(18,2)) FROM tpch.sf1.orders WHERE mod(orderkey, 3) = 0"));
+        assertThat(query("SELECT count(*), cast(sum(totalprice) AS decimal(18,2)) FROM " + tableName + " WHERE mod(orderkey, 3) = 0"))
+                .matches("SELECT count(*), cast(sum(totalprice * 2) AS decimal(18,2)) FROM tpch.sf1.orders WHERE mod(orderkey, 3) = 0");
 
         assertUpdate("DROP TABLE " + tableName);
     }

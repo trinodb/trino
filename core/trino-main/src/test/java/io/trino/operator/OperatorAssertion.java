@@ -48,6 +48,7 @@ import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.util.StructuralTestUtil.appendToBlockBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.fail;
 
 public final class OperatorAssertion
@@ -284,7 +285,7 @@ public final class OperatorAssertion
             pages = dropChannel(pages, hashChannels);
         }
         MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), pages);
-        assertEquals(actual, expected);
+        assertThat(actual).containsExactlyElementsOf(expected);
     }
 
     public static void assertOperatorEqualsIgnoreOrder(

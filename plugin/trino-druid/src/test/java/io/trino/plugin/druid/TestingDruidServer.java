@@ -16,7 +16,6 @@ package io.trino.plugin.druid;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.Closer;
 import com.google.common.io.MoreFiles;
-import io.trino.testing.assertions.Assert;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -42,6 +41,7 @@ import java.util.Map;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -243,7 +243,7 @@ public class TestingDruidServer
                 .post(RequestBody.create(null, indexTask));
         Request ingestionRequest = requestBuilder.build();
         try (Response ignored = httpClient.newCall(ingestionRequest).execute()) {
-            Assert.assertTrue(checkDatasourceAvailable(datasource), "Datasource " + datasource + " not loaded");
+            assertThat(checkDatasourceAvailable(datasource)).as("Datasource %s not loaded", datasource).isTrue();
         }
     }
 

@@ -77,7 +77,7 @@ import static io.trino.type.ColorType.COLOR;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestDynamicFilterSourceOperator
@@ -119,7 +119,7 @@ public class TestDynamicFilterSourceOperator
         List<Page> outputPages = toPages(operator, inputPages.iterator());
         MaterializedResult actual = toMaterializedResult(pipelineContext.getSession(), types, outputPages);
         MaterializedResult expected = toMaterializedResult(pipelineContext.getSession(), types, inputPages);
-        assertEquals(actual, expected);
+        assertThat(actual).containsExactlyElementsOf(expected);
     }
 
     private OperatorFactory createOperatorFactory(DynamicFilterSourceOperator.Channel... buildChannels)

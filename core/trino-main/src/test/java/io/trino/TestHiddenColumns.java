@@ -15,25 +15,28 @@ package io.trino;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.LocalQueryRunner;
-import io.trino.testing.MaterializedResult;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.MaterializedResult.resultBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiddenColumns
 {
     private LocalQueryRunner runner;
+    private QueryAssertions assertions;
 
     @BeforeClass
     public void setUp()
     {
         runner = LocalQueryRunner.create(TEST_SESSION);
         runner.createCatalog(TEST_SESSION.getCatalog().get(), new TpchConnectorFactory(1), ImmutableMap.of());
+        assertions = new QueryAssertions(runner);
     }
 
     @AfterClass(alwaysRun = true)
@@ -42,28 +45,29 @@ public class TestHiddenColumns
         if (runner != null) {
             runner.close();
             runner = null;
+            assertions = null;
         }
     }
 
     @Test
     public void testDescribeTable()
     {
-        MaterializedResult expected = MaterializedResult.resultBuilder(TEST_SESSION, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("regionkey", "bigint", "", "")
-                .row("name", "varchar(25)", "", "")
-                .row("comment", "varchar(152)", "", "")
-                .build();
-        assertEquals(runner.execute("DESC REGION"), expected);
+        assertThat(assertions.query("DESCRIBE region"))
+                .matches(resultBuilder(TEST_SESSION, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                        .row("regionkey", "bigint", "", "")
+                        .row("name", "varchar(25)", "", "")
+                        .row("comment", "varchar(152)", "", "")
+                        .build());
     }
 
     @Test
     public void testSimpleSelect()
     {
-        assertEquals(runner.execute("SELECT * from REGION"), runner.execute("SELECT regionkey, name, comment from REGION"));
-        assertEquals(runner.execute("SELECT *, row_number from REGION"), runner.execute("SELECT regionkey, name, comment, row_number from REGION"));
-        assertEquals(runner.execute("SELECT row_number, * from REGION"), runner.execute("SELECT row_number, regionkey, name, comment from REGION"));
-        assertEquals(runner.execute("SELECT *, row_number, * from REGION"), runner.execute("SELECT regionkey, name, comment, row_number, regionkey, name, comment from REGION"));
-        assertEquals(runner.execute("SELECT row_number, x.row_number from REGION x"), runner.execute("SELECT row_number, row_number from REGION"));
+        assertThat(assertions.query("SELECT * FROM region")).matches("SELECT regionkey, name, comment FROM region");
+        assertThat(assertions.query("SELECT *, row_number FROM region")).matches("SELECT regionkey, name, comment, row_number FROM region");
+        assertThat(assertions.query("SELECT row_number, * FROM region")).matches("SELECT row_number, regionkey, name, comment FROM region");
+        assertThat(assertions.query("SELECT *, row_number, * FROM region")).matches("SELECT regionkey, name, comment, row_number, regionkey, name, comment FROM region");
+        assertThat(assertions.query("SELECT row_number, x.row_number FROM region x")).matches("SELECT row_number, row_number FROM region");
     }
 
     @Test
@@ -71,8 +75,7 @@ public class TestHiddenColumns
     {
         // https://github.com/prestodb/presto/issues/11385
         // TPCH tables have a hidden "row_number" column, which triggers this bug.
-        assertEquals(
-                runner.execute("SELECT * FROM orders AS t (a, b, c, d, e, f, g, h, i)"),
-                runner.execute("SELECT * FROM orders"));
+        assertThat(assertions.query("SELECT * FROM orders AS t (a, b, c, d, e, f, g, h, i)"))
+                .matches("SELECT * FROM orders");
     }
 }

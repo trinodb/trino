@@ -18,7 +18,6 @@ import io.trino.Session;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.LocalQueryRunner;
-import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
@@ -28,7 +27,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLocalQueries
         extends AbstractTestQueries
@@ -67,18 +66,14 @@ public class TestLocalQueries
     public void testShowColumnStats()
     {
         // FIXME Add tests for more complex scenario with more stats
-        MaterializedResult result = computeActual("SHOW STATS FOR nation");
-
-        MaterializedResult expectedStatistics =
-                resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+        assertThat(query("SHOW STATS FOR nation"))
+                .matches(resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("nationkey", null, 25.0, 0.0, null, "0", "24")
                         .row("name", 177.0, 25.0, 0.0, null, null, null)
                         .row("regionkey", null, 5.0, 0.0, null, "0", "4")
                         .row("comment", 1857.0, 25.0, 0.0, null, null, null)
                         .row(null, null, null, null, 25.0, null, null)
-                        .build();
-
-        assertEquals(result, expectedStatistics);
+                        .build());
     }
 
     @Test
