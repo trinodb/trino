@@ -168,15 +168,12 @@ public abstract class BaseElasticsearchConnectorTest
         assertQuery("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment  FROM orders");
     }
 
-    /**
-     * The column metadata for the Elasticsearch connector tables are provided
-     * based on the column name in alphabetical order.
-     */
-    @Test
     @Override
-    public void testDescribeTable()
+    protected MaterializedResult getDescribeOrdersResult()
     {
-        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        // The column metadata for the Elasticsearch connector tables are provided
+        // based on the column name in alphabetical order.
+        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("clerk", "varchar", "", "")
                 .row("comment", "varchar", "", "")
                 .row("custkey", "bigint", "", "")
@@ -187,8 +184,6 @@ public abstract class BaseElasticsearchConnectorTest
                 .row("shippriority", "bigint", "", "")
                 .row("totalprice", "real", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertEquals(actualColumns, expectedColumns);
     }
 
     @Test
@@ -235,20 +230,7 @@ public abstract class BaseElasticsearchConnectorTest
     @Override
     public void testShowColumns()
     {
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
-        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("clerk", "varchar", "", "")
-                .row("comment", "varchar", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderdate", "timestamp(3)", "", "")
-                .row("orderkey", "bigint", "", "")
-                .row("orderpriority", "varchar", "", "")
-                .row("orderstatus", "varchar", "", "")
-                .row("shippriority", "bigint", "", "")
-                .row("totalprice", "real", "", "")
-                .build();
-
-        assertEquals(expected, actual);
+        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
     }
 
     @Test
