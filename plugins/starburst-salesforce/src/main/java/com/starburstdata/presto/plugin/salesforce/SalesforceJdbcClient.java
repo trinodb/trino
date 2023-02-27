@@ -378,12 +378,6 @@ public class SalesforceJdbcClient
     }
 
     @Override
-    protected String generateTemporaryTableName()
-    {
-        throw new UnsupportedOperationException("This connector does not support temporary table names");
-    }
-
-    @Override
     public PreparedStatement getPreparedStatement(Connection connection, String sql)
             throws SQLException
     {
