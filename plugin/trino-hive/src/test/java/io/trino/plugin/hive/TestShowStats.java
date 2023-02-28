@@ -678,10 +678,10 @@ public class TestShowStats
         assertQuery(
                 "SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE sin(regionkey) > 0)",
                 "VALUES " +
-                        "   ('nationkey', null, null, null, null, null, null), " +
-                        "   ('name', null, null, null, null, null, null), " +
-                        "   ('comment', null, null, null, null, null, null), " +
-                        "   ('regionkey', null, null, null, null, null, null), " +
+                        "   ('nationkey', null, 5, 0, null, 1, 24), " +
+                        "   ('name', null, 5, 0, null, null, null), " +
+                        "   ('comment', null, 5, 0, null, null, null), " +
+                        "   ('regionkey', null, 3, 0, null, 1, 3), " +
                         "   (null, null, null, null, null, null, null)");
     }
 
