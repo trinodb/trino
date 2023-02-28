@@ -15,45 +15,23 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
 import io.trino.spi.Plugin;
-import io.trino.spi.connector.Connector;
-import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 
-import java.util.Map;
 import java.util.Set;
 
 public class HivePlugin
         implements Plugin
 {
-    private static final Logger log = Logger.get(HivePlugin.class);
-
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new HiveConnectorFactory("hive"), new LegacyHiveConnectorFactory());
+        return ImmutableList.of(new HiveConnectorFactory());
     }
 
     @Override
     public Set<Class<?>> getFunctions()
     {
         return ImmutableSet.of(CanonicalizeHiveTimezoneId.class);
-    }
-
-    private static class LegacyHiveConnectorFactory
-            extends HiveConnectorFactory
-    {
-        public LegacyHiveConnectorFactory()
-        {
-            super("hive-hadoop2");
-        }
-
-        @Override
-        public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
-        {
-            log.warn("Connector name 'hive-hadoop2' is deprecated. Use 'hive' instead.");
-            return super.create(catalogName, config, context);
-        }
     }
 }

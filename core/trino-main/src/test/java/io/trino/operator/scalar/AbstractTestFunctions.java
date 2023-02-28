@@ -16,13 +16,8 @@ package io.trino.operator.scalar;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.metadata.InternalFunctionBundle;
-import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.ErrorCodeSupplier;
-import io.trino.spi.Plugin;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.type.LongTimestamp;
-import io.trino.spi.type.SqlDecimal;
-import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.Type;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
@@ -36,9 +31,7 @@ import java.util.Set;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
-import static io.trino.operator.scalar.timestamp.VarcharToTimestampCast.castToLongTimestamp;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.type.DecimalType.createDecimalType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.fail;
@@ -101,14 +94,6 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertFunction(format("\"%s\"(%s)", mangleOperatorName(operator), value), expectedType, expected);
     }
 
-    protected void assertDecimalFunction(@Language("SQL") String statement, SqlDecimal expectedResult)
-    {
-        assertFunction(
-                statement,
-                createDecimalType(expectedResult.getPrecision(), expectedResult.getScale()),
-                expectedResult);
-    }
-
     protected void assertAmbiguousFunction(@Language("SQL") String projection, Type expectedType, Set<Object> expected)
     {
         functionAssertions.assertAmbiguousFunction(projection, expectedType, expected);
@@ -129,16 +114,6 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertInvalidFunction(projection, expectedErrorCode);
     }
 
-    protected void assertNumericOverflow(String projection, String message)
-    {
-        functionAssertions.assertNumericOverflow(projection, message);
-    }
-
-    protected void assertInvalidCast(String projection)
-    {
-        functionAssertions.assertInvalidCast(projection);
-    }
-
     protected void assertInvalidCast(@Language("SQL") String projection, String message)
     {
         functionAssertions.assertInvalidCast(projection, message);
@@ -147,16 +122,6 @@ public abstract class AbstractTestFunctions
     protected void assertCachedInstanceHasBoundedRetainedSize(String projection)
     {
         functionAssertions.assertCachedInstanceHasBoundedRetainedSize(projection);
-    }
-
-    protected void tryEvaluateWithAll(String projection, Type expectedType)
-    {
-        functionAssertions.tryEvaluateWithAll(projection, expectedType);
-    }
-
-    protected void registerScalarFunction(SqlScalarFunction sqlScalarFunction)
-    {
-        functionAssertions.addFunctions(new InternalFunctionBundle(sqlScalarFunction));
     }
 
     protected void registerScalar(Class<?> clazz)
@@ -171,17 +136,6 @@ public abstract class AbstractTestFunctions
         functionAssertions.addFunctions(InternalFunctionBundle.builder()
                 .scalar(clazz)
                 .build());
-    }
-
-    protected void installPlugin(Plugin plugin)
-    {
-        functionAssertions.installPlugin(plugin);
-    }
-
-    protected static SqlTimestamp timestamp(int precision, String timestampValue)
-    {
-        LongTimestamp longTimestamp = castToLongTimestamp(precision, timestampValue);
-        return SqlTimestamp.newInstance(precision, longTimestamp.getEpochMicros(), longTimestamp.getPicosOfMicro());
     }
 
     // this help function should only be used when the map contains null value

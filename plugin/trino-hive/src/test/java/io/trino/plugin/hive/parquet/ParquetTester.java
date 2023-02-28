@@ -30,6 +30,7 @@ import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveConfig;
+import io.trino.plugin.hive.HiveFormatsConfig;
 import io.trino.plugin.hive.HiveSessionProperties;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.benchmark.FileFormat;
@@ -76,7 +77,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.column.ParquetProperties.WriterVersion;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
 
@@ -115,9 +116,6 @@ import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockS
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
-import static io.trino.plugin.hive.util.HiveUtil.isArrayType;
-import static io.trino.plugin.hive.util.HiveUtil.isMapType;
-import static io.trino.plugin.hive.util.HiveUtil.isRowType;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -141,15 +139,15 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfosFromTypeString;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
+import static org.apache.parquet.format.CompressionCodec.GZIP;
+import static org.apache.parquet.format.CompressionCodec.LZ4;
+import static org.apache.parquet.format.CompressionCodec.LZO;
+import static org.apache.parquet.format.CompressionCodec.SNAPPY;
+import static org.apache.parquet.format.CompressionCodec.UNCOMPRESSED;
+import static org.apache.parquet.format.CompressionCodec.ZSTD;
 import static org.apache.parquet.hadoop.ParquetOutputFormat.COMPRESSION;
 import static org.apache.parquet.hadoop.ParquetOutputFormat.ENABLE_DICTIONARY;
 import static org.apache.parquet.hadoop.ParquetOutputFormat.WRITER_VERSION;
-import static org.apache.parquet.hadoop.metadata.CompressionCodecName.GZIP;
-import static org.apache.parquet.hadoop.metadata.CompressionCodecName.LZ4;
-import static org.apache.parquet.hadoop.metadata.CompressionCodecName.LZO;
-import static org.apache.parquet.hadoop.metadata.CompressionCodecName.SNAPPY;
-import static org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
-import static org.apache.parquet.hadoop.metadata.CompressionCodecName.ZSTD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -168,9 +166,9 @@ public class ParquetTester
 
     public static final List<String> TEST_COLUMN = singletonList("test");
 
-    private final Set<CompressionCodecName> compressions;
+    private final Set<CompressionCodec> compressions;
 
-    private final Set<CompressionCodecName> writerCompressions;
+    private final Set<CompressionCodec> writerCompressions;
 
     private final Set<WriterVersion> versions;
 
@@ -209,8 +207,8 @@ public class ParquetTester
     }
 
     public ParquetTester(
-            Set<CompressionCodecName> compressions,
-            Set<CompressionCodecName> writerCompressions,
+            Set<CompressionCodec> compressions,
+            Set<CompressionCodec> writerCompressions,
             Set<WriterVersion> versions,
             Set<ConnectorSession> sessions,
             FileFormat fileFormat)
@@ -360,17 +358,17 @@ public class ParquetTester
             throws Exception
     {
         for (WriterVersion version : versions) {
-            for (CompressionCodecName compressionCodecName : compressions) {
+            for (CompressionCodec compressionCodec : compressions) {
                 for (ConnectorSession session : sessions) {
                     try (TempFile tempFile = new TempFile("test", "parquet")) {
                         JobConf jobConf = new JobConf(newEmptyConfiguration());
-                        jobConf.setEnum(COMPRESSION, compressionCodecName);
+                        jobConf.setEnum(COMPRESSION, compressionCodec);
                         jobConf.setBoolean(ENABLE_DICTIONARY, true);
                         jobConf.setEnum(WRITER_VERSION, version);
                         writeParquetColumn(
                                 jobConf,
                                 tempFile.getFile(),
-                                compressionCodecName,
+                                compressionCodec,
                                 createTableProperties(columnNames, objectInspectors),
                                 getStandardStructObjectInspector(columnNames, objectInspectors),
                                 getIterators(writeValues),
@@ -389,12 +387,12 @@ public class ParquetTester
         }
 
         // write Trino parquet
-        for (CompressionCodecName compressionCodecName : writerCompressions) {
+        for (CompressionCodec compressionCodec : writerCompressions) {
             for (ConnectorSession session : sessions) {
                 try (TempFile tempFile = new TempFile("test", "parquet")) {
                     OptionalInt min = stream(writeValues).mapToInt(Iterables::size).min();
                     checkState(min.isPresent());
-                    writeParquetColumnTrino(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.getAsInt(), compressionCodecName, schemaOptions);
+                    writeParquetColumnTrino(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.getAsInt(), compressionCodec, schemaOptions);
                     assertFileContents(
                             session,
                             tempFile.getFile(),
@@ -429,12 +427,13 @@ public class ParquetTester
             DataSize maxReadBlockSize)
             throws Exception
     {
-        CompressionCodecName compressionCodecName = UNCOMPRESSED;
+        CompressionCodec compressionCodec = UNCOMPRESSED;
         for (boolean optimizedReaderEnabled : ImmutableList.of(true, false)) {
             HiveSessionProperties hiveSessionProperties = new HiveSessionProperties(
                     new HiveConfig()
                             .setHiveStorageFormat(HiveStorageFormat.PARQUET)
                             .setUseParquetColumnNames(false),
+                    new HiveFormatsConfig(),
                     new OrcReaderConfig(),
                     new OrcWriterConfig(),
                     new ParquetReaderConfig()
@@ -447,13 +446,13 @@ public class ParquetTester
 
             try (TempFile tempFile = new TempFile("test", "parquet")) {
                 JobConf jobConf = new JobConf(newEmptyConfiguration());
-                jobConf.setEnum(COMPRESSION, compressionCodecName);
+                jobConf.setEnum(COMPRESSION, compressionCodec);
                 jobConf.setBoolean(ENABLE_DICTIONARY, true);
                 jobConf.setEnum(WRITER_VERSION, PARQUET_1_0);
                 writeParquetColumn(
                         jobConf,
                         tempFile.getFile(),
-                        compressionCodecName,
+                        compressionCodec,
                         createTableProperties(columnNames, objectInspectors),
                         getStandardStructObjectInspector(columnNames, objectInspectors),
                         getIterators(writeValues),
@@ -551,15 +550,13 @@ public class ParquetTester
         }
         if (isStructuralType(type)) {
             Block block = (Block) fieldFromCursor;
-            if (isArrayType(type)) {
-                Type elementType = ((ArrayType) type).getElementType();
-                return toArrayValue(block, elementType);
+            if (type instanceof ArrayType arrayType) {
+                return toArrayValue(block, arrayType.getElementType());
             }
-            if (isMapType(type)) {
-                MapType mapType = (MapType) type;
+            if (type instanceof MapType mapType) {
                 return toMapValue(block, mapType.getKeyType(), mapType.getValueType());
             }
-            if (isRowType(type)) {
+            if (type instanceof RowType) {
                 return toRowValue(block, type.getTypeParameters());
             }
         }
@@ -618,7 +615,7 @@ public class ParquetTester
     public static void writeParquetColumn(
             JobConf jobConf,
             File outputFile,
-            CompressionCodecName compressionCodecName,
+            CompressionCodec compressionCodec,
             Properties tableProperties,
             SettableStructObjectInspector objectInspector,
             Iterator<?>[] valuesByField,
@@ -632,7 +629,7 @@ public class ParquetTester
                         jobConf,
                         new Path(outputFile.toURI()),
                         Text.class,
-                        compressionCodecName != UNCOMPRESSED,
+                        compressionCodec != UNCOMPRESSED,
                         tableProperties,
                         () -> {});
         Object row = objectInspector.create();
@@ -757,7 +754,7 @@ public class ParquetTester
             List<String> columnNames,
             Iterator<?>[] values,
             int size,
-            CompressionCodecName compressionCodecName,
+            CompressionCodec compressionCodec,
             ParquetSchemaOptions schemaOptions)
             throws Exception
     {
@@ -775,7 +772,7 @@ public class ParquetTester
                         .setMaxPageSize(DataSize.ofBytes(100))
                         .setMaxBlockSize(DataSize.ofBytes(100000))
                         .build(),
-                compressionCodecName,
+                compressionCodec,
                 "test-version",
                 false,
                 Optional.of(DateTimeZone.getDefault()),

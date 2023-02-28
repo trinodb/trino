@@ -17,6 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.confluent.kafka.serializers.json.KafkaJsonSchemaSerializer;
 import io.confluent.kafka.serializers.subject.RecordNameStrategy;
@@ -25,8 +27,6 @@ import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericRecord;
@@ -285,14 +285,16 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     private void waitUntilTableExists(String tableName)
     {
         Failsafe.with(
-                new RetryPolicy<>()
+                RetryPolicy.builder()
                         .withMaxAttempts(10)
-                        .withDelay(Duration.ofMillis(100)))
+                        .withDelay(Duration.ofMillis(100))
+                        .build())
                 .run(() -> assertTrue(schemaExists()));
         Failsafe.with(
-                new RetryPolicy<>()
+                RetryPolicy.builder()
                         .withMaxAttempts(10)
-                        .withDelay(Duration.ofMillis(100)))
+                        .withDelay(Duration.ofMillis(100))
+                        .build())
                 .run(() -> assertTrue(tableExists(tableName)));
     }
 

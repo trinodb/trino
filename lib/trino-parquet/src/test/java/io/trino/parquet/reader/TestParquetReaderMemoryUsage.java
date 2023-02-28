@@ -29,8 +29,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.type.Type;
+import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.io.MessageColumnIO;
 import org.joda.time.DateTimeZone;
@@ -40,7 +40,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -124,7 +123,7 @@ public class TestParquetReaderMemoryUsage
                         .setMaxPageSize(DataSize.ofBytes(100))
                         .setMaxBlockSize(DataSize.ofBytes(1))
                         .build(),
-                CompressionCodecName.SNAPPY,
+                CompressionCodec.SNAPPY,
                 "test-version",
                 false,
                 Optional.of(DateTimeZone.getDefault()),
@@ -154,7 +153,7 @@ public class TestParquetReaderMemoryUsage
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(null, positions);
         for (int i = 0; i < positions; i++) {
-            writeNativeValue(type, blockBuilder, ThreadLocalRandom.current().nextLong(0, 1000));
+            writeNativeValue(type, blockBuilder, (long) i);
         }
         return blockBuilder.build();
     }

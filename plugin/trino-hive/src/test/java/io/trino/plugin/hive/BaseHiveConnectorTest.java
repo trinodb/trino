@@ -234,6 +234,7 @@ public abstract class BaseHiveConnectorTest
             case SUPPORTS_COMMENT_ON_VIEW_COLUMN:
                 return true;
 
+            case SUPPORTS_DROP_FIELD:
             case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
@@ -3485,8 +3486,12 @@ public abstract class BaseHiveConnectorTest
                 .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
         assertThatThrownBy(() -> query("SELECT count(*) FROM " + tableName))
                 .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
-        assertThatThrownBy(() -> query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3")) // translated to Domain.all, all partitions must be scanned
-                .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
+
+        // verify we can query with a predicate that is not representable as a TupleDomain
+        assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3")) // may be translated to Domain.all
+                .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
+        assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3 AND part1 IS NOT NULL"))  // may be translated to Domain.all except nulls
+                .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
 
         // we are not constrained by hive.max-partitions-per-scan (=1000) when listing partitions
         assertThat(query("SELECT * FROM " + partitionsTable))
@@ -4452,6 +4457,8 @@ public abstract class BaseHiveConnectorTest
                         getSession().getSchema().get())))
                 .hasMessageMatching("Inserting into Hive table with skip.footer.line.count property not supported");
 
+        assertUpdate("DROP TABLE csv_table_skip_footer");
+
         createTableSql = format("" +
                         "CREATE TABLE %s.%s.csv_table_skip_header_footer (\n" +
                         "   name VARCHAR\n" +
@@ -5000,16 +5007,18 @@ public abstract class BaseHiveConnectorTest
 
             assertQuery(
                     "SELECT a, a <= 'bbc' FROM test_table_with_char",
-                    "VALUES (cast('aaa' as char(20)), true), " +
-                            "(cast('bbb' as char(20)), true), " +
-                            "(cast('bbc' as char(20)), true), " +
-                            "(cast('bbd' as char(20)), false)");
+                    "VALUES " +
+                            "('aaa                 ', true), " +
+                            "('bbb                 ', true), " +
+                            "('bbc                 ', true), " +
+                            "('bbd                 ', false)");
 
             assertQuery(
                     "SELECT a FROM test_table_with_char WHERE a <= 'bbc'",
-                    "VALUES cast('aaa' as char(20)), " +
-                            "cast('bbb' as char(20)), " +
-                            "cast('bbc' as char(20))");
+                    "VALUES " +
+                            "'aaa                 ', " +
+                            "'bbb                 ', " +
+                            "'bbc                 '");
         }
         finally {
             assertUpdate("DROP TABLE test_table_with_char");
@@ -6025,7 +6034,7 @@ public abstract class BaseHiveConnectorTest
         try {
             assertQuery(
                     "SELECT * FROM test_table_with_char_rc WHERE char_column = 'khaki  '",
-                    "VALUES (CAST('khaki' AS CHAR(7)))");
+                    "VALUES ('khaki  ')");
         }
         finally {
             assertUpdate("DROP TABLE test_table_with_char_rc");
@@ -8417,7 +8426,7 @@ public abstract class BaseHiveConnectorTest
     {
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE SELECT * FROM nation a",
-                "Physical Input: .*B");
+                "Physical input: .*B");
     }
 
     @Test
@@ -8425,7 +8434,10 @@ public abstract class BaseHiveConnectorTest
     {
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation a",
-                "'Physical input read time' = \\{duration=.*}");
+                "Physical input time: .*s");
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation WHERE nationkey > 1",
+                "Physical input time: .*s");
     }
 
     @Test

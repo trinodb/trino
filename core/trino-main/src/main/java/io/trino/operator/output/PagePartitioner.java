@@ -25,7 +25,6 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.PartitionFunction;
 import io.trino.spi.Page;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -37,6 +36,7 @@ import it.unimi.dsi.fastutil.ints.IntList;
 
 import javax.annotation.Nullable;
 
+import java.io.Closeable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -57,21 +57,19 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class PagePartitioner
+        implements Closeable
 {
     private static final int COLUMNAR_STRATEGY_COEFFICIENT = 2;
     private final OutputBuffer outputBuffer;
-    private final Type[] sourceTypes;
     private final PartitionFunction partitionFunction;
     private final int[] partitionChannels;
     private final LocalMemoryContext memoryContext;
     @Nullable
     private final Block[] partitionConstantBlocks; // when null, no constants are present. Only non-null elements are constants
     private final PageSerializer serializer;
-    private final PageBuilder[] pageBuilders;
     private final PositionsAppenderPageBuilder[] positionsAppenders;
     private final boolean replicatesAnyRow;
     private final int nullChannel; // when >= 0, send the position to every partition if this channel is null
-    private final long partitionsInitialRetainedSize;
     private PartitionedOutputInfoSupplier partitionedOutputInfoSupplier;
 
     private boolean hasAnyRowBeenReplicated;
@@ -105,7 +103,6 @@ public class PagePartitioner
         this.replicatesAnyRow = replicatesAnyRow;
         this.nullChannel = nullChannel.orElse(-1);
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
-        this.sourceTypes = sourceTypes.toArray(new Type[0]);
         this.serializer = serdeFactory.createSerializer(exchangeEncryptionKey.map(Ciphers::deserializeAesEncryptionKey));
 
         //  Ensure partition channels align with constant arguments provided
@@ -122,15 +119,10 @@ public class PagePartitioner
 
         this.positionsAppenders = new PositionsAppenderPageBuilder[partitionCount];
         for (int i = 0; i < partitionCount; i++) {
-            positionsAppenders[i] = PositionsAppenderPageBuilder.withMaxPageSize(pageSize, sourceTypes, positionsAppenderFactory);
-        }
-        this.pageBuilders = new PageBuilder[partitionCount];
-        for (int i = 0; i < partitionCount; i++) {
-            pageBuilders[i] = PageBuilder.withMaxPageSize(pageSize, sourceTypes);
+            positionsAppenders[i] = PositionsAppenderPageBuilder.withMaxPageSize(pageSize, requireNonNull(sourceTypes, "sourceTypes is null"), positionsAppenderFactory);
         }
         this.memoryContext = aggregatedMemoryContext.newLocalMemoryContext(PagePartitioner.class.getSimpleName());
-        this.partitionsInitialRetainedSize = getRetainedSizeInBytes();
-        this.memoryContext.setBytes(partitionsInitialRetainedSize);
+        updateMemoryUsage();
     }
 
     // sets up this partitioner for the new operator
@@ -160,17 +152,6 @@ public class PagePartitioner
         updateMemoryUsage();
     }
 
-    private void updateMemoryUsage()
-    {
-        // We use getSizeInBytes() here instead of getRetainedSizeInBytes() for an approximation of
-        // the amount of memory used by the pageBuilders, because calculating the retained
-        // size can be expensive especially for complex types.
-        long partitionsSizeInBytes = getSizeInBytes();
-
-        // We also add partitionsInitialRetainedSize as an approximation of the object overhead of the partitions.
-        memoryContext.setBytes(partitionsSizeInBytes + partitionsInitialRetainedSize);
-    }
-
     public void partitionPageByRow(Page page)
     {
         requireNonNull(page, "page is null");
@@ -181,8 +162,8 @@ public class PagePartitioner
         int position;
         // Handle "any row" replication outside of the inner loop processing
         if (replicatesAnyRow && !hasAnyRowBeenReplicated) {
-            for (PageBuilder pageBuilder : pageBuilders) {
-                appendRow(pageBuilder, page, 0);
+            for (PositionsAppenderPageBuilder pageBuilder : positionsAppenders) {
+                pageBuilder.appendToOutputPartition(page, 0);
             }
             hasAnyRowBeenReplicated = true;
             position = 1;
@@ -197,34 +178,24 @@ public class PagePartitioner
             Block nullsBlock = page.getBlock(nullChannel);
             for (; position < page.getPositionCount(); position++) {
                 if (nullsBlock.isNull(position)) {
-                    for (PageBuilder pageBuilder : pageBuilders) {
-                        appendRow(pageBuilder, page, position);
+                    for (PositionsAppenderPageBuilder pageBuilder : positionsAppenders) {
+                        pageBuilder.appendToOutputPartition(page, position);
                     }
                 }
                 else {
                     int partition = partitionFunction.getPartition(partitionFunctionArgs, position);
-                    appendRow(pageBuilders[partition], page, position);
+                    positionsAppenders[partition].appendToOutputPartition(page, position);
                 }
             }
         }
         else {
             for (; position < page.getPositionCount(); position++) {
                 int partition = partitionFunction.getPartition(partitionFunctionArgs, position);
-                appendRow(pageBuilders[partition], page, position);
+                positionsAppenders[partition].appendToOutputPartition(page, position);
             }
         }
 
-        flushPageBuilders(false);
-    }
-
-    private void appendRow(PageBuilder pageBuilder, Page page, int position)
-    {
-        pageBuilder.declarePosition();
-
-        for (int channel = 0; channel < sourceTypes.length; channel++) {
-            Type type = sourceTypes[channel];
-            type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
-        }
+        flushPositionsAppenders(false);
     }
 
     public void partitionPageByColumn(Page page)
@@ -444,24 +415,16 @@ public class PagePartitioner
         return new Page(page.getPositionCount(), blocks);
     }
 
+    @Override
     public void close()
     {
-        flushPositionsAppenders(true);
-        flushPageBuilders(true);
-        memoryContext.close();
-    }
-
-    private void flushPageBuilders(boolean force)
-    {
-        // add all full pages to output buffer
-        for (int partition = 0; partition < pageBuilders.length; partition++) {
-            PageBuilder partitionPageBuilder = pageBuilders[partition];
-            if (!partitionPageBuilder.isEmpty() && (force || partitionPageBuilder.isFull())) {
-                Page pagePartition = partitionPageBuilder.build();
-                partitionPageBuilder.reset();
-
-                enqueuePage(pagePartition, partition);
-            }
+        try {
+            flushPositionsAppenders(true);
+        }
+        finally {
+            // clear buffers before memory release
+            Arrays.fill(positionsAppenders, null);
+            memoryContext.close();
         }
     }
 
@@ -493,34 +456,14 @@ public class PagePartitioner
         return builder.build();
     }
 
-    private long getSizeInBytes()
+    private void updateMemoryUsage()
     {
-        // We use a foreach loop instead of streams
-        // as it has much better performance.
-        long sizeInBytes = 0;
+        long retainedSizeInBytes = 0;
         for (PositionsAppenderPageBuilder pageBuilder : positionsAppenders) {
-            sizeInBytes += pageBuilder.getSizeInBytes();
+            retainedSizeInBytes += pageBuilder.getRetainedSizeInBytes();
         }
-        for (PageBuilder pageBuilder : pageBuilders) {
-            sizeInBytes += pageBuilder.getSizeInBytes();
-        }
-        return sizeInBytes;
-    }
-
-    /**
-     * This method can be expensive for complex types.
-     */
-    private long getRetainedSizeInBytes()
-    {
-        long sizeInBytes = 0;
-        for (PositionsAppenderPageBuilder pageBuilder : positionsAppenders) {
-            sizeInBytes += pageBuilder.getRetainedSizeInBytes();
-        }
-        for (PageBuilder pageBuilder : pageBuilders) {
-            sizeInBytes += pageBuilder.getRetainedSizeInBytes();
-        }
-        sizeInBytes += serializer.getRetainedSizeInBytes();
-        return sizeInBytes;
+        retainedSizeInBytes += serializer.getRetainedSizeInBytes();
+        memoryContext.setBytes(retainedSizeInBytes);
     }
 
     /**

@@ -1208,6 +1208,14 @@ public abstract class BaseIcebergConnectorTest
         dropTable("test_schema_evolution_drop_middle");
     }
 
+    @Override
+    public void testDropRowFieldWhenDuplicates()
+    {
+        // Override because Iceberg doesn't allow duplicated field names in a row type
+        assertThatThrownBy(super::testDropRowFieldWhenDuplicates)
+                .hasMessage("Invalid schema: multiple fields for name col.a: 2 and 3");
+    }
+
     @Test
     public void testDropPartitionColumn()
     {
@@ -4434,11 +4442,13 @@ public abstract class BaseIcebergConnectorTest
         if (expectedSplitCount > 0) {
             assertThat(operatorStats.getTotalDrivers()).isEqualTo(expectedSplitCount);
             assertThat(operatorStats.getPhysicalInputPositions()).isGreaterThan(0);
+            assertThat(operatorStats.getPhysicalInputReadTime().getValue()).isGreaterThan(0);
         }
         else {
             // expectedSplitCount == 0
             assertThat(operatorStats.getTotalDrivers()).isEqualTo(1);
             assertThat(operatorStats.getPhysicalInputPositions()).isEqualTo(0);
+            assertThat(operatorStats.getPhysicalInputReadTime().toMillis()).isEqualTo(0);
         }
     }
 
@@ -6360,6 +6370,23 @@ public abstract class BaseIcebergConnectorTest
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
                     .contains("partitioning = ARRAY['bucket(part, 10)']");
         }
+    }
+
+    @Test
+    public void testAlterTableWithUnsupportedProperties()
+    {
+        String tableName = "test_alter_table_with_unsupported_properties_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint)");
+
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES orc_bloom_filter_columns = ARRAY['a']",
+                "The following properties cannot be updated: orc_bloom_filter_columns");
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES location = '/var/data/table/', orc_bloom_filter_fpp = 0.5",
+                "The following properties cannot be updated: location, orc_bloom_filter_fpp");
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES format = 'ORC', orc_bloom_filter_columns = ARRAY['a']",
+                "The following properties cannot be updated: orc_bloom_filter_columns");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Override

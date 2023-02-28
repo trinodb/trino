@@ -390,7 +390,7 @@ public class TransactionLogAccess
         return forVersions.stream()
                 .flatMap(version -> {
                     try {
-                        Optional<List<DeltaLakeTransactionLogEntry>> entriesFromJson = getEntriesFromJson(getTransactionLogJsonEntryPath(transactionLogDir, version), fileSystem);
+                        Optional<List<DeltaLakeTransactionLogEntry>> entriesFromJson = getEntriesFromJson(version, transactionLogDir, fileSystem);
                         //noinspection SimplifyOptionalCallChains
                         return entriesFromJson.map(List::stream)
                                 // transaction log does not exist. Might have been expired.

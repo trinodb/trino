@@ -207,7 +207,13 @@ public class TestNodeLocalDynamicSplitPruning
     private static TestingConnectorSession getSession(HiveConfig config)
     {
         return TestingConnectorSession.builder()
-                .setPropertyMetadata(new HiveSessionProperties(config, new OrcReaderConfig(), new OrcWriterConfig(), new ParquetReaderConfig(), new ParquetWriterConfig()).getSessionProperties())
+                .setPropertyMetadata(new HiveSessionProperties(
+                        config,
+                        new HiveFormatsConfig(),
+                        new OrcReaderConfig(),
+                        new OrcWriterConfig(),
+                        new ParquetReaderConfig(),
+                        new ParquetWriterConfig()).getSessionProperties())
                 .build();
     }
 

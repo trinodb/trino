@@ -61,6 +61,12 @@ public class AllowAllAccessControlManager
     public void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner) {}
 
     @Override
+    public void checkCanCreateCatalog(SecurityContext context, String catalog) {}
+
+    @Override
+    public void checkCanDropCatalog(SecurityContext context, String catalog) {}
+
+    @Override
     public Set<String> filterCatalogs(SecurityContext context, Set<String> catalogs)
     {
         return catalogs;

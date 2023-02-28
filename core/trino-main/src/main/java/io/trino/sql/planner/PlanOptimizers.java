@@ -199,6 +199,7 @@ import io.trino.sql.planner.iterative.rule.RemoveRedundantPredicateAboveTableSca
 import io.trino.sql.planner.iterative.rule.RemoveRedundantSort;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantSortBelowLimitWithTies;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantTopN;
+import io.trino.sql.planner.iterative.rule.RemoveRedundantWindow;
 import io.trino.sql.planner.iterative.rule.RemoveTrivialFilters;
 import io.trino.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
 import io.trino.sql.planner.iterative.rule.RemoveUnreferencedScalarSubqueries;
@@ -237,6 +238,7 @@ import io.trino.sql.planner.optimizations.AddExchanges;
 import io.trino.sql.planner.optimizations.AddLocalExchanges;
 import io.trino.sql.planner.optimizations.BeginTableWrite;
 import io.trino.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
+import io.trino.sql.planner.optimizations.DeterminePartitionCount;
 import io.trino.sql.planner.optimizations.HashGenerationOptimizer;
 import io.trino.sql.planner.optimizations.IndexJoinOptimizer;
 import io.trino.sql.planner.optimizations.LimitPushDown;
@@ -414,6 +416,7 @@ public class PlanOptimizers
                                 .addAll(new UnwrapRowSubscript().rules())
                                 .addAll(new PushCastIntoRow().rules())
                                 .addAll(ImmutableSet.of(
+                                        new ImplementTableFunctionSource(metadata),
                                         new UnwrapSingleColumnRowInApply(typeAnalyzer),
                                         new RemoveEmptyUnionBranches(),
                                         new EvaluateEmptyIntersect(),
@@ -440,6 +443,7 @@ public class PlanOptimizers
                                         new ReplaceRedundantJoinWithProject(),
                                         new RemoveRedundantEnforceSingleRowNode(),
                                         new RemoveRedundantExists(),
+                                        new RemoveRedundantWindow(),
                                         new ImplementFilteredAggregations(metadata),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MergeLimitWithDistinct(),
@@ -600,7 +604,7 @@ public class PlanOptimizers
                 .add(new PushAggregationIntoTableScan(plannerContext, typeAnalyzer))
                 .add(new PushDistinctLimitIntoTableScan(plannerContext, typeAnalyzer))
                 .add(new PushTopNIntoTableScan(metadata))
-                .add(new RewriteTableFunctionToTableScan(plannerContext))
+                .add(new RewriteTableFunctionToTableScan(plannerContext)) // must run after ImplementTableFunctionSource
                 .build();
         IterativeOptimizer pushIntoTableScanOptimizer = new IterativeOptimizer(
                 plannerContext,
@@ -630,11 +634,7 @@ public class PlanOptimizers
                         costCalculator,
                         // Temporary hack: separate optimizer step to avoid the sample node being replaced by filter before pushing
                         // it to table scan node
-                        ImmutableSet.of(
-                                new ImplementBernoulliSampleAsFilter(metadata),
-                                // Must run after RewriteTableFunctionToTableScan because that rule applies to TableFunctionNode.
-                                // While the node gets rewritten to TableFunctionProcessorNode, we can no longer pushdown the function to the connector.
-                                new ImplementTableFunctionSource(metadata))),
+                        ImmutableSet.of(new ImplementBernoulliSampleAsFilter(metadata))),
                 columnPruningOptimizer,
                 new IterativeOptimizer(
                         plannerContext,
@@ -846,6 +846,8 @@ public class PlanOptimizers
             // operators that require node partitioning
             builder.add(new UnaliasSymbolReferences(metadata));
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(plannerContext, typeAnalyzer, statsCalculator)));
+            // It can only run after AddExchanges since it estimates the hash partition count for all remote exchanges
+            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new DeterminePartitionCount(statsCalculator)));
         }
 
         // use cost calculator without estimated exchanges after AddExchanges

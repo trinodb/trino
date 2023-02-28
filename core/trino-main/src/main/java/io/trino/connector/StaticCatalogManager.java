@@ -98,8 +98,16 @@ public class StaticCatalogManager
 
             String connectorName = properties.remove("connector.name");
             checkState(connectorName != null, "Catalog configuration %s does not contain connector.name", file.getAbsoluteFile());
+            if (connectorName.indexOf('-') >= 0) {
+                String deprecatedConnectorName = connectorName;
+                connectorName = connectorName.replace('-', '_');
+                log.warn("Catalog '%s' is using the deprecated connector name '%s'. The correct connector name is '%s'", catalogName, deprecatedConnectorName, connectorName);
+            }
 
-            catalogProperties.add(new CatalogProperties(createRootCatalogHandle(catalogName, new CatalogVersion("default")), connectorName, ImmutableMap.copyOf(properties)));
+            catalogProperties.add(new CatalogProperties(
+                    createRootCatalogHandle(catalogName, new CatalogVersion("default")),
+                    new ConnectorName(connectorName),
+                    ImmutableMap.copyOf(properties)));
         }
         this.catalogProperties = catalogProperties.build();
         this.executor = requireNonNull(executor, "executor is null");
@@ -181,6 +189,12 @@ public class StaticCatalogManager
     }
 
     @Override
+    public void pruneCatalogs(Set<CatalogHandle> catalogsInUse)
+    {
+        // static catalogs do not need management
+    }
+
+    @Override
     public Optional<CatalogProperties> getCatalogProperties(CatalogHandle catalogHandle)
     {
         // static catalog manager does not propagate catalogs between machines
@@ -199,15 +213,21 @@ public class StaticCatalogManager
     {
         requireNonNull(connector, "connector is null");
 
-        CatalogConnector catalog = catalogFactory.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, GlobalSystemConnector.NAME, connector);
+        CatalogConnector catalog = catalogFactory.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, new ConnectorName(GlobalSystemConnector.NAME), connector);
         if (catalogs.putIfAbsent(GlobalSystemConnector.NAME, catalog) != null) {
             throw new IllegalStateException("Global system catalog already registered");
         }
     }
 
     @Override
-    public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
+    public void createCatalog(String catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists)
     {
-        throw new TrinoException(NOT_SUPPORTED, "Create catalog is not supported by the static catalog manager");
+        throw new TrinoException(NOT_SUPPORTED, "CREATE CATALOG is not supported by the static catalog store");
+    }
+
+    @Override
+    public void dropCatalog(String catalogName, boolean exists)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "DROP CATALOG is not supported by the static catalog store");
     }
 }

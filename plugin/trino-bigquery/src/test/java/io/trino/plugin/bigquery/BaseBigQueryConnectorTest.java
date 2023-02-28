@@ -223,8 +223,6 @@ public abstract class BaseBigQueryConnectorTest
         switch (dataMappingTestSetup.getTrinoTypeName()) {
             case "real":
             case "char(3)":
-            case "decimal(5,3)":
-            case "decimal(15,3)":
             case "time":
             case "time(3)":
             case "time(6)":
@@ -707,6 +705,35 @@ public abstract class BaseBigQueryConnectorTest
         assertQuery(
                 "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT 1'))",
                 "VALUES 1");
+    }
+
+    @Test
+    public void testNativeQuerySelectForCaseSensitiveColumnNames()
+    {
+        assertThat(computeActual("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT 1 AS lower, 2 AS UPPER, 3 AS miXED'))").getColumnNames())
+                .containsExactly("lower", "UPPER", "miXED");
+
+        assertThat(computeActual("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT 1 AS duplicated, 2 AS duplicated'))").getColumnNames())
+                .containsExactly("duplicated", "duplicated_1");
+
+        String tableName = "test.test_non_lowercase" + randomNameSuffix();
+        onBigQuery("CREATE TABLE " + tableName + " AS SELECT 1 AS lower, 2 AS UPPER, 3 AS miXED");
+        try {
+            assertQuery(
+                    "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM " + tableName + "'))",
+                    "VALUES (1, 2, 3)");
+            assertQuery(
+                    "SELECT \"lower\", \"UPPER\", \"miXED\" FROM TABLE(bigquery.system.query(query => 'SELECT * FROM " + tableName + "'))",
+                    "VALUES (1, 2, 3)");
+            assertQuery(
+                    "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM " + tableName + "')) WHERE \"UPPER\" = 2",
+                    "VALUES (1, 2, 3)");
+            assertQueryReturnsEmptyResult("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM " + tableName + "')) WHERE \"UPPER\" = 100");
+            assertQueryReturnsEmptyResult("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM " + tableName + "')) WHERE upper = 100");
+        }
+        finally {
+            onBigQuery("DROP TABLE " + tableName);
+        }
     }
 
     @Test

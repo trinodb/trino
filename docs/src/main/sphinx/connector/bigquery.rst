@@ -26,14 +26,14 @@ that should generally lead to better read performance:
 
 **Column Filtering**
     The new API allows column filtering to only read the data you are interested in.
-    `Backed by a columnar datastore <https://cloud.google.com/blog/big-data/2016/04/inside-capacitor-bigquerys-next-generation-columnar-storage-format>`_,
+    `Backed by a columnar datastore <https://cloud.google.com/blog/products/bigquery/inside-capacitor-bigquerys-next-generation-columnar-storage-format>`_,
     it can efficiently stream data without reading all columns.
 
 **Dynamic Sharding**
     The API rebalances records between readers until they all complete. This means
     that all Map phases will finish nearly concurrently. See this blog article on
     `how dynamic sharding is similarly used in Google Cloud Dataflow
-    <https://cloud.google.com/blog/big-data/2016/05/no-shard-left-behind-dynamic-work-rebalancing-in-google-cloud-dataflow>`_.
+    <https://cloud.google.com/blog/products/gcp/no-shard-left-behind-dynamic-work-rebalancing-in-google-cloud-dataflow>`_.
 
 Requirements
 ------------
@@ -259,6 +259,9 @@ to the following table:
     - ``INT64``
     - ``INT``, ``SMALLINT``, ``INTEGER``, ``BIGINT``, ``TINYINT``, and
       ``BYTEINT`` are aliases for ``INT64`` in BigQuery.
+  * - ``DECIMAL(P,S)``
+    - ``NUMERIC``
+    - The default precision and scale of ``NUMERIC`` is ``(38, 9)``.
   * - ``VARCHAR``
     - ``STRING``
     -
@@ -344,7 +347,8 @@ running a query natively may be faster.
 
 .. include:: polymorphic-table-function-ordering.fragment
 
-For example, group and concatenate all employee IDs by manager ID::
+For example, query the ``example`` catalog and group and concatenate all
+employee IDs by manager ID::
 
     SELECT
       *

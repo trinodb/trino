@@ -59,8 +59,8 @@ public final class SystemSessionProperties
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
     public static final String JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR = "join_multi_clause_independence_factor";
-    public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
-    public static final String HASH_PARTITION_COUNT = "hash_partition_count";
+    public static final String MAX_HASH_PARTITION_COUNT = "max_hash_partition_count";
+    public static final String MIN_HASH_PARTITION_COUNT = "min_hash_partition_count";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
     public static final String TASK_PARTITIONED_WRITER_COUNT = "task_partitioned_writer_count";
@@ -175,6 +175,8 @@ public final class SystemSessionProperties
     public static final String REMOTE_TASK_REQUEST_SIZE_HEADROOM = "remote_task_request_size_headroom";
     public static final String REMOTE_TASK_GUARANTEED_SPLITS_PER_REQUEST = "remote_task_guaranteed_splits_per_request";
     public static final String JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT = "join_partitioned_build_min_row_count";
+    public static final String MIN_INPUT_SIZE_PER_TASK = "min_input_size_per_task";
+    public static final String MIN_INPUT_ROWS_PER_TASK = "min_input_rows_per_task";
     public static final String USE_EXACT_PARTITIONING = "use_exact_partitioning";
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
     public static final String FAULT_TOLERANT_EXECUTION_FORCE_PREFERRED_WRITE_PARTITIONING_ENABLED = "fault_tolerant_execution_force_preferred_write_partitioning_enabled";
@@ -237,15 +239,17 @@ public final class SystemSessionProperties
                         false,
                         value -> validateDoubleRange(value, JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, 0.0, 1.0),
                         value -> value),
-                booleanProperty(
-                        DISTRIBUTED_INDEX_JOIN,
-                        "Distribute index joins on join keys instead of executing inline",
-                        optimizerConfig.isDistributedIndexJoinsEnabled(),
+                integerProperty(
+                        MAX_HASH_PARTITION_COUNT,
+                        "Maximum number of partitions for distributed joins and aggregations",
+                        queryManagerConfig.getMaxHashPartitionCount(),
+                        value -> validateIntegerValue(value, MIN_HASH_PARTITION_COUNT, 1, false),
                         false),
                 integerProperty(
-                        HASH_PARTITION_COUNT,
-                        "Number of partitions for distributed joins and aggregations",
-                        queryManagerConfig.getHashPartitionCount(),
+                        MIN_HASH_PARTITION_COUNT,
+                        "Minimum number of partitions for distributed joins and aggregations",
+                        queryManagerConfig.getMinHashPartitionCount(),
+                        value -> validateIntegerValue(value, MIN_HASH_PARTITION_COUNT, 1, false),
                         false),
                 booleanProperty(
                         PREFER_STREAMING_OPERATORS,
@@ -872,6 +876,17 @@ public final class SystemSessionProperties
                         optimizerConfig.getJoinPartitionedBuildMinRowCount(),
                         value -> validateNonNegativeLongValue(value, JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT),
                         false),
+                dataSizeProperty(
+                        MIN_INPUT_SIZE_PER_TASK,
+                        "Minimum input data size required per task. This will help optimizer determine hash partition count for joins and aggregations",
+                        optimizerConfig.getMinInputSizePerTask(),
+                        false),
+                longProperty(
+                        MIN_INPUT_ROWS_PER_TASK,
+                        "Minimum input rows required per task. This will help optimizer determine hash partition count for joins and aggregations",
+                        optimizerConfig.getMinInputRowsPerTask(),
+                        value -> validateNonNegativeLongValue(value, MIN_INPUT_ROWS_PER_TASK),
+                        false),
                 booleanProperty(
                         USE_EXACT_PARTITIONING,
                         "When enabled this forces data repartitioning unless the partitioning of upstream stage matches exactly what downstream stage expects",
@@ -924,14 +939,14 @@ public final class SystemSessionProperties
         return session.getSystemProperty(JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, Double.class);
     }
 
-    public static boolean isDistributedIndexJoinEnabled(Session session)
+    public static int getMaxHashPartitionCount(Session session)
     {
-        return session.getSystemProperty(DISTRIBUTED_INDEX_JOIN, Boolean.class);
+        return session.getSystemProperty(MAX_HASH_PARTITION_COUNT, Integer.class);
     }
 
-    public static int getHashPartitionCount(Session session)
+    public static int getMinHashPartitionCount(Session session)
     {
-        return session.getSystemProperty(HASH_PARTITION_COUNT, Integer.class);
+        return session.getSystemProperty(MIN_HASH_PARTITION_COUNT, Integer.class);
     }
 
     public static boolean preferStreamingOperators(Session session)
@@ -1567,6 +1582,16 @@ public final class SystemSessionProperties
     public static long getJoinPartitionedBuildMinRowCount(Session session)
     {
         return session.getSystemProperty(JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT, Long.class);
+    }
+
+    public static DataSize getMinInputSizePerTask(Session session)
+    {
+        return session.getSystemProperty(MIN_INPUT_SIZE_PER_TASK, DataSize.class);
+    }
+
+    public static long getMinInputRowsPerTask(Session session)
+    {
+        return session.getSystemProperty(MIN_INPUT_ROWS_PER_TASK, Long.class);
     }
 
     public static boolean isUseExactPartitioning(Session session)

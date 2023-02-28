@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 
 import java.util.List;
@@ -36,6 +37,8 @@ public class DeltaLakeOutputTableHandle
     private final Optional<Long> checkpointInterval;
     private final boolean external;
     private final Optional<String> comment;
+    private final Optional<Boolean> changeDataFeedEnabled;
+    private final ProtocolEntry protocolEntry;
 
     @JsonCreator
     public DeltaLakeOutputTableHandle(
@@ -45,7 +48,9 @@ public class DeltaLakeOutputTableHandle
             @JsonProperty("location") String location,
             @JsonProperty("checkpointInterval") Optional<Long> checkpointInterval,
             @JsonProperty("external") boolean external,
-            @JsonProperty("comment") Optional<String> comment)
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("changeDataFeedEnabled") Optional<Boolean> changeDataFeedEnabled,
+            @JsonProperty("protocolEntry") ProtocolEntry protocolEntry)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -54,6 +59,8 @@ public class DeltaLakeOutputTableHandle
         this.checkpointInterval = checkpointInterval;
         this.external = external;
         this.comment = requireNonNull(comment, "comment is null");
+        this.changeDataFeedEnabled = requireNonNull(changeDataFeedEnabled, "changeDataFeedEnabled is null");
+        this.protocolEntry = requireNonNull(protocolEntry, "protocolEntry is null");
     }
 
     @JsonProperty
@@ -105,5 +112,17 @@ public class DeltaLakeOutputTableHandle
     public Optional<String> getComment()
     {
         return comment;
+    }
+
+    @JsonProperty
+    public Optional<Boolean> getChangeDataFeedEnabled()
+    {
+        return changeDataFeedEnabled;
+    }
+
+    @JsonProperty
+    public ProtocolEntry getProtocolEntry()
+    {
+        return protocolEntry;
     }
 }

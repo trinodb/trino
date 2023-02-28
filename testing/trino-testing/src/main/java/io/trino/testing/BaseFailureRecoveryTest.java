@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -51,6 +52,7 @@ import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RE
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_TIMEOUT;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_FAILURE;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_TIMEOUT;
+import static io.trino.plugin.base.TemporaryTables.temporaryTableNamePrefix;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.CUSTOMER;
@@ -62,6 +64,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -74,8 +77,10 @@ public abstract class BaseFailureRecoveryTest
     protected static final int INVOCATION_COUNT = 1;
     private static final Duration MAX_ERROR_DURATION = new Duration(5, SECONDS);
     private static final Duration REQUEST_TIMEOUT = new Duration(5, SECONDS);
+    private static final int MAX_PARALLEL_TEST_CONCURRENCY = 4;
 
     private final RetryPolicy retryPolicy;
+    private final Semaphore parallelTestsSemaphore = new Semaphore(MAX_PARALLEL_TEST_CONCURRENCY);
 
     protected BaseFailureRecoveryTest(RetryPolicy retryPolicy)
     {
@@ -197,7 +202,24 @@ public abstract class BaseFailureRecoveryTest
     @Test(invocationCount = INVOCATION_COUNT, dataProvider = "parallelTests")
     public final void testParallel(Runnable runnable)
     {
-        runnable.run();
+        try {
+            // By default, a test method using a @DataProvider with parallel attribute is run in 10 threads (org.testng.xml.XmlSuite#DEFAULT_DATA_PROVIDER_THREAD_COUNT).
+            // We limit number of concurrent test executions to prevent excessive resource usage.
+            //
+            // Note: the downside of this approach is that individual test runtimes will not be representative anymore
+            //       as those will include time spent waiting for semaphore.
+            parallelTestsSemaphore.acquire();
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        try {
+            runnable.run();
+        }
+        finally {
+            parallelTestsSemaphore.release();
+        }
     }
 
     protected void testCreateTable()
@@ -484,11 +506,29 @@ public abstract class BaseFailureRecoveryTest
 
             MaterializedResultWithQueryId resultWithQueryId = null;
             RuntimeException failure = null;
+            String queryId = null;
             try {
                 resultWithQueryId = getDistributedQueryRunner().executeWithQueryId(withTraceToken(session, traceToken), resolveTableName(query, tableName));
+                queryId = resultWithQueryId.getQueryId().getId();
             }
             catch (RuntimeException e) {
                 failure = e;
+                if (e instanceof QueryFailedException) {
+                    queryId = ((QueryFailedException) e).getQueryId().getId();
+                }
+            }
+
+            if (queryId != null) {
+                String temporaryTablePrefix = temporaryTableNamePrefix(queryId);
+                MaterializedResult temporaryTablesResult = getQueryRunner()
+                        .execute("SHOW TABLES LIKE '%s%%' ESCAPE '\\'".formatted(temporaryTablePrefix.replace("_", "\\_")));
+                assertThat(temporaryTablesResult.getRowCount())
+                        .as("There should be no remaining %s* tables. They are: [%s]",
+                                temporaryTablePrefix,
+                                temporaryTablesResult.getMaterializedRows().stream()
+                                        .map(row -> row.getField(0).toString())
+                                        .collect(joining(",")))
+                        .isEqualTo(0);
             }
 
             MaterializedResult result = resultWithQueryId == null ? null : resultWithQueryId.getResult();

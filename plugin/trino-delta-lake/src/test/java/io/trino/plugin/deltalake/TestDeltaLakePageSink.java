@@ -20,12 +20,14 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.operator.GroupByHashPageIndexerFactory;
+import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
@@ -157,7 +159,9 @@ public class TestDeltaLakePageSink
                 outputPath.toString(),
                 Optional.of(deltaLakeConfig.getDefaultCheckpointWritingInterval()),
                 true,
-                Optional.empty());
+                Optional.empty(),
+                Optional.of(false),
+                new ProtocolEntry(deltaLakeConfig.getDefaultReaderVersion(), deltaLakeConfig.getDefaultWriterVersion()));
 
         DeltaLakePageSinkProvider provider = new DeltaLakePageSinkProvider(
                 new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators()), new BlockTypeOperators()),
@@ -166,6 +170,7 @@ public class TestDeltaLakePageSink
                 JsonCodec.jsonCodec(DeltaLakeMergeResult.class),
                 stats,
                 deltaLakeConfig,
+                new TestingTypeManager(),
                 new NodeVersion("test-version"));
 
         return provider.createPageSink(transaction, SESSION, tableHandle, TESTING_PAGE_SINK_ID);

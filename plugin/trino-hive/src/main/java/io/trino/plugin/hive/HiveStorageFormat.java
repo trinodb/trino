@@ -16,12 +16,12 @@ package io.trino.plugin.hive;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.trino.plugin.hive.metastore.StorageFormat;
+import io.trino.plugin.hive.type.Category;
+import io.trino.plugin.hive.type.MapTypeInfo;
+import io.trino.plugin.hive.type.PrimitiveCategory;
+import io.trino.plugin.hive.type.PrimitiveTypeInfo;
+import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
-import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
-import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.util.Arrays;
 import java.util.List;

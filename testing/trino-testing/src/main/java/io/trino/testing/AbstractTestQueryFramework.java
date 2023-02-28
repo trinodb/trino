@@ -26,6 +26,7 @@ import io.trino.execution.QueryStats;
 import io.trino.execution.SqlTaskManager;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
+import io.trino.execution.TaskState;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.MemoryPool;
@@ -66,12 +67,14 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
@@ -192,11 +195,11 @@ public abstract class AbstractTestQueryFramework
                     for (BasicQueryInfo basicQueryInfo : queryManager.getQueries()) {
                         QueryId queryId = basicQueryInfo.getQueryId();
                         if (!basicQueryInfo.getState().isDone()) {
-                            fail("query is expected to be in done state: " + basicQueryInfo.getQuery());
+                            fail("query is expected to be in a done state\n\n" + createQueryDebuggingSummary(basicQueryInfo, queryManager.getFullQueryInfo(queryId)));
                         }
                         QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
                         if (!queryInfo.isFinalQueryInfo()) {
-                            fail("QueryInfo is expected to be final: " + basicQueryInfo.getQuery());
+                            fail("QueryInfo for is expected to be final\n\n" + createQueryDebuggingSummary(basicQueryInfo, queryInfo));
                         }
                     }
                 }));
@@ -216,18 +219,51 @@ public abstract class AbstractTestQueryFramework
                         for (TaskInfo taskInfo : taskInfos) {
                             TaskId taskId = taskInfo.getTaskStatus().getTaskId();
                             QueryId queryId = taskId.getQueryId();
-                            String query = "unknown";
-                            try {
-                                query = queryManager.getQueryInfo(queryId).getQuery();
-                            }
-                            catch (NoSuchElementException ignored) {
-                            }
-                            if (!taskInfo.getTaskStatus().getState().isDone()) {
-                                fail("Task is expected to be in done state. TaskId: %s, QueryId: %s, Query: %s ".formatted(taskId, queryId, query));
+                            TaskState taskState = taskInfo.getTaskStatus().getState();
+                            if (!taskState.isDone()) {
+                                try {
+                                    BasicQueryInfo basicQueryInfo = queryManager.getQueryInfo(queryId);
+                                    QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
+                                    String querySummary = createQueryDebuggingSummary(basicQueryInfo, queryInfo);
+                                    fail("Task is expected to be in done state, found: %s - TaskId: %s, QueryId: %s".formatted(taskState, taskId, queryId) + "\n\n" + querySummary);
+                                }
+                                catch (NoSuchElementException ignored) {
+                                }
+                                fail("Task is expected to be in done state, found: %s - TaskId: %s, QueryId: %s, Query: unknown".formatted(taskState, taskId, queryId));
                             }
                         }
                     }
                 }));
+    }
+
+    private static String createQueryDebuggingSummary(BasicQueryInfo basicQueryInfo, QueryInfo queryInfo)
+    {
+        String queryDetails = format("Query %s [%s]: %s", basicQueryInfo.getQueryId(), basicQueryInfo.getState(), basicQueryInfo.getQuery());
+        if (queryInfo.getOutputStage().isEmpty()) {
+            return queryDetails + " -- <no output stage present>";
+        }
+        else {
+            return queryDetails + getAllStages(queryInfo.getOutputStage()).stream()
+                    .map(stageInfo -> {
+                        String stageDetail = format("Stage %s [%s]", stageInfo.getStageId(), stageInfo.getState());
+                        if (stageInfo.getTasks().isEmpty()) {
+                            return stageDetail;
+                        }
+                        return stageDetail + stageInfo.getTasks().stream()
+                                .map(TaskInfo::getTaskStatus)
+                                .map(task -> {
+                                    String taskDetail = format("Task %s [%s]", task.getTaskId(), task.getState());
+                                    if (task.getFailures().isEmpty()) {
+                                        return taskDetail;
+                                    }
+                                    return " -- Failures: " + task.getFailures().stream()
+                                            .map(failure -> format("%s %s: %s", failure.getErrorCode(), failure.getType(), failure.getMessage()))
+                                            .collect(Collectors.joining(", ", "[", "]"));
+                                })
+                                .collect(Collectors.joining("\n\t\t", ":\n\t\t", ""));
+                    })
+                    .collect(Collectors.joining("\n\n\t", "\nStages:\n\t", ""));
+        }
     }
 
     @Test

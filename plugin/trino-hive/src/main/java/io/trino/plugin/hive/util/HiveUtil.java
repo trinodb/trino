@@ -37,6 +37,8 @@ import io.trino.plugin.hive.avro.TrinoAvroSerDe;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.type.Category;
+import io.trino.plugin.hive.type.StructTypeInfo;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
@@ -54,14 +56,12 @@ import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
-import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.io.compress.CompressionCodec;
@@ -90,6 +90,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -139,6 +140,7 @@ import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
 import static io.trino.plugin.hive.util.HiveClassNames.AVRO_SERDE_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.SYMLINK_TEXT_INPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.SerdeConstants.COLLECTION_DELIM;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
@@ -174,7 +176,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_IDS_CONF_STR;
-import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 
 public final class HiveUtil
 {
@@ -191,6 +192,8 @@ public final class HiveUtil
     private static final String HUDI_INPUT_FORMAT = "com.uber.hoodie.hadoop.HoodieInputFormat";
     private static final String HUDI_REALTIME_INPUT_FORMAT = "com.uber.hoodie.hadoop.realtime.HoodieRealtimeInputFormat";
 
+    private static final HexFormat HEX_UPPER_FORMAT = HexFormat.of().withUpperCase();
+
     private static final LocalDateTime EPOCH_DAY = new LocalDateTime(1970, 1, 1, 0, 0);
     private static final DateTimeFormatter HIVE_DATE_PARSER;
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
@@ -201,7 +204,8 @@ public final class HiveUtil
     private static final Splitter COLUMN_NAMES_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private static final CharMatcher PATH_CHAR_TO_ESCAPE = CharMatcher.inRange((char) 0, (char) 31)
-            .or(CharMatcher.anyOf("\"#%'*/:=?\\\u007F{[]^"));
+            .or(CharMatcher.anyOf("\"#%'*/:=?\\\u007F{[]^"))
+            .precomputed();
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
@@ -350,7 +354,7 @@ public final class HiveUtil
             configureCompressionCodecs(jobConf);
 
             Class<? extends InputFormat<?, ?>> inputFormatClass = getInputFormatClass(jobConf, inputFormatName);
-            if (symlinkTarget && inputFormatClass == SymlinkTextInputFormat.class) {
+            if (symlinkTarget && inputFormatClass.getName().equals(SYMLINK_TEXT_INPUT_FORMAT_CLASS)) {
                 String serde = getDeserializerClassName(schema);
                 // LazySimpleSerDe is used by TEXTFILE and SEQUENCEFILE. Default to TEXTFILE
                 // per Hive spec (https://hive.apache.org/javadocs/r2.1.1/api/org/apache/hadoop/hive/ql/io/SymlinkTextInputFormat.html)
@@ -443,7 +447,7 @@ public final class HiveUtil
     {
         try {
             ObjectInspector inspector = deserializer.getObjectInspector();
-            checkArgument(inspector.getCategory() == Category.STRUCT, "expected STRUCT: %s", inspector.getCategory());
+            checkArgument(inspector.getCategory() == ObjectInspector.Category.STRUCT, "expected STRUCT: %s", inspector.getCategory());
             return (StructObjectInspector) inspector;
         }
         catch (SerDeException e) {
@@ -679,36 +683,9 @@ public final class HiveUtil
         throw new VerifyException(format("Unhandled type [%s] for partition: %s", type, partitionName));
     }
 
-    /**
-     * @deprecated Use {@code instanceof} directly, as that allows variable assignment.
-     */
-    @Deprecated
-    public static boolean isArrayType(Type type)
-    {
-        return type instanceof ArrayType;
-    }
-
-    /**
-     * @deprecated Use {@code instanceof} directly, as that allows variable assignment.
-     */
-    @Deprecated
-    public static boolean isMapType(Type type)
-    {
-        return type instanceof MapType;
-    }
-
-    /**
-     * @deprecated Use {@code instanceof} directly, as that allows variable assignment.
-     */
-    @Deprecated
-    public static boolean isRowType(Type type)
-    {
-        return type instanceof RowType;
-    }
-
     public static boolean isStructuralType(Type type)
     {
-        return isArrayType(type) || isMapType(type) || isRowType(type);
+        return (type instanceof ArrayType) || (type instanceof MapType) || (type instanceof RowType);
     }
 
     public static boolean isStructuralType(HiveType hiveType)
@@ -1206,27 +1183,41 @@ public final class HiveUtil
     }
 
     // copy of org.apache.hadoop.hive.common.FileUtils#unescapePathName
-    @SuppressWarnings({"NumericCastThatLosesPrecision", "AssignmentToForLoopParameter"})
+    @SuppressWarnings("NumericCastThatLosesPrecision")
     public static String unescapePathName(String path)
     {
+        // fast path, no escaped characters and therefore no copying necessary
+        int escapedAtIndex = path.indexOf('%');
+        if (escapedAtIndex < 0 || escapedAtIndex + 2 >= path.length()) {
+            return path;
+        }
+
+        // slow path, unescape into a new string copy
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < path.length(); i++) {
-            char c = path.charAt(i);
-            if ((c == '%') && ((i + 2) < path.length())) {
-                int code;
-                try {
-                    code = parseInt(path.substring(i + 1, i + 3), 16);
-                }
-                catch (NumberFormatException e) {
-                    code = -1;
-                }
-                if (code >= 0) {
-                    sb.append((char) code);
-                    i += 2;
-                    continue;
-                }
+        int fromIndex = 0;
+        while (escapedAtIndex >= 0 && escapedAtIndex + 2 < path.length()) {
+            // preceding sequence without escaped characters
+            if (escapedAtIndex > fromIndex) {
+                sb.append(path, fromIndex, escapedAtIndex);
             }
-            sb.append(c);
+            // try to parse the to digits after the percent sign as hex
+            try {
+                int code = HexFormat.fromHexDigits(path, escapedAtIndex + 1, escapedAtIndex + 3);
+                sb.append((char) code);
+                // advance past the percent sign and both hex digits
+                fromIndex = escapedAtIndex + 3;
+            }
+            catch (NumberFormatException e) {
+                // invalid escape sequence, only advance past the percent sign
+                sb.append('%');
+                fromIndex = escapedAtIndex + 1;
+            }
+            // find next escaped character
+            escapedAtIndex = path.indexOf('%', fromIndex);
+        }
+        // trailing sequence without escaped characters
+        if (fromIndex < path.length()) {
+            sb.append(path, fromIndex, path.length());
         }
         return sb.toString();
     }
@@ -1238,15 +1229,35 @@ public final class HiveUtil
             return HIVE_DEFAULT_DYNAMIC_PARTITION;
         }
 
+        //  Fast-path detection, no escaping and therefore no copying necessary
+        int escapeAtIndex = PATH_CHAR_TO_ESCAPE.indexIn(path);
+        if (escapeAtIndex < 0) {
+            return path;
+        }
+
+        // slow path, escape beyond the first required escape character into a new string
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < path.length(); i++) {
-            char c = path.charAt(i);
-            if (PATH_CHAR_TO_ESCAPE.matches(c)) {
-                sb.append("%%%02X".formatted((int) c));
+        int fromIndex = 0;
+        while (escapeAtIndex >= 0 && escapeAtIndex < path.length()) {
+            // preceding characters without escaping needed
+            if (escapeAtIndex > fromIndex) {
+                sb.append(path, fromIndex, escapeAtIndex);
+            }
+            // escape single character
+            char c = path.charAt(escapeAtIndex);
+            sb.append('%').append(HEX_UPPER_FORMAT.toHighHexDigit(c)).append(HEX_UPPER_FORMAT.toLowHexDigit(c));
+            // find next character to escape
+            fromIndex = escapeAtIndex + 1;
+            if (fromIndex < path.length()) {
+                escapeAtIndex = PATH_CHAR_TO_ESCAPE.indexIn(path, fromIndex);
             }
             else {
-                sb.append(c);
+                escapeAtIndex = -1;
             }
+        }
+        // trailing characters without escaping needed
+        if (fromIndex < path.length()) {
+            sb.append(path, fromIndex, path.length());
         }
         return sb.toString();
     }
@@ -1257,7 +1268,7 @@ public final class HiveUtil
         StringBuilder name = new StringBuilder();
         for (int i = 0; i < columns.size(); i++) {
             if (i > 0) {
-                name.append("/");
+                name.append('/');
             }
             name.append(escapePathName(columns.get(i).toLowerCase(ENGLISH)));
             name.append('=');

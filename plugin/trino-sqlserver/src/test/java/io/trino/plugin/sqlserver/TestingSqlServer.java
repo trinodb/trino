@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.sqlserver;
 
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
+import dev.failsafe.Timeout;
 import io.airlift.log.Logger;
 import io.trino.testing.ResourcePresence;
 import io.trino.testing.sql.SqlExecutor;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
-import net.jodah.failsafe.Timeout;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.utility.DockerImageName;
@@ -52,15 +52,16 @@ public final class TestingSqlServer
         executor.execute(format("ALTER DATABASE %s SET READ_COMMITTED_SNAPSHOT ON", databaseName));
     };
 
-    private static final RetryPolicy<InitializedState> CONTAINER_RETRY_POLICY = new RetryPolicy<InitializedState>()
+    private static final RetryPolicy<InitializedState> CONTAINER_RETRY_POLICY = RetryPolicy.<InitializedState>builder()
             .withBackoff(1, 5, ChronoUnit.SECONDS)
             .withMaxRetries(5)
             .handleIf(throwable -> getCausalChain(throwable).stream()
-                    .anyMatch(SQLException.class::isInstance))
+                    .anyMatch(SQLException.class::isInstance) || throwable.getMessage().contains("Container exited with code"))
             .onRetry(event -> log.warn(
                     "Query failed on attempt %s, will retry. Exception: %s",
                     event.getAttemptCount(),
-                    event.getLastFailure().getMessage()));
+                    event.getLastException().getMessage()))
+            .build();
 
     private static final DockerImageName IMAGE_NAME = DockerImageName.parse("mcr.microsoft.com/mssql/server");
     public static final String DEFAULT_VERSION = "2017-CU13";

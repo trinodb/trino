@@ -53,7 +53,8 @@ public class QueryManagerConfig
     private int maxConcurrentQueries = 1000;
     private int maxQueuedQueries = 5000;
 
-    private int hashPartitionCount = 100;
+    private int maxHashPartitionCount = 100;
+    private int minHashPartitionCount = 4;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
@@ -64,6 +65,7 @@ public class QueryManagerConfig
 
     private int queryManagerExecutorPoolSize = 5;
     private int queryExecutorPoolSize = 1000;
+    private int maxStateMachineCallbackThreads = 5;
 
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}
@@ -161,17 +163,31 @@ public class QueryManagerConfig
     }
 
     @Min(1)
-    public int getHashPartitionCount()
+    public int getMaxHashPartitionCount()
     {
-        return hashPartitionCount;
+        return maxHashPartitionCount;
     }
 
-    @Config("query.hash-partition-count")
-    @LegacyConfig("query.initial-hash-partitions")
-    @ConfigDescription("Number of partitions for distributed joins and aggregations")
-    public QueryManagerConfig setHashPartitionCount(int hashPartitionCount)
+    @Config("query.max-hash-partition-count")
+    @LegacyConfig({"query.initial-hash-partitions", "query.hash-partition-count"})
+    @ConfigDescription("Maximum number of partitions for distributed joins and aggregations")
+    public QueryManagerConfig setMaxHashPartitionCount(int maxHashPartitionCount)
     {
-        this.hashPartitionCount = hashPartitionCount;
+        this.maxHashPartitionCount = maxHashPartitionCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getMinHashPartitionCount()
+    {
+        return minHashPartitionCount;
+    }
+
+    @Config("query.min-hash-partition-count")
+    @ConfigDescription("Minimum number of partitions for distributed joins and aggregations")
+    public QueryManagerConfig setMinHashPartitionCount(int minHashPartitionCount)
+    {
+        this.minHashPartitionCount = minHashPartitionCount;
         return this;
     }
 
@@ -280,6 +296,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryExecutorPoolSize(int queryExecutorPoolSize)
     {
         this.queryExecutorPoolSize = queryExecutorPoolSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxStateMachineCallbackThreads()
+    {
+        return maxStateMachineCallbackThreads;
+    }
+
+    @Config("query.max-state-machine-callback-threads")
+    @ConfigDescription("The maximum number of threads allowed to run query and stage state machine listener callbacks concurrently for each query")
+    public QueryManagerConfig setMaxStateMachineCallbackThreads(int maxStateMachineCallbackThreads)
+    {
+        this.maxStateMachineCallbackThreads = maxStateMachineCallbackThreads;
         return this;
     }
 

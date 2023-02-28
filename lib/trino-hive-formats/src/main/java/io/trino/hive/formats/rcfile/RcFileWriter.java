@@ -20,9 +20,13 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.DataOutputStream;
+import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.compression.Codec;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.compression.MemoryCompressedSliceOutput;
+import io.trino.hive.formats.encodings.ColumnEncoding;
+import io.trino.hive.formats.encodings.ColumnEncodingFactory;
+import io.trino.hive.formats.encodings.EncodeOutput;
 import io.trino.hive.formats.rcfile.RcFileWriteValidation.RcFileWriteValidationBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -48,6 +52,7 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.hive.formats.ReadWriteUtils.writeLengthPrefixedString;
 import static io.trino.hive.formats.ReadWriteUtils.writeVInt;
+import static io.trino.hive.formats.compression.CompressionKind.LZOP;
 import static io.trino.hive.formats.rcfile.RcFileReader.validateFile;
 import static java.lang.StrictMath.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -74,7 +79,7 @@ public class RcFileWriter
 
     private final DataOutputStream output;
     private final List<Type> types;
-    private final RcFileEncoding encoding;
+    private final ColumnEncodingFactory encoding;
 
     private final long syncFirst = ThreadLocalRandom.current().nextLong();
     private final long syncSecond = ThreadLocalRandom.current().nextLong();
@@ -96,7 +101,7 @@ public class RcFileWriter
     public RcFileWriter(
             OutputStream rawOutput,
             List<Type> types,
-            RcFileEncoding encoding,
+            ColumnEncodingFactory encoding,
             Optional<CompressionKind> compressionKind,
             Map<String, String> metadata,
             boolean validate)
@@ -116,7 +121,7 @@ public class RcFileWriter
     public RcFileWriter(
             OutputStream rawOutput,
             List<Type> types,
-            RcFileEncoding encoding,
+            ColumnEncodingFactory encoding,
             Optional<CompressionKind> compressionKind,
             Map<String, String> metadata,
             DataSize targetMinRowGroupSize,
@@ -129,6 +134,7 @@ public class RcFileWriter
         checkArgument(!types.isEmpty(), "types is empty");
         requireNonNull(encoding, "encoding is null");
         requireNonNull(compressionKind, "compressionKind is null");
+        checkArgument(!compressionKind.equals(Optional.of(LZOP)), "LZOP cannot be use with RCFile.  LZO compression can be used, but LZ4 is preferred.");
         requireNonNull(metadata, "metadata is null");
         checkArgument(!metadata.containsKey(PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY), "Cannot set property %s", PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY);
         checkArgument(!metadata.containsKey(COLUMN_COUNT_METADATA_KEY), "Cannot set property %s", COLUMN_COUNT_METADATA_KEY);
@@ -212,7 +218,7 @@ public class RcFileWriter
     }
 
     public void validate(TrinoInputFile inputFile)
-            throws RcFileCorruptionException
+            throws FileCorruptionException
     {
         checkState(validationBuilder != null, "validation is not enabled");
         validateFile(

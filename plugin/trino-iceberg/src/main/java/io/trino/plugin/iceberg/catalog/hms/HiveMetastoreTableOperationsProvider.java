@@ -18,6 +18,7 @@ import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreFactory;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
@@ -49,7 +50,7 @@ public class HiveMetastoreTableOperationsProvider
             Optional<String> location)
     {
         return new HiveMetastoreTableOperations(
-                fileSystemFactory.create(session).toFileIo(),
+                new ForwardingFileIo(fileSystemFactory.create(session)),
                 ((TrinoHiveCatalog) catalog).getMetastore(),
                 thriftMetastoreFactory.createMetastore(Optional.of(session.getIdentity())),
                 session,

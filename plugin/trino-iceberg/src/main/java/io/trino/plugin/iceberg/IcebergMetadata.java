@@ -73,10 +73,10 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.MaterializedViewFreshness;
-import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
+import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
@@ -701,6 +701,10 @@ public class IcebergMetadata
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
         verify(transaction == null, "transaction already set");
+        String schemaName = tableMetadata.getTable().getSchemaName();
+        if (!schemaExists(session, schemaName)) {
+            throw new SchemaNotFoundException(schemaName);
+        }
         transaction = newCreateTableTransaction(catalog, tableMetadata, session);
         String location = transaction.table().location();
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
@@ -1311,7 +1315,7 @@ public class IcebergMetadata
                 IcebergSessionProperties.REMOVE_ORPHAN_FILES_MIN_RETENTION);
 
         if (table.currentSnapshot() == null) {
-            log.debug("Skipping remove_orphan_files procedure for empty table " + table);
+            log.debug("Skipping remove_orphan_files procedure for empty table %s", table);
             return;
         }
 
@@ -1532,25 +1536,40 @@ public class IcebergMetadata
     public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
         IcebergColumnHandle handle = (IcebergColumnHandle) column;
+        dropField(session, tableHandle, handle.getName());
+    }
+
+    @Override
+    public void dropField(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
+    {
+        IcebergColumnHandle handle = (IcebergColumnHandle) column;
+        // Iceberg disallows ambiguous field names in a table. e.g. (a row(b int), "a.b" int)
+        String name = String.join(".", ImmutableList.<String>builder().add(handle.getName()).addAll(fieldPath).build());
+        dropField(session, tableHandle, name);
+    }
+
+    private void dropField(ConnectorSession session, ConnectorTableHandle tableHandle, String name)
+    {
         Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        long fieldId = icebergTable.schema().findField(name).fieldId();
         boolean isPartitionColumn = icebergTable.spec().fields().stream()
-                .anyMatch(field -> field.sourceId() == handle.getId());
+                .anyMatch(field -> field.sourceId() == fieldId);
         if (isPartitionColumn) {
-            throw new TrinoException(NOT_SUPPORTED, "Cannot drop partition field: " + handle.getName());
+            throw new TrinoException(NOT_SUPPORTED, "Cannot drop partition field: " + name);
         }
         int currentSpecId = icebergTable.spec().specId();
         boolean columnUsedInOlderPartitionSpecs = icebergTable.specs().entrySet().stream()
                 .filter(spec -> spec.getValue().specId() != currentSpecId)
                 .flatMap(spec -> spec.getValue().fields().stream())
-                .anyMatch(field -> field.sourceId() == handle.getId());
+                .anyMatch(field -> field.sourceId() == fieldId);
         if (columnUsedInOlderPartitionSpecs) {
             // After dropping a column which was used in older partition specs, insert/update/select fails on the table.
             // So restricting user to dropping that column. https://github.com/trinodb/trino/issues/15729
-            throw new TrinoException(NOT_SUPPORTED, "Cannot drop column which is used by an old partition spec: " + handle.getName());
+            throw new TrinoException(NOT_SUPPORTED, "Cannot drop column which is used by an old partition spec: " + name);
         }
         try {
             icebergTable.updateSchema()
-                    .deleteColumn(handle.getName())
+                    .deleteColumn(name)
                     .commit();
         }
         catch (RuntimeException e) {
@@ -2504,25 +2523,6 @@ public class IcebergMetadata
         catalog.renameMaterializedView(session, source, target);
     }
 
-    public Optional<TableToken> getTableToken(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
-        return Optional.ofNullable(icebergTable.currentSnapshot())
-                .map(snapshot -> new TableToken(snapshot.snapshotId()));
-    }
-
-    public boolean isTableCurrent(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<TableToken> tableToken)
-    {
-        Optional<TableToken> currentToken = getTableToken(session, tableHandle);
-
-        if (tableToken.isEmpty() || currentToken.isEmpty()) {
-            return false;
-        }
-
-        return tableToken.get().getSnapshotId() == currentToken.get().getSnapshotId();
-    }
-
     @Override
     public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName)
     {
@@ -2569,20 +2569,31 @@ public class IcebergMetadata
             IcebergTableHandle tableHandle = getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
 
             if (tableHandle == null) {
-                throw new MaterializedViewNotFoundException(materializedViewName);
+                // Base table is gone
+                return new MaterializedViewFreshness(STALE);
             }
-            Optional<TableToken> tableToken;
+            Optional<Long> snapshotAtRefresh;
             if (value.isEmpty()) {
-                tableToken = Optional.empty();
+                snapshotAtRefresh = Optional.empty();
             }
             else {
-                tableToken = Optional.of(new TableToken(Long.parseLong(value)));
+                snapshotAtRefresh = Optional.of(Long.parseLong(value));
             }
-            if (!isTableCurrent(session, tableHandle, tableToken)) {
+            if (!isSnapshotCurrent(session, tableHandle, snapshotAtRefresh)) {
                 return new MaterializedViewFreshness(STALE);
             }
         }
         return new MaterializedViewFreshness(hasUnknownTables ? UNKNOWN : FRESH);
+    }
+
+    private boolean isSnapshotCurrent(ConnectorSession session, IcebergTableHandle table, Optional<Long> snapshotId)
+    {
+        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        Snapshot currentSnapshot = icebergTable.currentSnapshot();
+        if (snapshotId.isEmpty() || currentSnapshot == null) {
+            return false;
+        }
+        return snapshotId.get() == currentSnapshot.snapshotId();
     }
 
     @Override
@@ -2613,21 +2624,5 @@ public class IcebergMetadata
     {
         verify(transaction == null, "transaction already set");
         transaction = icebergTable.newTransaction();
-    }
-
-    private static class TableToken
-    {
-        // Current Snapshot ID of the table
-        private final long snapshotId;
-
-        public TableToken(long snapshotId)
-        {
-            this.snapshotId = snapshotId;
-        }
-
-        public long getSnapshotId()
-        {
-            return snapshotId;
-        }
     }
 }

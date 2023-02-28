@@ -307,6 +307,23 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
                 ".*table_location cannot be null or empty.*");
     }
 
+    @Test
+    public void testRegisterUnregisteredTable()
+    {
+        // Verify register_table procedure can register the unregistered table
+        String tableName = "test_unregister_table_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 a", 1);
+        String tableLocation = getTableLocation(tableName);
+
+        assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '" + tableName + "')");
+        assertQueryFails("SELECT * FROM " + tableName, ".* Table .* does not exist");
+
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "')");
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     protected String getTableLocation(String tableName)
     {
         Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);

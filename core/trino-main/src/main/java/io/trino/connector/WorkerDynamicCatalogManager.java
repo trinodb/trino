@@ -14,6 +14,7 @@
 package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.spi.connector.CatalogHandle;
@@ -23,7 +24,11 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.Lock;
@@ -37,6 +42,8 @@ import static java.util.Objects.requireNonNull;
 public class WorkerDynamicCatalogManager
         implements ConnectorServicesProvider
 {
+    private static final Logger log = Logger.get(WorkerDynamicCatalogManager.class);
+
     private final CatalogFactory catalogFactory;
 
     private final Lock catalogsUpdateLock = new ReentrantLock();
@@ -95,10 +102,48 @@ public class WorkerDynamicCatalogManager
                 checkArgument(!catalog.getCatalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE), "Global system catalog not registered");
                 CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
                 catalogs.put(catalog.getCatalogHandle(), newCatalog);
+                log.info("Added catalog: " + catalog.getCatalogHandle());
             }
         }
         finally {
             catalogsUpdateLock.unlock();
+        }
+    }
+
+    @Override
+    public void pruneCatalogs(Set<CatalogHandle> catalogsInUse)
+    {
+        List<CatalogConnector> removedCatalogs = new ArrayList<>();
+        catalogsUpdateLock.lock();
+        try {
+            if (stopped) {
+                return;
+            }
+            Iterator<Entry<CatalogHandle, CatalogConnector>> iterator = catalogs.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Entry<CatalogHandle, CatalogConnector> entry = iterator.next();
+                if (!catalogsInUse.contains(entry.getKey())) {
+                    iterator.remove();
+                    removedCatalogs.add(entry.getValue());
+                }
+            }
+        }
+        finally {
+            catalogsUpdateLock.unlock();
+        }
+
+        // todo do this in a background thread
+        for (CatalogConnector removedCatalog : removedCatalogs) {
+            try {
+                removedCatalog.shutdown();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error shutting down catalog: %s".formatted(removedCatalog));
+            }
+        }
+        if (!removedCatalogs.isEmpty()) {
+            List<String> sortedHandles = removedCatalogs.stream().map(connector -> connector.getCatalogHandle().toString()).sorted().toList();
+            log.info("Pruned catalogs: %s", sortedHandles);
         }
     }
 
@@ -127,7 +172,7 @@ public class WorkerDynamicCatalogManager
                 return;
             }
 
-            CatalogConnector catalog = catalogFactory.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, GlobalSystemConnector.NAME, connector);
+            CatalogConnector catalog = catalogFactory.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, new ConnectorName(GlobalSystemConnector.NAME), connector);
             if (catalogs.putIfAbsent(GlobalSystemConnector.CATALOG_HANDLE, catalog) != null) {
                 throw new IllegalStateException("Global system catalog already registered");
             }

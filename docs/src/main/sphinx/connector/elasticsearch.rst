@@ -455,8 +455,9 @@ The ``raw_query`` function requires three parameters:
 Once executed, the query returns a single row containing the resulting JSON
 payload returned by Elasticsearch.
 
-For example, the following use of the ``raw_query`` table function searches for
-documents in the ``orders`` index where the country name is ``ALGERIA``::
+For example, query the ``example`` catalog and use the ``raw_query`` table
+function to search for documents in the ``orders`` index where the country name
+is ``ALGERIA``::
 
     SELECT
       *

@@ -23,7 +23,6 @@ import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.spi.security.ConnectorIdentity;
-import org.apache.iceberg.io.FileIO;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -122,12 +121,6 @@ public final class AccessTrackingFileSystemFactory
         {
             throw new UnsupportedOperationException();
         }
-
-        @Override
-        public FileIO toFileIo()
-        {
-            throw new UnsupportedOperationException();
-        }
     }
 
     private static class TrackingInputFile
@@ -175,6 +168,12 @@ public final class AccessTrackingFileSystemFactory
         public String location()
         {
             return delegate.location();
+        }
+
+        @Override
+        public String toString()
+        {
+            return delegate.toString();
         }
     }
 }

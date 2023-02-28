@@ -482,7 +482,7 @@ public class ParquetReader
         for (PrimitiveField field : primitiveFields) {
             columnReaders.put(
                     field.getId(),
-                    ColumnReaderFactory.create(field, timeZone, currentRowGroupMemoryContext, options.useBatchColumnReaders()));
+                    ColumnReaderFactory.create(field, timeZone, currentRowGroupMemoryContext, options));
         }
     }
 

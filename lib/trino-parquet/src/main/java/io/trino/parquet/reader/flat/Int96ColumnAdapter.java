@@ -13,11 +13,15 @@
  */
 package io.trino.parquet.reader.flat;
 
+import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.Int96ArrayBlock;
 
+import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
 
 public class Int96ColumnAdapter
@@ -65,6 +69,18 @@ public class Int96ColumnAdapter
         return sizeOf(values.longs) + sizeOf(values.ints);
     }
 
+    @Override
+    public Int96Buffer merge(List<Int96Buffer> buffers)
+    {
+        return new Int96Buffer(
+                Longs.concat(buffers.stream()
+                        .map(buffer -> buffer.longs)
+                        .toArray(long[][]::new)),
+                Ints.concat(buffers.stream()
+                        .map(buffer -> buffer.ints)
+                        .toArray(int[][]::new)));
+    }
+
     public static class Int96Buffer
     {
         public final long[] longs;
@@ -72,8 +88,18 @@ public class Int96ColumnAdapter
 
         public Int96Buffer(int size)
         {
-            this.longs = new long[size];
-            this.ints = new int[size];
+            this(new long[size], new int[size]);
+        }
+
+        private Int96Buffer(long[] longs, int[] ints)
+        {
+            checkArgument(
+                    longs.length == ints.length,
+                    "Length of longs %s does not match length of ints %s",
+                    longs.length,
+                    ints.length);
+            this.longs = longs;
+            this.ints = ints;
         }
 
         public int size()

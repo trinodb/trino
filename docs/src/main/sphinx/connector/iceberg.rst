@@ -95,6 +95,9 @@ Property Name                                        Description
 ``iceberg.rest-catalog.uri``                   REST server API endpoint URI (required).
                                                Example: ``http://iceberg-with-rest:8181``
 
+``iceberg.rest-catalog.warehouse``             Warehouse identifier/location for the catalog (optional).
+                                               Example: ``s3://my_bucket/warehouse_location``
+
 ``iceberg.rest-catalog.security``              The type of security to use (default: ``NONE``).  ``OAUTH2``
                                                requires either a ``token`` or ``credential``.
                                                Example: ``OAUTH2``
@@ -119,6 +122,8 @@ Property Name                                        Description
     iceberg.catalog.type=rest
     iceberg.rest-catalog.uri=http://iceberg-with-rest:8181
 
+REST catalog does not support :doc:`views</sql/create-view>` or
+:doc:`materialized views</sql/create-materialized-view>`.
 
 .. _iceberg-jdbc-catalog:
 
@@ -130,7 +135,7 @@ JDBC catalog
   The JDBC catalog may face the compatibility issue if Iceberg introduces breaking changes in the future.
   Consider the :ref:`REST catalog <iceberg-rest-catalog>` as an alternative solution.
 
-At a minimum, ``iceberg.jdbc-catalog.connection-url`` and
+At a minimum, ``iceberg.jdbc-catalog.driver-class``, ``iceberg.jdbc-catalog.connection-url`` and
 ``iceberg.jdbc-catalog.catalog-name`` must be configured.
 When using any database besides PostgreSQL, a JDBC driver jar file must be placed in the plugin directory.
 
@@ -139,9 +144,14 @@ When using any database besides PostgreSQL, a JDBC driver jar file must be place
     connector.name=iceberg
     iceberg.catalog.type=jdbc
     iceberg.jdbc-catalog.catalog-name=test
-    iceberg.jdbc-catalog.connection-url=jdbc:postgresql://example.net:5432/database?user=admin&password=test
+    iceberg.jdbc-catalog.driver-class=org.postgresql.Driver
+    iceberg.jdbc-catalog.connection-url=jdbc:postgresql://example.net:5432/database
+    iceberg.jdbc-catalog.connection-user=admin
+    iceberg.jdbc-catalog.connection-password=test
     iceberg.jdbc-catalog.default-warehouse-dir=s3://bucket
 
+JDBC catalog does not support :doc:`views</sql/create-view>` or
+:doc:`materialized views</sql/create-materialized-view>`.
 
 General configuration
 ^^^^^^^^^^^^^^^^^^^^^
@@ -261,6 +271,13 @@ with Parquet files performed by the Iceberg connector.
         for improved performance. Set this property to ``false`` to disable the
         optimized parquet reader by default. The equivalent catalog session
         property is ``parquet_optimized_reader_enabled``.
+      - ``true``
+    * - ``parquet.optimized-nested-reader.enabled``
+      - Whether batched column readers should be used when reading ARRAY, MAP
+        and ROW types from Parquet files for improved performance. Set this
+        property to ``false`` to disable the optimized parquet reader by default
+        for structural data types. The equivalent catalog session property is
+        ``parquet_optimized_nested_reader_enabled``.
       - ``true``
 
 .. _iceberg-authorization:

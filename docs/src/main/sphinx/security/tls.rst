@@ -17,7 +17,7 @@ the foundational layer.
     This page discusses only how to prepare the Trino server for secure client
     connections from outside of the Trino cluster to its coordinator.
 
-See the :doc:`Glossary </appendix/glossary>` to clarify unfamiliar terms.
+See the :doc:`Glossary </glossary>` to clarify unfamiliar terms.
 
 .. _tls-version-and-ciphers:
 

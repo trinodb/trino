@@ -582,6 +582,16 @@ public abstract class AstVisitor<R, C>
         return visitTableElement(node, context);
     }
 
+    protected R visitCreateCatalog(CreateCatalog node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitDropCatalog(DropCatalog node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitCreateSchema(CreateSchema node, C context)
     {
         return visitStatement(node, context);

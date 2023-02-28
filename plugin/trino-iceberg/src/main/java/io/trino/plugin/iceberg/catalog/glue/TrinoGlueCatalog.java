@@ -34,6 +34,8 @@ import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
@@ -57,8 +59,6 @@ import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TypeManager;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
@@ -76,7 +76,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -196,6 +195,18 @@ public class TrinoGlueCatalog
         }
     }
 
+    private List<String> listNamespaces(ConnectorSession session, Optional<String> namespace)
+    {
+        if (namespace.isPresent()) {
+            if (isHiveSystemSchema(namespace.get())) {
+                // TODO https://github.com/trinodb/trino/issues/1559 information_schema should be handled by the engine fully
+                return ImmutableList.of();
+            }
+            return ImmutableList.of(namespace.get());
+        }
+        return listNamespaces(session);
+    }
+
     @Override
     public void dropNamespace(ConnectorSession session, String namespace)
     {
@@ -290,7 +301,7 @@ public class TrinoGlueCatalog
     {
         ImmutableList.Builder<SchemaTableName> tables = ImmutableList.builder();
         try {
-            List<String> namespaces = namespace.map(List::of).orElseGet(() -> listNamespaces(session));
+            List<String> namespaces = listNamespaces(session, namespace);
             for (String glueNamespace : namespaces) {
                 try {
                     // Add all tables from a namespace together, in case it is removed while fetching paginated results
@@ -567,10 +578,11 @@ public class TrinoGlueCatalog
                 encodeViewData(definition),
                 session.getUser(),
                 createViewProperties(session, trinoVersion, TRINO_CREATED_BY_VALUE));
-        Failsafe.with(new RetryPolicy<>()
+        Failsafe.with(RetryPolicy.builder()
                 .withMaxRetries(3)
                 .withDelay(Duration.ofMillis(100))
-                .abortIf(throwable -> !replace || throwable instanceof ViewAlreadyExistsException))
+                .abortIf(throwable -> !replace || throwable instanceof ViewAlreadyExistsException)
+                .build())
                 .run(() -> doCreateView(session, schemaViewName, viewTableInput, replace));
     }
 
@@ -663,7 +675,7 @@ public class TrinoGlueCatalog
     {
         ImmutableList.Builder<SchemaTableName> views = ImmutableList.builder();
         try {
-            List<String> namespaces = namespace.map(List::of).orElseGet(() -> listNamespaces(session));
+            List<String> namespaces = listNamespaces(session, namespace);
             for (String glueNamespace : namespaces) {
                 try {
                     views.addAll(getPaginatedResults(
@@ -773,32 +785,32 @@ public class TrinoGlueCatalog
     @Override
     public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> namespace)
     {
+        ImmutableList.Builder<SchemaTableName> materializedViews = ImmutableList.builder();
         try {
-            List<String> namespaces = namespace.map(List::of).orElseGet(() -> listNamespaces(session));
-            return namespaces.stream()
-                    .flatMap(glueNamespace -> {
-                        try {
-                            return getPaginatedResults(
-                                    glueClient::getTables,
-                                    new GetTablesRequest().withDatabaseName(glueNamespace),
-                                    GetTablesRequest::setNextToken,
-                                    GetTablesResult::getNextToken,
-                                    stats.getGetTables())
-                                    .map(GetTablesResult::getTableList)
-                                    .flatMap(List::stream)
-                                    .filter(table -> isTrinoMaterializedView(getTableType(table), firstNonNull(table.getParameters(), ImmutableMap.of())))
-                                    .map(table -> new SchemaTableName(glueNamespace, table.getName()));
-                        }
-                        catch (EntityNotFoundException e) {
-                            // Namespace may have been deleted
-                            return Stream.empty();
-                        }
-                    })
-                    .collect(toImmutableList());
+            List<String> namespaces = listNamespaces(session, namespace);
+            for (String glueNamespace : namespaces) {
+                try {
+                    materializedViews.addAll(getPaginatedResults(
+                            glueClient::getTables,
+                            new GetTablesRequest().withDatabaseName(glueNamespace),
+                            GetTablesRequest::setNextToken,
+                            GetTablesResult::getNextToken,
+                            stats.getGetTables())
+                            .map(GetTablesResult::getTableList)
+                            .flatMap(List::stream)
+                            .filter(table -> isTrinoMaterializedView(getTableType(table), firstNonNull(table.getParameters(), ImmutableMap.of())))
+                            .map(table -> new SchemaTableName(glueNamespace, table.getName()))
+                            .collect(toImmutableList()));
+                }
+                catch (EntityNotFoundException | AccessDeniedException e) {
+                    // Namespace may have been deleted or permission denied
+                }
+            }
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
         }
+        return materializedViews.build();
     }
 
     @Override

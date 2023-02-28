@@ -26,6 +26,7 @@ import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
+import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
@@ -37,6 +38,7 @@ import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
+import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropRole;
@@ -1246,6 +1248,40 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitCreateCatalog(CreateCatalog node, Integer indent)
+        {
+            builder.append("CREATE CATALOG ");
+            if (node.isNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(formatName(node.getCatalogName()));
+            builder.append(" USING ").append(formatName(node.getConnectorName()));
+            node.getComment().ifPresent(comment -> builder
+                    .append("\nCOMMENT ")
+                    .append(formatStringLiteral(comment)));
+            node.getPrincipal().ifPresent(principal -> builder
+                    .append("\nAUTHORIZATION ")
+                    .append(formatPrincipal(principal)));
+            builder.append(formatPropertiesMultiLine(node.getProperties()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDropCatalog(DropCatalog node, Integer indent)
+        {
+            builder.append("DROP CATALOG ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getCatalogName()))
+                    .append(" ")
+                    .append(node.isCascade() ? "CASCADE" : "RESTRICT");
+
+            return null;
+        }
+
+        @Override
         protected Void visitCreateSchema(CreateSchema node, Integer indent)
         {
             builder.append("CREATE SCHEMA ");
@@ -1556,7 +1592,7 @@ public final class SqlFormatter
             if (node.isColumnExists()) {
                 builder.append("IF EXISTS ");
             }
-            builder.append(formatName(node.getColumn()));
+            builder.append(formatName(node.getField()));
 
             return null;
         }

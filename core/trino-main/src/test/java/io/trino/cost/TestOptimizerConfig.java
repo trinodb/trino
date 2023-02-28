@@ -47,7 +47,6 @@ public class TestOptimizerConfig
                 .setJoinMultiClauseIndependenceFactor(0.25)
                 .setJoinReorderingStrategy(JoinReorderingStrategy.AUTOMATIC)
                 .setMaxReorderedJoins(9)
-                .setDistributedIndexJoinsEnabled(false)
                 .setColocatedJoinsEnabled(false)
                 .setSpatialJoinsEnabled(true)
                 .setUsePreferredWritePartitioning(true)
@@ -89,6 +88,8 @@ public class TestOptimizerConfig
                 .setAdaptivePartialAggregationMinRows(100_000)
                 .setAdaptivePartialAggregationUniqueRowsRatioThreshold(0.8)
                 .setJoinPartitionedBuildMinRowCount(1_000_000)
+                .setMinInputSizePerTask(DataSize.of(5, GIGABYTE))
+                .setMinInputRowsPerTask(10_000_000L)
                 .setUseExactPartitioning(false));
     }
 
@@ -113,7 +114,6 @@ public class TestOptimizerConfig
                 .put("optimizer.max-reordered-joins", "5")
                 .put("iterative-optimizer-timeout", "10s")
                 .put("enable-forced-exchange-below-group-id", "false")
-                .put("distributed-index-joins-enabled", "true")
                 .put("colocated-joins-enabled", "true")
                 .put("spatial-joins-enabled", "false")
                 .put("distributed-sort", "false")
@@ -146,6 +146,8 @@ public class TestOptimizerConfig
                 .put("adaptive-partial-aggregation.min-rows", "1")
                 .put("adaptive-partial-aggregation.unique-rows-ratio-threshold", "0.99")
                 .put("optimizer.join-partitioned-build-min-row-count", "1")
+                .put("optimizer.min-input-size-per-task", "1MB")
+                .put("optimizer.min-input-rows-per-task", "1000000")
                 .put("optimizer.use-exact-partitioning", "true")
                 .buildOrThrow();
 
@@ -164,7 +166,6 @@ public class TestOptimizerConfig
                 .setMaxReorderedJoins(5)
                 .setIterativeOptimizerTimeout(new Duration(10, SECONDS))
                 .setEnableForcedExchangeBelowGroupId(false)
-                .setDistributedIndexJoinsEnabled(true)
                 .setColocatedJoinsEnabled(true)
                 .setSpatialJoinsEnabled(false)
                 .setUsePreferredWritePartitioning(false)
@@ -200,6 +201,8 @@ public class TestOptimizerConfig
                 .setAdaptivePartialAggregationMinRows(1)
                 .setAdaptivePartialAggregationUniqueRowsRatioThreshold(0.99)
                 .setJoinPartitionedBuildMinRowCount(1)
+                .setMinInputSizePerTask(DataSize.of(1, MEGABYTE))
+                .setMinInputRowsPerTask(1_000_000L)
                 .setUseExactPartitioning(true);
         assertFullMapping(properties, expected);
     }

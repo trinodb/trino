@@ -18,8 +18,8 @@ import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.util.ValidTxnWriteIdList;
 import io.trino.spi.connector.SchemaTableName;
-import org.apache.hadoop.hive.common.ValidTxnWriteIdList;
 
 import java.util.HashMap;
 import java.util.List;

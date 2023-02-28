@@ -43,7 +43,7 @@ public class EnvSinglenodeDeltaLakeKerberizedHdfs
     public void extendEnvironment(Environment.Builder builder)
     {
         builder.addConnector(
-                "delta-lake",
+                "delta_lake",
                 forHostPath(configDir.getPath("delta.properties")),
                 CONTAINER_TRINO_ETC + "/catalog/delta.properties");
     }

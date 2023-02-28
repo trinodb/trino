@@ -13,12 +13,12 @@
  */
 package io.trino.tests.product.utils;
 
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 
 import java.sql.Connection;
 import java.time.temporal.ChronoUnit;
@@ -38,12 +38,6 @@ public final class QueryExecutors
     public static QueryExecutor onCompatibilityTestServer()
     {
         return connectToTrino("compatibility-test-server");
-    }
-
-    @Deprecated
-    public static QueryExecutor connectToPresto(String prestoConfig)
-    {
-        return connectToTrino(prestoConfig);
     }
 
     public static QueryExecutor connectToTrino(String trinoConfig)
@@ -123,11 +117,12 @@ public final class QueryExecutors
         // return 502 then as well. Handling this with a query retry allows us to use the cluster's autostart feature safely,
         // while keeping costs to a minimum.
 
-        RetryPolicy<QueryResult> databricksRetryPolicy = new RetryPolicy<QueryResult>()
+        RetryPolicy<QueryResult> databricksRetryPolicy = RetryPolicy.<QueryResult>builder()
                 .handleIf(throwable -> throwable.getMessage().contains("HTTP Response code: 502"))
                 .withBackoff(1, 10, ChronoUnit.SECONDS)
                 .withMaxRetries(60)
-                .onRetry(event -> log.warn(event.getLastFailure(), "Query failed on attempt %d, will retry.", event.getAttemptCount()));
+                .onRetry(event -> log.warn(event.getLastException(), "Query failed on attempt %d, will retry.", event.getAttemptCount()))
+                .build();
 
         return new QueryExecutor()
         {

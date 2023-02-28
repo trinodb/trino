@@ -67,19 +67,18 @@ public class ApplyPreferredTableWriterPartitioning
         }
 
         int minimumNumberOfPartitions = getPreferredWritePartitioningMinNumberOfPartitions(context.getSession());
-        double expectedNumberOfPartitions = getRowsCount(
-                context.getStatsProvider().getStats(node.getSource()),
-                node.getPreferredPartitioningScheme().get().getPartitioning().getColumns());
-
-        if (isNaN(expectedNumberOfPartitions)) {
-            // Force 'preferred write partitioning' when stats are missing. This is essential because query could write
-            // to huge amount of partition using unpartitioned writing route. Therefore, it can lead to out of memory
-            // error since each writer thread could write to all partitions while each partition per writer allocates
-            // a certain amount of memory for buffering.
+        if (minimumNumberOfPartitions <= 1) {
             return enable(node);
         }
 
-        if (expectedNumberOfPartitions < minimumNumberOfPartitions) {
+        double expectedNumberOfPartitions = getRowsCount(
+                context.getStatsProvider().getStats(node.getSource()),
+                node.getPreferredPartitioningScheme().get().getPartitioning().getColumns());
+        // Disable preferred partitioning at remote exchange level if stats are absent or estimated number of partitions
+        // are less than minimumNumberOfPartitions. This is because at remote exchange we don't have scaling to
+        // mitigate skewness.
+        // TODO - Remove this check after implementing skewness mitigation at remote exchange - https://github.com/trinodb/trino/issues/16178
+        if (isNaN(expectedNumberOfPartitions) || (expectedNumberOfPartitions < minimumNumberOfPartitions)) {
             return Result.empty();
         }
 

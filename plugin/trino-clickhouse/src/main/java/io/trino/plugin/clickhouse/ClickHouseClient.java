@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.clickhouse;
 
-import com.clickhouse.client.ClickHouseColumn;
-import com.clickhouse.client.ClickHouseDataType;
-import com.clickhouse.client.ClickHouseVersion;
+import com.clickhouse.data.ClickHouseColumn;
+import com.clickhouse.data.ClickHouseDataType;
+import com.clickhouse.data.ClickHouseVersion;
 import com.google.common.base.Enums;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -95,6 +95,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 
+import static com.clickhouse.data.ClickHouseValues.convertToQuotedString;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -179,7 +180,6 @@ import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static ru.yandex.clickhouse.ClickHouseUtil.escape;
 
 public class ClickHouseClient
         extends BaseJdbcClient
@@ -464,7 +464,7 @@ public class ClickHouseClient
     private static String clickhouseVarcharLiteral(String value)
     {
         requireNonNull(value, "value is null");
-        return "'" + escape(value) + "'";
+        return convertToQuotedString(value);
     }
 
     @Override

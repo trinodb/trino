@@ -766,7 +766,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         session,
                         summarizeTaskInfo,
                         nodeTaskMap,
-                        queryExecutor,
+                        queryStateMachine.getStateMachineExecutor(),
                         schedulerStats);
                 closer.register(stage::abort);
                 stageRegistry.add(stage);
@@ -802,7 +802,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         stage::recordGetSplitTime,
                         outputDataSizeEstimates.buildOrThrow()));
 
-                FaultTolerantPartitioningScheme sinkPartitioningScheme = partitioningSchemeFactory.get(fragment.getPartitioningScheme().getPartitioning().getHandle());
+                FaultTolerantPartitioningScheme sinkPartitioningScheme = partitioningSchemeFactory.get(fragment.getOutputPartitioningScheme().getPartitioning().getHandle());
                 ExchangeContext exchangeContext = new ExchangeContext(queryStateMachine.getQueryId(), new ExchangeId("external-exchange-" + stage.getStageId().getId()));
 
                 boolean preserveOrderWithinPartition = rootFragment && stage.getFragment().getPartitioning().equals(SINGLE_DISTRIBUTION);
@@ -979,8 +979,9 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private void loadMoreTaskDescriptorsIfNecessary()
         {
-            if (schedulingQueue.getNonSpeculativeTaskCount() + nodeAcquisitions.size() < maxTasksWaitingForExecution) {
-                for (StageExecution stageExecution : stageExecutions.values()) {
+            boolean schedulingQueueIsFull = schedulingQueue.getNonSpeculativeTaskCount() >= maxTasksWaitingForExecution;
+            for (StageExecution stageExecution : stageExecutions.values()) {
+                if (!schedulingQueueIsFull || stageExecution.hasOpenTaskRunning()) {
                     stageExecution.loadMoreTaskDescriptors().ifPresent(future -> Futures.addCallback(future, new FutureCallback<>()
                     {
                         @Override
@@ -1147,6 +1148,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final Int2ObjectMap<StagePartition> partitions = new Int2ObjectOpenHashMap<>();
         private boolean noMorePartitions;
 
+        private final IntSet runningPartitions = new IntOpenHashSet();
         private final IntSet remainingPartitions = new IntOpenHashSet();
 
         private ExchangeSourceOutputSelector.Builder sinkOutputSelectorBuilder;
@@ -1348,8 +1350,31 @@ public class EventDrivenFaultTolerantQueryScheduler
                     splits,
                     noMoreSplits,
                     Optional.of(partition.getMemoryRequirements().getRequiredMemory()));
-            task.ifPresent(remoteTask -> partition.addTask(remoteTask, outputBuffers));
+            task.ifPresent(remoteTask -> {
+                partition.addTask(remoteTask, outputBuffers);
+                runningPartitions.add(partitionId);
+            });
             return task;
+        }
+
+        public boolean hasOpenTaskRunning()
+        {
+            if (getState().isDone()) {
+                return false;
+            }
+
+            if (runningPartitions.isEmpty()) {
+                return false;
+            }
+
+            for (int partitionId : runningPartitions) {
+                StagePartition partition = getStagePartition(partitionId);
+                if (!partition.isSealed()) {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public Optional<ListenableFuture<AssignmentResult>> loadMoreTaskDescriptors()
@@ -1428,6 +1453,10 @@ public class EventDrivenFaultTolerantQueryScheduler
             exchange.sinkFinished(partition.getExchangeSinkHandle(), taskId.getAttemptId());
             SpoolingOutputStats.Snapshot outputStats = partition.taskFinished(taskId);
 
+            if (!partition.isRunning()) {
+                runningPartitions.remove(partitionId);
+            }
+
             if (!remainingPartitions.remove(partitionId)) {
                 // a different task for the same partition finished before
                 return;
@@ -1475,6 +1504,10 @@ public class EventDrivenFaultTolerantQueryScheduler
             int partitionId = taskId.getPartitionId();
             StagePartition partition = getStagePartition(partitionId);
             partition.taskFailed(taskId);
+
+            if (!partition.isRunning()) {
+                runningPartitions.remove(partitionId);
+            }
 
             RuntimeException failure = failureInfo.toException();
             ErrorCode errorCode = failureInfo.getErrorCode();

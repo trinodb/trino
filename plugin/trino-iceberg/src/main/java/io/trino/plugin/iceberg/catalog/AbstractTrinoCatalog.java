@@ -14,6 +14,8 @@
 package io.trino.plugin.iceberg.catalog;
 
 import com.google.common.collect.ImmutableMap;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HiveMetadata;
@@ -29,8 +31,6 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TypeManager;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -135,11 +135,12 @@ public abstract class AbstractTrinoCatalog
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName schemaViewName)
     {
         try {
-            return Failsafe.with(new RetryPolicy<>()
+            return Failsafe.with(RetryPolicy.builder()
                             .withMaxAttempts(10)
                             .withBackoff(1, 5_000, ChronoUnit.MILLIS, 4)
                             .withMaxDuration(Duration.ofSeconds(30))
-                            .abortOn(failure -> !(failure instanceof MaterializedViewMayBeBeingRemovedException)))
+                            .abortOn(failure -> !(failure instanceof MaterializedViewMayBeBeingRemovedException))
+                            .build())
                     .get(() -> doGetMaterializedView(session, schemaViewName));
         }
         catch (MaterializedViewMayBeBeingRemovedException e) {

@@ -61,6 +61,15 @@ public final class HiveSessionProperties
     private static final String PARALLEL_PARTITIONED_BUCKETED_WRITES = "parallel_partitioned_bucketed_writes";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
     private static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
+    private static final String CSV_NATIVE_READER_ENABLED = "csv_native_reader_enabled";
+    private static final String CSV_NATIVE_WRITER_ENABLED = "csv_native_writer_enabled";
+    private static final String JSON_NATIVE_READER_ENABLED = "json_native_reader_enabled";
+    private static final String JSON_NATIVE_WRITER_ENABLED = "json_native_writer_enabled";
+    private static final String REGEX_NATIVE_READER_ENABLED = "regex_native_reader_enabled";
+    private static final String TEXT_FILE_NATIVE_READER_ENABLED = "text_file_native_reader_enabled";
+    private static final String TEXT_FILE_NATIVE_WRITER_ENABLED = "text_file_native_writer_enabled";
+    private static final String SEQUENCE_FILE_NATIVE_READER_ENABLED = "sequence_file_native_reader_enabled";
+    private static final String SEQUENCE_FILE_NATIVE_WRITER_ENABLED = "sequence_file_native_writer_enabled";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
@@ -89,6 +98,7 @@ public final class HiveSessionProperties
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet_max_read_block_row_count";
     private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
+    private static final String PARQUET_OPTIMIZED_NESTED_READER_ENABLED = "parquet_optimized_nested_reader_enabled";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String PARQUET_WRITER_BATCH_SIZE = "parquet_writer_batch_size";
@@ -148,6 +158,7 @@ public final class HiveSessionProperties
     @Inject
     public HiveSessionProperties(
             HiveConfig hiveConfig,
+            HiveFormatsConfig hiveFormatsConfig,
             OrcReaderConfig orcReaderConfig,
             OrcWriterConfig orcWriterConfig,
             ParquetReaderConfig parquetReaderConfig,
@@ -188,6 +199,51 @@ public final class HiveSessionProperties
                         false,
                         value -> InsertExistingPartitionsBehavior.valueOf((String) value, hiveConfig.isImmutablePartitions()),
                         InsertExistingPartitionsBehavior::toString),
+                booleanProperty(
+                        CSV_NATIVE_READER_ENABLED,
+                        "Use native CSV reader",
+                        hiveFormatsConfig.isCsvNativeReaderEnabled(),
+                        false),
+                booleanProperty(
+                        CSV_NATIVE_WRITER_ENABLED,
+                        "Use native CSV writer",
+                        hiveFormatsConfig.isCsvNativeWriterEnabled(),
+                        false),
+                booleanProperty(
+                        JSON_NATIVE_READER_ENABLED,
+                        "Use native JSON reader",
+                        hiveFormatsConfig.isJsonNativeReaderEnabled(),
+                        false),
+                booleanProperty(
+                        JSON_NATIVE_WRITER_ENABLED,
+                        "Use native JSON writer",
+                        hiveFormatsConfig.isJsonNativeWriterEnabled(),
+                        false),
+                booleanProperty(
+                        REGEX_NATIVE_READER_ENABLED,
+                        "Use native REGEX reader",
+                        hiveFormatsConfig.isRegexNativeReaderEnabled(),
+                        false),
+                booleanProperty(
+                        TEXT_FILE_NATIVE_READER_ENABLED,
+                        "Use native text file reader",
+                        hiveFormatsConfig.isTextFileNativeReaderEnabled(),
+                        false),
+                booleanProperty(
+                        TEXT_FILE_NATIVE_WRITER_ENABLED,
+                        "Use native text file writer",
+                        hiveFormatsConfig.isTextFileNativeWriterEnabled(),
+                        false),
+                booleanProperty(
+                        SEQUENCE_FILE_NATIVE_READER_ENABLED,
+                        "Use native sequence file reader",
+                        hiveFormatsConfig.isSequenceFileNativeReaderEnabled(),
+                        false),
+                booleanProperty(
+                        SEQUENCE_FILE_NATIVE_WRITER_ENABLED,
+                        "Use native sequence file writer",
+                        hiveFormatsConfig.isSequenceFileNativeWriterEnabled(),
+                        false),
                 booleanProperty(
                         ORC_BLOOM_FILTERS_ENABLED,
                         "ORC: Enable bloom filters for predicate pushdown",
@@ -349,6 +405,11 @@ public final class HiveSessionProperties
                         PARQUET_OPTIMIZED_READER_ENABLED,
                         "Use optimized Parquet reader",
                         parquetReaderConfig.isOptimizedReaderEnabled(),
+                        false),
+                booleanProperty(
+                        PARQUET_OPTIMIZED_NESTED_READER_ENABLED,
+                        "Use optimized Parquet reader for nested columns",
+                        parquetReaderConfig.isOptimizedNestedReaderEnabled(),
                         false),
                 dataSizeProperty(
                         PARQUET_WRITER_BLOCK_SIZE,
@@ -589,6 +650,51 @@ public final class HiveSessionProperties
         return session.getProperty(INSERT_EXISTING_PARTITIONS_BEHAVIOR, InsertExistingPartitionsBehavior.class);
     }
 
+    public static boolean isCsvNativeReaderEnabled(ConnectorSession session)
+    {
+        return session.getProperty(CSV_NATIVE_READER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isCsvNativeWriterEnabled(ConnectorSession session)
+    {
+        return session.getProperty(CSV_NATIVE_WRITER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isJsonNativeReaderEnabled(ConnectorSession session)
+    {
+        return session.getProperty(JSON_NATIVE_READER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isJsonNativeWriterEnabled(ConnectorSession session)
+    {
+        return session.getProperty(JSON_NATIVE_WRITER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isRegexNativeReaderEnabled(ConnectorSession session)
+    {
+        return session.getProperty(REGEX_NATIVE_READER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isTextFileNativeReaderEnabled(ConnectorSession session)
+    {
+        return session.getProperty(TEXT_FILE_NATIVE_READER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isTextFileNativeWriterEnabled(ConnectorSession session)
+    {
+        return session.getProperty(TEXT_FILE_NATIVE_WRITER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isSequenceFileNativeReaderEnabled(ConnectorSession session)
+    {
+        return session.getProperty(SEQUENCE_FILE_NATIVE_READER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isSequenceFileNativeWriterEnabled(ConnectorSession session)
+    {
+        return session.getProperty(SEQUENCE_FILE_NATIVE_WRITER_ENABLED, Boolean.class);
+    }
+
     public static boolean isOrcBloomFiltersEnabled(ConnectorSession session)
     {
         return session.getProperty(ORC_BLOOM_FILTERS_ENABLED, Boolean.class);
@@ -734,6 +840,11 @@ public final class HiveSessionProperties
     public static boolean isParquetOptimizedReaderEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_OPTIMIZED_READER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isParquetOptimizedNestedReaderEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_OPTIMIZED_NESTED_READER_ENABLED, Boolean.class);
     }
 
     public static DataSize getParquetWriterBlockSize(ConnectorSession session)

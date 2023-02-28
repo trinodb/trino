@@ -13,53 +13,109 @@
  */
 package io.trino.plugin.teradata.functions;
 
-import io.trino.operator.scalar.AbstractTestFunctions;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestTeradataFunctions
-        extends AbstractTestFunctions
 {
-    @BeforeClass
-    public void setUp()
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
     {
-        functionAssertions.installPlugin(new TeradataFunctionsPlugin());
+        assertions = new QueryAssertions();
+        assertions.addPlugin(new TeradataFunctionsPlugin());
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
     }
 
     @Test
     public void testIndex()
     {
-        assertFunction("INDEX('high', 'ig')", BIGINT, 2L);
-        assertFunction("INDEX('high', 'igx')", BIGINT, 0L);
-        assertFunction("INDEX('Quadratically', 'a')", BIGINT, 3L);
-        assertFunction("INDEX('foobar', 'foobar')", BIGINT, 1L);
-        assertFunction("INDEX('foobar', 'foobar_baz')", BIGINT, 0L);
-        assertFunction("INDEX('foobar', 'obar')", BIGINT, 3L);
-        assertFunction("INDEX('zoo!', '!')", BIGINT, 4L);
-        assertFunction("INDEX('x', '')", BIGINT, 1L);
-        assertFunction("INDEX('', '')", BIGINT, 1L);
-        assertFunction("INDEX(NULL, '')", BIGINT, null);
-        assertFunction("INDEX('', NULL)", BIGINT, null);
-        assertFunction("INDEX(NULL, NULL)", BIGINT, null);
+        assertThat(assertions.function("INDEX", "'high'", "'ig'"))
+                .isEqualTo(2L);
+
+        assertThat(assertions.function("INDEX", "'high'", "'igx'"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("INDEX", "'Quadratically'", "'a'"))
+                .isEqualTo(3L);
+
+        assertThat(assertions.function("INDEX", "'foobar'", "'foobar'"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("INDEX", "'foobar'", "'foobar_baz'"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("INDEX", "'foobar'", "'obar'"))
+                .isEqualTo(3L);
+
+        assertThat(assertions.function("INDEX", "'zoo!'", "'!'"))
+                .isEqualTo(4L);
+
+        assertThat(assertions.function("INDEX", "'x'", "''"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("INDEX", "''", "''"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("INDEX", "NULL", "''"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.function("INDEX", "''", "NULL"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.function("INDEX", "NULL", "NULL"))
+                .isNull(BIGINT);
     }
 
     @Test
     public void testChar2HexInt()
     {
-        assertFunction("CHAR2HEXINT('123')", VARCHAR, "003100320033");
-        assertFunction("CHAR2HEXINT('One Ring')", VARCHAR, "004F006E0065002000520069006E0067");
+        assertThat(assertions.function("CHAR2HEXINT", "'123'"))
+                .hasType(VARCHAR)
+                .isEqualTo("003100320033");
+
+        assertThat(assertions.function("CHAR2HEXINT", "'One Ring'"))
+                .hasType(VARCHAR)
+                .isEqualTo("004F006E0065002000520069006E0067");
     }
 
     @Test
     public void testChar2HexIntUtf8()
     {
-        assertFunction("CHAR2HEXINT('\u0105')", VARCHAR, "0105");
-        assertFunction("CHAR2HEXINT('\u0ca0')", VARCHAR, "0CA0");
-        assertFunction("CHAR2HEXINT('\uff71')", VARCHAR, "FF71");
-        assertFunction("CHAR2HEXINT('\u0ca0\u76ca\u0ca0')", VARCHAR, "0CA076CA0CA0");
-        assertFunction("CHAR2HEXINT('(\u30ce\u0ca0\u76ca\u0ca0)\u30ce\u5f61\u253b\u2501\u253b')", VARCHAR, "002830CE0CA076CA0CA0002930CE5F61253B2501253B");
+        assertThat(assertions.function("CHAR2HEXINT", "'\u0105'"))
+                .hasType(VARCHAR)
+                .isEqualTo("0105");
+
+        assertThat(assertions.function("CHAR2HEXINT", "'\u0ca0'"))
+                .hasType(VARCHAR)
+                .isEqualTo("0CA0");
+
+        assertThat(assertions.function("CHAR2HEXINT", "'\uff71'"))
+                .hasType(VARCHAR)
+                .isEqualTo("FF71");
+
+        assertThat(assertions.function("CHAR2HEXINT", "'\u0ca0\u76ca\u0ca0'"))
+                .hasType(VARCHAR)
+                .isEqualTo("0CA076CA0CA0");
+
+        assertThat(assertions.function("CHAR2HEXINT", "'(\u30ce\u0ca0\u76ca\u0ca0)\u30ce\u5f61\u253b\u2501\u253b'"))
+                .hasType(VARCHAR)
+                .isEqualTo("002830CE0CA076CA0CA0002930CE5F61253B2501253B");
     }
 }

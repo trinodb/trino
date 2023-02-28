@@ -130,6 +130,25 @@ public class Int128PositionsAppender
     }
 
     @Override
+    public void append(int sourcePosition, Block source)
+    {
+        ensureCapacity(positionCount + 1);
+        if (source.isNull(sourcePosition)) {
+            valueIsNull[positionCount] = true;
+            hasNullValue = true;
+        }
+        else {
+            int positionIndex = positionCount * 2;
+            values[positionIndex] = source.getLong(sourcePosition, 0);
+            values[positionIndex + 1] = source.getLong(sourcePosition, SIZE_OF_LONG);
+            hasNonNullValue = true;
+        }
+        positionCount++;
+
+        updateSize(1);
+    }
+
+    @Override
     public Block build()
     {
         Block result;

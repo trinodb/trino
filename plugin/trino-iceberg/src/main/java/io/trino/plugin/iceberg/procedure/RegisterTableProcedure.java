@@ -21,6 +21,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorSession;
@@ -145,7 +146,7 @@ public class RegisterTableProcedure
         validateLocation(fileSystem, metadataLocation);
         try {
             // Try to read the metadata file. Invalid metadata file will throw the exception.
-            TableMetadataParser.read(fileSystem.toFileIo(), metadataLocation);
+            TableMetadataParser.read(new ForwardingFileIo(fileSystem), metadataLocation);
         }
         catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, metadataLocation + " is not a valid metadata file", e);

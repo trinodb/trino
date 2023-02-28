@@ -161,7 +161,8 @@ where running a query natively may be faster.
 
 .. include:: polymorphic-table-function-ordering.fragment
 
-For example, select the top 10 nations by population::
+For example, query the ``example`` catalog and select the top 10 nations by
+population::
 
     SELECT
       *

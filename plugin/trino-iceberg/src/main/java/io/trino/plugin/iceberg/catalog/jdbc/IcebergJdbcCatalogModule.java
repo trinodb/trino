@@ -21,7 +21,10 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 
+import java.sql.Driver;
+
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class IcebergJdbcCatalogModule
@@ -42,8 +45,25 @@ public class IcebergJdbcCatalogModule
     @Singleton
     public static IcebergJdbcClient createIcebergJdbcClient(IcebergJdbcCatalogConfig config)
     {
+        String driverClassName = requireNonNull(config.getDriverClass(), "driver class not configured");
+
+        Class<? extends Driver> driverClass;
+        try {
+            driverClass = Class.forName(driverClassName).asSubclass(Driver.class);
+        }
+        catch (ClassNotFoundException | ClassCastException e) {
+            throw new RuntimeException("Failed to load Driver class: " + driverClassName, e);
+        }
+
+        Driver driver;
+        try {
+            driver = driverClass.getConstructor().newInstance();
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException("Failed to create instance of Driver: " + driverClassName, e);
+        }
         return new IcebergJdbcClient(
-                new IcebergJdbcConnectionFactory(config.getConnectionUrl()),
+                new IcebergJdbcConnectionFactory(driver, config.getConnectionUrl(), config.getConnectionUser(), config.getConnectionPassword()),
                 config.getCatalogName());
     }
 }

@@ -16,10 +16,14 @@ package io.trino.plugin.sqlserver;
 import com.google.common.base.Enums;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.microsoft.sqlserver.jdbc.SQLServerConnection;
 import com.microsoft.sqlserver.jdbc.SQLServerException;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
+import dev.failsafe.function.CheckedSupplier;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
@@ -27,6 +31,7 @@ import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.CaseSensitivity;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
@@ -41,6 +46,7 @@ import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
+import io.trino.plugin.jdbc.PredicatePushdownController;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
@@ -64,6 +70,8 @@ import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
@@ -78,9 +86,6 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
-import net.jodah.failsafe.function.CheckedSupplier;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
@@ -91,6 +96,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.Instant;
@@ -107,23 +113,28 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
+import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompactionThreshold;
+import static io.trino.plugin.jdbc.PredicatePushdownController.CASE_INSENSITIVE_CHARACTER_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
+import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.charReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTime;
@@ -151,6 +162,7 @@ import static io.trino.plugin.sqlserver.SqlServerTableProperties.getDataCompress
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
@@ -206,6 +218,26 @@ public class SqlServerClient
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
 
     private static final int MAX_SUPPORTED_TEMPORAL_PRECISION = 7;
+
+    private static final PredicatePushdownController SQLSERVER_CHARACTER_PUSHDOWN = (session, domain) -> {
+        if (domain.isNullableSingleValue()) {
+            return FULL_PUSHDOWN.apply(session, domain);
+        }
+
+        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
+        if (!simplifiedDomain.getValues().isDiscreteSet()) {
+            // Push down inequality predicate
+            ValueSet complement = simplifiedDomain.getValues().complement();
+            if (complement.isDiscreteSet()) {
+                return FULL_PUSHDOWN.apply(session, simplifiedDomain);
+            }
+            // Domain#simplify can turn a discrete set into a range predicate
+            // Push down of range predicate for varchar/char types could lead to incorrect results
+            // when the remote database is case insensitive
+            return DISABLE_PUSHDOWN.apply(session, domain);
+        }
+        return FULL_PUSHDOWN.apply(session, simplifiedDomain);
+    };
 
     @Inject
     public SqlServerClient(
@@ -401,6 +433,28 @@ public class SqlServerClient
     }
 
     @Override
+    protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, JdbcTableHandle tableHandle)
+    {
+        if (tableHandle.isSynthetic()) {
+            return ImmutableMap.of();
+        }
+        PreparedQuery preparedQuery = new PreparedQuery(format("SELECT * from %s", quoted(tableHandle.asPlainTable().getRemoteTableName())), ImmutableList.of());
+
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery)) {
+            ResultSetMetaData metadata = preparedStatement.getMetaData();
+            ImmutableMap.Builder<String, CaseSensitivity> columns = ImmutableMap.builder();
+            for (int column = 1; column <= metadata.getColumnCount(); column++) {
+                String name = metadata.getColumnName(column);
+                columns.put(name, metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE);
+            }
+            return columns.buildOrThrow();
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, "Failed to get case sensitivity for columns. " + firstNonNull(e.getMessage(), e), e);
+        }
+    }
+
+    @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
@@ -457,11 +511,11 @@ public class SqlServerClient
 
             case Types.CHAR:
             case Types.NCHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+                return Optional.of(charColumnMapping(typeHandle.getRequiredColumnSize(), typeHandle.getCaseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE));
 
             case Types.VARCHAR:
             case Types.NVARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+                return Optional.of(varcharColumnMapping(typeHandle.getRequiredColumnSize(), typeHandle.getCaseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE));
 
             case Types.LONGVARCHAR:
             case Types.LONGNVARCHAR:
@@ -944,10 +998,24 @@ public class SqlServerClient
             return false;
         }
 
-        // Remote database can be case insensitive.
-        return Stream.of(joinCondition.getLeftColumn(), joinCondition.getRightColumn())
+        boolean isVarcharJoinColumn = Stream.of(joinCondition.getLeftColumn(), joinCondition.getRightColumn())
                 .map(JdbcColumnHandle::getColumnType)
-                .noneMatch(type -> type instanceof CharType || type instanceof VarcharType);
+                .allMatch(type -> type instanceof CharType || type instanceof VarcharType);
+        if (isVarcharJoinColumn) {
+            JoinCondition.Operator operator = joinCondition.getOperator();
+            return switch (operator) {
+                case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> false;
+                case EQUAL, NOT_EQUAL -> isCaseSensitiveVarchar(joinCondition.getLeftColumn()) && isCaseSensitiveVarchar(joinCondition.getRightColumn());
+                default -> false;
+            };
+        }
+
+        return true;
+    }
+
+    private boolean isCaseSensitiveVarchar(JdbcColumnHandle columnHandle)
+    {
+        return columnHandle.getJdbcTypeHandle().getCaseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE;
     }
 
     @Override
@@ -1053,6 +1121,31 @@ public class SqlServerClient
         return ColumnMapping.sliceMapping(createVarcharType(columnSize), varcharReadFunction(createVarcharType(columnSize)), nvarcharWriteFunction(), DISABLE_PUSHDOWN);
     }
 
+    private static ColumnMapping charColumnMapping(int charLength, boolean isCaseSensitive)
+    {
+        if (charLength > CharType.MAX_LENGTH) {
+            return varcharColumnMapping(charLength, isCaseSensitive);
+        }
+        CharType charType = createCharType(charLength);
+        return ColumnMapping.sliceMapping(
+                charType,
+                charReadFunction(charType),
+                charWriteFunction(),
+                isCaseSensitive ? SQLSERVER_CHARACTER_PUSHDOWN : CASE_INSENSITIVE_CHARACTER_PUSHDOWN);
+    }
+
+    private static ColumnMapping varcharColumnMapping(int varcharLength, boolean isCaseSensitive)
+    {
+        VarcharType varcharType = varcharLength <= VarcharType.MAX_LENGTH
+                ? createVarcharType(varcharLength)
+                : createUnboundedVarcharType();
+        return ColumnMapping.sliceMapping(
+                varcharType,
+                varcharReadFunction(varcharType),
+                varcharWriteFunction(),
+                isCaseSensitive ? SQLSERVER_CHARACTER_PUSHDOWN : CASE_INSENSITIVE_CHARACTER_PUSHDOWN);
+    }
+
     private static SliceWriteFunction nvarcharWriteFunction()
     {
         return (statement, index, value) -> statement.setNString(index, value.toStringUtf8());
@@ -1086,7 +1179,7 @@ public class SqlServerClient
     {
         // DDL operations can take out locks against system tables causing queries against them to deadlock
         int maxAttemptCount = 3;
-        RetryPolicy<T> retryPolicy = new RetryPolicy<T>()
+        RetryPolicy<T> retryPolicy = RetryPolicy.<T>builder()
                 .withMaxAttempts(maxAttemptCount)
                 .handleIf(throwable ->
                 {
@@ -1094,7 +1187,8 @@ public class SqlServerClient
                     return rootCause instanceof SQLServerException &&
                             ((SQLServerException) (rootCause)).getSQLServerError().getErrorNumber() == SQL_SERVER_DEADLOCK_ERROR_CODE;
                 })
-                .onFailedAttempt(event -> log.warn(event.getLastFailure(), "Attempt %d of %d: %s", event.getAttemptCount(), maxAttemptCount, attemptLogMessage));
+                .onFailedAttempt(event -> log.warn(event.getLastException(), "Attempt %d of %d: %s", event.getAttemptCount(), maxAttemptCount, attemptLogMessage))
+                .build();
 
         return Failsafe
                 .with(retryPolicy)

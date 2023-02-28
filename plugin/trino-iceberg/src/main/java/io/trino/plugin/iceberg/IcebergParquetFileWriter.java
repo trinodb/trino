@@ -17,11 +17,12 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.io.InputFile;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.MessageType;
 
 import java.io.Closeable;
@@ -51,7 +52,7 @@ public class IcebergParquetFileWriter
             Map<List<String>, Type> primitiveTypes,
             ParquetWriterOptions parquetWriterOptions,
             int[] fileInputColumnIndexes,
-            CompressionCodecName compressionCodecName,
+            CompressionCodec compressionCodec,
             String trinoVersion,
             String outputPath,
             TrinoFileSystem fileSystem)
@@ -65,7 +66,7 @@ public class IcebergParquetFileWriter
                 primitiveTypes,
                 parquetWriterOptions,
                 fileInputColumnIndexes,
-                compressionCodecName,
+                compressionCodec,
                 trinoVersion,
                 false,
                 Optional.empty(),
@@ -78,7 +79,7 @@ public class IcebergParquetFileWriter
     @Override
     public Metrics getMetrics()
     {
-        InputFile inputFile = fileSystem.toFileIo().newInputFile(outputPath);
+        InputFile inputFile = new ForwardingFileIo(fileSystem).newInputFile(outputPath);
         return fileMetrics(inputFile, metricsConfig);
     }
 }

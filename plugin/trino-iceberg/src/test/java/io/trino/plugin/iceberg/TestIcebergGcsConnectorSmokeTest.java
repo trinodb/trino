@@ -103,7 +103,7 @@ public class TestIcebergGcsConnectorSmokeTest
             Configuration configuration = ConfigurationInstantiator.newEmptyConfiguration();
             new GoogleGcsConfigurationInitializer(gcsConfig).initializeConfiguration(configuration);
 
-            this.fileSystem = FileSystem.newInstance(new URI(schemaUrl()), configuration);
+            this.fileSystem = FileSystem.newInstance(new URI(schemaPath()), configuration);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -124,7 +124,7 @@ public class TestIcebergGcsConnectorSmokeTest
                         SchemaInitializer.builder()
                                 .withClonedTpchTables(REQUIRED_TPCH_TABLES)
                                 .withSchemaName(schema)
-                                .withSchemaProperties(ImmutableMap.of("location", "'" + schemaUrl() + "'"))
+                                .withSchemaProperties(ImmutableMap.of("location", "'" + schemaPath() + "'"))
                                 .build())
                 .build();
     }
@@ -134,11 +134,11 @@ public class TestIcebergGcsConnectorSmokeTest
     {
         if (fileSystem != null) {
             try {
-                fileSystem.delete(new org.apache.hadoop.fs.Path(schemaUrl()), true);
+                fileSystem.delete(new org.apache.hadoop.fs.Path(schemaPath()), true);
             }
             catch (IOException e) {
                 // The GCS bucket should be configured to expire objects automatically. Clean up issues do not need to fail the test.
-                LOG.warn(e, "Failed to clean up GCS test directory: %s", schemaUrl());
+                LOG.warn(e, "Failed to clean up GCS test directory: %s", schemaPath());
             }
             fileSystem = null;
         }
@@ -160,12 +160,24 @@ public class TestIcebergGcsConnectorSmokeTest
     @Override
     protected String createSchemaSql(String schema)
     {
-        return format("CREATE SCHEMA %1$s WITH (location = '%2$s%1$s')", schema, schemaUrl());
+        return format("CREATE SCHEMA %1$s WITH (location = '%2$s%1$s')", schema, schemaPath());
     }
 
-    private String schemaUrl()
+    @Override
+    protected String schemaPath()
     {
         return format("gs://%s/%s/", gcpStorageBucket, schema);
+    }
+
+    @Override
+    protected boolean locationExists(String location)
+    {
+        try {
+            return fileSystem.exists(new org.apache.hadoop.fs.Path(location));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Test

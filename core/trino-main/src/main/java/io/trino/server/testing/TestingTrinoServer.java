@@ -36,6 +36,7 @@ import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.connector.CatalogManagerModule;
+import io.trino.connector.ConnectorName;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.dispatcher.DispatchManager;
@@ -66,7 +67,7 @@ import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.GracefulShutdownHandler;
-import io.trino.server.PluginManager;
+import io.trino.server.PluginInstaller;
 import io.trino.server.Server;
 import io.trino.server.ServerMainModule;
 import io.trino.server.SessionPropertyDefaults;
@@ -142,7 +143,7 @@ public class TestingTrinoServer
     private final Path baseDataDir;
     private final boolean preserveData;
     private final LifeCycleManager lifeCycleManager;
-    private final PluginManager pluginManager;
+    private final PluginInstaller pluginInstaller;
     private final Optional<CatalogManager> catalogManager;
     private final TestingHttpServer server;
     private final TransactionManager transactionManager;
@@ -240,7 +241,7 @@ public class TestingTrinoServer
         if (coordinator) {
             // TODO: enable failure detector
             serverProperties.put("failure-detector.enabled", "false");
-            serverProperties.put("catalog.store", "none");
+            serverProperties.put("catalog.store", "memory");
 
             // Reduce memory footprint in tests
             serverProperties.put("query.min-expire-age", "5s");
@@ -307,7 +308,7 @@ public class TestingTrinoServer
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
 
-        pluginManager = injector.getInstance(PluginManager.class);
+        pluginInstaller = injector.getInstance(PluginInstaller.class);
 
         Optional<CatalogManager> catalogManager = Optional.empty();
         if (injector.getExistingBinding(Key.get(CatalogManager.class)) != null) {
@@ -392,7 +393,7 @@ public class TestingTrinoServer
 
     public void installPlugin(Plugin plugin)
     {
-        pluginManager.installPlugin(plugin, ignored -> plugin.getClass().getClassLoader());
+        pluginInstaller.installPlugin(plugin, ignored -> plugin.getClass().getClassLoader());
     }
 
     public DispatchManager getDispatchManager()
@@ -431,7 +432,7 @@ public class TestingTrinoServer
             // this is a worker so catalogs are dynamically registered
             return;
         }
-        catalogManager.get().createCatalog(catalogName, connectorName, properties);
+        catalogManager.get().createCatalog(catalogName, new ConnectorName(connectorName), properties, false);
     }
 
     public void loadExchangeManager(String name, Map<String, String> properties)

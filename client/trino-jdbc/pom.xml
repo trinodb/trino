@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>407-SNAPSHOT</version>
+        <version>409-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -356,8 +356,8 @@
                                     <shadedPattern>${shadeBase}.okio</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>net.jodah.failsafe</pattern>
-                                    <shadedPattern>${shadeBase}.net.jodah.failsafe</shadedPattern>
+                                    <pattern>dev.failsafe</pattern>
+                                    <shadedPattern>${shadeBase}.dev.failsafe</shadedPattern>
                                 </relocation>
                             </relocations>
                             <filters>

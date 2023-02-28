@@ -16,8 +16,10 @@ package io.trino.plugin.iceberg.catalog.jdbc;
 import org.jdbi.v3.core.ConnectionFactory;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
+import java.sql.Driver;
 import java.sql.SQLException;
+import java.util.Optional;
+import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -25,18 +27,27 @@ import static java.util.Objects.requireNonNull;
 public class IcebergJdbcConnectionFactory
         implements ConnectionFactory
 {
+    private final Driver driver;
     private final String connectionUrl;
+    private final Optional<String> connectionUser;
+    private final Optional<String> connectionPassword;
 
-    public IcebergJdbcConnectionFactory(String connectionUrl)
+    public IcebergJdbcConnectionFactory(Driver driver, String connectionUrl, Optional<String> connectionUser, Optional<String> connectionPassword)
     {
+        this.driver = requireNonNull(driver, "driver is null");
         this.connectionUrl = requireNonNull(connectionUrl, "connectionUrl is null");
+        this.connectionUser = requireNonNull(connectionUser, "connectionUser is null");
+        this.connectionPassword = requireNonNull(connectionPassword, "connectionPassword is null");
     }
 
     @Override
     public Connection openConnection()
             throws SQLException
     {
-        Connection connection = DriverManager.getConnection(connectionUrl);
+        Properties properties = new Properties();
+        connectionUser.ifPresent(user -> properties.setProperty("user", user));
+        connectionPassword.ifPresent(password -> properties.setProperty("password", password));
+        Connection connection = driver.connect(connectionUrl, properties);
         checkState(connection != null, "Driver returned null connection, make sure the connection URL is valid");
         return connection;
     }

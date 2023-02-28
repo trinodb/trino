@@ -111,6 +111,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WI
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_COLUMN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_FIELD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MULTI_STATEMENT_WRITES;
@@ -164,7 +165,14 @@ public abstract class BaseConnectorTest
     private final ConcurrentMap<String, Function<ConnectorSession, List<String>>> mockTableListings = new ConcurrentHashMap<>();
 
     @BeforeClass
-    public void addMockCatalog()
+    public void initMockCatalog()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        queryRunner.installPlugin(buildMockConnectorPlugin());
+        queryRunner.createCatalog("mock_dynamic_listing", "mock", Map.of());
+    }
+
+    protected MockConnectorPlugin buildMockConnectorPlugin()
     {
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                 .withListSchemaNames(session -> ImmutableList.copyOf(mockTableListings.keySet()))
@@ -177,9 +185,7 @@ public abstract class BaseConnectorTest
                             .apply(session);
                 })
                 .build();
-        QueryRunner queryRunner = getQueryRunner();
-        queryRunner.installPlugin(new MockConnectorPlugin(connectorFactory));
-        queryRunner.createCatalog("mock_dynamic_listing", "mock", Map.of());
+        return new MockConnectorPlugin(connectorFactory);
     }
 
     /**
@@ -776,6 +782,14 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testShowInformationSchemaTables()
+    {
+        assertThat(query("SHOW TABLES FROM information_schema"))
+                .skippingTypesCheck()
+                .containsAll("VALUES 'applicable_roles', 'columns', 'enabled_roles', 'roles', 'schemata', 'table_privileges', 'tables', 'views'");
+    }
+
+    @Test
     public void testView()
     {
         if (!hasBehavior(SUPPORTS_CREATE_VIEW)) {
@@ -1018,12 +1032,12 @@ public abstract class BaseConnectorTest
                 "SELECT table_name, table_type FROM information_schema.tables " +
                         "WHERE table_schema = '" + view.getSchemaName() + "'"))
                 .skippingTypesCheck()
-                .containsAll("VALUES ('" + view.getObjectName() + "', 'MATERIALIZED VIEW')");
+                .containsAll("VALUES ('" + view.getObjectName() + "', 'BASE TABLE')"); // TODO table_type should probably be "* VIEW"
         // information_schema.tables with table_name filter
         assertQuery(
                 "SELECT table_name, table_type FROM information_schema.tables " +
                         "WHERE table_schema = '" + view.getSchemaName() + "' and table_name = '" + view.getObjectName() + "'",
-                "VALUES ('" + view.getObjectName() + "', 'MATERIALIZED VIEW')");
+                "VALUES ('" + view.getObjectName() + "', 'BASE TABLE')");
 
         // system.jdbc.tables without filter
         assertThat(query("SELECT table_schem, table_name, table_type FROM system.jdbc.tables"))
@@ -1218,6 +1232,28 @@ public abstract class BaseConnectorTest
 
                     assertUpdate("DROP MATERIALIZED VIEW " + viewName);
                 });
+    }
+
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testMaterializedViewBaseTableGone(boolean initialized)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
+
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
+        String viewName = "mv_base_table_missing_" + randomNameSuffix();
+        String baseTable = "mv_base_table_missing_the_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + baseTable + " AS SELECT 1 a", 1);
+        assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM " + baseTable);
+        if (initialized) {
+            assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
+        }
+        assertUpdate("DROP TABLE " + baseTable);
+        assertQueryFails(
+                "TABLE " + viewName,
+                "line 1:1: Failed analyzing stored view '%1$s\\.%2$s\\.%3$s': line 3:3: Table '%1$s\\.%2$s\\.%4$s' does not exist".formatted(catalog, schema, viewName, baseTable));
+        assertUpdate("DROP MATERIALIZED VIEW " + viewName);
     }
 
     @Test
@@ -2136,6 +2172,121 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testDropRowField()
+    {
+        if (!hasBehavior(SUPPORTS_DROP_FIELD)) {
+            if (!hasBehavior(SUPPORTS_DROP_COLUMN) || !hasBehavior(SUPPORTS_ROW_TYPE)) {
+                return;
+            }
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_field_", "AS SELECT CAST(row(1, 2) AS row(x integer, y integer)) AS col")) {
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " DROP COLUMN col.x",
+                        "This connector does not support dropping fields");
+            }
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute,
+                "test_drop_field_",
+                "AS SELECT CAST(row(1, 2, row(10, 20)) AS row(a integer, b integer, c row(x integer, y integer))) AS col")) {
+            assertEquals(getColumnType(table.getName(), "col"), "row(a integer, b integer, c row(x integer, y integer))");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.b");
+            assertEquals(getColumnType(table.getName(), "col"), "row(a integer, c row(x integer, y integer))");
+            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10, 20)) AS row(a integer, c row(x integer, y integer)))");
+
+            // Drop a nested field
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.c.y");
+            assertEquals(getColumnType(table.getName(), "col"), "row(a integer, c row(x integer))");
+            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10)) AS row(a integer, c row(x integer)))");
+
+            // Verify failure when trying to drop unique field in nested row type
+            assertQueryFails("ALTER TABLE " + table.getName() + " DROP COLUMN col.c.x", ".* Cannot drop the only field in a row type");
+
+            // Verify failure when trying to drop non-existing fields
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " DROP COLUMN col.c.non_existing",
+                    "\\Qline 1:1: Cannot resolve field 'non_existing' within row(x integer) type when dropping [c, non_existing] in row(a integer, c row(x integer))");
+
+            // Drop a row having fields
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.c");
+            assertEquals(getColumnType(table.getName(), "col"), "row(a integer)");
+            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1) AS row(a integer))");
+
+            // Specify non-existing fields with IF EXISTS option
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN IF EXISTS non_existing.a");
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN IF EXISTS col.non_existing");
+            assertEquals(getColumnType(table.getName(), "col"), "row(a integer)");
+        }
+    }
+
+    @Test
+    public void testDropRowFieldWhenDuplicates()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_DROP_FIELD));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute,
+                "test_drop_duplicated_field_",
+                "AS SELECT CAST(row(1, 2, 3) AS row(a integer, a integer, b integer)) AS col")) {
+            assertEquals(getColumnType(table.getName(), "col"), "row(a integer, a integer, b integer)");
+
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " DROP COLUMN col.a",
+                    "\\QField path [a] within row(a integer, a integer, b integer) is ambiguous");
+            assertEquals(getColumnType(table.getName(), "col"), "row(a integer, a integer, b integer)");
+        }
+    }
+
+    @Test
+    public void testDropRowFieldCaseSensitivity()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_DROP_FIELD));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute,
+                "test_drop_row_field_case_sensitivity_",
+                "AS SELECT CAST(row(1, 2) AS row(lower integer, \"UPPER\" integer)) AS col")) {
+            assertEquals(getColumnType(table.getName(), "col"), "row(lower integer, UPPER integer)");
+
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " DROP COLUMN col.LOWER",
+                    "\\Qline 1:1: Cannot resolve field 'LOWER' within row(lower integer, UPPER integer) type when dropping [LOWER] in row(lower integer, UPPER integer)");
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " DROP COLUMN col.upper",
+                    "\\Qline 1:1: Cannot resolve field 'upper' within row(lower integer, UPPER integer) type when dropping [upper] in row(lower integer, UPPER integer)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.\"UPPER\"");
+            assertEquals(getColumnType(table.getName(), "col"), "row(lower integer)");
+            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1) AS row(lower integer))");
+        }
+    }
+
+    @Test
+    public void testDropAmbiguousRowFieldCaseSensitivity()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_DROP_FIELD));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute,
+                "test_drop_row_field_case_sensitivity_",
+                """
+                        AS SELECT CAST(row(1, 2, 3, 4, 5) AS
+                        row("sOME_FIELd" integer, "some_field" integer, "SomE_Field" integer, "SOME_FIELD" integer, "sOME_FieLd" integer)) AS col
+                        """)) {
+            assertEquals(getColumnType(table.getName(), "col"), "row(sOME_FIELd integer, some_field integer, SomE_Field integer, SOME_FIELD integer, sOME_FieLd integer)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.some_field");
+            assertEquals(getColumnType(table.getName(), "col"), "row(sOME_FIELd integer, SomE_Field integer, SOME_FIELD integer, sOME_FieLd integer)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.\"SomE_Field\"");
+            assertEquals(getColumnType(table.getName(), "col"), "row(sOME_FIELd integer, SOME_FIELD integer, sOME_FieLd integer)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.\"SOME_FIELD\"");
+            assertEquals(getColumnType(table.getName(), "col"), "row(sOME_FIELd integer, sOME_FieLd integer)");
+
+            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, 5) AS row(\"sOME_FIELd\" integer, \"sOME_FieLd\" integer))");
+        }
+    }
+
+    @Test
     public void testDropAndAddColumnWithSameName()
     {
         skipTestUnless(hasBehavior(SUPPORTS_DROP_COLUMN) && hasBehavior(SUPPORTS_ADD_COLUMN));
@@ -2274,6 +2425,7 @@ public abstract class BaseConnectorTest
                 .add(new SetColumnTypeSetup("array(integer)", "array[1]", "array(bigint)"))
                 .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(x bigint)"))
                 .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(y integer)", "cast(row(NULL) as row(x integer))")) // rename a field
+                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(x integer, z integer)", "cast(row(1, NULL) as row(x integer, z integer))")) // rename a field, but not all fields
                 .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(x integer, y integer)", "cast(row(1, NULL) as row(x integer, y integer))")) // add a new field
                 .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(x integer)", "cast(row(1) as row(x integer))")) // remove an existing field
                 .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(y integer, x integer)", "cast(row(2, 1) as row(y integer, x integer))")) // reorder fields
@@ -2560,6 +2712,7 @@ public abstract class BaseConnectorTest
         assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + invalidTargetTableName))
                 .satisfies(this::verifyTableNameLengthFailurePermissible);
         assertFalse(getQueryRunner().tableExists(getSession(), invalidTargetTableName));
+        assertUpdate("DROP TABLE " + sourceTableName);
     }
 
     protected OptionalInt maxTableNameLength()
@@ -2747,63 +2900,63 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP TABLE " + tableName);
 
         // Some connectors support CREATE TABLE AS but not the ordinary CREATE TABLE. Let's test CTAS IF NOT EXISTS with a table that is guaranteed to exist.
-        assertUpdate("CREATE TABLE IF NOT EXISTS nation AS SELECT custkey, acctbal FROM customer", 0);
+        assertUpdate("CREATE TABLE IF NOT EXISTS nation AS SELECT nationkey, regionkey FROM nation", 0);
         assertTableColumnNames("nation", "nationkey", "name", "regionkey", "comment");
 
         assertCreateTableAsSelect(
-                "SELECT custkey, address, acctbal FROM customer",
-                "SELECT count(*) FROM customer");
+                "SELECT nationkey, name, regionkey FROM nation",
+                "SELECT count(*) FROM nation");
 
         assertCreateTableAsSelect(
                 "SELECT mktsegment, sum(acctbal) x FROM customer GROUP BY mktsegment",
                 "SELECT count(DISTINCT mktsegment) FROM customer");
 
         assertCreateTableAsSelect(
-                "SELECT count(*) x FROM customer JOIN nation ON customer.nationkey = nation.nationkey",
+                "SELECT count(*) x FROM nation JOIN region ON nation.regionkey = region.regionkey",
                 "SELECT 1");
 
         assertCreateTableAsSelect(
-                "SELECT custkey FROM customer ORDER BY custkey LIMIT 10",
+                "SELECT nationkey FROM nation ORDER BY nationkey LIMIT 10",
                 "SELECT 10");
 
         assertCreateTableAsSelect(
-                "SELECT * FROM customer WITH DATA",
-                "SELECT * FROM customer",
-                "SELECT count(*) FROM customer");
+                "SELECT * FROM nation WITH DATA",
+                "SELECT * FROM nation",
+                "SELECT count(*) FROM nation");
 
         assertCreateTableAsSelect(
-                "SELECT * FROM customer WITH NO DATA",
-                "SELECT * FROM customer LIMIT 0",
+                "SELECT * FROM nation WITH NO DATA",
+                "SELECT * FROM nation LIMIT 0",
                 "SELECT 0");
 
         // Tests for CREATE TABLE with UNION ALL: exercises PushTableWriteThroughUnion optimizer
 
         assertCreateTableAsSelect(
-                "SELECT name, custkey, acctbal FROM customer WHERE custkey % 2 = 0 UNION ALL " +
-                        "SELECT name, custkey, acctbal FROM customer WHERE custkey % 2 = 1",
-                "SELECT name, custkey, acctbal FROM customer",
-                "SELECT count(*) FROM customer");
+                "SELECT name, nationkey, regionkey FROM nation WHERE nationkey % 2 = 0 UNION ALL " +
+                        "SELECT name, nationkey, regionkey FROM nation WHERE nationkey % 2 = 1",
+                "SELECT name, nationkey, regionkey FROM nation",
+                "SELECT count(*) FROM nation");
 
         assertCreateTableAsSelect(
                 Session.builder(getSession()).setSystemProperty("redistribute_writes", "true").build(),
-                "SELECT CAST(custkey AS BIGINT) custkey, acctbal FROM customer UNION ALL " +
-                        "SELECT 1234567890, 1.23",
-                "SELECT custkey, acctbal FROM customer UNION ALL " +
-                        "SELECT 1234567890, 1.23",
-                "SELECT count(*) + 1 FROM customer");
+                "SELECT CAST(nationkey AS BIGINT) nationkey, regionkey FROM nation UNION ALL " +
+                        "SELECT 1234567890, 123",
+                "SELECT nationkey, regionkey FROM nation UNION ALL " +
+                        "SELECT 1234567890, 123",
+                "SELECT count(*) + 1 FROM nation");
 
         assertCreateTableAsSelect(
                 Session.builder(getSession()).setSystemProperty("redistribute_writes", "false").build(),
-                "SELECT CAST(custkey AS BIGINT) custkey, acctbal FROM customer UNION ALL " +
-                        "SELECT 1234567890, 1.23",
-                "SELECT custkey, acctbal FROM customer UNION ALL " +
-                        "SELECT 1234567890, 1.23",
-                "SELECT count(*) + 1 FROM customer");
+                "SELECT CAST(nationkey AS BIGINT) nationkey, regionkey FROM nation UNION ALL " +
+                        "SELECT 1234567890, 123",
+                "SELECT nationkey, regionkey FROM nation UNION ALL " +
+                        "SELECT 1234567890, 123",
+                "SELECT count(*) + 1 FROM nation");
 
         // TODO: BigQuery throws table not found at BigQueryClient.insert if we reuse the same table name
         tableName = "test_ctas" + randomNameSuffix();
-        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT mktsegment FROM customer");
-        assertQuery("SELECT * from " + tableName, "SELECT mktsegment FROM customer");
+        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT name FROM nation");
+        assertQuery("SELECT * from " + tableName, "SELECT name FROM nation");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -3615,12 +3768,12 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_complex_", "AS SELECT * FROM orders")) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_complex_", "AS SELECT * FROM nation")) {
             // delete half the table, then delete the rest
-            assertUpdate("DELETE FROM " + table.getName() + " WHERE orderkey % 2 = 0", "SELECT count(*) FROM orders WHERE orderkey % 2 = 0");
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders WHERE orderkey % 2 <> 0");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE nationkey % 2 = 0", "SELECT count(*) FROM nation WHERE nationkey % 2 = 0");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation WHERE nationkey % 2 <> 0");
 
-            assertUpdate("DELETE FROM " + table.getName(), "SELECT count(*) FROM orders WHERE orderkey % 2 <> 0");
+            assertUpdate("DELETE FROM " + table.getName(), "SELECT count(*) FROM nation WHERE nationkey % 2 <> 0");
             assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders LIMIT 0");
 
             assertUpdate("DELETE FROM " + table.getName() + " WHERE rand() < 0", 0);
@@ -4294,11 +4447,11 @@ public abstract class BaseConnectorTest
         String tableName = "tcn_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "") + randomNameSuffix();
 
         try {
-            assertUpdate("CREATE TABLE " + tableName + "(" + nameInSql + " varchar(50), value varchar(50))");
+            assertUpdate(createTableSqlForAddingAndDroppingColumn(tableName, nameInSql));
         }
         catch (RuntimeException e) {
             if (isColumnNameRejected(e, columnName, delimited)) {
-                // It is OK if give column name is not allowed and is clearly rejected by the connector.
+                // It is OK if given column name is not allowed and is clearly rejected by the connector.
                 return;
             }
             throw e;
@@ -4312,6 +4465,14 @@ public abstract class BaseConnectorTest
         assertTableColumnNames(tableName, "value", columnName.toLowerCase(ENGLISH));
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    /**
+     * Create a table with name "tableName" and with two columns: "columnNameInSql" varchar(50), value varchar(50)
+     */
+    protected String createTableSqlForAddingAndDroppingColumn(String tableName, String columnNameInSql)
+    {
+        return "CREATE TABLE " + tableName + "(" + columnNameInSql + " varchar(50), value varchar(50))";
     }
 
     @Test(dataProvider = "testColumnNameDataProvider")

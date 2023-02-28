@@ -47,6 +47,42 @@ import static java.util.Objects.requireNonNull;
 public class JoinNode
         extends PlanNode
 {
+    public enum DistributionType
+    {
+        PARTITIONED,
+        REPLICATED
+    }
+
+    public enum Type
+    {
+        INNER("InnerJoin"),
+        LEFT("LeftJoin"),
+        RIGHT("RightJoin"),
+        FULL("FullJoin");
+
+        private final String joinLabel;
+
+        Type(String joinLabel)
+        {
+            this.joinLabel = joinLabel;
+        }
+
+        public String getJoinLabel()
+        {
+            return joinLabel;
+        }
+
+        public static Type typeConvert(Join.Type joinType)
+        {
+            return switch (joinType) {
+                case CROSS, IMPLICIT, INNER -> Type.INNER;
+                case LEFT -> Type.LEFT;
+                case RIGHT -> Type.RIGHT;
+                case FULL -> Type.FULL;
+            };
+        }
+    }
+
     private final Type type;
     private final PlanNode left;
     private final PlanNode right;
@@ -177,42 +213,6 @@ public class JoinNode
         return joinCriteria.stream()
                 .map(EquiJoinClause::flip)
                 .collect(toImmutableList());
-    }
-
-    public enum DistributionType
-    {
-        PARTITIONED,
-        REPLICATED
-    }
-
-    public enum Type
-    {
-        INNER("InnerJoin"),
-        LEFT("LeftJoin"),
-        RIGHT("RightJoin"),
-        FULL("FullJoin");
-
-        private final String joinLabel;
-
-        Type(String joinLabel)
-        {
-            this.joinLabel = joinLabel;
-        }
-
-        public String getJoinLabel()
-        {
-            return joinLabel;
-        }
-
-        public static Type typeConvert(Join.Type joinType)
-        {
-            return switch (joinType) {
-                case CROSS, IMPLICIT, INNER -> Type.INNER;
-                case LEFT -> Type.LEFT;
-                case RIGHT -> Type.RIGHT;
-                case FULL -> Type.FULL;
-            };
-        }
     }
 
     @JsonProperty("type")

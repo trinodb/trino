@@ -203,10 +203,13 @@ public class MemoryMetadata
     @Override
     public synchronized Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        return tables.values().stream()
+        // This list must be materialized before returning, otherwise the iterator could throw a ConcurrentModificationException
+        // if another thread modifies the tables map before the iterator is fully consumed
+        List<TableColumnsMetadata> columnsMetadata = tables.values().stream()
                 .filter(table -> prefix.matches(table.getSchemaTableName()))
                 .map(tableInfo -> TableColumnsMetadata.forTable(tableInfo.getSchemaTableName(), tableInfo.getMetadata().getColumns()))
-                .iterator();
+                .collect(toImmutableList());
+        return columnsMetadata.iterator();
     }
 
     @Override

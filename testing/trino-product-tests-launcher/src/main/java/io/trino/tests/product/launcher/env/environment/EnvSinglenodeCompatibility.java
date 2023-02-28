@@ -75,7 +75,7 @@ public class EnvSinglenodeCompatibility
                 .withExposedLogPaths("/var/trino/var/log", "/var/log/container-health.log")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/presto/etc/jvm.config")), containerConfigDir + "jvm.config")
                 .withCopyFileToContainer(forHostPath(configDir.getPath(getConfigFileFor(dockerImage))), containerConfigDir + "config.properties")
-                .withCopyFileToContainer(forHostPath(configDir.getPath("hive.properties")), containerConfigDir + "catalog/hive.properties")
+                .withCopyFileToContainer(forHostPath(configDir.getPath(getHiveConfigFor(dockerImage))), containerConfigDir + "catalog/hive.properties")
                 .withCopyFileToContainer(forHostPath(configDir.getPath("iceberg.properties")), containerConfigDir + "catalog/iceberg.properties")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
@@ -109,6 +109,14 @@ public class EnvSinglenodeCompatibility
             return "config-with-system-memory.properties";
         }
         return "config.properties";
+    }
+
+    private String getHiveConfigFor(String dockerImage)
+    {
+        if (getVersionFromDockerImageName(dockerImage) < 359) {
+            return "hive-hadoop2.properties";
+        }
+        return "hive.properties";
     }
 
     private void configureTestsContainer(Environment.Builder builder, Config config)

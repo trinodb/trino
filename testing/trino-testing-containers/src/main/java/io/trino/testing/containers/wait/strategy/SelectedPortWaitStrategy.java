@@ -16,8 +16,8 @@ package io.trino.testing.containers.wait.strategy;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import org.testcontainers.containers.ContainerLaunchException;
 import org.testcontainers.containers.wait.internal.ExternalPortListeningCheck;
 import org.testcontainers.containers.wait.internal.InternalCommandPortListeningCheck;
@@ -63,10 +63,11 @@ public final class SelectedPortWaitStrategy
                 .collect(toImmutableSet());
         Callable<Boolean> externalCheck = new ExternalPortListeningCheck(waitStrategyTarget, externalPorts);
 
-        Failsafe.with(new RetryPolicy<>()
+        Failsafe.with(RetryPolicy.builder()
                         .withMaxDuration(startupTimeout)
                         .withMaxAttempts(Integer.MAX_VALUE) // limited by MaxDuration
-                        .abortOn(e -> getExitCode().isPresent()))
+                        .abortOn(e -> getExitCode().isPresent())
+                        .build())
                 .run(() -> {
                     // Note: This condition requires a dependency on org.rnorth.duct-tape:duct-tape
                     if (!getRateLimiter().getWhenReady(() -> internalCheck.call() && externalCheck.call())) {

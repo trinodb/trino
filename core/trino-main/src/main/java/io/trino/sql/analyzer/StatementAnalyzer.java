@@ -130,6 +130,7 @@ import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
+import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
@@ -140,6 +141,7 @@ import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropSchema;
@@ -295,6 +297,7 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_WINDOW;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static io.trino.spi.StandardErrorCode.INVALID_CATALOG_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_CHECK_CONSTRAINT;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_COPARTITIONING;
@@ -1030,6 +1033,24 @@ class StatementAnalyzer
         }
 
         @Override
+        protected Scope visitCreateCatalog(CreateCatalog node, Optional<Scope> scope)
+        {
+            for (Property property : node.getProperties()) {
+                if (property.isSetToDefault()) {
+                    throw semanticException(INVALID_CATALOG_PROPERTY, property, "Catalog properties do not support DEFAULT value");
+                }
+            }
+            validateProperties(node.getProperties(), scope);
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitDropCatalog(DropCatalog node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
         protected Scope visitCreateSchema(CreateSchema node, Optional<Scope> scope)
         {
             validateProperties(node.getProperties(), scope);
@@ -1579,6 +1600,16 @@ class StatementAnalyzer
                     // If a table function has ONLY PASS THROUGH returned type, it does not produce any proper columns,
                     // so the function's analyze() method should not return the proper columns descriptor.
                     throw semanticException(AMBIGUOUS_RETURN_TYPE, node, "Returned relation type for table function %s is ambiguous", node.getName());
+                }
+                if (function.getArguments().stream()
+                        .filter(TableArgumentSpecification.class::isInstance)
+                        .map(TableArgumentSpecification.class::cast)
+                        .noneMatch(TableArgumentSpecification::isPassThroughColumns)) {
+                    // According to SQL standard ISO/IEC 9075-2, 10.4 <routine invocation>, p. 764,
+                    // if there is no generic table parameter that specifies PASS THROUGH, then number of proper columns shall be positive.
+                    // For GENERIC_TABLE and DescribedTable returned types, this is enforced by the Descriptor constructor, which requires positive number of fields.
+                    // Here we enforce it for the remaining returned type specification: ONLY_PASS_THROUGH.
+                    throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "A table function with ONLY_PASS_THROUGH return type must have a table argument with pass-through columns.");
                 }
                 properColumnsDescriptor = null;
             }

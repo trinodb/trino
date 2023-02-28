@@ -726,14 +726,6 @@ public final class MetadataManager
         CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
         metadata.renameColumn(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle(), source, target.toLowerCase(ENGLISH));
-
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
-        ColumnMetadata sourceColumnMetadata = getColumnMetadata(session, tableHandle, source);
-        if (catalogMetadata.getSecurityManagement() != CONNECTOR) {
-            TableMetadata tableMetadata = getTableMetadata(session, tableHandle);
-            CatalogSchemaTableName sourceTableName = new CatalogSchemaTableName(catalogHandle.getCatalogName(), tableMetadata.getTable());
-            systemSecurityMetadata.columnRenamed(session, sourceTableName, sourceColumnMetadata.getName(), target);
-        }
     }
 
     @Override
@@ -742,13 +734,6 @@ public final class MetadataManager
         CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
         metadata.addColumn(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle(), column);
-
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
-        if (catalogMetadata.getSecurityManagement() != CONNECTOR) {
-            TableMetadata tableMetadata = getTableMetadata(session, tableHandle);
-            CatalogSchemaTableName sourceTableName = new CatalogSchemaTableName(catalogHandle.getCatalogName(), tableMetadata.getTable());
-            systemSecurityMetadata.columnCreated(session, sourceTableName, column.getName());
-        }
     }
 
     @Override
@@ -756,14 +741,15 @@ public final class MetadataManager
     {
         CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
         metadata.dropColumn(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle(), column);
-        if (catalogMetadata.getSecurityManagement() != CONNECTOR) {
-            String columnName = getColumnMetadata(session, tableHandle, column).getName();
-            TableMetadata tableMetadata = getTableMetadata(session, tableHandle);
-            CatalogSchemaTableName sourceTableName = new CatalogSchemaTableName(catalogHandle.getCatalogName(), tableMetadata.getTable());
-            systemSecurityMetadata.columnDropped(session, sourceTableName, columnName);
-        }
+    }
+
+    @Override
+    public void dropField(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
+    {
+        CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
+        metadata.dropField(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle(), column, fieldPath);
     }
 
     @Override

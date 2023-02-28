@@ -65,7 +65,7 @@ public class TestDeltaLakeViewsGlueMetastore
         metastore = createTestMetastore(dataDirectory);
 
         queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), EMPTY_MODULE));
-        queryRunner.createCatalog(CATALOG_NAME, "delta-lake");
+        queryRunner.createCatalog(CATALOG_NAME, "delta_lake");
 
         queryRunner.execute("CREATE SCHEMA " + SCHEMA);
         return queryRunner;

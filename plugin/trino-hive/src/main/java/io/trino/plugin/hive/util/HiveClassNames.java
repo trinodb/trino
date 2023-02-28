@@ -36,6 +36,7 @@ public final class HiveClassNames
     public static final String RCFILE_INPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.RCFileInputFormat";
     public static final String RCFILE_OUTPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.RCFileOutputFormat";
     public static final String SEQUENCEFILE_INPUT_FORMAT_CLASS = "org.apache.hadoop.mapred.SequenceFileInputFormat";
+    public static final String SYMLINK_TEXT_INPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat";
     public static final String TEXT_INPUT_FORMAT_CLASS = "org.apache.hadoop.mapred.TextInputFormat";
 
     private HiveClassNames() {}

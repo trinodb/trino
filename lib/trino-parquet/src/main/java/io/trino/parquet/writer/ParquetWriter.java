@@ -32,12 +32,12 @@ import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.format.ColumnMetaData;
+import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.FileMetaData;
 import org.apache.parquet.format.KeyValue;
 import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.Util;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
@@ -88,7 +88,7 @@ public class ParquetWriter
     private final String createdBy;
     private final int chunkMaxLogicalBytes;
     private final Map<List<String>, Type> primitiveTypes;
-    private final CompressionCodecName compressionCodecName;
+    private final CompressionCodec compressionCodec;
     private final boolean useBatchColumnReadersForVerification;
     private final Optional<DateTimeZone> parquetTimeZone;
 
@@ -108,7 +108,7 @@ public class ParquetWriter
             MessageType messageType,
             Map<List<String>, Type> primitiveTypes,
             ParquetWriterOptions writerOption,
-            CompressionCodecName compressionCodecName,
+            CompressionCodec compressionCodec,
             String trinoVersion,
             boolean useBatchColumnReadersForVerification,
             Optional<DateTimeZone> parquetTimeZone,
@@ -119,7 +119,7 @@ public class ParquetWriter
         this.messageType = requireNonNull(messageType, "messageType is null");
         this.primitiveTypes = requireNonNull(primitiveTypes, "primitiveTypes is null");
         this.writerOption = requireNonNull(writerOption, "writerOption is null");
-        this.compressionCodecName = requireNonNull(compressionCodecName, "compressionCodecName is null");
+        this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
         this.useBatchColumnReadersForVerification = useBatchColumnReadersForVerification;
         this.parquetTimeZone = requireNonNull(parquetTimeZone, "parquetTimeZone is null");
         this.createdBy = formatCreatedBy(requireNonNull(trinoVersion, "trinoVersion is null"));
@@ -411,6 +411,6 @@ public class ParquetWriter
                 .withPageSize(writerOption.getMaxPageSize())
                 .build();
 
-        this.columnWriters = ParquetWriters.getColumnWriters(messageType, primitiveTypes, parquetProperties, compressionCodecName, parquetTimeZone);
+        this.columnWriters = ParquetWriters.getColumnWriters(messageType, primitiveTypes, parquetProperties, compressionCodec, parquetTimeZone);
     }
 }

@@ -14,58 +14,13 @@
 
 package io.trino.plugin.singlestore;
 
-import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
-import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
-import io.trino.plugin.jdbc.JdbcConnectorFactory;
-import io.trino.plugin.jdbc.credential.CredentialProviderModule;
-import io.trino.spi.Plugin;
-import io.trino.spi.connector.Connector;
-import io.trino.spi.connector.ConnectorContext;
-import io.trino.spi.connector.ConnectorFactory;
-
-import java.util.Map;
-
-import static io.airlift.configuration.ConfigurationAwareModule.combine;
+import io.trino.plugin.jdbc.JdbcPlugin;
 
 public class SingleStorePlugin
-        implements Plugin
+        extends JdbcPlugin
 {
-    private static final Logger log = Logger.get(SingleStorePlugin.class);
-
-    @Override
-    public Iterable<ConnectorFactory> getConnectorFactories()
+    public SingleStorePlugin()
     {
-        return ImmutableList.of(new SingleStoreConnectorFactory("singlestore"), new LegacyMemSqlConnectorFactory());
-    }
-
-    private static class LegacyMemSqlConnectorFactory
-            extends SingleStoreConnectorFactory
-    {
-        public LegacyMemSqlConnectorFactory()
-        {
-            super("memsql");
-        }
-
-        @Override
-        public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
-        {
-            log.warn("Connector name 'memsql' is deprecated. Use 'singlestore' instead.");
-            return super.create(catalogName, config, context);
-        }
-    }
-
-    private static class SingleStoreConnectorFactory
-            extends JdbcConnectorFactory
-    {
-        public SingleStoreConnectorFactory(String name)
-        {
-            super(
-                    name,
-                    combine(
-                            new CredentialProviderModule(),
-                            new ExtraCredentialsBasedIdentityCacheMappingModule(),
-                            new SingleStoreClientModule()));
-        }
+        super("singlestore", new SingleStoreClientModule());
     }
 }

@@ -26,7 +26,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -63,7 +63,7 @@ public class ParquetFileWriter
     private final List<Block> nullBlocks;
     private final Optional<Supplier<ParquetDataSource>> validationInputFactory;
     private long validationCpuNanos;
-    private AggregatedMemoryContext memoryContext;
+    private final AggregatedMemoryContext memoryContext;
 
     public ParquetFileWriter(
             TrinoOutputFile outputFile,
@@ -74,7 +74,7 @@ public class ParquetFileWriter
             Map<List<String>, Type> primitiveTypes,
             ParquetWriterOptions parquetWriterOptions,
             int[] fileInputColumnIndexes,
-            CompressionCodecName compressionCodecName,
+            CompressionCodec compressionCodec,
             String trinoVersion,
             boolean useBatchColumnReadersForVerification,
             Optional<DateTimeZone> parquetTimeZone,
@@ -91,7 +91,7 @@ public class ParquetFileWriter
                 messageType,
                 primitiveTypes,
                 parquetWriterOptions,
-                compressionCodecName,
+                compressionCodec,
                 trinoVersion,
                 useBatchColumnReadersForVerification,
                 parquetTimeZone,

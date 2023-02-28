@@ -120,12 +120,9 @@ public abstract class BaseClickHouseConnectorTest
     }
 
     @Override
-    public void testAddAndDropColumnName(String columnName)
+    protected String createTableSqlForAddingAndDroppingColumn(String tableName, String columnNameInSql)
     {
-        // TODO: Enable this test
-        assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
-                .hasMessageContaining("is not supported by storage Log");
-        throw new SkipException("TODO");
+        return format("CREATE TABLE %s(%s varchar(50), value varchar(50) NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['value'])", tableName, columnNameInSql);
     }
 
     @Override
@@ -180,10 +177,9 @@ public abstract class BaseClickHouseConnectorTest
     }
 
     @Override
-    public void testAddColumnConcurrently()
+    protected TestTable createTableWithOneIntegerColumn(String namePrefix)
     {
-        // TODO: Default storage engine doesn't support adding new columns
-        throw new SkipException("TODO: test not implemented yet");
+        return new TestTable(getQueryRunner()::execute, namePrefix, "(col integer NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['col'])");
     }
 
     @Override

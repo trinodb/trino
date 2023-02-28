@@ -19,6 +19,7 @@ import io.airlift.configuration.ConfigDescription;
 import javax.validation.constraints.NotNull;
 
 import java.net.URI;
+import java.util.Optional;
 
 public class IcebergRestCatalogConfig
 {
@@ -35,6 +36,7 @@ public class IcebergRestCatalogConfig
     }
 
     private URI restUri;
+    private Optional<String> warehouse = Optional.empty();
     private Security security = Security.NONE;
     private SessionType sessionType = SessionType.NONE;
 
@@ -79,6 +81,19 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setSessionType(SessionType sessionType)
     {
         this.sessionType = sessionType;
+        return this;
+    }
+
+    public Optional<String> getWarehouse()
+    {
+        return warehouse;
+    }
+
+    @Config("iceberg.rest-catalog.warehouse")
+    @ConfigDescription("The warehouse location/identifier to use with the REST catalog server")
+    public IcebergRestCatalogConfig setWarehouse(String warehouse)
+    {
+        this.warehouse = Optional.ofNullable(warehouse);
         return this;
     }
 }

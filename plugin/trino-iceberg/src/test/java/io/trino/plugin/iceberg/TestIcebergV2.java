@@ -26,6 +26,7 @@ import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -151,7 +152,7 @@ public class TestIcebergV2
         TrinoFileSystem fs = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
 
         Path path = new Path(metadataDir, deleteFileName);
-        PositionDeleteWriter<Record> writer = Parquet.writeDeletes(fs.toFileIo().newOutputFile(path.toString()))
+        PositionDeleteWriter<Record> writer = Parquet.writeDeletes(new ForwardingFileIo(fs).newOutputFile(path.toString()))
                 .createWriterFunc(GenericParquetWriter::buildWriter)
                 .forTable(icebergTable)
                 .overwrite()
@@ -496,7 +497,7 @@ public class TestIcebergV2
         List<Integer> equalityFieldIds = overwriteValues.keySet().stream()
                 .map(name -> deleteRowSchema.findField(name).fieldId())
                 .collect(toImmutableList());
-        Parquet.DeleteWriteBuilder writerBuilder = Parquet.writeDeletes(fs.toFileIo().newOutputFile(new Path(metadataDir, deleteFileName).toString()))
+        Parquet.DeleteWriteBuilder writerBuilder = Parquet.writeDeletes(new ForwardingFileIo(fs).newOutputFile(new Path(metadataDir, deleteFileName).toString()))
                 .forTable(icebergTable)
                 .rowSchema(deleteRowSchema)
                 .createWriterFunc(GenericParquetWriter::buildWriter)

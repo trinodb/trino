@@ -163,17 +163,22 @@ public class SqlTaskExecution
             else {
                 taskHandle = null;
             }
-
-            outputBuffer.addStateChangeListener(new CheckTaskCompletionOnBufferFinish(SqlTaskExecution.this));
         }
     }
 
     public void start()
     {
         try (SetThreadName ignored = new SetThreadName("Task-%s", getTaskId())) {
+            // Task handle was not created because the task is already done, nothing to do
+            if (taskHandle == null) {
+                return;
+            }
             // The scheduleDriversForTaskLifeCycle method calls enqueueDriverSplitRunner, which registers a callback with access to this object.
-            // The call back is accessed from another thread, so this code cannot be placed in the constructor.
+            // The call back is accessed from another thread, so this code cannot be placed in the constructor. This must also happen before outputBuffer
+            // callbacks are registered to prevent a task completion check before task lifecycle splits are created
             scheduleDriversForTaskLifeCycle();
+            // Output buffer state change listener callback must not run in the constructor to avoid leaking a reference to "this" across to another thread
+            outputBuffer.addStateChangeListener(new CheckTaskCompletionOnBufferFinish(SqlTaskExecution.this));
         }
     }
 
@@ -243,7 +248,7 @@ public class SqlTaskExecution
                 PlanNodeId planNodeId = splitAssignment.getPlanNodeId();
                 long currentMaxAcknowledgedSplit = maxAcknowledgedSplitByPlanNode.getOrDefault(planNodeId, Long.MIN_VALUE);
                 long maxAcknowledgedSplit = currentMaxAcknowledgedSplit;
-                ImmutableSet.Builder builder = ImmutableSet.builder();
+                ImmutableSet.Builder<ScheduledSplit> builder = ImmutableSet.builderWithExpectedSize(splitAssignment.getSplits().size());
                 for (ScheduledSplit split : splitAssignment.getSplits()) {
                     long sequenceId = split.getSequenceId();
                     // previously acknowledged splits can be included in source
@@ -258,7 +263,12 @@ public class SqlTaskExecution
                     maxAcknowledgedSplitByPlanNode.put(planNodeId, maxAcknowledgedSplit);
                 }
 
-                unacknowledgedSplitAssignment.add(new SplitAssignment(splitAssignment.getPlanNodeId(), builder.build(), splitAssignment.isNoMoreSplits()));
+                Set<ScheduledSplit> newSplits = builder.build();
+                // We may have filtered all splits out, so only proceed with updates if new splits are
+                // present or noMoreSplits is set
+                if (!newSplits.isEmpty() || splitAssignment.isNoMoreSplits()) {
+                    unacknowledgedSplitAssignment.add(new SplitAssignment(splitAssignment.getPlanNodeId(), newSplits, splitAssignment.isNoMoreSplits()));
+                }
             }
         }
 
@@ -307,8 +317,9 @@ public class SqlTaskExecution
             PendingSplitsForPlanNode pendingSplits = pendingSplitsByPlanNode.get(schedulingPlanNode);
 
             // Enqueue driver runners with split lifecycle for this plan node and driver life cycle combination.
-            ImmutableList.Builder<DriverSplitRunner> runners = ImmutableList.builder();
-            for (ScheduledSplit scheduledSplit : pendingSplits.removeAllSplits()) {
+            Set<ScheduledSplit> removed = pendingSplits.removeAllSplits();
+            ImmutableList.Builder<DriverSplitRunner> runners = ImmutableList.builderWithExpectedSize(removed.size());
+            for (ScheduledSplit scheduledSplit : removed) {
                 // create a new driver for the split
                 runners.add(partitionedDriverRunnerFactory.createDriverRunner(scheduledSplit));
             }

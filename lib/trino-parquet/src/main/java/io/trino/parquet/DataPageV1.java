@@ -20,7 +20,7 @@ import java.util.OptionalLong;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class DataPageV1
+public final class DataPageV1
         extends DataPage
 {
     private final Slice slice;
