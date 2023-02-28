@@ -23,7 +23,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import static com.starburstdata.presto.license.StarburstFeature.JDBC_IMPERSONATION;
 import static java.util.Objects.requireNonNull;
 
 public class OracleImpersonatingConnectionFactory
@@ -35,7 +34,7 @@ public class OracleImpersonatingConnectionFactory
     public OracleImpersonatingConnectionFactory(LicenseManager licenseManager, @ForImpersonation ConnectionFactory connectionFactory, AuthToLocal authToLocal)
     {
         super(connectionFactory);
-        licenseManager.checkFeature(JDBC_IMPERSONATION);
+        licenseManager.checkLicense();
         this.authToLocal = requireNonNull(authToLocal, "authToLocal is null");
     }
 

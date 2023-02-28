@@ -88,7 +88,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.starburstdata.presto.license.StarburstFeature.ORACLE_EXTENSIONS;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
@@ -151,7 +150,7 @@ public class StarburstOracleClient
         this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
 
         if (jdbcMetadataConfig.isAggregationPushdownEnabled()) {
-            licenseManager.checkFeature(ORACLE_EXTENSIONS);
+            licenseManager.checkLicense();
         }
     }
 
@@ -320,7 +319,7 @@ public class StarburstOracleClient
     @Override
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
-        licenseManager.checkFeature(ORACLE_EXTENSIONS);
+        licenseManager.checkLicense();
         // TODO support complex ConnectorExpressions
         return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }

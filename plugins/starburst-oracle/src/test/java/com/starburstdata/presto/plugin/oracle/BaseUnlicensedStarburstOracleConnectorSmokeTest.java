@@ -76,12 +76,12 @@ public abstract class BaseUnlicensedStarburstOracleConnectorSmokeTest
 
         // "normal" aggregation query (one using an aggregation function) requires a license
         assertThatThrownBy(() -> assertThat(query(session, "SELECT count(*) FROM nation")))
-                .hasMessage("Valid license required to use the feature: oracle-extensions");
+                .hasMessage("Starburst Enterprise requires valid license");
         assertThatThrownBy(() -> assertThat(query(session, "SELECT count(nationkey) FROM nation")))
-                .hasMessage("Valid license required to use the feature: oracle-extensions");
+                .hasMessage("Starburst Enterprise requires valid license");
         assertThatThrownBy(() -> assertThat(query(session, "SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")))
-                .hasMessage("Valid license required to use the feature: oracle-extensions");
+                .hasMessage("Starburst Enterprise requires valid license");
         assertThatThrownBy(() -> assertThat(query(session, "SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")))
-                .hasMessage("Valid license required to use the feature: oracle-extensions");
+                .hasMessage("Starburst Enterprise requires valid license");
     }
 }

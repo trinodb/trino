@@ -34,7 +34,6 @@ import io.trino.spi.ptf.ConnectorTableFunction;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static com.starburstdata.presto.license.StarburstFeature.ORACLE_EXTENSIONS;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindProcedure;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
@@ -73,7 +72,7 @@ public class OracleClientModule
         install(new JdbcManagedStatisticsModule());
         newOptionalBinder(binder, ConnectorStatisticsProvider.class).setBinding().to(OracleCollectingStatisticsProvider.class).in(Scopes.SINGLETON);
 
-        configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setAggregationPushdownEnabled(licenseManager.hasFeature(ORACLE_EXTENSIONS)));
+        configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setAggregationPushdownEnabled(licenseManager.hasLicense()));
 
         install(new JdbcJoinPushdownSupportModule());
         install(new JdbcTableScanRedirectionModule());
