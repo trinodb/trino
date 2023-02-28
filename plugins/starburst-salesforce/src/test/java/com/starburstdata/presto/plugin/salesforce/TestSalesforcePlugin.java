@@ -27,7 +27,7 @@ public class TestSalesforcePlugin
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         assertThatThrownBy(() -> factory.create("test", ImmutableMap.of(), new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
-                .hasStackTraceContaining("StarburstLicenseException: Valid license required to use the feature: salesforce");
+                .hasMessageContaining("Starburst Enterprise requires valid license");
     }
 
     @Test
